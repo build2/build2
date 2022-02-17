@@ -17,7 +17,7 @@ for m: bash bin c cc cxx in version
   libs += ../libbuild2/$m/lib{build2-$m}
 }
 
-exe{b}: {hxx ixx txx cxx}{** -b-options} {hxx ixx cxx}{b-options} $libs
+exe{b}: {hxx ixx txx cxx}{**} $libs
 
 # Target metadata, see also --build2-metadata in b.cxx.
 #
@@ -69,38 +69,5 @@ switch $cxx.target.class
     cxx.loptions += ($cxx.target.system == 'win32-msvc' \
                      ? "/STACK:$stack_size"             \
                      : "-Wl,--stack,$stack_size")
-  }
-}
-
-# Generated options parser.
-#
-if $cli.configured
-{
-  cli.cxx{b-options}: cli{b}
-
-  cli.options += --std c++11 -I $src_root --include-with-brackets \
---include-prefix build2 --guard-prefix BUILD2 \
---cxx-prologue "#include <build2/types-parsers.hxx>" \
---cli-namespace build2::cl --generate-file-scanner --keep-separator \
---generate-parse --generate-merge --generate-specifier
-
-  # Usage options.
-  #
-  cli.options += --suppress-undocumented --long-usage --ansi-color \
---ascii-tree --page-usage 'build2::print_$name$_' --option-length 21
-
-  cli.cxx{*}:
-  {
-    # Include the generated cli files into the distribution and don't remove
-    # them when cleaning in src (so that clean results in a state identical to
-    # distributed).
-    #
-    dist  = true
-    clean = ($src_root != $out_root)
-
-    # We keep the generated code in the repository so copy it back to src in
-    # case of a forwarded configuration.
-    #
-    backlink = overwrite
   }
 }

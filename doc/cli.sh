@@ -47,7 +47,7 @@ function compile ()
 --generate-html --html-suffix .xhtml \
 --html-prologue-file man-prologue.xhtml \
 --html-epilogue-file man-epilogue.xhtml \
-../build2/$n.cli
+../libbuild2/$n.cli
 
   cli -I .. \
 -v project="build2" \
@@ -58,7 +58,7 @@ function compile ()
 --generate-man --man-suffix .1 --ascii-tree \
 --man-prologue-file man-prologue.1 \
 --man-epilogue-file man-epilogue.1 \
-../build2/$n.cli
+../libbuild2/$n.cli
 }
 
 o="--output-prefix b-"

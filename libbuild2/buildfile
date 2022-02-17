@@ -25,8 +25,13 @@ include $bundled_modules
 #
 intf_libs = $libbutl
 
-lib{build2}: libul{build2}:                                            \
-  {hxx ixx txx cxx}{* -utility-*installed -config -version -*.test...} \
+lib{build2}: libul{build2}:               \
+  {hxx ixx txx cxx}{* -utility-*installed \
+                      -b-options          \
+                      -config             \
+                      -version            \
+                      -*.test...}         \
+  {hxx ixx cxx}{b-options}                \
   {hxx}{config version}
 
 libul{build2}: script/{hxx ixx txx cxx}{** -*-options -**.test...} \
@@ -227,19 +232,16 @@ else
 if $cli.configured
 {
   cli.options += --std c++11 -I $src_root --include-with-brackets \
---generate-vector-scanner --generate-modifier --generate-specifier \
---suppress-usage
+--generate-specifier
 
   cli.cxx{*}:
   {
     # Include the generated cli files into the distribution and don't remove
     # them when cleaning in src (so that clean results in a state identical
-    # to distributed). But don't install their headers since they are only
-    # used internally in the testscript implementation.
+    # to distributed).
     #
     dist  = true
     clean = ($src_root != $out_root)
-    install = false
 
     # We keep the generated code in the repository so copy it back to src in
     # case of a forwarded configuration.
@@ -247,10 +249,31 @@ if $cli.configured
     backlink = overwrite
   }
 
+  cli.cxx{b-options}: cli{b}
+  {
+    cli.options += --cli-namespace build2::build::cli \
+--include-prefix libbuild2 --guard-prefix LIBBUILD2 \
+--export-symbol LIBBUILD2_SYMEXPORT \
+--hxx-prologue '#include <libbuild2/export.hxx>' \
+--cxx-prologue "#include <libbuild2/types-parsers.hxx>" \
+--generate-file-scanner --keep-separator --generate-parse --generate-merge
+
+    # Usage options.
+    #
+    cli.options += --suppress-undocumented --long-usage --ansi-color \
+--ascii-tree --page-usage 'build2::print_$name$_' --option-length 21
+  }
+
   script/cli.cxx{builtin-options}: script/cli{builtin}
   {
     cli.options += --cli-namespace build2::script::cli \
---include-prefix libbuild2/script --guard-prefix LIBBUILD2_SCRIPT
+--include-prefix libbuild2/script --guard-prefix LIBBUILD2_SCRIPT \
+--generate-vector-scanner --generate-modifier --suppress-usage
+
+    # Don't install the generated cli headers since they are only used
+    # internally in the script implementation.
+    #
+    install = false
   }
 
   build/script/cli.cxx{builtin-options}: build/script/cli{builtin}
@@ -258,7 +281,12 @@ if $cli.configured
     cli.options += --cli-namespace build2::build::script::cli \
 --include-prefix libbuild2/build/script --guard-prefix LIBBUILD2_BUILD_SCRIPT \
 --cxx-prologue "#include <libbuild2/build/script/types-parsers.hxx>" \
---generate-parse
+--generate-parse --generate-vector-scanner --generate-modifier --suppress-usage
+
+    # Don't install the generated cli headers since they are only used
+    # internally in the buildscript implementation.
+    #
+    install = false
   }
 }
 else

@@ -6,11 +6,11 @@
 
 // Begin prologue.
 //
-#include <build2/types-parsers.hxx>
+#include <libbuild2/types-parsers.hxx>
 //
 // End prologue.
 
-#include <build2/b-options.hxx>
+#include <libbuild2/b-options.hxx>
 
 #include <map>
 #include <set>
@@ -24,697 +24,700 @@
 
 namespace build2
 {
-  namespace cl
+  namespace build
   {
-    // unknown_option
-    //
-    unknown_option::
-    ~unknown_option () throw ()
+    namespace cli
     {
-    }
-
-    void unknown_option::
-    print (::std::ostream& os) const
-    {
-      os << "unknown option '" << option ().c_str () << "'";
-    }
-
-    const char* unknown_option::
-    what () const throw ()
-    {
-      return "unknown option";
-    }
-
-    // unknown_argument
-    //
-    unknown_argument::
-    ~unknown_argument () throw ()
-    {
-    }
-
-    void unknown_argument::
-    print (::std::ostream& os) const
-    {
-      os << "unknown argument '" << argument ().c_str () << "'";
-    }
-
-    const char* unknown_argument::
-    what () const throw ()
-    {
-      return "unknown argument";
-    }
-
-    // missing_value
-    //
-    missing_value::
-    ~missing_value () throw ()
-    {
-    }
-
-    void missing_value::
-    print (::std::ostream& os) const
-    {
-      os << "missing value for option '" << option ().c_str () << "'";
-    }
-
-    const char* missing_value::
-    what () const throw ()
-    {
-      return "missing option value";
-    }
-
-    // invalid_value
-    //
-    invalid_value::
-    ~invalid_value () throw ()
-    {
-    }
-
-    void invalid_value::
-    print (::std::ostream& os) const
-    {
-      os << "invalid value '" << value ().c_str () << "' for option '"
-         << option ().c_str () << "'";
-
-      if (!message ().empty ())
-        os << ": " << message ().c_str ();
-    }
-
-    const char* invalid_value::
-    what () const throw ()
-    {
-      return "invalid option value";
-    }
-
-    // eos_reached
-    //
-    void eos_reached::
-    print (::std::ostream& os) const
-    {
-      os << what ();
-    }
-
-    const char* eos_reached::
-    what () const throw ()
-    {
-      return "end of argument stream reached";
-    }
-
-    // file_io_failure
-    //
-    file_io_failure::
-    ~file_io_failure () throw ()
-    {
-    }
-
-    void file_io_failure::
-    print (::std::ostream& os) const
-    {
-      os << "unable to open file '" << file ().c_str () << "' or read failure";
-    }
-
-    const char* file_io_failure::
-    what () const throw ()
-    {
-      return "unable to open file or read failure";
-    }
-
-    // unmatched_quote
-    //
-    unmatched_quote::
-    ~unmatched_quote () throw ()
-    {
-    }
-
-    void unmatched_quote::
-    print (::std::ostream& os) const
-    {
-      os << "unmatched quote in argument '" << argument ().c_str () << "'";
-    }
-
-    const char* unmatched_quote::
-    what () const throw ()
-    {
-      return "unmatched quote";
-    }
-
-    // scanner
-    //
-    scanner::
-    ~scanner ()
-    {
-    }
-
-    // argv_scanner
-    //
-    bool argv_scanner::
-    more ()
-    {
-      return i_ < argc_;
-    }
-
-    const char* argv_scanner::
-    peek ()
-    {
-      if (i_ < argc_)
-        return argv_[i_];
-      else
-        throw eos_reached ();
-    }
-
-    const char* argv_scanner::
-    next ()
-    {
-      if (i_ < argc_)
+      // unknown_option
+      //
+      unknown_option::
+      ~unknown_option () throw ()
       {
-        const char* r (argv_[i_]);
+      }
 
-        if (erase_)
+      void unknown_option::
+      print (::std::ostream& os) const
+      {
+        os << "unknown option '" << option ().c_str () << "'";
+      }
+
+      const char* unknown_option::
+      what () const throw ()
+      {
+        return "unknown option";
+      }
+
+      // unknown_argument
+      //
+      unknown_argument::
+      ~unknown_argument () throw ()
+      {
+      }
+
+      void unknown_argument::
+      print (::std::ostream& os) const
+      {
+        os << "unknown argument '" << argument ().c_str () << "'";
+      }
+
+      const char* unknown_argument::
+      what () const throw ()
+      {
+        return "unknown argument";
+      }
+
+      // missing_value
+      //
+      missing_value::
+      ~missing_value () throw ()
+      {
+      }
+
+      void missing_value::
+      print (::std::ostream& os) const
+      {
+        os << "missing value for option '" << option ().c_str () << "'";
+      }
+
+      const char* missing_value::
+      what () const throw ()
+      {
+        return "missing option value";
+      }
+
+      // invalid_value
+      //
+      invalid_value::
+      ~invalid_value () throw ()
+      {
+      }
+
+      void invalid_value::
+      print (::std::ostream& os) const
+      {
+        os << "invalid value '" << value ().c_str () << "' for option '"
+           << option ().c_str () << "'";
+
+        if (!message ().empty ())
+          os << ": " << message ().c_str ();
+      }
+
+      const char* invalid_value::
+      what () const throw ()
+      {
+        return "invalid option value";
+      }
+
+      // eos_reached
+      //
+      void eos_reached::
+      print (::std::ostream& os) const
+      {
+        os << what ();
+      }
+
+      const char* eos_reached::
+      what () const throw ()
+      {
+        return "end of argument stream reached";
+      }
+
+      // file_io_failure
+      //
+      file_io_failure::
+      ~file_io_failure () throw ()
+      {
+      }
+
+      void file_io_failure::
+      print (::std::ostream& os) const
+      {
+        os << "unable to open file '" << file ().c_str () << "' or read failure";
+      }
+
+      const char* file_io_failure::
+      what () const throw ()
+      {
+        return "unable to open file or read failure";
+      }
+
+      // unmatched_quote
+      //
+      unmatched_quote::
+      ~unmatched_quote () throw ()
+      {
+      }
+
+      void unmatched_quote::
+      print (::std::ostream& os) const
+      {
+        os << "unmatched quote in argument '" << argument ().c_str () << "'";
+      }
+
+      const char* unmatched_quote::
+      what () const throw ()
+      {
+        return "unmatched quote";
+      }
+
+      // scanner
+      //
+      scanner::
+      ~scanner ()
+      {
+      }
+
+      // argv_scanner
+      //
+      bool argv_scanner::
+      more ()
+      {
+        return i_ < argc_;
+      }
+
+      const char* argv_scanner::
+      peek ()
+      {
+        if (i_ < argc_)
+          return argv_[i_];
+        else
+          throw eos_reached ();
+      }
+
+      const char* argv_scanner::
+      next ()
+      {
+        if (i_ < argc_)
         {
-          for (int i (i_ + 1); i < argc_; ++i)
-            argv_[i - 1] = argv_[i];
+          const char* r (argv_[i_]);
 
-          --argc_;
-          argv_[argc_] = 0;
+          if (erase_)
+          {
+            for (int i (i_ + 1); i < argc_; ++i)
+              argv_[i - 1] = argv_[i];
+
+            --argc_;
+            argv_[argc_] = 0;
+          }
+          else
+            ++i_;
+
+          ++start_position_;
+          return r;
         }
         else
-          ++i_;
-
-        ++start_position_;
-        return r;
+          throw eos_reached ();
       }
-      else
-        throw eos_reached ();
-    }
 
-    void argv_scanner::
-    skip ()
-    {
-      if (i_ < argc_)
+      void argv_scanner::
+      skip ()
       {
-        ++i_;
-        ++start_position_;
-      }
-      else
-        throw eos_reached ();
-    }
-
-    std::size_t argv_scanner::
-    position ()
-    {
-      return start_position_;
-    }
-
-    // argv_file_scanner
-    //
-    int argv_file_scanner::zero_argc_ = 0;
-    std::string argv_file_scanner::empty_string_;
-
-    bool argv_file_scanner::
-    more ()
-    {
-      if (!args_.empty ())
-        return true;
-
-      while (base::more ())
-      {
-        // See if the next argument is the file option.
-        //
-        const char* a (base::peek ());
-        const option_info* oi = 0;
-        const char* ov = 0;
-
-        if (!skip_)
+        if (i_ < argc_)
         {
-          if ((oi = find (a)) != 0)
-          {
-            base::next ();
+          ++i_;
+          ++start_position_;
+        }
+        else
+          throw eos_reached ();
+      }
 
-            if (!base::more ())
-              throw missing_value (a);
+      std::size_t argv_scanner::
+      position ()
+      {
+        return start_position_;
+      }
 
-            ov = base::next ();
-          }
-          else if (std::strncmp (a, "-", 1) == 0)
+      // argv_file_scanner
+      //
+      int argv_file_scanner::zero_argc_ = 0;
+      std::string argv_file_scanner::empty_string_;
+
+      bool argv_file_scanner::
+      more ()
+      {
+        if (!args_.empty ())
+          return true;
+
+        while (base::more ())
+        {
+          // See if the next argument is the file option.
+          //
+          const char* a (base::peek ());
+          const option_info* oi = 0;
+          const char* ov = 0;
+
+          if (!skip_)
           {
-            if ((ov = std::strchr (a, '=')) != 0)
+            if ((oi = find (a)) != 0)
             {
-              std::string o (a, 0, ov - a);
-              if ((oi = find (o.c_str ())) != 0)
+              base::next ();
+
+              if (!base::more ())
+                throw missing_value (a);
+
+              ov = base::next ();
+            }
+            else if (std::strncmp (a, "-", 1) == 0)
+            {
+              if ((ov = std::strchr (a, '=')) != 0)
               {
-                base::next ();
-                ++ov;
+                std::string o (a, 0, ov - a);
+                if ((oi = find (o.c_str ())) != 0)
+                {
+                  base::next ();
+                  ++ov;
+                }
               }
             }
           }
-        }
 
-        if (oi != 0)
-        {
-          if (oi->search_func != 0)
+          if (oi != 0)
           {
-            std::string f (oi->search_func (ov, oi->arg));
-
-            if (!f.empty ())
-              load (f);
-          }
-          else
-            load (ov);
-
-          if (!args_.empty ())
-            return true;
-        }
-        else
-        {
-          if (!skip_)
-            skip_ = (std::strcmp (a, "--") == 0);
-
-          return true;
-        }
-      }
-
-      return false;
-    }
-
-    const char* argv_file_scanner::
-    peek ()
-    {
-      if (!more ())
-        throw eos_reached ();
-
-      return args_.empty () ? base::peek () : args_.front ().value.c_str ();
-    }
-
-    const std::string& argv_file_scanner::
-    peek_file ()
-    {
-      if (!more ())
-        throw eos_reached ();
-
-      return args_.empty () ? empty_string_ : *args_.front ().file;
-    }
-
-    std::size_t argv_file_scanner::
-    peek_line ()
-    {
-      if (!more ())
-        throw eos_reached ();
-
-      return args_.empty () ? 0 : args_.front ().line;
-    }
-
-    const char* argv_file_scanner::
-    next ()
-    {
-      if (!more ())
-        throw eos_reached ();
-
-      if (args_.empty ())
-        return base::next ();
-      else
-      {
-        hold_[i_ == 0 ? ++i_ : --i_].swap (args_.front ().value);
-        args_.pop_front ();
-        ++start_position_;
-        return hold_[i_].c_str ();
-      }
-    }
-
-    void argv_file_scanner::
-    skip ()
-    {
-      if (!more ())
-        throw eos_reached ();
-
-      if (args_.empty ())
-        return base::skip ();
-      else
-      {
-        args_.pop_front ();
-        ++start_position_;
-      }
-    }
-
-    const argv_file_scanner::option_info* argv_file_scanner::
-    find (const char* a) const
-    {
-      for (std::size_t i (0); i < options_count_; ++i)
-        if (std::strcmp (a, options_[i].option) == 0)
-          return &options_[i];
-
-      return 0;
-    }
-
-    std::size_t argv_file_scanner::
-    position ()
-    {
-      return start_position_;
-    }
-
-    void argv_file_scanner::
-    load (const std::string& file)
-    {
-      using namespace std;
-
-      ifstream is (file.c_str ());
-
-      if (!is.is_open ())
-        throw file_io_failure (file);
-
-      files_.push_back (file);
-
-      arg a;
-      a.file = &*files_.rbegin ();
-
-      for (a.line = 1; !is.eof (); ++a.line)
-      {
-        string line;
-        getline (is, line);
-
-        if (is.fail () && !is.eof ())
-          throw file_io_failure (file);
-
-        string::size_type n (line.size ());
-
-        // Trim the line from leading and trailing whitespaces.
-        //
-        if (n != 0)
-        {
-          const char* f (line.c_str ());
-          const char* l (f + n);
-
-          const char* of (f);
-          while (f < l && (*f == ' ' || *f == '\t' || *f == '\r'))
-            ++f;
-
-          --l;
-
-          const char* ol (l);
-          while (l > f && (*l == ' ' || *l == '\t' || *l == '\r'))
-            --l;
-
-          if (f != of || l != ol)
-            line = f <= l ? string (f, l - f + 1) : string ();
-        }
-
-        // Ignore empty lines, those that start with #.
-        //
-        if (line.empty () || line[0] == '#')
-          continue;
-
-        string::size_type p (string::npos);
-        if (line.compare (0, 1, "-") == 0)
-        {
-          p = line.find (' ');
-
-          string::size_type q (line.find ('='));
-          if (q != string::npos && q < p)
-            p = q;
-        }
-
-        string s1;
-        if (p != string::npos)
-        {
-          s1.assign (line, 0, p);
-
-          // Skip leading whitespaces in the argument.
-          //
-          if (line[p] == '=')
-            ++p;
-          else
-          {
-            n = line.size ();
-            for (++p; p < n; ++p)
-            {
-              char c (line[p]);
-              if (c != ' ' && c != '\t' && c != '\r')
-                break;
-            }
-          }
-        }
-        else if (!skip_)
-          skip_ = (line == "--");
-
-        string s2 (line, p != string::npos ? p : 0);
-
-        // If the string (which is an option value or argument) is
-        // wrapped in quotes, remove them.
-        //
-        n = s2.size ();
-        char cf (s2[0]), cl (s2[n - 1]);
-
-        if (cf == '"' || cf == '\'' || cl == '"' || cl == '\'')
-        {
-          if (n == 1 || cf != cl)
-            throw unmatched_quote (s2);
-
-          s2 = string (s2, 1, n - 2);
-        }
-
-        if (!s1.empty ())
-        {
-          // See if this is another file option.
-          //
-          const option_info* oi;
-          if (!skip_ && (oi = find (s1.c_str ())))
-          {
-            if (s2.empty ())
-              throw missing_value (oi->option);
-
             if (oi->search_func != 0)
             {
-              string f (oi->search_func (s2.c_str (), oi->arg));
+              std::string f (oi->search_func (ov, oi->arg));
+
               if (!f.empty ())
                 load (f);
             }
             else
-            {
-              // If the path of the file being parsed is not simple and the
-              // path of the file that needs to be loaded is relative, then
-              // complete the latter using the former as a base.
-              //
-#ifndef _WIN32
-              string::size_type p (file.find_last_of ('/'));
-              bool c (p != string::npos && s2[0] != '/');
-#else
-              string::size_type p (file.find_last_of ("/\\"));
-              bool c (p != string::npos && s2[1] != ':');
-#endif
-              if (c)
-                s2.insert (0, file, 0, p + 1);
+              load (ov);
 
-              load (s2);
-            }
-
-            continue;
+            if (!args_.empty ())
+              return true;
           }
+          else
+          {
+            if (!skip_)
+              skip_ = (std::strcmp (a, "--") == 0);
 
-          a.value = s1;
-          args_.push_back (a);
+            return true;
+          }
         }
 
-        a.value = s2;
-        args_.push_back (a);
+        return false;
       }
-    }
 
-    template <typename X>
-    struct parser
-    {
-      static void
-      parse (X& x, bool& xs, scanner& s)
+      const char* argv_file_scanner::
+      peek ()
+      {
+        if (!more ())
+          throw eos_reached ();
+
+        return args_.empty () ? base::peek () : args_.front ().value.c_str ();
+      }
+
+      const std::string& argv_file_scanner::
+      peek_file ()
+      {
+        if (!more ())
+          throw eos_reached ();
+
+        return args_.empty () ? empty_string_ : *args_.front ().file;
+      }
+
+      std::size_t argv_file_scanner::
+      peek_line ()
+      {
+        if (!more ())
+          throw eos_reached ();
+
+        return args_.empty () ? 0 : args_.front ().line;
+      }
+
+      const char* argv_file_scanner::
+      next ()
+      {
+        if (!more ())
+          throw eos_reached ();
+
+        if (args_.empty ())
+          return base::next ();
+        else
+        {
+          hold_[i_ == 0 ? ++i_ : --i_].swap (args_.front ().value);
+          args_.pop_front ();
+          ++start_position_;
+          return hold_[i_].c_str ();
+        }
+      }
+
+      void argv_file_scanner::
+      skip ()
+      {
+        if (!more ())
+          throw eos_reached ();
+
+        if (args_.empty ())
+          return base::skip ();
+        else
+        {
+          args_.pop_front ();
+          ++start_position_;
+        }
+      }
+
+      const argv_file_scanner::option_info* argv_file_scanner::
+      find (const char* a) const
+      {
+        for (std::size_t i (0); i < options_count_; ++i)
+          if (std::strcmp (a, options_[i].option) == 0)
+            return &options_[i];
+
+        return 0;
+      }
+
+      std::size_t argv_file_scanner::
+      position ()
+      {
+        return start_position_;
+      }
+
+      void argv_file_scanner::
+      load (const std::string& file)
       {
         using namespace std;
 
-        const char* o (s.next ());
-        if (s.more ())
+        ifstream is (file.c_str ());
+
+        if (!is.is_open ())
+          throw file_io_failure (file);
+
+        files_.push_back (file);
+
+        arg a;
+        a.file = &*files_.rbegin ();
+
+        for (a.line = 1; !is.eof (); ++a.line)
         {
-          string v (s.next ());
-          istringstream is (v);
-          if (!(is >> x && is.peek () == istringstream::traits_type::eof ()))
-            throw invalid_value (o, v);
-        }
-        else
-          throw missing_value (o);
+          string line;
+          getline (is, line);
 
-        xs = true;
-      }
+          if (is.fail () && !is.eof ())
+            throw file_io_failure (file);
 
-      static void
-      merge (X& b, const X& a)
-      {
-        b = a;
-      }
-    };
+          string::size_type n (line.size ());
 
-    template <>
-    struct parser<bool>
-    {
-      static void
-      parse (bool& x, scanner& s)
-      {
-        s.next ();
-        x = true;
-      }
-
-      static void
-      merge (bool& b, const bool&)
-      {
-        b = true;
-      }
-    };
-
-    template <>
-    struct parser<std::string>
-    {
-      static void
-      parse (std::string& x, bool& xs, scanner& s)
-      {
-        const char* o (s.next ());
-
-        if (s.more ())
-          x = s.next ();
-        else
-          throw missing_value (o);
-
-        xs = true;
-      }
-
-      static void
-      merge (std::string& b, const std::string& a)
-      {
-        b = a;
-      }
-    };
-
-    template <typename X>
-    struct parser<std::pair<X, std::size_t> >
-    {
-      static void
-      parse (std::pair<X, std::size_t>& x, bool& xs, scanner& s)
-      {
-        x.second = s.position ();
-        parser<X>::parse (x.first, xs, s);
-      }
-
-      static void
-      merge (std::pair<X, std::size_t>& b, const std::pair<X, std::size_t>& a)
-      {
-        b = a;
-      }
-    };
-
-    template <typename X>
-    struct parser<std::vector<X> >
-    {
-      static void
-      parse (std::vector<X>& c, bool& xs, scanner& s)
-      {
-        X x;
-        bool dummy;
-        parser<X>::parse (x, dummy, s);
-        c.push_back (x);
-        xs = true;
-      }
-
-      static void
-      merge (std::vector<X>& b, const std::vector<X>& a)
-      {
-        b.insert (b.end (), a.begin (), a.end ());
-      }
-    };
-
-    template <typename X, typename C>
-    struct parser<std::set<X, C> >
-    {
-      static void
-      parse (std::set<X, C>& c, bool& xs, scanner& s)
-      {
-        X x;
-        bool dummy;
-        parser<X>::parse (x, dummy, s);
-        c.insert (x);
-        xs = true;
-      }
-
-      static void
-      merge (std::set<X, C>& b, const std::set<X, C>& a)
-      {
-        b.insert (a.begin (), a.end ());
-      }
-    };
-
-    template <typename K, typename V, typename C>
-    struct parser<std::map<K, V, C> >
-    {
-      static void
-      parse (std::map<K, V, C>& m, bool& xs, scanner& s)
-      {
-        const char* o (s.next ());
-
-        if (s.more ())
-        {
-          std::size_t pos (s.position ());
-          std::string ov (s.next ());
-          std::string::size_type p = ov.find ('=');
-
-          K k = K ();
-          V v = V ();
-          std::string kstr (ov, 0, p);
-          std::string vstr (ov, (p != std::string::npos ? p + 1 : ov.size ()));
-
-          int ac (2);
-          char* av[] =
+          // Trim the line from leading and trailing whitespaces.
+          //
+          if (n != 0)
           {
-            const_cast<char*> (o),
-            0
-          };
+            const char* f (line.c_str ());
+            const char* l (f + n);
 
+            const char* of (f);
+            while (f < l && (*f == ' ' || *f == '\t' || *f == '\r'))
+              ++f;
+
+            --l;
+
+            const char* ol (l);
+            while (l > f && (*l == ' ' || *l == '\t' || *l == '\r'))
+              --l;
+
+            if (f != of || l != ol)
+              line = f <= l ? string (f, l - f + 1) : string ();
+          }
+
+          // Ignore empty lines, those that start with #.
+          //
+          if (line.empty () || line[0] == '#')
+            continue;
+
+          string::size_type p (string::npos);
+          if (line.compare (0, 1, "-") == 0)
+          {
+            p = line.find (' ');
+
+            string::size_type q (line.find ('='));
+            if (q != string::npos && q < p)
+              p = q;
+          }
+
+          string s1;
+          if (p != string::npos)
+          {
+            s1.assign (line, 0, p);
+
+            // Skip leading whitespaces in the argument.
+            //
+            if (line[p] == '=')
+              ++p;
+            else
+            {
+              n = line.size ();
+              for (++p; p < n; ++p)
+              {
+                char c (line[p]);
+                if (c != ' ' && c != '\t' && c != '\r')
+                  break;
+              }
+            }
+          }
+          else if (!skip_)
+            skip_ = (line == "--");
+
+          string s2 (line, p != string::npos ? p : 0);
+
+          // If the string (which is an option value or argument) is
+          // wrapped in quotes, remove them.
+          //
+          n = s2.size ();
+          char cf (s2[0]), cl (s2[n - 1]);
+
+          if (cf == '"' || cf == '\'' || cl == '"' || cl == '\'')
+          {
+            if (n == 1 || cf != cl)
+              throw unmatched_quote (s2);
+
+            s2 = string (s2, 1, n - 2);
+          }
+
+          if (!s1.empty ())
+          {
+            // See if this is another file option.
+            //
+            const option_info* oi;
+            if (!skip_ && (oi = find (s1.c_str ())))
+            {
+              if (s2.empty ())
+                throw missing_value (oi->option);
+
+              if (oi->search_func != 0)
+              {
+                string f (oi->search_func (s2.c_str (), oi->arg));
+                if (!f.empty ())
+                  load (f);
+              }
+              else
+              {
+                // If the path of the file being parsed is not simple and the
+                // path of the file that needs to be loaded is relative, then
+                // complete the latter using the former as a base.
+                //
+#ifndef _WIN32
+                string::size_type p (file.find_last_of ('/'));
+                bool c (p != string::npos && s2[0] != '/');
+#else
+                string::size_type p (file.find_last_of ("/\\"));
+                bool c (p != string::npos && s2[1] != ':');
+#endif
+                if (c)
+                  s2.insert (0, file, 0, p + 1);
+
+                load (s2);
+              }
+
+              continue;
+            }
+
+            a.value = s1;
+            args_.push_back (a);
+          }
+
+          a.value = s2;
+          args_.push_back (a);
+        }
+      }
+
+      template <typename X>
+      struct parser
+      {
+        static void
+        parse (X& x, bool& xs, scanner& s)
+        {
+          using namespace std;
+
+          const char* o (s.next ());
+          if (s.more ())
+          {
+            string v (s.next ());
+            istringstream is (v);
+            if (!(is >> x && is.peek () == istringstream::traits_type::eof ()))
+              throw invalid_value (o, v);
+          }
+          else
+            throw missing_value (o);
+
+          xs = true;
+        }
+
+        static void
+        merge (X& b, const X& a)
+        {
+          b = a;
+        }
+      };
+
+      template <>
+      struct parser<bool>
+      {
+        static void
+        parse (bool& x, scanner& s)
+        {
+          s.next ();
+          x = true;
+        }
+
+        static void
+        merge (bool& b, const bool&)
+        {
+          b = true;
+        }
+      };
+
+      template <>
+      struct parser<std::string>
+      {
+        static void
+        parse (std::string& x, bool& xs, scanner& s)
+        {
+          const char* o (s.next ());
+
+          if (s.more ())
+            x = s.next ();
+          else
+            throw missing_value (o);
+
+          xs = true;
+        }
+
+        static void
+        merge (std::string& b, const std::string& a)
+        {
+          b = a;
+        }
+      };
+
+      template <typename X>
+      struct parser<std::pair<X, std::size_t> >
+      {
+        static void
+        parse (std::pair<X, std::size_t>& x, bool& xs, scanner& s)
+        {
+          x.second = s.position ();
+          parser<X>::parse (x.first, xs, s);
+        }
+
+        static void
+        merge (std::pair<X, std::size_t>& b, const std::pair<X, std::size_t>& a)
+        {
+          b = a;
+        }
+      };
+
+      template <typename X>
+      struct parser<std::vector<X> >
+      {
+        static void
+        parse (std::vector<X>& c, bool& xs, scanner& s)
+        {
+          X x;
           bool dummy;
-          if (!kstr.empty ())
-          {
-            av[1] = const_cast<char*> (kstr.c_str ());
-            argv_scanner s (0, ac, av, false, pos);
-            parser<K>::parse (k, dummy, s);
-          }
-
-          if (!vstr.empty ())
-          {
-            av[1] = const_cast<char*> (vstr.c_str ());
-            argv_scanner s (0, ac, av, false, pos);
-            parser<V>::parse (v, dummy, s);
-          }
-
-          m[k] = v;
+          parser<X>::parse (x, dummy, s);
+          c.push_back (x);
+          xs = true;
         }
-        else
-          throw missing_value (o);
 
-        xs = true;
-      }
+        static void
+        merge (std::vector<X>& b, const std::vector<X>& a)
+        {
+          b.insert (b.end (), a.begin (), a.end ());
+        }
+      };
 
-      static void
-      merge (std::map<K, V, C>& b, const std::map<K, V, C>& a)
+      template <typename X, typename C>
+      struct parser<std::set<X, C> >
       {
-        for (typename std::map<K, V, C>::const_iterator i (a.begin ()); 
-             i != a.end (); 
-             ++i)
-          b[i->first] = i->second;
+        static void
+        parse (std::set<X, C>& c, bool& xs, scanner& s)
+        {
+          X x;
+          bool dummy;
+          parser<X>::parse (x, dummy, s);
+          c.insert (x);
+          xs = true;
+        }
+
+        static void
+        merge (std::set<X, C>& b, const std::set<X, C>& a)
+        {
+          b.insert (a.begin (), a.end ());
+        }
+      };
+
+      template <typename K, typename V, typename C>
+      struct parser<std::map<K, V, C> >
+      {
+        static void
+        parse (std::map<K, V, C>& m, bool& xs, scanner& s)
+        {
+          const char* o (s.next ());
+
+          if (s.more ())
+          {
+            std::size_t pos (s.position ());
+            std::string ov (s.next ());
+            std::string::size_type p = ov.find ('=');
+
+            K k = K ();
+            V v = V ();
+            std::string kstr (ov, 0, p);
+            std::string vstr (ov, (p != std::string::npos ? p + 1 : ov.size ()));
+
+            int ac (2);
+            char* av[] =
+            {
+              const_cast<char*> (o),
+              0
+            };
+
+            bool dummy;
+            if (!kstr.empty ())
+            {
+              av[1] = const_cast<char*> (kstr.c_str ());
+              argv_scanner s (0, ac, av, false, pos);
+              parser<K>::parse (k, dummy, s);
+            }
+
+            if (!vstr.empty ())
+            {
+              av[1] = const_cast<char*> (vstr.c_str ());
+              argv_scanner s (0, ac, av, false, pos);
+              parser<V>::parse (v, dummy, s);
+            }
+
+            m[k] = v;
+          }
+          else
+            throw missing_value (o);
+
+          xs = true;
+        }
+
+        static void
+        merge (std::map<K, V, C>& b, const std::map<K, V, C>& a)
+        {
+          for (typename std::map<K, V, C>::const_iterator i (a.begin ()); 
+               i != a.end (); 
+               ++i)
+            b[i->first] = i->second;
+        }
+      };
+
+      template <typename X, typename T, T X::*M>
+      void
+      thunk (X& x, scanner& s)
+      {
+        parser<T>::parse (x.*M, s);
       }
-    };
 
-    template <typename X, typename T, T X::*M>
-    void
-    thunk (X& x, scanner& s)
-    {
-      parser<T>::parse (x.*M, s);
-    }
-
-    template <typename X, typename T, T X::*M, bool X::*S>
-    void
-    thunk (X& x, scanner& s)
-    {
-      parser<T>::parse (x.*M, x.*S, s);
+      template <typename X, typename T, T X::*M, bool X::*S>
+      void
+      thunk (X& x, scanner& s)
+      {
+        parser<T>::parse (x.*M, x.*S, s);
+      }
     }
   }
 }
@@ -785,10 +788,10 @@ namespace build2
   parse (int& argc,
          char** argv,
          bool erase,
-         ::build2::cl::unknown_mode opt,
-         ::build2::cl::unknown_mode arg)
+         ::build2::build::cli::unknown_mode opt,
+         ::build2::build::cli::unknown_mode arg)
   {
-    ::build2::cl::argv_scanner s (argc, argv, erase);
+    ::build2::build::cli::argv_scanner s (argc, argv, erase);
     bool r = _parse (s, opt, arg);
     return r;
   }
@@ -798,10 +801,10 @@ namespace build2
          int& argc,
          char** argv,
          bool erase,
-         ::build2::cl::unknown_mode opt,
-         ::build2::cl::unknown_mode arg)
+         ::build2::build::cli::unknown_mode opt,
+         ::build2::build::cli::unknown_mode arg)
   {
-    ::build2::cl::argv_scanner s (start, argc, argv, erase);
+    ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
     bool r = _parse (s, opt, arg);
     return r;
   }
@@ -811,10 +814,10 @@ namespace build2
          char** argv,
          int& end,
          bool erase,
-         ::build2::cl::unknown_mode opt,
-         ::build2::cl::unknown_mode arg)
+         ::build2::build::cli::unknown_mode opt,
+         ::build2::build::cli::unknown_mode arg)
   {
-    ::build2::cl::argv_scanner s (argc, argv, erase);
+    ::build2::build::cli::argv_scanner s (argc, argv, erase);
     bool r = _parse (s, opt, arg);
     end = s.end ();
     return r;
@@ -826,19 +829,19 @@ namespace build2
          char** argv,
          int& end,
          bool erase,
-         ::build2::cl::unknown_mode opt,
-         ::build2::cl::unknown_mode arg)
+         ::build2::build::cli::unknown_mode opt,
+         ::build2::build::cli::unknown_mode arg)
   {
-    ::build2::cl::argv_scanner s (start, argc, argv, erase);
+    ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
     bool r = _parse (s, opt, arg);
     end = s.end ();
     return r;
   }
 
   bool options::
-  parse (::build2::cl::scanner& s,
-         ::build2::cl::unknown_mode opt,
-         ::build2::cl::unknown_mode arg)
+  parse (::build2::build::cli::scanner& s,
+         ::build2::build::cli::unknown_mode opt,
+         ::build2::build::cli::unknown_mode arg)
   {
     bool r = _parse (s, opt, arg);
     return r;
@@ -851,230 +854,230 @@ namespace build2
 
     if (a.build2_metadata_specified_)
     {
-      ::build2::cl::parser< uint64_t>::merge (
+      ::build2::build::cli::parser< uint64_t>::merge (
         this->build2_metadata_, a.build2_metadata_);
       this->build2_metadata_specified_ = true;
     }
 
     if (a.v_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->v_, a.v_);
     }
 
     if (a.V_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->V_, a.V_);
     }
 
     if (a.quiet_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->quiet_, a.quiet_);
     }
 
     if (a.silent_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->silent_, a.silent_);
     }
 
     if (a.verbose_specified_)
     {
-      ::build2::cl::parser< uint16_t>::merge (
+      ::build2::build::cli::parser< uint16_t>::merge (
         this->verbose_, a.verbose_);
       this->verbose_specified_ = true;
     }
 
     if (a.stat_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->stat_, a.stat_);
     }
 
     if (a.dump_specified_)
     {
-      ::build2::cl::parser< std::set<string>>::merge (
+      ::build2::build::cli::parser< std::set<string>>::merge (
         this->dump_, a.dump_);
       this->dump_specified_ = true;
     }
 
     if (a.progress_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->progress_, a.progress_);
     }
 
     if (a.no_progress_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->no_progress_, a.no_progress_);
     }
 
     if (a.jobs_specified_)
     {
-      ::build2::cl::parser< size_t>::merge (
+      ::build2::build::cli::parser< size_t>::merge (
         this->jobs_, a.jobs_);
       this->jobs_specified_ = true;
     }
 
     if (a.max_jobs_specified_)
     {
-      ::build2::cl::parser< size_t>::merge (
+      ::build2::build::cli::parser< size_t>::merge (
         this->max_jobs_, a.max_jobs_);
       this->max_jobs_specified_ = true;
     }
 
     if (a.queue_depth_specified_)
     {
-      ::build2::cl::parser< size_t>::merge (
+      ::build2::build::cli::parser< size_t>::merge (
         this->queue_depth_, a.queue_depth_);
       this->queue_depth_specified_ = true;
     }
 
     if (a.file_cache_specified_)
     {
-      ::build2::cl::parser< string>::merge (
+      ::build2::build::cli::parser< string>::merge (
         this->file_cache_, a.file_cache_);
       this->file_cache_specified_ = true;
     }
 
     if (a.max_stack_specified_)
     {
-      ::build2::cl::parser< size_t>::merge (
+      ::build2::build::cli::parser< size_t>::merge (
         this->max_stack_, a.max_stack_);
       this->max_stack_specified_ = true;
     }
 
     if (a.serial_stop_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->serial_stop_, a.serial_stop_);
     }
 
     if (a.dry_run_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->dry_run_, a.dry_run_);
     }
 
     if (a.match_only_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->match_only_, a.match_only_);
     }
 
     if (a.no_external_modules_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->no_external_modules_, a.no_external_modules_);
     }
 
     if (a.structured_result_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->structured_result_, a.structured_result_);
     }
 
     if (a.mtime_check_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->mtime_check_, a.mtime_check_);
     }
 
     if (a.no_mtime_check_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->no_mtime_check_, a.no_mtime_check_);
     }
 
     if (a.no_column_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->no_column_, a.no_column_);
     }
 
     if (a.no_line_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->no_line_, a.no_line_);
     }
 
     if (a.buildfile_specified_)
     {
-      ::build2::cl::parser< path>::merge (
+      ::build2::build::cli::parser< path>::merge (
         this->buildfile_, a.buildfile_);
       this->buildfile_specified_ = true;
     }
 
     if (a.config_guess_specified_)
     {
-      ::build2::cl::parser< path>::merge (
+      ::build2::build::cli::parser< path>::merge (
         this->config_guess_, a.config_guess_);
       this->config_guess_specified_ = true;
     }
 
     if (a.config_sub_specified_)
     {
-      ::build2::cl::parser< path>::merge (
+      ::build2::build::cli::parser< path>::merge (
         this->config_sub_, a.config_sub_);
       this->config_sub_specified_ = true;
     }
 
     if (a.pager_specified_)
     {
-      ::build2::cl::parser< string>::merge (
+      ::build2::build::cli::parser< string>::merge (
         this->pager_, a.pager_);
       this->pager_specified_ = true;
     }
 
     if (a.pager_option_specified_)
     {
-      ::build2::cl::parser< strings>::merge (
+      ::build2::build::cli::parser< strings>::merge (
         this->pager_option_, a.pager_option_);
       this->pager_option_specified_ = true;
     }
 
     if (a.options_file_specified_)
     {
-      ::build2::cl::parser< string>::merge (
+      ::build2::build::cli::parser< string>::merge (
         this->options_file_, a.options_file_);
       this->options_file_specified_ = true;
     }
 
     if (a.default_options_specified_)
     {
-      ::build2::cl::parser< dir_path>::merge (
+      ::build2::build::cli::parser< dir_path>::merge (
         this->default_options_, a.default_options_);
       this->default_options_specified_ = true;
     }
 
     if (a.no_default_options_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->no_default_options_, a.no_default_options_);
     }
 
     if (a.help_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->help_, a.help_);
     }
 
     if (a.version_)
     {
-      ::build2::cl::parser< bool>::merge (
+      ::build2::build::cli::parser< bool>::merge (
         this->version_, a.version_);
     }
   }
 
-  ::build2::cl::usage_para options::
-  print_usage (::std::ostream& os, ::build2::cl::usage_para p)
+  ::build2::build::cli::usage_para options::
+  print_usage (::std::ostream& os, ::build2::build::cli::usage_para p)
   {
     CLI_POTENTIALLY_UNUSED (os);
 
-    if (p != ::build2::cl::usage_para::none)
+    if (p != ::build2::build::cli::usage_para::none)
       os << ::std::endl;
 
     os << "\033[1mOPTIONS\033[0m" << ::std::endl;
@@ -1312,13 +1315,13 @@ namespace build2
     os << std::endl
        << "\033[1m--version\033[0m             Print version and exit." << ::std::endl;
 
-    p = ::build2::cl::usage_para::option;
+    p = ::build2::build::cli::usage_para::option;
 
     return p;
   }
 
   typedef
-  std::map<std::string, void (*) (options&, ::build2::cl::scanner&)>
+  std::map<std::string, void (*) (options&, ::build2::build::cli::scanner&)>
   _cli_options_map;
 
   static _cli_options_map _cli_options_map_;
@@ -1328,110 +1331,110 @@ namespace build2
     _cli_options_map_init ()
     {
       _cli_options_map_["--build2-metadata"] =
-      &::build2::cl::thunk< options, uint64_t, &options::build2_metadata_,
+      &::build2::build::cli::thunk< options, uint64_t, &options::build2_metadata_,
         &options::build2_metadata_specified_ >;
       _cli_options_map_["-v"] =
-      &::build2::cl::thunk< options, bool, &options::v_ >;
+      &::build2::build::cli::thunk< options, bool, &options::v_ >;
       _cli_options_map_["-V"] =
-      &::build2::cl::thunk< options, bool, &options::V_ >;
+      &::build2::build::cli::thunk< options, bool, &options::V_ >;
       _cli_options_map_["--quiet"] =
-      &::build2::cl::thunk< options, bool, &options::quiet_ >;
+      &::build2::build::cli::thunk< options, bool, &options::quiet_ >;
       _cli_options_map_["-q"] =
-      &::build2::cl::thunk< options, bool, &options::quiet_ >;
+      &::build2::build::cli::thunk< options, bool, &options::quiet_ >;
       _cli_options_map_["--silent"] =
-      &::build2::cl::thunk< options, bool, &options::silent_ >;
+      &::build2::build::cli::thunk< options, bool, &options::silent_ >;
       _cli_options_map_["--verbose"] =
-      &::build2::cl::thunk< options, uint16_t, &options::verbose_,
+      &::build2::build::cli::thunk< options, uint16_t, &options::verbose_,
         &options::verbose_specified_ >;
       _cli_options_map_["--stat"] =
-      &::build2::cl::thunk< options, bool, &options::stat_ >;
+      &::build2::build::cli::thunk< options, bool, &options::stat_ >;
       _cli_options_map_["--dump"] =
-      &::build2::cl::thunk< options, std::set<string>, &options::dump_,
+      &::build2::build::cli::thunk< options, std::set<string>, &options::dump_,
         &options::dump_specified_ >;
       _cli_options_map_["--progress"] =
-      &::build2::cl::thunk< options, bool, &options::progress_ >;
+      &::build2::build::cli::thunk< options, bool, &options::progress_ >;
       _cli_options_map_["--no-progress"] =
-      &::build2::cl::thunk< options, bool, &options::no_progress_ >;
+      &::build2::build::cli::thunk< options, bool, &options::no_progress_ >;
       _cli_options_map_["--jobs"] =
-      &::build2::cl::thunk< options, size_t, &options::jobs_,
+      &::build2::build::cli::thunk< options, size_t, &options::jobs_,
         &options::jobs_specified_ >;
       _cli_options_map_["-j"] =
-      &::build2::cl::thunk< options, size_t, &options::jobs_,
+      &::build2::build::cli::thunk< options, size_t, &options::jobs_,
         &options::jobs_specified_ >;
       _cli_options_map_["--max-jobs"] =
-      &::build2::cl::thunk< options, size_t, &options::max_jobs_,
+      &::build2::build::cli::thunk< options, size_t, &options::max_jobs_,
         &options::max_jobs_specified_ >;
       _cli_options_map_["-J"] =
-      &::build2::cl::thunk< options, size_t, &options::max_jobs_,
+      &::build2::build::cli::thunk< options, size_t, &options::max_jobs_,
         &options::max_jobs_specified_ >;
       _cli_options_map_["--queue-depth"] =
-      &::build2::cl::thunk< options, size_t, &options::queue_depth_,
+      &::build2::build::cli::thunk< options, size_t, &options::queue_depth_,
         &options::queue_depth_specified_ >;
       _cli_options_map_["-Q"] =
-      &::build2::cl::thunk< options, size_t, &options::queue_depth_,
+      &::build2::build::cli::thunk< options, size_t, &options::queue_depth_,
         &options::queue_depth_specified_ >;
       _cli_options_map_["--file-cache"] =
-      &::build2::cl::thunk< options, string, &options::file_cache_,
+      &::build2::build::cli::thunk< options, string, &options::file_cache_,
         &options::file_cache_specified_ >;
       _cli_options_map_["--max-stack"] =
-      &::build2::cl::thunk< options, size_t, &options::max_stack_,
+      &::build2::build::cli::thunk< options, size_t, &options::max_stack_,
         &options::max_stack_specified_ >;
       _cli_options_map_["--serial-stop"] =
-      &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
+      &::build2::build::cli::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["-s"] =
-      &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
+      &::build2::build::cli::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["--dry-run"] =
-      &::build2::cl::thunk< options, bool, &options::dry_run_ >;
+      &::build2::build::cli::thunk< options, bool, &options::dry_run_ >;
       _cli_options_map_["-n"] =
-      &::build2::cl::thunk< options, bool, &options::dry_run_ >;
+      &::build2::build::cli::thunk< options, bool, &options::dry_run_ >;
       _cli_options_map_["--match-only"] =
-      &::build2::cl::thunk< options, bool, &options::match_only_ >;
+      &::build2::build::cli::thunk< options, bool, &options::match_only_ >;
       _cli_options_map_["--no-external-modules"] =
-      &::build2::cl::thunk< options, bool, &options::no_external_modules_ >;
+      &::build2::build::cli::thunk< options, bool, &options::no_external_modules_ >;
       _cli_options_map_["--structured-result"] =
-      &::build2::cl::thunk< options, bool, &options::structured_result_ >;
+      &::build2::build::cli::thunk< options, bool, &options::structured_result_ >;
       _cli_options_map_["--mtime-check"] =
-      &::build2::cl::thunk< options, bool, &options::mtime_check_ >;
+      &::build2::build::cli::thunk< options, bool, &options::mtime_check_ >;
       _cli_options_map_["--no-mtime-check"] =
-      &::build2::cl::thunk< options, bool, &options::no_mtime_check_ >;
+      &::build2::build::cli::thunk< options, bool, &options::no_mtime_check_ >;
       _cli_options_map_["--no-column"] =
-      &::build2::cl::thunk< options, bool, &options::no_column_ >;
+      &::build2::build::cli::thunk< options, bool, &options::no_column_ >;
       _cli_options_map_["--no-line"] =
-      &::build2::cl::thunk< options, bool, &options::no_line_ >;
+      &::build2::build::cli::thunk< options, bool, &options::no_line_ >;
       _cli_options_map_["--buildfile"] =
-      &::build2::cl::thunk< options, path, &options::buildfile_,
+      &::build2::build::cli::thunk< options, path, &options::buildfile_,
         &options::buildfile_specified_ >;
       _cli_options_map_["--config-guess"] =
-      &::build2::cl::thunk< options, path, &options::config_guess_,
+      &::build2::build::cli::thunk< options, path, &options::config_guess_,
         &options::config_guess_specified_ >;
       _cli_options_map_["--config-sub"] =
-      &::build2::cl::thunk< options, path, &options::config_sub_,
+      &::build2::build::cli::thunk< options, path, &options::config_sub_,
         &options::config_sub_specified_ >;
       _cli_options_map_["--pager"] =
-      &::build2::cl::thunk< options, string, &options::pager_,
+      &::build2::build::cli::thunk< options, string, &options::pager_,
         &options::pager_specified_ >;
       _cli_options_map_["--pager-option"] =
-      &::build2::cl::thunk< options, strings, &options::pager_option_,
+      &::build2::build::cli::thunk< options, strings, &options::pager_option_,
         &options::pager_option_specified_ >;
       _cli_options_map_["--options-file"] =
-      &::build2::cl::thunk< options, string, &options::options_file_,
+      &::build2::build::cli::thunk< options, string, &options::options_file_,
         &options::options_file_specified_ >;
       _cli_options_map_["--default-options"] =
-      &::build2::cl::thunk< options, dir_path, &options::default_options_,
+      &::build2::build::cli::thunk< options, dir_path, &options::default_options_,
         &options::default_options_specified_ >;
       _cli_options_map_["--no-default-options"] =
-      &::build2::cl::thunk< options, bool, &options::no_default_options_ >;
+      &::build2::build::cli::thunk< options, bool, &options::no_default_options_ >;
       _cli_options_map_["--help"] =
-      &::build2::cl::thunk< options, bool, &options::help_ >;
+      &::build2::build::cli::thunk< options, bool, &options::help_ >;
       _cli_options_map_["--version"] =
-      &::build2::cl::thunk< options, bool, &options::version_ >;
+      &::build2::build::cli::thunk< options, bool, &options::version_ >;
     }
   };
 
   static _cli_options_map_init _cli_options_map_init_;
 
   bool options::
-  _parse (const char* o, ::build2::cl::scanner& s)
+  _parse (const char* o, ::build2::build::cli::scanner& s)
   {
     _cli_options_map::const_iterator i (_cli_options_map_.find (o));
 
@@ -1445,13 +1448,13 @@ namespace build2
   }
 
   bool options::
-  _parse (::build2::cl::scanner& s,
-          ::build2::cl::unknown_mode opt_mode,
-          ::build2::cl::unknown_mode arg_mode)
+  _parse (::build2::build::cli::scanner& s,
+          ::build2::build::cli::unknown_mode opt_mode,
+          ::build2::build::cli::unknown_mode arg_mode)
   {
     // Can't skip combined flags (--no-combined-flags).
     //
-    assert (opt_mode != ::build2::cl::unknown_mode::skip);
+    assert (opt_mode != ::build2::build::cli::unknown_mode::skip);
 
     bool r = false;
     bool opt = true;
@@ -1490,14 +1493,14 @@ namespace build2
               const_cast<char*> (v)
             };
 
-            ::build2::cl::argv_scanner ns (0, ac, av);
+            ::build2::build::cli::argv_scanner ns (0, ac, av);
 
             if (_parse (co.c_str (), ns))
             {
               // Parsed the option but not its value?
               //
               if (ns.end () != 2)
-                throw ::build2::cl::invalid_value (co, v);
+                throw ::build2::build::cli::invalid_value (co, v);
 
               s.next ();
               r = true;
@@ -1538,7 +1541,7 @@ namespace build2
                   cf
                 };
 
-                ::build2::cl::argv_scanner ns (0, ac, av);
+                ::build2::build::cli::argv_scanner ns (0, ac, av);
 
                 if (!_parse (cf, ns))
                   break;
@@ -1563,19 +1566,19 @@ namespace build2
 
           switch (opt_mode)
           {
-            case ::build2::cl::unknown_mode::skip:
+            case ::build2::build::cli::unknown_mode::skip:
             {
               s.skip ();
               r = true;
               continue;
             }
-            case ::build2::cl::unknown_mode::stop:
+            case ::build2::build::cli::unknown_mode::stop:
             {
               break;
             }
-            case ::build2::cl::unknown_mode::fail:
+            case ::build2::build::cli::unknown_mode::fail:
             {
-              throw ::build2::cl::unknown_option (o);
+              throw ::build2::build::cli::unknown_option (o);
             }
           }
 
@@ -1585,19 +1588,19 @@ namespace build2
 
       switch (arg_mode)
       {
-        case ::build2::cl::unknown_mode::skip:
+        case ::build2::build::cli::unknown_mode::skip:
         {
           s.skip ();
           r = true;
           continue;
         }
-        case ::build2::cl::unknown_mode::stop:
+        case ::build2::build::cli::unknown_mode::stop:
         {
           break;
         }
-        case ::build2::cl::unknown_mode::fail:
+        case ::build2::build::cli::unknown_mode::fail:
         {
-          throw ::build2::cl::unknown_argument (o);
+          throw ::build2::build::cli::unknown_argument (o);
         }
       }
 
@@ -1610,12 +1613,12 @@ namespace build2
 
 namespace build2
 {
-  ::build2::cl::usage_para
-  print_b_usage (::std::ostream& os, ::build2::cl::usage_para p)
+  ::build2::build::cli::usage_para
+  print_b_usage (::std::ostream& os, ::build2::build::cli::usage_para p)
   {
     CLI_POTENTIALLY_UNUSED (os);
 
-    if (p != ::build2::cl::usage_para::none)
+    if (p != ::build2::build::cli::usage_para::none)
       os << ::std::endl;
 
     os << "\033[1mSYNOPSIS\033[0m" << ::std::endl
@@ -1638,9 +1641,9 @@ namespace build2
        << "\033[1m'--'\033[0m separator. To avoid treating an argument that contains \033[1m'='\033[0m as a variable," << ::std::endl
        << "add the second \033[1m'--'\033[0m separator." << ::std::endl;
 
-    p = ::build2::options::print_usage (os, ::build2::cl::usage_para::text);
+    p = ::build2::options::print_usage (os, ::build2::build::cli::usage_para::text);
 
-    if (p != ::build2::cl::usage_para::none)
+    if (p != ::build2::build::cli::usage_para::none)
       os << ::std::endl;
 
     os << "\033[1mDEFAULT OPTIONS FILES\033[0m" << ::std::endl
@@ -1694,7 +1697,7 @@ namespace build2
        << "options files in nested build system driver invocations. Its values are \033[1mfalse\033[0m" << ::std::endl
        << "or \033[1m0\033[0m to suppress and \033[1mtrue\033[0m or \033[1m1\033[0m to load." << ::std::endl;
 
-    p = ::build2::cl::usage_para::text;
+    p = ::build2::build::cli::usage_para::text;
 
     return p;
   }
