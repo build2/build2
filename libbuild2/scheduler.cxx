@@ -362,8 +362,14 @@ namespace build2
            size_t init_active,
            size_t max_threads,
            size_t queue_depth,
-           optional<size_t> max_stack)
+           optional<size_t> max_stack,
+           size_t orig_max_active)
   {
+    if (orig_max_active == 0)
+      orig_max_active = max_active;
+    else
+      assert (max_active <= orig_max_active);
+
     // Lock the mutex to make sure our changes are visible in (other) active
     // threads.
     //
@@ -375,16 +381,18 @@ namespace build2
     // were asked to run serially.
     //
     if (max_threads == 0)
-      max_threads = (max_active == 1    ? 1 :
-                     sizeof (void*) < 8 ? 8 : 32) * max_active;
+      max_threads = (orig_max_active == 1
+                     ? 1
+                     : (sizeof (void*) < 8 ? 8 : 32) * orig_max_active);
 
     assert (shutdown_ &&
             init_active != 0 &&
             init_active <= max_active &&
-            max_active <= max_threads);
+            orig_max_active <= max_threads);
 
     active_ = init_active_ = init_active;
-    max_active_ = orig_max_active_ = max_active;
+    max_active_ = max_active;
+    orig_max_active_ = orig_max_active;
     max_threads_ = max_threads;
 
     // This value should be proportional to the amount of hardware concurrency
@@ -398,7 +406,7 @@ namespace build2
     //
     task_queue_depth_ = queue_depth != 0
       ? queue_depth
-      : max_active * 8;
+      : orig_max_active_ * 8;
 
     queued_task_count_.store (0, memory_order_relaxed);
 
@@ -421,6 +429,8 @@ namespace build2
 
     shutdown_ = false;
 
+    // Delay thread startup if serial.
+    //
     if (max_active_ != 1)
       dead_thread_ = thread (deadlock_monitor, this);
   }
@@ -429,7 +439,7 @@ namespace build2
   tune (size_t max_active)
   {
     // Note that if we tune a parallel scheduler to run serially, we will
-    // still have the deadlock monitoring thread running.
+    // still have the deadlock monitoring thread loitering around.
 
     // With multiple initial active threads we will need to make changes to
     // max_active_ visible to other threads and which we currently say can be
@@ -451,6 +461,11 @@ namespace build2
       lock l (wait_idle ());
 
       swap (max_active_, max_active);
+
+      // Start the deadlock thread if its startup was delayed.
+      //
+      if (max_active_ != 1 && !dead_thread_.joinable ())
+        dead_thread_ = thread (deadlock_monitor, this);
     }
 
     return max_active == orig_max_active_ ? 0 : max_active;
@@ -519,7 +534,7 @@ namespace build2
 
       // Wait for the deadlock monitor (the only remaining thread).
       //
-      if (orig_max_active_ != 1) // See tune() for why not max_active_.
+      if (dead_thread_.joinable ())
       {
         l.unlock ();
         dead_condv_.notify_one ();

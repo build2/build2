@@ -301,14 +301,25 @@ namespace build2
     // If the maximum threads or task queue depth arguments are unspecified,
     // then appropriate defaults are used.
     //
+    // Passing non-zero orig_max_active (normally the real max active) allows
+    // starting up a pre-tuned scheduler. In particular, starting a pre-tuned
+    // to serial scheduler is relatively cheap since starting the deadlock
+    // detection thread is delayed until the scheduler is re-tuned.
+    //
     explicit
     scheduler (size_t max_active,
                size_t init_active = 1,
                size_t max_threads = 0,
                size_t queue_depth = 0,
-               optional<size_t> max_stack = nullopt)
+               optional<size_t> max_stack = nullopt,
+               size_t orig_max_active = 0)
     {
-      startup (max_active, init_active, max_threads, queue_depth, max_stack);
+      startup (max_active,
+               init_active,
+               max_threads,
+               queue_depth,
+               max_stack,
+               orig_max_active);
     }
 
     // Start the scheduler.
@@ -318,7 +329,8 @@ namespace build2
              size_t init_active = 1,
              size_t max_threads = 0,
              size_t queue_depth = 0,
-             optional<size_t> max_stack = nullopt);
+             optional<size_t> max_stack = nullopt,
+             size_t orig_max_active = 0);
 
     // Return true if the scheduler was started up.
     //

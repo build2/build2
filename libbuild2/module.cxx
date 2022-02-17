@@ -127,10 +127,11 @@ namespace build2
     // Note that we can only do this if we are running serially because
     // otherwise we cannot guarantee the scheduler is idle (we could have
     // waiting threads from the outer context). This is fine for now since the
-    // only two tuning level we use are serial and full concurrency (turns out
-    // currently we don't really need this: we will always be called during
-    // load or match phases and we always do parallel match; but let's keep it
-    // in case things change).
+    // only two tuning level we use are serial and full concurrency. (Turns
+    // out currently we don't really need this: we will always be called
+    // during load or match phases and we always do parallel match; but let's
+    // keep it in case things change. Actually, we may need it, if the
+    // scheduler was started up in a tuned state, like in bpkg).
     //
     auto sched_tune (ctx.sched.serial ()
                      ? scheduler::tune_guard (ctx.sched, 0)
