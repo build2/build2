@@ -21,212 +21,10 @@
 
 namespace build2
 {
-  namespace script
+  namespace build
   {
     namespace cli
     {
-      // unknown_option
-      //
-      unknown_option::
-      ~unknown_option () throw ()
-      {
-      }
-
-      void unknown_option::
-      print (::std::ostream& os) const
-      {
-        os << "unknown option '" << option ().c_str () << "'";
-      }
-
-      const char* unknown_option::
-      what () const throw ()
-      {
-        return "unknown option";
-      }
-
-      // unknown_argument
-      //
-      unknown_argument::
-      ~unknown_argument () throw ()
-      {
-      }
-
-      void unknown_argument::
-      print (::std::ostream& os) const
-      {
-        os << "unknown argument '" << argument ().c_str () << "'";
-      }
-
-      const char* unknown_argument::
-      what () const throw ()
-      {
-        return "unknown argument";
-      }
-
-      // missing_value
-      //
-      missing_value::
-      ~missing_value () throw ()
-      {
-      }
-
-      void missing_value::
-      print (::std::ostream& os) const
-      {
-        os << "missing value for option '" << option ().c_str () << "'";
-      }
-
-      const char* missing_value::
-      what () const throw ()
-      {
-        return "missing option value";
-      }
-
-      // invalid_value
-      //
-      invalid_value::
-      ~invalid_value () throw ()
-      {
-      }
-
-      void invalid_value::
-      print (::std::ostream& os) const
-      {
-        os << "invalid value '" << value ().c_str () << "' for option '"
-           << option ().c_str () << "'";
-
-        if (!message ().empty ())
-          os << ": " << message ().c_str ();
-      }
-
-      const char* invalid_value::
-      what () const throw ()
-      {
-        return "invalid option value";
-      }
-
-      // eos_reached
-      //
-      void eos_reached::
-      print (::std::ostream& os) const
-      {
-        os << what ();
-      }
-
-      const char* eos_reached::
-      what () const throw ()
-      {
-        return "end of argument stream reached";
-      }
-
-      // scanner
-      //
-      scanner::
-      ~scanner ()
-      {
-      }
-
-      // argv_scanner
-      //
-      bool argv_scanner::
-      more ()
-      {
-        return i_ < argc_;
-      }
-
-      const char* argv_scanner::
-      peek ()
-      {
-        if (i_ < argc_)
-          return argv_[i_];
-        else
-          throw eos_reached ();
-      }
-
-      const char* argv_scanner::
-      next ()
-      {
-        if (i_ < argc_)
-        {
-          const char* r (argv_[i_]);
-
-          if (erase_)
-          {
-            for (int i (i_ + 1); i < argc_; ++i)
-              argv_[i - 1] = argv_[i];
-
-            --argc_;
-            argv_[argc_] = 0;
-          }
-          else
-            ++i_;
-
-          ++start_position_;
-          return r;
-        }
-        else
-          throw eos_reached ();
-      }
-
-      void argv_scanner::
-      skip ()
-      {
-        if (i_ < argc_)
-        {
-          ++i_;
-          ++start_position_;
-        }
-        else
-          throw eos_reached ();
-      }
-
-      std::size_t argv_scanner::
-      position ()
-      {
-        return start_position_;
-      }
-
-      // vector_scanner
-      //
-      bool vector_scanner::
-      more ()
-      {
-        return i_ < v_.size ();
-      }
-
-      const char* vector_scanner::
-      peek ()
-      {
-        if (i_ < v_.size ())
-          return v_[i_].c_str ();
-        else
-          throw eos_reached ();
-      }
-
-      const char* vector_scanner::
-      next ()
-      {
-        if (i_ < v_.size ())
-          return v_[i_++].c_str ();
-        else
-          throw eos_reached ();
-      }
-
-      void vector_scanner::
-      skip ()
-      {
-        if (i_ < v_.size ())
-          ++i_;
-        else
-          throw eos_reached ();
-      }
-
-      std::size_t vector_scanner::
-      position ()
-      {
-        return start_position_ + i_;
-      }
-
       template <typename X>
       struct parser
       {
@@ -406,13 +204,13 @@ namespace build2
     set_options (int& argc,
                  char** argv,
                  bool erase,
-                 ::build2::script::cli::unknown_mode opt,
-                 ::build2::script::cli::unknown_mode arg)
+                 ::build2::build::cli::unknown_mode opt,
+                 ::build2::build::cli::unknown_mode arg)
     : exact_ (),
       newline_ (),
       whitespace_ ()
     {
-      ::build2::script::cli::argv_scanner s (argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (argc, argv, erase);
       _parse (s, opt, arg);
     }
 
@@ -421,13 +219,13 @@ namespace build2
                  int& argc,
                  char** argv,
                  bool erase,
-                 ::build2::script::cli::unknown_mode opt,
-                 ::build2::script::cli::unknown_mode arg)
+                 ::build2::build::cli::unknown_mode opt,
+                 ::build2::build::cli::unknown_mode arg)
     : exact_ (),
       newline_ (),
       whitespace_ ()
     {
-      ::build2::script::cli::argv_scanner s (start, argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
       _parse (s, opt, arg);
     }
 
@@ -436,13 +234,13 @@ namespace build2
                  char** argv,
                  int& end,
                  bool erase,
-                 ::build2::script::cli::unknown_mode opt,
-                 ::build2::script::cli::unknown_mode arg)
+                 ::build2::build::cli::unknown_mode opt,
+                 ::build2::build::cli::unknown_mode arg)
     : exact_ (),
       newline_ (),
       whitespace_ ()
     {
-      ::build2::script::cli::argv_scanner s (argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (argc, argv, erase);
       _parse (s, opt, arg);
       end = s.end ();
     }
@@ -453,21 +251,21 @@ namespace build2
                  char** argv,
                  int& end,
                  bool erase,
-                 ::build2::script::cli::unknown_mode opt,
-                 ::build2::script::cli::unknown_mode arg)
+                 ::build2::build::cli::unknown_mode opt,
+                 ::build2::build::cli::unknown_mode arg)
     : exact_ (),
       newline_ (),
       whitespace_ ()
     {
-      ::build2::script::cli::argv_scanner s (start, argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
       _parse (s, opt, arg);
       end = s.end ();
     }
 
     set_options::
-    set_options (::build2::script::cli::scanner& s,
-                 ::build2::script::cli::unknown_mode opt,
-                 ::build2::script::cli::unknown_mode arg)
+    set_options (::build2::build::cli::scanner& s,
+                 ::build2::build::cli::unknown_mode opt,
+                 ::build2::build::cli::unknown_mode arg)
     : exact_ (),
       newline_ (),
       whitespace_ ()
@@ -476,7 +274,7 @@ namespace build2
     }
 
     typedef
-    std::map<std::string, void (*) (set_options&, ::build2::script::cli::scanner&)>
+    std::map<std::string, void (*) (set_options&, ::build2::build::cli::scanner&)>
     _cli_set_options_map;
 
     static _cli_set_options_map _cli_set_options_map_;
@@ -486,24 +284,24 @@ namespace build2
       _cli_set_options_map_init ()
       {
         _cli_set_options_map_["--exact"] =
-        &::build2::script::cli::thunk< set_options, bool, &set_options::exact_ >;
+        &::build2::build::cli::thunk< set_options, bool, &set_options::exact_ >;
         _cli_set_options_map_["-e"] =
-        &::build2::script::cli::thunk< set_options, bool, &set_options::exact_ >;
+        &::build2::build::cli::thunk< set_options, bool, &set_options::exact_ >;
         _cli_set_options_map_["--newline"] =
-        &::build2::script::cli::thunk< set_options, bool, &set_options::newline_ >;
+        &::build2::build::cli::thunk< set_options, bool, &set_options::newline_ >;
         _cli_set_options_map_["-n"] =
-        &::build2::script::cli::thunk< set_options, bool, &set_options::newline_ >;
+        &::build2::build::cli::thunk< set_options, bool, &set_options::newline_ >;
         _cli_set_options_map_["--whitespace"] =
-        &::build2::script::cli::thunk< set_options, bool, &set_options::whitespace_ >;
+        &::build2::build::cli::thunk< set_options, bool, &set_options::whitespace_ >;
         _cli_set_options_map_["-w"] =
-        &::build2::script::cli::thunk< set_options, bool, &set_options::whitespace_ >;
+        &::build2::build::cli::thunk< set_options, bool, &set_options::whitespace_ >;
       }
     };
 
     static _cli_set_options_map_init _cli_set_options_map_init_;
 
     bool set_options::
-    _parse (const char* o, ::build2::script::cli::scanner& s)
+    _parse (const char* o, ::build2::build::cli::scanner& s)
     {
       _cli_set_options_map::const_iterator i (_cli_set_options_map_.find (o));
 
@@ -517,13 +315,13 @@ namespace build2
     }
 
     bool set_options::
-    _parse (::build2::script::cli::scanner& s,
-            ::build2::script::cli::unknown_mode opt_mode,
-            ::build2::script::cli::unknown_mode arg_mode)
+    _parse (::build2::build::cli::scanner& s,
+            ::build2::build::cli::unknown_mode opt_mode,
+            ::build2::build::cli::unknown_mode arg_mode)
     {
       // Can't skip combined flags (--no-combined-flags).
       //
-      assert (opt_mode != ::build2::script::cli::unknown_mode::skip);
+      assert (opt_mode != ::build2::build::cli::unknown_mode::skip);
 
       bool r = false;
       bool opt = true;
@@ -565,14 +363,14 @@ namespace build2
                 const_cast<char*> (v)
               };
 
-              ::build2::script::cli::argv_scanner ns (0, ac, av);
+              ::build2::build::cli::argv_scanner ns (0, ac, av);
 
               if (_parse (co.c_str (), ns))
               {
                 // Parsed the option but not its value?
                 //
                 if (ns.end () != 2)
-                  throw ::build2::script::cli::invalid_value (co, v);
+                  throw ::build2::build::cli::invalid_value (co, v);
 
                 s.next ();
                 r = true;
@@ -613,7 +411,7 @@ namespace build2
                     cf
                   };
 
-                  ::build2::script::cli::argv_scanner ns (0, ac, av);
+                  ::build2::build::cli::argv_scanner ns (0, ac, av);
 
                   if (!_parse (cf, ns))
                     break;
@@ -638,19 +436,19 @@ namespace build2
 
             switch (opt_mode)
             {
-              case ::build2::script::cli::unknown_mode::skip:
+              case ::build2::build::cli::unknown_mode::skip:
               {
                 s.skip ();
                 r = true;
                 continue;
               }
-              case ::build2::script::cli::unknown_mode::stop:
+              case ::build2::build::cli::unknown_mode::stop:
               {
                 break;
               }
-              case ::build2::script::cli::unknown_mode::fail:
+              case ::build2::build::cli::unknown_mode::fail:
               {
-                throw ::build2::script::cli::unknown_option (o);
+                throw ::build2::build::cli::unknown_option (o);
               }
             }
 
@@ -660,19 +458,19 @@ namespace build2
 
         switch (arg_mode)
         {
-          case ::build2::script::cli::unknown_mode::skip:
+          case ::build2::build::cli::unknown_mode::skip:
           {
             s.skip ();
             r = true;
             continue;
           }
-          case ::build2::script::cli::unknown_mode::stop:
+          case ::build2::build::cli::unknown_mode::stop:
           {
             break;
           }
-          case ::build2::script::cli::unknown_mode::fail:
+          case ::build2::build::cli::unknown_mode::fail:
           {
-            throw ::build2::script::cli::unknown_argument (o);
+            throw ::build2::build::cli::unknown_argument (o);
           }
         }
 
@@ -695,11 +493,11 @@ namespace build2
     timeout_options (int& argc,
                      char** argv,
                      bool erase,
-                     ::build2::script::cli::unknown_mode opt,
-                     ::build2::script::cli::unknown_mode arg)
+                     ::build2::build::cli::unknown_mode opt,
+                     ::build2::build::cli::unknown_mode arg)
     : success_ ()
     {
-      ::build2::script::cli::argv_scanner s (argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (argc, argv, erase);
       _parse (s, opt, arg);
     }
 
@@ -708,11 +506,11 @@ namespace build2
                      int& argc,
                      char** argv,
                      bool erase,
-                     ::build2::script::cli::unknown_mode opt,
-                     ::build2::script::cli::unknown_mode arg)
+                     ::build2::build::cli::unknown_mode opt,
+                     ::build2::build::cli::unknown_mode arg)
     : success_ ()
     {
-      ::build2::script::cli::argv_scanner s (start, argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
       _parse (s, opt, arg);
     }
 
@@ -721,11 +519,11 @@ namespace build2
                      char** argv,
                      int& end,
                      bool erase,
-                     ::build2::script::cli::unknown_mode opt,
-                     ::build2::script::cli::unknown_mode arg)
+                     ::build2::build::cli::unknown_mode opt,
+                     ::build2::build::cli::unknown_mode arg)
     : success_ ()
     {
-      ::build2::script::cli::argv_scanner s (argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (argc, argv, erase);
       _parse (s, opt, arg);
       end = s.end ();
     }
@@ -736,26 +534,26 @@ namespace build2
                      char** argv,
                      int& end,
                      bool erase,
-                     ::build2::script::cli::unknown_mode opt,
-                     ::build2::script::cli::unknown_mode arg)
+                     ::build2::build::cli::unknown_mode opt,
+                     ::build2::build::cli::unknown_mode arg)
     : success_ ()
     {
-      ::build2::script::cli::argv_scanner s (start, argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
       _parse (s, opt, arg);
       end = s.end ();
     }
 
     timeout_options::
-    timeout_options (::build2::script::cli::scanner& s,
-                     ::build2::script::cli::unknown_mode opt,
-                     ::build2::script::cli::unknown_mode arg)
+    timeout_options (::build2::build::cli::scanner& s,
+                     ::build2::build::cli::unknown_mode opt,
+                     ::build2::build::cli::unknown_mode arg)
     : success_ ()
     {
       _parse (s, opt, arg);
     }
 
     typedef
-    std::map<std::string, void (*) (timeout_options&, ::build2::script::cli::scanner&)>
+    std::map<std::string, void (*) (timeout_options&, ::build2::build::cli::scanner&)>
     _cli_timeout_options_map;
 
     static _cli_timeout_options_map _cli_timeout_options_map_;
@@ -765,16 +563,16 @@ namespace build2
       _cli_timeout_options_map_init ()
       {
         _cli_timeout_options_map_["--success"] =
-        &::build2::script::cli::thunk< timeout_options, bool, &timeout_options::success_ >;
+        &::build2::build::cli::thunk< timeout_options, bool, &timeout_options::success_ >;
         _cli_timeout_options_map_["-s"] =
-        &::build2::script::cli::thunk< timeout_options, bool, &timeout_options::success_ >;
+        &::build2::build::cli::thunk< timeout_options, bool, &timeout_options::success_ >;
       }
     };
 
     static _cli_timeout_options_map_init _cli_timeout_options_map_init_;
 
     bool timeout_options::
-    _parse (const char* o, ::build2::script::cli::scanner& s)
+    _parse (const char* o, ::build2::build::cli::scanner& s)
     {
       _cli_timeout_options_map::const_iterator i (_cli_timeout_options_map_.find (o));
 
@@ -788,13 +586,13 @@ namespace build2
     }
 
     bool timeout_options::
-    _parse (::build2::script::cli::scanner& s,
-            ::build2::script::cli::unknown_mode opt_mode,
-            ::build2::script::cli::unknown_mode arg_mode)
+    _parse (::build2::build::cli::scanner& s,
+            ::build2::build::cli::unknown_mode opt_mode,
+            ::build2::build::cli::unknown_mode arg_mode)
     {
       // Can't skip combined flags (--no-combined-flags).
       //
-      assert (opt_mode != ::build2::script::cli::unknown_mode::skip);
+      assert (opt_mode != ::build2::build::cli::unknown_mode::skip);
 
       bool r = false;
       bool opt = true;
@@ -836,14 +634,14 @@ namespace build2
                 const_cast<char*> (v)
               };
 
-              ::build2::script::cli::argv_scanner ns (0, ac, av);
+              ::build2::build::cli::argv_scanner ns (0, ac, av);
 
               if (_parse (co.c_str (), ns))
               {
                 // Parsed the option but not its value?
                 //
                 if (ns.end () != 2)
-                  throw ::build2::script::cli::invalid_value (co, v);
+                  throw ::build2::build::cli::invalid_value (co, v);
 
                 s.next ();
                 r = true;
@@ -884,7 +682,7 @@ namespace build2
                     cf
                   };
 
-                  ::build2::script::cli::argv_scanner ns (0, ac, av);
+                  ::build2::build::cli::argv_scanner ns (0, ac, av);
 
                   if (!_parse (cf, ns))
                     break;
@@ -909,19 +707,19 @@ namespace build2
 
             switch (opt_mode)
             {
-              case ::build2::script::cli::unknown_mode::skip:
+              case ::build2::build::cli::unknown_mode::skip:
               {
                 s.skip ();
                 r = true;
                 continue;
               }
-              case ::build2::script::cli::unknown_mode::stop:
+              case ::build2::build::cli::unknown_mode::stop:
               {
                 break;
               }
-              case ::build2::script::cli::unknown_mode::fail:
+              case ::build2::build::cli::unknown_mode::fail:
               {
-                throw ::build2::script::cli::unknown_option (o);
+                throw ::build2::build::cli::unknown_option (o);
               }
             }
 
@@ -931,19 +729,19 @@ namespace build2
 
         switch (arg_mode)
         {
-          case ::build2::script::cli::unknown_mode::skip:
+          case ::build2::build::cli::unknown_mode::skip:
           {
             s.skip ();
             r = true;
             continue;
           }
-          case ::build2::script::cli::unknown_mode::stop:
+          case ::build2::build::cli::unknown_mode::stop:
           {
             break;
           }
-          case ::build2::script::cli::unknown_mode::fail:
+          case ::build2::build::cli::unknown_mode::fail:
           {
-            throw ::build2::script::cli::unknown_argument (o);
+            throw ::build2::build::cli::unknown_argument (o);
           }
         }
 
@@ -969,14 +767,14 @@ namespace build2
     export_options (int& argc,
                     char** argv,
                     bool erase,
-                    ::build2::script::cli::unknown_mode opt,
-                    ::build2::script::cli::unknown_mode arg)
+                    ::build2::build::cli::unknown_mode opt,
+                    ::build2::build::cli::unknown_mode arg)
     : unset_ (),
       unset_specified_ (false),
       clear_ (),
       clear_specified_ (false)
     {
-      ::build2::script::cli::argv_scanner s (argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (argc, argv, erase);
       _parse (s, opt, arg);
     }
 
@@ -985,14 +783,14 @@ namespace build2
                     int& argc,
                     char** argv,
                     bool erase,
-                    ::build2::script::cli::unknown_mode opt,
-                    ::build2::script::cli::unknown_mode arg)
+                    ::build2::build::cli::unknown_mode opt,
+                    ::build2::build::cli::unknown_mode arg)
     : unset_ (),
       unset_specified_ (false),
       clear_ (),
       clear_specified_ (false)
     {
-      ::build2::script::cli::argv_scanner s (start, argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
       _parse (s, opt, arg);
     }
 
@@ -1001,14 +799,14 @@ namespace build2
                     char** argv,
                     int& end,
                     bool erase,
-                    ::build2::script::cli::unknown_mode opt,
-                    ::build2::script::cli::unknown_mode arg)
+                    ::build2::build::cli::unknown_mode opt,
+                    ::build2::build::cli::unknown_mode arg)
     : unset_ (),
       unset_specified_ (false),
       clear_ (),
       clear_specified_ (false)
     {
-      ::build2::script::cli::argv_scanner s (argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (argc, argv, erase);
       _parse (s, opt, arg);
       end = s.end ();
     }
@@ -1019,22 +817,22 @@ namespace build2
                     char** argv,
                     int& end,
                     bool erase,
-                    ::build2::script::cli::unknown_mode opt,
-                    ::build2::script::cli::unknown_mode arg)
+                    ::build2::build::cli::unknown_mode opt,
+                    ::build2::build::cli::unknown_mode arg)
     : unset_ (),
       unset_specified_ (false),
       clear_ (),
       clear_specified_ (false)
     {
-      ::build2::script::cli::argv_scanner s (start, argc, argv, erase);
+      ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
       _parse (s, opt, arg);
       end = s.end ();
     }
 
     export_options::
-    export_options (::build2::script::cli::scanner& s,
-                    ::build2::script::cli::unknown_mode opt,
-                    ::build2::script::cli::unknown_mode arg)
+    export_options (::build2::build::cli::scanner& s,
+                    ::build2::build::cli::unknown_mode opt,
+                    ::build2::build::cli::unknown_mode arg)
     : unset_ (),
       unset_specified_ (false),
       clear_ (),
@@ -1044,7 +842,7 @@ namespace build2
     }
 
     typedef
-    std::map<std::string, void (*) (export_options&, ::build2::script::cli::scanner&)>
+    std::map<std::string, void (*) (export_options&, ::build2::build::cli::scanner&)>
     _cli_export_options_map;
 
     static _cli_export_options_map _cli_export_options_map_;
@@ -1054,16 +852,16 @@ namespace build2
       _cli_export_options_map_init ()
       {
         _cli_export_options_map_["--unset"] =
-        &::build2::script::cli::thunk< export_options, vector<string>, &export_options::unset_,
+        &::build2::build::cli::thunk< export_options, vector<string>, &export_options::unset_,
           &export_options::unset_specified_ >;
         _cli_export_options_map_["-u"] =
-        &::build2::script::cli::thunk< export_options, vector<string>, &export_options::unset_,
+        &::build2::build::cli::thunk< export_options, vector<string>, &export_options::unset_,
           &export_options::unset_specified_ >;
         _cli_export_options_map_["--clear"] =
-        &::build2::script::cli::thunk< export_options, vector<string>, &export_options::clear_,
+        &::build2::build::cli::thunk< export_options, vector<string>, &export_options::clear_,
           &export_options::clear_specified_ >;
         _cli_export_options_map_["-c"] =
-        &::build2::script::cli::thunk< export_options, vector<string>, &export_options::clear_,
+        &::build2::build::cli::thunk< export_options, vector<string>, &export_options::clear_,
           &export_options::clear_specified_ >;
       }
     };
@@ -1071,7 +869,7 @@ namespace build2
     static _cli_export_options_map_init _cli_export_options_map_init_;
 
     bool export_options::
-    _parse (const char* o, ::build2::script::cli::scanner& s)
+    _parse (const char* o, ::build2::build::cli::scanner& s)
     {
       _cli_export_options_map::const_iterator i (_cli_export_options_map_.find (o));
 
@@ -1085,13 +883,13 @@ namespace build2
     }
 
     bool export_options::
-    _parse (::build2::script::cli::scanner& s,
-            ::build2::script::cli::unknown_mode opt_mode,
-            ::build2::script::cli::unknown_mode arg_mode)
+    _parse (::build2::build::cli::scanner& s,
+            ::build2::build::cli::unknown_mode opt_mode,
+            ::build2::build::cli::unknown_mode arg_mode)
     {
       // Can't skip combined flags (--no-combined-flags).
       //
-      assert (opt_mode != ::build2::script::cli::unknown_mode::skip);
+      assert (opt_mode != ::build2::build::cli::unknown_mode::skip);
 
       bool r = false;
       bool opt = true;
@@ -1133,14 +931,14 @@ namespace build2
                 const_cast<char*> (v)
               };
 
-              ::build2::script::cli::argv_scanner ns (0, ac, av);
+              ::build2::build::cli::argv_scanner ns (0, ac, av);
 
               if (_parse (co.c_str (), ns))
               {
                 // Parsed the option but not its value?
                 //
                 if (ns.end () != 2)
-                  throw ::build2::script::cli::invalid_value (co, v);
+                  throw ::build2::build::cli::invalid_value (co, v);
 
                 s.next ();
                 r = true;
@@ -1181,7 +979,7 @@ namespace build2
                     cf
                   };
 
-                  ::build2::script::cli::argv_scanner ns (0, ac, av);
+                  ::build2::build::cli::argv_scanner ns (0, ac, av);
 
                   if (!_parse (cf, ns))
                     break;
@@ -1206,19 +1004,19 @@ namespace build2
 
             switch (opt_mode)
             {
-              case ::build2::script::cli::unknown_mode::skip:
+              case ::build2::build::cli::unknown_mode::skip:
               {
                 s.skip ();
                 r = true;
                 continue;
               }
-              case ::build2::script::cli::unknown_mode::stop:
+              case ::build2::build::cli::unknown_mode::stop:
               {
                 break;
               }
-              case ::build2::script::cli::unknown_mode::fail:
+              case ::build2::build::cli::unknown_mode::fail:
               {
-                throw ::build2::script::cli::unknown_option (o);
+                throw ::build2::build::cli::unknown_option (o);
               }
             }
 
@@ -1228,19 +1026,19 @@ namespace build2
 
         switch (arg_mode)
         {
-          case ::build2::script::cli::unknown_mode::skip:
+          case ::build2::build::cli::unknown_mode::skip:
           {
             s.skip ();
             r = true;
             continue;
           }
-          case ::build2::script::cli::unknown_mode::stop:
+          case ::build2::build::cli::unknown_mode::stop:
           {
             break;
           }
-          case ::build2::script::cli::unknown_mode::fail:
+          case ::build2::build::cli::unknown_mode::fail:
           {
-            throw ::build2::script::cli::unknown_argument (o);
+            throw ::build2::build::cli::unknown_argument (o);
           }
         }
 

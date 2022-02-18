@@ -3,6 +3,8 @@
 
 include <libbuild2/types.hxx>;
 
+include <libbuild2/common.cli>;
+
 // Note that options in this file are undocumented because we generate neither
 // the usage printing code nor man pages. Instead, they are documented in the
 // Testscript Language Manual's builtin descriptions.

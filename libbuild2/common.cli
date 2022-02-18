@@ -1,0 +1,6 @@
+// file      : libbuild2/common.cli
+// license   : MIT; see accompanying LICENSE file
+
+namespace build2
+{
+}

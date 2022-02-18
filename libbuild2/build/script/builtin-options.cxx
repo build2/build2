@@ -6,7 +6,7 @@
 
 // Begin prologue.
 //
-#include <libbuild2/build/script/types-parsers.hxx>
+#include <libbuild2/types-parsers.hxx>
 //
 // End prologue.
 
@@ -24,365 +24,160 @@ namespace build2
 {
   namespace build
   {
-    namespace script
+    namespace cli
     {
-      namespace cli
+      template <typename X>
+      struct parser
       {
-        // unknown_option
-        //
-        unknown_option::
-        ~unknown_option () throw ()
+        static void
+        parse (X& x, bool& xs, scanner& s)
         {
-        }
+          using namespace std;
 
-        void unknown_option::
-        print (::std::ostream& os) const
-        {
-          os << "unknown option '" << option ().c_str () << "'";
-        }
-
-        const char* unknown_option::
-        what () const throw ()
-        {
-          return "unknown option";
-        }
-
-        // unknown_argument
-        //
-        unknown_argument::
-        ~unknown_argument () throw ()
-        {
-        }
-
-        void unknown_argument::
-        print (::std::ostream& os) const
-        {
-          os << "unknown argument '" << argument ().c_str () << "'";
-        }
-
-        const char* unknown_argument::
-        what () const throw ()
-        {
-          return "unknown argument";
-        }
-
-        // missing_value
-        //
-        missing_value::
-        ~missing_value () throw ()
-        {
-        }
-
-        void missing_value::
-        print (::std::ostream& os) const
-        {
-          os << "missing value for option '" << option ().c_str () << "'";
-        }
-
-        const char* missing_value::
-        what () const throw ()
-        {
-          return "missing option value";
-        }
-
-        // invalid_value
-        //
-        invalid_value::
-        ~invalid_value () throw ()
-        {
-        }
-
-        void invalid_value::
-        print (::std::ostream& os) const
-        {
-          os << "invalid value '" << value ().c_str () << "' for option '"
-             << option ().c_str () << "'";
-
-          if (!message ().empty ())
-            os << ": " << message ().c_str ();
-        }
-
-        const char* invalid_value::
-        what () const throw ()
-        {
-          return "invalid option value";
-        }
-
-        // eos_reached
-        //
-        void eos_reached::
-        print (::std::ostream& os) const
-        {
-          os << what ();
-        }
-
-        const char* eos_reached::
-        what () const throw ()
-        {
-          return "end of argument stream reached";
-        }
-
-        // scanner
-        //
-        scanner::
-        ~scanner ()
-        {
-        }
-
-        // argv_scanner
-        //
-        bool argv_scanner::
-        more ()
-        {
-          return i_ < argc_;
-        }
-
-        const char* argv_scanner::
-        peek ()
-        {
-          if (i_ < argc_)
-            return argv_[i_];
-          else
-            throw eos_reached ();
-        }
-
-        const char* argv_scanner::
-        next ()
-        {
-          if (i_ < argc_)
+          const char* o (s.next ());
+          if (s.more ())
           {
-            const char* r (argv_[i_]);
+            string v (s.next ());
+            istringstream is (v);
+            if (!(is >> x && is.peek () == istringstream::traits_type::eof ()))
+              throw invalid_value (o, v);
+          }
+          else
+            throw missing_value (o);
 
-            if (erase_)
+          xs = true;
+        }
+      };
+
+      template <>
+      struct parser<bool>
+      {
+        static void
+        parse (bool& x, scanner& s)
+        {
+          s.next ();
+          x = true;
+        }
+      };
+
+      template <>
+      struct parser<std::string>
+      {
+        static void
+        parse (std::string& x, bool& xs, scanner& s)
+        {
+          const char* o (s.next ());
+
+          if (s.more ())
+            x = s.next ();
+          else
+            throw missing_value (o);
+
+          xs = true;
+        }
+      };
+
+      template <typename X>
+      struct parser<std::pair<X, std::size_t> >
+      {
+        static void
+        parse (std::pair<X, std::size_t>& x, bool& xs, scanner& s)
+        {
+          x.second = s.position ();
+          parser<X>::parse (x.first, xs, s);
+        }
+      };
+
+      template <typename X>
+      struct parser<std::vector<X> >
+      {
+        static void
+        parse (std::vector<X>& c, bool& xs, scanner& s)
+        {
+          X x;
+          bool dummy;
+          parser<X>::parse (x, dummy, s);
+          c.push_back (x);
+          xs = true;
+        }
+      };
+
+      template <typename X, typename C>
+      struct parser<std::set<X, C> >
+      {
+        static void
+        parse (std::set<X, C>& c, bool& xs, scanner& s)
+        {
+          X x;
+          bool dummy;
+          parser<X>::parse (x, dummy, s);
+          c.insert (x);
+          xs = true;
+        }
+      };
+
+      template <typename K, typename V, typename C>
+      struct parser<std::map<K, V, C> >
+      {
+        static void
+        parse (std::map<K, V, C>& m, bool& xs, scanner& s)
+        {
+          const char* o (s.next ());
+
+          if (s.more ())
+          {
+            std::size_t pos (s.position ());
+            std::string ov (s.next ());
+            std::string::size_type p = ov.find ('=');
+
+            K k = K ();
+            V v = V ();
+            std::string kstr (ov, 0, p);
+            std::string vstr (ov, (p != std::string::npos ? p + 1 : ov.size ()));
+
+            int ac (2);
+            char* av[] =
             {
-              for (int i (i_ + 1); i < argc_; ++i)
-                argv_[i - 1] = argv_[i];
+              const_cast<char*> (o),
+              0
+            };
 
-              --argc_;
-              argv_[argc_] = 0;
-            }
-            else
-              ++i_;
-
-            ++start_position_;
-            return r;
-          }
-          else
-            throw eos_reached ();
-        }
-
-        void argv_scanner::
-        skip ()
-        {
-          if (i_ < argc_)
-          {
-            ++i_;
-            ++start_position_;
-          }
-          else
-            throw eos_reached ();
-        }
-
-        std::size_t argv_scanner::
-        position ()
-        {
-          return start_position_;
-        }
-
-        // vector_scanner
-        //
-        bool vector_scanner::
-        more ()
-        {
-          return i_ < v_.size ();
-        }
-
-        const char* vector_scanner::
-        peek ()
-        {
-          if (i_ < v_.size ())
-            return v_[i_].c_str ();
-          else
-            throw eos_reached ();
-        }
-
-        const char* vector_scanner::
-        next ()
-        {
-          if (i_ < v_.size ())
-            return v_[i_++].c_str ();
-          else
-            throw eos_reached ();
-        }
-
-        void vector_scanner::
-        skip ()
-        {
-          if (i_ < v_.size ())
-            ++i_;
-          else
-            throw eos_reached ();
-        }
-
-        std::size_t vector_scanner::
-        position ()
-        {
-          return start_position_ + i_;
-        }
-
-        template <typename X>
-        struct parser
-        {
-          static void
-          parse (X& x, bool& xs, scanner& s)
-          {
-            using namespace std;
-
-            const char* o (s.next ());
-            if (s.more ())
-            {
-              string v (s.next ());
-              istringstream is (v);
-              if (!(is >> x && is.peek () == istringstream::traits_type::eof ()))
-                throw invalid_value (o, v);
-            }
-            else
-              throw missing_value (o);
-
-            xs = true;
-          }
-        };
-
-        template <>
-        struct parser<bool>
-        {
-          static void
-          parse (bool& x, scanner& s)
-          {
-            s.next ();
-            x = true;
-          }
-        };
-
-        template <>
-        struct parser<std::string>
-        {
-          static void
-          parse (std::string& x, bool& xs, scanner& s)
-          {
-            const char* o (s.next ());
-
-            if (s.more ())
-              x = s.next ();
-            else
-              throw missing_value (o);
-
-            xs = true;
-          }
-        };
-
-        template <typename X>
-        struct parser<std::pair<X, std::size_t> >
-        {
-          static void
-          parse (std::pair<X, std::size_t>& x, bool& xs, scanner& s)
-          {
-            x.second = s.position ();
-            parser<X>::parse (x.first, xs, s);
-          }
-        };
-
-        template <typename X>
-        struct parser<std::vector<X> >
-        {
-          static void
-          parse (std::vector<X>& c, bool& xs, scanner& s)
-          {
-            X x;
             bool dummy;
-            parser<X>::parse (x, dummy, s);
-            c.push_back (x);
-            xs = true;
-          }
-        };
-
-        template <typename X, typename C>
-        struct parser<std::set<X, C> >
-        {
-          static void
-          parse (std::set<X, C>& c, bool& xs, scanner& s)
-          {
-            X x;
-            bool dummy;
-            parser<X>::parse (x, dummy, s);
-            c.insert (x);
-            xs = true;
-          }
-        };
-
-        template <typename K, typename V, typename C>
-        struct parser<std::map<K, V, C> >
-        {
-          static void
-          parse (std::map<K, V, C>& m, bool& xs, scanner& s)
-          {
-            const char* o (s.next ());
-
-            if (s.more ())
+            if (!kstr.empty ())
             {
-              std::size_t pos (s.position ());
-              std::string ov (s.next ());
-              std::string::size_type p = ov.find ('=');
-
-              K k = K ();
-              V v = V ();
-              std::string kstr (ov, 0, p);
-              std::string vstr (ov, (p != std::string::npos ? p + 1 : ov.size ()));
-
-              int ac (2);
-              char* av[] =
-              {
-                const_cast<char*> (o),
-                0
-              };
-
-              bool dummy;
-              if (!kstr.empty ())
-              {
-                av[1] = const_cast<char*> (kstr.c_str ());
-                argv_scanner s (0, ac, av, false, pos);
-                parser<K>::parse (k, dummy, s);
-              }
-
-              if (!vstr.empty ())
-              {
-                av[1] = const_cast<char*> (vstr.c_str ());
-                argv_scanner s (0, ac, av, false, pos);
-                parser<V>::parse (v, dummy, s);
-              }
-
-              m[k] = v;
+              av[1] = const_cast<char*> (kstr.c_str ());
+              argv_scanner s (0, ac, av, false, pos);
+              parser<K>::parse (k, dummy, s);
             }
-            else
-              throw missing_value (o);
 
-            xs = true;
+            if (!vstr.empty ())
+            {
+              av[1] = const_cast<char*> (vstr.c_str ());
+              argv_scanner s (0, ac, av, false, pos);
+              parser<V>::parse (v, dummy, s);
+            }
+
+            m[k] = v;
           }
-        };
+          else
+            throw missing_value (o);
 
-        template <typename X, typename T, T X::*M>
-        void
-        thunk (X& x, scanner& s)
-        {
-          parser<T>::parse (x.*M, s);
+          xs = true;
         }
+      };
 
-        template <typename X, typename T, T X::*M, bool X::*S>
-        void
-        thunk (X& x, scanner& s)
-        {
-          parser<T>::parse (x.*M, x.*S, s);
-        }
+      template <typename X, typename T, T X::*M>
+      void
+      thunk (X& x, scanner& s)
+      {
+        parser<T>::parse (x.*M, s);
+      }
+
+      template <typename X, typename T, T X::*M, bool X::*S>
+      void
+      thunk (X& x, scanner& s)
+      {
+        parser<T>::parse (x.*M, x.*S, s);
       }
     }
   }
@@ -423,10 +218,10 @@ namespace build2
       parse (int& argc,
              char** argv,
              bool erase,
-             ::build2::build::script::cli::unknown_mode opt,
-             ::build2::build::script::cli::unknown_mode arg)
+             ::build2::build::cli::unknown_mode opt,
+             ::build2::build::cli::unknown_mode arg)
       {
-        ::build2::build::script::cli::argv_scanner s (argc, argv, erase);
+        ::build2::build::cli::argv_scanner s (argc, argv, erase);
         bool r = _parse (s, opt, arg);
         return r;
       }
@@ -436,10 +231,10 @@ namespace build2
              int& argc,
              char** argv,
              bool erase,
-             ::build2::build::script::cli::unknown_mode opt,
-             ::build2::build::script::cli::unknown_mode arg)
+             ::build2::build::cli::unknown_mode opt,
+             ::build2::build::cli::unknown_mode arg)
       {
-        ::build2::build::script::cli::argv_scanner s (start, argc, argv, erase);
+        ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
         bool r = _parse (s, opt, arg);
         return r;
       }
@@ -449,10 +244,10 @@ namespace build2
              char** argv,
              int& end,
              bool erase,
-             ::build2::build::script::cli::unknown_mode opt,
-             ::build2::build::script::cli::unknown_mode arg)
+             ::build2::build::cli::unknown_mode opt,
+             ::build2::build::cli::unknown_mode arg)
       {
-        ::build2::build::script::cli::argv_scanner s (argc, argv, erase);
+        ::build2::build::cli::argv_scanner s (argc, argv, erase);
         bool r = _parse (s, opt, arg);
         end = s.end ();
         return r;
@@ -464,26 +259,26 @@ namespace build2
              char** argv,
              int& end,
              bool erase,
-             ::build2::build::script::cli::unknown_mode opt,
-             ::build2::build::script::cli::unknown_mode arg)
+             ::build2::build::cli::unknown_mode opt,
+             ::build2::build::cli::unknown_mode arg)
       {
-        ::build2::build::script::cli::argv_scanner s (start, argc, argv, erase);
+        ::build2::build::cli::argv_scanner s (start, argc, argv, erase);
         bool r = _parse (s, opt, arg);
         end = s.end ();
         return r;
       }
 
       bool depdb_dyndep_options::
-      parse (::build2::build::script::cli::scanner& s,
-             ::build2::build::script::cli::unknown_mode opt,
-             ::build2::build::script::cli::unknown_mode arg)
+      parse (::build2::build::cli::scanner& s,
+             ::build2::build::cli::unknown_mode opt,
+             ::build2::build::cli::unknown_mode arg)
       {
         bool r = _parse (s, opt, arg);
         return r;
       }
 
       typedef
-      std::map<std::string, void (*) (depdb_dyndep_options&, ::build2::build::script::cli::scanner&)>
+      std::map<std::string, void (*) (depdb_dyndep_options&, ::build2::build::cli::scanner&)>
       _cli_depdb_dyndep_options_map;
 
       static _cli_depdb_dyndep_options_map _cli_depdb_dyndep_options_map_;
@@ -493,37 +288,37 @@ namespace build2
         _cli_depdb_dyndep_options_map_init ()
         {
           _cli_depdb_dyndep_options_map_["--file"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, path, &depdb_dyndep_options::file_,
+          &::build2::build::cli::thunk< depdb_dyndep_options, path, &depdb_dyndep_options::file_,
             &depdb_dyndep_options::file_specified_ >;
           _cli_depdb_dyndep_options_map_["--format"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::format_,
+          &::build2::build::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::format_,
             &depdb_dyndep_options::format_specified_ >;
           _cli_depdb_dyndep_options_map_["--what"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::what_,
+          &::build2::build::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::what_,
             &depdb_dyndep_options::what_specified_ >;
           _cli_depdb_dyndep_options_map_["--include-path"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, dir_paths, &depdb_dyndep_options::include_path_,
+          &::build2::build::cli::thunk< depdb_dyndep_options, dir_paths, &depdb_dyndep_options::include_path_,
             &depdb_dyndep_options::include_path_specified_ >;
           _cli_depdb_dyndep_options_map_["-I"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, dir_paths, &depdb_dyndep_options::include_path_,
+          &::build2::build::cli::thunk< depdb_dyndep_options, dir_paths, &depdb_dyndep_options::include_path_,
             &depdb_dyndep_options::include_path_specified_ >;
           _cli_depdb_dyndep_options_map_["--default-type"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::default_type_,
+          &::build2::build::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::default_type_,
             &depdb_dyndep_options::default_type_specified_ >;
           _cli_depdb_dyndep_options_map_["--adhoc"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, bool, &depdb_dyndep_options::adhoc_ >;
+          &::build2::build::cli::thunk< depdb_dyndep_options, bool, &depdb_dyndep_options::adhoc_ >;
           _cli_depdb_dyndep_options_map_["--cwd"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, dir_path, &depdb_dyndep_options::cwd_,
+          &::build2::build::cli::thunk< depdb_dyndep_options, dir_path, &depdb_dyndep_options::cwd_,
             &depdb_dyndep_options::cwd_specified_ >;
           _cli_depdb_dyndep_options_map_["--drop-cycles"] =
-          &::build2::build::script::cli::thunk< depdb_dyndep_options, bool, &depdb_dyndep_options::drop_cycles_ >;
+          &::build2::build::cli::thunk< depdb_dyndep_options, bool, &depdb_dyndep_options::drop_cycles_ >;
         }
       };
 
       static _cli_depdb_dyndep_options_map_init _cli_depdb_dyndep_options_map_init_;
 
       bool depdb_dyndep_options::
-      _parse (const char* o, ::build2::build::script::cli::scanner& s)
+      _parse (const char* o, ::build2::build::cli::scanner& s)
       {
         _cli_depdb_dyndep_options_map::const_iterator i (_cli_depdb_dyndep_options_map_.find (o));
 
@@ -537,13 +332,13 @@ namespace build2
       }
 
       bool depdb_dyndep_options::
-      _parse (::build2::build::script::cli::scanner& s,
-              ::build2::build::script::cli::unknown_mode opt_mode,
-              ::build2::build::script::cli::unknown_mode arg_mode)
+      _parse (::build2::build::cli::scanner& s,
+              ::build2::build::cli::unknown_mode opt_mode,
+              ::build2::build::cli::unknown_mode arg_mode)
       {
         // Can't skip combined flags (--no-combined-flags).
         //
-        assert (opt_mode != ::build2::build::script::cli::unknown_mode::skip);
+        assert (opt_mode != ::build2::build::cli::unknown_mode::skip);
 
         bool r = false;
         bool opt = true;
@@ -585,14 +380,14 @@ namespace build2
                   const_cast<char*> (v)
                 };
 
-                ::build2::build::script::cli::argv_scanner ns (0, ac, av);
+                ::build2::build::cli::argv_scanner ns (0, ac, av);
 
                 if (_parse (co.c_str (), ns))
                 {
                   // Parsed the option but not its value?
                   //
                   if (ns.end () != 2)
-                    throw ::build2::build::script::cli::invalid_value (co, v);
+                    throw ::build2::build::cli::invalid_value (co, v);
 
                   s.next ();
                   r = true;
@@ -633,7 +428,7 @@ namespace build2
                       cf
                     };
 
-                    ::build2::build::script::cli::argv_scanner ns (0, ac, av);
+                    ::build2::build::cli::argv_scanner ns (0, ac, av);
 
                     if (!_parse (cf, ns))
                       break;
@@ -658,19 +453,19 @@ namespace build2
 
               switch (opt_mode)
               {
-                case ::build2::build::script::cli::unknown_mode::skip:
+                case ::build2::build::cli::unknown_mode::skip:
                 {
                   s.skip ();
                   r = true;
                   continue;
                 }
-                case ::build2::build::script::cli::unknown_mode::stop:
+                case ::build2::build::cli::unknown_mode::stop:
                 {
                   break;
                 }
-                case ::build2::build::script::cli::unknown_mode::fail:
+                case ::build2::build::cli::unknown_mode::fail:
                 {
-                  throw ::build2::build::script::cli::unknown_option (o);
+                  throw ::build2::build::cli::unknown_option (o);
                 }
               }
 
@@ -680,19 +475,19 @@ namespace build2
 
           switch (arg_mode)
           {
-            case ::build2::build::script::cli::unknown_mode::skip:
+            case ::build2::build::cli::unknown_mode::skip:
             {
               s.skip ();
               r = true;
               continue;
             }
-            case ::build2::build::script::cli::unknown_mode::stop:
+            case ::build2::build::cli::unknown_mode::stop:
             {
               break;
             }
-            case ::build2::build::script::cli::unknown_mode::fail:
+            case ::build2::build::cli::unknown_mode::fail:
             {
-              throw ::build2::build::script::cli::unknown_argument (o);
+              throw ::build2::build::cli::unknown_argument (o);
             }
           }
 

@@ -26,6 +26,8 @@
 using namespace std;
 using namespace butl;
 
+namespace cli = build2::build::cli;
+
 namespace build2
 {
   namespace script

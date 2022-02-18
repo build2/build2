@@ -12,284 +12,9 @@
 //
 // End prologue.
 
-#include <vector>
-#include <iosfwd>
-#include <string>
-#include <cstddef>
-#include <exception>
-
-#ifndef CLI_POTENTIALLY_UNUSED
-#  if defined(_MSC_VER) || defined(__xlC__)
-#    define CLI_POTENTIALLY_UNUSED(x) (void*)&x
-#  else
-#    define CLI_POTENTIALLY_UNUSED(x) (void)x
-#  endif
-#endif
-
-namespace build2
-{
-  namespace build
-  {
-    namespace script
-    {
-      namespace cli
-      {
-        class unknown_mode
-        {
-          public:
-          enum value
-          {
-            skip,
-            stop,
-            fail
-          };
-
-          unknown_mode (value);
-
-          operator value () const 
-          {
-            return v_;
-          }
-
-          private:
-          value v_;
-        };
-
-        // Exceptions.
-        //
-
-        class exception: public std::exception
-        {
-          public:
-          virtual void
-          print (::std::ostream&) const = 0;
-        };
-
-        ::std::ostream&
-        operator<< (::std::ostream&, const exception&);
-
-        class unknown_option: public exception
-        {
-          public:
-          virtual
-          ~unknown_option () throw ();
-
-          unknown_option (const std::string& option);
-
-          const std::string&
-          option () const;
-
-          virtual void
-          print (::std::ostream&) const;
-
-          virtual const char*
-          what () const throw ();
-
-          private:
-          std::string option_;
-        };
-
-        class unknown_argument: public exception
-        {
-          public:
-          virtual
-          ~unknown_argument () throw ();
-
-          unknown_argument (const std::string& argument);
-
-          const std::string&
-          argument () const;
-
-          virtual void
-          print (::std::ostream&) const;
-
-          virtual const char*
-          what () const throw ();
-
-          private:
-          std::string argument_;
-        };
-
-        class missing_value: public exception
-        {
-          public:
-          virtual
-          ~missing_value () throw ();
-
-          missing_value (const std::string& option);
-
-          const std::string&
-          option () const;
-
-          virtual void
-          print (::std::ostream&) const;
-
-          virtual const char*
-          what () const throw ();
-
-          private:
-          std::string option_;
-        };
-
-        class invalid_value: public exception
-        {
-          public:
-          virtual
-          ~invalid_value () throw ();
-
-          invalid_value (const std::string& option,
-                         const std::string& value,
-                         const std::string& message = std::string ());
-
-          const std::string&
-          option () const;
-
-          const std::string&
-          value () const;
-
-          const std::string&
-          message () const;
-
-          virtual void
-          print (::std::ostream&) const;
-
-          virtual const char*
-          what () const throw ();
-
-          private:
-          std::string option_;
-          std::string value_;
-          std::string message_;
-        };
-
-        class eos_reached: public exception
-        {
-          public:
-          virtual void
-          print (::std::ostream&) const;
-
-          virtual const char*
-          what () const throw ();
-        };
-
-        // Command line argument scanner interface.
-        //
-        // The values returned by next() are guaranteed to be valid
-        // for the two previous arguments up until a call to a third
-        // peek() or next().
-        //
-        // The position() function returns a monotonically-increasing
-        // number which, if stored, can later be used to determine the
-        // relative position of the argument returned by the following
-        // call to next(). Note that if multiple scanners are used to
-        // extract arguments from multiple sources, then the end
-        // position of the previous scanner should be used as the
-        // start position of the next.
-        //
-        class scanner
-        {
-          public:
-          virtual
-          ~scanner ();
-
-          virtual bool
-          more () = 0;
-
-          virtual const char*
-          peek () = 0;
-
-          virtual const char*
-          next () = 0;
-
-          virtual void
-          skip () = 0;
-
-          virtual std::size_t
-          position () = 0;
-        };
-
-        class argv_scanner: public scanner
-        {
-          public:
-          argv_scanner (int& argc,
-                        char** argv,
-                        bool erase = false,
-                        std::size_t start_position = 0);
-
-          argv_scanner (int start,
-                        int& argc,
-                        char** argv,
-                        bool erase = false,
-                        std::size_t start_position = 0);
-
-          int
-          end () const;
-
-          virtual bool
-          more ();
-
-          virtual const char*
-          peek ();
-
-          virtual const char*
-          next ();
-
-          virtual void
-          skip ();
-
-          virtual std::size_t
-          position ();
-
-          protected:
-          std::size_t start_position_;
-          int i_;
-          int& argc_;
-          char** argv_;
-          bool erase_;
-        };
-
-        class vector_scanner: public scanner
-        {
-          public:
-          vector_scanner (const std::vector<std::string>&,
-                          std::size_t start = 0,
-                          std::size_t start_position = 0);
-
-          std::size_t
-          end () const;
-
-          void
-          reset (std::size_t start = 0, std::size_t start_position = 0);
-
-          virtual bool
-          more ();
-
-          virtual const char*
-          peek ();
-
-          virtual const char*
-          next ();
-
-          virtual void
-          skip ();
-
-          virtual std::size_t
-          position ();
-
-          private:
-          std::size_t start_position_;
-          const std::vector<std::string>& v_;
-          std::size_t i_;
-        };
-
-        template <typename X>
-        struct parser;
-      }
-    }
-  }
-}
-
 #include <libbuild2/types.hxx>
+
+#include <libbuild2/common-options.hxx>
 
 namespace build2
 {
@@ -308,24 +33,24 @@ namespace build2
         parse (int& argc,
                char** argv,
                bool erase = false,
-               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+               ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+               ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
 
         bool
         parse (int start,
                int& argc,
                char** argv,
                bool erase = false,
-               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+               ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+               ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
 
         bool
         parse (int& argc,
                char** argv,
                int& end,
                bool erase = false,
-               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+               ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+               ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
 
         bool
         parse (int start,
@@ -333,13 +58,13 @@ namespace build2
                char** argv,
                int& end,
                bool erase = false,
-               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+               ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+               ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
 
         bool
-        parse (::build2::build::script::cli::scanner&,
-               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+        parse (::build2::build::cli::scanner&,
+               ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+               ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
 
         // Option accessors and modifiers.
         //
@@ -455,13 +180,13 @@ namespace build2
         //
         protected:
         bool
-        _parse (const char*, ::build2::build::script::cli::scanner&);
+        _parse (const char*, ::build2::build::cli::scanner&);
 
         private:
         bool
-        _parse (::build2::build::script::cli::scanner&,
-                ::build2::build::script::cli::unknown_mode option,
-                ::build2::build::script::cli::unknown_mode argument);
+        _parse (::build2::build::cli::scanner&,
+                ::build2::build::cli::unknown_mode option,
+                ::build2::build::cli::unknown_mode argument);
 
         public:
         path file_;

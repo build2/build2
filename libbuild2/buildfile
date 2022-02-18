@@ -27,10 +27,12 @@ intf_libs = $libbutl
 
 lib{build2}: libul{build2}:               \
   {hxx ixx txx cxx}{* -utility-*installed \
+                      -common-options     \
                       -b-options          \
                       -config             \
                       -version            \
                       -*.test...}         \
+  {hxx ixx cxx}{common-options}           \
   {hxx ixx cxx}{b-options}                \
   {hxx}{config version}
 
@@ -232,7 +234,7 @@ else
 if $cli.configured
 {
   cli.options += --std c++11 -I $src_root --include-with-brackets \
---generate-specifier
+--cli-namespace build2::build::cli --generate-specifier
 
   cli.cxx{*}:
   {
@@ -249,14 +251,21 @@ if $cli.configured
     backlink = overwrite
   }
 
+  cli.cxx{common-options}: cli{common}
+  {
+    cli.options += --include-prefix libbuild2 --guard-prefix LIBBUILD2 \
+--export-symbol LIBBUILD2_SYMEXPORT \
+--hxx-prologue '#include <libbuild2/export.hxx>' \
+--generate-file-scanner --generate-vector-scanner
+  }
+
   cli.cxx{b-options}: cli{b}
   {
-    cli.options += --cli-namespace build2::build::cli \
---include-prefix libbuild2 --guard-prefix LIBBUILD2 \
+    cli.options += --include-prefix libbuild2 --guard-prefix LIBBUILD2 \
 --export-symbol LIBBUILD2_SYMEXPORT \
 --hxx-prologue '#include <libbuild2/export.hxx>' \
 --cxx-prologue "#include <libbuild2/types-parsers.hxx>" \
---generate-file-scanner --keep-separator --generate-parse --generate-merge
+--keep-separator --generate-parse --generate-merge
 
     # Usage options.
     #
@@ -266,9 +275,8 @@ if $cli.configured
 
   script/cli.cxx{builtin-options}: script/cli{builtin}
   {
-    cli.options += --cli-namespace build2::script::cli \
---include-prefix libbuild2/script --guard-prefix LIBBUILD2_SCRIPT \
---generate-vector-scanner --generate-modifier --suppress-usage
+    cli.options += --include-prefix libbuild2/script \
+--guard-prefix LIBBUILD2_SCRIPT --generate-modifier --suppress-usage
 
     # Don't install the generated cli headers since they are only used
     # internally in the script implementation.
@@ -278,10 +286,10 @@ if $cli.configured
 
   build/script/cli.cxx{builtin-options}: build/script/cli{builtin}
   {
-    cli.options += --cli-namespace build2::build::script::cli \
---include-prefix libbuild2/build/script --guard-prefix LIBBUILD2_BUILD_SCRIPT \
---cxx-prologue "#include <libbuild2/build/script/types-parsers.hxx>" \
---generate-parse --generate-vector-scanner --generate-modifier --suppress-usage
+    cli.options += --include-prefix libbuild2/build/script \
+--guard-prefix LIBBUILD2_BUILD_SCRIPT \
+--cxx-prologue "#include <libbuild2/types-parsers.hxx>" \
+--generate-parse --generate-modifier --suppress-usage
 
     # Don't install the generated cli headers since they are only used
     # internally in the buildscript implementation.
