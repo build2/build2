@@ -97,6 +97,19 @@ namespace build2
   //
   using butl::path_pattern;
 
+  // Perform process-wide initializations/adjustments/workarounds. Should be
+  // called once early in main(). In particular, besides other things, this
+  // functions does the following:
+  //
+  // - Sets PATH to include baseutils /bin on Windows.
+  //
+  // - Ignores SIGPIPE.
+  //
+  // - Calls tzset().
+  //
+  LIBBUILD2_SYMEXPORT void
+  init_process ();
+
   // Diagnostics state (verbosity level, etc; see <libbuild2/diagnostics.hxx>).
   //
   // Note on naming of values (here and in the global state below) that come
@@ -138,6 +151,7 @@ namespace build2
   LIBBUILD2_SYMEXPORT void
   init (void (*terminate) (bool),
         const char* argv0,
+        bool serial_stop,
         optional<bool> mtime_check = nullopt,
         optional<path> config_sub = nullopt,
         optional<path> config_guess = nullopt);

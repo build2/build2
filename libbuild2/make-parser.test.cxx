@@ -22,7 +22,7 @@ namespace build2
     // Fake build system driver, default verbosity.
     //
     init_diag (1);
-    init (nullptr, argv[0]);
+    init (nullptr, argv[0], true);
 
     path_name in ("<stdin>");
 

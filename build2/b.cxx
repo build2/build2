@@ -1,16 +1,6 @@
 // file      : build2/b.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef _WIN32
-#  include <signal.h> // signal()
-#else
-#  include <libbutl/win32-utility.hxx>
-#endif
-
-#ifdef __GLIBCXX__
-#  include <locale>
-#endif
-
 #include <sstream>
 #include <typeinfo>
 #include <iostream>  // cout
@@ -171,59 +161,9 @@ main (int argc, char* argv[])
 
   tracer trace ("main");
 
+  init_process ();
+
   int r (0);
-
-  // This is a little hack to make out baseutils for Windows work when called
-  // with absolute path. In a nutshell, MSYS2's exec*p() doesn't search in the
-  // parent's executable directory, only in PATH. And since we are running
-  // without a shell (that would read /etc/profile which sets PATH to some
-  // sensible values), we are only getting Win32 PATH values. And MSYS2 /bin
-  // is not one of them. So what we are going to do is add /bin at the end of
-  // PATH (which will be passed as is by the MSYS2 machinery). This will make
-  // MSYS2 search in /bin (where our baseutils live). And for everyone else
-  // this should be harmless since it is not a valid Win32 path.
-  //
-#ifdef _WIN32
-  {
-    string mp;
-    if (optional<string> p = getenv ("PATH"))
-    {
-      mp = move (*p);
-      mp += ';';
-    }
-    mp += "/bin";
-
-    setenv ("PATH", mp);
-  }
-#endif
-
-  // A data race happens in the libstdc++ (as of GCC 7.2) implementation of
-  // the ctype<char>::narrow() function (bug #77704). The issue is easily
-  // triggered by the testscript runner that indirectly (via regex) uses
-  // ctype<char> facet of the global locale (and can potentially be triggered
-  // by other locale-aware code). We work around this by pre-initializing the
-  // global locale facet internal cache.
-  //
-#ifdef __GLIBCXX__
-  {
-    const ctype<char>& ct (use_facet<ctype<char>> (locale ()));
-
-    for (size_t i (0); i != 256; ++i)
-      ct.narrow (static_cast<char> (i), '\0');
-  }
-#endif
-
-  // On POSIX ignore SIGPIPE which is signaled to a pipe-writing process if
-  // the pipe reading end is closed. Note that by default this signal
-  // terminates a process. Also note that there is no way to disable this
-  // behavior on a file descriptor basis or for the write() function call.
-  //
-#ifndef _WIN32
-  if (signal (SIGPIPE, SIG_IGN) == SIG_ERR)
-    fail << "unable to ignore broken pipe (SIGPIPE) signal: "
-         << system_error (errno, generic_category ()); // Sanitize.
-#endif
-
   options ops;
   scheduler sched;
 
@@ -314,31 +254,14 @@ main (int argc, char* argv[])
       }
     }
 
-    // Initialize time conversion data that is used by localtime_r().
-    //
-#ifndef _WIN32
-    tzset ();
-#else
-    _tzset ();
-#endif
-
     // Initialize the global state.
     //
     init (&::terminate,
           argv[0],
+          ops.serial_stop (),
           cmdl.mtime_check,
           cmdl.config_sub,
           cmdl.config_guess);
-
-#ifdef _WIN32
-    // On Windows disable displaying error reporting dialog box for the
-    // current and child processes unless we are in the stop mode. Failed that
-    // we may have multiple dialog boxes popping up.
-    //
-    if (!ops.serial_stop ())
-      SetErrorMode (SetErrorMode (0) | // Returns the current mode.
-                    SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
-#endif
 
     // Load builtin modules.
     //

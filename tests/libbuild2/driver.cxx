@@ -32,7 +32,7 @@ main (int, char* argv[])
   // Fake build system driver, default verbosity.
   //
   init_diag (1);
-  init (nullptr, argv[0]);
+  init (nullptr, argv[0], true);
 
   load_builtin_module (&config::build2_config_load);
   load_builtin_module (&dist::build2_dist_load);
