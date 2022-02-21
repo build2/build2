@@ -9,6 +9,7 @@
 #include <libbutl/default-options.hxx>
 
 #include <libbuild2/b-options.hxx>
+#include <libbuild2/scheduler.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 using namespace std;
@@ -19,18 +20,24 @@ namespace cli = build2::build::cli;
 namespace build2
 {
   cmdline
-  parse_cmdline (tracer& trace, int argc, char* argv[], options& ops)
+  parse_cmdline (tracer& trace,
+                 int argc, char* argv[],
+                 options& ops,
+                 uint16_t def_verb,
+                 size_t def_jobs)
   {
     // Note that the diagnostics verbosity level can only be calculated after
     // default options are loaded and merged (see below). Thus, until then we
     // refer to the verbosity level specified on the command line.
     //
-    auto verbosity = [&ops] ()
+    auto verbosity = [&ops, def_verb] ()
     {
       uint16_t v (
         ops.verbose_specified ()
         ? ops.verbose ()
-        : ops.V () ? 3 : ops.v () ? 2 : ops.quiet () || ops.silent () ? 0 : 1);
+        : (ops.V () ? 3 :
+           ops.v () ? 2 :
+           ops.quiet () || ops.silent () ? 0 : def_verb));
       return v;
     };
 
@@ -397,11 +404,74 @@ namespace build2
       fail << e;
     }
 
+    if (ops.help () || ops.version ())
+      return r;
+
     r.verbosity = verbosity ();
 
     if (ops.silent () && r.verbosity != 0)
       fail << "specified with -v, -V, or --verbose verbosity level "
            << r.verbosity << " is incompatible with --silent";
+
+    r.progress = (ops.progress ()    ? optional<bool> (true)  :
+                  ops.no_progress () ? optional<bool> (false) : nullopt);
+
+    r.mtime_check = (ops.mtime_check ()    ? optional<bool> (true)  :
+                     ops.no_mtime_check () ? optional<bool> (false) : nullopt);
+
+
+    r.config_sub = (ops.config_sub_specified ()
+                    ? optional<path> (ops.config_sub ())
+                    : nullopt);
+
+    r.config_guess = (ops.config_guess_specified ()
+                      ? optional<path> (ops.config_guess ())
+                      : nullopt);
+
+    if (ops.jobs_specified ())
+      r.jobs = ops.jobs ();
+    else if (ops.serial_stop ())
+      r.jobs = 1;
+
+    if (def_jobs != 0)
+      r.jobs = def_jobs;
+    else
+    {
+      if (r.jobs == 0)
+        r.jobs = scheduler::hardware_concurrency ();
+
+      if (r.jobs == 0)
+      {
+        warn << "unable to determine the number of hardware threads" <<
+          info << "falling back to serial execution" <<
+          info << "use --jobs|-j to override";
+
+        r.jobs = 1;
+      }
+    }
+
+    if (ops.max_jobs_specified ())
+    {
+      r.max_jobs = ops.max_jobs ();
+
+      if (r.max_jobs != 0 && r.max_jobs < r.jobs)
+        fail << "invalid --max-jobs|-J value";
+    }
+
+    r.max_stack = (ops.max_stack_specified ()
+                   ? optional<size_t> (ops.max_stack () * 1024)
+                   : nullopt);
+
+    if (ops.file_cache_specified ())
+    {
+      const string& v (ops.file_cache ());
+      if (v == "noop" || v == "none")
+        r.fcache_compress = false;
+      else if (v == "sync-lz4")
+        r.fcache_compress = true;
+      else
+        fail << "invalid --file-cache value '" << v << "'";
+    }
 
     return r;
   }

@@ -231,15 +231,7 @@ main (int argc, char* argv[])
   {
     // Parse the command line.
     //
-    strings cmd_vars;
-    string args;
-    uint16_t verbosity;
-    {
-      cmdline r (parse_cmdline (trace, argc, argv, ops));
-      cmd_vars = move (r.cmd_vars);
-      args = move (r.buildspec);
-      verbosity = r.verbosity;
-    }
+    cmdline cmdl (parse_cmdline (trace, argc, argv, ops));
 
     // Handle --build2-metadata (see also buildfile).
     //
@@ -289,10 +281,9 @@ main (int argc, char* argv[])
 
     // Initialize the diagnostics state.
     //
-    init_diag (verbosity,
+    init_diag (cmdl.verbosity,
                ops.silent (),
-               (ops.progress ()    ? optional<bool> (true)  :
-                ops.no_progress () ? optional<bool> (false) : nullopt),
+               cmdl.progress,
                ops.no_line (),
                ops.no_column (),
                fdterm (stderr_fd ()));
@@ -335,14 +326,9 @@ main (int argc, char* argv[])
     //
     init (&::terminate,
           argv[0],
-          (ops.mtime_check ()    ? optional<bool> (true)  :
-           ops.no_mtime_check () ? optional<bool> (false) : nullopt),
-          (ops.config_sub_specified ()
-           ? optional<path> (ops.config_sub ())
-           : nullopt),
-          (ops.config_guess_specified ()
-           ? optional<path> (ops.config_guess ())
-           : nullopt));
+          cmdl.mtime_check,
+          cmdl.config_sub,
+          cmdl.config_guess);
 
 #ifdef _WIN32
     // On Windows disable displaying error reporting dialog box for the
@@ -375,58 +361,14 @@ main (int argc, char* argv[])
 
     // Start up the scheduler and allocate lock shards.
     //
-    size_t jobs (0);
-
-    if (ops.jobs_specified ())
-      jobs = ops.jobs ();
-    else if (ops.serial_stop ())
-      jobs = 1;
-
-    if (jobs == 0)
-      jobs = scheduler::hardware_concurrency ();
-
-    if (jobs == 0)
-    {
-      warn << "unable to determine the number of hardware threads" <<
-        info << "falling back to serial execution" <<
-        info << "use --jobs|-j to override";
-
-      jobs = 1;
-    }
-
-    size_t max_jobs (0);
-
-    if (ops.max_jobs_specified ())
-    {
-      max_jobs = ops.max_jobs ();
-
-      if (max_jobs != 0 && max_jobs < jobs)
-        fail << "invalid --max-jobs|-J value";
-    }
-
-    sched.startup (jobs,
-                   1,
-                   max_jobs,
-                   jobs * ops.queue_depth (),
-                   (ops.max_stack_specified ()
-                    ? optional<size_t> (ops.max_stack () * 1024)
-                    : nullopt));
+    sched.startup (cmdl.jobs,
+                   1 /* init_active */,
+                   cmdl.max_jobs,
+                   cmdl.jobs * ops.queue_depth (),
+                   cmdl.max_stack);
 
     global_mutexes mutexes (sched.shard_size ());
-
-    bool fcache_comp (true);
-    if (ops.file_cache_specified ())
-    {
-      const string& v (ops.file_cache ());
-      if (v == "noop" || v == "none")
-        fcache_comp = false;
-      else if (v == "sync-lz4")
-        fcache_comp = true;
-      else
-        fail << "invalid --file-cache value '" << v << "'";
-    }
-
-    file_cache fcache (fcache_comp);
+    file_cache fcache (cmdl.fcache_compress);
 
     // Trace some overall environment information.
     //
@@ -438,7 +380,7 @@ main (int argc, char* argv[])
       trace << "home: " << home;
       trace << "path: " << (p ? *p : "<NULL>");
       trace << "type: " << (build_installed ? "installed" : "development");
-      trace << "jobs: " << jobs;
+      trace << "jobs: " << cmdl.jobs;
     }
 
     // Set the build context before parsing the buildspec since it relies on
@@ -446,7 +388,7 @@ main (int argc, char* argv[])
     // below).
     //
     unique_ptr<context> pctx;
-    auto new_context = [&ops, &pctx, &sched, &mutexes, &fcache, &cmd_vars]
+    auto new_context = [&ops, &cmdl, &pctx, &sched, &mutexes, &fcache]
     {
       pctx = nullptr; // Free first.
       pctx.reset (new context (sched,
@@ -456,7 +398,7 @@ main (int argc, char* argv[])
                                ops.no_external_modules (),
                                ops.dry_run (),
                                !ops.serial_stop () /* keep_going */,
-                               cmd_vars));
+                               cmdl.cmd_vars));
     };
 
     new_context ();
@@ -466,7 +408,7 @@ main (int argc, char* argv[])
     buildspec bspec;
     try
     {
-      istringstream is (args);
+      istringstream is (cmdl.buildspec);
       is.exceptions (istringstream::failbit | istringstream::badbit);
 
       parser p (*pctx);
@@ -474,7 +416,7 @@ main (int argc, char* argv[])
     }
     catch (const io_error&)
     {
-      fail << "unable to parse buildspec '" << args << "'";
+      fail << "unable to parse buildspec '" << cmdl.buildspec << "'";
     }
 
     l5 ([&]{trace << "buildspec: " << bspec;});
