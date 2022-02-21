@@ -3348,6 +3348,9 @@ namespace build2
 
       n = move (i->value);
 
+      if (n[0] == '_')
+        fail (l) << "module name '" << n << "' starts with underscore";
+
       if (i->pair)
       try
       {

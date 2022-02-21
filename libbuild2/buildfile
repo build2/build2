@@ -227,9 +227,12 @@ else
 
 # Generated options parser.
 #
-# @@ Consider generating common cli runtime namespace if adding more option
-#    files. Plus sommon types-parser.?xx (which could also potentially be
-#    reused by the driver).
+# Note that the cli runtime namespace is build2::build::cli rather than
+# build2::cli. That's because the cli namespace inside build2 is reserved for
+# the cli build system module (libbuild2-cli). In fact, every namespace inside
+# build2 is reserved for a potential module and the only namespace names we
+# can use are build (this name, along with import and export, is reserved by
+# the build system core) and names that start with an underscore.
 #
 if $cli.configured
 {
