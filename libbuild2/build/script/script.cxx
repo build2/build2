@@ -78,7 +78,7 @@ namespace build2
           {
             // See adhoc_buildscript_rule::execute_update_prerequisites().
             //
-            if (pt.target != nullptr && !pt.adhoc)
+            if (pt.target != nullptr && !pt.adhoc ())
               pt.target->as_name (ns);
           }
 

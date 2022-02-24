@@ -586,9 +586,10 @@ namespace build2
     var_export_metadata = &vp.insert ("export.metadata", v_t); // Untyped.
 
     var_extension = &vp.insert<string> ("extension", v_t);
-    var_clean     = &vp.insert<bool>   ("clean",    v_t);
-    var_backlink  = &vp.insert<string> ("backlink", v_t);
-    var_include   = &vp.insert<string> ("include",  v_q);
+    var_update    = &vp.insert<string> ("update",    v_q);
+    var_clean     = &vp.insert<bool>   ("clean",     v_t);
+    var_backlink  = &vp.insert<string> ("backlink",  v_t);
+    var_include   = &vp.insert<string> ("include",   v_q);
 
     // Backlink executables and (generated) documentation by default.
     //
@@ -696,12 +697,27 @@ namespace build2
                      const operation_info* outer_oif,
                      bool diag_noise)
   {
-    current_oname = (outer_oif == nullptr ? inner_oif : *outer_oif).name;
+    const auto& oif (outer_oif == nullptr ? inner_oif : *outer_oif);
+
+    current_oname = oif.name;
     current_inner_oif = &inner_oif;
     current_outer_oif = outer_oif;
     current_on++;
     current_mode = inner_oif.mode;
     current_diag_noise = diag_noise;
+
+    if (oif.var_name != nullptr)
+    {
+      current_ovar = var_pool.find (oif.var_name);
+
+      // The operation variable should have prerequisite or target visibility.
+      //
+      assert (current_ovar != nullptr &&
+              (current_ovar->visibility == variable_visibility::prereq ||
+               current_ovar->visibility == variable_visibility::target));
+    }
+    else
+      current_ovar = nullptr;
 
     // Reset counters (serial execution).
     //

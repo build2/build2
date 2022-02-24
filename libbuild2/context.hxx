@@ -283,6 +283,8 @@ namespace build2
     const operation_info* current_inner_oif;
     const operation_info* current_outer_oif;
 
+    const variable* current_ovar; // Current (outer) operation variable.
+
     action
     current_action () const
     {
@@ -427,6 +429,19 @@ namespace build2
     // [string] target visibility
     //
     const variable* var_extension;
+
+    // This variable can only be specified as prerequisite-specific (see the
+    // `include` variable for details).
+    //
+    // [string] prerequisite visibility
+    //
+    // Valid values are `true` and `false`. Additionally, some rules (and
+    // potentially only for certain types of prerequisites) may support the
+    // `unmatch` (match but do not update, if possible) and `match` (update
+    // during match) values. Note that if unmatch is impossible, then the
+    // prerequisite is treated as ad hoc.
+    //
+    const variable* var_update;
 
     // Note that this variable can also be specified as prerequisite-specific
     // (see the `include` variable for details).

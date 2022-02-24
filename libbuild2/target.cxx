@@ -545,36 +545,85 @@ namespace build2
   include_impl (action a,
                 const target& t,
                 const prerequisite& p,
-                const target* m)
+                const target* m,
+                lookup* rl)
   {
     context& ctx (t.ctx);
 
     include_type r (include_type::normal);
 
-    // If var_clean is defined, then it takes precedence over include for
-    // the clean operation.
+    // @@ TODO doc.
     //
-    lookup l;
-    if (a.operation () == clean_id && (l = p.vars[ctx.var_clean]))
-    {
-      r = cast<bool> (l) ? include_type::normal : include_type::excluded;
-    }
-    else if (const string* v = cast_null<string> (p.vars[ctx.var_include]))
+    if (const string* v = cast_null<string> (p.vars[ctx.var_include]))
     {
       if      (*v == "false") r = include_type::excluded;
       else if (*v == "adhoc") r = include_type::adhoc;
       else if (*v == "true")  r = include_type::normal;
       else
-        fail << "invalid " << ctx.var_include->name << " variable value "
+        fail << "invalid " << *ctx.var_include << " variable value "
              << "'" << *v << "' specified for prerequisite " << p;
+    }
+
+    // Handle operation-specific override.
+    //
+    lookup l;
+    optional<bool> r1; // Absent means something other than true|false.
+
+    names storage;
+    names_view ns;
+
+    if (r != include_type::excluded && ctx.current_ovar != nullptr)
+    {
+      if ((l = p.vars[*ctx.current_ovar]))
+      {
+        // Maybe we should optimize this for the common cases (bool, path,
+        // name)? But then again we don't expect many such overrides.
+        //
+        ns = reverse (*l, storage);
+
+        if (ns.size () == 1)
+        {
+          const name& n (ns[0]);
+
+          if (n.simple ())
+          {
+            const string& v (n.value);
+
+            if (v == "false")
+              r1 = false;
+            else if (v == "true")
+              r1 = true;
+          }
+        }
+
+        if (r1)
+        {
+          if (!*r1)
+            r = include_type::excluded;
+        }
+      }
     }
 
     // Call the meta-operation override, if any (currently used by dist).
     //
-    if (r != include_type::normal)
+    if (r != include_type::normal || l)
     {
       if (auto f = ctx.current_mif->include)
-        r = f (a, t, prerequisite_member {p, m}, r);
+        r = f (a, t, prerequisite_member {p, m}, r, l);
+    }
+
+    if (l)
+    {
+      if (rl != nullptr)
+        *rl = l;
+      else if (!r1)
+      {
+        // Note: we have to delay this until the meta-operation callback above
+        // had a chance to override it.
+        //
+        fail << "unrecognized " << *ctx.current_ovar << " variable value "
+             << "'" << ns << "' specified for prerequisite " << p;
+      }
     }
 
     return r;

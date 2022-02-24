@@ -338,15 +338,27 @@ namespace build2
   // include()
   //
   LIBBUILD2_SYMEXPORT include_type
-  include_impl (action, const target&, const prerequisite&, const target*);
+  include_impl (action, const target&,
+                const prerequisite&, const target*,
+                lookup*);
 
   inline include_type
-  include (action a, const target& t, const prerequisite& p, const target* m)
+  include (action a, const target& t, const prerequisite& p, lookup* l)
   {
     // Most of the time no prerequisite-specific variables will be specified,
     // so let's optimize for that.
     //
-    return p.vars.empty () ? include_type (true) : include_impl (a, t, p, m);
+    return p.vars.empty ()
+      ? include_type (true)
+      : include_impl (a, t, p, nullptr, l);
+  }
+
+  inline include_type
+  include (action a, const target& t, const prerequisite_member& pm, lookup* l)
+  {
+    return pm.prerequisite.vars.empty ()
+      ? include_type (true)
+      : include_impl (a, t, pm.prerequisite, pm.member, l);
   }
 
   // group_prerequisites

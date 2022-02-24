@@ -470,7 +470,7 @@ namespace build2
   bool value_traits<bool>::
   convert (const name& n, const name* r)
   {
-    if (r == nullptr && !n.pattern && n.simple () )
+    if (r == nullptr && !n.pattern && n.simple ())
     {
       const string& s (n.value);
 

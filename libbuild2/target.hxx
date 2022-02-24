@@ -70,15 +70,19 @@ namespace build2
   };
 
   // List of prerequisites resolved to targets. Unless additional storage is
-  // needed, it can be used as just vector<const target*> (which is what we
+  // needed, it can be treated as just vector<const target*> (which is what we
   // used to have initially).
+  //
+  // The include member normally just indicates (in the first bit) whether
+  // this prerequisite is ad hoc. But it can also carry additional information
+  // (for example, from operation-specific variable) in other bits.
   //
   struct prerequisite_target
   {
     using target_type = build2::target;
 
     prerequisite_target (const target_type* t, bool a = false, uintptr_t d = 0)
-        : target (t), adhoc (a), data (d) {}
+        : target (t), include (a ? 1 : 0), data (d) {}
 
     prerequisite_target (const target_type* t, include_type a, uintptr_t d = 0)
         : prerequisite_target (t, a == include_type::adhoc, d) {}
@@ -87,8 +91,10 @@ namespace build2
     operator const target_type*   () const {return target;}
     const target_type* operator-> () const {return target;}
 
+    bool adhoc () const {return (include & 1) != 0;}
+
     const target_type* target;
-    bool               adhoc;  // True if include=adhoc.
+    uintptr_t          include;  // First bit is 1 if include=adhoc.
     uintptr_t          data;
   };
   using prerequisite_targets = vector<prerequisite_target>;
@@ -892,13 +898,15 @@ namespace build2
   // Helper for dealing with the prerequisite inclusion/exclusion (see
   // var_include in context.hxx).
   //
+  // If the lookup argument is not NULL, then it will be set to the operation-
+  // specific override, if present. Note that in this case the caller is
+  // expected to validate that the override value is valid (use the same
+  // diagnostics as in include() for consistency).
+  //
   // Note that the include(prerequisite_member) overload is also provided.
   //
   include_type
-  include (action,
-           const target&,
-           const prerequisite&,
-           const target* = nullptr);
+  include (action, const target&, const prerequisite&, lookup* = nullptr);
 
   // A "range" that presents the prerequisites of a group and one of
   // its members as one continuous sequence, or, in other words, as
@@ -1111,11 +1119,10 @@ namespace build2
     return os << pm.key ();
   }
 
-  inline include_type
-  include (action a, const target& t, const prerequisite_member& pm)
-  {
-    return include (a, t, pm.prerequisite, pm.member);
-  }
+  include_type
+  include (action, const target&,
+           const prerequisite_member&,
+           lookup* = nullptr);
 
   // A "range" that presents a sequence of prerequisites (e.g., from
   // group_prerequisites()) as a sequence of prerequisite_member's. For each

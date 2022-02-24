@@ -2065,7 +2065,7 @@ namespace build2
   static inline void
   blank_adhoc_member (prerequisite_target& pt)
   {
-    if (pt.adhoc)
+    if (pt.adhoc ())
       pt.target = nullptr;
   }
 
@@ -2254,7 +2254,7 @@ namespace build2
 
       // Should we compare the timestamp to this target's?
       //
-      if (!e && (p.adhoc || !ef || ef (pt, i)))
+      if (!e && (p.adhoc () || !ef || ef (pt, i)))
       {
         // If this is an mtime-based target, then compare timestamps.
         //
@@ -2272,7 +2272,7 @@ namespace build2
         }
       }
 
-      if (p.adhoc)
+      if (p.adhoc ())
         p.target = nullptr; // Blank out.
       else
       {

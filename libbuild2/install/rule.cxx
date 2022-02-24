@@ -125,7 +125,7 @@ namespace build2
         //
         // Note: not the same as lookup_install() above.
         //
-        auto l ((*pt)["install"]);
+        auto l ((*pt)["install"]); //@@???
         if (l && cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
@@ -245,7 +245,7 @@ namespace build2
           //
           // Note: not the same as lookup_install() above.
           //
-          auto l ((*mt)["install"]);
+          auto l ((*mt)["install"]); //@@
           if (l && cast<path> (l).string () == "false")
           {
             l5 ([&]{trace << "ignoring " << *mt << " (not installable)";});
@@ -291,7 +291,7 @@ namespace build2
       if (p.is_a<exe> ())
       {
         // Feels like one day this should be unified with include (see
-        // context::var_include).
+        // context::var_include). @@ Isn't it now?
         //
         if (p.vars.empty () ||
             cast_empty<path> (p.vars["install"]).string () != "true")
@@ -381,7 +381,7 @@ namespace build2
         //
         // Note: not the same as lookup_install() above.
         //
-        auto l ((*pt)["install"]);
+        auto l ((*pt)["install"]); //@@
         if (l && cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
@@ -1033,7 +1033,7 @@ namespace build2
       //
       if (!tp.empty ())
       {
-        install_target (t, cast<path> (t["install"]), 1);
+        install_target (t, cast<path> (t["install"]), 1); //@@
         r |= target_state::changed;
       }
 
@@ -1298,7 +1298,7 @@ namespace build2
       target_state r (target_state::unchanged);
 
       if (!tp.empty ())
-        r |= uninstall_target (t, cast<path> (t["install"]), 1);
+        r |= uninstall_target (t, cast<path> (t["install"]), 1); //@@
 
       // Then installable ad hoc group members, if any. To be anally precise,
       // we would have to do it in reverse, but that's not easy (it's a

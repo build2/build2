@@ -162,7 +162,7 @@ namespace build2
       //
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        if (include (a, t, p) == include_type::normal && p.is_a (tt))
+        if (include (a, t, p) == include_type::normal && p.is_a (tt)) // @@
           return p.key ().tk;
       }
       return nullopt;

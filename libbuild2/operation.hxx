@@ -125,12 +125,14 @@ namespace build2
     void (*meta_operation_post) (context&, const values&);
 
     // Optional prerequisite exclusion override callback. See include() for
-    // details. Note that it's not called for include_type::normal;
+    // details. Note that it's not called for include_type::normal without
+    // operation-specific override.
     //
     include_type (*include) (action,
                              const target&,
                              const prerequisite_member&,
-                             include_type);
+                             include_type,
+                             lookup&);
   };
 
   // Built-in meta-operations.
@@ -194,6 +196,7 @@ namespace build2
     const operation_id id;
     const operation_id outer_id;
     const char* name;
+    const char* var_name; // Operation variable or NULL if not used.
 
     // Name derivatives for diagnostics. Note that unlike meta-operations,
     // these can only be empty for the default operation (id 1), And
@@ -309,10 +312,10 @@ namespace build2
   // are represented as NULL pointers. Also, lookup out of bounds
   // is treated as a hole.
   //
-  template <typename T>
+  template <typename T, size_t N>
   struct sparse_vector
   {
-    using base_type = vector<T*>;
+    using base_type = small_vector<T*, N>;
     using size_type = typename base_type::size_type;
 
     void
@@ -348,8 +351,8 @@ namespace build2
     base_type v_;
   };
 
-  using meta_operations = sparse_vector<const meta_operation_info>;
-  using operations = sparse_vector<const operation_info>;
+  using meta_operations = sparse_vector<const meta_operation_info, 8>;
+  using operations = sparse_vector<const operation_info, 10>;
 }
 
 namespace butl

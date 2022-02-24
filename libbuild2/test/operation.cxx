@@ -65,6 +65,7 @@ namespace build2
       0,
       "test",
       "test",
+      "test",
       "testing",
       "tested",
       "has nothing to test", // We cannot "be tested".
@@ -82,6 +83,7 @@ namespace build2
       update_id, // Note: not update_for_test_id.
       test_id,
       op_update.name,
+      nullptr, // Outer operation variable is always used.
       op_update.name_do,
       op_update.name_doing,
       op_update.name_did,
