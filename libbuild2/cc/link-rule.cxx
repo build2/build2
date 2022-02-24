@@ -282,7 +282,11 @@ namespace build2
       {
         // If excluded or ad hoc, then don't factor it into our tests.
         //
-        if (include (a, t, p) != include_type::normal)
+        // Note that here we don't validate the update operation override
+        // value (since we may not match). Instead we do this in apply().
+        //
+        lookup l;
+        if (include (a, t, p, &l) != include_type::normal)
           continue;
 
         if (p.is_a (x_src)                        ||
@@ -914,26 +918,68 @@ namespace build2
         return a.operation () == clean_id && !pt.dir.sub (rs.out_path ());
       };
 
+      bool update_match (false); // Have update during match.
+
       auto& pts (t.prerequisite_targets[a]);
       size_t start (pts.size ());
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        include_type pi (include (a, t, p));
+        // Note that we have to recognize update=match for *(update), not just
+        // perform(update). But only actually update for perform(update).
+        //
+        lookup l; // The `update` variable value, if any.
+        include_type pi (
+          include (a, t, p, a.operation () == update_id ? &l : nullptr));
 
         // We pre-allocate a NULL slot for each (potential; see clean)
         // prerequisite target.
         //
         pts.push_back (prerequisite_target (nullptr, pi));
-        const target*& pt (pts.back ());
+        auto& pto (pts.back ());
 
-        // Skip excluded and ad hoc on this pass.
+        // Use bit 2 of prerequisite_target::include to signal update during
+        // match.
+        //
+        // Not that for now we only allow updating during match ad hoc and
+        // mark 3 (headers, etc; see below) prerequisites.
+        //
+        bool um (false);
+
+        if (l)
+        {
+          const string& v (cast<string> (l));
+
+          if (v == "match")
+          {
+            if (a == perform_update_id)
+            {
+              pto.include |= 2;
+              update_match = um = true;
+            }
+          }
+          else if (v != "false" && v != "true")
+          {
+            fail << "unrecognized update variable value '" << v
+                 << "' specified for prerequisite " << p.prerequisite;
+          }
+        }
+
+        // Skip excluded and ad hoc (unless updated during match) on this
+        // pass.
         //
         if (pi != include_type::normal)
-          continue;
+        {
+          if (pi == include_type::adhoc && um)
+            pto.target = &p.search (t); // mark 0
 
-        // Mark:
-        //   0 - lib
+          continue;
+        }
+
+        const target*& pt (pto);
+
+        // Mark (2 bits):
+        //   0 - lib or update during match
         //   1 - src
         //   2 - mod
         //   3 - obj/bmi and also lib not to be cleaned (and other stuff)
@@ -1121,12 +1167,44 @@ namespace build2
         if (user_binless && !binless)
           fail << t << " cannot be binless due to " << p << " prerequisite";
 
+        // Upgrade update during match prerequisites to mark 0 (see above for
+        // details).
+        //
+        if (um)
+        {
+          if (m != 3)
+            fail << "unable to update during match prerequisite " << p <<
+              info << "updating this type of prerequisites during match is "
+                 << "not supported by this rule";
+
+          m = 0;
+        }
+
         mark (pt, m);
       }
 
-      // Match lib{} (the only unmarked) in parallel and wait for completion.
+      // Match lib{} and update during match (the only unmarked) in parallel
+      // and wait for completion.
       //
       match_members (a, t, pts, start);
+
+      // If we have any update during match prerequisites, now is the time to
+      // update them. Note that we have to do it before any further matches
+      // since they may rely on these prerequisites already being updated (for
+      // example, object file matches may need the headers to be already
+      // updated).
+      //
+      // Note also that we ignore the result and whether it renders us out of
+      // date, leaving it to the common execute logic in perform_update().
+      //
+      if (update_match)
+      {
+        for (prerequisite_target& pto: pts)
+        {
+          if ((pto.include & 2) != 0)
+            update_during_match (trace, a, *pto.target);
+        }
+      }
 
       // Check if we have any binful utility libraries.
       //
@@ -1432,6 +1510,7 @@ namespace build2
           continue;
 
         // New mark:
+        //  0 - already matched
         //  1 - completion
         //  2 - verification
         //
@@ -1619,7 +1698,7 @@ namespace build2
             m = 2; // Needs verification.
           }
         }
-        else // lib*{}
+        else // lib*{} or update during match
         {
           // If this is a static library, see if we need to link it whole.
           // Note that we have to do it after match since we rely on the
@@ -1669,7 +1748,7 @@ namespace build2
       i = start;
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        bool adhoc (pts[i].adhoc);
+        bool adhoc (pts[i].adhoc ());
         const target*& pt (pts[i++]);
 
         uint8_t m;
@@ -1684,8 +1763,13 @@ namespace build2
           pt = &p.search (t);
           m = 1; // Mark for completion.
         }
-        else if ((m = unmark (pt)) != 0)
+        else
         {
+          m = unmark (pt);
+
+          if (m == 0)
+            continue; // Already matched.
+
           // If this is a library not to be cleaned, we can finally blank it
           // out.
           //

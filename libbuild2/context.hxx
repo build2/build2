@@ -283,6 +283,8 @@ namespace build2
     const operation_info* current_inner_oif;
     const operation_info* current_outer_oif;
 
+    const variable* current_ovar; // Current (outer) operation variable.
+
     action
     current_action () const
     {
@@ -428,6 +430,19 @@ namespace build2
     //
     const variable* var_extension;
 
+    // This variable can only be specified as prerequisite-specific (see the
+    // `include` variable for details).
+    //
+    // [string] prerequisite visibility
+    //
+    // Valid values are `true` and `false`. Additionally, some rules (and
+    // potentially only for certain types of prerequisites) may support the
+    // `unmatch` (match but do not update, if possible) and `match` (update
+    // during match) values. Note that if unmatch is impossible, then the
+    // prerequisite is treated as ad hoc.
+    //
+    const variable* var_update;
+
     // Note that this variable can also be specified as prerequisite-specific
     // (see the `include` variable for details).
     //
@@ -473,14 +488,19 @@ namespace build2
     // Sometimes it may be desirable to apply exclusions only to specific
     // operations. The initial idea was to extend this value to allow
     // specifying the operation (e.g., clean@false). However, later we
-    // realized that we could reuse the "operation variables" (clean, install,
-    // test) with a more natural-looking result. Note that currently we only
-    // recognize the built-in clean variable (for other variables we will need
-    // some kind of registration in an operation-to-variable map, probably in
-    // root scope). See also install::file_rule::filter().
+    // realized that we could reuse the "operation-specific variables"
+    // (update, clean, install, test; see context::current_ovar) with a more
+    // natural-looking and composable result. Plus, this allows for
+    // operation-specific "modifiers", for example, "unmatch" and "update
+    // during match" logic for update (see var_update for details) or
+    // requiring explicit install=true to install exe{} prerequisites (see
+    // install::file_rule::filter()).
     //
-    // To query this value in rule implementations use the include() helpers
-    // from <libbuild2/prerequisites.hxx>.
+    // To query this value and its operation-specific override if any, the
+    // rule implementations use the include() helper.
+    //
+    // Note that there are also related (but quite different) for_<operation>
+    // variables for operations that act as outer (e.g., test, install).
     //
     // [string] prereq visibility
     //

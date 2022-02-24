@@ -595,6 +595,20 @@ namespace build2
   LIBBUILD2_SYMEXPORT target_state
   execute_direct (action, const target&);
 
+  // Update the target during the match phase (by switching the phase and
+  // calling execute_direct()). Return true if the target has changed or, if
+  // the passed timestamp is not timestamp_unknown, it is older than the
+  // target.
+  //
+  // Note that such a target must still be updated normally during the execute
+  // phase in order to keep the dependency counts straight (at which point the
+  // target state/timestamp will be re-incorporated into the result).
+  //
+  LIBBUILD2_SYMEXPORT bool
+  update_during_match (tracer&,
+                       action, const target&,
+                       timestamp = timestamp_unknown);
+
   // The default prerequisite execute implementation. Call execute_async() on
   // each non-ignored (non-NULL) prerequisite target in a loop and then wait
   // for their completion. Return target_state::changed if any of them were

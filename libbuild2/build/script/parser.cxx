@@ -1622,12 +1622,12 @@ namespace build2
         {
           if (const target* pt =
               (p.target != nullptr ? p.target :
-               p.adhoc             ? reinterpret_cast<target*> (p.data)
+               p.adhoc ()          ? reinterpret_cast<target*> (p.data)
                : nullptr))
           {
             // Apply the --update-* filter.
             //
-            if (!p.adhoc && !filters.empty ())
+            if (!p.adhoc () && !filters.empty ())
             {
               // Compute and cache "effective" name that we will be pattern-
               // matching (similar code to variable_type_map::find()).
@@ -1695,7 +1695,7 @@ namespace build2
             // Mark as updated (see execute_update_prerequisites() for
             // details.
             //
-            if (!p.adhoc)
+            if (!p.adhoc ())
               p.data = 1;
           }
         }
@@ -1923,10 +1923,10 @@ namespace build2
 
                 if (const target* pt =
                     (p.target != nullptr ? p.target :
-                     p.adhoc             ? reinterpret_cast<target*> (p.data) :
+                     p.adhoc ()          ? reinterpret_cast<target*> (p.data) :
                      nullptr))
                 {
-                  if (ft == pt && (p.adhoc || p.data == 1))
+                  if (ft == pt && (p.adhoc () || p.data == 1))
                     return false;
                 }
               }
@@ -1968,7 +1968,7 @@ namespace build2
             {
               prerequisite_target& pt (pts.back ());
 
-              if (pt.adhoc)
+              if (pt.adhoc ())
               {
                 pt.data = reinterpret_cast<uintptr_t> (pt.target);
                 pt.target = nullptr;

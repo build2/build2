@@ -1001,7 +1001,8 @@ namespace build2
     dist_include (action,
                   const target&,
                   const prerequisite_member& p,
-                  include_type i)
+                  include_type i,
+                  lookup& l)
     {
       tracer trace ("dist::dist_include");
 
@@ -1015,6 +1016,10 @@ namespace build2
         l5 ([&]{trace << "overriding exclusion of " << p;});
         i = include_type::adhoc;
       }
+
+      // Also clear any operation-specific overrides.
+      //
+      l = lookup ();
 
       return i;
     }

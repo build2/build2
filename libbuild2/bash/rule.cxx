@@ -267,7 +267,7 @@ namespace build2
       const path* ap (nullptr);
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
-        if (pt.adhoc || pt.target == nullptr)
+        if (pt.target == nullptr || pt.adhoc ())
           continue;
 
         if (const bash* b = pt.target->is_a<bash> ())

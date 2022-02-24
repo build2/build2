@@ -22,9 +22,12 @@ namespace build2
   class LIBBUILD2_SYMEXPORT dyndep_rule
   {
   public:
-    // Update the target during the match phase. Return true if it has changed
-    // or if the passed timestamp is not timestamp_unknown and is older than
-    // the target.
+    // Update the target during the match phase. Return true if the target has
+    // changed or, if the passed timestamp is not timestamp_unknown, it is
+    // older than the target.
+    //
+    // Note that such a target must still be updated during the execute phase
+    // in order to keep the dependency counts straight.
     //
     static bool
     update (tracer&, action, const target&, timestamp);

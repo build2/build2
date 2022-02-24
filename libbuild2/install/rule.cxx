@@ -74,6 +74,8 @@ namespace build2
     {
       tracer trace ("install::alias_rule::apply");
 
+      context& ctx (t.ctx);
+
       // Pass-through to our installable prerequisites.
       //
       // @@ Shouldn't we do match in parallel (here and below)?
@@ -125,7 +127,7 @@ namespace build2
         //
         // Note: not the same as lookup_install() above.
         //
-        auto l ((*pt)["install"]);
+        auto l ((*pt)[ctx.current_ovar]); // "install"
         if (l && cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
@@ -207,6 +209,8 @@ namespace build2
     {
       tracer trace ("install::group_rule::apply");
 
+      context& ctx (t.ctx);
+
       // Resolve group members.
       //
       // Remember that we are called twice: first during update for install
@@ -245,7 +249,7 @@ namespace build2
           //
           // Note: not the same as lookup_install() above.
           //
-          auto l ((*mt)["install"]);
+          auto l ((*mt)[ctx.current_ovar]); // "install"
           if (l && cast<path> (l).string () == "false")
           {
             l5 ([&]{trace << "ignoring " << *mt << " (not installable)";});
@@ -290,11 +294,13 @@ namespace build2
     {
       if (p.is_a<exe> ())
       {
-        // Feels like one day this should be unified with include (see
-        // context::var_include).
+        // Note that while include() checks for install=false, here we need to
+        // check for explicit install=true. We could have re-used the lookup
+        // performed by include(), but then we would have had to drag it
+        // through and also diagnose any invalid values.
         //
         if (p.vars.empty () ||
-            cast_empty<path> (p.vars["install"]).string () != "true")
+            cast_empty<path> (p.vars[t.ctx.current_ovar]).string () != "true")
           return nullptr;
       }
 
@@ -313,6 +319,8 @@ namespace build2
     apply_impl (action a, target& t) const
     {
       tracer trace ("install::file_rule::apply");
+
+      context& ctx (t.ctx);
 
       // Note that we are called both as the outer part during the update-for-
       // un/install pre-operation and as the inner part during the un/install
@@ -381,7 +389,7 @@ namespace build2
         //
         // Note: not the same as lookup_install() above.
         //
-        auto l ((*pt)["install"]);
+        auto l ((*pt)[ctx.current_ovar]); // "install"
         if (l && cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
@@ -936,6 +944,8 @@ namespace build2
     target_state file_rule::
     perform_install (action a, const target& xt) const
     {
+      context& ctx (xt.ctx);
+
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
 
@@ -1033,7 +1043,7 @@ namespace build2
       //
       if (!tp.empty ())
       {
-        install_target (t, cast<path> (t["install"]), 1);
+        install_target (t, cast<path> (t[ctx.current_ovar]), 1); // "install"
         r |= target_state::changed;
       }
 
@@ -1160,6 +1170,8 @@ namespace build2
                  const path& name,
                  uint16_t verbosity)
     {
+      context& ctx (rs.ctx);
+
       assert (t != nullptr || !name.empty ());
       path f (chroot_path (rs, base.dir) /
               (name.empty () ? t->path ().leaf () : name));
@@ -1196,7 +1208,7 @@ namespace build2
         if (verb >= verbosity && verb >= 2)
           text << "rm " << relf;
 
-        if (!rs.ctx.dry_run)
+        if (!ctx.dry_run)
         {
           try
           {
@@ -1225,7 +1237,7 @@ namespace build2
         if (verb >= verbosity && verb >= 2)
           print_process (args);
 
-        if (!rs.ctx.dry_run)
+        if (!ctx.dry_run)
           run (pp, args);
       }
 
@@ -1235,6 +1247,8 @@ namespace build2
     target_state file_rule::
     perform_uninstall (action a, const target& xt) const
     {
+      context& ctx (xt.ctx);
+
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
 
@@ -1298,7 +1312,9 @@ namespace build2
       target_state r (target_state::unchanged);
 
       if (!tp.empty ())
-        r |= uninstall_target (t, cast<path> (t["install"]), 1);
+        r |= uninstall_target (t,
+                               cast<path> (t[ctx.current_ovar]), // "install"
+                               1);
 
       // Then installable ad hoc group members, if any. To be anally precise,
       // we would have to do it in reverse, but that's not easy (it's a

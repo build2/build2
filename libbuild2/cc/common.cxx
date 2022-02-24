@@ -317,7 +317,7 @@ namespace build2
             // Note: adhoc prerequisites are not part of the library metadata
             // protocol (and we should check for adhoc first to avoid races).
             //
-            if (pt.adhoc || pt == nullptr)
+            if (pt == nullptr || pt.adhoc ())
               continue;
 
             if (marked (pt))

@@ -128,7 +128,7 @@ namespace build2
       library_cache lib_cache;
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
-        if (pt.adhoc || pt == nullptr)
+        if (pt == nullptr || pt.adhoc ())
           continue;
 
         bool la;
@@ -253,7 +253,7 @@ namespace build2
       library_cache lib_cache;
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
-        if (pt.adhoc || pt == nullptr)
+        if (pt == nullptr || pt.adhoc ())
           continue;
 
         bool la;

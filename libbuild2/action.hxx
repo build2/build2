@@ -150,6 +150,7 @@ namespace build2
   // Id constants for build-in and pre-defined meta/operations.
   //
   // Note: currently max 15 (see above).
+  // Note: update small_vector in meta_operations if adding more.
   //
   const meta_operation_id noop_id      = 1; // nomop?
   const meta_operation_id perform_id   = 2;
@@ -164,6 +165,7 @@ namespace build2
   // something here remember to update the man page.
   //
   // Note: currently max 15 (see above).
+  // Note: update small_vector in operations if adding more.
   //
   const operation_id default_id            = 1; // Shall be first.
   const operation_id update_id             = 2; // Shall be second.
@@ -176,6 +178,8 @@ namespace build2
   const operation_id uninstall_id          = 7;
   const operation_id update_for_install_id = 8; // update(for install) alias.
 
+  // Commonly-used action ids.
+  //
   const action_id perform_update_id     = (perform_id << 4) | update_id;
   const action_id perform_clean_id      = (perform_id << 4) | clean_id;
   const action_id perform_test_id       = (perform_id << 4) | test_id;

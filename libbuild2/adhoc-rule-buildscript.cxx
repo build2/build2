@@ -399,7 +399,7 @@ namespace build2
     {
       // Note that fsdir{} injected above is adhoc.
       //
-      if (p.target != nullptr && p.adhoc)
+      if (p.target != nullptr && p.adhoc ())
       {
         p.data = reinterpret_cast<uintptr_t> (p.target);
         p.target = nullptr;
@@ -426,7 +426,7 @@ namespace build2
       {
         if (const target* pt =
             (p.target != nullptr ? p.target :
-             p.adhoc             ? reinterpret_cast<target*> (p.data) :
+             p.adhoc ()          ? reinterpret_cast<target*> (p.data) :
              nullptr))
         {
           hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
@@ -812,10 +812,10 @@ namespace build2
 
             if (const target* pt =
                 (p.target != nullptr ? p.target :
-                 p.adhoc             ? reinterpret_cast<target*> (p.data) :
+                 p.adhoc ()          ? reinterpret_cast<target*> (p.data) :
                  nullptr))
             {
-              if (ft == pt && (p.adhoc || p.data == 1))
+              if (ft == pt && (p.adhoc () || p.data == 1))
                 return;
             }
           }
@@ -1036,7 +1036,7 @@ namespace build2
       {
         if (const target* pt =
             (p.target != nullptr ? p.target :
-             p.adhoc             ? reinterpret_cast<target*> (p.data)
+             p.adhoc ()          ? reinterpret_cast<target*> (p.data)
              : nullptr))
         {
           hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
@@ -1251,7 +1251,7 @@ namespace build2
     {
       if (const target* pt =
           (p.target != nullptr ? p.target :
-           p.adhoc             ? reinterpret_cast<target*> (p.data) : nullptr))
+           p.adhoc ()          ? reinterpret_cast<target*> (p.data) : nullptr))
       {
         target_state s (execute_async (a, *pt, busy, t[a].task_count));
         assert (s != target_state::postponed);
@@ -1265,7 +1265,7 @@ namespace build2
     {
       if (const target* pt =
           (p.target != nullptr ? p.target :
-           p.adhoc             ? reinterpret_cast<target*> (p.data) : nullptr))
+           p.adhoc ()          ? reinterpret_cast<target*> (p.data) : nullptr))
       {
         ctx.sched.wait (exec, (*pt)[a].task_count, scheduler::work_none);
 
@@ -1297,7 +1297,7 @@ namespace build2
 
           // Blank out adhoc.
           //
-          if (p.adhoc)
+          if (p.adhoc ())
           {
             p.data = reinterpret_cast<uintptr_t> (p.target);
             p.target = nullptr;
