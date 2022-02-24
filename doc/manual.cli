@@ -2563,6 +2563,16 @@ Subprojects and Amalgamations} for details on this subject).
 subproject in \c{libhello}. The test imports \c{libhello} which is
 automatically found as an amalgamation containing this subproject.|
 
+\N|To skip searching in subprojects/amalgamations and proceed directly to the
+rule-specific search (described below), specify the \c{config.import.*}
+variable with an empty value. For example:
+
+\
+$ b configure: ... config.import.libhello=
+\
+
+|
+
 If the project being imported cannot be located using any of these methods,
 then \c{import} falls back to the rule-specific search. That is, a rule that
 matches the target may provide support for importing certain target types
