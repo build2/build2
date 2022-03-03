@@ -122,7 +122,9 @@ namespace build2
             if (g == nullptr)
               g = &t.ctx.targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
 
-            g->prerequisites (prerequisites {p->as_prerequisite ()});
+            prerequisites ps;
+            ps.push_back (p->as_prerequisite ());
+            g->prerequisites (move (ps));
           }
         }
 

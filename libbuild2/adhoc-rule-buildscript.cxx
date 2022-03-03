@@ -301,10 +301,13 @@ namespace build2
       return execute_inner;
     }
 
+    context& ctx (xt.ctx);
+    const scope& bs (xt.base_scope ());
+
     // Inject pattern's ad hoc group members, if any.
     //
     if (pattern != nullptr)
-      pattern->apply_adhoc_members (a, xt, me);
+      pattern->apply_adhoc_members (a, xt, bs, me);
 
     // Derive file names for the target and its ad hoc group members, if any.
     //
@@ -326,17 +329,144 @@ namespace build2
 
     // Match prerequisites.
     //
-    match_prerequisite_members (a, xt);
-
-    // Inject pattern's prerequisites, if any.
+    // This is essentially match_prerequisite_members() but with support
+    // for update=unmatch|match.
     //
-    if (pattern != nullptr)
-      pattern->apply_prerequisites (a, xt, me);
+    auto& pts (xt.prerequisite_targets[a]);
+    {
+      // Re-create the clean semantics as in match_prerequisite_members().
+      //
+      bool clean (a.operation () == clean_id && !xt.is_a<alias> ());
+
+      // Add target's prerequisites.
+      //
+      for (prerequisite_member p: group_prerequisite_members (a, xt))
+      {
+        // Note that we have to recognize update=unmatch|match for *(update),
+        // not just perform(update). But only actually do anything about it
+        // for perform(update).
+        //
+        lookup l; // The `update` variable value, if any.
+        include_type pi (
+          include (a, xt, p, a.operation () == update_id ? &l : nullptr));
+
+        // Use bit 2 of prerequisite_target::include to signal update during
+        // match and bit 3 -- unmatch.
+        //
+        uintptr_t mask (0);
+        if (l)
+        {
+          const string& v (cast<string> (l));
+
+          if (v == "match")
+          {
+            if (a == perform_update_id)
+              mask = 2;
+          }
+          else if (v == "unmatch")
+          {
+            if (a == perform_update_id)
+              mask = 4;
+          }
+          else if (v != "false" && v != "true")
+          {
+            fail << "unrecognized update variable value '" << v
+                 << "' specified for prerequisite " << p.prerequisite;
+          }
+        }
+
+        // Skip excluded.
+        //
+        if (!pi)
+          continue;
+
+        const target& pt (p.search (xt));
+
+        if (clean && !pt.in (*bs.root_scope ()))
+          continue;
+
+        prerequisite_target pto (&pt, pi);
+
+        if (mask != 0)
+          pto.include |= mask;
+
+        pts.push_back (move (pto));
+      }
+
+      // Inject pattern's prerequisites, if any.
+      //
+      if (pattern != nullptr)
+        pattern->apply_prerequisites (a, xt, bs, me);
+
+      // Start asynchronous matching of prerequisites. Wait with unlocked
+      // phase to allow phase switching.
+      //
+      wait_guard wg (ctx, ctx.count_busy (), xt[a].task_count, true);
+
+      for (const prerequisite_target& pt: pts)
+      {
+        if (pt.target == dir)
+          continue;
+
+        match_async (a, *pt.target, ctx.count_busy (), xt[a].task_count);
+      }
+
+      wg.wait ();
+
+      // Finish matching all the targets that we have started.
+      //
+      for (prerequisite_target& pt: pts)
+      {
+        if (pt.target == dir)
+          continue;
+
+        // Handle update=unmatch.
+        //
+        unmatch um ((pt.include & 4) != 0 ? unmatch::safe : unmatch::none);
+
+        pair<bool, target_state> mr (build2::match (a, *pt.target, um));
+
+        if (um != unmatch::none)
+        {
+          l6 ([&]{trace << "unmatch " << *pt.target << ": " << mr.first;});
+
+          // If we managed to unmatch, blank it out so that it's not executed,
+          // etc. Otherwise, convert it to ad hoc (we also automatically avoid
+          // hashing it and updating it during match in exec_depdb_dyndep()).
+          //
+          // The hashing part is tricky: by not hashing it we won't detect the
+          // case where it was removed as a prerequisite altogether. The
+          // thinking is that it was added with update=unmatch to extract some
+          // information (e.g., poptions from a library) and those will be
+          // change-tracked.
+          //
+          if (mr.first)
+            pt.target = nullptr;
+          else
+            pt.include |= 1;
+        }
+      }
+    }
 
     // See if we are providing the standard clean as a fallback.
     //
     if (me.fallback)
       return &perform_clean_file;
+
+    // If we have any update during match prerequisites, now is the time to
+    // update them.
+    //
+    // Note also that we ignore the result and whether it renders us out of
+    // date, leaving it to the common execute logic in perform_update_*().
+    //
+    if (a == perform_update_id)
+    {
+      for (const prerequisite_target& pt: pts)
+      {
+        if ((pt.include & 2) != 0)
+          update_during_match (trace, a, *pt.target);
+      }
+    }
 
     // See if this is not update or not on a file-based target.
     //
@@ -380,11 +510,8 @@ namespace build2
     // where you can often find more detailed rationale for some of the steps
     // performed (like the fsdir update below).
     //
-    context& ctx (xt.ctx);
-
     file& t (xt.as<file> ());
     const path& tp (t.path ());
-    const scope& bs (t.base_scope ());
 
     if (dir != nullptr)
       fsdir_rule::perform_update_direct (a, t);
@@ -394,7 +521,6 @@ namespace build2
     // them to the auxiliary data member in prerequisite_target (see
     // execute_update_prerequisites() for details).
     //
-    auto& pts (t.prerequisite_targets[a]);
     for (prerequisite_target& p: pts)
     {
       // Note that fsdir{} injected above is adhoc.
@@ -429,6 +555,9 @@ namespace build2
              p.adhoc ()          ? reinterpret_cast<target*> (p.data) :
              nullptr))
         {
+          if ((p.include & 4) != 0) // Skip update=unmatch.
+            continue;
+
           hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
         }
       }
@@ -1039,6 +1168,9 @@ namespace build2
              p.adhoc ()          ? reinterpret_cast<target*> (p.data)
              : nullptr))
         {
+          if ((p.include & 4) != 0) // Skip update=unmatch.
+            continue;
+
           hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
         }
       }
@@ -1216,7 +1348,8 @@ namespace build2
 
   // Update prerequisite targets.
   //
-  // Each prerequisite target should be in one of the following states:
+  // Each (non-NULL) prerequisite target should be in one of the following
+  // states:
   //
   // target  adhoc  data
   // --------------------

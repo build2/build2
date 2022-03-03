@@ -275,10 +275,19 @@ namespace build2
     match (action, target&, const string&, match_extra&) const = 0;
 
     virtual void
-    apply_adhoc_members (action, target&, match_extra&) const = 0;
+    apply_adhoc_members (action, target&,
+                         const scope& base,
+                         match_extra&) const = 0;
 
+    // The implementation should append pattern prerequisites to
+    // t.prerequisite_targets[a] but not match. It should set bit 2 in
+    // prerequisite_target::include to indicate update=match and bit 3
+    // to indicate update=unmatch.
+    //
     virtual void
-    apply_prerequisites (action, target&, match_extra&) const = 0;
+    apply_prerequisites (action, target&,
+                         const scope& base,
+                         match_extra&) const = 0;
 
     // Dump support.
     //

@@ -286,7 +286,8 @@ namespace build2
         // value (since we may not match). Instead we do this in apply().
         //
         lookup l;
-        if (include (a, t, p, &l) != include_type::normal)
+        if (include (a, t, p, a.operation () == update_id ? &l : nullptr) !=
+              include_type::normal)
           continue;
 
         if (p.is_a (x_src)                        ||
@@ -1199,7 +1200,7 @@ namespace build2
       //
       if (update_match)
       {
-        for (prerequisite_target& pto: pts)
+        for (const prerequisite_target& pto: pts)
         {
           if ((pto.include & 2) != 0)
             update_during_match (trace, a, *pto.target);
@@ -1559,7 +1560,8 @@ namespace build2
           if (!pt->has_prerequisites () &&
               (!group || !rt.has_prerequisites ()))
           {
-            prerequisites ps {p.as_prerequisite ()}; // Source.
+            prerequisites ps;
+            ps.push_back (p.as_prerequisite ()); // Source.
 
             // Add our lib*{} (see the export.* machinery for details) and
             // bmi*{} (both original and chained; see module search logic)
@@ -1578,7 +1580,7 @@ namespace build2
             // might depend on the imported one(s) which we will never "see"
             // unless we start with this library.
             //
-            // Note: have similar logic in make_module_sidebuild().
+            // Note: have similar logic in make_{module,header}_sidebuild().
             //
             size_t j (start);
             for (prerequisite_member p: group_prerequisite_members (a, t))

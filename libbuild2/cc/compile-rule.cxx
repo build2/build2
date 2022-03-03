@@ -1010,7 +1010,7 @@ namespace build2
         // @@ If for some reason unmatch fails, this messes up the for_install
         //    logic because we will update this library during match. Perhaps
         //    we should postpone updating them until execute if we failed to
-        //    unmatch.
+        //    unmatch. See how we do this in ad hoc rule.
         //
         pair<bool, target_state> mr (
           build2::match (
@@ -5889,7 +5889,10 @@ namespace build2
       ps.push_back (prerequisite (lt));
       for (prerequisite_member p: group_prerequisite_members (a, lt))
       {
-        if (include (a, lt, p) != include_type::normal) // Excluded/ad hoc.
+        // Ignore update=match.
+        //
+        lookup l;
+        if (include (a, lt, p, &l) != include_type::normal) // Excluded/ad hoc.
           continue;
 
         if (p.is_a<libx> () ||
@@ -6123,7 +6126,10 @@ namespace build2
         //
         for (prerequisite_member p: group_prerequisite_members (a, t))
         {
-          if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+          // Ignore update=match.
+          //
+          lookup l;
+          if (include (a, t, p, &l) != include_type::normal) // Excluded/ad hoc.
             continue;
 
           if (p.is_a<libx> () ||

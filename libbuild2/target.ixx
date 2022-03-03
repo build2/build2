@@ -443,7 +443,12 @@ namespace build2
     //
     assert (!member->adhoc_group_member ());
 
-    return prerequisite_type (*member);
+    // Feels like copying the prerequisite's variables to member is more
+    // correct than not (consider for_install, for example).
+    //
+    prerequisite_type p (*member);
+    p.vars = prerequisite.vars;
+    return p;
   }
 
   inline prerequisite_key prerequisite_member::

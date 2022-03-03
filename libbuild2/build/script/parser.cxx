@@ -1625,6 +1625,19 @@ namespace build2
                p.adhoc ()          ? reinterpret_cast<target*> (p.data)
                : nullptr))
           {
+            // Automatically skip update=unmatch that we could not unmatch.
+            //
+            // Note that we don't skip update=match here (unless filtered out)
+            // in order to incorporate the result into our out-of-date'ness.
+            // So there is a nuanced interaction between update=match and
+            // --update-*.
+            //
+            if ((p.include & 4) != 0)
+            {
+              l6 ([&]{trace << "skipping unmatched " << *pt;});
+              continue;
+            }
+
             // Apply the --update-* filter.
             //
             if (!p.adhoc () && !filters.empty ())

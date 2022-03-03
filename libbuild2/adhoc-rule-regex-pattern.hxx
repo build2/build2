@@ -35,10 +35,14 @@ namespace build2
     match (action, target&, const string&, match_extra&) const override;
 
     virtual void
-    apply_adhoc_members (action, target&, match_extra&) const override;
+    apply_adhoc_members (action, target&,
+                         const scope&,
+                         match_extra&) const override;
 
     virtual void
-    apply_prerequisites (action, target&, match_extra&) const override;
+    apply_prerequisites (action, target&,
+                         const scope&,
+                         match_extra&) const override;
 
     virtual void
     dump (ostream&) const override;

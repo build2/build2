@@ -158,11 +158,18 @@ namespace build2
     auto find_prereq = [a, &t] (const target_type& tt) -> optional<target_key>
     {
       // We use the standard logic that one would use in the rule::match()
-      // implementation.
+      // implementation. Except we support the unmatch and match values in
+      // the update variable.
       //
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        if (include (a, t, p) == include_type::normal && p.is_a (tt))
+        // Note that here we don't validate the update operation override
+        // value (since we may not match). Instead the rule does this in
+        // apply().
+        //
+        lookup l;
+        if (include (a, t, p, a.operation () == update_id ? &l : nullptr) ==
+              include_type::normal && p.is_a (tt))
           return p.key ().tk;
       }
       return nullopt;
@@ -293,7 +300,7 @@ namespace build2
   }
 
   void adhoc_rule_regex_pattern::
-  apply_adhoc_members (action, target& t, match_extra&) const
+  apply_adhoc_members (action, target& t, const scope&, match_extra&) const
   {
     const auto& mr (t.data<regex_match_results> ());
 
@@ -334,27 +341,17 @@ namespace build2
   }
 
   void adhoc_rule_regex_pattern::
-  apply_prerequisites (action a, target& t, match_extra&) const
+  apply_prerequisites (action a, target& t,
+                       const scope& bs,
+                       match_extra&) const
   {
     const auto& mr (t.data<regex_match_results> ());
-
-    // Resolve and cache target scope lazily.
-    //
-    auto base_scope = [&t, bs = (const scope*) nullptr] () mutable
-      -> const scope&
-    {
-      if (bs == nullptr)
-        bs = &t.base_scope ();
-
-      return *bs;
-    };
 
     // Re-create the same clean semantics as in match_prerequisite_members().
     //
     bool clean (a.operation () == clean_id && !t.is_a<alias> ());
 
     auto& pts (t.prerequisite_targets[a]);
-    size_t start (pts.size ());
 
     for (const element& e: prereqs_)
     {
@@ -382,7 +379,7 @@ namespace build2
         n = name (e.name.dir,
                   e.name.type,
                   substitute (t, mr, e.name.value, "prerequisite"));
-        s = &base_scope ();
+        s = &bs;
       }
       else
       {
@@ -392,18 +389,15 @@ namespace build2
 
       const target& pt (search (t, move (n), *s, &e.type));
 
-      if (clean && !pt.in (*base_scope ().root_scope ()))
+      if (clean && !pt.in (*bs.root_scope ()))
         continue;
 
       // @@ TODO: it could be handy to mark a prerequisite (e.g., a tool)
       //    ad hoc so that it doesn't interfere with the $< list. Also
-      //    clean=false.
+      //    clean=false. Also update=match|unmatch.
       //
       pts.push_back (prerequisite_target (&pt, false /* adhoc */));
     }
-
-    if (start != pts.size ())
-      match_members (a, t, pts, start);
   }
 
   void adhoc_rule_regex_pattern::

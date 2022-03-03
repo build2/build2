@@ -1089,7 +1089,8 @@ namespace build2
       return member != nullptr ? member : prerequisite.target.load (mo);
     }
 
-    // Return as a new prerequisite instance.
+    // Return as a new prerequisite instance. Note that it includes a copy
+    // of prerequisite-specific variables.
     //
     prerequisite_type
     as_prerequisite () const;
