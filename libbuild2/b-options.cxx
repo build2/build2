@@ -714,9 +714,9 @@ namespace build2
 
     os << std::endl
        << "\033[1m--structured-result\033[0m   Write the result of execution in a structured form. In" << ::std::endl
-       << "                      this mode, instead of printing to \033[1mSTDERR\033[0m diagnostics" << ::std::endl
+       << "                      this mode, instead of printing to \033[1mstderr\033[0m diagnostics" << ::std::endl
        << "                      messages about the outcome of executing actions on" << ::std::endl
-       << "                      targets, the driver writes to \033[1mSTDOUT\033[0m a structured result" << ::std::endl
+       << "                      targets, the driver writes to \033[1mstdout\033[0m a structured result" << ::std::endl
        << "                      description one line per the buildspec action/target" << ::std::endl
        << "                      pair. Each line has the following format:" << ::std::endl
        << ::std::endl
@@ -754,7 +754,7 @@ namespace build2
        << "\033[1m--buildfile\033[0m \033[4mpath\033[0m      The alternative file to read build information from. The" << ::std::endl
        << "                      default is \033[1mbuildfile\033[0m or \033[1mbuild2file\033[0m, depending on the" << ::std::endl
        << "                      project's build file/directory naming scheme. If \033[4mpath\033[0m is" << ::std::endl
-       << "                      '\033[1m-\033[0m', then read from \033[1mSTDIN\033[0m. Note that this option only" << ::std::endl
+       << "                      '\033[1m-\033[0m', then read from \033[1mstdin\033[0m. Note that this option only" << ::std::endl
        << "                      affects the files read as part of the buildspec" << ::std::endl
        << "                      processing. Specifically, it has no effect on the \033[1msource\033[0m" << ::std::endl
        << "                      and \033[1minclude\033[0m directives. As a result, this option is" << ::std::endl

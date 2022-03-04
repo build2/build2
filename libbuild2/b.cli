@@ -318,7 +318,7 @@ namespace build2
      \li|\cb{info}
 
          Print basic information (name, version, source and output
-         directories, etc) about one or more projects to \cb{STDOUT},
+         directories, etc) about one or more projects to \cb{stdout},
          separating multiple projects with a blank line. Each project is
          identified by its root directory target. For example:
 
@@ -557,9 +557,9 @@ namespace build2
     bool --structured-result
     {
       "Write the result of execution in a structured form. In this mode,
-       instead of printing to \cb{STDERR} diagnostics messages about the
+       instead of printing to \cb{stderr} diagnostics messages about the
        outcome of executing actions on targets, the driver writes to
-       \cb{STDOUT} a structured result description one line per the
+       \cb{stdout} a structured result description one line per the
        buildspec action/target pair. Each line has the following format:
 
        \c{\i{state} \i{meta-operation} \i{operation} \i{target}}
@@ -609,7 +609,7 @@ namespace build2
       "The alternative file to read build information from. The default is
        \cb{buildfile} or \cb{build2file}, depending on the project's build
        file/directory naming scheme. If <path> is '\cb{-}', then read from
-       \cb{STDIN}. Note that this option only affects the files read as part
+       \cb{stdin}. Note that this option only affects the files read as part
        of the buildspec processing. Specifically, it has no effect on the
        \cb{source} and \cb{include} directives. As a result, this option is
        primarily intended for testing rather than changing the build file
