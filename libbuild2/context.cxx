@@ -706,18 +706,28 @@ namespace build2
     current_mode = inner_oif.mode;
     current_diag_noise = diag_noise;
 
-    if (oif.var_name != nullptr)
+    auto find_ovar = [this] (const char* n)
     {
-      current_ovar = var_pool.find (oif.var_name);
+      const variable* v (var_pool.find (n));
 
       // The operation variable should have prerequisite or target visibility.
       //
-      assert (current_ovar != nullptr &&
-              (current_ovar->visibility == variable_visibility::prereq ||
-               current_ovar->visibility == variable_visibility::target));
-    }
-    else
-      current_ovar = nullptr;
+      assert (v != nullptr &&
+              (v->visibility == variable_visibility::prereq ||
+               v->visibility == variable_visibility::target));
+
+      return v;
+    };
+
+    current_inner_ovar =
+      inner_oif.var_name != nullptr
+      ? find_ovar (inner_oif.var_name)
+      : nullptr;
+
+    current_outer_ovar =
+      outer_oif != nullptr && outer_oif->var_name != nullptr
+      ? find_ovar (outer_oif->var_name)
+      : nullptr;
 
     // Reset counters (serial execution).
     //

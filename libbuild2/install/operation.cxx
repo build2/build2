@@ -81,7 +81,7 @@ namespace build2
       update_id, // Note: not update_for_install_id.
       install_id,
       op_update.name,
-      nullptr, // Outer operation variable is always used.
+      op_update.var_name,
       op_update.name_do,
       op_update.name_doing,
       op_update.name_did,

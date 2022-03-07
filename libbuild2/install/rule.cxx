@@ -37,6 +37,17 @@ namespace build2
       return r.simple () && r.string () == "false" ? nullptr : &r;
     }
 
+    // Note that the below rules are called for both install and
+    // update-for-install.
+    //
+    static inline const variable&
+    var_install (context& ctx)
+    {
+      return ctx.current_outer_ovar != nullptr
+        ? *ctx.current_outer_ovar
+        : *ctx.current_inner_ovar;
+    }
+
     // alias_rule
     //
     const alias_rule alias_rule::instance;
@@ -127,7 +138,7 @@ namespace build2
         //
         // Note: not the same as lookup_install() above.
         //
-        auto l ((*pt)[ctx.current_ovar]); // "install"
+        auto l ((*pt)[var_install (ctx)]);
         if (l && cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
@@ -249,7 +260,7 @@ namespace build2
           //
           // Note: not the same as lookup_install() above.
           //
-          auto l ((*mt)[ctx.current_ovar]); // "install"
+          auto l ((*mt)[var_install (ctx)]);
           if (l && cast<path> (l).string () == "false")
           {
             l5 ([&]{trace << "ignoring " << *mt << " (not installable)";});
@@ -300,7 +311,7 @@ namespace build2
         // through and also diagnose any invalid values.
         //
         if (p.vars.empty () ||
-            cast_empty<path> (p.vars[t.ctx.current_ovar]).string () != "true")
+            cast_empty<path> (p.vars[var_install (t.ctx)]).string () != "true")
           return nullptr;
       }
 
@@ -389,7 +400,7 @@ namespace build2
         //
         // Note: not the same as lookup_install() above.
         //
-        auto l ((*pt)[ctx.current_ovar]); // "install"
+        auto l ((*pt)[var_install (ctx)]);
         if (l && cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
@@ -1043,7 +1054,7 @@ namespace build2
       //
       if (!tp.empty ())
       {
-        install_target (t, cast<path> (t[ctx.current_ovar]), 1); // "install"
+        install_target (t, cast<path> (t[var_install (ctx)]), 1);
         r |= target_state::changed;
       }
 
@@ -1312,9 +1323,7 @@ namespace build2
       target_state r (target_state::unchanged);
 
       if (!tp.empty ())
-        r |= uninstall_target (t,
-                               cast<path> (t[ctx.current_ovar]), // "install"
-                               1);
+        r |= uninstall_target (t, cast<path> (t[var_install (ctx)]), 1);
 
       // Then installable ad hoc group members, if any. To be anally precise,
       // we would have to do it in reverse, but that's not easy (it's a

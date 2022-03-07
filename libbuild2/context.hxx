@@ -280,10 +280,14 @@ namespace build2
     string current_oname;
 
     const meta_operation_info* current_mif;
+
     const operation_info* current_inner_oif;
     const operation_info* current_outer_oif;
 
-    const variable* current_ovar; // Current (outer) operation variable.
+    // Current operation-specific variables.
+    //
+    const variable* current_inner_ovar;
+    const variable* current_outer_ovar;
 
     action
     current_action () const

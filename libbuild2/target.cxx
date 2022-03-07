@@ -564,17 +564,23 @@ namespace build2
              << "'" << *v << "' specified for prerequisite " << p;
     }
 
-    // Handle operation-specific override.
+    // Handle operation-specific override (see var_include documentation
+    // for details).
     //
     lookup l;
     optional<bool> r1; // Absent means something other than true|false.
 
     names storage;
     names_view ns;
+    const variable* current_ovar (nullptr);
 
-    if (r != include_type::excluded && ctx.current_ovar != nullptr)
+    if (r != include_type::excluded)
     {
-      if ((l = p.vars[*ctx.current_ovar]))
+      current_ovar = a.outer ()
+        ? ctx.current_outer_ovar
+        : ctx.current_inner_ovar;
+
+      if (current_ovar != nullptr && (l = p.vars[*current_ovar]))
       {
         // Maybe we should optimize this for the common cases (bool, path,
         // name)? But then again we don't expect many such overrides. Plus
@@ -619,7 +625,7 @@ namespace build2
         // Note: we have to delay this until the meta-operation callback above
         // had a chance to override it.
         //
-        fail << "unrecognized " << *ctx.current_ovar << " variable value "
+        fail << "unrecognized " << *current_ovar << " variable value "
              << "'" << ns << "' specified for prerequisite " << p;
       }
     }
