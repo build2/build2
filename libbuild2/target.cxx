@@ -69,6 +69,7 @@ namespace build2
   //
   static const char* const target_state_[] =
   {
+    "<invalid>", // Absent/invalid (see target_state for details).
     "unknown",
     "unchanged",
     "postponed",

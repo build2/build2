@@ -20,6 +20,9 @@ namespace build2
   //
   // Note also that value 0 is available to indicate absent/invalid state.
   //
+  // NOTE: don't forget to also update operator<<(ostream,target_state) if
+  //       changing anything here.
+  //
   enum class target_state: uint8_t
   {
     unknown = 1,
