@@ -456,17 +456,13 @@ namespace build2
     // If we have any update during match prerequisites, now is the time to
     // update them.
     //
-    // Note also that we ignore the result and whether it renders us out of
-    // date, leaving it to the common execute logic in perform_update_*().
+    // Note that we ignore the result and whether it renders us out of date,
+    // leaving it to the common execute logic in perform_update_*().
+    //
+    // Note also that update_during_match() spoils prerequisite_target::data.
     //
     if (a == perform_update_id)
-    {
-      for (const prerequisite_target& pt: pts)
-      {
-        if ((pt.include & 2) != 0)
-          update_during_match (trace, a, *pt.target);
-      }
-    }
+      update_during_match (trace, a, pts, 2 /* mask */);
 
     // See if this is not update or not on a file-based target.
     //

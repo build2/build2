@@ -2119,6 +2119,75 @@ namespace build2
     }
   }
 
+  bool
+  update_during_match (tracer& trace,
+                       action a,
+                       prerequisite_targets& pts,
+                       uintptr_t mask)
+  {
+    // On the first pass detect and handle unchanged tragets. Note that we
+    // have to do it in a separate pass since we cannot call matched_state()
+    // once we've switched the phase.
+    //
+    context* ctx (nullptr);
+
+    for (prerequisite_target& p: pts)
+    {
+      if ((p.include & mask) != 0)
+      {
+        if (p.target != nullptr)
+        {
+          const target& pt (*p.target);
+
+          target_state os (pt.matched_state (a));
+
+          if (os != target_state::unchanged)
+          {
+            if (ctx == nullptr)
+              ctx = &pt.ctx;
+
+            p.data = static_cast<uintptr_t> (os);
+            continue;
+          }
+        }
+
+        p.data = 0;
+      }
+    }
+
+    // If all unchanged, we are done.
+    //
+    if (ctx == nullptr)
+      return false;
+
+    phase_switch ps (*ctx, run_phase::execute);
+
+    bool r (false);
+
+    for (prerequisite_target& p: pts)
+    {
+      if ((p.include & mask) != 0 && p.data != 0)
+      {
+        const target& pt (*p.target);
+
+        target_state os (static_cast<target_state> (p.data));
+        target_state ns (execute_direct (a, pt));
+
+        if (ns != os && ns != target_state::unchanged)
+        {
+          l6 ([&]{trace << "updated " << pt
+                        << "; old state " << os
+                        << "; new state " << ns;});
+          r = true;
+        }
+
+        p.data = 0;
+      }
+    }
+
+    return r;
+  }
+
   static inline void
   blank_adhoc_member (const target*&)
   {

@@ -18,9 +18,11 @@ namespace build2
   // Note that postponed is "greater" than unchanged since it may result in
   // the changed state.
   //
+  // Note also that value 0 is available to indicate absent/invalid state.
+  //
   enum class target_state: uint8_t
   {
-    unknown,
+    unknown = 1,
     unchanged,
     postponed,
     busy,

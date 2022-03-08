@@ -609,6 +609,19 @@ namespace build2
                        action, const target&,
                        timestamp = timestamp_unknown);
 
+  // As above, but update all the targets in prerequisite_targets that have
+  // the specified mask in prerequisite_target::include. Return true if any of
+  // them have changed.
+  //
+  // Note that this function spoils prerequisite_target::data (which is used
+  // for temporary storage). But it resets data to 0 once done.
+  //
+  LIBBUILD2_SYMEXPORT bool
+  update_during_match (tracer&,
+                       action,
+                       prerequisite_targets&,
+                       uintptr_t mask);
+
   // The default prerequisite execute implementation. Call execute_async() on
   // each non-ignored (non-NULL) prerequisite target in a loop and then wait
   // for their completion. Return target_state::changed if any of them were

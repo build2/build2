@@ -1226,17 +1226,13 @@ namespace build2
       // example, object file matches may need the headers to be already
       // updated).
       //
-      // Note also that we ignore the result and whether it renders us out of
-      // date, leaving it to the common execute logic in perform_update().
+      // Note that we ignore the result and whether it renders us out of date,
+      // leaving it to the common execute logic in perform_update().
+      //
+      // Note also that update_during_match() spoils prerequisite_target::data.
       //
       if (update_match)
-      {
-        for (const prerequisite_target& pto: pts)
-        {
-          if ((pto.include & 2) != 0)
-            update_during_match (trace, a, *pto.target);
-        }
-      }
+        update_during_match (trace, a, pts, 2 /* mask */);
 
       // Check if we have any binful utility libraries.
       //
