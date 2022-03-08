@@ -959,7 +959,7 @@ namespace build2
               update_match = um = true;
             }
           }
-          else if (v != "false" && v != "true")
+          else if (v != "false" && v != "true" && v != "execute")
           {
             fail << "unrecognized update variable value '" << v
                  << "' specified for prerequisite " << p.prerequisite;

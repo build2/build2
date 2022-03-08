@@ -441,8 +441,10 @@ namespace build2
     //
     // Valid values are `true` and `false`. Additionally, some rules (and
     // potentially only for certain types of prerequisites) may support the
-    // `unmatch` (match but do not update, if possible) and `match` (update
-    // during match) values. Note that if unmatch is impossible, then the
+    // `unmatch` (match but do not update, if possible), `match` (update
+    // during match), and `execute` (update during execute, as is normally)
+    // values (the `execute` value may be useful if the rule has the `match`
+    // semantics by default). Note that if unmatch is impossible, then the
     // prerequisite is treated as ad hoc.
     //
     const variable* var_update;

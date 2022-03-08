@@ -368,7 +368,7 @@ namespace build2
             if (a == perform_update_id)
               mask = 4;
           }
-          else if (v != "false" && v != "true")
+          else if (v != "false" && v != "true" && v != "execute")
           {
             fail << "unrecognized update variable value '" << v
                  << "' specified for prerequisite " << p.prerequisite;
