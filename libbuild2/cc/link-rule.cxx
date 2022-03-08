@@ -945,21 +945,20 @@ namespace build2
         // Not that for now we only allow updating during match ad hoc and
         // mark 3 (headers, etc; see below) prerequisites.
         //
-        bool um (false);
+        // By default we update during match headers and ad hoc sources (which
+        // are commonly marked as such because they are #include'ed).
+        //
+        optional<bool> um;
 
         if (l)
         {
           const string& v (cast<string> (l));
 
           if (v == "match")
-          {
-            if (a == perform_update_id)
-            {
-              pto.include |= 2;
-              update_match = um = true;
-            }
-          }
-          else if (v != "false" && v != "true" && v != "execute")
+            um = true;
+          else if (v == "execute")
+            um = false;
+          else if (v != "false" && v != "true")
           {
             fail << "unrecognized update variable value '" << v
                  << "' specified for prerequisite " << p.prerequisite;
@@ -971,8 +970,24 @@ namespace build2
         //
         if (pi != include_type::normal)
         {
-          if (pi == include_type::adhoc && um)
-            pto.target = &p.search (t); // mark 0
+          if (a == perform_update_id && pi == include_type::adhoc)
+          {
+            // By default update ad hoc headers/sources during match (see
+            // above).
+            //
+            if (!um)
+              um = (p.is_a (x_src) ||
+                    p.is_a<c> ()   ||
+                    (x_mod != nullptr && p.is_a (*x_mod)) ||
+                    x_header (p, true));
+
+            if (*um)
+            {
+              pto.target = &p.search (t); // mark 0
+              pto.include |= 2;
+              update_match = true;
+            }
+          }
 
           continue;
         }
@@ -988,6 +1003,7 @@ namespace build2
         uint8_t m (0);
 
         bool mod (x_mod != nullptr && p.is_a (*x_mod));
+        bool hdr (false);
 
         if (mod || p.is_a (x_src) || p.is_a<c> ())
         {
@@ -1118,8 +1134,11 @@ namespace build2
           // Windows module definition (.def). For other platforms (and for
           // static libraries) treat it as an ordinary prerequisite.
           //
-          else if (p.is_a<def> () && tclass == "windows" && ot != otype::a)
+          else if (p.is_a<def> ())
           {
+            if (tclass != "windows" || ot == otype::a)
+              continue;
+
             pt = &p.search (t);
           }
           //
@@ -1129,7 +1148,9 @@ namespace build2
           //
           else
           {
-            if (!p.is_a<objx> () && !p.is_a<bmix> () && !x_header (p, true))
+            if (!p.is_a<objx> () &&
+                !p.is_a<bmix> () &&
+                !(hdr = x_header (p, true)))
             {
               // @@ Temporary hack until we get the default outer operation
               // for update. This allows operations like test and install to
@@ -1171,14 +1192,24 @@ namespace build2
         // Upgrade update during match prerequisites to mark 0 (see above for
         // details).
         //
-        if (um)
+        if (a == perform_update_id)
         {
-          if (m != 3)
-            fail << "unable to update during match prerequisite " << p <<
-              info << "updating this type of prerequisites during match is "
-                 << "not supported by this rule";
+          // By default update headers during match (see above).
+          //
+          if (!um)
+            um = hdr;
 
-          m = 0;
+          if (*um)
+          {
+            if (m != 3)
+              fail << "unable to update during match prerequisite " << p <<
+                info << "updating this type of prerequisites during match is "
+                   << "not supported by this rule";
+
+            m = 0;
+            pto.include |= 2;
+            update_match = true;
+          }
         }
 
         mark (pt, m);
