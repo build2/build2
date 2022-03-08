@@ -2,7 +2,6 @@
 // license   : MIT; see accompanying LICENSE file
 
 include <set>;
-include <libbuild2/types.hxx>;
 
 include <libbuild2/common.cli>;
 
@@ -320,11 +319,102 @@ namespace build2
          Print basic information (name, version, source and output
          directories, etc) about one or more projects to \cb{stdout},
          separating multiple projects with a blank line. Each project is
-         identified by its root directory target. For example:
+         identified by its root directory target. For example (some output
+         is omitted):
 
          \
          $ b info: libfoo/ libbar/
+         project: libfoo
+         version: 1.0.0
+         src_root: /tmp/libfoo
+         out_root: /tmp/libfoo
+
+         project: libbar
+         version: 2.0.0
+         src_root: /tmp/libbar
+         out_root: /tmp/libbar-out
          \
+
+         To instead print this information in the JSON format, use the
+         \cb{json} parameter, for example:
+
+         \
+         $ b info: libfoo/,json
+         \
+
+         In this case the output is a JSON array of objects which are the
+         serialized representation of the following C++ \cb{struct}
+         \cb{project_info}:
+
+         \
+         struct subproject
+         {
+           string           path;
+           optional<string> name;
+         };
+
+         struct project_info
+         {
+           optional<string>   project;
+           optional<string>   version;
+           optional<string>   summary;
+           optional<string>   url;
+           string             src_root;
+           string             out_root;
+           optional<string>   amalgamation;
+           vector<subproject> subprojects;
+           vector<string>     operations;
+           vector<string>     meta_operations;
+           vector<string>     modules;
+         };
+         \
+
+         For example:
+
+         \
+         [
+           {
+             \"project\": \"libfoo\",
+             \"version\": \"1.0.0\",
+             \"summary\": \"libfoo C++ library\",
+             \"src_root\": \"/tmp/libfoo\",
+             \"out_root\": \"/tmp/gcc-debug/libfoo\",
+             \"amalgamation\": \"..\",
+             \"subprojects\": [
+               {
+                 \"path\": \"tests\"
+               }
+             ],
+             \"operations\": [
+               \"update\",
+               \"clean\",
+               \"test\",
+               \"update-for-test\",
+               \"install\",
+               \"uninstall\",
+               \"update-for-install\"
+             ],
+             \"meta-operations\": [
+               \"perform\",
+               \"configure\",
+               \"disfigure\",
+               \"dist\",
+               \"info\"
+             ],
+             \"modules\": [
+               \"version\",
+               \"config\",
+               \"test\",
+               \"install\",
+               \"dist\"
+             ]
+           }
+         ]
+         \
+
+         See the JSON OUTPUT section below for details on the overall
+         properties of this format and the semantics of the \cb{struct}
+         serialization.
 
          ||
 
@@ -554,13 +644,20 @@ namespace build2
        project's \cb{buildfiles}, such as \cb{info}."
     }
 
-    bool --structured-result
+    structured_result_format --structured-result
     {
+      "<fmt>",
+
       "Write the result of execution in a structured form. In this mode,
        instead of printing to \cb{stderr} diagnostics messages about the
        outcome of executing actions on targets, the driver writes to
-       \cb{stdout} a structured result description one line per the
-       buildspec action/target pair. Each line has the following format:
+       \cb{stdout} a machine-readable result description in the specified
+       format. Valid values for this option are \cb{lines} and \cb{json}.
+       Note that currently only the \cb{perform} meta-operation supports
+       the structured result output.
+
+       If the output format is \cb{lines}, then the result is written one line
+       per the buildspec action/target pair. Each line has the following form:
 
        \c{\i{state} \i{meta-operation} \i{operation} \i{target}}
 
@@ -570,11 +667,63 @@ namespace build2
 
        \
        unchanged perform update(test) /tmp/dir{hello/}
-       changed perform test /tmp/dir{hello/}
+       changed perform test /tmp/hello/exe{test}
        \
 
-       Note that only the \cb{perform} meta-operation supports the structured
-       result output.
+       If the output format is \cb{json}, then the output is a JSON array of
+       objects which are the serialized representation of the following C++
+       \cb{struct} \cb{target_action_result}:
+
+       \
+       struct target_action_result
+       {
+         string           target;
+         string           quoted_target;
+         string           target_type;
+         optional<string> target_path;
+         string           meta_operation;
+         string           operation;
+         optional<string> outer_operation;
+         string           state;
+       };
+       \
+
+       For example:
+
+       \
+       [
+         {
+           \"target\": \"/tmp/dir{hello/}\",
+           \"quoted_target\": \"/tmp/dir{hello/}\",
+           \"target_type\": \"dir\",
+           \"target_path\": \"/tmp/hello\",
+           \"meta_operation\": \"perform\",
+           \"operation\": \"update\",
+           \"outer_operation\": \"test\",
+           \"state\": \"unchanged\"
+         },
+         {
+           \"target\": \"/tmp/dir{hello/}\",
+           \"quoted_target\": \"/tmp/dir{hello/}\",
+           \"target_type\": \"dir\",
+           \"target_path\": \"/tmp/hello\",
+           \"meta_operation\": \"perform\",
+           \"operation\": \"test\",
+           \"state\": \"changed\"
+         }
+       ]
+       \
+
+       See the JSON OUTPUT section below for details on the overall
+       properties of this format and the semantics of the \cb{struct}
+       serialization.
+
+       The \cb{target} member is a \"display\" target name, the same as in the
+       \cb{lines} format. The \cb{quoted_target} member is a target name that,
+       if required, is quoted so that it can be passed back to the driver on
+       the command line. The \cb{target_type} member is the type of target.
+       The \cb{target_path} member is an absolute path to the target if the
+       target type is path-based or \cb{dir}.
        "
     }
 
@@ -724,6 +873,69 @@ namespace build2
 
   The order in which default options files are loaded is traced at the
   verbosity level 3 (\cb{-V} option) or higher.
+
+  \h|JSON OUTPUT|
+
+  Commands that support the JSON output specify their formats as a
+  serialized representation of a C++ \cb{struct} or an array thereof. For
+  example:
+
+  \
+  struct package
+  {
+    string name;
+  };
+
+  struct configuration
+  {
+    uint64_t         id;
+    string           path;
+    optional<string> name;
+    bool             default;
+    vector<package>  packages;
+  };
+  \
+
+  An example of the serialized JSON representation of \cb{struct}
+  \cb{configuration}:
+
+  \
+  {
+    \"id\": 1,
+    \"path\": \"/tmp/hello-gcc\",
+    \"name\": \"gcc\",
+    \"default\": true,
+    \"packages\": [
+      {
+        \"name\": \"hello\"
+      }
+    ]
+  }
+  \
+
+  This sections provides details on the overall properties of such formats
+  and the semantics of the \cb{struct} serialization.
+
+  The order of members in a JSON object is fixed as specified in the
+  corresponding \cb{struct}. While new members may be added in the
+  future (and should be ignored by older consumers), the semantics of the
+  existing members (including whether the top-level entry is an object or
+  array) may not change.
+
+  An object member is required unless its type is \cb{optional<>},
+  \cb{bool}, or \cb{vector<>} (array). For \cb{bool} members absent means
+  \cb{false}. For \cb{vector<>} members absent means empty. An empty
+  top-level array is always present.
+
+  For example, the following JSON text is a possible serialization of
+  the above \cb{struct} \cb{configuration}:
+
+  \
+  {
+    \"id\": 1,
+    \"path\": \"/tmp/hello-gcc\"
+  }
+  \
 
   \h|EXIT STATUS|
 

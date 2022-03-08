@@ -3,8 +3,6 @@
 
 #include <libbuild2/types-parsers.hxx>
 
-#include <libbuild2/b-options.hxx> // build2::build::cli namespace
-
 namespace build2
 {
   namespace build
@@ -47,6 +45,24 @@ namespace build2
       {
         xs = true;
         parse_path (x, s);
+      }
+
+      void parser<structured_result_format>::
+      parse (structured_result_format& x, bool& xs, scanner& s)
+      {
+        xs = true;
+        const char* o (s.next ());
+
+        if (!s.more ())
+          throw missing_value (o);
+
+        const string v (s.next ());
+        if (v == "lines")
+          x = structured_result_format::lines;
+        else if (v == "json")
+          x = structured_result_format::json;
+        else
+          throw invalid_value (o, v);
       }
     }
   }

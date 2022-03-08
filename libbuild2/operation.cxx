@@ -6,6 +6,10 @@
 #include <iostream>      // cout
 #include <unordered_map>
 
+#ifndef BUILD2_BOOTSTRAP
+#  include <libbutl/json/serializer.hxx>
+#endif
+
 #include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
@@ -594,6 +598,36 @@ namespace build2
 
   // info
   //
+
+  // Note: similar approach to forward() in configure.
+  //
+  static bool
+  info_json (const values& params,
+             const char* mo = nullptr,
+             const location& l = location ())
+  {
+    if (params.size () == 1)
+    {
+      const names& ns (cast<names> (params[0]));
+
+      if (ns.size () == 1 && ns[0].simple () && ns[0].value == "json")
+        return true;
+      else if (!ns.empty ())
+        fail (l) << "unexpected parameter '" << ns << "' for "
+                 << "meta-operation " << mo;
+    }
+    else if (!params.empty ())
+        fail (l) << "unexpected parameters for meta-operation " << mo;
+
+    return false;
+  }
+
+  static void
+  info_pre (context&, const values& params, const location& l)
+  {
+    info_json (params, "info", l); // Validate.
+  }
+
   static operation_id
   info_operation_pre (context&, const values&, operation_id o)
   {
@@ -644,7 +678,7 @@ namespace build2
   }
 
   static void
-  info_execute (const values&, action, action_targets& ts, uint16_t, bool)
+  info_execute_lines (action_targets& ts)
   {
     for (size_t i (0); i != ts.size (); ++i)
     {
@@ -695,6 +729,20 @@ namespace build2
           cout << ' ' << *p;
       };
 
+      // Print a potentially null/empty directory path without trailing slash.
+      //
+      auto print_dir = [] (const dir_path& d)
+      {
+        if (!d.empty ())
+          cout << ' ' << d.string ();
+      };
+
+      auto print_pdir = [&print_dir] (const dir_path* d)
+      {
+        if (d != nullptr)
+          print_dir (*d);
+      };
+
       // This could be a simple project that doesn't set project name.
       //
       cout
@@ -702,14 +750,171 @@ namespace build2
         << "version:"        ; print_empty (cast_empty<string> (rs[ctx.var_version])); cout << endl
         << "summary:"        ; print_empty (cast_empty<string> (rs[ctx.var_project_summary])); cout << endl
         << "url:"            ; print_empty (cast_empty<string> (rs[ctx.var_project_url])); cout << endl
-        << "src_root: "     << cast<dir_path> (rs[ctx.var_src_root]) << endl
-        << "out_root: "     << cast<dir_path> (rs[ctx.var_out_root]) << endl
-        << "amalgamation:"   ; print_null (*rs.root_extra->amalgamation); cout << endl
+        << "src_root:"       ; print_dir (cast<dir_path> (rs[ctx.var_src_root])); cout << endl
+        << "out_root:"       ; print_dir (cast<dir_path> (rs[ctx.var_out_root])); cout << endl
+        << "amalgamation:"   ; print_pdir (*rs.root_extra->amalgamation); cout << endl
         << "subprojects:"    ; print_null (*rs.root_extra->subprojects); cout << endl
         << "operations:"     ; print_ops (rs.root_extra->operations, ctx.operation_table); cout << endl
         << "meta-operations:"; print_ops (rs.root_extra->meta_operations, ctx.meta_operation_table); cout << endl
         << "modules:"        ; print_mods (); cout << endl;
     }
+  }
+
+#ifndef BUILD2_BOOTSTRAP
+  static void
+  info_execute_json (action_targets& ts)
+  {
+    json::stream_serializer s (cout);
+    s.begin_array ();
+
+    for (size_t i (0); i != ts.size (); ++i)
+    {
+      const scope& rs (ts[i].as<scope> ());
+
+      context& ctx (rs.ctx);
+
+      s.begin_object ();
+
+      // Print a potentially empty string.
+      //
+      auto print_string = [&s] (const char* n,
+                                const string& v,
+                                bool check = false)
+      {
+        if (!v.empty ())
+          s.member (n, v, check);
+      };
+
+      // Print a potentially null/empty directory path without trailing slash.
+      //
+      auto print_dir = [&s] (const char* n, const dir_path& v)
+      {
+        if (!v.empty ())
+          s.member (n, v.string ());
+      };
+
+      auto print_pdir = [&print_dir] (const char* n, const dir_path* v)
+      {
+        if (v != nullptr)
+          print_dir (n, *v);
+      };
+
+      // Print [meta_]operation names (see info_lines() for details).
+      //
+      auto print_ops = [&s] (const char* name,
+                             const auto& ov,
+                             const auto& ot,
+                             const auto& printer)
+      {
+        s.member_name (name, false /* check */);
+
+        s.begin_array ();
+
+        for (uint8_t id (2); id < ov.size (); ++id)
+        {
+          if (ov[id] != nullptr)
+            printer (ot[id]);
+        }
+
+        s.end_array ();
+      };
+
+      // Note that we won't check some values for being valid UTF-8, since
+      // their characters belong to even stricter character sets and/or are
+      // read from buildfile which is already verified to be valid UTF-8.
+      //
+      print_string ("project", project (rs).string ());
+      print_string ("version", cast_empty<string> (rs[ctx.var_version]));
+      print_string ("summary", cast_empty<string> (rs[ctx.var_project_summary]));
+      print_string ("url", cast_empty<string> (rs[ctx.var_project_url]));
+      print_dir    ("src_root", cast<dir_path> (rs[ctx.var_src_root]));
+      print_dir    ("out_root", cast<dir_path> (rs[ctx.var_out_root]));
+      print_pdir   ("amalgamation", *rs.root_extra->amalgamation);
+
+      // Print subprojects.
+      //
+      {
+        const subprojects* sps (*rs.root_extra->subprojects);
+
+        if (sps != nullptr && !sps->empty ())
+        {
+          s.member_name ("subprojects", false /* check */);
+          s.begin_array ();
+
+          for (const auto& sp: *sps)
+          {
+            s.begin_object ();
+
+            print_dir ("path", sp.second);
+
+            // See find_subprojects() for details.
+            //
+            const string& n (sp.first.string ());
+
+            if (!path::traits_type::is_separator (n.back ()))
+              print_string ("name", n);
+
+            s.end_object ();
+          }
+
+          s.end_array ();
+        }
+      }
+
+      print_ops ("operations",
+                 rs.root_extra->operations,
+                 ctx.operation_table,
+                 [&s] (const string& v) {s.value (v, false /* check */);});
+
+      print_ops ("meta-operations",
+                 rs.root_extra->meta_operations,
+                 ctx.meta_operation_table,
+                 [&s] (const meta_operation_data& v)
+                 {
+                   s.value (v.name, false /* check */);
+                 });
+
+      // Print modules.
+      //
+      if (!rs.root_extra->modules.empty ())
+      {
+        s.member_name ("modules", false /* check */);
+        s.begin_array ();
+
+        for (const module_state& ms: rs.root_extra->modules)
+          s.value (ms.name, false /* check */);
+
+        s.end_array ();
+      }
+
+      s.end_object ();
+    }
+
+    s.end_array ();
+    cout << endl;
+  }
+#else
+  static void
+  info_execute_json (action_targets&)
+  {
+  }
+#endif //BUILD2_BOOTSTRAP
+
+  static void
+  info_execute (const values& params,
+                action,
+                action_targets& ts,
+                uint16_t,
+                bool)
+  {
+    // Note that both outputs will not be "ideal" if the user does something
+    // like `b info(foo/) info(bar/)` instead of `b info(foo/ bar/)`. Oh,
+    // well.
+    //
+    if (info_json (params))
+      info_execute_json (ts);
+    else
+      info_execute_lines (ts);
   }
 
   const meta_operation_info mo_info {
@@ -719,8 +924,8 @@ namespace build2
     "",
     "",
     "",
-    false,   // bootstrap_outer
-    nullptr, // meta-operation pre
+    false,     // bootstrap_outer
+    &info_pre, // meta-operation pre
     &info_operation_pre,
     &info_load,
     &info_search,

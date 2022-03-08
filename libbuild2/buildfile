@@ -273,7 +273,7 @@ if $cli.configured
     # Usage options.
     #
     cli.options += --suppress-undocumented --long-usage --ansi-color \
---ascii-tree --page-usage 'build2::print_$name$_' --option-length 21
+--ascii-tree --page-usage 'build2::print_$name$_' --option-length 23
   }
 
   script/cli.cxx{builtin-options}: script/cli{builtin}

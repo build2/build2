@@ -15,8 +15,6 @@
 
 #include <set>
 
-#include <libbuild2/types.hxx>
-
 #include <libbuild2/common-options.hxx>
 
 namespace build2
@@ -154,8 +152,11 @@ namespace build2
     const bool&
     no_external_modules () const;
 
-    const bool&
+    const structured_result_format&
     structured_result () const;
+
+    bool
+    structured_result_specified () const;
 
     const bool&
     mtime_check () const;
@@ -266,7 +267,8 @@ namespace build2
     bool dry_run_;
     bool match_only_;
     bool no_external_modules_;
-    bool structured_result_;
+    structured_result_format structured_result_;
+    bool structured_result_specified_;
     bool mtime_check_;
     bool no_mtime_check_;
     bool no_column_;

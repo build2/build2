@@ -466,6 +466,10 @@ namespace build2
   }
 }
 
+#include <libbuild2/types.hxx>
+
+#include <libbuild2/options-types.hxx>
+
 namespace build2
 {
 }

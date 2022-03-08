@@ -12,8 +12,6 @@
 //
 // End prologue.
 
-#include <libbuild2/types.hxx>
-
 #include <libbuild2/common-options.hxx>
 
 namespace build2

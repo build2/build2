@@ -23,7 +23,7 @@ namespace build2
         ? empty_project_name
         : i->first);
 
-      os << (i != b ? " " : "") << n << '@' << i->second;
+      os << (i != b ? " " : "") << n << '@' << i->second.string ();
     }
 
     return os;

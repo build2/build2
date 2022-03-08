@@ -28,8 +28,12 @@ namespace build2
 
   using subprojects = map<project_name, dir_path>;
 
+  // Print as name@dir sequence.
+  //
+  // Note: trailing slash is not printed for the directory path.
+  //
   LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const subprojects&); // Print as name@dir sequence.
+  operator<< (ostream&, const subprojects&);
 
   class LIBBUILD2_SYMEXPORT scope
   {

@@ -79,10 +79,10 @@ namespace build2
     "group"
   };
 
-  ostream&
-  operator<< (ostream& os, target_state ts)
+  string
+  to_string (target_state ts)
   {
-    return os << target_state_[static_cast<uint8_t> (ts)];
+    return target_state_[static_cast<uint8_t> (ts)];
   }
 
   // target

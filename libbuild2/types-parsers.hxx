@@ -9,7 +9,8 @@
 
 #include <libbuild2/types.hxx>
 
-#include <libbuild2/types-parsers.hxx>
+#include <libbuild2/common-options.hxx> // build2::build::cli namespace
+#include <libbuild2/options-types.hxx>
 
 namespace build2
 {
@@ -40,6 +41,19 @@ namespace build2
 
         static void
         merge (dir_path& b, const dir_path& a) {b = a;}
+      };
+
+      template <>
+      struct parser<structured_result_format>
+      {
+        static void
+        parse (structured_result_format&, bool&, scanner&);
+
+        static void
+        merge (structured_result_format& b, const structured_result_format& a)
+        {
+          b = a;
+        }
       };
     }
   }

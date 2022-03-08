@@ -176,10 +176,16 @@ namespace build2
     return this->no_external_modules_;
   }
 
-  inline const bool& options::
+  inline const structured_result_format& options::
   structured_result () const
   {
     return this->structured_result_;
+  }
+
+  inline bool options::
+  structured_result_specified () const
+  {
+    return this->structured_result_specified_;
   }
 
   inline const bool& options::

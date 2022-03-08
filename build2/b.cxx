@@ -10,6 +10,10 @@
 #include <libbutl/fdstream.hxx>  // stderr_fd(), fdterm()
 #include <libbutl/backtrace.hxx> // backtrace()
 
+#ifndef BUILD2_BOOTSTRAP
+#  include <libbutl/json/serializer.hxx>
+#endif
+
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
@@ -62,20 +66,131 @@ namespace build2
   int
   main (int argc, char* argv[]);
 
+#ifndef BUILD2_BOOTSTRAP
   // Structured result printer (--structured-result mode).
   //
   class result_printer
   {
   public:
-    result_printer (const options& ops, const action_targets& tgs)
-        : ops_ (ops), tgs_ (tgs) {}
+    result_printer (const options& ops,
+                    const action_targets& tgs,
+                    json::stream_serializer& js)
+        : ops_ (ops), tgs_ (tgs), json_serializer_ (js) {}
 
     ~result_printer ();
 
   private:
+    void
+    print_lines ();
+
+    void
+    print_json ();
+
+  private:
     const options ops_;
     const action_targets& tgs_;
+    json::stream_serializer& json_serializer_;
   };
+
+  void result_printer::
+  print_lines ()
+  {
+    for (const action_target& at: tgs_)
+    {
+      if (at.state == target_state::unknown)
+        continue; // Not a target/no result.
+
+      const target& t (at.as<target> ());
+      context& ctx (t.ctx);
+
+      cout << at.state
+           << ' ' << ctx.current_mif->name
+           << ' ' << ctx.current_inner_oif->name;
+
+      if (ctx.current_outer_oif != nullptr)
+        cout << '(' << ctx.current_outer_oif->name << ')';
+
+      // There are two ways one may wish to identify the target of the
+      // operation: as something specific but inherently non-portable (say, a
+      // filesystem path, for example c:\tmp\foo.exe) or as something regular
+      // that can be used to refer to a target in a portable way (for example,
+      // c:\tmp\exe{foo}; note that the directory part is still not portable).
+      // Which one should we use is a good question. Let's go with the
+      // portable one for now and see how it goes (we can always add a format
+      // variant, e.g., --structured-result=lines-path). Note also that the
+      // json format includes both.
+
+      // Set the stream extension verbosity to 0 to suppress extension
+      // printing by default (this can still be overriden by the target type's
+      // print function as is the case for file{}, for example). And set the
+      // path verbosity to 1 to always print absolute.
+      //
+      stream_verbosity sv (stream_verb (cout));
+      stream_verb (cout, stream_verbosity (1, 0));
+
+      cout << ' ' << t << endl;
+
+      stream_verb (cout, sv);
+    }
+  }
+
+  void result_printer::
+  print_json ()
+  {
+    json::stream_serializer& s (json_serializer_);
+
+    for (const action_target& at: tgs_)
+    {
+      if (at.state == target_state::unknown)
+        continue; // Not a target/no result.
+
+      const target& t (at.as<target> ());
+      context& ctx (t.ctx);
+
+      s.begin_object ();
+
+      // Target.
+      //
+      {
+        // Change the stream verbosity (see print_lines() for details).
+        //
+        ostringstream os;
+        stream_verb (os, stream_verbosity (1, 0));
+        os << t;
+        s.member ("target", os.str ());
+      }
+
+      // Quoted target.
+      //
+      {
+        names ns (t.as_name ()); // Note: potentially adds an extension.
+
+        ostringstream os;
+        stream_verb (os, stream_verbosity (1, 0));
+        to_stream (os, ns, quote_mode::effective, '@');
+        s.member ("quoted_target", os.str ());
+      }
+
+      s.member ("target_type", t.key ().type->name, false /* check */);
+
+      if (t.is_a<dir> ())
+        s.member ("target_path", t.key ().dir->string ());
+      else if (const auto* pt = t.is_a<path_target> ())
+        s.member ("target_path", pt->path ().string ());
+
+      s.member ("meta_operation", ctx.current_mif->name, false /* check */);
+      s.member ("operation", ctx.current_inner_oif->name, false /* check */);
+
+      if (ctx.current_outer_oif != nullptr)
+        s.member ("outer_operation",
+                  ctx.current_outer_oif->name,
+                  false /* check */);
+
+      s.member ("state", to_string (at.state), false /* check */);
+
+      s.end_object ();
+    }
+  }
 
   result_printer::
   ~result_printer ()
@@ -83,52 +198,38 @@ namespace build2
     // Let's do some sanity checking even when we are not in the structred
     // output mode.
     //
+#ifndef NDEBUG
     for (const action_target& at: tgs_)
     {
       switch (at.state)
       {
-      case target_state::unknown:   continue; // Not a target/no result.
+      case target_state::unknown:
       case target_state::unchanged:
       case target_state::changed:
       case target_state::failed:    break;    // Valid states.
       default:                      assert (false);
       }
+    }
+#endif
 
-      if (ops_.structured_result ())
+    if (ops_.structured_result_specified ())
+    {
+      switch (ops_.structured_result ())
       {
-        const target& t (at.as<target> ());
-        context& ctx (t.ctx);
-
-        cout << at.state
-             << ' ' << ctx.current_mif->name
-             << ' ' << ctx.current_inner_oif->name;
-
-        if (ctx.current_outer_oif != nullptr)
-          cout << '(' << ctx.current_outer_oif->name << ')';
-
-        // There are two ways one may wish to identify the target of the
-        // operation: as something specific but inherently non-portable (say,
-        // a filesystem path, for example c:\tmp\foo.exe) or as something
-        // regular that can be used to refer to a target in a portable way
-        // (for example, c:\tmp\exe{foo}; note that the directory part is
-        // still not portable). Which one should we use is a good question.
-        // Let's go with the portable one for now and see how it goes (we
-        // can always add a format version, e.g., --structured-result=2).
-
-        // Set the stream extension verbosity to 0 to suppress extension
-        // printing by default (this can still be overriden by the target
-        // type's print function as is the case for file{}, for example).
-        // And set the path verbosity to 1 to always print absolute.
-        //
-        stream_verbosity sv (stream_verb (cout));
-        stream_verb (cout, stream_verbosity (1, 0));
-
-        cout << ' ' << t << endl;
-
-        stream_verb (cout, sv);
+      case structured_result_format::lines:
+        {
+          print_lines ();
+          break;
+        }
+      case structured_result_format::json:
+        {
+          print_json ();
+          break;
+        }
       }
     }
   }
+#endif
 }
 
 // Print backtrace if terminating due to an unhandled exception. Note that
@@ -370,6 +471,17 @@ main (int argc, char* argv[])
     // lifting an operation.
     //
     bool dirty (false); // Already (re)set for the first run.
+
+#ifndef BUILD2_BOOTSTRAP
+    // Note that this constructor is cheap and so we rather call it always
+    // instead of resorting to dynamic allocations.
+    //
+    json::stream_serializer js (cout);
+
+    if (ops.structured_result_specified () &&
+        ops.structured_result () == structured_result_format::json)
+      js.begin_array ();
+#endif
 
     for (auto mit (bspec.begin ()); mit != bspec.end (); )
     {
@@ -1168,8 +1280,10 @@ main (int argc, char* argv[])
           action a (mid, pre_oid, oid);
 
           {
-            result_printer p (ops, tgs);
-            uint16_t diag (ops.structured_result () ? 0 : 1);
+#ifndef BUILD2_BOOTSTRAP
+            result_printer p (ops, tgs, js);
+#endif
+            uint16_t diag (ops.structured_result_specified () ? 0 : 1);
 
             if (mif->match != nullptr)
               mif->match (mparams, a, tgs, diag, true /* progress */);
@@ -1195,8 +1309,10 @@ main (int argc, char* argv[])
         action a (mid, oid, oif->outer_id);
 
         {
-          result_printer p (ops, tgs);
-          uint16_t diag (ops.structured_result () ? 0 : 2);
+#ifndef BUILD2_BOOTSTRAP
+          result_printer p (ops, tgs, js);
+#endif
+          uint16_t diag (ops.structured_result_specified () ? 0 : 2);
 
           if (mif->match != nullptr)
             mif->match (mparams, a, tgs, diag, true /* progress */);
@@ -1223,8 +1339,10 @@ main (int argc, char* argv[])
           action a (mid, post_oid, oid);
 
           {
-            result_printer p (ops, tgs);
-            uint16_t diag (ops.structured_result () ? 0 : 1);
+#ifndef BUILD2_BOOTSTRAP
+            result_printer p (ops, tgs, js);
+#endif
+            uint16_t diag (ops.structured_result_specified () ? 0 : 1);
 
             if (mif->match != nullptr)
               mif->match (mparams, a, tgs, diag, true /* progress */);
@@ -1262,6 +1380,15 @@ main (int argc, char* argv[])
       if (lifted == nullptr && skip == 0)
         ++mit;
     } // meta-operation
+
+#ifndef BUILD2_BOOTSTRAP
+    if (ops.structured_result_specified () &&
+        ops.structured_result () == structured_result_format::json)
+    {
+      js.end_array ();
+      cout << endl;
+    }
+#endif
   }
   catch (const failed&)
   {

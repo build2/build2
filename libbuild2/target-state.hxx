@@ -43,8 +43,14 @@ namespace build2
     return l;
   }
 
-  LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, target_state); // target.cxx
+  LIBBUILD2_SYMEXPORT string
+  to_string (target_state); // target.cxx
+
+  inline ostream&
+  operator<< (ostream& o, target_state ts)
+  {
+    return o << to_string (ts);
+  }
 }
 
 #endif // LIBBUILD2_TARGET_STATE_HXX

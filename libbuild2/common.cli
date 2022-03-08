@@ -1,6 +1,9 @@
 // file      : libbuild2/common.cli
 // license   : MIT; see accompanying LICENSE file
 
+include <libbuild2/types.hxx>;
+include <libbuild2/options-types.hxx>;
+
 namespace build2
 {
 }
