@@ -537,27 +537,20 @@ namespace build2
 
   // Execute the action on target, assuming a rule has been matched and the
   // recipe for this action has been set. This is the synchrounous executor
-  // implementation (but may still return target_state::busy if the target
-  // is already being executed). Decrements the dependents count.
-  //
-  // Note: does not translate target_state::failed to the failed exception.
-  //
-  target_state
-  execute (action, const target&);
-
-  // As above but wait for completion if the target is busy and translate
-  // target_state::failed to the failed exception.
+  // implementation that waits for completion if the target is already being
+  // executed. Translate target_state::failed to the failed exception unless
+  // fail is false.
   //
   target_state
-  execute_wait (action, const target&);
+  execute (action, const target&, bool fail = true);
 
   // As above but start asynchronous execution. Return target_state::unknown
   // if the asynchrounous execution has been started and target_state::busy if
   // the target has already been busy.
   //
-  // If fail is false, then return target_state::failed if the target match
-  // failed. Otherwise, throw the failed exception if keep_going is false and
-  // return target_state::failed otherwise.
+  // If fail is false, then return target_state::failed if the target
+  // execution failed. Otherwise, throw the failed exception if keep_going is
+  // false and return target_state::failed otherwise.
   //
   target_state
   execute_async (action, const target&,

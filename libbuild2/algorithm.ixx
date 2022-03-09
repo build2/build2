@@ -680,22 +680,23 @@ namespace build2
   execute (action, const target&, size_t, atomic_count*);
 
   inline target_state
-  execute (action a, const target& t)
+  execute (action a, const target& t, bool fail)
   {
-    return execute (a, t, 0, nullptr);
-  }
+    target_state r (execute (a, t, 0, nullptr));
 
-  inline target_state
-  execute_wait (action a, const target& t)
-  {
-    //@@ redo
-
-    if (execute (a, t) == target_state::busy)
+    if (r == target_state::busy)
+    {
       t.ctx.sched.wait (t.ctx.count_executed (),
                         t[a].task_count,
                         scheduler::work_none);
 
-    return t.executed_state (a);
+      r = t.executed_state (a, false);
+    }
+
+    if (r == target_state::failed && fail)
+      throw failed ();
+
+    return r;
   }
 
   inline target_state
@@ -757,7 +758,7 @@ namespace build2
   execute_inner (action a, const target& t)
   {
     assert (a.outer ());
-    return execute_wait (a.inner_action (), t);
+    return execute (a.inner_action (), t);
   }
 
   inline target_state

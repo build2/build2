@@ -2510,7 +2510,10 @@ namespace build2
     //
     const target& g (*t.group);
 
-    target_state gs (execute (a, g));
+    // This is execute(a, t, false) but that saves a call to executed_state()
+    // (which we don't need).
+    //
+    target_state gs (execute (a, g, 0, nullptr));
 
     if (gs == target_state::busy)
       ctx.sched.wait (ctx.count_executed (),
