@@ -459,10 +459,11 @@ namespace build2
     // Note that we ignore the result and whether it renders us out of date,
     // leaving it to the common execute logic in perform_update_*().
     //
-    // Note also that update_during_match() spoils prerequisite_target::data.
+    // Note also that update_during_match_prerequisites() spoils
+    // prerequisite_target::data.
     //
     if (a == perform_update_id)
-      update_during_match (trace, a, pts, 2 /* mask */);
+      update_during_match_prerequisites (trace, a, xt, 2 /* mask */);
 
     // See if this is not update or not on a file-based target.
     //

@@ -589,11 +589,16 @@ namespace build2
   // relationship (so no dependents count is decremented) and execution order
   // (so this function never returns the postponed target state).
   //
-  // Note: waits for the completion if the target is busy and translates
-  // target_state::failed to the failed exception.
+  // Note: the first version waits for the completion if the target is busy
+  // and translates target_state::failed to the failed exception.
   //
-  LIBBUILD2_SYMEXPORT target_state
+  target_state
   execute_direct (action, const target&);
+
+  target_state
+  execute_direct_async (action, const target&,
+                        size_t start_count, atomic_count& task_count,
+                        bool fail = true);
 
   // Update the target during the match phase (by switching the phase and
   // calling execute_direct()). Return true if the target has changed or, if
@@ -617,10 +622,7 @@ namespace build2
   // for temporary storage). But it resets data to 0 once done.
   //
   LIBBUILD2_SYMEXPORT bool
-  update_during_match (tracer&,
-                       action,
-                       prerequisite_targets&,
-                       uintptr_t mask);
+  update_during_match_prerequisites (tracer&, action, target&, uintptr_t mask);
 
   // The default prerequisite execute implementation. Call execute_async() on
   // each non-ignored (non-NULL) prerequisite target in a loop and then wait

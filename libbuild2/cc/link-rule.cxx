@@ -1229,10 +1229,11 @@ namespace build2
       // Note that we ignore the result and whether it renders us out of date,
       // leaving it to the common execute logic in perform_update().
       //
-      // Note also that update_during_match() spoils prerequisite_target::data.
+      // Note also that update_during_match_prerequisites() spoils
+      // prerequisite_target::data.
       //
       if (update_match)
-        update_during_match (trace, a, pts, 2 /* mask */);
+        update_during_match_prerequisites (trace, a, t, 2 /* mask */);
 
       // Check if we have any binful utility libraries.
       //

@@ -1922,7 +1922,6 @@ namespace build2
     size_t gd (ctx.dependency_count.fetch_sub (1, memory_order_relaxed));
     size_t td (s.dependents.fetch_sub (1, memory_order_release));
     assert (td != 0 && gd != 0);
-    td--;
 
     // Handle the "last" execution mode.
     //
@@ -1945,7 +1944,7 @@ namespace build2
     // thread. For other threads the state will still be unknown (until they
     // try to execute it).
     //
-    if (ctx.current_mode == execution_mode::last && td != 0)
+    if (ctx.current_mode == execution_mode::last && --td != 0)
       return target_state::postponed;
 
     // Try to atomically change applied to busy.
@@ -2007,14 +2006,17 @@ namespace build2
   }
 
   target_state
-  execute_direct (action a, const target& ct)
+  execute_direct (action a,
+                  const target& ct,
+                  size_t start_count,
+                  atomic_count* task_count)
   {
     context& ctx (ct.ctx);
 
     target& t (const_cast<target&> (ct)); // MT-aware.
     target::opstate& s (t[a]);
 
-    // Similar logic to match() above except we execute synchronously.
+    // Similar logic to execute() above.
     //
     size_t tc (ctx.count_applied ());
 
@@ -2028,7 +2030,23 @@ namespace build2
           memory_order_acquire)) // Synchronize on failure.
     {
       if (s.state == target_state::unknown)
-        execute_impl (a, t);
+      {
+        if (task_count == nullptr)
+          return execute_impl (a, t);
+
+        if (ctx.sched.async (start_count,
+                             *task_count,
+                             [a] (const diag_frame* ds, target& t)
+                             {
+                               diag_frame::stack_guard dsg (ds);
+                               execute_impl (a, t);
+                             },
+                             diag_frame::stack (),
+                             ref (t)))
+          return target_state::unknown; // Queued.
+
+        // Executed synchronously, fall through.
+      }
       else
       {
         assert (s.state == target_state::unchanged ||
@@ -2046,15 +2064,13 @@ namespace build2
     }
     else
     {
-        // If the target is busy, wait for it.
-        //
-        if (tc >= busy)
-          ctx.sched.wait (exec, s.task_count, scheduler::work_none);
-        else
-          assert (tc == exec);
+      // Either busy or already executed.
+      //
+      if (tc >= busy) return target_state::busy;
+      else            assert (tc == exec);
     }
 
-    return t.executed_state (a);
+    return t.executed_state (a, false);
   }
 
   bool
@@ -2120,16 +2136,17 @@ namespace build2
   }
 
   bool
-  update_during_match (tracer& trace,
-                       action a,
-                       prerequisite_targets& pts,
-                       uintptr_t mask)
+  update_during_match_prerequisites (tracer& trace,
+                                     action a, target& t,
+                                     uintptr_t mask)
   {
+    prerequisite_targets& pts (t.prerequisite_targets[a]);
+
     // On the first pass detect and handle unchanged tragets. Note that we
     // have to do it in a separate pass since we cannot call matched_state()
     // once we've switched the phase.
     //
-    context* ctx (nullptr);
+    size_t n (0);
 
     for (prerequisite_target& p: pts)
     {
@@ -2143,9 +2160,7 @@ namespace build2
 
           if (os != target_state::unchanged)
           {
-            if (ctx == nullptr)
-              ctx = &pt.ctx;
-
+            ++n;
             p.data = static_cast<uintptr_t> (os);
             continue;
           }
@@ -2157,13 +2172,19 @@ namespace build2
 
     // If all unchanged, we are done.
     //
-    if (ctx == nullptr)
+    if (n == 0)
       return false;
 
-    phase_switch ps (*ctx, run_phase::execute);
+    context& ctx (t.ctx);
+
+    phase_switch ps (ctx, run_phase::execute);
 
     bool r (false);
 
+    // @@ Maybe we should optimize for n == 1?
+    //
+
+#if 0
     for (prerequisite_target& p: pts)
     {
       if ((p.include & mask) != 0 && p.data != 0)
@@ -2184,6 +2205,59 @@ namespace build2
         p.data = 0;
       }
     }
+#else
+
+    // Start asynchronous execution of prerequisites. Similar logic to
+    // straight_execute_members().
+    //
+    // Note that the target's task count is expected to be busy (since this
+    // function is called during match). And there don't seem to be any
+    // problems in using it for execute.
+    //
+    atomic_count& tc (t[a].task_count);
+
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
+
+    wait_guard wg (ctx, busy, tc);
+
+    for (prerequisite_target& p: pts)
+    {
+      if ((p.include & mask) != 0 && p.data != 0)
+      {
+        execute_direct_async (a, *p.target, busy, tc);
+      }
+    }
+
+    wg.wait ();
+
+    // Finish execution and process the result.
+    //
+    for (prerequisite_target& p: pts)
+    {
+      if ((p.include & mask) != 0 && p.data != 0)
+      {
+        const target& pt (*p.target);
+
+        // If the target is still busy, wait for its completion.
+        //
+        ctx.sched.wait (exec, pt[a].task_count, scheduler::work_none);
+
+        target_state os (static_cast<target_state> (p.data));
+        target_state ns (pt.executed_state (a));
+
+        if (ns != os && ns != target_state::unchanged)
+        {
+          l6 ([&]{trace << "updated " << pt
+                        << "; old state " << os
+                        << "; new state " << ns;});
+          r = true;
+        }
+
+        p.data = 0;
+      }
+    }
+#endif
 
     return r;
   }

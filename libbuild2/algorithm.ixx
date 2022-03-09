@@ -688,6 +688,8 @@ namespace build2
   inline target_state
   execute_wait (action a, const target& t)
   {
+    //@@ redo
+
     if (execute (a, t) == target_state::busy)
       t.ctx.sched.wait (t.ctx.count_executed (),
                         t[a].task_count,
@@ -703,7 +705,43 @@ namespace build2
   {
     target_state r (execute (a, t, sc, &tc));
 
-    if (fail && !t.ctx.keep_going && r == target_state::failed)
+    if (r == target_state::failed && fail && !t.ctx.keep_going)
+      throw failed ();
+
+    return r;
+  }
+
+  LIBBUILD2_SYMEXPORT target_state
+  execute_direct (action, const target&, size_t, atomic_count*);
+
+  inline target_state
+  execute_direct (action a, const target& t)
+  {
+    target_state r (execute_direct (a, t, 0, nullptr));
+
+    if (r == target_state::busy)
+    {
+      t.ctx.sched.wait (t.ctx.count_executed (),
+                        t[a].task_count,
+                        scheduler::work_none);
+
+      r = t.executed_state (a, false);
+    }
+
+    if (r == target_state::failed)
+      throw failed ();
+
+    return r;
+  }
+
+  inline target_state
+  execute_direct_async (action a, const target& t,
+                        size_t sc, atomic_count& tc,
+                        bool fail)
+  {
+    target_state r (execute_direct (a, t, sc, &tc));
+
+    if (r == target_state::failed && fail && !t.ctx.keep_going)
       throw failed ();
 
     return r;
