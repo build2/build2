@@ -90,10 +90,9 @@ namespace build2
       bool curly = false)
     {
       // We don't expect the effective quoting mode to be specified for the
-      // name patterns or names that need curly braces in their
-      // representations.
+      // name patterns.
       //
-      assert (q != quote_mode::effective || (!pat && !curly));
+      assert (q != quote_mode::effective || !pat);
 
       // Special characters, path pattern characters, and regex pattern
       // characters. The latter only need to be quoted in the first position
@@ -121,7 +120,7 @@ namespace build2
       };
 
       char esc[] = {
-        '$', '(',             // Token endings.
+        '{', '}', '$', '(',   // Token endings.
         ' ', '\t', '\n', '#', // Spaces.
         '"',                  // Quoting.
         pair,                 // Pair separator, if any.

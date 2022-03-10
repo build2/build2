@@ -201,7 +201,7 @@ namespace build2
   //
   // In the effective quoting mode the special characters are:
   //
-  // $( \t\n#"'
+  // {}$( \t\n#"'
   //
   // As well as `\` if followed by any of the above characters or itself.
   //
