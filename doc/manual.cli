@@ -2428,9 +2428,6 @@ from out. Here is a fragment from the \c{libhello} source directory
 
 \
 hxx{version}: in{version} $src_root/manifest
-{
-  dist = true
-}
 \
 
 Our library provides the \c{version.hxx} header that the users can include to
@@ -2441,13 +2438,24 @@ minor, patch, etc) and then preprocesses the \c{in{\}} file substituting these
 values (see the \l{#module-version \c{version}} module documentation for
 details). The end result is an automatically maintained version header.
 
-One problem with auto-generated headers is that if one does not yet exist,
-then the compiler may still find it somewhere else. For example, we may have
-an older version of a library installed somewhere where the compiler searches
-for headers by default (for example, \c{/usr/local/include/}). To overcome
-this problem it is a good idea to ship pre-generated headers in our
-distributions.  But since they are output targets, we have to explicitly
-request this with \c{dist=true}.
+Usually there is no need to include this header into the distribution since it
+will be automatically generated if and when necessary. However, we can if we
+need to. For example, we could be porting an existing project and its users
+could be expecting the version header to be shipped as part of the archive.
+Here is how we can achieve this:
+
+\
+hxx{version}: in{version} $src_root/manifest
+{
+  dist = true
+  clean = ($src_root != $out_root)
+}
+\
+
+Because this header is an output target, we have to explicitly request its
+distribution with \c{dist=true}. Notice that we have also disabled its
+cleaning for the in source build so that the \c{clean} operation results in a
+state identical to distributed.
 
 
 \h#intro-import|Target Importation|
@@ -2773,15 +2781,7 @@ impl_libs = # Implementation dependencies.
 lib{hello}: {hxx ixx txx cxx}{** -version} hxx{version} \
   $impl_libs $intf_libs
 
-# Include the generated version header into the distribution (so that
-# we don't pick up an installed one) and don't remove it when cleaning
-# in src (so that clean results in a state identical to distributed).
-#
 hxx{version}: in{version} $src_root/manifest
-{
-  dist  = true
-  clean = ($src_root != $out_root)
-}
 
 # Build options.
 #
@@ -3390,10 +3390,10 @@ details/                          # Scope.
   hxx{*}: install = false
 }
 
-hxx{version}:                     # Target-specific.
+lib{hello}:                       # Target-specific.
 {
-  dist  = true
-  clean = ($src_root != $out_root)
+  cxx.export.poptions = \"-I$src_root\"
+  cxx.export.libs = $intf_libs
 }
 
 exe{test}: file{test.roundtrip}:  # Prerequisite-specific.
@@ -6305,12 +6305,9 @@ for our \c{libhello} library. To accomplish this we add the \c{version.hxx.in}
 template as well as something along these lines to our \c{buildfile}:
 
 \
-lib{hello}: ... hxx{version}
+lib{hello}: {hxx cxx}{** -version} hxx{version}
 
 hxx{version}: in{version} $src_root/file{manifest}
-{
-  dist = true
-}
 \
 
 The header rule is a line-based preprocessor that substitutes fragments
