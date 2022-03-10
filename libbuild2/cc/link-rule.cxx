@@ -1589,7 +1589,20 @@ namespace build2
               (!group || !rt.has_prerequisites ()))
           {
             prerequisites ps;
-            ps.push_back (p.as_prerequisite ()); // Source.
+
+            // Add source.
+            //
+            // Remove the update variable (we may have stray update=execute
+            // that was specified together with the header).
+            //
+            {
+              prerequisite pc (p.as_prerequisite ());
+
+              if (!pc.vars.empty ())
+                pc.vars.erase (*ctx.var_update);
+
+              ps.push_back (move (pc));
+            }
 
             // Add our lib*{} (see the export.* machinery for details) and
             // bmi*{} (both original and chained; see module search logic)
