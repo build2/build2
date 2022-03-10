@@ -2404,9 +2404,9 @@ namespace build2
                          const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
-    context& ctx (t.ctx);
+    assert (a == perform_update_id);
 
-    assert (ctx.current_mode == execution_mode::first);
+    context& ctx (t.ctx);
 
     size_t busy (ctx.count_busy ());
     size_t exec (ctx.count_executed ());
@@ -2441,7 +2441,7 @@ namespace build2
     wg.wait ();
 
     bool e (mt == timestamp_nonexistent);
-    const target* rt (tt != nullptr ? nullptr : &t);
+    const target* rt (nullptr);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -2479,18 +2479,113 @@ namespace build2
 
       if (p.adhoc ())
         p.target = nullptr; // Blank out.
-      else
+      else if (tt != nullptr)
       {
         if (rt == nullptr && pt.is_a (*tt))
           rt = &pt;
       }
     }
 
-    assert (rt != nullptr);
+    assert (tt == nullptr || rt != nullptr);
 
     return pair<optional<target_state>, const target*> (
-      e ? optional<target_state> () : rs,
-      tt != nullptr ? rt : nullptr);
+      e ? optional<target_state> () : rs, rt);
+  }
+
+  pair<optional<target_state>, const target*>
+  reverse_execute_prerequisites (const target_type* tt,
+                                 action a, const target& t,
+                                 const timestamp& mt, const execute_filter& ef,
+                                 size_t n)
+  {
+    assert (a == perform_update_id);
+
+    context& ctx (t.ctx);
+
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
+
+    auto& pts (t.prerequisite_targets[a]);
+
+    if (n == 0)
+      n = pts.size ();
+
+    // Pretty much as reverse_execute_members() but hairier.
+    //
+    target_state rs (target_state::unchanged);
+
+    wait_guard wg (ctx, busy, t[a].task_count);
+
+    for (size_t i (n); i != 0; )
+    {
+      const target*& pt (pts[--i]);
+
+      if (pt == nullptr) // Skipped.
+        continue;
+
+      target_state s (execute_async (a, *pt, busy, t[a].task_count));
+
+      if (s == target_state::postponed)
+      {
+        rs |= s;
+        pt = nullptr;
+      }
+    }
+
+    wg.wait ();
+
+    bool e (mt == timestamp_nonexistent);
+    const target* rt (nullptr);
+
+    for (size_t i (n); i != 0; )
+    {
+      prerequisite_target& p (pts[--i]);
+
+      if (p == nullptr)
+        continue;
+
+      const target& pt (*p.target);
+
+      ctx.sched.wait (exec, pt[a].task_count, scheduler::work_none);
+
+      target_state s (pt.executed_state (a));
+      rs |= s;
+
+      // Should we compare the timestamp to this target's?
+      //
+      if (!e && (p.adhoc () || !ef || ef (pt, i)))
+      {
+        // If this is an mtime-based target, then compare timestamps.
+        //
+        if (const mtime_target* mpt = pt.is_a<mtime_target> ())
+        {
+          if (mpt->newer (mt, s))
+            e = true;
+        }
+        else
+        {
+          // Otherwise we assume the prerequisite is newer if it was changed.
+          //
+          if (s == target_state::changed)
+            e = true;
+        }
+      }
+
+      if (p.adhoc ())
+        p.target = nullptr; // Blank out.
+      else if (tt != nullptr)
+      {
+        // Note that here we need last.
+        //
+        if (pt.is_a (*tt))
+          rt = &pt;
+      }
+    }
+
+    assert (tt == nullptr || rt != nullptr);
+
+    return pair<optional<target_state>, const target*> (
+      e ? optional<target_state> () : rs, rt);
   }
 
   target_state

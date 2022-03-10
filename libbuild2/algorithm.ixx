@@ -834,12 +834,26 @@ namespace build2
                          const timestamp&, const execute_filter&,
                          size_t);
 
+  LIBBUILD2_SYMEXPORT pair<optional<target_state>, const target*>
+  reverse_execute_prerequisites (const target_type*,
+                                 action, const target&,
+                                 const timestamp&, const execute_filter&,
+                                 size_t);
+
   inline optional<target_state>
   execute_prerequisites (action a, const target& t,
                          const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
     return execute_prerequisites (nullptr, a, t, mt, ef, n).first;
+  }
+
+  inline optional<target_state>
+  reverse_execute_prerequisites (action a, const target& t,
+                                 const timestamp& mt, const execute_filter& ef,
+                                 size_t n)
+  {
+    return reverse_execute_prerequisites (nullptr, a, t, mt, ef, n).first;
   }
 
   template <typename T>

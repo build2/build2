@@ -2470,14 +2470,33 @@ namespace build2
       // Note that execute_prerequisites() blanks out all the ad hoc
       // prerequisites so we don't need to worry about them from now on.
       //
+      // There is an interesting trade-off between the straight and reverse
+      // execution. With straight we may end up with inaccurate progress if
+      // most of our library prerequisites (typically specified last) are
+      // already up to date. In this case, the progress will first increase
+      // slowly as we compile this target's source files and then jump
+      // straight to 100% as we "realize" that all the libraries (and all
+      // their prerequisites) are already up to date.
+      //
+      // Switching to reverse fixes this but messes up incremental building:
+      // now instead of starting to compile source files right away, we will
+      // first spend some time making sure all the libraries are up to date
+      // (which, in case of an error in the source code, will be a complete
+      // waste).
+      //
+      // There doesn't seem to be an easy way to distinguish between
+      // incremental and from-scratch builds and on balance fast incremental
+      // builds feel more important.
+      //
       target_state ts;
 
-      if (optional<target_state> s =
-          execute_prerequisites (a,
-                                 t,
-                                 mt,
-                                 [] (const target&, size_t) {return false;}))
+      if (optional<target_state> s = execute_prerequisites (
+            a, t,
+            mt,
+            [] (const target&, size_t) {return false;}))
+      {
         ts = *s;
+      }
       else
       {
         // An ad hoc prerequisite renders us out-of-date. Let's update from

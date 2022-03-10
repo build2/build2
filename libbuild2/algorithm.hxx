@@ -678,8 +678,8 @@ namespace build2
   // case if they are up to something tricky (like recursively linking liba{}
   // prerequisites).
   //
-  // Note that because we use mtime, this function should normally only be
-  // used in the perform_update action (which is straight).
+  // Note that because we use mtime, this function can only be used for the
+  // perform_update action.
   //
   using execute_filter = function<bool (const target&, size_t pos)>;
 
@@ -688,6 +688,18 @@ namespace build2
                          const timestamp&,
                          const execute_filter& = nullptr,
                          size_t count = 0);
+
+  // As above, but execute prerequisites in reverse.
+  //
+  // Sometime it may be advantageous to execute prerequisites in reverse, for
+  // example, to have more immediate incremental compilation or more accurate
+  // progress. See cc::link_rule for background.
+  //
+  optional<target_state>
+  reverse_execute_prerequisites (action, const target&,
+                                 const timestamp&,
+                                 const execute_filter& = nullptr,
+                                 size_t count = 0);
 
   // Another version of the above that does two extra things for the caller:
   // it determines whether the action needs to be executed on the target based
