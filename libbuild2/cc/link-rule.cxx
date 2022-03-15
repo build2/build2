@@ -1224,7 +1224,8 @@ namespace build2
       // update them. Note that we have to do it before any further matches
       // since they may rely on these prerequisites already being updated (for
       // example, object file matches may need the headers to be already
-      // updated).
+      // updated). We also must do it after matching all our prerequisite
+      // libraries since they may generate headers that we depend upon.
       //
       // Note that we ignore the result and whether it renders us out of date,
       // leaving it to the common execute logic in perform_update().

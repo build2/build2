@@ -432,7 +432,8 @@ namespace build2
 
           // If we managed to unmatch, blank it out so that it's not executed,
           // etc. Otherwise, convert it to ad hoc (we also automatically avoid
-          // hashing it and updating it during match in exec_depdb_dyndep()).
+          // hashing it, updating it during match in exec_depdb_dyndep(), and
+          // making us out of date in execute_update_prerequisites()).
           //
           // The hashing part is tricky: by not hashing it we won't detect the
           // case where it was removed as a prerequisite altogether. The
@@ -1404,9 +1405,10 @@ namespace build2
           target_state s (pt->executed_state (a));
           rs |= s;
 
-          // Compare our timestamp to this prerequisite's.
+          // Compare our timestamp to this prerequisite's skipping
+          // update=unmatch.
           //
-          if (!e)
+          if (!e && (p.include & 4) == 0)
           {
             // If this is an mtime-based target, then compare timestamps.
             //
