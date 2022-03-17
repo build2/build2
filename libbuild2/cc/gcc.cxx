@@ -153,7 +153,8 @@ namespace build2
           //
           // For now we ignore framework paths and to filter them out we will
           // only consider valid paths to existing directories, skipping those
-          // which we fail to normalize or stat.
+          // which we fail to normalize or stat. @@ Maybe this is a bit too
+          // loose, especially compared to gcc_library_search_dirs()?
           //
           string s;
           for (bool found (false); getline (is, s); )
@@ -165,18 +166,23 @@ namespace build2
               if (s[0] != ' ')
                 break;
 
+              dir_path d;
               try
               {
-                dir_path d (s, 1, s.size () - 1);
+                d = dir_path (s, 1, s.size () - 1);
 
-                if (d.absolute () && exists (d, true) &&
-                    find (r.begin (), r.end (), d.normalize ()) == r.end ())
-                  r.emplace_back (move (d));
+                if (d.relative () || !exists (d, true))
+                  continue;
+
+                d.normalize ();
               }
               catch (const invalid_path&)
               {
-                // Skip this path.
+                continue;
               }
+
+              if (find (r.begin (), r.end (), d) == r.end ())
+                r.emplace_back (move (d));
             }
           }
 
@@ -334,9 +340,23 @@ namespace build2
       //
       for (string::size_type b (0);; e = l.find (d, (b = e + 1)))
       {
-        dir_path d (l, b, (e != string::npos ? e - b : e));
+        dir_path d;
+        try
+        {
+          d = dir_path (l, b, (e != string::npos ? e - b : e));
 
-        if (find (r.begin (), r.end (), d.normalize ()) == r.end ())
+          if (d.relative ())
+            throw invalid_path (move (d).string ());
+
+          d.normalize ();
+        }
+        catch (const invalid_path& e)
+        {
+          fail << "invalid directory '" << e.path << "'" << " in "
+               << args[0] << " -print-search-dirs output";
+        }
+
+        if (find (r.begin (), r.end (), d) == r.end ())
           r.emplace_back (move (d));
 
         if (e == string::npos)
