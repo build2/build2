@@ -59,6 +59,25 @@ namespace build2
       }
     }
 
+#ifdef _WIN32
+    // Some misconfigured MinGW GCC builds add absolute POSIX directories to
+    // their built-in search paths (e.g., /mingw/{include,lib}) which GCC then
+    // interprets as absolute paths relative to the current drive (so the set
+    // of built-in search paths starts depending on where we run things from).
+    //
+    // While that's definitely misguided, life is short and we don't want to
+    // waste it explaining this in long mailing list threads and telling
+    // people to complain to whomever built their GCC. So we will just
+    // recreate the behavior in a way that's consistent with GCC and let
+    // people discover this on their own.
+    //
+    static inline void
+    add_current_drive (string& s)
+    {
+      s.insert (0, work.string (), 0, 2); // Add e.g., `c:`.
+    }
+#endif
+
     // Extract system header search paths from GCC (gcc/g++) or compatible
     // (Clang, Intel) using the `-v -E </dev/null` method.
     //
@@ -169,7 +188,13 @@ namespace build2
               dir_path d;
               try
               {
-                d = dir_path (s, 1, s.size () - 1);
+                string ds (s, 1, s.size () - 1);
+
+#ifdef _WIN32
+                if (path_traits::is_separator (ds[0]))
+                  add_current_drive (ds);
+#endif
+                d = dir_path (move (ds));
 
                 if (d.relative () || !exists (d, true))
                   continue;
@@ -343,7 +368,14 @@ namespace build2
         dir_path d;
         try
         {
-          d = dir_path (l, b, (e != string::npos ? e - b : e));
+          string ds (l, b, (e != string::npos ? e - b : e));
+
+#ifdef _WIN32
+          if (path_traits::is_separator (ds[0]))
+            add_current_drive (ds);
+#endif
+
+          d = dir_path (move (ds));
 
           if (d.relative ())
             throw invalid_path (move (d).string ());
