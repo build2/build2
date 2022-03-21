@@ -215,6 +215,23 @@ namespace build2
       return &m;
     }
 
+    const target* group_rule::
+    filter (const scope* is,
+            action, const target& t, const prerequisite& p) const
+    {
+      // The same logic as in file_rule::filter() below.
+      //
+      if (p.is_a<exe> ())
+      {
+        if (p.vars.empty () ||
+            cast_empty<path> (p.vars[var_install (t.ctx)]).string () != "true")
+          return nullptr;
+      }
+
+      const target& pt (search (t, p));
+      return is == nullptr || pt.in (*is) ? &pt : nullptr;
+    }
+
     recipe group_rule::
     apply (action a, target& t) const
     {
@@ -303,6 +320,8 @@ namespace build2
     filter (const scope* is,
             action, const target& t, const prerequisite& p) const
     {
+      // See also group_rule::filter() with identical semantics.
+      //
       if (p.is_a<exe> ())
       {
         // Note that while include() checks for install=false, here we need to

@@ -88,7 +88,17 @@ namespace build2
       virtual const target*
       filter (action, const target&, const target& group_member) const;
 
+      // Return NULL if this prerequisite should be ignored and pointer to its
+      // target otherwise.
+      //
+      // The same semantics as in file_rule below.
+      //
       using alias_rule::filter; // "Unhide" to make Clang happy.
+
+      virtual const target*
+      filter (const scope*,
+              action, const target&,
+              const prerequisite&) const override;
 
       virtual recipe
       apply (action, target&) const override;
