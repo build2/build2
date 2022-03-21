@@ -380,11 +380,17 @@ namespace build2
         bs.insert_rule<file> (perform_install_id,   "install.file", fr);
         bs.insert_rule<file> (perform_uninstall_id, "uninstall.file", fr);
 
-        bs.insert_rule<target> (perform_install_id,   "install.file", gr);
-        bs.insert_rule<target> (perform_uninstall_id, "uninstall.file", gr);
+        // Note: use mtime_target (instead of target) to take precedence over
+        // the fallback file rules below.
+        //
+        bs.insert_rule<mtime_target> (perform_install_id,   "install.group", gr);
+        bs.insert_rule<mtime_target> (perform_uninstall_id, "uninstall.group", gr);
 
         // Register the fallback file rule for the update-for-[un]install
         // operation, similar to update.
+        //
+        // @@ Hm, it's a bit fuzzy why we would be updating-for-install
+        //    something outside of any project..?
         //
         rs.global_scope ().insert_rule<mtime_target> (
           perform_install_id, "install.file", fr);
