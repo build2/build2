@@ -247,6 +247,18 @@ namespace build2
       auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/, v_p));
       auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));
 
+      // Configuration variables to disfigure.
+      //
+      // The exact semantics is to ignore these variables when loading
+      // config.build (and any files specified in config.config.load), letting
+      // them to take on the default values (more precisely, the current
+      // implementation undefined them after loading config.build).
+      //
+      // Note that this variable is not saved in config.build and is expected
+      // to always be specified as a command line override.
+      //
+      auto& c_d (vp.insert<strings> ("config.config.disfigure", true /*ovr*/));
+
       // Hermetic configurations.
       //
       // A hermetic configuration stores environment variables that affect the
@@ -420,6 +432,21 @@ namespace build2
             else
               fail << "unknown special configuration name '" << s << "' in "
                    << "config.config.load";
+          }
+        }
+      }
+
+      // Undefine variables specified with config.config.disfigure.
+      //
+      if (const strings* vs = cast_null<strings> (rs[c_d]))
+      {
+        for (const string& v: *vs)
+        {
+          // An unknown variable can't possibly be defined.
+          //
+          if (const variable* var = vp.find (v))
+          {
+            rs.vars.erase (*var); // Undefine.
           }
         }
       }
