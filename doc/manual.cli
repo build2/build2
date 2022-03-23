@@ -1705,9 +1705,18 @@ $ b
 ...
 \
 
-Let's take a look at \c{config.build}:
+To remove the persistent configuration we use the \c{disfigure}
+meta-operation:
 
 \
+$ b disfigure
+\
+
+Let's again configure our project and take a look at \c{config.build}:
+
+\
+$ b configure config.cxx=clang++ config.cxx.coptions=-g
+
 $ cat build/config.build
 
 config.cxx = clang++
@@ -1741,6 +1750,15 @@ config.cxx.libs = [null]
 Any variable value specified on the command line overrides those specified in
 the \c{buildfiles}. As a result, \c{config.cxx} was updated while the value of
 \c{config.cxx.coptions} was preserved.
+
+\N|To revert a configuration variable to its default value, list its name in
+the special \c{config.config.disfigure} variable. For example:
+
+\
+$ b configure config.config.disfigure=config.cxx
+\
+
+|
 
 Command line variable overrides are also handy to adjust the configuration for
 a single build system invocation. For example, let's say we want to quickly
