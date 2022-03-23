@@ -257,6 +257,22 @@ namespace build2
       // Note that this variable is not saved in config.build and is expected
       // to always be specified as a command line override.
       //
+      // We also had the idea of using NULL values as a more natural way to
+      // undefine a configuration variable, which would only work for non-
+      // nullable variables (such as project configuration variables) or for
+      // those where NULL is the default value (most of the others). However,
+      // this cannot work in our model since we cannot reset a NULL override
+      // to a default value. So setting the variable itself to some special
+      // value does not seem to be an option and we have to convey this in
+      // some other way, such as in config.config.disfigure. Another idea is
+      // to invent a parallel set of variables, such as disfig.*, that can be
+      // used for that (though they would still have to be specified with some
+      // dummy value, for example disfig.hello.fancy=). On the other hand,
+      // this desire to disfigure individual variables does not seem to be
+      // very common (we lived without it for years without noticing). So
+      // it's not clear we need to do something like disfig.* which has a
+      // wiff of hack to it.
+      //
       auto& c_d (vp.insert<strings> ("config.config.disfigure", true /*ovr*/));
 
       // Hermetic configurations.
