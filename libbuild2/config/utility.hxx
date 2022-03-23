@@ -58,6 +58,10 @@ namespace build2
   {
     // Mark a variable to be saved during configuration.
     //
+    // Note: the save_*_omitted flags work best when undefined or (one of) the
+    // omitted value(s) is the default (see a note in lookup_config()
+    // documentation for details).
+    //
     const uint64_t save_default_commented = 0x01; // Based on value::extra.
     const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
     const uint64_t save_empty_omitted     = 0x04; // Treat empty as undefined.
@@ -242,9 +246,6 @@ namespace build2
     // expensive. It is also ok to call both versions multiple times provided
     // the flags are the same.
     //
-    // @@ Should save_null_omitted be interpreted to treat null as undefined?
-    //    Sounds logical.
-    //
     lookup
     lookup_config (scope& rs,
                    const variable&,
@@ -300,8 +301,14 @@ namespace build2
     // or from the command line (i.e., it is inherited from the amalgamation),
     // then its value is "overridden" to the default value on this root scope.
     //
-    // @@ Should save_null_omitted be interpreted to treat null as undefined?
-    //    Sounds logical.
+    // Note that while it may seem logical, these functions do not
+    // "reinterpret" defined values according to the save_*_omitted flags (for
+    // example, by returning the default value if the defined value is NULL
+    // and the save_null_omitted flag is specified). This is because such a
+    // reinterpretation may cause a diversion between the returned value and
+    // the re-queried config.* variable value if the defined value came from
+    // an override. To put another way, the save_*_omitted flags are purely to
+    // reduce the noise in config.build.
     //
     template <typename T>
     lookup
