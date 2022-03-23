@@ -14,7 +14,7 @@ test.arguments =
     EOI
 
   +cat <<EOI >=build/root.build
-    config [bool] config.test.fancy ?= false
+    config [bool, null] config.test.fancy ?= false
     print ($defined(config.test.fancy) ? $config.test.fancy : undefined)
     EOI
 
@@ -114,7 +114,6 @@ test.arguments =
     EOE
 }
 
-
 : default-none
 :
 {
@@ -125,7 +124,7 @@ test.arguments =
     EOI
 
   +cat <<EOI >=build/root.build
-    config [bool] config.test.fancy
+    config [bool, null] config.test.fancy
     print ($defined(config.test.fancy) ? $config.test.fancy : undefined)
     EOI
 
@@ -163,6 +162,37 @@ test.arguments =
   $* noop      config.test.fancy=junk 2>>EOE != 0
     error: invalid bool value 'junk' in variable config.test.fancy
       info: while converting 'junk'
+    EOE
+}
+
+: non-nullable
+:
+{
+  .include ../common.testscript
+
+  +cat <<EOI >+build/bootstrap.build
+    using config
+    EOI
+
+  +cat <<EOI >=build/root.build
+    config [bool] config.test.fancy ?= false
+    print ($defined(config.test.fancy) ? $config.test.fancy : undefined)
+    EOI
+
+  # This must be a single, serial test since we are sharing config.build.
+  #
+  : test
+  :
+  cat <<EOI >=buildfile;
+    ./:
+    EOI
+
+  $* noop                               >'false' ;
+  $* noop      config.test.fancy=false  >'false' ;
+  $* noop      config.test.fancy=true   >'true'  ;
+
+  $* noop      config.test.fancy=[null] 2>>~/EOE/ != 0
+    /.+root.build:1:1: error: null value in non-nullable variable config\.test\.fancy/
     EOE
 }
 

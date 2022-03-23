@@ -2862,18 +2862,23 @@ namespace build2
     next_with_attributes (t, tt);
 
     // Get variable attributes, if any, and deal with the special config.*
-    // attributes. Since currently they can only appear in the config
-    // directive, we handle them in an ad hoc manner.
+    // attributes as well as null. Since currently they can only appear in the
+    // config directive, we handle them in an ad hoc manner.
     //
     attributes_push (t, tt);
     attributes& as (attributes_top ());
 
+    bool nullable (false);
     optional<string> report;
     string report_var;
 
     for (auto i (as.begin ()); i != as.end (); )
     {
-      if (i->name == "config.report")
+      if (i->name == "null")
+      {
+        nullable = true;
+      }
+      else if (i->name == "config.report")
       {
         try
         {
@@ -2927,7 +2932,7 @@ namespace build2
 
     if (report && *report != "false" && !config)
     {
-      if (!as.empty ())
+      if (!as.empty () || nullable)
         fail (as.loc) << "unexpected attributes for report-only variable";
 
       attributes_pop ();
@@ -3029,6 +3034,9 @@ namespace build2
             peeked ().value != "false")
           fail (loc) << var << " variable default value must be literal false";
 
+        if (nullable)
+          fail (loc) << var << " variable must not be nullable";
+
         sflags |= config::save_false_omitted;
       }
 
@@ -3047,14 +3055,48 @@ namespace build2
         // all.
         //
         if (l.defined ())
+        {
+          // Peek at the attributes to detect whether the value is NULL.
+          //
+          if (!dev && !nullable)
+          {
+            // Essentially a prefix of parse_variable_value().
+            //
+            mode (lexer_mode::value, '@');
+            next_with_attributes (t, tt);
+            attributes_push (t, tt, true);
+            for (const attribute& a: attributes_pop ())
+            {
+              if (a.name == "null")
+              {
+                nullable = true;
+                break;
+              }
+            }
+          }
+
           skip_line (t, tt);
+        }
         else
         {
           value lhs, rhs (parse_variable_value (t, tt, !dev /* mode */));
           apply_value_attributes (&var, lhs, move (rhs), type::assign);
+
+          if (!nullable)
+            nullable = lhs.null;
+
           l = config::lookup_config (new_val, *root_, var, move (lhs), sflags);
         }
       }
+
+      // If the variable is not nullable, verify the value is not NULL.
+      //
+      // Note that undefined is not the same as NULL (if it is undefined, we
+      // should either see the default value or if there is no default value,
+      // then the user is expected to handle the undefined case).
+      //
+      if (!nullable && l.defined () && l->null)
+        fail (loc) << "null value in non-nullable variable " << var;
     }
 
     // We will be printing the report at either level 2 (-v) or 3 (-V)

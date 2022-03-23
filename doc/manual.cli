@@ -4782,11 +4782,29 @@ is user-defined, then the default value is not evaluated.
 Note also that if the configuration value is not specified by the user and you
 haven't provided the default, the variable will be undefined, not \c{null},
 and, as a result, omitted from the persistent configuration
-(\c{build/config.build} file). However, \c{null} is a valid default value. It
-is traditionally used for \i{optional} configuration values. For example:
+(\c{build/config.build} file). In fact, unlike other variables, project
+configuration variables are by default not \i{nullable}. For example:
+
+\
+$ b configure config.libhello.fancy=[null]
+error: null value in non-nullable variable config.libhello.fancy
+\
+
+There are two ways to make \c{null} a valid value of a project configuration
+variable. Firstly, if the default value is \c{null}, then naturally the
+variable is assumed nullable. This is traditionally used for \i{optional}
+configuration values. For example:
 
 \
 config [string] config.libhello.fallback_name ?= [null]
+\
+
+If we need a nullable configuration variable but with a non-\c{null} default
+value (or no default value at all), then we have to use the \c{null} variable
+attribute. For example:
+
+\
+config [string, null] config.libhello.fallback_name ?= \"World\"
 \
 
 A common approach for representing an C/C++ enum-like value is to use
@@ -4829,15 +4847,6 @@ explicitly, this can be achieved with an extra check. For example:
 config [string] config.libhello.database
 
 if! $defined(config.libhello.database)
-  fail 'config.libhello.database must be specified'
-\
-
-And if you want to also disallow \c{null} values, then the above check should
-be rewritten like this: \N{An undefined variable expands into a \c{null}
-value.}
-
-\
-if ($config.libhello.database == [null])
   fail 'config.libhello.database must be specified'
 \
 
