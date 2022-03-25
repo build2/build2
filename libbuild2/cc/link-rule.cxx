@@ -1760,7 +1760,7 @@ namespace build2
             lookup l (p.prerequisite.vars[var]);
 
             if (!l.defined ())
-              l = pt->lookup_original (var, true).first;
+              l = pt->lookup_original (var, true /* target_only */).first;
 
             if (!l.defined ())
             {

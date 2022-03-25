@@ -134,10 +134,10 @@ namespace build2
     strings
     libs (bool stat) const;
 
-    string
+    optional<string>
     variable (const char*) const;
 
-    string
+    optional<string>
     variable (const string& s) const {return variable (s.c_str ());}
 
   private:
@@ -437,14 +437,14 @@ namespace build2
     return to_strings (f, 'L', client_->filter_libdirs);
   }
 
-  string pkgconf::
+  optional<string> pkgconf::
   variable (const char* name) const
   {
     assert (client_ != nullptr); // Must not be empty.
 
     mlock l (pkgconf_mutex);
     const char* r (pkgconf_tuple_find (client_, &pkg_->vars, name));
-    return r != nullptr ? string (r) : string ();
+    return r != nullptr ? optional<string> (r) : nullopt;
   }
 
 #endif
@@ -1170,10 +1170,13 @@ namespace build2
                             &next, &s, &lt] (const pkgconf& pc,
                                              prerequisites& ps)
       {
-        string val (pc.variable ("cxx_modules"));
+        optional<string> val (pc.variable ("cxx_modules"));
+
+        if (!val)
+          return;
 
         string m;
-        for (size_t b (0), e (0); !(m = next (val, b, e)).empty (); )
+        for (size_t b (0), e (0); !(m = next (*val, b, e)).empty (); )
         {
           // The format is <name>=<path> with `..` used as a partition
           // separator (see pkgconfig_save() for details).
@@ -1182,7 +1185,7 @@ namespace build2
           if (p == string::npos ||
               p == 0            || // Empty name.
               p == m.size () - 1)  // Empty path.
-            fail << "invalid module information in '" << val << "'" <<
+            fail << "invalid module information in '" << *val << "'" <<
               info << "while parsing pkg-config --variable=cxx_modules "
                    << pc.path;
 
@@ -1192,8 +1195,8 @@ namespace build2
 
           // Extract module properties, if any.
           //
-          string pp (pc.variable ("cxx_module_preprocessed." + mn));
-          string se (pc.variable ("cxx_module_symexport." + mn));
+          optional<string> pp (pc.variable ("cxx_module_preprocessed." + mn));
+          optional<string> se (pc.variable ("cxx_module_symexport." + mn));
 
           // Replace the partition separator.
           //
@@ -1238,11 +1241,12 @@ namespace build2
             //
             {
               value& v (mt.vars.assign (x_preprocessed)); // NULL
-              if (!pp.empty ()) v = move (pp);
+              if (pp)
+                v = move (*pp);
             }
 
             {
-              mt.vars.assign (x_symexport) = (se == "true");
+              mt.vars.assign (x_symexport) = (se && *se == "true");
             }
 
             tl.second.unlock ();
@@ -1270,10 +1274,13 @@ namespace build2
                                              prerequisites& ps)
       {
         string var (string (lang) + "_importable_headers");
-        string val (pc.variable (var));
+        optional<string> val (pc.variable (var));
+
+        if (!val)
+          return;
 
         string h;
-        for (size_t b (0), e (0); !(h = next (val, b, e)).empty (); )
+        for (size_t b (0), e (0); !(h = next (*val, b, e)).empty (); )
         {
           path hp (move (h));
           path hf (hp.leaf ());
@@ -1373,6 +1380,20 @@ namespace build2
 
       if (ps)
         parse_cflags (*st, spc, false);
+
+      // Load the bin.whole flag (whole archive).
+      //
+      if (at != nullptr)
+      {
+        // Note that if unspecified we leave it unset letting the consumer
+        // override it, if necessary (see the bin.lib lookup semantics for
+        // details).
+        //
+        if (optional<string> v = (pa ? apc : spc).variable ("bin.whole"))
+        {
+          at->vars.assign ("bin.whole") = (*v == "true");
+        }
+      }
 
       // For now we assume static and shared variants export the same set of
       // modules/importable headers. While technically possible, having
@@ -1800,6 +1821,18 @@ namespace build2
             for (const string& a: args)
               os << ' ' << a;
             os << endl;
+
+            // Save the bin.whole (whole archive) flag (see the link rule for
+            // details on the lookup semantics).
+            //
+            if (cast_false<bool> (
+                  l.lookup_original (ctx.var_pool["bin.whole"],
+                                     true /* target_only */).first))
+            {
+              os << endl
+                 << "bin.whole = true"
+                 << endl;
+            }
           }
         }
 
