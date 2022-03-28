@@ -2353,6 +2353,27 @@ the \c{details/} subdirectory with the \c{utility.hxx} header, then this
 header would have been installed as
 \c{.../include/libhello/details/utility.hxx}.
 
+\N|By default the generated \c{pkg-config} files will contain
+\c{install.include} and \c{install.lib} directories as header (\c{-I}) and
+library (\c{-L}) search paths, respectively. However, these can be customized
+with the \c{{c,cxx\}.pkgconfig.{include,lib\}} variables. For example,
+sometimes we may need to install headers into a subdirectory of the include
+directory but include them without this subdirectory:
+
+\
+# Install headers into hello/libhello/ subdirectory of, say,
+# /usr/include/ but include them as <libhello/*>.
+#
+hxx{*}:
+{
+  install         = include/hello/libhello/
+  install.subdirs = true
+}
+
+lib{hello}: cxx.pkgconfig.include = include/hello/
+\
+
+|
 
 \h2#intro-operations-dist|Distributing|
 
@@ -6508,12 +6529,12 @@ config.c
 config.cxx
   cc.id
 
-  c.target
-  c.target.cpu
-  c.target.vendor
-  c.target.system
-  c.target.version
-  c.target.class
+  cc.target
+  cc.target.cpu
+  cc.target.vendor
+  cc.target.system
+  cc.target.version
+  cc.target.class
 
 config.cc.poptions
   cc.poptions

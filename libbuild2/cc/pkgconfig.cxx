@@ -1507,20 +1507,46 @@ namespace build2
       // install without actual install and remove the file if it exists.
       //
       // @@ Shouldn't we use target's install value rather than install.lib
-      //    in case it gets installed into a custom location?
+      //    in case it gets installed into a custom location? I suppose one
+      //    can now use cc.pkgconfig.lib to customize this.
       //
       using install::resolve_dir;
 
-      dir_path ldir (resolve_dir (g,
-                                  cast<dir_path> (g["install.lib"]),
-                                  false /* fail_unknown */));
-      if (ldir.empty ())
+      small_vector<dir_path, 1> ldirs;
+
+      if (const dir_paths* ds = cast_null<dir_paths> (g[c_pkgconfig_lib]))
+      {
+        for (const dir_path& d: *ds)
+        {
+          bool f (ldirs.empty ());
+
+          ldirs.push_back (resolve_dir (g, d, !f /* fail_unknown */));
+
+          if (f && ldirs.back ().empty ())
+            break;
+        }
+      }
+      else
+        ldirs.push_back (resolve_dir (g,
+                                      cast<dir_path> (g["install.lib"]),
+                                      false /* fail_unknown */));
+
+      if (!ldirs.empty () && ldirs.front ().empty ())
       {
         rmfile (ctx, p, 3 /* verbosity */);
         return;
       }
 
-      dir_path idir (resolve_dir (g, cast<dir_path> (g["install.include"])));
+      small_vector<dir_path, 1> idirs;
+
+      if (const dir_paths* ds = cast_null<dir_paths> (g[c_pkgconfig_include]))
+      {
+        for (const dir_path& d: *ds)
+          idirs.push_back (resolve_dir (g, d));
+      }
+      else
+        idirs.push_back (resolve_dir (g,
+                                      cast<dir_path> (g["install.include"])));
 
       // Note that generation can take some time if we have a large number of
       // prerequisite libraries.
@@ -1666,13 +1692,11 @@ namespace build2
           return n;
         };
 
-        // @@ TODO: support whole archive?
-        //
-
         // Cflags.
         //
         os << "Cflags:";
-        os << " -I" << escape (idir.string ());
+        for (const dir_path& d: idirs)
+          os << " -I" << escape (d.string ());
         save_poptions (x_export_poptions);
         save_poptions (c_export_poptions);
         os << endl;
@@ -1691,7 +1715,8 @@ namespace build2
           // While we don't need it for a binless library itselt, it may be
           // necessary to resolve its binful dependencies.
           //
-          os << " -L" << escape (ldir.string ());
+          for (const dir_path& d: ldirs)
+            os << " -L" << escape (d.string ());
 
           // Now process ourselves as if we were being linked to something (so
           // pretty similar to link_rule::append_libraries()). We also reuse

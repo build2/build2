@@ -225,6 +225,9 @@ namespace build2
         vp["cc.export.libs"],
         vp["cc.export.impl_libs"],
 
+        vp["cc.pkconfig.include"],
+        vp["cc.pkconfig.lib"],
+
         vp.insert_alias (vp["cc.stdlib"], "c.stdlib"), // Same as cc.stdlib.
 
         vp["cc.runtime"],
@@ -275,6 +278,9 @@ namespace build2
       //
       vp.insert_alias (d.c_runtime,    "c.runtime");
       vp.insert_alias (d.c_importable, "c.importable");
+
+      vp.insert_alias (d.c_pkgconfig_include, "c.pkgconfig.include");
+      vp.insert_alias (d.c_pkgconfig_lib,     "c.pkgconfig.lib");
 
       auto& m (extra.set_module (new config_module (move (d))));
       m.guess (rs, loc, extra.hints);

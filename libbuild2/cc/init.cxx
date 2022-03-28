@@ -113,6 +113,13 @@ namespace build2
       vp.insert<vector<name>> ("cc.export.libs");
       vp.insert<vector<name>> ("cc.export.impl_libs");
 
+      // Header (-I) and library (-L) search paths to use in the generated .pc
+      // files instead of the default install.{include,lib}. Relative paths
+      // are resolved as install paths.
+      //
+      vp.insert<dir_paths> ("cc.pkconfig.include");
+      vp.insert<dir_paths> ("cc.pkconfig.lib");
+
       // Hint variables (not overridable).
       //
       vp.insert<string>         ("config.cc.id",      false);

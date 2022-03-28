@@ -102,6 +102,9 @@ namespace build2
       const variable& c_export_libs;
       const variable& c_export_impl_libs;
 
+      const variable& c_pkgconfig_include;
+      const variable& c_pkgconfig_lib;
+
       const variable& x_stdlib;       // x.stdlib
 
       const variable& c_runtime;      // cc.runtime
