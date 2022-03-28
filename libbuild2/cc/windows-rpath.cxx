@@ -361,11 +361,16 @@ namespace build2
           // of the same amalgamation. This way if the amalgamation is moved
           // as a whole, the links will remain valid.
           //
+          // Note: mkanylink() is from libbutl and thus doesn't handle the
+          //       dry-run mode.
+          //
           try
           {
-            switch (mkanylink (f, l,
-                               true                   /* copy */,
-                               f.sub (as.out_path ()) /* relative */))
+            switch (as.ctx.dry_run
+                    ? entry_type::symlink
+                    : mkanylink (f, l,
+                                 true                   /* copy */,
+                                 f.sub (as.out_path ()) /* relative */))
             {
             case entry_type::regular: print ("cp");    break;
             case entry_type::symlink: print ("ln -s"); break;
