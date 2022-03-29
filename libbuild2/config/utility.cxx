@@ -91,7 +91,7 @@ namespace build2
       // any original values, they will be "visible"; see find_override() for
       // details.
       //
-      const variable& ns (vp.insert ("config." + n));
+      const string ns ("config." + n);
       for (scope* s (&rs); s != nullptr; s = s->parent_scope ())
       {
         for (auto p (s->vars.lookup_namespace (ns));
@@ -107,12 +107,12 @@ namespace build2
 
           auto match_tail = [&ns, v] (const char* t)
           {
-            return v->name.compare (ns.name.size () + 1, string::npos, t) == 0;
+            return v->name.compare (ns.size () + 1, string::npos, t) == 0;
           };
 
           // Ignore config.*.configured and user-supplied names.
           //
-          if (v->name.size () <= ns.name.size () ||
+          if (v->name.size () <= ns.size () ||
               (!match_tail ("configured") &&
                find_if (ig.begin (), ig.end (), match_tail) == ig.end ()))
             return true;

@@ -1574,6 +1574,16 @@ namespace build2
                         const_iterator (r.second, *this));
     }
 
+    pair<const_iterator, const_iterator>
+    lookup_namespace (string ns) const
+    {
+      // It's ok to use the temporary here since we compare names and don't
+      // insert anything.
+      //
+      return lookup_namespace (variable {
+          move (ns), nullptr, nullptr, nullptr, variable_visibility::project});
+    }
+
     // Convert a lookup pointing to a value belonging to this variable map
     // to its non-const version. Note that this is only safe on the original
     // values (see lookup_original()).

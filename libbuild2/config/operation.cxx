@@ -209,7 +209,7 @@ namespace build2
         //
         auto& vp (ctx.var_pool);
 
-        for (auto p (rs.vars.lookup_namespace (*vp.find ("config")));
+        for (auto p (rs.vars.lookup_namespace ("config"));
              p.first != p.second;
              ++p.first)
         {

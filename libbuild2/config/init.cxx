@@ -175,10 +175,6 @@ namespace build2
 
         if (!d)
         {
-          // Used as a variable prefix by configure_execute().
-          //
-          vp.insert ("config");
-
           // Adjust priority for the config module and import pseudo-module so
           // that their variables come first in config.build.
           //
