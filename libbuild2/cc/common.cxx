@@ -1211,14 +1211,19 @@ namespace build2
           if (!pkgconfig_load (act, *p.scope,
                                *lt, a, s,
                                p.proj, name,
-                               *pd, sysd, *usrd))
+                               *pd, sysd, *usrd,
+                               false /* metadata */))
           {
             if (a != nullptr) add_macro (*a, "STATIC");
             if (s != nullptr) add_macro (*s, "SHARED");
           }
         }
         else
-          pkgconfig_load (act, *p.scope, *lt, a, s, pc, *pd, sysd, *usrd);
+          pkgconfig_load (act, *p.scope,
+                          *lt, a, s,
+                          pc,
+                          *pd, sysd, *usrd,
+                          false /* metadata */);
       }
 
       // If we have the lock (meaning this is the first time), set the matched

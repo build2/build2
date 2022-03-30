@@ -423,7 +423,8 @@ namespace build2
                       const pair<path, path>&,
                       const dir_path&,
                       const dir_paths&,
-                      const dir_paths&) const;
+                      const dir_paths&,
+                      bool) const;
 
       bool
       pkgconfig_load (action, const scope&,
@@ -432,7 +433,8 @@ namespace build2
                       const string&,
                       const dir_path&,
                       const dir_paths&,
-                      const dir_paths&) const;
+                      const dir_paths&,
+                      bool) const;
     };
   }
 }

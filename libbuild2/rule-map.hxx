@@ -22,7 +22,7 @@ namespace build2
   // This is an "indexed map" with operation_id being the index. Entry
   // with id 0 is a wildcard.
   //
-  // Note that while we may resize some vectors during non-serial load, this
+  // Note that while we may resize some vectors during non-initial load, this
   // is MT-safe since we never cache any references to their elements.
   //
   class operation_rule_map
