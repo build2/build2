@@ -86,6 +86,10 @@ namespace build2
     const target_key& ctk (cpk.tk);
     const scope* s (cpk.scope);
 
+    // Has to be a file target.
+    //
+    assert (ctk.type->is_a<file> ());
+
     path f;
 
     if (ctk.dir->absolute ())
@@ -191,9 +195,7 @@ namespace build2
                                 target_decl::prereq_file,
                                 trace));
 
-    // Has to be a file_target.
-    //
-    const file& t (dynamic_cast<const file&> (r.first));
+    const file& t (r.first.as<file> ());
 
     l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t
                   << " for prerequisite " << cpk;});
