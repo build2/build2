@@ -4,6 +4,9 @@
 #include <regex>
 #include <type_traits> // is_*
 
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
+
 #include <libbuild2/script/regex.hxx>
 
 #undef NDEBUG
@@ -15,6 +18,8 @@ using namespace build2::script::regex;
 int
 main ()
 {
+  build2::init_process ();
+
   using lc = line_char;
   using ls = line_string;
   using lr = line_regex;
