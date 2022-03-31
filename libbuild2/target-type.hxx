@@ -102,14 +102,15 @@ namespace build2
     bool
     is_a (const target_type& tt) const
     {
-      return this == &tt || (base != nullptr && is_a_base (tt));
+      for (const target_type* b (this); b != nullptr; b = b->base)
+        if (b == &tt)
+          return true;
+
+      return false;
     }
 
     bool
     is_a (const char*) const; // Defined in target.cxx
-
-    bool
-    is_a_base (const target_type&) const; // Defined in target.cxx
   };
 
   inline bool

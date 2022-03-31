@@ -22,21 +22,8 @@ namespace build2
   bool target_type::
   is_a (const char* n) const
   {
-    if (strcmp (name, n) == 0)
-      return true;
-
-    for (const target_type* b (base); b != nullptr; b = b->base)
+    for (const target_type* b (this); b != nullptr; b = b->base)
       if (strcmp (b->name, n) == 0)
-        return true;
-
-    return false;
-  }
-
-  bool target_type::
-  is_a_base (const target_type& tt) const
-  {
-    for (const target_type* b (base); b != nullptr; b = b->base)
-      if (*b == tt)
         return true;
 
     return false;

@@ -780,20 +780,43 @@ namespace build2
     //
   public:
     const target*
-    is_a (const target_type& tt) const {
-      return type ().is_a (tt) ? this : nullptr;}
+    is_a (const target_type& tt) const
+    {
+      return type ().is_a (tt) ? this : nullptr;
+    }
 
     template <typename T>
     T*
-    is_a () {return dynamic_cast<T*> (this);}
+    is_a ()
+    {
+      // At least with GCC we see slightly better and more consistent
+      // performance with our own type information.
+      //
+#if 0
+      return dynamic_cast<T*> (this);
+#else
+      // We can skip dynamically-derived type here (derived_type).
+      //
+      return dynamic_type ().is_a<T> () ? static_cast<T*> (this) : nullptr;
+#endif
+    }
 
     template <typename T>
     const T*
-    is_a () const {return dynamic_cast<const T*> (this);}
+    is_a () const
+    {
+#if 0
+      return dynamic_cast<const T*> (this);
+#else
+      return dynamic_type ().is_a<T> () ? static_cast<const T*> (this) : nullptr;
+#endif
+    }
 
     const target*
-    is_a (const char* n) const {
-      return type ().is_a (n) ? this : nullptr;}
+    is_a (const char* n) const
+    {
+      return type ().is_a (n) ? this : nullptr;
+    }
 
     // Unchecked cast.
     //
