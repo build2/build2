@@ -868,9 +868,6 @@ namespace build2
         //
         if (ns[0].pattern && ns.size () == (ns[0].pair ? 2 : 1))
         {
-          if (!as.empty ())
-            fail (as.loc) << "attributes before target type/pattern";
-
           name& n (ns[0]);
 
           if (n.qualified ())
@@ -936,6 +933,10 @@ namespace build2
                 nloc);
 
               next_after_newline (t, tt);
+
+              if (!as.empty ())
+                fail (as.loc) << "attributes before target type/pattern";
+
               continue; // Just a target type/pattern-specific var assignment.
             }
 
@@ -987,12 +988,47 @@ namespace build2
               if (!ans.empty ())
                 fail (ans[0].loc) << "ad hoc member in target type/pattern";
 
+              if (!as.empty ())
+                fail (as.loc) << "attributes before target type/pattern";
+
               continue;
             }
           }
 
           // Ok, this is an ad hoc pattern rule.
           //
+          // First process the attributes.
+          //
+          string rn;
+          {
+            const location& l (as.loc);
+
+            for (auto& a: as)
+            {
+              const string& n (a.name);
+              value& v (a.value);
+
+              // rule_name=
+              //
+              if (n == "rule_name")
+              {
+                try
+                {
+                  rn = convert<string> (move (v));
+
+                  if (rn.empty ())
+                    throw invalid_argument ("empty name");
+                }
+                catch (const invalid_argument& e)
+                {
+                  fail (l) << "invalid " << n << " attribute value: " << e;
+                }
+              }
+              else
+                fail (l) << "unknown ad hoc pattern rule attribute " << a;
+            }
+          }
+
           // What should we do if we have neither prerequisites nor recipes?
           // While such a declaration doesn't make much sense, it can happen,
           // for example, with an empty variable expansion:
@@ -1089,14 +1125,18 @@ namespace build2
             }
           }
 
-          // Derive the rule name. It must be unique in this scope.
+          // Derive the rule name unless specified explicitly. It must be
+          // unique in this scope.
           //
           // It would have been nice to include the location but unless we
           // include the absolute path to the buildfile (which would be
           // unwieldy), it could be ambigous.
           //
-          string rn ("<ad hoc pattern rule #" +
-                     to_string (scope_->adhoc_rules.size () + 1) + '>');
+          // NOTE: we rely on the <...> format in dump.
+          //
+          if (rn.empty ())
+            rn = "<ad hoc pattern rule #" +
+              to_string (scope_->adhoc_rules.size () + 1) + '>';
 
           auto& ars (scope_->adhoc_rules);
 
@@ -1109,7 +1149,9 @@ namespace build2
           const target_type* ttype (nullptr);
           if (i != ars.end ())
           {
-            // @@ TODO: append ad hoc members, prereqs.
+            // @@ TODO: append ad hoc members, prereqs (we now have
+            //          [rule_name=] which we can use to reference the same
+            //          rule).
             //
             ttype = &(*i)->type;
             assert (false);
@@ -1710,6 +1752,10 @@ namespace build2
             // line of the recipe code).
             //
             location loc (get_location (st));
+
+            // @@ We could add an attribute (name= or recipe_name=) to allow
+            //    the user specify a friendly name for diagnostics, similar
+            //    to rule_name.
 
             shared_ptr<adhoc_rule> ar;
             if (!lang)

@@ -225,6 +225,14 @@ namespace build2
     // Pattern.
     //
     os << ind;
+
+    // Avoid printing the derived name.
+    //
+    if (rp.rule_name.front () != '<' || rp.rule_name.back () != '>')
+    {
+      os << "[rule_name=" << rp.rule_name << "] ";
+    }
+
     rp.dump (os);
 
     // Recipes.
