@@ -43,6 +43,8 @@ namespace build2
       virtual bool
       match (action, target&, const string&, match_extra&) const override;
 
+      using file_rule::match; // Make Clang happy.
+
       virtual recipe
       apply (action, target&) const override;
 
@@ -77,6 +79,8 @@ namespace build2
       //
       virtual bool
       match (action, target&, const string&, match_extra&) const override;
+
+      using alias_rule::match; // Make Clang happy.
 
     private:
       const link_rule& link_;
