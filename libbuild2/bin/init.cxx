@@ -547,7 +547,7 @@ namespace build2
                 &target_pattern_fix<wasm_ext>,
                 &target_print_0_ext_verb, // Fixed extension, no use printing.
                 &file_search,
-                false /* see_through */}));
+                target_type::flag::none}));
 
           if (install_loaded)
           {
@@ -578,8 +578,6 @@ namespace build2
 
         // Similar to alias.
         //
-
-        //@@ outer
         r.insert<lib> (perform_id,   0, "bin.lib", lib_);
         r.insert<lib> (configure_id, 0, "bin.lib", lib_);
 
@@ -927,7 +925,7 @@ namespace build2
               &target_pattern_fix<pdb_ext>,
               &target_print_0_ext_verb, // Fixed extension, no use printing.
               &file_search,
-              false /* see_through */}));
+              target_type::flag::none}));
 
         if (cast_false<bool> (rs["install.loaded"]))
         {

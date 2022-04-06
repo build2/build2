@@ -30,7 +30,7 @@ namespace build2
   namespace test
   {
     bool rule::
-    match (action, target&, const string&) const
+    match (action, target&) const
     {
       // We always match, even if this target is not testable (so that we can
       // ignore it; see apply()).
@@ -66,7 +66,7 @@ namespace build2
 
       // Resolve group members.
       //
-      if (!see_through || t.type ().see_through)
+      if (!see_through_only || t.type ().see_through ())
       {
         // Remember that we are called twice: first during update for test
         // (pre-operation) and then during test. During the former, we rely on

@@ -156,10 +156,9 @@ namespace build2
 
     struct data: config_data
     {
-      const char* x_compile; // Rule names.
-      const char* x_link;
-      const char* x_install;
-      const char* x_uninstall;
+      string x_compile; // Rule names.
+      string x_link;
+      string x_install;
 
       // Cached values for some commonly-used variables/values.
       //
@@ -243,7 +242,6 @@ namespace build2
             const char* compile,
             const char* link,
             const char* install,
-            const char* uninstall,
             compiler_type ct,
             const string& cv,
             compiler_class cl,
@@ -270,7 +268,6 @@ namespace build2
             x_compile (compile),
             x_link (link),
             x_install (install),
-            x_uninstall (uninstall),
             ctype (ct), cvariant (cv), cclass (cl),
             cmaj (mj), cmin (mi),
             cvmaj (vmj), cvmin (vmi),

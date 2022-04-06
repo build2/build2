@@ -53,7 +53,7 @@ namespace build2
       &in_pattern,
       &target_print_1_ext_verb,          // Same as file.
       &in_search,
-      false
+      target_type::flag::none
     };
   }
 }

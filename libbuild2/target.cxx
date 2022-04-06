@@ -1092,7 +1092,7 @@ namespace build2
     nullptr,
     nullptr,
     &target_search,
-    false
+    target_type::flag::none,
   };
 
   const target_type mtime_target::static_type
@@ -1105,7 +1105,7 @@ namespace build2
     nullptr,
     nullptr,
     &target_search,
-    false
+    target_type::flag::none
   };
 
   const target_type path_target::static_type
@@ -1118,7 +1118,7 @@ namespace build2
     nullptr,
     nullptr,
     &target_search,
-    false
+    target_type::flag::none
   };
 
   const target_type file::static_type
@@ -1131,7 +1131,7 @@ namespace build2
     nullptr, /* pattern */
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &file_search,
-    false
+    target_type::flag::none
   };
 
   static const target*
@@ -1158,7 +1158,7 @@ namespace build2
     nullptr,
     nullptr,
     &alias_search,
-    false
+    target_type::flag::none
   };
 
   // dir
@@ -1374,7 +1374,7 @@ namespace build2
     &dir_pattern,
     nullptr,
     &dir_search,
-    false
+    target_type::flag::none
   };
 
   const target_type fsdir::static_type
@@ -1387,7 +1387,7 @@ namespace build2
     &dir_pattern,
     nullptr,
     &target_search,
-    false
+    target_type::flag::none
   };
 
   static optional<string>
@@ -1455,7 +1455,7 @@ namespace build2
 #endif
     nullptr,
     &file_search,
-    false
+    target_type::flag::none
   };
 
   static const char*
@@ -1541,7 +1541,7 @@ namespace build2
     &buildfile_target_pattern,
     nullptr,
     &file_search,
-    false
+    target_type::flag::none
   };
 
   const target_type doc::static_type
@@ -1554,7 +1554,7 @@ namespace build2
     nullptr, /* pattern */               // Same as file.
     &target_print_1_ext_verb,            // Same as file.
     &file_search,
-    false
+    target_type::flag::none
   };
 
   const target_type legal::static_type
@@ -1567,7 +1567,7 @@ namespace build2
     nullptr, /* pattern */               // Same as file.
     &target_print_1_ext_verb,            // Same as file.
     &file_search,
-    false
+    target_type::flag::none
   };
 
   const target_type man::static_type
@@ -1580,7 +1580,7 @@ namespace build2
     nullptr,
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &file_search,
-    false
+    target_type::flag::none
   };
 
   extern const char man1_ext[] = "1"; // VC14 rejects constexpr.
@@ -1595,7 +1595,7 @@ namespace build2
     &target_pattern_fix<man1_ext>,
     &target_print_0_ext_verb, // Fixed extension, no use printing.
     &file_search,
-    false
+    target_type::flag::none
   };
 
   static const char*
@@ -1644,6 +1644,6 @@ namespace build2
     &manifest_target_pattern,
     nullptr,
     &file_search,
-    false
+    target_type::flag::none
   };
 }

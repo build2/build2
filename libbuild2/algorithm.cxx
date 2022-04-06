@@ -447,6 +447,8 @@ namespace build2
     meta_operation_id mo (a.meta_operation ());
     operation_id o (a.inner () ? a.operation () : a.outer_operation ());
 
+    const string& hint (t.find_hint (o)); // MT-safe (target locked).
+
     for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
     {
       // Search scopes outwards, stopping at the project root.
@@ -478,23 +480,11 @@ namespace build2
           if (i == ttm->end () || i->second.empty ())
             continue; // No rules registered for this target type.
 
-          const auto& rules (i->second); // Hint map.
+          const auto& rules (i->second); // Name map.
 
-          // @@ TODO hint
+          // Filter against the hint, if any.
           //
-          // Different rules can be used for different operations (update vs
-          // test is a good example). So, at some point, we will probably have
-          // to support a list of hints or even an operation-hint map (e.g.,
-          // 'hint=cxx test=foo' if cxx supports the test operation but we
-          // want the foo rule instead). This is also the place where the
-          // '{build clean}=cxx' construct (which we currently do not support)
-          // can come handy.
-          //
-          // Also, ignore the hint (that is most likely ment for a different
-          // operation) if this is a unique match.
-          //
-          string hint;
-          auto rs (rules.size () == 1
+          auto rs (hint.empty ()
                    ? make_pair (rules.begin (), rules.end ())
                    : rules.find_sub (hint));
 
@@ -622,8 +612,14 @@ namespace build2
 
     if (!try_match)
     {
-      diag_record dr;
-      dr << fail << "no rule to " << diag_do (a, t);
+      diag_record dr (fail);
+
+      if (hint.empty ())
+        dr << "no rule to ";
+      else
+        dr << "no rule with hint " << hint << " to ";
+
+      dr << diag_do (a, t);
 
       // Try to give some hints of the common causes.
       //

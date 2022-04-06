@@ -22,18 +22,33 @@ namespace build2
   {
   }
 
+  bool rule::
+  sub_match (const string& n, operation_id o,
+             action a, target& t, match_extra& me) const
+  {
+    const string& h (t.find_hint (o));
+    return name_rule_map::sub (h, n) && match (a, t, h, me);
+  }
+
   // simple_rule
   //
   bool simple_rule::
-  match (action a, target& t, const string& h, match_extra&) const
+  match (action a, target& t, const string&, match_extra&) const
   {
-    return match (a, t, h);
+    return match (a, t);
   }
 
   recipe simple_rule::
   apply (action a, target& t, match_extra&) const
   {
     return apply (a, t);
+  }
+
+  bool simple_rule::
+  sub_match (const string& n, operation_id o,
+             action a, target& t) const
+  {
+    return name_rule_map::sub (t.find_hint (o), n) && match (a, t);
   }
 
   // file_rule
@@ -46,7 +61,7 @@ namespace build2
   // use it as a guide to implement your own, normal, rules.
   //
   bool file_rule::
-  match (action a, target& t, const string&) const
+  match (action a, target& t, const string&, match_extra&) const
   {
     tracer trace ("file_rule::match");
 
@@ -124,7 +139,7 @@ namespace build2
   }
 
   recipe file_rule::
-  apply (action a, target& t) const
+  apply (action a, target& t, match_extra&) const
   {
     // Update triggers the update of this target's prerequisites so it would
     // seem natural that we should also trigger their cleanup. However, this
@@ -161,7 +176,7 @@ namespace build2
   // alias_rule
   //
   bool alias_rule::
-  match (action, target&, const string&) const
+  match (action, target&) const
   {
     return true;
   }
@@ -183,7 +198,7 @@ namespace build2
   // fsdir_rule
   //
   bool fsdir_rule::
-  match (action, target&, const string&) const
+  match (action, target&) const
   {
     return true;
   }
@@ -318,7 +333,7 @@ namespace build2
   // noop_rule
   //
   bool noop_rule::
-  match (action, target&, const string&) const
+  match (action, target&) const
   {
     return true;
   }

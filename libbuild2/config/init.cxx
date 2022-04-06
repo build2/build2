@@ -571,13 +571,12 @@ namespace build2
       rs.global_scope ().insert_rule<mtime_target> (
         configure_id, 0, "config.file", file_rule::instance);
 
-      //@@ outer
       rs.insert_rule<alias> (configure_id, 0, "config.alias", alias_rule::instance);
 
       // This allows a custom configure rule while doing nothing by default.
       //
-      rs.insert_rule<target> (configure_id, 0, "config", noop_rule::instance);
-      rs.insert_rule<file> (configure_id, 0, "config.file", noop_rule::instance);
+      rs.insert_rule<target> (configure_id, 0, "config.noop", noop_rule::instance);
+      rs.insert_rule<file> (configure_id, 0, "config.noop", noop_rule::instance);
 
       return true;
     }

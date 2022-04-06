@@ -41,7 +41,7 @@ namespace build2
     // in_rule
     //
     bool in_rule::
-    match (action a, target& t, const string&) const
+    match (action a, target& t) const
     {
       tracer trace ("bash::in_rule::match");
 
@@ -424,12 +424,13 @@ namespace build2
     // install_rule
     //
     bool install_rule::
-    match (action a, target& t, const string& hint) const
+    match (action a, target& t) const
     {
       // We only want to handle installation if we are also the ones building
       // this target. So first run in's match().
       //
-      return in_.match (a, t, hint) && file_rule::match (a, t, "");
+      return in_.sub_match (in_name_, update_id, a, t) &&
+        file_rule::match (a, t);
     }
 
     recipe install_rule::

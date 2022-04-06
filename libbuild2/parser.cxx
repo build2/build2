@@ -674,10 +674,7 @@ namespace build2
         if (ns.empty ())
           fail (t) << "expected target before ':'";
 
-        if (at.first)
-          fail (at.second) << "attributes before target";
-        else
-          attributes_pop ();
+        attributes as (attributes_pop ());
 
         // Call the specified parsing function (variable value/block) for
         // one/each pattern/target. We handle multiple targets by replaying
@@ -790,7 +787,7 @@ namespace build2
         };
 
         auto for_each = [this, &trace, &for_one_pat,
-                         &t, &tt, &ns, &nloc, &ans] (auto&& f)
+                         &t, &tt, &as, &ns, &nloc, &ans] (auto&& f)
         {
           // Note: watch out for an out-qualified single target (two names).
           //
@@ -809,6 +806,9 @@ namespace build2
             //
             if (n.pattern)
             {
+              if (!as.empty ())
+                fail (as.loc) << "attributes before target type/pattern";
+
               if (n.pair)
                 fail (nloc) << "out-qualified target type/pattern";
 
@@ -830,6 +830,9 @@ namespace build2
                                true /* implied */,
                                nloc,
                                trace);
+
+              if (!as.empty ())
+                apply_target_attributes (*target_, as);
 
               // Enter ad hoc members.
               //
@@ -865,6 +868,9 @@ namespace build2
         //
         if (ns[0].pattern && ns.size () == (ns[0].pair ? 2 : 1))
         {
+          if (!as.empty ())
+            fail (as.loc) << "attributes before target type/pattern";
+
           name& n (ns[0]);
 
           if (n.qualified ())
@@ -1165,7 +1171,7 @@ namespace build2
 
               for (action a: r.actions)
               {
-                // This covers both duplicate recipe actions withing the rule
+                // This covers both duplicate recipe actions within the rule
                 // pattern (similar to parse_recipe()) as well as conflicts
                 // with other rules (ad hoc or not).
                 //
@@ -1313,7 +1319,7 @@ namespace build2
             // Note also that we treat this as an explicit dependency
             // declaration (i.e., not implied).
             //
-            enter_targets (move (ns), nloc, move (ans), 0);
+            enter_targets (move (ns), nloc, move (ans), 0, as);
           }
 
           continue;
@@ -1390,7 +1396,8 @@ namespace build2
           parse_dependency (t, tt,
                             move (ns), nloc,
                             move (ans),
-                            move (pns), ploc);
+                            move (pns), ploc,
+                            as);
         }
 
         continue;
@@ -1943,8 +1950,7 @@ namespace build2
         //
         // TODO: handle and erase common attributes if/when we have any.
         //
-        as = move (attributes_top ());
-        attributes_pop ();
+        as = attributes_pop ();
 
         // Handle the buildspec.
         //
@@ -2134,7 +2140,8 @@ namespace build2
   small_vector<reference_wrapper<target>, 1> parser::
   enter_targets (names&& tns, const location& tloc, // Target names.
                  adhoc_names&& ans,                 // Ad hoc target names.
-                 size_t prereq_size)
+                 size_t prereq_size,
+                 const attributes& tas)             // Target attributes.
   {
     // Enter all the targets (normally we will have just one) and their ad hoc
     // groups.
@@ -2163,6 +2170,9 @@ namespace build2
                        false /* implied */,
                        tloc, trace);
 
+      if (!tas.empty ())
+        apply_target_attributes (*target_, tas);
+
       // Enter ad hoc members.
       //
       if (!ans.empty ())
@@ -2184,10 +2194,90 @@ namespace build2
   }
 
   void parser::
+  apply_target_attributes (target& t, const attributes& as)
+  {
+    const location& l (as.loc);
+
+    for (auto& a: as)
+    {
+      const string& n (a.name);
+      const value& v (a.value);
+
+      // rule_hint=
+      // liba@rule_hint=
+      //
+      size_t p (string::npos);
+      if (n == "rule_hint" ||
+          ((p = n.find ('@')) != string::npos &&
+           n.compare (p + 1, string::npos, "rule_hint") == 0))
+      {
+        // Resolve target type, if specified.
+        //
+        const target_type* tt (nullptr);
+        if (p != string::npos)
+        {
+          string t (n, 0, p);
+          tt = scope_->find_target_type (t);
+
+          if (tt == nullptr)
+            fail (l) << "unknown target type " << t << " in rule_hint "
+                     << "attribute";
+        }
+
+        // The rule hint value is vector<pair<optional<string>, string>> where
+        // the first half is the operation and the second half is the hint.
+        // Absent operation is used as a fallback for update/clean.
+        //
+        const names& ns (v.as<names> ());
+
+        for (auto i (ns.begin ()); i != ns.end (); ++i)
+        {
+          operation_id oi (default_id);
+          if (i->pair)
+          {
+            const name& n (*i++);
+
+            if (!n.simple ())
+              fail (l) << "expected operation name instead of " << n
+                       << " in rule_hint attribute";
+
+            const string& v (n.value);
+
+            if (!v.empty ())
+            {
+              oi = ctx.operation_table.find (v);
+
+              if (oi == 0)
+                fail (l) << "unknown operation " << v << " in rule_hint "
+                         << "attribute";
+
+              if (root_->root_extra->operations[oi] == nullptr)
+                fail (l) << "project " << *root_ << " does not support "
+                         << "operation " << ctx.operation_table[oi]
+                         << " specified in rule_hint attribute";
+            }
+          }
+
+          const name& n (*i);
+
+          if (!n.simple () || n.empty ())
+            fail (l) << "expected hint instead of " << n << " in rule_hint "
+                     << "attribute";
+
+          t.rule_hints.insert (tt, oi, n.value);
+        }
+      }
+      else
+        fail (l) << "unknown target attribute " << a;
+    }
+  }
+
+  void parser::
   parse_dependency (token& t, token_type& tt,
                     names&& tns, const location& tloc, // Target names.
                     adhoc_names&& ans,                 // Ad hoc target names.
-                    names&& pns, const location& ploc) // Prereq names.
+                    names&& pns, const location& ploc, // Prereq names.
+                    const attributes& tas)             // Target attributes.
   {
     // Parse a dependency chain and/or a target/prerequisite-specific variable
     // assignment/block and/or recipe block(s).
@@ -2200,7 +2290,7 @@ namespace build2
     // First enter all the targets.
     //
     small_vector<reference_wrapper<target>, 1> tgs (
-      enter_targets (move (tns), tloc, move (ans), pns.size ()));
+      enter_targets (move (tns), tloc, move (ans), pns.size (), tas));
 
     // Now enter each prerequisite into each target.
     //
@@ -2463,6 +2553,10 @@ namespace build2
       //
       else
       {
+        // @@ This is actually ambiguous: prerequisite or target attributes
+        //    (or both or neither)? Perhaps this should be prerequisites for
+        //    the same reason as below (these are prerequsites first).
+        //
         if (at.first)
           fail (at.second) << "attributes before prerequisites";
         else
@@ -2484,7 +2578,8 @@ namespace build2
         parse_dependency (t, tt,
                           move (pns), ploc,
                           {} /* ad hoc target name */,
-                          move (ns), loc);
+                          move (ns), loc,
+                          attributes () /* target attributes */);
       }
     }
   }
@@ -5144,6 +5239,10 @@ namespace build2
         // Parse the attribute name with expansion (we rely on this in some
         // old and hairy tests).
         //
+        // Note that the attributes lexer mode does not recognize `{}@` as
+        // special and we rely on that in the rule hint attributes
+        // (libs@rule_hint=cxx).
+        //
         const location l (get_location (t));
 
         names ns (
@@ -5185,6 +5284,8 @@ namespace build2
       }
       while (tt != type::rsbrace);
     }
+    else
+      has = false; // `[]` doesn't count.
 
     if (tt != type::rsbrace)
       fail (t) << "expected ']' instead of " << t;

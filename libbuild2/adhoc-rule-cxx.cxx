@@ -20,7 +20,7 @@ namespace build2
   // cxx_rule_v1
   //
   bool cxx_rule_v1::
-  match (action, target&, const string&) const
+  match (action, target&) const
   {
     return true;
   }

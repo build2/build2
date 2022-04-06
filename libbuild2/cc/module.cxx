@@ -1083,30 +1083,30 @@ namespace build2
         {
           const install_rule&  ir (*this);
 
-          r.insert<exe>  (perform_install_id,   x_install,   ir);
-          r.insert<exe>  (perform_uninstall_id, x_uninstall, ir);
+          r.insert<exe>  (perform_install_id,   x_install, ir);
+          r.insert<exe>  (perform_uninstall_id, x_install, ir);
 
-          r.insert<liba> (perform_install_id,   x_install,   ir);
-          r.insert<liba> (perform_uninstall_id, x_uninstall, ir);
+          r.insert<liba> (perform_install_id,   x_install, ir);
+          r.insert<liba> (perform_uninstall_id, x_install, ir);
 
           if (s)
           {
-            r.insert<libs> (perform_install_id,   x_install,   ir);
-            r.insert<libs> (perform_uninstall_id, x_uninstall, ir);
+            r.insert<libs> (perform_install_id,   x_install, ir);
+            r.insert<libs> (perform_uninstall_id, x_install, ir);
           }
 
           const libux_install_rule& lr (*this);
 
-          r.insert<libue> (perform_install_id,   x_install,   lr);
-          r.insert<libue> (perform_uninstall_id, x_uninstall, lr);
+          r.insert<libue> (perform_install_id,   x_install, lr);
+          r.insert<libue> (perform_uninstall_id, x_install, lr);
 
-          r.insert<libua> (perform_install_id,   x_install,   lr);
-          r.insert<libua> (perform_uninstall_id, x_uninstall, lr);
+          r.insert<libua> (perform_install_id,   x_install, lr);
+          r.insert<libua> (perform_uninstall_id, x_install, lr);
 
           if (s)
           {
-            r.insert<libus> (perform_install_id,   x_install,   lr);
-            r.insert<libus> (perform_uninstall_id, x_uninstall, lr);
+            r.insert<libus> (perform_install_id,   x_install, lr);
+            r.insert<libus> (perform_uninstall_id, x_install, lr);
           }
         }
       }

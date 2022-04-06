@@ -259,7 +259,38 @@ namespace build2
     if (t.group != nullptr)
       os << ind << t << " -> " << *t.group << endl;
 
-    os << ind << t << ':';
+    os << ind;
+
+    // Target attributes.
+    //
+    if (!t.rule_hints.map.empty ())
+    {
+      os << '[';
+
+      bool f (true);
+      for (const rule_hints::value_type& v: t.rule_hints.map)
+      {
+        if (f)
+          f = false;
+        else
+          os << ", ";
+
+        if (v.type != nullptr)
+          os << v.type->name << '@';
+
+        os << "rule_hint=";
+
+        if (v.operation != default_id)
+          os << s.root_scope ()->root_extra->operations[v.operation]->name
+             << '@';
+
+        os << v.hint;
+      }
+
+      os << "] ";
+    }
+
+    os << t << ':';
 
     // First check if this is the simple case where we can print everything
     // as a single declaration.

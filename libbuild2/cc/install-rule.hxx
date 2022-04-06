@@ -38,8 +38,10 @@ namespace build2
       filter (const scope*,
               action, const target&, prerequisite_iterator&) const override;
 
+      // Note: rule::match() override.
+      //
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&, const string&, match_extra&) const override;
 
       virtual recipe
       apply (action, target&) const override;
@@ -71,8 +73,10 @@ namespace build2
       filter (const scope*,
               action, const target&, prerequisite_iterator&) const override;
 
+      // Note: rule::match() override.
+      //
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&, const string&, match_extra&) const override;
 
     private:
       const link_rule& link_;

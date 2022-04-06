@@ -18,7 +18,7 @@ namespace build2
 {
   namespace cc
   {
-    class LIBBUILD2_CC_SYMEXPORT link_rule: public simple_rule, virtual common
+    class LIBBUILD2_CC_SYMEXPORT link_rule: public rule, virtual common
     {
     public:
       link_rule (data&&);
@@ -46,18 +46,16 @@ namespace build2
       match (action, const target&, const target*, otype, bool) const;
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&, const string&, match_extra&) const override;
 
       virtual recipe
-      apply (action, target&) const override;
+      apply (action, target&, match_extra&) const override;
 
       target_state
       perform_update (action, const target&) const;
 
       target_state
       perform_clean (action, const target&) const;
-
-      using simple_rule::match; // To make Clang happy.
 
     public:
       // Library handling.

@@ -43,7 +43,7 @@ namespace build2
             null_ (move (null)) {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;

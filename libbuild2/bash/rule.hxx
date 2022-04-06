@@ -32,7 +32,7 @@ namespace build2
       in_rule (): rule ("bash.in 1", "bash.in", '@', false /* strict */) {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;
@@ -68,16 +68,17 @@ namespace build2
     class LIBBUILD2_BASH_SYMEXPORT install_rule: public install::file_rule
     {
     public:
-      install_rule (const in_rule& in): in_ (in) {}
+      install_rule (const in_rule& r, const char* n): in_ (r), in_name_ (n) {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;
 
     protected:
       const in_rule& in_;
+      const string in_name_;
     };
   }
 }

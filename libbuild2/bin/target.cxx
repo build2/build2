@@ -21,7 +21,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::none
     };
 
     const target_type bmix::static_type
@@ -34,7 +34,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::none
     };
 
     const target_type hbmix::static_type
@@ -47,7 +47,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::none
     };
 
     const target_type libx::static_type
@@ -60,7 +60,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::member_hint, // Use untyped hint for group members.
     };
 
     const target_type libux::static_type
@@ -73,7 +73,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::none
     };
 
     // Note that we link groups during the load phase since this is often
@@ -108,7 +108,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type bmie::static_type
@@ -121,7 +121,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type hbmie::static_type
@@ -134,7 +134,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type obja::static_type
@@ -147,7 +147,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type bmia::static_type
@@ -160,7 +160,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type hbmia::static_type
@@ -173,7 +173,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type objs::static_type
@@ -186,7 +186,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type bmis::static_type
@@ -199,7 +199,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type hbmis::static_type
@@ -212,7 +212,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type libue::static_type
@@ -225,7 +225,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type libua::static_type
@@ -238,7 +238,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     const target_type libus::static_type
@@ -251,7 +251,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
-      false
+      target_type::flag::none
     };
 
     // obj{}, [h]bmi{}, and libu{} group factory.
@@ -292,7 +292,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::member_hint, // Use untyped hint for group members.
     };
 
     const target_type bmi::static_type
@@ -305,7 +305,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::member_hint, // Use untyped hint for group members.
     };
 
     const target_type hbmi::static_type
@@ -318,7 +318,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::member_hint, // Use untyped hint for group members.
     };
 
     // The same as g_factory() but without E.
@@ -352,7 +352,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::member_hint, // Use untyped hint for group members.
     };
 
     // What extensions should we use? At the outset, this is platform-
@@ -375,7 +375,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     const target_type libs::static_type
@@ -388,7 +388,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     // lib
@@ -435,7 +435,10 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false // Note: not see-through ("alternatives" group).
+
+      // Note: not see-through ("alternatives" group).
+      //
+      target_type::flag::member_hint, // Use untyped hint for group members.
     };
 
     // libi
@@ -450,7 +453,7 @@ namespace build2
       &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     // def
@@ -467,7 +470,7 @@ namespace build2
       &target_pattern_fix<def_ext>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
   }
 }

@@ -53,6 +53,91 @@ namespace build2
     return r;
   }
 
+  // rule_hints
+  //
+  inline const string& rule_hints::
+  find (const target_type& tt, operation_id o, bool ut) const
+  {
+    // Look for fallback during the same iteration.
+    //
+    const value_type* f (nullptr);
+
+    for (const value_type& v: map)
+    {
+      if (!(v.type == nullptr ? ut : tt.is_a (*v.type)))
+        continue;
+
+      if (v.operation == o)
+        return v.hint;
+
+      if (f == nullptr              &&
+          v.operation == default_id &&
+          (o == update_id || o == clean_id))
+        f = &v;
+    }
+
+    return f != nullptr ? f->hint : empty_string;
+  }
+
+  inline void rule_hints::
+  insert (const target_type* tt, operation_id o, string h)
+  {
+    auto i (find_if (map.begin (), map.end (),
+                     [tt, o] (const value_type& v)
+                     {
+                       return v.operation == o && v.type == tt;
+                     }));
+
+    if (i == map.end ())
+      map.push_back (value_type {tt, o, move (h)});
+    else
+      i->hint = move (h);
+  }
+
+  inline const string& target::
+  find_hint (operation_id o) const
+  {
+    using flag = target_type::flag;
+
+    const target_type* tt (nullptr); // Resolve lazily.
+
+    // First check the target itself.
+    //
+    if (!rule_hints.empty ())
+    {
+      // If this is a group that "gave" its untyped hints to the members, then
+      // ignore untyped entries.
+      //
+      tt = &type ();
+      bool ut ((tt->flags & flag::member_hint) != flag::member_hint);
+
+      const string& r (rule_hints.find (*tt, o, ut));
+      if (!r.empty ())
+        return r;
+    }
+
+    // Then check the group.
+    //
+    if (const target* g = group)
+    {
+      if (!g->rule_hints.empty ())
+      {
+        // If the group "gave" its untyped hints to the members, then don't
+        // ignore untyped entries.
+        //
+        const target_type& gt (g->type ());
+        bool ut ((gt.flags & flag::member_hint) == flag::member_hint);
+
+        if (tt == nullptr)
+          tt = &type ();
+
+        return g->rule_hints.find (*tt, o, ut);
+      }
+    }
+
+    return empty_string;
+  }
+
   // match_extra
   //
   inline void match_extra::
@@ -524,7 +609,7 @@ namespace build2
 
       if (r_->mode_ != members_mode::never &&
           i_ != r_->e_                     &&
-          i_->type.see_through)
+          i_->type.see_through ())
         switch_mode ();
     }
 

@@ -53,7 +53,7 @@ namespace build2
     // Return true by default.
     //
     virtual bool
-    match (action, target&, const string&) const override;
+    match (action, target&) const override;
   };
 
   // Note: not exported.

@@ -390,7 +390,7 @@ namespace build2
       if (cast_false<bool> (rs["install.booted"]))
       {
         rs.insert_rule<manifest> (
-          perform_install_id, "version.manifest", manifest_install_rule_);
+          perform_install_id, "version.install", manifest_install_rule_);
       }
 
       return true;

@@ -372,19 +372,19 @@ namespace build2
         const auto& gr (group_rule_);
 
         bs.insert_rule<alias> (perform_install_id,   "install.alias", ar);
-        bs.insert_rule<alias> (perform_uninstall_id, "uninstall.alias", ar);
+        bs.insert_rule<alias> (perform_uninstall_id, "install.alias", ar);
 
         bs.insert_rule<fsdir> (perform_install_id,   "install.fsdir", dr);
         bs.insert_rule<fsdir> (perform_uninstall_id, "install.fsdir", dr);
 
         bs.insert_rule<file> (perform_install_id,   "install.file", fr);
-        bs.insert_rule<file> (perform_uninstall_id, "uninstall.file", fr);
+        bs.insert_rule<file> (perform_uninstall_id, "install.file", fr);
 
         // Note: use mtime_target (instead of target) to take precedence over
         // the fallback file rules below.
         //
         bs.insert_rule<mtime_target> (perform_install_id,   "install.group", gr);
-        bs.insert_rule<mtime_target> (perform_uninstall_id, "uninstall.group", gr);
+        bs.insert_rule<mtime_target> (perform_uninstall_id, "install.group", gr);
 
         // Register the fallback file rule for the update-for-[un]install
         // operation, similar to update.
@@ -392,11 +392,10 @@ namespace build2
         // @@ Hm, it's a bit fuzzy why we would be updating-for-install
         //    something outside of any project..?
         //
-        rs.global_scope ().insert_rule<mtime_target> (
-          perform_install_id, "install.file", fr);
+        scope& gs (rs.global_scope ());
 
-        rs.global_scope ().insert_rule<mtime_target> (
-          perform_uninstall_id, "uninstall.file", fr);
+        gs.insert_rule<mtime_target> (perform_install_id,   "install.file", fr);
+        gs.insert_rule<mtime_target> (perform_uninstall_id, "install.file", fr);
       }
 
       // Configuration.

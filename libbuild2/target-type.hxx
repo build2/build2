@@ -93,7 +93,25 @@ namespace build2
 
     const target* (*search) (const target&, const prerequisite_key&);
 
-    bool see_through; // A group with the default "see through" semantics.
+    // Target type flags.
+    //
+    // Note that the member_hint flag should only be used on groups with
+    // link-up during load (see lib{}, for example). In particular, if the
+    // group link-up only happens during match, then the hint would be looked
+    // up before the group is known.
+    //
+    enum class flag: uint64_t
+    {
+      none        = 0,
+      group       = 0x01,         // A (non-adhoc) group.
+      see_through = group | 0x02, // A group with "see through" semantics.
+      member_hint = group | 0x04  // Untyped rule hint applies to members.
+    };
+
+    flag flags;
+
+    bool
+    see_through () const;
 
     template <typename T>
     bool
@@ -124,6 +142,32 @@ namespace build2
 
   inline ostream&
   operator<< (ostream& os, const target_type& tt) {return os << tt.name;}
+
+  inline target_type::flag
+  operator&= (target_type::flag& x, target_type::flag y)
+  {
+    return x = static_cast<target_type::flag> (
+      static_cast<uint64_t> (x) & static_cast<uint64_t> (y));
+  }
+
+  inline target_type::flag
+  operator|= (target_type::flag& x, target_type::flag y)
+  {
+    return x = static_cast<target_type::flag> (
+      static_cast<uint64_t> (x) | static_cast<uint64_t> (y));
+  }
+
+  inline target_type::flag
+  operator& (target_type::flag x, target_type::flag y) {return x &= y;}
+
+  inline target_type::flag
+  operator| (target_type::flag x, target_type::flag y) {return x |= y;}
+
+  inline bool target_type::
+  see_through () const
+  {
+    return (flags & flag::see_through) == flag::see_through;
+  }
 
   // Target type map.
   //

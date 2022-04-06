@@ -29,7 +29,7 @@ namespace build2
       rule () {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;

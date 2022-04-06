@@ -47,7 +47,7 @@ namespace build2
     // in_rule
     //
     bool in_rule::
-    match (action a, target& xt, const string&) const
+    match (action a, target& xt) const
     {
       tracer trace ("version::in_rule::match");
 
@@ -302,7 +302,7 @@ namespace build2
     // manifest_install_rule
     //
     bool manifest_install_rule::
-    match (action a, target& t, const string&) const
+    match (action a, target& t) const
     {
       // We only match project's manifest.
       //
@@ -315,7 +315,7 @@ namespace build2
       if (s.root_scope () != &s || s.src_path () != t.dir)
         return false;
 
-      return file_rule::match (a, t, "");
+      return file_rule::match (a, t);
     }
 
     auto_rmfile manifest_install_rule::

@@ -22,7 +22,7 @@ namespace build2
       &target_pattern_var<hxx_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     extern const char ixx_ext_def[] = "ixx";
@@ -36,7 +36,7 @@ namespace build2
       &target_pattern_var<ixx_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     extern const char txx_ext_def[] = "txx";
@@ -50,7 +50,7 @@ namespace build2
       &target_pattern_var<txx_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     extern const char cxx_ext_def[] = "cxx";
@@ -64,7 +64,7 @@ namespace build2
       &target_pattern_var<cxx_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     extern const char mxx_ext_def[] = "mxx";
@@ -78,7 +78,7 @@ namespace build2
       &target_pattern_var<mxx_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
   }
 }

@@ -23,7 +23,7 @@ namespace build2
   namespace in
   {
     bool rule::
-    match (action a, target& xt, const string&) const
+    match (action a, target& xt) const
     {
       tracer trace ("in::rule::match");
 

@@ -24,6 +24,10 @@ namespace build2
   //
   // Note: match() is only called once but may not be followed by apply().
   //
+  // The hint argument is the rule hint, if any, that was used to select this
+  // rule. While normally not factored into the match decision, a rule may
+  // "try harder" if a hint was specified (see cc::link_rule for an example).
+  //
   // The match_extra argument (the type is defined in target.hxx) is used to
   // pass additional information that is only needed by some rule
   // implementations. It is also a way for us to later pass more information
@@ -47,15 +51,29 @@ namespace build2
 
     rule (const rule&) = delete;
     rule& operator= (const rule&) = delete;
+
+    // Sometimes we want to match only if another rule of ours would match
+    // another operation. For example, we would want our install rule to match
+    // only if our update rule also matches.
+    //
+    // Arranging this, however, is not a simple matter of calling the other
+    // rule's match(): we also have to take into account the rule hints for
+    // that operation. This helper performs all the necessary steps. Note:
+    // should only be called from match() (see target::find_hint() for
+    // details).
+    //
+    bool
+    sub_match (const string& rule_name, operation_id hint_op,
+               action, target&, match_extra&) const;
   };
 
-  // Simplified interface for rules that don't care about the extras.
+  // Simplified interface for rules that don't care about the hint or extras.
   //
   class LIBBUILD2_SYMEXPORT simple_rule: public rule
   {
   public:
     virtual bool
-    match (action, target&, const string& hint) const = 0;
+    match (action, target&) const = 0;
 
     virtual recipe
     apply (action, target&) const = 0;
@@ -65,19 +83,31 @@ namespace build2
 
     virtual recipe
     apply (action, target&, match_extra&) const override;
+
+    // The simplified version of sub_match() above.
+    //
+    // Note that it calls the simplified match() directly rather than going
+    // through the original.
+    //
+    bool
+    sub_match (const string& rule_name, operation_id hint_op,
+               action, target&) const;
   };
 
   // Fallback rule that only matches if the file exists. It will also match
   // an mtime_target provided it has a set timestamp.
   //
-  class LIBBUILD2_SYMEXPORT file_rule: public simple_rule
+  // Note: this rule is "hot" because it matches every static source file and
+  // so we don't use simple_rule to avoid two extra virtual calls.
+  //
+  class LIBBUILD2_SYMEXPORT file_rule: public rule
   {
   public:
     virtual bool
-    match (action, target&, const string&) const override;
+    match (action, target&, const string&, match_extra&) const override;
 
     virtual recipe
-    apply (action, target&) const override;
+    apply (action, target&, match_extra&) const override;
 
     file_rule () {}
 
@@ -89,7 +119,7 @@ namespace build2
   {
   public:
     virtual bool
-    match (action, target&, const string&) const override;
+    match (action, target&) const override;
 
     virtual recipe
     apply (action, target&) const override;
@@ -105,7 +135,7 @@ namespace build2
   {
   public:
     virtual bool
-    match (action, target&, const string&) const override;
+    match (action, target&) const override;
 
     virtual recipe
     apply (action, target&) const override;
@@ -132,7 +162,7 @@ namespace build2
   {
   public:
     virtual bool
-    match (action, target&, const string&) const override;
+    match (action, target&) const override;
 
     virtual recipe
     apply (action, target&) const override;
@@ -219,8 +249,8 @@ namespace build2
     // Implementation details.
     //
   public:
-    // The name in rule_match is used as a hint and as a name in diagnostics.
-    // The former does not apply to ad hoc recipes (but does apply to ad hoc
+    // The name in rule_match is used to match hints and in diagnostics. The
+    // former does not apply to ad hoc recipes (but does apply to ad hoc
     // rules).
     //
     const build2::rule_match rule_match;

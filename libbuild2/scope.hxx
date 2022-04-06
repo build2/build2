@@ -422,9 +422,9 @@ namespace build2
 
     template <typename T>
     void
-    insert_rule (action_id a, string hint, const rule& r)
+    insert_rule (action_id a, string name, const rule& r)
     {
-      rules.insert<T> (a, move (hint), r);
+      rules.insert<T> (a, move (name), r);
     }
 
     // 0 meta-operation id is treated as an (emulated) wildcard.
@@ -435,7 +435,7 @@ namespace build2
     //
     template <typename T>
     void
-    insert_rule (meta_operation_id, operation_id, string hint, const rule&);
+    insert_rule (meta_operation_id, operation_id, string name, const rule&);
 
     // Operation callbacks.
     //

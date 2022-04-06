@@ -406,7 +406,7 @@ namespace build2
     }
 
     bool compile_rule::
-    match (action a, target& t, const string&) const
+    match (action a, target& t) const
     {
       tracer trace (x, "compile_rule::match");
 

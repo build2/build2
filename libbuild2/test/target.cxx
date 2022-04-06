@@ -56,7 +56,7 @@ namespace build2
       &testscript_target_pattern,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
   }
 }

@@ -829,7 +829,6 @@ namespace build2
         "cxx.compile",
         "cxx.link",
         "cxx.install",
-        "cxx.uninstall",
 
         cm.x_info->id.type,
         cm.x_info->id.variant,

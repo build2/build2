@@ -97,7 +97,7 @@ namespace build2
       {
         if (header_source (p))
           pt = nullptr;
-        else if (p.type.see_through)
+        else if (p.type.see_through ())
         {
           for (i.enter_group (); i.group (); )
           {
@@ -151,15 +151,13 @@ namespace build2
     }
 
     bool install_rule::
-    match (action a, target& t, const string& hint) const
+    match (action a, target& t, const string&, match_extra& me) const
     {
-      // @@ How do we split the hint between the two?
-      //
-
       // We only want to handle installation if we are also the ones building
       // this target. So first run link's match().
       //
-      return link_.match (a, t, hint) && file_rule::match (a, t, "");
+      return link_.sub_match (x_link, update_id, a, t, me) &&
+        file_rule::match (a, t);
     }
 
     recipe install_rule::
@@ -332,7 +330,7 @@ namespace build2
       {
         if (header_source (p))
           pt = nullptr;
-        else if (p.type.see_through)
+        else if (p.type.see_through ())
         {
           for (i.enter_group (); i.group (); )
           {
@@ -372,12 +370,13 @@ namespace build2
     }
 
     bool libux_install_rule::
-    match (action a, target& t, const string& hint) const
+    match (action a, target& t, const string&, match_extra& me) const
     {
       // We only want to handle installation if we are also the ones building
       // this target. So first run link's match().
       //
-      return link_.match (a, t, hint) && alias_rule::match (a, t, "");
+      return link_.sub_match (x_link, update_id, a, t, me) &&
+        alias_rule::match (a, t);
     }
   }
 }

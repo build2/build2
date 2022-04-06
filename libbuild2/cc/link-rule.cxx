@@ -446,7 +446,7 @@ namespace build2
     }
 
     bool link_rule::
-    match (action a, target& t, const string& hint) const
+    match (action a, target& t, const string& hint, match_extra&) const
     {
       // NOTE: may be called multiple times and for both inner and outer
       //       operations (see the install rules).
@@ -495,7 +495,7 @@ namespace build2
       // We will only chain a C source if there is also an X source or we were
       // explicitly told to.
       //
-      if (r.seen_c && !r.seen_x && hint < x)
+      if (r.seen_c && !r.seen_x && hint.empty ())
       {
         l4 ([&]{trace << "C prerequisite without " << x_lang << " or hint "
                       << "for target " << t;});
@@ -850,7 +850,7 @@ namespace build2
     };
 
     recipe link_rule::
-    apply (action a, target& xt) const
+    apply (action a, target& xt, match_extra&) const
     {
       tracer trace (x, "link_rule::apply");
 

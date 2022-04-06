@@ -23,7 +23,7 @@ namespace build2
       in_rule (): rule ("version.in 2", "version.in") {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual string
       lookup (const location&,
@@ -42,7 +42,7 @@ namespace build2
       manifest_install_rule () {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual auto_rmfile
       install_pre (const file&, const install_dir&) const override;

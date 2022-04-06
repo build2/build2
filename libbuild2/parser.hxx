@@ -162,13 +162,20 @@ namespace build2
     enter_adhoc_members (adhoc_names_loc&&, bool);
 
     small_vector<reference_wrapper<target>, 1>
-    enter_targets (names&&, const location&, adhoc_names&&, size_t);
+    enter_targets (names&&, const location&,
+                   adhoc_names&&,
+                   size_t,
+                   const attributes&);
+
+    void
+    apply_target_attributes (target&, const attributes&);
 
     void
     parse_dependency (token&, token_type&,
                       names&&, const location&,
                       adhoc_names&&,
-                      names&&, const location&);
+                      names&&, const location&,
+                      const attributes&);
 
     void
     parse_assert (token&, token_type&);
@@ -305,8 +312,8 @@ namespace build2
     // then parse the attribute sequence until ']' storing the result in the
     // new stack entry. Then get the next token and, if standalone is false,
     // verify it is not newline/eos (i.e., there is something after it).
-    // Return the indication of whether we have seen `[` (even if it's the
-    // `[]` empty list) and its location.
+    // Return the indication of whether we have seen any attributes (note
+    // that the `[]` empty list does not count) and the location of `[`.
     //
     // Note that during pre-parsing nothing is pushed into the stack.
     //

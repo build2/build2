@@ -23,7 +23,7 @@ namespace build2
       &target_pattern_var<cli_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     // cli.cxx
@@ -69,7 +69,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      true // "See through" default iteration mode.
+      target_type::flag::see_through // Group with "see through" iteration.
     };
   }
 }

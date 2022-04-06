@@ -22,7 +22,7 @@ namespace build2
     {
     public:
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise.
@@ -54,7 +54,7 @@ namespace build2
     {
     public:
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;
@@ -78,7 +78,7 @@ namespace build2
     {
     public:
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       // Return NULL if this group member should be ignored and pointer to its
       // target otherwise.
@@ -103,10 +103,10 @@ namespace build2
       virtual recipe
       apply (action, target&) const override;
 
-      group_rule (bool see_through_only): see_through (see_through_only) {}
+      group_rule (bool sto): see_through_only (sto) {}
       static const group_rule instance;
 
-      bool see_through;
+      bool see_through_only;
     };
 
     struct install_dir;
@@ -115,7 +115,7 @@ namespace build2
     {
     public:
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise.

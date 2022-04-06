@@ -14,10 +14,38 @@
 
 namespace build2
 {
-  using hint_rule_map =
-    butl::prefix_map<string, reference_wrapper<const rule>, '.'>;
+  // A rule name is used both for diagnostics as well as to match rule hints
+  // (see rule_hints). A rule hint is a potentially partial rule name.
+  //
+  // The recommended rule naming scheme is to start with the module name, for
+  // example: cxx.compile, cxx.link. This way a rule hint can be just the
+  // module name, for example [rule_hint=cxx]. If a module can only possibly
+  // have a single rule, then the rule name can be just the module name (e.g.,
+  // `in`; though make doubly sure there is unlikely to be a need for another
+  // rule, for example, for documentation generation, in the future).
+  //
+  // The two common choices of names for the second component in a rule name
+  // is an action (e.g., cxx.compile, cxx.link) or a target type (e.g.,
+  // bin.def, bin.lib). The latter is a good choice when the action is
+  // inherent to the target type (e.g., "generate def file", "see through lib
+  // group"). Also note that a rule for compensating operations (e.g.,
+  // update/clean, install/uninstall) is customarily registered with the same
+  // name.
+  //
+  struct name_rule_map: butl::prefix_map<string,
+                                         reference_wrapper<const rule>,
+                                         '.'>
+  {
+    // Return true if the rule name matches a rule hint.
+    //
+    static bool
+    sub (const string& hint, const string& name)
+    {
+      return compare_type ('.').prefix (hint, name);
+    }
+  };
 
-  using target_type_rule_map = map<const target_type*, hint_rule_map>;
+  using target_type_rule_map = map<const target_type*, name_rule_map>;
 
   // This is an "indexed map" with operation_id being the index. Entry
   // with id 0 is a wildcard.
@@ -33,7 +61,7 @@ namespace build2
     bool
     insert (operation_id oid,
             const target_type& tt,
-            string hint,
+            string name,
             const rule& r)
     {
       // 3 is the number of builtin operations.
@@ -41,7 +69,7 @@ namespace build2
       if (oid >= map_.size ())
         map_.resize ((oid < 3 ? 3 : oid) + 1);
 
-      return map_[oid][&tt].emplace (move (hint), r).second;
+      return map_[oid][&tt].emplace (move (name), r).second;
     }
 
     // Return NULL if not found.
@@ -78,17 +106,17 @@ namespace build2
     bool
     insert (action_id a,
             const target_type& tt,
-            string hint,
+            string name,
             const rule& r)
     {
-      return insert (a >> 4, a & 0x0F, tt, move (hint), r);
+      return insert (a >> 4, a & 0x0F, tt, move (name), r);
     }
 
     template <typename T>
     bool
-    insert (action_id a, string hint, const rule& r)
+    insert (action_id a, string name, const rule& r)
     {
-      return insert (a, T::static_type, move (hint), r);
+      return insert (a, T::static_type, move (name), r);
     }
 
     // 0 oid is a wildcard.
@@ -97,17 +125,17 @@ namespace build2
     insert (meta_operation_id mid,
             operation_id oid,
             const target_type& tt,
-            string hint,
+            string name,
             const rule& r)
     {
       if (mid_ == mid)
-        return map_.insert (oid, tt, move (hint), r);
+        return map_.insert (oid, tt, move (name), r);
       else
       {
         if (next_ == nullptr)
           next_.reset (new rule_map (mid));
 
-        return next_->insert (mid, oid, tt, move (hint), r);
+        return next_->insert (mid, oid, tt, move (name), r);
       }
     }
 
@@ -115,10 +143,10 @@ namespace build2
     bool
     insert (meta_operation_id mid,
             operation_id oid,
-            string hint,
+            string name,
             const rule& r)
     {
-      return insert (mid, oid, T::static_type, move (hint), r);
+      return insert (mid, oid, T::static_type, move (name), r);
     }
 
     // Return NULL if not found.

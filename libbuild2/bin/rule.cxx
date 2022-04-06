@@ -20,7 +20,7 @@ namespace build2
     // obj_rule
     //
     bool obj_rule::
-    match (action a, target& t, const string&) const
+    match (action a, target& t) const
     {
       const char* n (t.dynamic_type ().name); // Ignore derived type.
 
@@ -35,7 +35,7 @@ namespace build2
     // libul_rule
     //
     bool libul_rule::
-    match (action a, target& t, const string&) const
+    match (action a, target& t) const
     {
       fail << diag_doing (a, t) << " target group" <<
         info << "explicitly select libua{} or libus{} member" << endf;
@@ -50,7 +50,7 @@ namespace build2
     // our prerequisites.
     //
     bool lib_rule::
-    match (action a, target& xt, const string&) const
+    match (action a, target& xt) const
     {
       lib& t (xt.as<lib> ());
 

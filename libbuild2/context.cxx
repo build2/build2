@@ -601,14 +601,13 @@ namespace build2
     {
       rule_map& r (gs.rules); // Note: global scope!
 
-      //@@ outer
-      r.insert<alias> (perform_id, 0, "alias", alias_rule::instance);
+      r.insert<alias> (perform_id, 0, "build.alias", alias_rule::instance);
 
-      r.insert<fsdir> (perform_update_id, "fsdir", fsdir_rule::instance);
-      r.insert<fsdir> (perform_clean_id, "fsdir", fsdir_rule::instance);
+      r.insert<fsdir> (perform_update_id, "build.fsdir", fsdir_rule::instance);
+      r.insert<fsdir> (perform_clean_id,  "build.fsdir", fsdir_rule::instance);
 
-      r.insert<mtime_target> (perform_update_id, "file", file_rule::instance);
-      r.insert<mtime_target> (perform_clean_id, "file", file_rule::instance);
+      r.insert<mtime_target> (perform_update_id, "build.file", file_rule::instance);
+      r.insert<mtime_target> (perform_clean_id,  "build.file", file_rule::instance);
     }
   }
 

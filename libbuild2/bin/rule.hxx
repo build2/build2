@@ -24,7 +24,7 @@ namespace build2
       obj_rule () {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;
@@ -39,7 +39,7 @@ namespace build2
       libul_rule () {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;
@@ -53,7 +53,7 @@ namespace build2
       lib_rule () {}
 
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;

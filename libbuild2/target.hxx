@@ -99,15 +99,53 @@ namespace build2
   };
   using prerequisite_targets = vector<prerequisite_target>;
 
-  // A rule match is an element of hint_rule_map.
+  // A rule match is an element of name_rule_map.
   //
   using rule_match = pair<const string, reference_wrapper<const rule>>;
 
+  // A map of target type plus operation ids to rule hints (see name_rule_map
+  // for details on rule names and hints). The default_id serves as a fallback
+  // for update and clean operations.
+  //
+  // Note that for now hints are tried in the order specified and the first
+  // that matches, used.
+  //
+  struct rule_hints
+  {
+    // Return empty string if not found.
+    //
+    const string&
+    find (const target_type&, operation_id, bool untyped) const;
+
+    bool
+    empty () const {return map.empty ();}
+
+    // Note that insertion of an existing entry overrides the old value.
+    //
+    void
+    insert (const target_type*, operation_id, string);
+
+    struct value_type
+    {
+      const target_type* type;
+      operation_id       operation;
+      string             hint;
+    };
+
+    vector<value_type> map;
+  };
+
   // Additional information about a rule match (see rule.hxx for details).
+  //
+  // Note that passing this information to a base rule's match() as-is may or
+  // may not be correct. If some changes must be made (for example, the
+  // fallback flag must be cleared), then that should be done by modifying
+  // (and restoring, if necessary) the passed instance rather than making a
+  // copy (which would not survive to apply()).
   //
   struct match_extra
   {
-    bool   fallback; // True if matching a fallback rule.
+    bool   fallback; // True if matching a fallback rule (see match_rule()).
     string buffer;   // Auxiliary buffer that's reused during match/apply.
 
     // Implementation details.
@@ -211,15 +249,15 @@ namespace build2
     // obj{}).
     //
     // In an all-group, when a group is updated, normally all its members are
-    // updates (and usually with a single command), though there could be some
+    // updated (and usually with a single command), though there could be some
     // members that are omitted, depending on the configuration (e.g., an
     // inline file not/being generated). When an all-group is mentioned as a
     // prerequisite, the rule is usually interested in the individual members
-    // rather than the whole group. For example, a C++ compile rule would like
-    // to "see" the ?xx{} members when it gets a cli.cxx{} group.
+    // rather than the group target. For example, a C++ compile rule would
+    // like to "see" the ?xx{} members when it gets a cli.cxx{} group.
     //
     // Which brings us to the group iteration mode. The target type contains a
-    // member called see_through that indicates whether the default iteration
+    // flag called see_through that indicates whether the default iteration
     // mode for the group should be "see through"; that is, whether we see the
     // members or the group itself. For the iteration support itself, see the
     // *_prerequisite_members() machinery below.
@@ -491,6 +529,19 @@ namespace build2
     value&
     append (const variable&);
 
+
+    // Rule hints.
+    //
+  public:
+    build2::rule_hints rule_hints;
+
+    // Find the rule hint for the specified operation taking into account the
+    // target type/group. Note: racy with regards to the group link-up and
+    // should only be called when safe.
+    //
+    const string&
+    find_hint (operation_id) const;
+
     // Ad hoc recipes.
     //
   public:
@@ -545,7 +596,7 @@ namespace build2
       //
       build2::match_extra match_extra;
 
-      // Matched rule (pointer to hint_rule_map element). Note that in case of
+      // Matched rule (pointer to name_rule_map element). Note that in case of
       // a direct recipe assignment we may not have a rule (NULL).
       //
       const rule_match* rule;
@@ -1229,7 +1280,7 @@ namespace build2
       {
         if (r_->mode_ != members_mode::never &&
             i_ != r_->e_                     &&
-            i_->type.see_through)
+            i_->type.see_through ())
           switch_mode ();
       }
 
@@ -1257,7 +1308,7 @@ namespace build2
       //
       // for (...; ++i)
       // {
-      //   if (i->prerequisite.type.see_through)
+      //   if (i->prerequisite.type.see_through ())
       //   {
       //     for (i.enter_group (); i.group (); )
       //     {

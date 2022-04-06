@@ -23,7 +23,7 @@ namespace build2
       &target_pattern_var<bash_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
   }
 }

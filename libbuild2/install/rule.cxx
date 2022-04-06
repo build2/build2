@@ -53,7 +53,7 @@ namespace build2
     const alias_rule alias_rule::instance;
 
     bool alias_rule::
-    match (action, target&, const string&) const
+    match (action, target&) const
     {
       // We always match.
       //
@@ -168,7 +168,7 @@ namespace build2
     const fsdir_rule fsdir_rule::instance;
 
     bool fsdir_rule::
-    match (action, target&, const string&) const
+    match (action, target&) const
     {
       // We always match.
       //
@@ -203,10 +203,10 @@ namespace build2
     const group_rule group_rule::instance (false /* see_through_only */);
 
     bool group_rule::
-    match (action a, target& t, const string& h) const
+    match (action a, target& t) const
     {
-      return (!see_through || t.type ().see_through) &&
-        alias_rule::match (a, t, h);
+      return (!see_through_only || t.type ().see_through ()) &&
+        alias_rule::match (a, t);
     }
 
     const target* group_rule::
@@ -300,7 +300,7 @@ namespace build2
     const file_rule file_rule::instance;
 
     bool file_rule::
-    match (action, target&, const string&) const
+    match (action, target&) const
     {
       // We always match, even if this target is not installable (so that we
       // can ignore it; see apply()).

@@ -5375,9 +5375,20 @@ configuration header into two, one public and installed while the other
 private.|
 
 
+
 \h1#attributes|Attributes|
 
 \N{This chapter is a work in progress and is incomplete.}
+
+The only currently recognized target attribute is \c{rule_hint} which
+specifies the rule hint. Rule hints can be used to resolve ambiguity when
+multiple rules match the same target as well as to override an unambiguous
+match. For example, the following rule hint makes sure our executable is
+linked with the C++ compiler even though it only has C sources:
+
+\
+[rule_hint=cxx] exe{hello}: c{hello}
+\
 
 
 \h1#name-patterns|Name Patterns|

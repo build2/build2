@@ -352,7 +352,6 @@ namespace build2
         "c.compile",
         "c.link",
         "c.install",
-        "c.uninstall",
 
         cm.x_info->id.type,
         cm.x_info->id.variant,

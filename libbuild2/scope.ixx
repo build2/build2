@@ -176,11 +176,11 @@ namespace build2
   template <typename T>
   inline void scope::
   insert_rule (meta_operation_id mid, operation_id oid,
-               string hint,
+               string name,
                const rule& r)
   {
     if (mid != 0)
-      rules.insert<T> (mid, oid, move (hint), r);
+      rules.insert<T> (mid, oid, move (name), r);
     else
     {
       auto& ms (root_scope ()->root_extra->meta_operations);
@@ -198,7 +198,7 @@ namespace build2
               mid != info_id     &&
               mid != create_id   &&
               mid != disfigure_id)
-            rules.insert<T> (mid, oid, hint, r);
+            rules.insert<T> (mid, oid, name, r);
         }
       }
     }

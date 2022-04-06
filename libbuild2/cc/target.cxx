@@ -21,7 +21,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      target_type::flag::none
     };
 
     extern const char h_ext_def[] = "h";
@@ -36,7 +36,7 @@ namespace build2
       &target_pattern_var<h_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     extern const char c_ext_def[] = "c";
@@ -51,7 +51,7 @@ namespace build2
       &target_pattern_var<c_ext_def>,
       nullptr,
       &file_search,
-      false
+      target_type::flag::none
     };
 
     extern const char pc_ext[] = "pc"; // VC14 rejects constexpr.
@@ -66,7 +66,7 @@ namespace build2
       &target_pattern_fix<pc_ext>,
       &target_print_0_ext_verb, // Fixed extension, no use printing.
       &file_search,
-      false
+      target_type::flag::none
     };
 
     extern const char pca_ext[] = "static.pc"; // VC14 rejects constexpr.
@@ -81,7 +81,7 @@ namespace build2
       &target_pattern_fix<pca_ext>,
       &target_print_0_ext_verb, // Fixed extension, no use printing.
       &file_search,
-      false
+      target_type::flag::none
     };
 
     extern const char pcs_ext[] = "shared.pc"; // VC14 rejects constexpr.
@@ -96,7 +96,7 @@ namespace build2
       &target_pattern_fix<pcs_ext>,
       &target_print_0_ext_verb, // Fixed extension, no use printing.
       &file_search,
-      false
+      target_type::flag::none
     };
   }
 }

@@ -20,7 +20,7 @@ namespace build2
   namespace bash
   {
     static const in_rule in_rule_;
-    static const install_rule install_rule_ (in_rule_);
+    static const install_rule install_rule_ (in_rule_, "bash.in");
 
     bool
     init (scope& rs,
@@ -71,11 +71,11 @@ namespace build2
 
       if (install_loaded)
       {
-        bs.insert_rule<exe>  (perform_install_id,   "bash.install",   install_rule_);
-        bs.insert_rule<exe>  (perform_uninstall_id, "bash.uninstall", install_rule_);
+        bs.insert_rule<exe>  (perform_install_id,   "bash.install", install_rule_);
+        bs.insert_rule<exe>  (perform_uninstall_id, "bash.install", install_rule_);
 
-        bs.insert_rule<bash> (perform_install_id,   "bash.install",   install_rule_);
-        bs.insert_rule<bash> (perform_uninstall_id, "bash.uninstall", install_rule_);
+        bs.insert_rule<bash> (perform_install_id,   "bash.install", install_rule_);
+        bs.insert_rule<bash> (perform_uninstall_id, "bash.install", install_rule_);
       }
 
       return true;

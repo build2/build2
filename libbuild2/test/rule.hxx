@@ -20,7 +20,7 @@ namespace build2
     {
     public:
       virtual bool
-      match (action, target&, const string&) const override;
+      match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;
@@ -34,10 +34,10 @@ namespace build2
       target_state
       perform_script (action, const target&, size_t) const;
 
-      rule (common_data&& d, bool see_through_only)
-          : common (move (d)), see_through (see_through_only) {}
+      rule (common_data&& d, bool sto)
+          : common (move (d)), see_through_only (sto) {}
 
-      bool see_through;
+      bool see_through_only;
     };
 
     class default_rule: public rule
