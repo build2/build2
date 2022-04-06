@@ -60,7 +60,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      target_type::flag::member_hint, // Use untyped hint for group members.
+      target_type::flag::member_hint // Use untyped hint for group members.
     };
 
     const target_type libux::static_type
@@ -292,7 +292,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      target_type::flag::member_hint, // Use untyped hint for group members.
+      target_type::flag::member_hint // Use untyped hint for group members.
     };
 
     const target_type bmi::static_type
@@ -305,7 +305,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      target_type::flag::member_hint, // Use untyped hint for group members.
+      target_type::flag::member_hint // Use untyped hint for group members.
     };
 
     const target_type hbmi::static_type
@@ -318,7 +318,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      target_type::flag::member_hint, // Use untyped hint for group members.
+      target_type::flag::member_hint // Use untyped hint for group members.
     };
 
     // The same as g_factory() but without E.
@@ -352,7 +352,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      target_type::flag::member_hint, // Use untyped hint for group members.
+      target_type::flag::member_hint // Use untyped hint for group members.
     };
 
     // What extensions should we use? At the outset, this is platform-
@@ -438,7 +438,7 @@ namespace build2
 
       // Note: not see-through ("alternatives" group).
       //
-      target_type::flag::member_hint, // Use untyped hint for group members.
+      target_type::flag::member_hint // Use untyped hint for group members.
     };
 
     // libi
