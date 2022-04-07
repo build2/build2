@@ -965,7 +965,7 @@ namespace build2
               ctx.current_operation (*oif);
 
               phase_lock pl (ctx, run_phase::match);
-              match (action (configure_id, id), t);
+              match_sync (action (configure_id, id), t);
             }
           }
 

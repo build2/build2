@@ -1013,7 +1013,7 @@ namespace build2
         //    unmatch. See how we do this in ad hoc rule.
         //
         pair<bool, target_state> mr (
-          build2::match (
+          match_complete (
             a,
             *pt,
             pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ()

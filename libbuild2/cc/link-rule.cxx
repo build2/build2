@@ -1844,7 +1844,7 @@ namespace build2
         if (pt == nullptr || (m = unmark (pt)) == 0)
           continue;
 
-        build2::match (a, *pt);
+        match_complete (a, *pt);
 
         // Nothing else to do if not marked for verification.
         //

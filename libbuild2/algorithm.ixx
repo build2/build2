@@ -372,7 +372,9 @@ namespace build2
   apply_impl (action, target&, const rule_match&);
 
   LIBBUILD2_SYMEXPORT pair<bool, target_state>
-  match (action, const target&, size_t, atomic_count*, bool try_match = false);
+  match_impl (action, const target&,
+              size_t, atomic_count*,
+              bool try_match = false);
 
   inline void
   match_inc_dependents (action a, const target& t)
@@ -382,11 +384,11 @@ namespace build2
   }
 
   inline target_state
-  match (action a, const target& t, bool fail)
+  match_sync (action a, const target& t, bool fail)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_state r (match (a, t, 0, nullptr).second);
+    target_state r (match_impl (a, t, 0, nullptr).second);
 
     if (r != target_state::failed)
       match_inc_dependents (a, t);
@@ -397,12 +399,12 @@ namespace build2
   }
 
   inline pair<bool, target_state>
-  try_match (action a, const target& t, bool fail)
+  try_match_sync (action a, const target& t, bool fail)
   {
     assert (t.ctx.phase == run_phase::match);
 
     pair<bool, target_state> r (
-      match (a, t, 0, nullptr, true /* try_match */));
+      match_impl (a, t, 0, nullptr, true /* try_match */));
 
     if (r.first)
     {
@@ -416,11 +418,11 @@ namespace build2
   }
 
   inline pair<bool, target_state>
-  match (action a, const target& t, unmatch um)
+  match_sync (action a, const target& t, unmatch um)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_state s (match (a, t, 0, nullptr).second);
+    target_state s (match_impl (a, t, 0, nullptr).second);
 
     if (s == target_state::failed)
       throw failed ();
@@ -466,12 +468,24 @@ namespace build2
     context& ctx (t.ctx);
 
     assert (ctx.phase == run_phase::match);
-    target_state r (match (a, t, sc, &tc).second);
+    target_state r (match_impl (a, t, sc, &tc).second);
 
     if (fail && !ctx.keep_going && r == target_state::failed)
       throw failed ();
 
     return r;
+  }
+
+  inline target_state
+  match_complete (action a, const target& t, bool fail)
+  {
+    return match_sync (a, t, fail);
+  }
+
+  inline pair<bool, target_state>
+  match_complete (action a, const target& t, unmatch um)
+  {
+    return match_sync (a, t, um);
   }
 
   // Clear rule match-specific target data.
@@ -568,14 +582,14 @@ namespace build2
     // In a sense this is like any other dependency.
     //
     assert (a.outer ());
-    return match (a.inner_action (), t);
+    return match_sync (a.inner_action (), t);
   }
 
   inline pair<bool, target_state>
   match_inner (action a, const target& t, unmatch um)
   {
     assert (a.outer ());
-    return match (a.inner_action (), t, um);
+    return match_sync (a.inner_action (), t, um);
   }
 
   LIBBUILD2_SYMEXPORT void
@@ -613,7 +627,7 @@ namespace build2
   inline void
   inject (action a, target& t, const target& p)
   {
-    match (a, p);
+    match_sync (a, p);
     t.prerequisite_targets[a].emplace_back (&p);
   }
 
@@ -677,12 +691,12 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT target_state
-  execute (action, const target&, size_t, atomic_count*);
+  execute_impl (action, const target&, size_t, atomic_count*);
 
   inline target_state
-  execute (action a, const target& t, bool fail)
+  execute_sync (action a, const target& t, bool fail)
   {
-    target_state r (execute (a, t, 0, nullptr));
+    target_state r (execute_impl (a, t, 0, nullptr));
 
     if (r == target_state::busy)
     {
@@ -704,7 +718,7 @@ namespace build2
                  size_t sc, atomic_count& tc,
                  bool fail)
   {
-    target_state r (execute (a, t, sc, &tc));
+    target_state r (execute_impl (a, t, sc, &tc));
 
     if (r == target_state::failed && fail && !t.ctx.keep_going)
       throw failed ();
@@ -712,13 +726,30 @@ namespace build2
     return r;
   }
 
+  inline target_state
+  execute_complete (action a, const target& t)
+  {
+    // Note: standard operation execute() sidesteps this and calls
+    //       executed_state() directly.
+
+    context& ctx (t.ctx);
+
+    // If the target is still busy, wait for its completion.
+    //
+    ctx.sched.wait (ctx.count_executed (),
+                    t[a].task_count,
+                    scheduler::work_none);
+
+    return t.executed_state (a);
+  }
+
   LIBBUILD2_SYMEXPORT target_state
-  execute_direct (action, const target&, size_t, atomic_count*);
+  execute_direct_impl (action, const target&, size_t, atomic_count*);
 
   inline target_state
-  execute_direct (action a, const target& t)
+  execute_direct_sync (action a, const target& t)
   {
-    target_state r (execute_direct (a, t, 0, nullptr));
+    target_state r (execute_direct_impl (a, t, 0, nullptr));
 
     if (r == target_state::busy)
     {
@@ -740,7 +771,7 @@ namespace build2
                         size_t sc, atomic_count& tc,
                         bool fail)
   {
-    target_state r (execute_direct (a, t, sc, &tc));
+    target_state r (execute_direct_impl (a, t, sc, &tc));
 
     if (r == target_state::failed && fail && !t.ctx.keep_going)
       throw failed ();
@@ -758,7 +789,7 @@ namespace build2
   execute_inner (action a, const target& t)
   {
     assert (a.outer ());
-    return execute (a.inner_action (), t);
+    return execute_sync (a.inner_action (), t);
   }
 
   inline target_state

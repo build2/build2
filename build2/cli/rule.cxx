@@ -183,7 +183,7 @@ namespace build2
       else
       {
         const cli_cxx& g (xt.group->as<cli_cxx> ());
-        build2::match (a, g);
+        match_sync (a, g);
         return group_recipe; // Execute the group's recipe.
       }
     }

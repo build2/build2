@@ -30,11 +30,11 @@ namespace build2
                bool adhoc,
                uintptr_t data)
   {
-    // Even if failing we still use try_match() in order to issue consistent
-    // (with other places) diagnostics (rather than the generic "not rule to
-    // update ...").
+    // Even if failing we still use try_match_sync() in order to issue
+    // consistent (with other places) diagnostics (rather than the generic
+    // "not rule to update ...").
     //
-    if (!try_match (a, pt).first)
+    if (!try_match_sync (a, pt).first)
     {
       if (!f)
         return nullopt;
@@ -65,7 +65,7 @@ namespace build2
                         bool adhoc,
                         uintptr_t data)
   {
-    if (!try_match (a, pt).first)
+    if (!try_match_sync (a, pt).first)
     {
       if (!f)
         return nullopt;

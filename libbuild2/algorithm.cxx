@@ -751,7 +751,7 @@ namespace build2
             dr << info << "while matching group rule to " << diag_do (a, t);
         });
 
-      pair<bool, target_state> r (match (a, g, 0, nullptr, try_match));
+      pair<bool, target_state> r (match_impl (a, g, 0, nullptr, try_match));
 
       if (r.first)
       {
@@ -843,11 +843,11 @@ namespace build2
   // the first half of the result.
   //
   pair<bool, target_state>
-  match (action a,
-         const target& ct,
-         size_t start_count,
-         atomic_count* task_count,
-         bool try_match)
+  match_impl (action a,
+              const target& ct,
+              size_t start_count,
+              atomic_count* task_count,
+              bool try_match)
   {
     // If we are blocking then work our own queue one task at a time. The
     // logic here is that we may have already queued other tasks before this
@@ -997,15 +997,15 @@ namespace build2
       {
         // Execute (unlocked).
         //
-        // Note that we use execute_direct() rather than execute() here to
-        // sidestep the dependents count logic. In this context, this is by
-        // definition the first attempt to execute this rule (otherwise we
-        // would have already known the members list) and we really do need
+        // Note that we use execute_direct_sync() rather than execute_sync()
+        // here to sidestep the dependents count logic. In this context, this
+        // is by definition the first attempt to execute this rule (otherwise
+        // we would have already known the members list) and we really do need
         // to execute it now.
         //
         {
           phase_switch ps (g.ctx, run_phase::execute);
-          execute_direct (a, g);
+          execute_direct_sync (a, g);
         }
 
         r = g.group_members (a);
@@ -1099,7 +1099,7 @@ namespace build2
     for (size_t n (pts.size ()); i != n; ++i)
     {
       const target& pt (*pts[i]);
-      match (a, pt);
+      match_complete (a, pt);
     }
   }
 
@@ -1149,7 +1149,7 @@ namespace build2
       if (m == nullptr || marked (m))
         continue;
 
-      match (a, *m);
+      match_complete (a, *m);
     }
   }
 
@@ -1217,7 +1217,7 @@ namespace build2
       // Make it ad hoc so that it doesn't end up in prerequisite_targets
       // after execution.
       //
-      match (a, *r);
+      match_sync (a, *r);
       t.prerequisite_targets[a].emplace_back (r, include_type::adhoc);
     }
 
@@ -1903,10 +1903,10 @@ namespace build2
   }
 
   target_state
-  execute (action a,
-           const target& ct,
-           size_t start_count,
-           atomic_count* task_count)
+  execute_impl (action a,
+                const target& ct,
+                size_t start_count,
+                atomic_count* task_count)
   {
     target& t (const_cast<target&> (ct)); // MT-aware.
     target::opstate& s (t[a]);
@@ -2002,17 +2002,17 @@ namespace build2
   }
 
   target_state
-  execute_direct (action a,
-                  const target& ct,
-                  size_t start_count,
-                  atomic_count* task_count)
+  execute_direct_impl (action a,
+                       const target& ct,
+                       size_t start_count,
+                       atomic_count* task_count)
   {
     context& ctx (ct.ctx);
 
     target& t (const_cast<target&> (ct)); // MT-aware.
     target::opstate& s (t[a]);
 
-    // Similar logic to execute() above.
+    // Similar logic to execute_impl() above.
     //
     size_t tc (ctx.count_applied ());
 
@@ -2078,8 +2078,8 @@ namespace build2
     // date (and which is where it originated).
     //
     // There would normally be a lot of headers for every source file (think
-    // all the system headers) and just calling execute_direct() on all of
-    // them can get expensive. At the same time, most of these headers are
+    // all the system headers) and just calling execute_direct_sync() on all
+    // of them can get expensive. At the same time, most of these headers are
     // existing files that we will never be updating (again, system headers,
     // for example) and the rule that will match them is the fallback
     // file_rule. That rule has an optimization: it returns noop_recipe (which
@@ -2117,7 +2117,7 @@ namespace build2
       //    any generated header.
       //
       phase_switch ps (t.ctx, run_phase::execute);
-      target_state ns (execute_direct (a, t));
+      target_state ns (execute_direct_sync (a, t));
 
       if (ns != os && ns != target_state::unchanged)
       {
@@ -2188,7 +2188,7 @@ namespace build2
         const target& pt (*p.target);
 
         target_state os (static_cast<target_state> (p.data));
-        target_state ns (execute_direct (a, pt));
+        target_state ns (execute_direct_sync (a, pt));
 
         if (ns != os && ns != target_state::unchanged)
         {
@@ -2213,7 +2213,6 @@ namespace build2
     atomic_count& tc (t[a].task_count);
 
     size_t busy (ctx.count_busy ());
-    size_t exec (ctx.count_executed ());
 
     wait_guard wg (ctx, busy, tc);
 
@@ -2234,13 +2233,8 @@ namespace build2
       if ((p.include & mask) != 0 && p.data != 0)
       {
         const target& pt (*p.target);
-
-        // If the target is still busy, wait for its completion.
-        //
-        ctx.sched.wait (exec, pt[a].task_count, scheduler::work_none);
-
+        target_state ns (execute_complete (a, pt));
         target_state os (static_cast<target_state> (p.data));
-        target_state ns (pt.executed_state (a));
 
         if (ns != os && ns != target_state::unchanged)
         {
@@ -2278,7 +2272,6 @@ namespace build2
     target_state r (target_state::unchanged);
 
     size_t busy (ctx.count_busy ());
-    size_t exec (ctx.count_executed ());
 
     // Start asynchronous execution of prerequisites.
     //
@@ -2313,12 +2306,7 @@ namespace build2
         continue;
 
       const target& mt (*ts[i]);
-
-      // If the target is still busy, wait for its completion.
-      //
-      ctx.sched.wait (exec, mt[a].task_count, scheduler::work_none);
-
-      r |= mt.executed_state (a);
+      r |= execute_complete (a, mt);
 
       blank_adhoc_member (ts[i]);
     }
@@ -2336,7 +2324,6 @@ namespace build2
     target_state r (target_state::unchanged);
 
     size_t busy (ctx.count_busy ());
-    size_t exec (ctx.count_executed ());
 
     wait_guard wg (ctx, busy, tc);
 
@@ -2365,10 +2352,7 @@ namespace build2
         continue;
 
       const target& mt (*ts[i]);
-
-      ctx.sched.wait (exec, mt[a].task_count, scheduler::work_none);
-
-      r |= mt.executed_state (a);
+      r |= execute_complete (a, mt);
 
       blank_adhoc_member (ts[i]);
     }
@@ -2405,7 +2389,6 @@ namespace build2
     context& ctx (t.ctx);
 
     size_t busy (ctx.count_busy ());
-    size_t exec (ctx.count_executed ());
 
     auto& pts (t.prerequisite_targets[a]);
 
@@ -2447,10 +2430,7 @@ namespace build2
         continue;
 
       const target& pt (*p.target);
-
-      ctx.sched.wait (exec, pt[a].task_count, scheduler::work_none);
-
-      target_state s (pt.executed_state (a));
+      target_state s (execute_complete (a, pt));
       rs |= s;
 
       // Should we compare the timestamp to this target's?
@@ -2499,7 +2479,6 @@ namespace build2
     context& ctx (t.ctx);
 
     size_t busy (ctx.count_busy ());
-    size_t exec (ctx.count_executed ());
 
     auto& pts (t.prerequisite_targets[a]);
 
@@ -2541,10 +2520,7 @@ namespace build2
         continue;
 
       const target& pt (*p.target);
-
-      ctx.sched.wait (exec, pt[a].task_count, scheduler::work_none);
-
-      target_state s (pt.executed_state (a));
+      target_state s (execute_complete (a, pt));
       rs |= s;
 
       // Should we compare the timestamp to this target's?
@@ -2601,10 +2577,10 @@ namespace build2
     //
     const target& g (*t.group);
 
-    // This is execute(a, t, false) but that saves a call to executed_state()
-    // (which we don't need).
+    // This is execute_sync(a, t, false) but that saves a call to
+    // executed_state() (which we don't need).
     //
-    target_state gs (execute (a, g, 0, nullptr));
+    target_state gs (execute_impl (a, g, 0, nullptr));
 
     if (gs == target_state::busy)
       ctx.sched.wait (ctx.count_executed (),

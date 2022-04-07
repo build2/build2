@@ -149,8 +149,8 @@ namespace build2
         // libu{}) then ignore it if there is no rule to install.
         //
         if (pt->is_a<file> ())
-          build2::match (a, *pt);
-        else if (!try_match (a, *pt).first)
+          match_sync (a, *pt);
+        else if (!try_match_sync (a, *pt).first)
         {
           l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
           pt = nullptr;
@@ -284,7 +284,7 @@ namespace build2
             continue;
           }
 
-          build2::match (a, *mt);
+          match_sync (a, *mt);
           pts.push_back (mt); // Never ad hoc.
         }
       }
@@ -434,10 +434,10 @@ namespace build2
           // when updating static installable content (headers, documentation,
           // etc).
           //
-          if (build2::match (a, *pt, unmatch::unchanged).first)
+          if (match_sync (a, *pt, unmatch::unchanged).first)
             pt = nullptr;
         }
-        else if (!try_match (a, *pt).first)
+        else if (!try_match_sync (a, *pt).first)
         {
           l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
           pt = nullptr;

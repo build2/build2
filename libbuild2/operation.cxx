@@ -320,7 +320,7 @@ namespace build2
         const target& t (at.as<target> ());
 
         target_state s (j < i
-                        ? match (a, t, false)
+                        ? match_complete (a, t, false)
                         : target_state::postponed);
         switch (s)
         {
@@ -510,6 +510,9 @@ namespace build2
     {
       const target& t (at.as<target> ());
 
+      // Note that here we call executed_state() directly instead of
+      // execute_complete() since we know there is no need to wait.
+      //
       switch ((at.state = t.executed_state (a, false)))
       {
       case target_state::unknown:

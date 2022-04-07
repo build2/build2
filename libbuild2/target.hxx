@@ -705,7 +705,7 @@ namespace build2
     target_state
     matched_state (action, bool fail = true) const;
 
-    // See try_match().
+    // See try_match_sync().
     //
     pair<bool, target_state>
     try_matched_state (action, bool fail = true) const;
@@ -730,7 +730,7 @@ namespace build2
     // matched for this action.
     //
     // Indicate whether there is a rule match with the first half of the
-    // result (see try_match()).
+    // result (see try_match_sync()).
     //
     pair<bool, target_state>
     matched_state_impl (action) const;

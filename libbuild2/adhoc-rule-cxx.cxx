@@ -605,10 +605,10 @@ namespace build2
             l = find_target ();
 
           phase_switch mp (ctx, run_phase::match);
-          if (build2::match (perform_update_id, *l) != target_state::unchanged)
+          if (match_sync (perform_update_id, *l) != target_state::unchanged)
           {
             phase_switch ep (ctx, run_phase::execute);
-            execute (a, *l);
+            execute_sync (a, *l);
           }
         }
         else

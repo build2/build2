@@ -424,7 +424,7 @@ namespace build2
         //
         unmatch um ((pt.include & 4) != 0 ? unmatch::safe : unmatch::none);
 
-        pair<bool, target_state> mr (build2::match (a, *pt.target, um));
+        pair<bool, target_state> mr (match_complete (a, *pt.target, um));
 
         if (um != unmatch::none)
         {
@@ -1370,7 +1370,6 @@ namespace build2
     // This is essentially a customized execute_prerequisites(a, t, mt).
     //
     size_t busy (ctx.count_busy ());
-    size_t exec (ctx.count_executed ());
 
     target_state rs (target_state::unchanged);
 
@@ -1398,11 +1397,10 @@ namespace build2
           (p.target != nullptr ? p.target :
            p.adhoc ()          ? reinterpret_cast<target*> (p.data) : nullptr))
       {
-        ctx.sched.wait (exec, (*pt)[a].task_count, scheduler::work_none);
+        target_state s (execute_complete (a, *pt));
 
         if (p.data == 0)
         {
-          target_state s (pt->executed_state (a));
           rs |= s;
 
           // Compare our timestamp to this prerequisite's skipping

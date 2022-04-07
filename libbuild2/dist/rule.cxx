@@ -92,7 +92,7 @@ namespace build2
         // Don't match targets that are outside of our project.
         //
         if (pt->dir.sub (out_root))
-          build2::match (a, *pt);
+          match_sync (a, *pt);
       }
 
       return noop_recipe; // We will never be executed.

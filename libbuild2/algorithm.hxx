@@ -331,17 +331,18 @@ namespace build2
   }
 
   // Match and apply a rule to the action/target with ambiguity detection.
-  // Increment the target's dependents count, which means that you should call
-  // this function with the intent to also call execute(). Return the target
-  // state translating target_state::failed to the failed exception unless
-  // instructed otherwise.
+  // This is the synchrounous match implementation that waits for completion
+  // if the target is already being matched. Increment the target's dependents
+  // count, which means that you should call this function with the intent to
+  // also call execute*(). Translating target_state::failed to the failed
+  // exception unless instructed otherwise.
   //
-  // The try_match() version doesn't issue diagnostics if there is no rule
-  // match (but fails as match() for all other errors, like rule ambiguity,
-  // inability to apply, etc). The first half of the result indicated whether
-  // there was a rule match.
+  // The try_match_sync() version doesn't issue diagnostics if there is no
+  // rule match (but fails as match_sync() for all other errors, like rule
+  // ambiguity, inability to apply, etc). The first half of the result
+  // indicated whether there was a rule match.
   //
-  // The unmatch argument allows optimizations that avoid calling execute().
+  // The unmatch argument allows optimizations that avoid calling execute*().
   // If it is unmatch::unchanged then only unmatch the target if it is known
   // to be unchanged after match. If it is unmatch::safe, then unmatch the
   // target if it is safe (this includes unchanged or if we know that someone
@@ -351,18 +352,19 @@ namespace build2
   enum class unmatch {none, unchanged, safe};
 
   target_state
-  match (action, const target&, bool fail = true);
+  match_sync (action, const target&, bool fail = true);
 
   pair<bool, target_state>
-  try_match (action, const target&, bool fail = true);
+  try_match_sync (action, const target&, bool fail = true);
 
   pair<bool, target_state>
-  match (action, const target&, unmatch);
+  match_sync (action, const target&, unmatch);
 
   // Start asynchronous match. Return target_state::postponed if the
-  // asynchrounous operation has been started and target_state::busy if the
-  // target has already been busy. Regardless of the result, match() must be
-  // called in order to complete the operation (except target_state::failed).
+  // asynchronous operation has been started and target_state::busy if the
+  // target has already been busy. Regardless of the result, match_complete()
+  // must be called in order to complete the operation (except if the result
+  // is target_state::failed), which has the result semantics of match_sync().
   //
   // If fail is false, then return target_state::failed if the target match
   // failed. Otherwise, throw the failed exception if keep_going is false and
@@ -372,6 +374,12 @@ namespace build2
   match_async (action, const target&,
                size_t start_count, atomic_count& task_count,
                bool fail = true);
+
+  target_state
+  match_complete (action, const target&, bool fail = true);
+
+  pair<bool, target_state>
+  match_complete (action, const target&, unmatch);
 
   // Apply the specified recipe directly and without incrementing the
   // dependency counts. The target must be locked.
@@ -400,8 +408,8 @@ namespace build2
   void
   match_inc_dependents (action, const target&);
 
-  // Match a rule for the inner operation from withing the outer rule's
-  // apply() function. See also the companion execute_inner().
+  // Match (synchronously) a rule for the inner operation from withing the
+  // outer rule's apply() function. See also the companion execute_inner().
   //
   target_state
   match_inner (action, const target&);
@@ -514,8 +522,9 @@ namespace build2
   resolve_group (action, const target&);
 
   // Inject a target as a "prerequisite target" (note: not a prerequisite) of
-  // another target. Specifically, first match the prerequisite target and
-  // then add it to the back of the dependent target's prerequisite_targets.
+  // another target. Specifically, match (synchronously) the prerequisite
+  // target and then add it to the back of the dependent target's
+  // prerequisite_targets.
   //
   void
   inject (action, target&, const target& prereq);
@@ -542,7 +551,7 @@ namespace build2
   // fail is false.
   //
   target_state
-  execute (action, const target&, bool fail = true);
+  execute_sync (action, const target&, bool fail = true);
 
   // As above but start asynchronous execution. Return target_state::unknown
   // if the asynchrounous execution has been started and target_state::busy if
@@ -550,26 +559,32 @@ namespace build2
   //
   // If fail is false, then return target_state::failed if the target
   // execution failed. Otherwise, throw the failed exception if keep_going is
-  // false and return target_state::failed otherwise.
+  // false and return target_state::failed otherwise. Regardless of the
+  // result, execute_complete() must be called in order to complete the
+  // operation (except if the result is target_state::failed), which has the
+  // result semantics of execute_sync().
   //
   target_state
   execute_async (action, const target&,
                  size_t start_count, atomic_count& task_count,
                  bool fail = true);
 
-  // Execute the recipe obtained with match_delegate(). Note that the target's
-  // state is neither checked nor updated by this function. In other words,
-  // the appropriate usage is to call this function from another recipe and to
-  // factor the obtained state into the one returned.
+  target_state
+  execute_complete (action, const target&);
+
+  // Execute (synchronously) the recipe obtained with match_delegate(). Note
+  // that the target's state is neither checked nor updated by this function.
+  // In other words, the appropriate usage is to call this function from
+  // another recipe and to factor the obtained state into the one returned.
   //
   target_state
   execute_delegate (const recipe&, action, const target&);
 
-  // Execute the inner operation matched with match_inner(). Note that the
-  // returned target state is for the inner operation. The appropriate usage
-  // is to call this function from the outer operation's recipe and to factor
-  // the obtained state into the one returned (similar to how we do it for
-  // prerequisites).
+  // Execute (synchronously) the inner operation matched with match_inner().
+  // Note that the returned target state is for the inner operation. The
+  // appropriate usage is to call this function from the outer operation's
+  // recipe and to factor the obtained state into the one returned (similar to
+  // how we do it for prerequisites).
   //
   // Note: waits for the completion if the target is busy and translates
   // target_state::failed to the failed exception.
@@ -582,11 +597,11 @@ namespace build2
   // relationship (so no dependents count is decremented) and execution order
   // (so this function never returns the postponed target state).
   //
-  // Note: the first version waits for the completion if the target is busy
-  // and translates target_state::failed to the failed exception.
+  // The first version waits for the completion if the target is busy and
+  // translates target_state::failed to the failed exception.
   //
   target_state
-  execute_direct (action, const target&);
+  execute_direct_sync (action, const target&);
 
   target_state
   execute_direct_async (action, const target&,
