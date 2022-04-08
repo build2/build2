@@ -1249,19 +1249,23 @@ namespace build2
                 // sources into the distribution. Unless there is an explicit
                 // recipe for dist.
                 //
+                // And the same for the configure meta-operation to, for
+                // example, make sure a hinted ad hoc rule matches.
+                //
                 if (a.meta_operation () == perform_id)
                 {
-                  action da (dist_id, a.operation ());
-
-                  for (shared_ptr<adhoc_rule>& pr: rp.rules)
+                  auto reg = [this, ttype, &rp, &r] (action ea)
+                  {
+                    for (shared_ptr<adhoc_rule>& pr: rp.rules)
                     for (action a: pr->actions)
-                      if (da == a)
-                        goto skip;
+                      if (ea == a)
+                        return;
 
-                  scope_->rules.insert (da, *ttype, rp.rule_name, r);
+                    scope_->rules.insert (ea, *ttype, rp.rule_name, r);
+                  };
 
-                skip:
-                  ;
+                  reg (action (dist_id, a.operation ()));
+                  reg (action (configure_id, a.operation ()));
                 }
 
                 // @@ TODO: if this rule does dynamic member discovery of a
