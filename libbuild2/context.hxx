@@ -43,6 +43,11 @@ namespace build2
     bool
     relock (run_phase unlock, run_phase lock);
 
+    // Statistics.
+    //
+  public:
+    size_t contention = 0; // # of contentious phase (re)locks.
+
   private:
     friend class context;
 
@@ -61,7 +66,7 @@ namespace build2
     // is exclusive so we have a separate mutex to serialize it (think of it
     // as a second level locking).
     //
-    // When the mutex is unlocked (all three counters become zero, the phase
+    // When the mutex is unlocked (all three counters become zero), the phase
     // is always changed to load (this is also the initial state).
     //
     context& ctx_;

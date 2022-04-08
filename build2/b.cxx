@@ -268,6 +268,10 @@ main (int argc, char* argv[])
   options ops;
   scheduler sched;
 
+  // Statistics.
+  //
+  size_t phase_switch_contention (0);
+
   try
   {
     // Parse the command line.
@@ -412,9 +416,17 @@ main (int argc, char* argv[])
     // below).
     //
     unique_ptr<context> pctx;
-    auto new_context = [&ops, &cmdl, &pctx, &sched, &mutexes, &fcache]
+    auto new_context = [&ops, &cmdl,
+                        &sched, &mutexes, &fcache,
+                        &phase_switch_contention,
+                        &pctx]
     {
-      pctx = nullptr; // Free first.
+      if (pctx != nullptr)
+      {
+        phase_switch_contention += pctx->phase_mutex.contention;
+        pctx = nullptr; // Free first to reuse memory.
+      }
+
       pctx.reset (new context (sched,
                                mutexes,
                                fcache,
@@ -1389,6 +1401,8 @@ main (int argc, char* argv[])
       cout << endl;
     }
 #endif
+
+    phase_switch_contention += pctx->phase_mutex.contention;
   }
   catch (const failed&)
   {
@@ -1410,16 +1424,18 @@ main (int argc, char* argv[])
   {
     text << '\n'
          << "build statistics:" << "\n\n"
-         << "  thread_max_active      " << st.thread_max_active     << '\n'
-         << "  thread_max_total       " << st.thread_max_total      << '\n'
-         << "  thread_helpers         " << st.thread_helpers        << '\n'
-         << "  thread_max_waiting     " << st.thread_max_waiting    << '\n'
+         << "  thread_max_active       " << st.thread_max_active     << '\n'
+         << "  thread_max_total        " << st.thread_max_total      << '\n'
+         << "  thread_helpers          " << st.thread_helpers        << '\n'
+         << "  thread_max_waiting      " << st.thread_max_waiting    << '\n'
          << '\n'
-         << "  task_queue_depth       " << st.task_queue_depth      << '\n'
-         << "  task_queue_full        " << st.task_queue_full       << '\n'
+         << "  task_queue_depth        " << st.task_queue_depth      << '\n'
+         << "  task_queue_full         " << st.task_queue_full       << '\n'
          << '\n'
-         << "  wait_queue_slots       " << st.wait_queue_slots      << '\n'
-         << "  wait_queue_collisions  " << st.wait_queue_collisions << '\n';
+         << "  wait_queue_slots        " << st.wait_queue_slots      << '\n'
+         << "  wait_queue_collisions   " << st.wait_queue_collisions << '\n'
+         << '\n'
+         << "  phase_switch_contention " << phase_switch_contention << '\n';
   }
 
   return r;
