@@ -447,165 +447,192 @@ namespace build2
     meta_operation_id mo (a.meta_operation ());
     operation_id o (a.inner () ? a.operation () : a.outer_operation ());
 
-    const string& hint (t.find_hint (o)); // MT-safe (target locked).
-
-    for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
+    // Our hint semantics applies regardless of the meta-operation. This works
+    // reasonably well except for the default/fallback rules provided by some
+    // meta-operations (e.g., dist, config), which naturally do not match the
+    // hint.
+    //
+    // The way we solve this problem is by trying a hint-less match as a
+    // fallback for non-perform meta-operations. @@ Ideally we would want to
+    // only consider such default/fallback rules, which we may do in the
+    // future (we could just decorate their names with some special marker,
+    // e.g., `dist.file.*` but that would be visible in diagnostics).
+    //
+    // It seems the only potential problem with this approach is the inability
+    // by the user to specify the hint for this specific meta-operation (e.g.,
+    // to resolve an ambiguity between two rules or override a matched rule),
+    // which seems quite remote at the moment. Maybe/later we can invent a
+    // syntax for that.
+    //
+    const string* hint;
+    for (bool retry (false);; retry = true)
     {
-      // Search scopes outwards, stopping at the project root.
-      //
-      for (const scope* s (&bs);
-           s != nullptr;
-           s = s->root () ? &s->global_scope () : s->parent_scope ())
+      hint = retry
+        ? &empty_string
+        : &t.find_hint (o); // MT-safe (target locked).
+
+      for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
       {
-        const operation_rule_map* om (s->rules[mo]);
-
-        if (om == nullptr)
-          continue; // No entry for this meta-operation id.
-
-        // First try the map for the actual operation. If that doesn't yeld
-        // anything, try the wildcard map.
+        // Search scopes outwards, stopping at the project root. For retry
+        // only look in the root and global scopes.
         //
-        for (operation_id oi (o), oip (o); oip != 0; oip = oi, oi = 0)
+        for (const scope* s (retry ? bs.root_scope () : &bs);
+             s != nullptr;
+             s = s->root () ? &s->global_scope () : s->parent_scope ())
         {
-          const target_type_rule_map* ttm ((*om)[oi]);
+          const operation_rule_map* om (s->rules[mo]);
 
-          if (ttm == nullptr)
-            continue; // No entry for this operation id.
+          if (om == nullptr)
+            continue; // No entry for this meta-operation id.
 
-          if (ttm->empty ())
-            continue; // Empty map for this operation id.
-
-          auto i (ttm->find (tt));
-
-          if (i == ttm->end () || i->second.empty ())
-            continue; // No rules registered for this target type.
-
-          const auto& rules (i->second); // Name map.
-
-          // Filter against the hint, if any.
+          // First try the map for the actual operation. If that doesn't yeld
+          // anything, try the wildcard map.
           //
-          auto rs (hint.empty ()
-                   ? make_pair (rules.begin (), rules.end ())
-                   : rules.find_sub (hint));
-
-          for (auto i (rs.first); i != rs.second; ++i)
+          for (operation_id oi (o), oip (o); oip != 0; oip = oi, oi = 0)
           {
-            const rule_match* r (&*i);
+            const target_type_rule_map* ttm ((*om)[oi]);
 
-            // In a somewhat hackish way we reuse operation wildcards to plumb
-            // the ad hoc rule's reverse operation fallback logic.
-            //
-            // The difficulty is two-fold:
-            //
-            // 1. It's difficult to add the fallback flag to the rule map
-            //    because of rule_match which is used throughout.
-            //
-            // 2. Even if we could do that, we pass the reverse action to
-            //    reverse_fallback() rather than it returning (a list) of
-            //    reverse actions, which would be necessary to register them.
-            //
-            using fallback_rule = adhoc_rule_pattern::fallback_rule;
+            if (ttm == nullptr)
+              continue; // No entry for this operation id.
 
-            auto find_fallback = [mo, o, tt] (const fallback_rule& fr)
-              -> const rule_match*
+            if (ttm->empty ())
+              continue; // Empty map for this operation id.
+
+            auto i (ttm->find (tt));
+
+            if (i == ttm->end () || i->second.empty ())
+              continue; // No rules registered for this target type.
+
+            const auto& rules (i->second); // Name map.
+
+            // Filter against the hint, if any.
+            //
+            auto rs (hint->empty ()
+                     ? make_pair (rules.begin (), rules.end ())
+                     : rules.find_sub (*hint));
+
+            for (auto i (rs.first); i != rs.second; ++i)
             {
-              for (const shared_ptr<adhoc_rule>& ar: fr.rules)
-                if (ar->reverse_fallback (action (mo, o), *tt))
-                  return &ar->rule_match;
+              const rule_match* r (&*i);
 
-              return nullptr;
-            };
+              // In a somewhat hackish way we reuse operation wildcards to
+              // plumb the ad hoc rule's reverse operation fallback logic.
+              //
+              // The difficulty is two-fold:
+              //
+              // 1. It's difficult to add the fallback flag to the rule map
+              //    because of rule_match which is used throughout.
+              //
+              // 2. Even if we could do that, we pass the reverse action to
+              //    reverse_fallback() rather than it returning (a list) of
+              //    reverse actions, which would be necessary to register them.
+              //
+              using fallback_rule = adhoc_rule_pattern::fallback_rule;
 
-            if (oi == 0)
-            {
-              if (auto* fr =
-                    dynamic_cast<const fallback_rule*> (&r->second.get ()))
+              auto find_fallback = [mo, o, tt] (const fallback_rule& fr)
+                -> const rule_match*
               {
-                if ((r = find_fallback (*fr)) == nullptr)
-                  continue;
-              }
-            }
+                for (const shared_ptr<adhoc_rule>& ar: fr.rules)
+                  if (ar->reverse_fallback (action (mo, o), *tt))
+                    return &ar->rule_match;
 
-            const string& n (r->first);
-            const rule& ru (r->second);
-
-            if (&ru == skip)
-              continue;
-
-            me.init (oi == 0 /* fallback */);
-            {
-              auto df = make_diag_frame (
-                [a, &t, &n](const diag_record& dr)
-                {
-                  if (verb != 0)
-                    dr << info << "while matching rule " << n << " to "
-                       << diag_do (a, t);
-                });
-
-              if (!ru.match (a, t, hint, me))
-                continue;
-            }
-
-            // Do the ambiguity test.
-            //
-            bool ambig (false);
-
-            diag_record dr;
-            for (++i; i != rs.second; ++i)
-            {
-              const rule_match* r1 (&*i);
+                return nullptr;
+              };
 
               if (oi == 0)
               {
                 if (auto* fr =
-                      dynamic_cast<const fallback_rule*> (&r1->second.get ()))
+                      dynamic_cast<const fallback_rule*> (&r->second.get ()))
                 {
-                  if ((r1 = find_fallback (*fr)) == nullptr)
+                  if ((r = find_fallback (*fr)) == nullptr)
                     continue;
                 }
               }
 
-              const string& n1 (r1->first);
-              const rule& ru1 (r1->second);
+              const string& n (r->first);
+              const rule& ru (r->second);
 
+              if (&ru == skip)
+                continue;
+
+              me.init (oi == 0 /* fallback */);
               {
                 auto df = make_diag_frame (
-                  [a, &t, &n1](const diag_record& dr)
+                  [a, &t, &n](const diag_record& dr)
                   {
                     if (verb != 0)
-                      dr << info << "while matching rule " << n1 << " to "
+                      dr << info << "while matching rule " << n << " to "
                          << diag_do (a, t);
                   });
 
-                // @@ TODO: this makes target state in match() undetermined
-                //    so need to fortify rules that modify anything in match
-                //    to clear things.
-                //
-                // @@ Can't we temporarily swap things out in target?
-                //
-                match_extra me1;
-                me1.init (oi == 0);
-                if (!ru1.match (a, t, hint, me1))
+                if (!ru.match (a, t, *hint, me))
                   continue;
               }
 
-              if (!ambig)
+              // Do the ambiguity test.
+              //
+              bool ambig (false);
+
+              diag_record dr;
+              for (++i; i != rs.second; ++i)
               {
-                dr << fail << "multiple rules matching " << diag_doing (a, t)
-                   << info << "rule " << n << " matches";
-                ambig = true;
+                const rule_match* r1 (&*i);
+
+                if (oi == 0)
+                {
+                  if (auto* fr =
+                        dynamic_cast<const fallback_rule*> (&r1->second.get ()))
+                  {
+                    if ((r1 = find_fallback (*fr)) == nullptr)
+                      continue;
+                  }
+                }
+
+                const string& n1 (r1->first);
+                const rule& ru1 (r1->second);
+
+                {
+                  auto df = make_diag_frame (
+                    [a, &t, &n1](const diag_record& dr)
+                    {
+                      if (verb != 0)
+                        dr << info << "while matching rule " << n1 << " to "
+                           << diag_do (a, t);
+                    });
+
+                  // @@ TODO: this makes target state in match() undetermined
+                  //    so need to fortify rules that modify anything in match
+                  //    to clear things.
+                  //
+                  // @@ Can't we temporarily swap things out in target?
+                  //
+                  match_extra me1;
+                  me1.init (oi == 0);
+                  if (!ru1.match (a, t, *hint, me1))
+                    continue;
+                }
+
+                if (!ambig)
+                {
+                  dr << fail << "multiple rules matching " << diag_doing (a, t)
+                     << info << "rule " << n << " matches";
+                  ambig = true;
+                }
+
+                dr << info << "rule " << n1 << " also matches";
               }
 
-              dr << info << "rule " << n1 << " also matches";
+              if (!ambig)
+                return r;
+              else
+                dr << info << "use rule hint to disambiguate this match";
             }
-
-            if (!ambig)
-              return r;
-            else
-              dr << info << "use rule hint to disambiguate this match";
           }
         }
       }
+
+      if (mo == perform_id || hint->empty () || retry)
+        break;
     }
 
     me.free ();
@@ -614,10 +641,10 @@ namespace build2
     {
       diag_record dr (fail);
 
-      if (hint.empty ())
+      if (hint->empty ())
         dr << "no rule to ";
       else
-        dr << "no rule with hint " << hint << " to ";
+        dr << "no rule with hint " << *hint << " to ";
 
       dr << diag_do (a, t);
 
