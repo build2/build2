@@ -765,7 +765,7 @@ namespace build2
       }
       else if (ctx_.phase != n)
       {
-        ++contention;
+        ++contention; // Protected by m_.
 
         ctx_.sched.deactivate (false /* external */);
         for (; ctx_.phase != n; v->wait (l)) ;
@@ -783,11 +783,11 @@ namespace build2
     {
       if (!lm_.try_lock ())
       {
-        ++contention;
-
         ctx_.sched.deactivate (false /* external */);
         lm_.lock ();
         ctx_.sched.activate (false /* external */);
+
+        ++contention_load; // Protected by lm_.
       }
       r = !fail_; // Re-query.
     }
@@ -905,7 +905,7 @@ namespace build2
       }
       else // phase != n
       {
-        ++contention;
+        ++contention; // Protected by m_.
 
         ctx_.sched.deactivate (false /* external */);
         for (; ctx_.phase != n; v->wait (l)) ;
@@ -919,11 +919,11 @@ namespace build2
     {
       if (!lm_.try_lock ())
       {
-        ++contention;
-
         ctx_.sched.deactivate (false /* external */);
         lm_.lock ();
         ctx_.sched.activate (false /* external */);
+
+        ++contention_load; // Protected by lm_.
       }
       r = !fail_; // Re-query.
     }

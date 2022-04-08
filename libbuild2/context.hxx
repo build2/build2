@@ -46,7 +46,8 @@ namespace build2
     // Statistics.
     //
   public:
-    size_t contention = 0; // # of contentious phase (re)locks.
+    size_t contention      = 0; // # of contentious phase (re)locks.
+    size_t contention_load = 0; // # of contentious load phase locks.
 
   private:
     friend class context;

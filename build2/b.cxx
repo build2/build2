@@ -423,7 +423,8 @@ main (int argc, char* argv[])
     {
       if (pctx != nullptr)
       {
-        phase_switch_contention += pctx->phase_mutex.contention;
+        phase_switch_contention += (pctx->phase_mutex.contention +
+                                    pctx->phase_mutex.contention_load);
         pctx = nullptr; // Free first to reuse memory.
       }
 
@@ -1402,7 +1403,8 @@ main (int argc, char* argv[])
     }
 #endif
 
-    phase_switch_contention += pctx->phase_mutex.contention;
+    phase_switch_contention += (pctx->phase_mutex.contention +
+                                pctx->phase_mutex.contention_load);
   }
   catch (const failed&)
   {
