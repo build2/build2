@@ -302,7 +302,9 @@ namespace build2
       return make_pair (false, target_state::unknown);
     else
     {
-      // Normally applied but can also be already executed.
+      // Normally applied but can also be already executed. Note that in the
+      // latter case we are guaranteed to be synchronized since we are in the
+      // match phase.
       //
       assert (o == offset_applied || o == offset_executed);
       return make_pair (true, (group_state (a) ? group->state[a] : s).state);

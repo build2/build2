@@ -2113,6 +2113,10 @@ namespace build2
     // causes the target state to be automatically set to unchanged) if the
     // file is known to be up to date. So we do the update "smartly".
     //
+    // Also, now that we do header pre-generation by default, there is a good
+    // chance the header has already been updated. So we also detect that and
+    // avoid switching the phase.
+    //
     const path_target* pt (t.is_a<path_target> ());
 
     if (pt == nullptr)
@@ -2140,11 +2144,14 @@ namespace build2
       // target_state::changed because of the dynamic dependency extraction
       // run for some other target.
       //
-      // @@ MT perf: so we are going to switch the phase and execute for
-      //    any generated header.
-      //
-      phase_switch ps (t.ctx, run_phase::execute);
-      target_state ns (execute_direct_sync (a, t));
+      target_state ns;
+      if (os != target_state::changed)
+      {
+        phase_switch ps (t.ctx, run_phase::execute);
+        ns = execute_direct_sync (a, t);
+      }
+      else
+        ns = os;
 
       if (ns != os && ns != target_state::unchanged)
       {
@@ -2204,9 +2211,9 @@ namespace build2
 
     bool r (false);
 
-    // @@ Maybe we should optimize for n == 1?
+    // @@ Maybe we should optimize for n == 1? Maybe we should just call
+    //    smarter update_during_match() in this case?
     //
-
 #if 0
     for (prerequisite_target& p: pts)
     {
