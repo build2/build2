@@ -380,7 +380,16 @@ namespace build2
     // Most qualified scope that contains this target.
     //
     const scope&
-    base_scope () const;
+    base_scope () const
+    {
+      if (ctx.phase != run_phase::load)
+      {
+        if (const scope* s = base_scope_.load (memory_order_consume))
+          return *s;
+      }
+
+      return base_scope_impl ();
+    }
 
     // Root scope of a project that contains this target. Note that
     // a target can be out of any (known) project root in which case
@@ -388,7 +397,10 @@ namespace build2
     // then use base_scope().root_scope() expression instead.
     //
     const scope&
-    root_scope () const;
+    root_scope () const
+    {
+      return *base_scope ().root_scope ();
+    }
 
     // Root scope of a bundle amalgamation that contains this target. The
     // same notes as to root_scope() apply.
@@ -413,6 +425,16 @@ namespace build2
     {
       return out_dir ().sub (s.out_path ());
     }
+
+    // Implementation details (use above functions instead).
+    //
+    // Base scope cached value. Invalidated every time we switch to the load
+    // phase (which is the only phase where we may insert new scopes).
+    //
+    mutable atomic<const scope*> base_scope_ {nullptr};
+
+    const scope&
+    base_scope_impl () const;
 
     // Prerequisites.
     //
@@ -1580,10 +1602,14 @@ namespace build2
     // Note: not MT-safe so can only be used during serial execution.
     //
   public:
-    using iterator = butl::map_iterator_adapter<map_type::const_iterator>;
+    using iterator = butl::map_iterator_adapter<map_type::iterator>;
+    using const_iterator = butl::map_iterator_adapter<map_type::const_iterator>;
 
-    iterator begin () const {return map_.begin ();}
-    iterator end ()   const {return map_.end ();}
+    iterator begin () {return map_.begin ();}
+    iterator end ()   {return map_.end ();}
+
+    const_iterator begin () const {return map_.begin ();}
+    const_iterator end ()   const {return map_.end ();}
 
     size_t
     size () const {return map_.size ();}

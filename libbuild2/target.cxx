@@ -115,22 +115,27 @@ namespace build2
   }
 
   const scope& target::
-  base_scope () const
+  base_scope_impl () const
   {
     // If this target is from the src tree, use its out directory to find
     // the scope.
     //
-    return ctx.scopes.find_out (out_dir ());
-  }
+    const scope& s (ctx.scopes.find_out (out_dir ()));
 
-  const scope& target::
-  root_scope () const
-  {
-    // This is tricky to cache so we do the lookup for now.
+    // Cache unless we are in the load phase.
     //
-    const scope* r (base_scope ().root_scope ());
-    assert (r != nullptr);
-    return *r;
+    if (ctx.phase != run_phase::load)
+    {
+      const scope* e (nullptr);
+      if (!base_scope_.compare_exchange_strong (
+            e,
+            &s,
+            memory_order_release,
+            memory_order_consume))
+        assert (e == &s);
+    }
+
+    return s;
   }
 
   pair<lookup, size_t> target::

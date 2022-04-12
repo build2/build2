@@ -28,6 +28,7 @@ namespace build2
   public:
     // Acquire a phase lock potentially blocking (unless already in the
     // desired phase) until switching to the desired phase is possible.
+    // Return false on failure.
     //
     bool
     lock (run_phase);
@@ -38,9 +39,14 @@ namespace build2
     void
     unlock (run_phase);
 
-    // Switch from one phase to another.
+    // Switch from one phase to another. Return nullopt on failure (so can be
+    // used as bool), true if switched from a different phase, and false if
+    // joined/switched to the same phase (this, for example, can be used to
+    // decide if a phase switching housekeeping is really necessary). Note:
+    // currently only implemented for the load phase (always returns true
+    // for the others).
     //
-    bool
+    optional<bool>
     relock (run_phase unlock, run_phase lock);
 
     // Statistics.

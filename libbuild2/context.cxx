@@ -848,7 +848,7 @@ namespace build2
     }
   }
 
-  bool run_phase_mutex::
+  optional<bool> run_phase_mutex::
   relock (run_phase o, run_phase n)
   {
     // Pretty much a fused unlock/lock implementation except that we always
@@ -857,6 +857,7 @@ namespace build2
     assert (o != n);
 
     bool r;
+    bool s (true); // True switch.
 
     if (o == run_phase::load)
       lm_.unlock ();
@@ -919,6 +920,13 @@ namespace build2
     {
       if (!lm_.try_lock ())
       {
+        // If we failed to acquire the load mutex, then we know there is (or
+        // was) someone before us in the load phase. And it's impossible to
+        // switch to a different phase between our calls to try_lock() above
+        // and lock() below because of our +1 in lc_.
+        //
+        s = false;
+
         ctx_.sched.deactivate (false /* external */);
         lm_.lock ();
         ctx_.sched.activate (false /* external */);
@@ -928,7 +936,7 @@ namespace build2
       r = !fail_; // Re-query.
     }
 
-    return r;
+    return r ? optional<bool> (s) : nullopt;
   }
 
   // C++17 deprecated uncaught_exception() so use uncaught_exceptions() if
@@ -1043,7 +1051,8 @@ namespace build2
     phase_lock* pl (phase_lock_instance);
     assert (&pl->ctx == &ctx);
 
-    if (!ctx.phase_mutex.relock (old_phase, new_phase))
+    optional<bool> r (ctx.phase_mutex.relock (old_phase, new_phase));
+    if (!r)
     {
       ctx.phase_mutex.relock (new_phase, old_phase);
       throw failed ();
@@ -1052,14 +1061,31 @@ namespace build2
     pl->phase = new_phase;
 
     if (new_phase == run_phase::load) // Note: load lock is exclusive.
+    {
       ctx.load_generation++;
+
+      // Invalidate cached target base_scope values if we are switching from a
+      // non-load phase (we don't cache during load which means load->load
+      // switch doesn't have anything to invalidate).
+      //
+      // @@ This is still quite expensive on project like Boost with a large
+      //    number of files (targets) and a large number of load phase
+      //    switches (due to directory buildfiles).
+      //
+      if (*r)
+      {
+        for (const unique_ptr<target>& t: ctx.targets)
+          t->base_scope_.store (nullptr, memory_order_relaxed);
+      }
+    }
 
     //text << this_thread::get_id () << " phase switch  "
     //     << old_phase << " " << new_phase;
   }
 
 #if 0
-  // NOTE: see push/pop_phase() logic if trying to enable this.
+  // NOTE: see push/pop_phase() logic if trying to enable this. Also
+  //       the load stuff above.
   //
   phase_switch::
   phase_switch (phase_unlock&& u, phase_lock&& l)
