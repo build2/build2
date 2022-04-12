@@ -320,7 +320,8 @@ namespace build2
         const function<bool (const target&, const string&, bool, bool)>&,
         bool = false,
         library_cache* = nullptr,
-        small_vector<const target*, 24>* = nullptr) const;
+        small_vector<const target*, 24>* = nullptr,
+        vector<const target*>* = nullptr) const;
 
       const target*
       search_library (action a,

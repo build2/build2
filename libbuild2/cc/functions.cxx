@@ -436,7 +436,16 @@ namespace build2
       //    look for cc.export.libs and <module>.export.libs.
       //
       // 3. No member/group selection/linkup: we resolve *.export.libs on
-      //    whatever is listed.
+      //    whatever is listed (so no liba{}/libs{} overrides will be
+      //    considered).
+      //
+      // Because of (2) and (3), this functionality should only be used on a
+      // controlled list of libraries (usually libraries that belong to the
+      // same family as this library).
+      //
+      // Note that a similar deduplication is also performed when processing
+      // the libraries. However, it may still make sense to do it once at the
+      // source for really severe cases (like Boost).
       //
       // Note that this function is not pure.
       //

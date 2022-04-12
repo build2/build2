@@ -77,6 +77,10 @@ namespace build2
     // Note that if top_li is present, then the target passed to proc_impl,
     // proc_lib, and proc_opt is always a file.
     //
+    // The dedup argument is part of the interface dependency deduplication
+    // functionality, similar to $x.deduplicate_export_libs(). Note, however,
+    // that here we do it "properly" (i.e., using group members, etc).
+    //
     void common::
     process_libraries (
       action a,
@@ -100,7 +104,8 @@ namespace build2
                            bool exp)>& proc_opt,            // *.export.
       bool self /*= false*/,                     // Call proc_lib on l?
       library_cache* cache,
-      small_vector<const target*, 24>* chain) const
+      small_vector<const target*, 24>* chain,
+      vector<const target*>* dedup) const
     {
       library_cache cache_storage;
       if (cache == nullptr)
@@ -431,11 +436,14 @@ namespace build2
             return make_pair (n, s);
           };
 
-          auto proc_int = [&l, cache, chain,
-                           &proc_impl, &proc_lib, &proc_lib_name, &proc_opt,
-                           &sysd, &usrd,
-                           &find_sysd, &find_linfo, &sense_fragment,
-                           &bs, a, &li, impl, this] (const lookup& lu)
+          auto proc_intf = [&l, cache, chain,
+                            &proc_impl, &proc_lib, &proc_lib_name, &proc_opt,
+                            &sysd, &usrd,
+                            &find_sysd, &find_linfo, &sense_fragment,
+                            &bs, a, &li, impl, this] (
+                              const lookup& lu,
+                              vector<const target*>* dedup,
+                              size_t dedup_start)
           {
             const vector<name>* ns (cast_null<vector<name>> (lu));
             if (ns == nullptr || ns->empty ())
@@ -484,6 +492,25 @@ namespace build2
                                    *sysd, usrd,
                                    cache));
 
+                // Deduplicate.
+                //
+                // Note that dedup_start makes sure we only consider our
+                // interface dependencies while maintaining the "through"
+                // list.
+                //
+                if (dedup != nullptr)
+                {
+                  if (find (dedup->begin () + dedup_start,
+                            dedup->end (),
+                            &t) != dedup->end ())
+                  {
+                    ++i;
+                    continue;
+                  }
+
+                  dedup->push_back (&t);
+                }
+
                 if (proc_lib)
                 {
                   // This can happen if the target is mentioned in
@@ -526,7 +553,7 @@ namespace build2
                 process_libraries (a, bs, *li, *sysd,
                                    t, t.is_a<liba> () || t.is_a<libux> (), 0,
                                    proc_impl, proc_lib, proc_opt, true,
-                                   cache, chain);
+                                   cache, chain, dedup);
               }
 
               ++i;
@@ -535,8 +562,8 @@ namespace build2
 
           // Process libraries from *.libs (of type strings).
           //
-          auto proc_imp = [&proc_lib, &proc_lib_name,
-                           &sense_fragment] (const lookup& lu)
+          auto proc_impl = [&proc_lib, &proc_lib_name,
+                            &sense_fragment] (const lookup& lu)
           {
             const strings* ns (cast_null<strings> (lu));
             if (ns == nullptr || ns->empty ())
@@ -568,7 +595,27 @@ namespace build2
           //
           if (cc)
           {
-            if (c_e_libs) proc_int (c_e_libs);
+            if (impl)
+            {
+              if (c_e_libs) proc_intf (c_e_libs, nullptr, 0);
+            }
+            else
+            {
+              if (c_e_libs)
+              {
+                size_t start;
+                vector<const target*> storage;
+                if (dedup == nullptr)
+                {
+                  start = 0;
+                  dedup = &storage;
+                }
+                else
+                  start = dedup->size (); // Start of our interface deps.
+
+                proc_intf (c_e_libs, dedup, start);
+              }
+            }
           }
           else
           {
@@ -579,8 +626,12 @@ namespace build2
               //
               if (c_e_libs.defined () || x_e_libs.defined ())
               {
-                if (c_e_libs) proc_int (c_e_libs);
-                if (x_e_libs) proc_int (x_e_libs);
+                // Why are we calling proc_intf() on *.impl_libs? Perhaps
+                // because proc_impl() expects strings, not names? Yes, and
+                // proc_intf() checks impl.
+                //
+                if (c_e_libs) proc_intf (c_e_libs, nullptr, 0);
+                if (x_e_libs) proc_intf (x_e_libs, nullptr, 0);
               }
               else
               {
@@ -595,8 +646,8 @@ namespace build2
                 if (proc_lib)
                 {
                   const variable& v (same ? x_libs : vp[*t + ".libs"]);
-                  proc_imp (l.lookup_original (c_libs, false, &bs).first);
-                  proc_imp (l.lookup_original (v, false, &bs).first);
+                  proc_impl (l.lookup_original (c_libs, false, &bs).first);
+                  proc_impl (l.lookup_original (v, false, &bs).first);
                 }
               }
             }
@@ -604,8 +655,21 @@ namespace build2
             {
               // Interface: only add *.export.* (interface dependencies).
               //
-              if (c_e_libs) proc_int (c_e_libs);
-              if (x_e_libs) proc_int (x_e_libs);
+              if (c_e_libs.defined () || x_e_libs.defined ())
+              {
+                size_t start;
+                vector<const target*> storage;
+                if (dedup == nullptr)
+                {
+                  start = 0;
+                  dedup = &storage;
+                }
+                else
+                  start = dedup->size (); // Start of our interface deps.
+
+                if (c_e_libs) proc_intf (c_e_libs, dedup, start);
+                if (x_e_libs) proc_intf (x_e_libs, dedup, start);
+              }
             }
           }
         }
