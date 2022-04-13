@@ -133,15 +133,19 @@ namespace build2
       vp.insert<string> ("cc.runtime");
       vp.insert<string> ("cc.stdlib");
 
-      // Target type, for example, "C library" or "C++ library". Should be set
-      // on the target as a rule-specific variable by the matching rule to the
-      // name of the module (e.g., "c", "cxx"). Currenly only set for
-      // libraries and is used to decide which *.libs to use during static
-      // linking.
+      // Library target type in the <lang>[,<type>...] form where <lang> is
+      // "c" (C library), "cxx" (C++ library), or "cc" (C-common library but
+      // the specific language is not known). Currently recognized <type>
+      // values are "binless" (library is binless) and "recursively-binless"
+      // (library and all its prerequisite libraries are binless). Note that
+      // another indication of a binless library is an empty path, which could
+      // easier/faster to check. Note also that there should be no whitespaces
+      // of any kind and <lang> is always first.
       //
-      // It can also be the special "cc" value which means a C-common library
-      // but specific language is not known. Used in the import installed
-      // logic.
+      // This value should be set on the library target as a rule-specific
+      // variable by the matching rule. Currently <lang> is used to decide
+      // which *.libs to use during static linking. The "cc" language is used
+      // in the import installed logic.
       //
       // Note that this variable cannot be set via the target type/pattern-
       // specific mechanism (see process_libraries()).

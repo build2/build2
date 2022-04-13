@@ -833,6 +833,10 @@ namespace build2
         //
         if (const libul* ul = pt->is_a<libul> ())
         {
+          // @@ Isn't libul{} member already picked or am I missing something?
+          //    If not, then we may need the same in recursive-binless logic.
+          //
+          assert (false); // @@ TMP
           ux = &link_member (*ul, a, li)->as<libux> ();
         }
         else if ((ux = pt->is_a<libue> ()) ||
@@ -848,6 +852,19 @@ namespace build2
 
       return nullptr;
     };
+
+    // Given the cc.type value return true if the library is recursively
+    // binless.
+    //
+    static inline bool
+    recursively_binless (const string& type)
+    {
+      size_t p (type.find ("recursively-binless"));
+      return (p != string::npos  &&
+              type[p - 1] == ',' && // <lang> is first.
+              (type[p += 19] == '\0' || type[p] == ','));
+    }
+
 
     recipe link_rule::
     apply (action a, target& xt, match_extra&) const
@@ -868,11 +885,6 @@ namespace build2
       ltype lt (link_type (t));
       otype ot (lt.type);
       linfo li (link_info (bs, ot));
-
-      // Set the library type (C, C++, etc) as rule-specific variable.
-      //
-      if (lt.library ())
-        t.state[a].assign (c_type) = string (x);
 
       bool binless (lt.library ()); // Binary-less until proven otherwise.
       bool user_binless (lt.library () && cast_false<bool> (t[b_binless]));
@@ -1220,6 +1232,121 @@ namespace build2
       //
       match_members (a, t, pts, start);
 
+      // Check if we have any binful utility libraries.
+      //
+      bool rec_binless; // Recursively-binless.
+      if (binless)
+      {
+        if (const libux* l = find_binful (a, t, li))
+        {
+          binless = false;
+
+          if (user_binless)
+            fail << t << " cannot be binless due to binful " << *l
+                 << " prerequisite";
+        }
+
+        // See if we are recursively-binless.
+        //
+        if (binless)
+        {
+          rec_binless = true;
+
+          for (const target* pt: t.prerequisite_targets[a])
+          {
+            if (pt == nullptr || unmark (pt) != 0) // See above.
+              continue;
+
+            const file* ft;
+            if ((ft = pt->is_a<libs> ()) ||
+                (ft = pt->is_a<liba> ()) ||
+                (ft = pt->is_a<libux> ()))
+            {
+              if (ft->path ().empty ()) // Binless.
+              {
+                // The same lookup as in process_libraries().
+                //
+                if (const string* t = cast_null<string> (
+                      ft->state[a].lookup_original (
+                        c_type, true /* target_only */).first))
+                {
+                  if (recursively_binless (*t))
+                    continue;
+                }
+              }
+
+              rec_binless = false;
+              break;
+            }
+          }
+
+          // Another thing we must check is for the presence of any simple
+          // libraries (-lpthread, shell32.lib, etc) in *.export.libs. See
+          // process_libraries() for details.
+          //
+          if (rec_binless)
+          {
+            auto find = [&t, &bs] (const variable& v) -> lookup
+            {
+              return t.lookup_original (v, false, &bs).first;
+            };
+
+            auto has_simple = [] (lookup l)
+            {
+              if (const auto* ns = cast_null<vector<name>> (l))
+              {
+                for (auto i (ns->begin ()), e (ns->end ()); i != e; ++i)
+                {
+                  if (i->pair)
+                    ++i;
+                  else if (i->simple ()) // -l<name>, etc.
+                    return true;
+                }
+              }
+
+              return false;
+            };
+
+            if (lt.shared_library ()) // process_libraries()::impl == false
+            {
+              if (has_simple (find (x_export_libs)) ||
+                  has_simple (find (c_export_libs)))
+                rec_binless = false;
+            }
+            else // process_libraries()::impl == true
+            {
+              lookup x (find (x_export_impl_libs));
+              lookup c (find (c_export_impl_libs));
+
+              if (x.defined () || c.defined ())
+              {
+                if (has_simple (x) || has_simple (c))
+                  rec_binless = false;
+              }
+              else
+              {
+                if (has_simple (find (x_libs)) || has_simple (find (c_libs)))
+                  rec_binless = false;
+              }
+            }
+          }
+        }
+      }
+
+      // Set the library type (C, C++, binless) as rule-specific variable.
+      //
+      if (lt.library ())
+      {
+        string v (x);
+
+        if (rec_binless)
+          v += ",recursively-binless";
+        else if (binless)
+          v += ",binless";
+
+        t.state[a].assign (c_type) = move (v);
+      }
+
       // If we have any update during match prerequisites, now is the time to
       // update them. Note that we have to do it before any further matches
       // since they may rely on these prerequisites already being updated (for
@@ -1235,20 +1362,6 @@ namespace build2
       //
       if (update_match)
         update_during_match_prerequisites (trace, a, t, 2 /* mask */);
-
-      // Check if we have any binful utility libraries.
-      //
-      if (binless)
-      {
-        if (const libux* l = find_binful (a, t, li))
-        {
-          binless = false;
-
-          if (user_binless)
-            fail << t << " cannot be binless due to binful " << *l
-                 << " prerequisite";
-        }
-      }
 
       // Now that we know for sure whether we are binless, derive file name(s)
       // and add ad hoc group members. Note that for binless we still need the
@@ -1950,7 +2063,7 @@ namespace build2
         const target* const* lc,
         const small_vector<reference_wrapper<const string>, 2>& ns,
         lflags f,
-        const string* type, // cc.type
+        const string* type, // Whole cc.type in the <lang>[,...] form.
         bool)
       {
         // Note: see also make_header_sidebuild().
@@ -1971,6 +2084,13 @@ namespace build2
         // that range of elements to the end of args. See GitHub issue #114
         // for details.
         //
+        // One case where we can prune the graph is if the library is
+        // recursively-binless. It's tempting to wish that we can do the same
+        // just for binless, but alas that's not the case: we have to hoist
+        // its binful interface dependency because, for example, it must
+        // appear after the preceding static library of which this binless
+        // library is a dependency.
+        //
         // From the process_libraries() semantics we know that this callback
         // is always called and always after the options callbacks.
         //
@@ -1982,8 +2102,13 @@ namespace build2
         {
           // Hoist the elements corresponding to this library to the end.
           // Note that we cannot prune the traversal since we need to see the
-          // last occurrence of each library.
+          // last occurrence of each library, unless the library is
+          // recursively-binless (in which case there will be no need to
+          // hoist since there can be no libraries among the elements).
           //
+          if (type != nullptr && recursively_binless (*type))
+            return false;
+
           d.ls.hoist (d.args, *al);
           return true;
         }
@@ -2029,7 +2154,10 @@ namespace build2
           // install or both not. We can only do this if the library is build
           // by our link_rule.
           //
-          else if (d.for_install && type != nullptr && *type != "cc")
+          else if (d.for_install &&
+                   type != nullptr &&
+                   *type != "cc" &&
+                   type->compare (0, 3, "cc,") != 0)
           {
             auto& md (l->data<link_rule::match_data> ());
             assert (md.for_install); // Must have been executed.

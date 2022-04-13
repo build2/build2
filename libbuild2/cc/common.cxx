@@ -96,10 +96,10 @@ namespace build2
                            const small_vector<reference_wrapper<
                              const string>, 2>&,            // Library "name".
                            lflags,                          // Link flags.
-                           const string* type,              // cc.type
+                           const string* type,              // whole cc.type
                            bool sys)>& proc_lib,            // System library?
       const function<bool (const target&,
-                           const string& type,              // cc.type
+                           const string& lang,              // lang from cc.type
                            bool com,                        // cc. or x.
                            bool exp)>& proc_opt,            // *.export.
       bool self /*= false*/,                     // Call proc_lib on l?
@@ -136,25 +136,45 @@ namespace build2
         // performance we use lookup_original() directly and only look in the
         // target (so no target type/pattern-specific).
         //
-        const string* t (
+        const string* pt (
           cast_null<string> (
             l.state[a].lookup_original (c_type, true /* target_only */).first));
 
+        // cc.type value format is <lang>[,...].
+        //
+        size_t p;
+        const string& t (pt != nullptr
+                         ? ((p = pt->find (',')) == string::npos
+                            ? *pt
+                            : string (*pt, 0, p))
+                         : string ());
+
+        // Why are we bothering with impl for binless libraries since all
+        // their dependencies are by definition interface? Well, for one, it
+        // could be that it is dynamically-binless (e.g., binless on some
+        // platforms or in some configurations and binful on/in others). In
+        // this case it would be helpful to have a uniform semantics so that,
+        // for example, *.libs are used for liba{} regardless of whether it is
+        // binless or not. On the other hand, having to specify both
+        // *.export.libs=-lm and *.libs=-lm (or *.export.impl_libs) for an
+        // always-binless library is sure not very intuitive. Not sure if we
+        // can win here.
+        //
         bool impl (proc_impl && proc_impl (l, la));
         bool cc (false), same (false);
 
-        if (t != nullptr)
+        if (!t.empty ())
         {
-          cc   = (*t == "cc");
-          same = (!cc && *t == x);
+          cc   = (t == "cc");
+          same = (!cc && t == x);
         }
 
-        const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
+        const scope& bs (t.empty () || cc ? top_bs : l.base_scope ());
 
         lookup c_e_libs;
         lookup x_e_libs;
 
-        if (t != nullptr)
+        if (!t.empty ())
         {
           // Note that we used to treat *.export.libs set on the liba/libs{}
           // members as *.libs overrides rather than as member-specific
@@ -173,8 +193,6 @@ namespace build2
           //
           // See also deduplicate_export_libs() if changing anything here.
           //
-          // @@ PERF: do target_only (helps a bit in non-installed case)?
-          //
           {
             const variable& v (impl ? c_export_impl_libs : c_export_libs);
             c_e_libs = l.lookup_original (v, false, &bs).first;
@@ -185,7 +203,7 @@ namespace build2
             const variable& v (
               same
               ? (impl ? x_export_impl_libs : x_export_libs)
-              : vp[*t + (impl ? ".export.impl_libs" : ".export.libs")]);
+              : vp[t + (impl ? ".export.impl_libs" : ".export.libs")]);
             x_e_libs = l.lookup_original (v, false, &bs).first;
           }
 
@@ -198,7 +216,7 @@ namespace build2
             //
             if (cc)
             {
-              if (!proc_opt (l, *t, true, true)) break;
+              if (!proc_opt (l, t, true, true)) break;
             }
             else
             {
@@ -215,24 +233,24 @@ namespace build2
                   //
                   // Note: options come from *.export.* variables.
                   //
-                  if (!proc_opt (l, *t, false, true) ||
-                      !proc_opt (l, *t, true,  true)) break;
+                  if (!proc_opt (l, t, false, true) ||
+                      !proc_opt (l, t, true,  true)) break;
                 }
                 else
                 {
                   // For default export we use the same options as were used
                   // to build the library.
                   //
-                  if (!proc_opt (l, *t, false, false) ||
-                      !proc_opt (l, *t, true,  false)) break;
+                  if (!proc_opt (l, t, false, false) ||
+                      !proc_opt (l, t, true,  false)) break;
                 }
               }
               else
               {
                 // Interface: only add *.export.* (interface dependencies).
                 //
-                if (!proc_opt (l, *t, false, true) ||
-                    !proc_opt (l, *t, true,  true)) break;
+                if (!proc_opt (l, t, false, true) ||
+                    !proc_opt (l, t, true,  true)) break;
               }
             }
           }
@@ -273,12 +291,12 @@ namespace build2
           const file* f;
           const path& p ((f = l.is_a<file> ()) ? f->path () : empty_path);
 
-          bool s (t != nullptr // If cc library (matched or imported).
+          bool s (pt != nullptr // If cc library (matched or imported).
                   ? cast_false<bool> (l.vars[c_system])
                   : !p.empty () && sys (top_sysd, p.string ()));
 
           proc_lib_name = {p.string ()};
-          if (!proc_lib (&chain->back (), proc_lib_name, lf, t, s))
+          if (!proc_lib (&chain->back (), proc_lib_name, lf, pt, s))
             break;
         }
 
@@ -292,17 +310,17 @@ namespace build2
         {
           // Use the search dirs corresponding to this library scope/type.
           //
-          sysd = (t == nullptr || cc)
+          sysd = (t.empty () || cc)
           ? &top_sysd // Imported library, use importer's sysd.
           : &cast<dir_paths> (
             bs.root_scope ()->vars[same
                                    ? x_sys_lib_dirs
-                                   : bs.ctx.var_pool[*t + ".sys_lib_dirs"]]);
+                                   : bs.ctx.var_pool[t + ".sys_lib_dirs"]]);
         };
 
         auto find_linfo = [top_li, t, cc, &bs, &l, &li] ()
         {
-          li = (t == nullptr || cc)
+          li = (t.empty () || cc)
           ? top_li
           : optional<linfo> (link_info (bs, link_type (l).type)); // @@ PERF
         };
@@ -353,7 +371,7 @@ namespace build2
         // If it is not a C-common library, then it probably doesn't have any
         // of the *.libs.
         //
-        if (t != nullptr)
+        if (!t.empty ())
         {
           optional<dir_paths> usrd; // Extract lazily.
 
@@ -453,6 +471,9 @@ namespace build2
             {
               const name& n (*i);
 
+              // Note: see also recursively-binless logic in link_rule if
+              //       changing anything in simple library handling.
+              //
               if (n.simple ())
               {
                 // This is something like -lpthread or shell32.lib so should
@@ -619,6 +640,9 @@ namespace build2
           }
           else
           {
+            // Note: see also recursively-binless logic in link_rule if
+            //       changing anything here.
+
             if (impl)
             {
               // Interface and implementation: as discussed above, we can have
@@ -645,7 +669,7 @@ namespace build2
                 //
                 if (proc_lib)
                 {
-                  const variable& v (same ? x_libs : vp[*t + ".libs"]);
+                  const variable& v (same ? x_libs : vp[t + ".libs"]);
                   proc_impl (l.lookup_original (c_libs, false, &bs).first);
                   proc_impl (l.lookup_original (v, false, &bs).first);
                 }
@@ -778,7 +802,7 @@ namespace build2
           fail << "unable to find library " << pk;
       }
 
-      // If this is lib{}/libu*{}, pick appropriate member unless we were
+      // If this is lib{}/libul{}, pick appropriate member unless we were
       // instructed not to.
       //
       if (li)
