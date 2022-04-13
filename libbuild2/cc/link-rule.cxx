@@ -1234,7 +1234,7 @@ namespace build2
 
       // Check if we have any binful utility libraries.
       //
-      bool rec_binless; // Recursively-binless.
+      bool rec_binless (false); // Recursively-binless.
       if (binless)
       {
         if (const libux* l = find_binful (a, t, li))
