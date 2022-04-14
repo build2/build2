@@ -391,7 +391,7 @@ namespace build2
         inc
       };
 
-      auto& m (extra.set_module (new module (move (d))));
+      auto& m (extra.set_module (new module (move (d), rs)));
       m.init (rs, loc, extra.hints, *cm.x_info);
 
       return true;

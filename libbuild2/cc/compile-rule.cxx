@@ -248,12 +248,34 @@ namespace build2
     };
 
     compile_rule::
-    compile_rule (data&& d)
+    compile_rule (data&& d, const scope& rs)
         : common (move (d)),
           rule_id (string (x) += ".compile 6")
     {
       static_assert (sizeof (match_data) <= target::data_size,
                      "insufficient space");
+
+      // Locate the header cache (see enter_header() for details).
+      //
+      {
+        string mn (string (x) + ".config");
+
+        header_cache_ = rs.find_module<config_module> (mn); // Must be there.
+
+        const scope* ws (rs.weak_scope ());
+        if (ws != &rs)
+        {
+          const scope* s (&rs);
+          do
+          {
+            s = s->parent_scope ()->root_scope ();
+
+            if (const auto* m = s->find_module<config_module> (mn))
+              header_cache_ = m;
+
+          } while (s != ws);
+        }
+      }
     }
 
     template <typename T>
@@ -2044,7 +2066,7 @@ namespace build2
               pair<const file*, bool> er (
                 enter_header (
                   a, bs, t, li,
-                  f, false /* cache */, false /* normalized */,
+                  move (f), false /* cache */, false /* normalized */,
                   pfx_map, so_map));
 
               ht = er.first;
@@ -2062,7 +2084,7 @@ namespace build2
               // diagnostics won't really add anything to the compiler's. So
               // let's only print it at -V or higher.
               //
-              if (ht == nullptr)
+              if (ht == nullptr) // f is still valid.
               {
                 assert (!exists); // Sanity check.
 
@@ -2109,6 +2131,8 @@ namespace build2
               // Ours could also be helpful. So while it will look a bit
               // messy, let's keep both (it would have been nicer to print
               // ours after the compiler's but that isn't easy).
+              //
+              // Note: if ht is NULL, f is still valid.
               //
               r = "ERROR unable to update header '";
               r += (ht != nullptr ? ht->path () : f).string ();
@@ -2573,7 +2597,7 @@ namespace build2
               pair<const file*, bool> r (
                 enter_header (
                   a, bs, t, li,
-                  f, false /* cache */, false /* normalized */,
+                  move (f), false /* cache */, false /* normalized */,
                   pfx_map, so_map));
 
               if (!r.second) // Shouldn't be remapped.
@@ -2601,7 +2625,7 @@ namespace build2
               pair<const file*, bool> er (
                 enter_header (
                   a, bs, t, li,
-                  f, false /* cache */, false /* normalized */,
+                  move (f), false /* cache */, false /* normalized */,
                   pfx_map, so_map));
 
               ht = er.first;
@@ -2620,7 +2644,7 @@ namespace build2
               // diagnostics won't really add anything to the compiler's. So
               // let's only print it at -V or higher.
               //
-              if (ht == nullptr)
+              if (ht == nullptr) // f is still valid.
               {
                 assert (!exists); // Sanity check.
 
@@ -2666,6 +2690,8 @@ namespace build2
               // Ours could also be helpful. So while it will look a bit
               // messy, let's keep both (it would have been nicer to print
               // ours after the compiler's but that isn't easy).
+              //
+              // Note: if ht is NULL, f is still valid.
               //
               rs = !exists
                 ? string ("INCLUDE")
@@ -2790,16 +2816,114 @@ namespace build2
     }
 #endif
 
+    //atomic_count cache_hit {0};
+    //atomic_count cache_mis {0};
+    //atomic_count cache_cls {0};
+
+    // The fp path is only moved from on success.
+    //
     // Note: this used to be a lambda inside extract_headers() so refer to the
     // body of that function for the overall picture.
     //
     pair<const file*, bool> compile_rule::
     enter_header (action a, const scope& bs, file& t, linfo li,
-                  path& fp, bool cache, bool norm,
+                  path&& fp, bool cache, bool norm,
                   optional<prefix_map>& pfx_map,
                   const srcout_map& so_map) const
     {
       tracer trace (x, "compile_rule::enter_header");
+
+      // It's reasonable to expect the same header to be included by multiple
+      // translation units, which means we will be re-doing this work over and
+      // over again. And it's not exactly cheap, taking up to 50% of an
+      // up-to-date check time on some projects. So we are going to cache the
+      // header path to target mapping.
+      //
+      // While we pass quite a bit of specific "context" (target, base scope)
+      // to enter_file(), here is the analysis why the result will not depend
+      // on this context for the non-absent header (fp is absolute):
+      //
+      // 1. Let's start with the base scope (bs). Firstly, the base scope
+      //    passed to map_extension() is the scope of the header (i.e., it is
+      //    the scope of fp.directory()). Other than that, the target base
+      //    scope is only passed to build_prefix_map() which is only called
+      //    for the absent header (linfo is also only used here).
+      //
+      // 2. Next is the target (t). It is passed to build_prefix_map() but
+      //    that doesn't matter for the same reason as in (1). Other than
+      //    that, it is only passed to build2::search() which in turn passes
+      //    it to target type-specific prerequisite search callback (see
+      //    target_type::search) if one is not NULL. The target type in
+      //    question here is one of the headers and we know all of them use
+      //    the standard file_search() which ignores the passed target.
+      //
+      // 3. Finally, so_map could be used for an absolute fp. While we could
+      //    simply not cache the result if it was used (second half of the
+      //    result pair is true), there doesn't seem to be any harm in caching
+      //    the remapped path->target mapping. In fact, if to think about it,
+      //    there is no harm in caching the generated file mapping since it
+      //    will be immediately generated and any subsequent inclusions we
+      //    will "see" with an absolute path, which we can resolve from the
+      //    cache.
+      //
+      // To put it another way, all we need to do is make sure that if we were
+      // to not return an existing cache entry, the call to enter_file() would
+      // have returned exactly the same path/target.
+      //
+      // @@ Could it be that the header is re-mapped in one config but not the
+      //    other (e.g., when we do both in src and in out builds and we pick
+      //    the generated header in src)? If so, that would lead to a
+      //    divergence. I.e., we would cache the no-remap case first and then
+      //    return it even though the re-map is necessary? Why can't we just
+      //    check for re-mapping ourselves? A: the remapping logic in
+      //    enter_file() is not exactly trivial.
+      //
+      //    But on the other hand, I think we can assume that different
+      //    configurations will end up with different caches. In other words,
+      //    we can assume that for the same "cc amalgamation" we use only a
+      //    single "version" of a header. Seems reasonable.
+      //
+      // Note also that while it would have been nice to have a unified cc
+      // cache, the map_extension() call is passed x_inc which is module-
+      // specific. In other words, we may end up mapping the same header to
+      // two different targets depending on whether it is included from, say,
+      // C or C++ translation unit. We could have used a unified cache for
+      // headers that were mapped using the fallback target type, which would
+      // cover the installed headers. Maybe, one day (it's also possible that
+      // separate caches reduce contention).
+      //
+      // Another related question is where we want to keep the cache: project,
+      // strong amalgamation, or weak amalgamation (like module sidebuilds).
+      // Some experimentation showed that weak has the best performance (which
+      // suggest that a unified cache will probably be a win).
+      //
+      // Note also that we don't need to clear this cache since we never clear
+      // the targets set. In other words, the only time targets are
+      // invalidated is when we destroy the build context, which also destroys
+      // the cache.
+      //
+      const config_module& hc (*header_cache_);
+
+      // First check the cache.
+      //
+      if (fp.absolute ())
+      {
+        if (!norm)
+        {
+          normalize_external (fp, "header");
+          norm = true;
+        }
+
+        slock l (hc.header_map_mutex);
+        auto i (hc.header_map.find (fp));
+        if (i != hc.header_map.end ())
+        {
+          //cache_hit.fetch_add (1, memory_order_relaxed);
+          return make_pair (i->second, false);
+        }
+
+        //cache_mis.fetch_add (1, memory_order_relaxed);
+      }
 
       struct data
       {
@@ -2810,24 +2934,44 @@ namespace build2
       // If it is outside any project, or the project doesn't have such an
       // extension, assume it is a plain old C header.
       //
-      return enter_file (
-        trace, "header",
-        a, bs, t,
-        fp, cache, norm,
-        [this] (const scope& bs, const string& n, const string& e)
-        {
-          return map_extension (bs, n, e, x_inc);
-        },
-        h::static_type,
-        [this, &d] (action a, const scope& bs, const target& t)
-          -> const prefix_map&
-        {
-          if (!d.pfx_map)
-            d.pfx_map = build_prefix_map (bs, a, t, d.li);
+      auto r (enter_file (
+                trace, "header",
+                a, bs, t,
+                fp, cache, norm,
+                [this] (const scope& bs, const string& n, const string& e)
+                {
+                  return map_extension (bs, n, e, x_inc);
+                },
+                h::static_type,
+                [this, &d] (action a, const scope& bs, const target& t)
+                  -> const prefix_map&
+                {
+                  if (!d.pfx_map)
+                    d.pfx_map = build_prefix_map (bs, a, t, d.li);
 
-          return *d.pfx_map;
-        },
-        so_map);
+                  return *d.pfx_map;
+                },
+                so_map));
+
+      // Cache.
+      //
+      if (r.first != nullptr)
+      {
+        const file* f;
+        {
+          ulock l (hc.header_map_mutex);
+          auto p (hc.header_map.emplace (move (fp), r.first));
+          f = p.second ? nullptr : p.first->second;
+        }
+
+        if (f != nullptr)
+        {
+          //cache_cls.fetch_add (1, memory_order_relaxed);
+          assert (r.first == f);
+        }
+      }
+
+      return r;
     }
 
     // Note: this used to be a lambda inside extract_headers() so refer to the
@@ -3588,7 +3732,7 @@ namespace build2
 
         if (const file* ht = enter_header (
               a, bs, t, li,
-              hp, cache, cache /* normalized */,
+              move (hp), cache, cache /* normalized */,
               pfx_map, so_map).first)
         {
           // If we are reading the cache, then it is possible the file has
@@ -3603,7 +3747,7 @@ namespace build2
             // Verify/add it to the dependency database.
             //
             if (!cache)
-              dd.expect (ht->path ()); // @@ Use hp (or verify match)?
+              dd.expect (ht->path ());
 
             skip_count++;
             return *u;
@@ -3617,7 +3761,7 @@ namespace build2
             return fail (*ht);
         }
         else
-          return fail (hp);
+          return fail (hp); // hp is still valid.
       };
 
       // As above but for a header unit. Note that currently it is only used
@@ -3634,10 +3778,10 @@ namespace build2
 
         const file* ht (
           enter_header (a, bs, t, li,
-                        hp, true /* cache */, false /* normalized */,
+                        move (hp), true /* cache */, false /* normalized */,
                         pfx_map, so_map).first);
 
-        if (ht == nullptr)
+        if (ht == nullptr) // hp is still valid.
         {
           diag_record dr;
           dr << error << "header " << hp << " not found and no rule to "
@@ -5738,6 +5882,9 @@ namespace build2
       // cc.config module and that is within our amalgmantion seems like a
       // good place.
       //
+      // @@ TODO: maybe we should cache this in compile_rule ctor like we
+      //          do for the header cache?
+      //
       const scope* as (&rs);
       {
         const scope* ws (as->weak_scope ());
@@ -5753,7 +5900,7 @@ namespace build2
             // This is also the module that registers the scope operation
             // callback that cleans up the subproject.
             //
-            if (cast_false<bool> ((*s)["cc.core.vars.loaded"]))
+            if (cast_false<bool> (s->vars["cc.core.vars.loaded"]))
               as = s;
 
           } while (s != ws);

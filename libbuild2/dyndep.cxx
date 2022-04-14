@@ -389,6 +389,9 @@ namespace build2
     const function<dyndep_rule::prefix_map_func>& get_pfx_map,
     const dyndep_rule::srcout_map& so_map)
   {
+    // NOTE: see enter_header() caching logic if changing anyting here with
+    //       regards to the target and base scope usage.
+
     // Find or maybe insert the target. The directory is only moved from if
     // insert is true. Note that it must be normalized.
     //
@@ -561,6 +564,9 @@ namespace build2
     // Note: we now always use absolute path to the translation unit so this
     // no longer applies. But let's keep it for posterity.
     //
+    // Also note that we now assume (see cc::compile_rule::enter_header()) a
+    // relative path signifies a generated header.
+    //
 #if 0
     if (f.relative () && rels.relative ())
     {
@@ -590,7 +596,7 @@ namespace build2
     const file* pt (nullptr);
     bool remapped (false);
 
-    // If still relative then it does not exist.
+    // If relative then it does not exist.
     //
     if (fp.relative ())
     {

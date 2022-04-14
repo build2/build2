@@ -4,6 +4,8 @@
 #ifndef LIBBUILD2_CC_MODULE_HXX
 #define LIBBUILD2_CC_MODULE_HXX
 
+#include <unordered_map>
+
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
@@ -78,6 +80,15 @@ namespace build2
 
       bool new_config = false; // See guess() and init() for details.
 
+      // Header cache (see compile_rule::enter_header()).
+      //
+      // We place it into the config module so that we have an option of
+      // sharing it for the entire weak amalgamation.
+      //
+    public:
+      mutable shared_mutex                          header_map_mutex;
+      mutable std::unordered_map<path, const file*> header_map;
+
     private:
       // Defined in gcc.cxx.
       //
@@ -105,10 +116,10 @@ namespace build2
     {
     public:
       explicit
-      module (data&& d)
+      module (data&& d, const scope& rs)
           : common (move (d)),
             link_rule (move (d)),
-            compile_rule (move (d)),
+            compile_rule (move (d), rs),
             install_rule (move (d), *this),
             libux_install_rule (move (d), *this) {}
 

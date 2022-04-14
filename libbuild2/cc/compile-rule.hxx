@@ -22,6 +22,8 @@ namespace build2
 
   namespace cc
   {
+    class config_module;
+
     // The order is arranged so that their integral values indicate whether
     // one is a "stronger" than another.
     //
@@ -42,7 +44,7 @@ namespace build2
                                                dyndep_rule
     {
     public:
-      compile_rule (data&&);
+      compile_rule (data&&, const scope&);
 
       virtual bool
       match (action, target&) const override;
@@ -120,7 +122,7 @@ namespace build2
 
       pair<const file*, bool>
       enter_header (action, const scope&, file&, linfo,
-                    path&, bool, bool,
+                    path&&, bool, bool,
                     optional<prefix_map>&, const srcout_map&) const;
 
       optional<bool>
@@ -180,6 +182,7 @@ namespace build2
 
     private:
       const string rule_id;
+      const config_module* header_cache_;
     };
   }
 }
