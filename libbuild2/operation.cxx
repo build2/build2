@@ -252,25 +252,48 @@ namespace build2
 
       // Setup progress reporting if requested.
       //
-      string what; // Note: must outlive monitor_guard.
+      struct monitor_data
+      {
+        size_t incr;
+        string what;
+        atomic<timestamp::rep> time {timestamp_nonexistent_rep};
+      } md; // Note: must outlive monitor_guard.
       scheduler::monitor_guard mg;
 
       if (prog && show_progress (2 /* max_verb */))
       {
-        size_t incr (stderr_term ? 1 : 10); // Scale depending on output type.
-
-        what = " targets to " + diag_do (ctx, a);
+        // Note that showing progress is not free and it can take up to 10% of
+        // the up-to-date check on some projects (e.g., Boost). So we jump
+        // through a few hoops to make sure we don't overindulge.
+        //
+        md.incr = stderr_term ? 10 : 100; // Scale depending on output type.
+        md.what = " targets to " + diag_do (ctx, a);
 
         mg = ctx.sched.monitor (
           ctx.target_count,
-          incr,
-          [incr, &what] (size_t c) -> size_t
+          md.incr,
+          [&md] (size_t c) -> size_t
           {
+            size_t r (c + md.incr);
+
+            if (stderr_term)
+            {
+              timestamp o (duration (md.time.load (memory_order_consume)));
+              timestamp n (system_clock::now ());
+
+              if (n - o < chrono::milliseconds (80))
+                return r;
+
+              md.time.store (n.time_since_epoch ().count (),
+                             memory_order_release);
+            }
+
             diag_progress_lock pl;
             diag_progress  = ' ';
             diag_progress += to_string (c);
-            diag_progress += what;
-            return c + incr;
+            diag_progress += md.what;
+
+            return r;
           });
       }
 
