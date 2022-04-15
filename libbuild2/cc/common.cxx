@@ -103,23 +103,49 @@ namespace build2
                            bool com,                        // cc. or x.
                            bool exp)>& proc_opt,            // *.export.
       bool self /*= false*/,                     // Call proc_lib on l?
-      library_cache* cache,
-      small_vector<const target*, 24>* chain,
-      vector<const target*>* dedup) const
+      library_cache* cache) const
     {
       library_cache cache_storage;
       if (cache == nullptr)
         cache = &cache_storage;
 
-      small_vector<const target*, 24> chain_storage;
-      if (chain == nullptr)
-      {
-        chain = &chain_storage;
+      small_vector<const target*, 32> chain;
 
-        if (proc_lib)
-          chain->push_back (nullptr);
-      }
+      if (proc_lib)
+        chain.push_back (nullptr);
 
+      process_libraries_impl (a, top_bs, top_li, top_sysd,
+                              l, la, lf,
+                              proc_impl, proc_lib, proc_opt, self,
+                              cache, &chain, nullptr);
+    }
+
+    void common::
+    process_libraries_impl (
+      action a,
+      const scope& top_bs,
+      optional<linfo> top_li,
+      const dir_paths& top_sysd,
+      const mtime_target& l,
+      bool la,
+      lflags lf,
+      const function<bool (const target&,
+                           bool la)>& proc_impl,
+      const function<bool (const target* const*,
+                           const small_vector<reference_wrapper<
+                             const string>, 2>&,
+                           lflags,
+                           const string* type,
+                           bool sys)>& proc_lib,
+      const function<bool (const target&,
+                           const string& lang,
+                           bool com,
+                           bool exp)>& proc_opt,
+      bool self,
+      library_cache* cache,
+      small_vector<const target*, 32>* chain,
+      small_vector<const target*, 32>* dedup) const
+    {
       // Add the library to the chain.
       //
       if (self && proc_lib)
@@ -357,10 +383,10 @@ namespace build2
               if (sysd == nullptr) find_sysd ();
               if (!li) find_linfo ();
 
-              process_libraries (a, bs, *li, *sysd,
-                                 *f, la, pt.data,
-                                 proc_impl, proc_lib, proc_opt, true,
-                                 cache, chain);
+              process_libraries_impl (a, bs, *li, *sysd,
+                                      *f, la, pt.data,
+                                      proc_impl, proc_lib, proc_opt, true,
+                                      cache, chain, nullptr);
             }
           }
         }
@@ -460,8 +486,8 @@ namespace build2
                             &find_sysd, &find_linfo, &sense_fragment,
                             &bs, a, &li, impl, this] (
                               const lookup& lu,
-                              vector<const target*>* dedup,
-                              size_t dedup_start)
+                              small_vector<const target*, 32>* dedup,
+                              size_t dedup_start) // Start of our deps.
           {
             const vector<name>* ns (cast_null<vector<name>> (lu));
             if (ns == nullptr || ns->empty ())
@@ -571,14 +597,24 @@ namespace build2
                 //    them in the library's prerequisites? What about
                 //    installed stuff?
                 //
-                process_libraries (a, bs, *li, *sysd,
-                                   t, t.is_a<liba> () || t.is_a<libux> (), 0,
-                                   proc_impl, proc_lib, proc_opt, true,
-                                   cache, chain, dedup);
+                process_libraries_impl (
+                  a, bs, *li, *sysd,
+                  t, t.is_a<liba> () || t.is_a<libux> (), 0,
+                  proc_impl, proc_lib, proc_opt, true,
+                  cache, chain, dedup);
               }
 
               ++i;
             }
+          };
+
+          auto proc_intf_storage = [&proc_intf] (const lookup& lu1,
+                                                 const lookup& lu2 = lookup ())
+          {
+            small_vector<const target*, 32> dedup_storage;
+
+            if (lu1) proc_intf (lu1, &dedup_storage, 0);
+            if (lu2) proc_intf (lu2, &dedup_storage, 0);
           };
 
           // Process libraries from *.libs (of type strings).
@@ -624,17 +660,10 @@ namespace build2
             {
               if (c_e_libs)
               {
-                size_t start;
-                vector<const target*> storage;
-                if (dedup == nullptr)
-                {
-                  start = 0;
-                  dedup = &storage;
-                }
+                if (dedup != nullptr)
+                  proc_intf (c_e_libs, dedup, dedup->size ());
                 else
-                  start = dedup->size (); // Start of our interface deps.
-
-                proc_intf (c_e_libs, dedup, start);
+                  proc_intf_storage (c_e_libs);
               }
             }
           }
@@ -681,18 +710,15 @@ namespace build2
               //
               if (c_e_libs.defined () || x_e_libs.defined ())
               {
-                size_t start;
-                vector<const target*> storage;
-                if (dedup == nullptr)
+                if (dedup != nullptr)
                 {
-                  start = 0;
-                  dedup = &storage;
+                  size_t s (dedup->size ()); // Start of our interface deps.
+
+                  if (c_e_libs) proc_intf (c_e_libs, dedup, s);
+                  if (x_e_libs) proc_intf (x_e_libs, dedup, s);
                 }
                 else
-                  start = dedup->size (); // Start of our interface deps.
-
-                if (c_e_libs) proc_intf (c_e_libs, dedup, start);
-                if (x_e_libs) proc_intf (x_e_libs, dedup, start);
+                  proc_intf_storage (c_e_libs, x_e_libs);
               }
             }
           }
@@ -1221,7 +1247,7 @@ namespace build2
         if (a != nullptr) {lt->a = a; mt = a->mtime ();}
 
         // Mark the group since sometimes we use it itself instead of one of
-        // the liba/libs{} members (see process_libraries() for details).
+        // the liba/libs{} members (see process_libraries_impl() for details).
         //
         mark_cc (*lt);
       }

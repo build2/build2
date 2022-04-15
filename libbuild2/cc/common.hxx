@@ -319,9 +319,26 @@ namespace build2
                              lflags, const string*, bool)>&,
         const function<bool (const target&, const string&, bool, bool)>&,
         bool = false,
-        library_cache* = nullptr,
-        small_vector<const target*, 24>* = nullptr,
-        vector<const target*>* = nullptr) const;
+        library_cache* = nullptr) const;
+
+      void
+      process_libraries_impl (
+        action,
+        const scope&,
+        optional<linfo>,
+        const dir_paths&,
+        const mtime_target&,
+        bool,
+        lflags,
+        const function<bool (const target&, bool)>&,
+        const function<bool (const target* const*,
+                             const small_vector<reference_wrapper<const string>, 2>&,
+                             lflags, const string*, bool)>&,
+        const function<bool (const target&, const string&, bool, bool)>&,
+        bool,
+        library_cache*,
+        small_vector<const target*, 32>*,
+        small_vector<const target*, 32>*) const;
 
       const target*
       search_library (action a,
