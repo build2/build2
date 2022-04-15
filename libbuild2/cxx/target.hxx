@@ -22,41 +22,53 @@ namespace build2
     class LIBBUILD2_CXX_SYMEXPORT hxx: public cc::cc
     {
     public:
-      using cc::cc;
+      hxx (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_CXX_SYMEXPORT ixx: public cc::cc
     {
     public:
-      using cc::cc;
+      ixx (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_CXX_SYMEXPORT txx: public cc::cc
     {
     public:
-      using cc::cc;
+      txx (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_CXX_SYMEXPORT cxx: public cc::cc
     {
     public:
-      using cc::cc;
+      cxx (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     // The module interface unit is both like a header (e.g., we need to
@@ -67,11 +79,14 @@ namespace build2
     class LIBBUILD2_CXX_SYMEXPORT mxx: public cc::cc
     {
     public:
-      using cc::cc;
+      mxx (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
   }
 }

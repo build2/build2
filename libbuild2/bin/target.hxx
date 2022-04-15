@@ -22,7 +22,11 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT objx: public file
     {
     public:
-      using file::file;
+      objx (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
@@ -31,41 +35,53 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT obje: public objx
     {
     public:
-      using objx::objx;
+      obje (context& c, dir_path d, dir_path o, string n)
+        : objx (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT obja: public objx
     {
     public:
-      using objx::objx;
+      obja (context& c, dir_path d, dir_path o, string n)
+        : objx (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT objs: public objx
     {
     public:
-      using objx::objx;
+      objs (context& c, dir_path d, dir_path o, string n)
+        : objx (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT obj: public target
     {
     public:
-      using target::target;
+      obj (context& c, dir_path d, dir_path o, string n)
+        : target (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     // Binary module interface (BMI).
@@ -100,7 +116,11 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT bmix: public file
     {
     public:
-      using file::file;
+      bmix (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
@@ -111,7 +131,11 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT hbmix: public bmix
     {
     public:
-      using bmix::bmix;
+      hbmix (context& c, dir_path d, dir_path o, string n)
+        : bmix (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
@@ -120,83 +144,106 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT bmie: public bmix
     {
     public:
-      using bmix::bmix;
+      bmie (context& c, dir_path d, dir_path o, string n)
+        : bmix (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT hbmie: public hbmix
     {
     public:
-      using hbmix::hbmix;
+      hbmie (context& c, dir_path d, dir_path o, string n)
+        : hbmix (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT bmia: public bmix
     {
     public:
-      using bmix::bmix;
+      bmia (context& c, dir_path d, dir_path o, string n)
+        : bmix (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT hbmia: public hbmix
     {
     public:
-      using hbmix::hbmix;
+      hbmia (context& c, dir_path d, dir_path o, string n)
+        : hbmix (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT bmis: public bmix
     {
     public:
-      using bmix::bmix;
+      bmis (context& c, dir_path d, dir_path o, string n)
+        : bmix (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT hbmis: public hbmix
     {
     public:
-      using hbmix::hbmix;
+      hbmis (context& c, dir_path d, dir_path o, string n)
+        : hbmix (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT bmi: public target
     {
     public:
-      using target::target;
+      bmi (context& c, dir_path d, dir_path o, string n)
+        : target (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT hbmi: public target
     {
     public:
-      using target::target;
+      hbmi (context& c, dir_path d, dir_path o, string n)
+        : target (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
-
 
     // Common base for lib{} and libul{} groups.
     //
@@ -207,7 +254,11 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT libx: public mtime_target
     {
     public:
-      using mtime_target::mtime_target;
+      libx (context& c, dir_path d, dir_path o, string n)
+        : mtime_target (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
@@ -240,7 +291,11 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT libux: public file
     {
     public:
-      using file::file;
+      libux (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
@@ -249,41 +304,53 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT libue: public libux
     {
     public:
-      using libux::libux;
+      libue (context& c, dir_path d, dir_path o, string n)
+        : libux (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT libua: public libux
     {
     public:
-      using libux::libux;
+      libua (context& c, dir_path d, dir_path o, string n)
+        : libux (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT libus: public libux
     {
     public:
-      using libux::libux;
+      libus (context& c, dir_path d, dir_path o, string n)
+        : libux (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT libul: public libx
     {
     public:
-      using libx::libx;
+      libul (context& c, dir_path d, dir_path o, string n)
+        : libx (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     // The lib{} target group.
@@ -291,23 +358,27 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT liba: public file
     {
     public:
-      using file::file;
+      liba (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_BIN_SYMEXPORT libs: public file
     {
     public:
-      using file::file;
+      libs (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-
-      virtual const target_type&
-      dynamic_type () const override {return static_type;}
     };
 
     // Standard layout type compatible with group_view's const target*[2].
@@ -321,16 +392,17 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT lib: public libx, public lib_members
     {
     public:
-      using libx::libx;
+      lib (context& c, dir_path d, dir_path o, string n)
+        : libx (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
       virtual group_view
       group_members (action) const override;
 
     public:
       static const target_type static_type;
-
-      virtual const target_type&
-      dynamic_type () const override {return static_type;}
     };
 
     // Windows import library.
@@ -338,11 +410,14 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT libi: public file
     {
     public:
-      using file::file;
+      libi (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     // Windows module definition (.def).
@@ -350,11 +425,14 @@ namespace build2
     class LIBBUILD2_BIN_SYMEXPORT def: public file
     {
     public:
-      using file::file;
+      def (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
   }
 }

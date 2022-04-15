@@ -22,7 +22,7 @@ namespace build2
     bool obj_rule::
     match (action a, target& t) const
     {
-      const char* n (t.dynamic_type ().name); // Ignore derived type.
+      const char* n (t.dynamic_type->name); // Ignore derived type.
 
       fail << diag_doing (a, t) << " target group" <<
         info << "explicitly select " << n << "e{}, " << n << "a{}, or "

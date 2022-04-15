@@ -35,11 +35,14 @@ namespace build2
     class LIBBUILD2_IN_SYMEXPORT in: public file
     {
     public:
-      using file::file;
+      in (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
   }
 }

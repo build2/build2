@@ -23,11 +23,14 @@ namespace build2
     class LIBBUILD2_CC_SYMEXPORT cc: public file
     {
     public:
-      using file::file;
+      cc (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const = 0;
     };
 
     // There is hardly a c-family compilation without a C header inclusion.
@@ -36,11 +39,14 @@ namespace build2
     class LIBBUILD2_CC_SYMEXPORT h: public cc
     {
     public:
-      using cc::cc;
+      h (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     // This one we define in cc but the target type is only registered by the
@@ -52,11 +58,14 @@ namespace build2
     class LIBBUILD2_CC_SYMEXPORT c: public cc
     {
     public:
-      using cc::cc;
+      c (context& ctx, dir_path d, dir_path o, string n)
+        : cc (ctx, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     // pkg-config file targets.
@@ -64,31 +73,40 @@ namespace build2
     class LIBBUILD2_CC_SYMEXPORT pc: public file // .pc (common)
     {
     public:
-      using file::file;
+      pc (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_CC_SYMEXPORT pca: public pc // .static.pc
     {
     public:
-      using pc::pc;
+      pca (context& c, dir_path d, dir_path o, string n)
+        : pc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_CC_SYMEXPORT pcs: public pc // .shared.pc
     {
     public:
-      using pc::pc;
+      pcs (context& c, dir_path d, dir_path o, string n)
+        : pc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
   }
 }

@@ -99,7 +99,7 @@ namespace build2
   {
     using flag = target_type::flag;
 
-    const target_type* tt (nullptr); // Resolve lazily.
+    const target_type& tt (type ());
 
     // First check the target itself.
     //
@@ -108,10 +108,9 @@ namespace build2
       // If this is a group that "gave" its untyped hints to the members, then
       // ignore untyped entries.
       //
-      tt = &type ();
-      bool ut ((tt->flags & flag::member_hint) != flag::member_hint);
+      bool ut ((tt.flags & flag::member_hint) != flag::member_hint);
 
-      const string& r (rule_hints.find (*tt, o, ut));
+      const string& r (rule_hints.find (tt, o, ut));
       if (!r.empty ())
         return r;
     }
@@ -125,13 +124,9 @@ namespace build2
         // If the group "gave" its untyped hints to the members, then don't
         // ignore untyped entries.
         //
-        const target_type& gt (g->type ());
-        bool ut ((gt.flags & flag::member_hint) == flag::member_hint);
+        bool ut ((g->type ().flags & flag::member_hint) == flag::member_hint);
 
-        if (tt == nullptr)
-          tt = &type ();
-
-        return g->rule_hints.find (*tt, o, ut);
+        return g->rule_hints.find (tt, o, ut);
       }
     }
 

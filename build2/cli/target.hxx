@@ -18,11 +18,14 @@ namespace build2
     class cli: public file
     {
     public:
-      using file::file;
+      cli (context& c, dir_path d, dir_path o, string n)
+          : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     // Standard layout type compatible with group_view's const target*[3].
@@ -37,16 +40,17 @@ namespace build2
     class cli_cxx: public mtime_target, public cli_cxx_members
     {
     public:
-      using mtime_target::mtime_target;
+      cli_cxx (context& c, dir_path d, dir_path o, string n)
+          : mtime_target (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
       virtual group_view
       group_members (action) const override;
 
     public:
       static const target_type static_type;
-
-      virtual const target_type&
-      dynamic_type () const override {return static_type;}
     };
   }
 }

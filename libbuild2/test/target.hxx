@@ -18,11 +18,14 @@ namespace build2
     class LIBBUILD2_SYMEXPORT testscript: public file
     {
     public:
-      using file::file;
+      testscript (context& c, dir_path d, dir_path o, string n)
+        : file (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
   }
 }

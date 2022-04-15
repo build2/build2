@@ -870,7 +870,7 @@ namespace build2
 #else
       // We can skip dynamically-derived type here (derived_type).
       //
-      return dynamic_type ().is_a<T> () ? static_cast<T*> (this) : nullptr;
+      return dynamic_type->is_a<T> () ? static_cast<T*> (this) : nullptr;
 #endif
     }
 
@@ -881,7 +881,7 @@ namespace build2
 #if 0
       return dynamic_cast<const T*> (this);
 #else
-      return dynamic_type ().is_a<T> () ? static_cast<const T*> (this) : nullptr;
+      return dynamic_type->is_a<T> () ? static_cast<const T*> (this) : nullptr;
 #endif
     }
 
@@ -901,18 +901,23 @@ namespace build2
     const T&
     as () const {return static_cast<const T&> (*this);}
 
-    // Dynamic derivation to support define.
+    // Target type information.
     //
-    const target_type* derived_type = nullptr;
-
+    // A derived target is expected to set dynamic_type to its static_type in
+    // its constructor body.
+    //
+    // We also have dynamic "derivation" support (e.g., via define in
+    // buildfile).
+    //
     const target_type&
     type () const
     {
-      return derived_type != nullptr ? *derived_type : dynamic_type ();
+      return derived_type != nullptr ? *derived_type : *dynamic_type;
     }
 
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const = 0;
+    const target_type* dynamic_type;
+    const target_type* derived_type = nullptr;
 
     // RW access.
     //
@@ -941,13 +946,19 @@ namespace build2
 
     // Targets should be created via the targets set below.
     //
-  public:
+  protected:
+    friend class target_set;
+
     target (context& c, dir_path d, dir_path o, string n)
         : ctx (c),
           dir (move (d)), out (move (o)), name (move (n)),
           vars (c, false /* global */),
-          state (c) {}
+          state (c)
+    {
+      dynamic_type = &static_type;
+    }
 
+  public:
     target (target&&) = delete;
     target& operator= (target&&) = delete;
 
@@ -956,8 +967,6 @@ namespace build2
 
     virtual
     ~target ();
-
-    friend class target_set;
   };
 
   // All targets are from the targets set below.
@@ -1635,7 +1644,11 @@ namespace build2
   class LIBBUILD2_SYMEXPORT mtime_target: public target
   {
   public:
-    using target::target;
+    mtime_target (context& c, dir_path d, dir_path o, string n)
+      : target (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
     // Modification time is an "atomic cash". That is, it can be set at any
     // time (including on a const instance) and we assume everything will be
@@ -1722,7 +1735,11 @@ namespace build2
   class LIBBUILD2_SYMEXPORT path_target: public mtime_target
   {
   public:
-    using mtime_target::mtime_target;
+    path_target (context& c, dir_path d, dir_path o, string n)
+      : mtime_target (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
     using path_type = build2::path;
 
@@ -1871,11 +1888,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT file: public path_target
   {
   public:
-    using path_target::path_target;
+    file (context& c, dir_path d, dir_path o, string n)
+      : path_target (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Alias target. It represents a list of targets (its prerequisites)
@@ -1884,11 +1904,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT alias: public target
   {
   public:
-    using target::target;
+    alias (context& c, dir_path d, dir_path o, string n)
+      : target (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Directory target. Note that this is not a filesystem directory
@@ -1898,11 +1921,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT dir: public alias
   {
   public:
-    using alias::alias;
+    dir (context& c, dir_path d, dir_path o, string n)
+      : alias (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
 
   public:
     template <typename K>
@@ -1931,11 +1957,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT fsdir: public target
   {
   public:
-    using target::target;
+    fsdir (context& c, dir_path d, dir_path o, string n)
+      : target (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Executable file (not necessarily binary, though we do fallback to the
@@ -1945,7 +1974,11 @@ namespace build2
   class LIBBUILD2_SYMEXPORT exe: public file
   {
   public:
-    using file::file;
+    exe (context& c, dir_path d, dir_path o, string n)
+      : file (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
     using process_path_type = build2::process_path;
 
@@ -1973,7 +2006,6 @@ namespace build2
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
 
   private:
     process_path_type process_path_;
@@ -1982,11 +2014,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT buildfile: public file
   {
   public:
-    using file::file;
+    buildfile (context& c, dir_path d, dir_path o, string n)
+      : file (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Common documentation file target.
@@ -1994,11 +2029,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT doc: public file
   {
   public:
-    using file::file;
+    doc (context& c, dir_path d, dir_path o, string n)
+      : file (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Legal files (LICENSE, AUTHORS, COPYRIGHT, etc).
@@ -2006,11 +2044,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT legal: public doc
   {
   public:
-    using doc::doc;
+    legal (context& c, dir_path d, dir_path o, string n)
+      : doc (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // The problem with man pages is this: different platforms have
@@ -2050,21 +2091,27 @@ namespace build2
   class LIBBUILD2_SYMEXPORT man: public doc
   {
   public:
-    using doc::doc;
+    man (context& c, dir_path d, dir_path o, string n)
+      : doc (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   class LIBBUILD2_SYMEXPORT man1: public man
   {
   public:
-    using man::man;
+    man1 (context& c, dir_path d, dir_path o, string n)
+      : man (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // We derive manifest from doc rather than file so that it get automatically
@@ -2075,11 +2122,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT manifest: public doc
   {
   public:
-    using doc::doc;
+    manifest (context& c, dir_path d, dir_path o, string n)
+      : doc (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
 
   public:
     static const target_type static_type;
-    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Common implementation of the target factory, extension, and search
