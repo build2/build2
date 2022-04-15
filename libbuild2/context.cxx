@@ -1072,11 +1072,17 @@ namespace build2
       //    number of files (targets) and a large number of load phase
       //    switches (due to directory buildfiles).
       //
+      // Thinking some more on this, we shouldn't need to do this since such
+      // loads can (or at least should) only perform "island appends" see
+      // comment on context::phase for details.
+      //
+#if 0
       if (*r)
       {
         for (const unique_ptr<target>& t: ctx.targets)
           t->base_scope_.store (nullptr, memory_order_relaxed);
       }
+#endif
     }
 
     //text << this_thread::get_id () << " phase switch  "

@@ -761,7 +761,7 @@ namespace build2
     // single invocation. How can we pick the scope that is "ours", for some
     // definition of "ours"?
     //
-    // The current think is that a project can be "associated" with other
+    // The current thinking is that a project can be "associated" with other
     // projects: its sub-projects and imported projects (it doesn't feel like
     // its super-projects should be in this set, but maybe). And "ours" could
     // mean belonging to one of the associated projects. This feels correct

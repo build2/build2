@@ -248,7 +248,12 @@ namespace build2
     // "islands" are identified by the load_generation number (0 for the
     // initial/serial load). It is incremented in case of a phase switch and
     // can be stored in various "nodes" to verify modifications are only done
-    // "within the islands".
+    // "within the islands". Another example of invalidation would be
+    // insertion of a new scope "under" an existing target thus changing its
+    // scope hierarchy (and potentially even its base scope). This would be
+    // bad because we may have made decisions based on the original hierarchy,
+    // for example, we may have queried a variable which in the new hierarchy
+    // would "see" a new value from the newly inserted scope.
     //
     run_phase phase = run_phase::load;
     size_t load_generation = 0;
