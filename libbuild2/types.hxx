@@ -59,6 +59,7 @@
 #include <libbutl/target-triplet.hxx>
 #include <libbutl/semantic-version.hxx>
 #include <libbutl/standard-version.hxx>
+#include <libbutl/move-only-function.hxx>
 
 #include <libbuild2/export.hxx>
 
@@ -82,8 +83,11 @@ namespace build2
   using std::pair;
   using std::tuple;
   using std::string;
-  using std::function;
   using std::reference_wrapper;
+
+  using std::function;
+  using butl::move_only_function;
+  using butl::move_only_function_ex;
 
   using strings = std::vector<string>;
   using cstrings = std::vector<const char*>;

@@ -7,8 +7,8 @@
 
 namespace build2
 {
-  const recipe empty_recipe;
-  const recipe noop_recipe (&noop_action);
-  const recipe default_recipe (&default_action);
-  const recipe group_recipe (&group_action);
+  recipe_function* const empty_recipe   = nullptr;
+  recipe_function* const noop_recipe    = &noop_action;
+  recipe_function* const default_recipe = &default_action;
+  recipe_function* const group_recipe   = &group_action;
 }

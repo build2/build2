@@ -770,23 +770,10 @@ namespace build2
       mdb->bs = &bs;
       mdb->mt = update ? timestamp_nonexistent : mt;
 
-      // @@ TMP: re-enable once recipe becomes move_only_function.
-      //
-#if 0
-      return [this, md = move (mdb)] (action a, const target& t) mutable
+      return [this, md = move (mdb)] (action a, const target& t)
       {
-        auto r (perform_update_file_dyndep_byproduct (a, t, *md));
-        md.reset (); // @@ TMP: is this really necessary (+mutable)?
-        return r;
-      };
-#else
-      t.data (move (mdb));
-      return recipe ([this] (action a, const target& t) mutable
-      {
-        auto md (move (t.data<unique_ptr<match_data_byproduct>> ()));
         return perform_update_file_dyndep_byproduct (a, t, *md);
-      });
-#endif
+      };
     }
     else
     {
@@ -819,23 +806,10 @@ namespace build2
       md->mt = update ? timestamp_nonexistent : mt;
       md->deferred_failure = deferred_failure;
 
-      // @@ TMP: re-enable once recipe becomes move_only_function.
-      //
-#if 0
-      return [this, md = move (md)] (action a, const target& t) mutable
+      return [this, md = move (md)] (action a, const target& t)
       {
-        auto r (perform_update_file_dyndep (a, t, *md));
-        md.reset (); // @@ TMP: is this really necessary (+mutable)?
-        return r;
-      };
-#else
-      t.data (move (md));
-      return recipe ([this] (action a, const target& t) mutable
-      {
-        auto md (move (t.data<unique_ptr<match_data>> ()));
         return perform_update_file_dyndep (a, t, *md);
-      });
-#endif
+      };
     }
   }
 

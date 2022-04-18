@@ -27,13 +27,14 @@ namespace build2
   // and while the prerequisite will be re-examined via another dependency,
   // this target is done).
   //
-  // Note that max size for the "small capture optimization" in std::function
-  // ranges (in pointer sizes) from 0 (GCC prior to 5) to 2 (GCC 5) to 6 (VC
-  // 14.2). With the size ranging (in bytes for 64-bit target) from 32 (GCC)
-  // to 64 (VC).
+  // Note that max size for the "small size optimization" in std::function
+  // (which is what move_only_function_ex is based on) ranges (in pointer
+  // sizes) from 0 (GCC libstdc++ prior to 5) to 2 (GCC 5 and later) to 3
+  // (Clang libc++) to 6 (VC 14.2). With the size ranging (in bytes for 64-bit
+  // target) from 32 (GCC) to 64 (VC).
   //
   using recipe_function = target_state (action, const target&);
-  using recipe = function<recipe_function>;
+  using recipe = move_only_function_ex<recipe_function>;
 
   // Commonly-used recipes.
   //
@@ -44,10 +45,10 @@ namespace build2
   // <libbuild2/algorithm.hxx> for details). The group recipe calls the
   // group's recipe.
   //
-  LIBBUILD2_SYMEXPORT extern const recipe empty_recipe;
-  LIBBUILD2_SYMEXPORT extern const recipe noop_recipe;
-  LIBBUILD2_SYMEXPORT extern const recipe default_recipe;
-  LIBBUILD2_SYMEXPORT extern const recipe group_recipe;
+  LIBBUILD2_SYMEXPORT extern recipe_function* const empty_recipe;
+  LIBBUILD2_SYMEXPORT extern recipe_function* const noop_recipe;
+  LIBBUILD2_SYMEXPORT extern recipe_function* const default_recipe;
+  LIBBUILD2_SYMEXPORT extern recipe_function* const group_recipe;
 }
 
 #endif // LIBBUILD2_RECIPE_HXX

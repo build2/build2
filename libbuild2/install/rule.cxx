@@ -342,7 +342,7 @@ namespace build2
     apply (action a, target& t) const
     {
       recipe r (apply_impl (a, t));
-      return r != nullptr ? r : noop_recipe;
+      return r != nullptr ? move (r) : noop_recipe;
     }
 
     recipe file_rule::
