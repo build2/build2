@@ -506,6 +506,7 @@ namespace build2
     target::opstate& s (t[l.action]);
 
     s.recipe = move (r);
+    s.recipe_group_action = false;
 
     // If this is a noop recipe, then mark the target unchanged to allow for
     // some optimizations.
@@ -531,9 +532,11 @@ namespace build2
       // likely. The alternative (trying to "merge" the count keeping track of
       // whether inner and/or outer is noop) gets hairy rather quickly.
       //
-      if (l.action.inner ())
+      if (f != nullptr && *f == &group_action)
+        s.recipe_group_action = true;
+      else
       {
-        if (f == nullptr || *f != &group_action)
+        if (l.action.inner ())
           t.ctx.target_count.fetch_add (1, memory_order_relaxed);
       }
     }

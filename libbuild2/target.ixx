@@ -268,16 +268,19 @@ namespace build2
     // raw state is not group provided the recipe is group_recipe and the
     // state is unknown (see mtime() for a discussion on why we do it).
     //
+    // Note that additionally s.state may not be target_state::group even
+    // after execution due to deferment (see execute_impl() for details).
+    //
+    // @@ Hm, I wonder why not just return s.recipe_group_action now that we
+    //    cache it.
+    //
     const opstate& s (state[a]);
 
     if (s.state == target_state::group)
       return true;
 
     if (s.state == target_state::unknown && group != nullptr)
-    {
-      if (recipe_function* const* f = s.recipe.target<recipe_function*> ())
-        return *f == &group_action;
-    }
+      return s.recipe_group_action;
 
     return false;
   }

@@ -1914,14 +1914,20 @@ namespace build2
       ts = s.state = target_state::failed;
     }
 
+    // Clear the recipe to release any associated memory. Note that
+    // s.recipe_group_action may be used further (see, for example,
+    // group_state()) and should retain its value.
+    //
+    //
+    s.recipe = nullptr;
+
     // Decrement the target count (see set_recipe() for details).
     //
-    if (a.inner ())
-    {
-      recipe_function** f (s.recipe.target<recipe_function*> ());
-      if (f == nullptr || *f != &group_action)
-        ctx.target_count.fetch_sub (1, memory_order_relaxed);
-    }
+    // Note that here we cannot rely on s.state being group because of the
+    // postponment logic (see excute_recipe() for details).
+    //
+    if (a.inner () && !s.recipe_group_action)
+      ctx.target_count.fetch_sub (1, memory_order_relaxed);
 
     // Decrement the task count (to count_executed) and wake up any threads
     // that might be waiting for this target.

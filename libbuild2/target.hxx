@@ -626,6 +626,7 @@ namespace build2
       // Applied recipe.
       //
       build2::recipe recipe;
+      bool           recipe_group_action; // Recipe is group_action.
 
       // Target state for this operation. Note that it is undetermined until
       // a rule is matched and recipe applied (see set_recipe()).
