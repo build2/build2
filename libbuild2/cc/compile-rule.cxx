@@ -2906,7 +2906,10 @@ namespace build2
 
       // First check the cache.
       //
-      if (fp.absolute ())
+      config_module::header_key hk;
+
+      bool e (fp.absolute ());
+      if (e)
       {
         if (!norm)
         {
@@ -2914,13 +2917,18 @@ namespace build2
           norm = true;
         }
 
+        hk.file = move (fp);
+        hk.hash = hash<path> () (hk.file);
+
         slock l (hc.header_map_mutex);
-        auto i (hc.header_map.find (fp));
+        auto i (hc.header_map.find (hk));
         if (i != hc.header_map.end ())
         {
           //cache_hit.fetch_add (1, memory_order_relaxed);
           return make_pair (i->second, false);
         }
+
+        fp = move (hk.file);
 
         //cache_mis.fetch_add (1, memory_order_relaxed);
       }
@@ -2957,10 +2965,18 @@ namespace build2
       //
       if (r.first != nullptr)
       {
+        hk.file = move (fp);
+
+        // Calculate the hash if we haven't yet and re-calculate it if the
+        // path has changed (header has been remapped).
+        //
+        if (!e || r.second)
+          hk.hash = hash<path> () (hk.file);
+
         const file* f;
         {
           ulock l (hc.header_map_mutex);
-          auto p (hc.header_map.emplace (move (fp), r.first));
+          auto p (hc.header_map.emplace (move (hk), r.first));
           f = p.second ? nullptr : p.first->second;
         }
 

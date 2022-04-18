@@ -86,8 +86,30 @@ namespace build2
       // sharing it for the entire weak amalgamation.
       //
     public:
+      // Keep the hash in the key. This way we can compute it outside of the
+      // lock.
+      //
+      struct header_key
+      {
+        path   file;
+        size_t hash;
+
+        friend bool
+        operator== (const header_key& x, const header_key& y)
+        {
+          return x.file == y.file; // Note: hash was already compared.
+        }
+      };
+
+      struct header_key_hasher
+      {
+        size_t operator() (const header_key& k) const {return k.hash;}
+      };
+
       mutable shared_mutex                          header_map_mutex;
-      mutable std::unordered_map<path, const file*> header_map;
+      mutable std::unordered_map<header_key,
+                                 const file*,
+                                 header_key_hasher> header_map;
 
     private:
       // Defined in gcc.cxx.
