@@ -1522,7 +1522,7 @@ namespace build2
           const dir_path& out,
           const string& name) const
     {
-      slock l (mutex_);
+      slock l (mutex_, defer_lock); if (ctx.phase != run_phase::load) l.lock ();
       auto i (map_.find (target_key {&type, &dir, &out, &name, nullopt}));
       return i != map_.end () ? i->second.get () : nullptr;
     }
@@ -1536,7 +1536,12 @@ namespace build2
 
     // If the target was inserted, keep the map exclusive-locked and return
     // the lock. In this case, the target is effectively still being created
-    // since nobody can see it until the lock is released.
+    // since nobody can see it until the lock is released. Note that there
+    // is normally quite a bit of contention around this map so make sure to
+    // not hold the lock longer than absolutely necessary.
+    //
+    // If need_lock is false, then release the lock (the target insertion is
+    // indicated by the presence of the associated mutex).
     //
     pair<target&, ulock>
     insert_locked (const target_type&,
@@ -1545,8 +1550,12 @@ namespace build2
                    string name,
                    optional<string> ext,
                    target_decl,
-                   tracer&);
+                   tracer&,
+                   bool need_lock = true);
 
+    // As above but instead of the lock return an indication of whether the
+    // target was inserted.
+    //
     pair<target&, bool>
     insert (const target_type& tt,
             dir_path dir,
@@ -1562,9 +1571,10 @@ namespace build2
                              move (name),
                              move (ext),
                              decl,
-                             t));
+                             t,
+                             false));
 
-      return pair<target&, bool> (p.first, p.second.owns_lock ()); // Clang 3.7
+      return pair<target&, bool> (p.first, p.second.mutex () != nullptr);
     }
 
     // Note that the following versions always enter implied targets.

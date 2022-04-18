@@ -332,22 +332,28 @@ namespace build2
     if (*mp != nullptr) // Might already be there.
       return **mp;
 
-    pair<target&, ulock> r (
-      t.ctx.targets.insert_locked (tt,
-                                   move (dir),
-                                   move (out),
-                                   move (n),
-                                   nullopt /* ext     */,
-                                   target_decl::implied,
-                                   trace));
+    target* m (nullptr);
+    {
+      pair<target&, ulock> r (
+        t.ctx.targets.insert_locked (tt,
+                                     move (dir),
+                                     move (out),
+                                     move (n),
+                                     nullopt /* ext     */,
+                                     target_decl::implied,
+                                     trace));
 
-    assert (r.second);
+      if (r.second) // Inserted.
+      {
+        m = &r.first;
+        m->group = &t;
+      }
+    }
 
-    target& m (r.first);
-    *mp = &m;
-    m.group = &t;
+    assert (m != nullptr);
+    *mp = m;
 
-    return m;
+    return *m;
   };
 
   // Return the matching rule or NULL if no match and try_match is true.

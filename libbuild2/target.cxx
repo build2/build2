@@ -631,7 +631,9 @@ namespace build2
   const target* target_set::
   find (const target_key& k, tracer& trace) const
   {
-    slock sl (mutex_);
+    bool load (ctx.phase == run_phase::load);
+
+    slock sl (mutex_, defer_lock); if (!load) sl.lock ();
     map_type::const_iterator i (map_.find (k));
 
     if (i == map_.end ())
@@ -650,14 +652,18 @@ namespace build2
         // Between us releasing the shared lock and acquiring unique the
         // extension could change and possibly a new target that matches the
         // key could be inserted. In this case we simply re-run find ().
+        // Naturally, can't happen during load.
         //
-        sl.unlock ();
-        ul = ulock (mutex_);
-
-        if (ext) // Someone set the extension.
+        if (!load)
         {
-          ul.unlock ();
-          return find (k, trace);
+          sl.unlock ();
+          ul = ulock (mutex_);
+
+          if (ext) // Someone set the extension.
+          {
+            ul.unlock ();
+            return find (k, trace);
+          }
         }
       }
 
@@ -691,7 +697,8 @@ namespace build2
                  string name,
                  optional<string> ext,
                  target_decl decl,
-                 tracer& trace)
+                 tracer& trace,
+                 bool need_lock)
   {
     target_key tk {&tt, &dir, &out, &name, move (ext)};
     target* t (const_cast<target*> (find (tk, trace)));
@@ -715,7 +722,9 @@ namespace build2
       // case we proceed pretty much like find() except already under the
       // exclusive lock.
       //
-      ulock ul (mutex_);
+      ulock ul (mutex_, defer_lock);
+      if (ctx.phase != run_phase::load || need_lock)
+        ul.lock ();
 
       auto p (map_.emplace (target_key {&tt, &t->dir, &t->out, &t->name, e},
                             unique_ptr<target> (t)));
@@ -728,6 +737,10 @@ namespace build2
         t->decl = decl;
         t->state.inner.target_ = t;
         t->state.outer.target_ = t;
+
+        if (ctx.phase != run_phase::load && !need_lock)
+          ul.unlock ();
+
         return pair<target&, ulock> (*t, move (ul));
       }
 

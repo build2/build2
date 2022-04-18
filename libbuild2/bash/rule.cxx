@@ -161,6 +161,9 @@ namespace build2
 
                 if (mt != timestamp_nonexistent)
                 {
+                  // @@ Do we actually need _locked(), isn't path_mtime()
+                  //    atomic?
+                  //
                   auto rp (t.ctx.targets.insert_locked (bash::static_type,
                                                         ap.directory (),
                                                         dir_path () /* out */,

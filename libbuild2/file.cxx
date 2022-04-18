@@ -2880,6 +2880,9 @@ namespace build2
 
       if (!t || *t == nullptr)
       {
+        // Note: we need the lock because process_path() call below is not
+        // MT-safe.
+        //
         pair<target&, ulock> r (insert_target (trace, ctx, tt, p));
         t = &r.first;
 
