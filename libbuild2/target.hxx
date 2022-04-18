@@ -1541,6 +1541,11 @@ namespace build2
     // is normally quite a bit of contention around this map so make sure to
     // not hold the lock longer than absolutely necessary.
     //
+    // If skip_find is true, then don't first try to find an existing target
+    // with a shared lock, instead going directly for the unique lock and
+    // insert. It's a good idea to pass true as this argument if you know the
+    // target is unlikely to be there.
+    //
     // If need_lock is false, then release the lock (the target insertion is
     // indicated by the presence of the associated mutex).
     //
@@ -1552,6 +1557,7 @@ namespace build2
                    optional<string> ext,
                    target_decl,
                    tracer&,
+                   bool skip_find = false,
                    bool need_lock = true);
 
     // As above but instead of the lock return an indication of whether the
@@ -1564,7 +1570,8 @@ namespace build2
             string name,
             optional<string> ext,
             target_decl decl,
-            tracer& t)
+            tracer& t,
+            bool skip_find = false)
     {
       auto p (insert_locked (tt,
                              move (dir),
@@ -1573,6 +1580,7 @@ namespace build2
                              move (ext),
                              decl,
                              t,
+                             skip_find,
                              false));
 
       return pair<target&, bool> (p.first, p.second.mutex () != nullptr);
@@ -1587,7 +1595,8 @@ namespace build2
             dir_path out,
             string name,
             optional<string> ext,
-            tracer& t)
+            tracer& t,
+            bool skip_find = false)
     {
       return insert (tt,
                      move (dir),
@@ -1595,7 +1604,8 @@ namespace build2
                      move (name),
                      move (ext),
                      target_decl::implied,
-                     t).first.template as<T> ();
+                     t,
+                     skip_find).first.template as<T> ();
     }
 
     template <typename T>
@@ -1604,9 +1614,10 @@ namespace build2
             const dir_path& out,
             const string& name,
             const optional<string>& ext,
-            tracer& t)
+            tracer& t,
+            bool skip_find = false)
     {
-      return insert<T> (T::static_type, dir, out, name, ext, t);
+      return insert<T> (T::static_type, dir, out, name, ext, t, skip_find);
     }
 
     template <typename T>
@@ -1614,9 +1625,10 @@ namespace build2
     insert (const dir_path& dir,
             const dir_path& out,
             const string& name,
-            tracer& t)
+            tracer& t,
+            bool skip_find = false)
     {
-      return insert<T> (dir, out, name, nullopt, t);
+      return insert<T> (dir, out, name, nullopt, t, skip_find);
     }
 
     // Note: not MT-safe so can only be used during serial execution.

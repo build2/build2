@@ -341,7 +341,8 @@ namespace build2
                                      move (n),
                                      nullopt /* ext     */,
                                      target_decl::implied,
-                                     trace));
+                                     trace,
+                                     true /* skip_find */));
 
       if (r.second) // Inserted.
       {

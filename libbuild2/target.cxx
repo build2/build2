@@ -698,10 +698,11 @@ namespace build2
                  optional<string> ext,
                  target_decl decl,
                  tracer& trace,
+                 bool skip_find,
                  bool need_lock)
   {
     target_key tk {&tt, &dir, &out, &name, move (ext)};
-    target* t (const_cast<target*> (find (tk, trace)));
+    target* t (skip_find ? nullptr : const_cast<target*> (find (tk, trace)));
 
     if (t == nullptr)
     {

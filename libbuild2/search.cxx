@@ -187,13 +187,16 @@ namespace build2
 
     // Find or insert. Note that we are using our updated extension.
     //
+    // More often insert than find, so skip find in insert().
+    //
     auto r (ctx.targets.insert (*tk.type,
                                 move (d),
                                 move (out),
                                 *tk.name,
                                 ext,
                                 target_decl::prereq_file,
-                                trace));
+                                trace,
+                                true /* skip_find */));
 
     const file& t (r.first.as<file> ());
 
@@ -230,6 +233,8 @@ namespace build2
 
     // Find or insert.
     //
+    // More often insert than find, so skip find in insert().
+    //
     // @@ OUT: same story as in search_existing_target() re out.
     //
     auto r (ctx.targets.insert (*tk.type,
@@ -238,7 +243,8 @@ namespace build2
                                 *tk.name,
                                 tk.ext,
                                 target_decl::prereq_new,
-                                trace));
+                                trace,
+                                true /* skip_find */));
 
     const target& t (r.first);
     l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t
@@ -271,6 +277,8 @@ namespace build2
 
     // Find or insert.
     //
+    // More often insert than find, so skip find in insert_locked().
+    //
     // @@ OUT: same story as in search_existing_target() re out.
     //
     auto r (ctx.targets.insert_locked (*tk.type,
@@ -279,7 +287,8 @@ namespace build2
                                        *tk.name,
                                        tk.ext,
                                        target_decl::prereq_new,
-                                       trace));
+                                       trace,
+                                       true /* skip_find */));
     l5 ([&]
         {
           diag_record dr (trace);

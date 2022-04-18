@@ -6056,7 +6056,8 @@ namespace build2
                 move (mf),
                 nullopt,     // Use default extension.
                 target_decl::implied,
-                trace));
+                trace,
+                true /* skip_find */));
       file& bt (p.first.as<file> ());
 
       // Note that this is racy and someone might have created this target
@@ -6294,7 +6295,8 @@ namespace build2
                 move (mf),
                 nullopt,     // Use default extension.
                 target_decl::implied,
-                trace));
+                trace,
+                true /* skip_find */));
       file& bt (p.first.as<file> ());
 
       // Note that this is racy and someone might have created this target
