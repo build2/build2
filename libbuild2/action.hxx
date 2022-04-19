@@ -45,16 +45,17 @@ namespace build2
   // inner rule. In particular, it should not replace or override the inner's
   // logic.
   //
-  // While most of the relevant target state is duplicated, certain things are
-  // shared among the inner/outer rules, such as the target data pad and the
-  // group state. In particular, it is assumed the group state is always
-  // determined by the inner rule (see resolve_members()).
+  // While most of the action-specific target state is duplicated (see
+  // target::opstate), certain things are shared among the inner/outer rules,
+  // such as the path, mtime, and group state. In particular, it is assumed
+  // the group state is always determined by the inner rule (see
+  // resolve_members()).
   //
   // Normally, an outer rule will be responsible for any additional, outer
   // operation-specific work. Sometimes, however, the inner rule needs to
   // customize its behavior. In this case the outer and inner rules must
-  // communicate this explicitly (normally via the target's data pad) and
-  // there is a number of restrictions to this approach. See
+  // communicate this explicitly (normally via the target's auxiliary data
+  // storage) and there is a number of restrictions to this approach. See
   // cc::{link,install}_rule for details.
   //
   struct action

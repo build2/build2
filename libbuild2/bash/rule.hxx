@@ -37,9 +37,6 @@ namespace build2
       virtual recipe
       apply (action, target&) const override;
 
-      virtual target_state
-      perform_update (action, const target&) const override;
-
       virtual prerequisite_target
       search (action,
               const target&,

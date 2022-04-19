@@ -23,6 +23,8 @@ namespace build2
     public:
       link_rule (data&&);
 
+      struct match_data;
+
       struct match_result
       {
         bool seen_x   = false;
@@ -52,10 +54,10 @@ namespace build2
       apply (action, target&, match_extra&) const override;
 
       target_state
-      perform_update (action, const target&) const;
+      perform_update (action, const target&, match_data&) const;
 
       target_state
-      perform_clean (action, const target&) const;
+      perform_clean (action, const target&, match_data&) const;
 
     public:
       // Library handling.
@@ -226,9 +228,9 @@ namespace build2
       static void
       functions (function_family&, const char*); // functions.cxx
 
-    private:
-      friend class install_rule;
-      friend class libux_install_rule;
+      // Implementation details.
+      //
+    public:
 
       // Shared library paths.
       //
@@ -271,6 +273,9 @@ namespace build2
 
       struct match_data
       {
+        explicit
+        match_data (const link_rule& r): rule (r) {}
+
         // The "for install" condition is signalled to us by install_rule when
         // it is matched for the update operation. It also verifies that if we
         // have already been executed, then it was for install.
@@ -305,10 +310,21 @@ namespace build2
         size_t start; // Parallel prerequisites/prerequisite_targets start.
 
         link_rule::libs_paths libs_paths;
+
+        const link_rule& rule;
+
+        target_state
+        operator() (action a, const target& t)
+        {
+          return a == perform_update_id
+            ? rule.perform_update (a, t, *this)
+            : rule.perform_clean (a, t, *this);
+        }
       };
 
       // Windows rpath emulation (windows-rpath.cxx).
       //
+     private:
       struct windows_dll
       {
         reference_wrapper<const string> dll;

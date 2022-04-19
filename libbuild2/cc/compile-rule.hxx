@@ -44,6 +44,8 @@ namespace build2
                                                dyndep_rule
     {
     public:
+      struct match_data;
+
       compile_rule (data&&, const scope&);
 
       virtual bool
@@ -53,7 +55,7 @@ namespace build2
       apply (action, target&) const override;
 
       target_state
-      perform_update (action, const target&) const;
+      perform_update (action, const target&, match_data&) const;
 
       target_state
       perform_clean (action, const target&) const;
@@ -74,7 +76,6 @@ namespace build2
       functions (function_family&, const char*); // functions.cxx
 
     private:
-      struct match_data;
       using environment = small_vector<const char*, 2>;
 
       template <typename T>

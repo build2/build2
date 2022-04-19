@@ -495,8 +495,7 @@ namespace build2
   {
     t[a].vars.clear ();
     t.prerequisite_targets[a].clear ();
-    if (a.inner ())
-      t.clear_data ();
+    t.clear_data (a);
   }
 
   inline void

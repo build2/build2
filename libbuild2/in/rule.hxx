@@ -18,8 +18,9 @@ namespace build2
   {
     // Preprocess an .in file.
     //
-    // Note that a derived rule can use the target data pad to cache data
-    // (e.g., in match() or apply()) to be used in substitute/lookup() calls.
+    // Note that a derived rule can use the target auxiliary data storage to
+    // cache data (e.g., in match() or apply()) to be used in substitute() and
+    // lookup() calls.
     //
     // Note also that currently this rule ignores the dry-run mode (see
     // perform_update() for the rationale).

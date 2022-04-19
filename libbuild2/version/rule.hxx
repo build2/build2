@@ -25,6 +25,9 @@ namespace build2
       virtual bool
       match (action, target&) const override;
 
+      virtual recipe
+      apply (action, target&) const override;
+
       virtual string
       lookup (const location&,
               action,

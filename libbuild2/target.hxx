@@ -625,8 +625,13 @@ namespace build2
 
       // Applied recipe.
       //
-      build2::recipe recipe;
-      bool           recipe_group_action; // Recipe is group_action.
+      // Note: also used as the auxiliary data storage during match, which is
+      //       why mutable (see the target::data() API below for details). The
+      //       default recipe_keep value is set by clear_target().
+      //
+      mutable build2::recipe recipe;
+      mutable bool           recipe_keep;         // Keep after execution.
+      bool                   recipe_group_action; // Recipe is group_action.
 
       // Target state for this operation. Note that it is undetermined until
       // a rule is matched and recipe applied (see set_recipe()).
@@ -640,8 +645,8 @@ namespace build2
       // no iffy modifications of the group's variables by member's rules).
       //
       // They are also automatically cleared before another rule is matched,
-      // similar to the data pad. In other words, rule-specific variables are
-      // only valid for this match-execute phase.
+      // similar to the auxiliary data storage. In other words, rule-specific
+      // variables are only valid for this match-execute phase.
       //
       variable_map vars;
 
@@ -785,30 +790,63 @@ namespace build2
     //
     mutable action_state<build2::prerequisite_targets> prerequisite_targets;
 
-    // Auxilary data storage.
+    // Auxiliary data storage.
     //
     // A rule that matches (i.e., returns true from its match() function) may
-    // use this pad to pass data between its match and apply functions as well
-    // as the recipe. After the recipe is executed, the data is destroyed. The
-    // rule may static assert that the small size of the pad (which doesn't
-    // require dynamic memory allocation) is sufficient for its needs.
+    // use this facility to pass data between its match and apply functions as
+    // well as the recipe. Specifically, between match() and apply() the data
+    // is stored in the recipe member (which is std::move_only_function-like).
+    // If the data needs to be passed on to the recipe, then it must become
+    // the recipe itself. Here is a typical arrangement:
     //
-    // Note also that normally at least 2 extra pointers may be stored without
-    // a dynamic allocation in the returned recipe (small object optimization
-    // in std::function). So if you need to pass data only between apply() and
-    // the recipe, then this might be a more convenient way. @@ TMP
+    // class compile_rule
+    // {
+    //   struct match_data
+    //   {
+    //     ... // Data.
     //
-    // Note also that a rule that delegates to another rule may not be able to
-    // use this mechanism fully since the delegated-to rule may also need the
-    // data pad.
+    //     const compile_rule& rule;
     //
-    // The data is not destroyed until the next match, which is relied upon to
-    // communicate between rules for inner/outer operations. @@ TMP
+    //     target_state
+    //     operator() (action a, const target& t)
+    //     {
+    //       return rule.perform_update (a, t, this);
+    //     }
+    //   };
     //
-    // Note that the recipe may modify the data. Currently reserved for the
-    // inner part of the action. @@ TMP
+    //   virtual bool
+    //   match (action a, const target& t)
+    //   {
+    //     ... // Determine if matching.
     //
-    // See also match_extra::buffer.
+    //     t.data (a, match_data {..., *this});
+    //     return true;
+    //   }
+    //
+    //   virtual bool
+    //   apply (action a, target& t)
+    //   {
+    //     match_data& md (t.data (a));
+    //
+    //     ... // Match prerequisites, etc.
+    //
+    //     return move (md); // Data becomes the recipe.
+    //   }
+    //
+    //   target_state
+    //   perform_update (action a, const target& t, match_data& md) const
+    //   {
+    //     ... // Access data (also available as t.data<match_data> (a)).
+    //   }
+    // };
+    //
+    // After the recipe is executed, the recipe/data is destroyed, unless
+    // explicitly requested not to (see below). The rule may static assert
+    // that the small size of the storage (which doesn't require dynamic
+    // memory allocation) is sufficient for its needs.
+    //
+    // Note also that a rule that delegates to another rule may need to store
+    // the base rule's data/recipe in its own data/recipe.
 
     // Provide the small object optimization size for the common compilers
     // (see recipe.hxx for details) in case a rule wants to make sure its data
@@ -825,13 +863,9 @@ namespace build2
 #elif defined(_MSC_VER)
       sizeof (void*) * 6
 #else
-      // Assume at least 2 pointers.
-      //
-      sizeof (void*) * 2
+      sizeof (void*) * 2 // Assume at least 2 pointers.
 #endif
       ;
-
-    mutable recipe data_pad;
 
     template <typename T>
     struct data_wrapper
@@ -857,43 +891,60 @@ namespace build2
 
     template <typename T>
     typename std::enable_if<!data_invocable<T>::value, void>::type
-    data (T&& d) const
+    data (action a, T&& d) const
     {
       using V = typename std::remove_cv<
         typename std::remove_reference<T>::type>::type;
 
-      data_pad = data_wrapper<V> {forward<T> (d)};
+      const opstate& s (state[a]);
+      s.recipe = data_wrapper<V> {forward<T> (d)};
+      s.recipe_keep = false; // Can't keep non-recipe data.
     }
 
     template <typename T>
     typename std::enable_if<!data_invocable<T>::value, T&>::type&
-    data () const
+    data (action a) const
     {
       using V = typename std::remove_cv<T>::type;
-      return data_pad.target<data_wrapper<V>> ()->d;
+      return state[a].recipe.target<data_wrapper<V>> ()->d;
     }
 
     // Note that in this case we don't strip const (the expectation is that we
     // move the recipe in/out of data).
     //
+    // If keep is true, then keep the recipe as data after execution. In
+    // particular, this can be used to communicate between inner/outer rules
+    // (see cc::install_rule for an example).
+    //
+    //
     template <typename T>
     typename std::enable_if<data_invocable<T>::value, void>::type
-    data (T&& d) const
+    data (action a, T&& d, bool keep = false) const
     {
-      data_pad = forward<T> (d);
+      const opstate& s (state[a]);
+      s.recipe = forward<T> (d);
+      s.recipe_keep = keep;
+    }
+
+    void
+    keep_data (action a, bool keep = true) const
+    {
+      state[a].recipe_keep = keep;
     }
 
     template <typename T>
     typename std::enable_if<data_invocable<T>::value, T&>::type&
-    data () const
+    data (action a) const
     {
-      return *data_pad.target<T> ();
+      return *state[a].recipe.target<T> ();
     }
 
     void
-    clear_data () const
+    clear_data (action a) const
     {
-      data_pad = nullptr;
+      const opstate& s (state[a]);
+      s.recipe = nullptr;
+      s.recipe_keep = false;
     }
 
     // Target type info and casting.

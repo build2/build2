@@ -180,9 +180,9 @@ if (!$static && $test.target == $build.host)
         --
 
         recipe
-        apply (action, target& t) const override
+        apply (action a, target& t) const override
         {
-          const auto& mrs (t.data<regex_match_results> ());
+          const auto& mrs (t.data<regex_match_results> (a));
 
           return [this, mr = mrs.str (1)] (action a, const target& t)
           {

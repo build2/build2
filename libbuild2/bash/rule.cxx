@@ -26,6 +26,9 @@ namespace build2
 
     struct match_data
     {
+      explicit
+      match_data (const in_rule& r): rule (r) {}
+
       // The "for install" condition is signalled to us by install_rule when
       // it is matched for the update operation. It also verifies that if we
       // have already been executed, then it was for install.
@@ -33,6 +36,25 @@ namespace build2
       // See cc::link_rule for a discussion of some subtleties in this logic.
       //
       optional<bool> for_install;
+
+      const in_rule& rule;
+
+      target_state
+      operator() (action a, const target& t)
+      {
+        // Unless the outer install rule signalled that this is update for
+        // install, signal back that we've performed plain update.
+        //
+        if (!for_install)
+          for_install = false;
+
+        //@@ TODO: need to verify all the modules we depend on are compatible
+        //         with our for_install value, similar to cc::link_rule's
+        //         append_libraries() (and which is the other half of the check
+        //         in install_rule).
+
+        return rule.perform_update (a, t);
+      }
     };
 
     static_assert (sizeof (match_data) <= target::small_data_size,
@@ -66,37 +88,23 @@ namespace build2
       if (!fm)
         l4 ([&]{trace << "no bash module prerequisite for target " << t;});
 
-      return (fi && fm);
+      return fi && fm;
     }
 
     recipe in_rule::
     apply (action a, target& t) const
     {
-      // Note that for-install is signalled by install_rule and therefore
-      // can only be relied upon during execute.
-      //
-      t.data (match_data ());
+      recipe r (rule::apply (a, t));
 
-      return rule::apply (a, t);
-    }
+      if (a == perform_update_id)
+      {
+        // Note that for-install is signalled by install_rule and therefore
+        // can only be relied upon during execute.
+        //
+        return match_data (*this);
+      }
 
-    target_state in_rule::
-    perform_update (action a, const target& t) const
-    {
-      // Unless the outer install rule signalled that this is update for
-      // install, signal back that we've performed plain update.
-      //
-      match_data& md (t.data<match_data> ());
-
-      if (!md.for_install)
-        md.for_install = false;
-
-      //@@ TODO: need to verify all the modules we depend on are compatible
-      //         with our for_install value, similar to cc::link_rule's
-      //         append_libraries() (and which is the other half of the check
-      //         in install_rule).
-
-      return rule::perform_update (a, t);
+      return r;
     }
 
     prerequisite_target in_rule::
@@ -338,7 +346,7 @@ namespace build2
       if (ap == nullptr)
         fail (l) << "unable to resolve import path " << ip;
 
-      match_data& md (t.data<match_data> ());
+      match_data& md (t.data<match_data> (a));
       assert (md.for_install);
 
       if (*md.for_install)
@@ -449,7 +457,7 @@ namespace build2
         // Signal to the in rule that this is update for install. And if the
         // update has already been executed, verify it was done for install.
         //
-        auto& md (t.data<match_data> ());
+        auto& md (t.data<match_data> (a.inner_action ()));
 
         if (md.for_install)
         {

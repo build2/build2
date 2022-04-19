@@ -229,10 +229,16 @@ namespace build2
       return nullopt;
     }
 
+    // Note that we don't really need this for clean (where we only need
+    // unrefined unit type) so we could make this update-only. But let's keep
+    // it simple for now.
+    //
     struct compile_rule::match_data
     {
-      match_data (unit_type t, const prerequisite_member& s)
-          : type (t), src (s) {}
+      match_data (const compile_rule& r,
+                  unit_type t,
+                  const prerequisite_member& s)
+          : type (t), src (s), rule (r) {}
 
       unit_type type;
       preprocessed pp = preprocessed::none;
@@ -245,6 +251,14 @@ namespace build2
       path dd;                              // Dependency database path.
       size_t header_units = 0;              // Number of imported header units.
       module_positions modules = {0, 0, 0}; // Positions of imported modules.
+
+      const compile_rule& rule;
+
+      target_state
+      operator() (action a, const target& t)
+      {
+        return rule.perform_update (a, t, *this);
+      }
     };
 
     compile_rule::
@@ -464,7 +478,7 @@ namespace build2
         {
           // Save in the target's auxiliary storage.
           //
-          t.data (match_data (ut, p));
+          t.data (a, match_data (*this, ut, p));
           return true;
         }
       }
@@ -809,7 +823,7 @@ namespace build2
 
       file& t (xt.as<file> ()); // Either obj*{} or bmi*{}.
 
-      match_data& md (t.data<match_data> ());
+      match_data& md (t.data<match_data> (a));
 
       context& ctx (t.ctx);
 
@@ -1497,10 +1511,7 @@ namespace build2
 
       switch (a)
       {
-      case perform_update_id: return [this] (action a, const target& t)
-        {
-          return perform_update (a, t);
-        };
+      case perform_update_id: return move (md);
       case perform_clean_id: return [this] (action a, const target& t)
         {
           return perform_clean (a, t);
@@ -5439,10 +5450,11 @@ namespace build2
       // 1. There is no good place in prerequisite_targets to store the
       //    exported flag (no, using the marking facility across match/execute
       //    is a bad idea). So what we are going to do is put re-exported
-      //    bmi{}s at the back and store (in the target's data pad) the start
-      //    position. One bad aspect about this part is that we assume those
-      //    bmi{}s have been matched by the same rule. But let's not kid
-      //    ourselves, there will be no other rule that matches bmi{}s.
+      //    bmi{}s at the back and store (in the target's auxiliary data
+      //    storage) the start position. One bad aspect about this part is
+      //    that we assume those bmi{}s have been matched by the same
+      //    rule. But let's not kid ourselves, there will be no other rule
+      //    that matches bmi{}s.
       //
       //    @@ I think now we could use prerequisite_targets::data for this?
       //
@@ -5833,7 +5845,7 @@ namespace build2
 
         // Copy over bmi{}s from our prerequisites weeding out duplicates.
         //
-        if (size_t j = bt->data<match_data> ().modules.start)
+        if (size_t j = bt->data<match_data> (a).modules.start)
         {
           // Hard to say whether we should reserve or not. We will probably
           // get quite a bit of duplications.
@@ -6578,12 +6590,11 @@ namespace build2
     }
 
     target_state compile_rule::
-    perform_update (action a, const target& xt) const
+    perform_update (action a, const target& xt, match_data& md) const
     {
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
 
-      match_data md (move (t.data<match_data> ()));
       unit_type ut (md.type);
 
       context& ctx (t.ctx);

@@ -821,9 +821,9 @@ namespace build2
           //
 
           // Clear the rule-specific variables, resolved targets list, and the
-          // data pad before calling match(). The rule is free to modify these
-          // in its match() (provided that it matches) in order to, for
-          // example, convey some information to apply().
+          // auxiliary data storage before calling match(). The rule is free
+          // to modify these in its match() (provided that it matches) in
+          // order to, for example, convey some information to apply().
           //
           clear_target (a, t);
 
@@ -1920,7 +1920,8 @@ namespace build2
     // group_state()) and should retain its value.
     //
     //
-    s.recipe = nullptr;
+    if (!s.recipe_keep)
+      s.recipe = nullptr;
 
     // Decrement the target count (see set_recipe() for details).
     //

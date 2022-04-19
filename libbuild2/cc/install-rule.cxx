@@ -160,6 +160,20 @@ namespace build2
         file_rule::match (a, t);
     }
 
+    // Wrap the file_rule's recipe into a data-carrying recipe.
+    //
+    struct install_match_data
+    {
+      build2::recipe        recipe;
+      link_rule::libs_paths libs_paths;
+
+      target_state
+      operator() (action a, const target& t)
+      {
+        return recipe (a, t);
+      }
+    };
+
     recipe install_rule::
     apply (action a, target& t) const
     {
@@ -173,7 +187,7 @@ namespace build2
         // Signal to the link rule that this is update for install. And if the
         // update has already been executed, verify it was done for install.
         //
-        auto& md (t.data<link_rule::match_data> ());
+        auto& md (t.data<link_rule::match_data> (a.inner_action ()));
 
         if (md.for_install)
         {
@@ -198,10 +212,12 @@ namespace build2
           {
             const string* p (cast_null<string> (t["bin.lib.prefix"]));
             const string* s (cast_null<string> (t["bin.lib.suffix"]));
-            t.data (
+
+            return install_match_data {
+              move (r),
               link_.derive_libs_paths (*f,
                                        p != nullptr ? p->c_str (): nullptr,
-                                       s != nullptr ? s->c_str (): nullptr));
+                                       s != nullptr ? s->c_str (): nullptr)};
           }
         }
       }
@@ -219,7 +235,7 @@ namespace build2
         // Here we may have a bunch of symlinks that we need to install.
         //
         const scope& rs (t.root_scope ());
-        auto& lp (t.data<link_rule::libs_paths> ());
+        auto& lp (t.data<install_match_data> (perform_install_id).libs_paths);
 
         auto ln = [&rs, &id] (const path& f, const path& l)
         {
@@ -253,7 +269,7 @@ namespace build2
         // Here we may have a bunch of symlinks that we need to uninstall.
         //
         const scope& rs (t.root_scope ());
-        auto& lp (t.data<link_rule::libs_paths> ());
+        auto& lp (t.data<install_match_data> (perform_uninstall_id).libs_paths);
 
         auto rm = [&rs, &id] (const path& l)
         {

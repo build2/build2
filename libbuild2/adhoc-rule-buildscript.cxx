@@ -470,10 +470,22 @@ namespace build2
     //
     if (a != perform_update_id || !xt.is_a<file> ())
     {
-      return [d, this] (action a, const target& t)
+      // Make sure we get small object optimization.
+      //
+      if (d)
       {
-        return default_action (a, t, d);
-      };
+        return [dv = *d, this] (action a, const target& t)
+        {
+          return default_action (a, t, dv);
+        };
+      }
+      else
+      {
+        return [this] (action a, const target& t)
+        {
+          return default_action (a, t, nullopt);
+        };
+      }
     }
 
     // See if this is the simple case with only static dependencies.
@@ -589,6 +601,10 @@ namespace build2
       }
     }
 
+    // Note that while it's tempting to turn match_data* into recipes, some of
+    // their members are not movable. And in the end we will have the same
+    // result: one dynamic memory allocation.
+    //
     unique_ptr<match_data> md;
     unique_ptr<match_data_byproduct> mdb;
 

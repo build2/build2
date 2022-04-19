@@ -79,7 +79,6 @@ namespace build2
   target::
   ~target ()
   {
-    clear_data ();
   }
 
   const string& target::

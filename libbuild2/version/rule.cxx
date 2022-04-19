@@ -46,6 +46,25 @@ namespace build2
 
     // in_rule
     //
+
+    // Wrap the in::rule's perform_update recipe into a data-carrying recipe.
+    //
+    // To optimize this a bit further (i.e., to avoid the dynamic memory
+    // allocation) we are going to call in::rule::perform_update() directly
+    // (after all it's virtual and thus part of the in_rule's interface).
+    //
+    struct match_data
+    {
+      const module& mod;
+      const in_rule& rule;
+
+      target_state
+      operator() (action a, const target& t)
+      {
+        return rule.perform_update (a, t);
+      }
+    };
+
     bool in_rule::
     match (action a, target& xt) const
     {
@@ -74,14 +93,20 @@ namespace build2
       if (!fi)
         l5 ([&]{trace << "no in file prerequisite for target " << t;});
 
-      bool r (fm && fi);
+      return fm && fi;
+    }
 
-      // If we match, lookup and cache the module for the update operation.
+    recipe in_rule::
+    apply (action a, target& t) const
+    {
+      recipe r (rule::apply (a, t));
+
+      // Lookup and cache the module for the update operation.
       //
-      if (r && a == perform_update_id)
-        t.data (rs.find_module<module> (module::name));
-
-      return r;
+      return a == perform_update_id
+        ? match_data {*t.root_scope ().find_module<module> (module::name),
+                      *this}
+        : move (r);
     }
 
     string in_rule::
@@ -97,7 +122,7 @@ namespace build2
       // Note that this code will be executed during up-to-date check for each
       // substitution so let's try not to do anything overly sub-optimal here.
       //
-      const module& m (*t.data<const module*> ());
+      const module& m (t.data<match_data> (a).mod);
 
       // Split it into the package name and the variable/condition name.
       //

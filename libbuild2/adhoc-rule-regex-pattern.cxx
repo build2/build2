@@ -272,7 +272,7 @@ namespace build2
       return false;
     }
 
-    t.data (move (mr));
+    t.data (a, move (mr));
     return true;
   }
 
@@ -297,9 +297,9 @@ namespace build2
   }
 
   void adhoc_rule_regex_pattern::
-  apply_adhoc_members (action, target& t, const scope&, match_extra&) const
+  apply_adhoc_members (action a, target& t, const scope&, match_extra&) const
   {
-    const auto& mr (t.data<regex_match_results> ());
+    const auto& mr (t.data<regex_match_results> (a));
 
     for (auto i (targets_.begin () + 1); i != targets_.end (); ++i)
     {
@@ -342,7 +342,7 @@ namespace build2
                        const scope& bs,
                        match_extra&) const
   {
-    const auto& mr (t.data<regex_match_results> ());
+    const auto& mr (t.data<regex_match_results> (a));
 
     // Re-create the same clean semantics as in match_prerequisite_members().
     //

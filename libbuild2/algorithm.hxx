@@ -396,9 +396,8 @@ namespace build2
   // Match a "delegate rule" from withing another rules' apply() function
   // avoiding recursive matches (thus the third argument). Unless try_match is
   // true, fail if no rule is found. Otherwise return empty recipe. Note that
-  // unlike match(), this function does not increment the dependents count and
-  // the two rules must coordinate who is using the target's data pad and/or
-  // prerequisite_targets. See also the companion execute_delegate().
+  // unlike match(), this function does not increment the dependents count.
+  // See also the companion execute_delegate().
   //
   recipe
   match_delegate (action, target&, const rule&, bool try_match = false);

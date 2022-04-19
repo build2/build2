@@ -875,8 +875,11 @@ namespace build2
       // Note that for_install is signalled by install_rule and therefore
       // can only be relied upon during execute.
       //
-      t.data (match_data ());
-      match_data& md (t.data<match_data> ());
+      // Note that we don't really need to set it as target data: while there
+      // are calls to get it, they should only happen after the target has
+      // been matched.
+      //
+      match_data md (*this);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -2008,14 +2011,11 @@ namespace build2
 
       switch (a)
       {
-      case perform_update_id: return [this] (action a, const target& t)
-        {
-          return perform_update (a, t);
-        };
-      case perform_clean_id: return [this] (action a, const target& t)
-        {
-          return perform_clean (a, t);
-        };
+        // Keep the recipe (which is match_data) after execution to allow the
+        // install rule to examine it.
+        //
+      case perform_update_id: t.keep_data (a); // Fall through.
+      case perform_clean_id: return move (md);
       default: return noop_recipe; // Configure update.
       }
     }
@@ -2158,7 +2158,7 @@ namespace build2
                    *type != "cc" &&
                    type->compare (0, 3, "cc,") != 0)
           {
-            auto& md (l->data<link_rule::match_data> ());
+            auto& md (l->data<link_rule::match_data> (d.a));
             assert (md.for_install); // Must have been executed.
 
             // The user will get the target name from the context info.
@@ -2556,7 +2556,7 @@ namespace build2
     msvc_machine (const string& cpu); // msvc.cxx
 
     target_state link_rule::
-    perform_update (action a, const target& xt) const
+    perform_update (action a, const target& xt, match_data& md) const
     {
       tracer trace (x, "link_rule::perform_update");
 
@@ -2567,8 +2567,6 @@ namespace build2
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
-
-      match_data& md (t.data<match_data> ());
 
       // Unless the outer install rule signalled that this is update for
       // install, signal back that we've performed plain update.
@@ -4078,12 +4076,11 @@ namespace build2
     }
 
     target_state link_rule::
-    perform_clean (action a, const target& xt) const
+    perform_clean (action a, const target& xt, match_data& md) const
     {
       const file& t (xt.as<file> ());
 
       ltype lt (link_type (t));
-      const match_data& md (t.data<match_data> ());
 
       clean_extras extras;
       clean_adhoc_extras adhoc_extras;
