@@ -272,10 +272,7 @@ namespace build2
       return false;
     }
 
-    static_assert (sizeof (regex_match_results) <= target::data_size,
-                   "insufficient space");
     t.data (move (mr));
-
     return true;
   }
 

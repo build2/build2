@@ -483,7 +483,7 @@ namespace build2
 
       // Copy over all the files. Apply post-processing callbacks.
       //
-      module& mod (*rs.find_module<module> (module::name));
+      const module& mod (*rs.find_module<module> (module::name));
 
       prog = prog && show_progress (1 /* max_verb */);
       size_t prog_percent (0);

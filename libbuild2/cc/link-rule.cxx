@@ -256,8 +256,6 @@ namespace build2
         : common (move (d)),
           rule_id (string (x) += ".link 3")
     {
-      static_assert (sizeof (match_data) <= target::data_size,
-                     "insufficient space");
     }
 
     link_rule::match_result link_rule::
@@ -877,7 +875,8 @@ namespace build2
       // Note that for_install is signalled by install_rule and therefore
       // can only be relied upon during execute.
       //
-      match_data& md (t.data (match_data ()));
+      t.data (match_data ());
+      match_data& md (t.data<match_data> ());
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());

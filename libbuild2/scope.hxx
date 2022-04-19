@@ -566,6 +566,13 @@ namespace build2
 
     template <typename T>
     T*
+    find_module (const string& name)
+    {
+      return root_extra->modules.find_module<T> (name);
+    }
+
+    template <typename T>
+    const T*
     find_module (const string& name) const
     {
       return root_extra->modules.find_module<T> (name);

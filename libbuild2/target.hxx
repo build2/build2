@@ -789,65 +789,111 @@ namespace build2
     //
     // A rule that matches (i.e., returns true from its match() function) may
     // use this pad to pass data between its match and apply functions as well
-    // as the recipe. After the recipe is executed, the data is destroyed by
-    // calling data_dtor (if not NULL). The rule should static assert that the
-    // size of the pad is sufficient for its needs.
+    // as the recipe. After the recipe is executed, the data is destroyed. The
+    // rule may static assert that the small size of the pad (which doesn't
+    // require dynamic memory allocation) is sufficient for its needs.
     //
     // Note also that normally at least 2 extra pointers may be stored without
     // a dynamic allocation in the returned recipe (small object optimization
     // in std::function). So if you need to pass data only between apply() and
-    // the recipe, then this might be a more convenient way.
+    // the recipe, then this might be a more convenient way. @@ TMP
     //
     // Note also that a rule that delegates to another rule may not be able to
     // use this mechanism fully since the delegated-to rule may also need the
     // data pad.
     //
-    // Currenly the data is not destroyed until the next match.
+    // The data is not destroyed until the next match, which is relied upon to
+    // communicate between rules for inner/outer operations. @@ TMP
     //
     // Note that the recipe may modify the data. Currently reserved for the
-    // inner part of the action.
+    // inner part of the action. @@ TMP
     //
-    static constexpr size_t data_size = sizeof (string) * 16;
-    mutable std::aligned_storage<data_size>::type data_pad;
+    // See also match_extra::buffer.
 
-    mutable void (*data_dtor) (void*)                = nullptr;
+    // Provide the small object optimization size for the common compilers
+    // (see recipe.hxx for details) in case a rule wants to make sure its data
+    // won't require a dynamic memory allocation. Note that using a minimum
+    // generally available (2 pointers) is not always possible because the
+    // data size may depend on sizes of other compiler-specific types (e.g.,
+    // std::string).
+    //
+    static constexpr size_t small_data_size =
+#if defined(__GLIBCXX__)
+      sizeof (void*) * 2
+#elif defined(_LIBCPP_VERSION)
+      sizeof (void*) * 3
+#elif defined(_MSC_VER)
+      sizeof (void*) * 6
+#else
+      // Assume at least 2 pointers.
+      //
+      sizeof (void*) * 2
+#endif
+      ;
 
-    template <typename R,
-              typename T = typename std::remove_cv<
-                typename std::remove_reference<R>::type>::type>
-    typename std::enable_if<std::is_trivially_destructible<T>::value,T&>::type
-    data (R&& d) const
+    mutable recipe data_pad;
+
+    template <typename T>
+    struct data_wrapper
     {
-      assert (sizeof (T) <= data_size);
-      clear_data ();
-      return *new (&data_pad) T (forward<R> (d));
-    }
+      T d;
 
-    template <typename R,
-              typename T = typename std::remove_cv<
-                typename std::remove_reference<R>::type>::type>
-    typename std::enable_if<!std::is_trivially_destructible<T>::value,T&>::type
-    data (R&& d) const
+      target_state
+      operator() (action, const target&) const // Never called.
+      {
+        return target_state::unknown;
+      }
+    };
+
+    // Avoid wrapping the data if it is already a recipe.
+    //
+    // Note that this techniques requires a fix for LWG issue 2132 (which all
+    // our minimum supported compiler versions appear to have).
+    //
+    template <typename T>
+    struct data_invocable: std::is_constructible<
+      std::function<recipe_function>,
+      std::reference_wrapper<typename std::remove_reference<T>::type>> {};
+
+    template <typename T>
+    typename std::enable_if<!data_invocable<T>::value, void>::type
+    data (T&& d) const
     {
-      assert (sizeof (T) <= data_size);
-      clear_data ();
-      T& r (*new (&data_pad) T (forward<R> (d)));
-      data_dtor = [] (void* p) {static_cast<T*> (p)->~T ();};
-      return r;
+      using V = typename std::remove_cv<
+        typename std::remove_reference<T>::type>::type;
+
+      data_pad = data_wrapper<V> {forward<T> (d)};
     }
 
     template <typename T>
-    T&
-    data () const {return *reinterpret_cast<T*> (&data_pad);}
+    typename std::enable_if<!data_invocable<T>::value, T&>::type&
+    data () const
+    {
+      using V = typename std::remove_cv<T>::type;
+      return data_pad.target<data_wrapper<V>> ()->d;
+    }
+
+    // Note that in this case we don't strip const (the expectation is that we
+    // move the recipe in/out of data).
+    //
+    template <typename T>
+    typename std::enable_if<data_invocable<T>::value, void>::type
+    data (T&& d) const
+    {
+      data_pad = forward<T> (d);
+    }
+
+    template <typename T>
+    typename std::enable_if<data_invocable<T>::value, T&>::type&
+    data () const
+    {
+      return *data_pad.target<T> ();
+    }
 
     void
     clear_data () const
     {
-      if (data_dtor != nullptr)
-      {
-        data_dtor (&data_pad);
-        data_dtor = nullptr;
-      }
+      data_pad = nullptr;
     }
 
     // Target type info and casting.

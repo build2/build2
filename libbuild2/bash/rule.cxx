@@ -35,8 +35,8 @@ namespace build2
       optional<bool> for_install;
     };
 
-    static_assert (sizeof (match_data) <= target::data_size,
-                   "insufficient space");
+    static_assert (sizeof (match_data) <= target::small_data_size,
+                   "match data requires dynamic allocation");
 
     // in_rule
     //

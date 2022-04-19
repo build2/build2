@@ -252,9 +252,6 @@ namespace build2
         : common (move (d)),
           rule_id (string (x) += ".compile 6")
     {
-      static_assert (sizeof (match_data) <= target::data_size,
-                     "insufficient space");
-
       // Locate the header cache (see enter_header() for details).
       //
       {

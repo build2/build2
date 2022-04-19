@@ -192,9 +192,6 @@ namespace build2
         // storage if we are un/installing (used in the *_extra() functions
         // below).
         //
-        static_assert (sizeof (link_rule::libs_paths) <= target::data_size,
-                       "insufficient space");
-
         if (file* f = t.is_a<libs> ())
         {
           if (!f->path ().empty ()) // Not binless.

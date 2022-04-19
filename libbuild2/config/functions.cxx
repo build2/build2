@@ -40,7 +40,10 @@ namespace build2
         if (s == nullptr)
           fail << "config.save() called out of project" << endf;
 
-        module* mod (s->find_module<module> (module::name));
+        // See save_config() for details.
+        //
+        assert (s->ctx.phase == run_phase::load);
+        module* mod (s->rw ().find_module<module> (module::name));
 
         if (mod == nullptr)
           fail << "config.save() called without config module";

@@ -972,7 +972,7 @@ namespace build2
           configure_project (a,
                              rs->rw (),
                              c_s,
-                             *rs->find_module<module> (module::name),
+                             *rs->rw ().find_module<module> (module::name),
                              projects);
         }
       }
@@ -1053,7 +1053,7 @@ namespace build2
         }
       }
 
-      if (module* m = rs.find_module<module> (module::name))
+      if (const module* m = rs.find_module<module> (module::name))
       {
         for (auto hook: m->disfigure_pre_)
           r = hook (a, rs) || r;
