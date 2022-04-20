@@ -2015,7 +2015,7 @@ namespace build2
         // install rule to examine it.
         //
       case perform_update_id: t.keep_data (a); // Fall through.
-      case perform_clean_id: return move (md);
+      case perform_clean_id: return md;
       default: return noop_recipe; // Configure update.
       }
     }
