@@ -1327,7 +1327,11 @@ namespace build2
               }
               else
               {
-                if (has_simple (find (x_libs)) || has_simple (find (c_libs)))
+                // These are strings and we assume if either is defined and
+                // not empty, then we have simple libraries.
+                //
+                if (((x = find (x_libs)) && !x->empty ()) ||
+                    ((c = find (c_libs)) && !c->empty ()))
                   rec_binless = false;
               }
             }
