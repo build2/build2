@@ -14,7 +14,7 @@ namespace build2
 {
   // Ad hoc rule regex pattern.
   //
-  // The name signature is stored in match_extra::buffer while the regex
+  // The name signature string is stored in match_extra::data while the regex
   // match_results object -- in the target auxiliary data storage. Both must
   // remain valid until after the apply_*() calls.
   //

@@ -145,8 +145,70 @@ namespace build2
   //
   struct match_extra
   {
-    bool   fallback; // True if matching a fallback rule (see match_rule()).
-    string buffer;   // Auxiliary buffer that's reused during match/apply.
+    bool fallback; // True if matching a fallback rule (see match_rule()).
+
+    // Auxiliary data storage.
+    //
+    // A rule (whether matches or not) may use this pad to pass data between
+    // its match and apply functions (but not the recipe). The rule should
+    // static assert that the size of the pad is sufficient for its needs.
+    //
+    // This facility is complementary to the auxiliary data storage in target:
+    // it can store slightly more/extra data without dynamic memory allocation
+    // but can only be used during match/apply.
+    //
+    // Note also that a rule that delegates to another rule may not be able to
+    // use this mechanism fully since the delegated-to rule may also need the
+    // data storage.
+    //
+    static constexpr size_t data_size = (sizeof (string) > sizeof (void*) * 4
+                                         ? sizeof (string)
+                                         : sizeof (void*) * 4);
+
+    std::aligned_storage<data_size>::type data_;
+    void (*data_dtor_) (void*) = nullptr;
+
+    template <typename R,
+              typename T = typename std::remove_cv<
+                typename std::remove_reference<R>::type>::type>
+    typename std::enable_if<std::is_trivially_destructible<T>::value,T&>::type
+    data (R&& d)
+    {
+      assert (sizeof (T) <= data_size);
+      clear_data ();
+      return *new (&data_) T (forward<R> (d));
+    }
+
+    template <typename R,
+              typename T = typename std::remove_cv<
+                typename std::remove_reference<R>::type>::type>
+    typename std::enable_if<!std::is_trivially_destructible<T>::value,T&>::type
+    data (R&& d)
+    {
+      assert (sizeof (T) <= data_size);
+      clear_data ();
+      T& r (*new (&data_) T (forward<R> (d)));
+      data_dtor_ = [] (void* p) {static_cast<T*> (p)->~T ();};
+      return r;
+    }
+
+    template <typename T>
+    T&
+    data () {return *reinterpret_cast<T*> (&data_);}
+
+    template <typename T>
+    const T&
+    data () const {return *reinterpret_cast<const T*> (&data_);}
+
+    void
+    clear_data ()
+    {
+      if (data_dtor_ != nullptr)
+      {
+        data_dtor_ (&data_);
+        data_dtor_ = nullptr;
+      }
+    }
 
     // Implementation details.
     //
@@ -839,6 +901,8 @@ namespace build2
     //     ... // Access data (also available as t.data<match_data> (a)).
     //   }
     // };
+    //
+    // Note: see also similar facility in match_extra.
     //
     // After the recipe is executed, the recipe/data is destroyed, unless
     // explicitly requested not to (see below). The rule may static assert

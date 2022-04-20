@@ -175,9 +175,9 @@ namespace build2
   //
   // Used for both ad hoc pattern rules and ad hoc recipes. For recipes, it's
   // essentially a rule of one case. Note that when used as part of a pattern,
-  // the implementation cannot use the match_extra::buffer nor the target
-  // auxiliary data storage until the pattern's apply_*() calls have been
-  // made.
+  // the implementation cannot use the match_extra::data() facility nor the
+  // target auxiliary data storage until the pattern's apply_*() calls have
+  // been made.
   //
   // Note also that when used as part of a pattern, the rule is also register
   // for the dist meta-operation (unless there is an explicit recipe for dist)

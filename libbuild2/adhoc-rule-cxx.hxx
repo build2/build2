@@ -26,7 +26,7 @@ namespace build2
   };
 
   // Note that when used as part of a pattern, the implementation cannot use
-  // the match_extra::buffer nor the target auxilary data storage.
+  // the match_extra::data() facility nor the target auxiliary data storage.
   //
   class LIBBUILD2_SYMEXPORT cxx_rule_v1: public cxx_rule
   {

@@ -138,15 +138,14 @@ namespace build2
   inline void match_extra::
   init (bool f)
   {
+    clear_data ();
     fallback = f;
-    buffer.clear ();
   }
 
   inline void match_extra::
   free ()
   {
-    string s;
-    buffer.swap (s);
+    clear_data ();
   }
 
   // target

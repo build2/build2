@@ -197,11 +197,18 @@ namespace build2
     // iterators pointing to the string being matched. Which means this string
     // must be kept around until we are done with replacing the subsitutions.
     // In fact, we cannot even move it because this may invalidate the
-    // iterators (e.g., in case of a small string optimization). So the plan
-    // is to store the string in match_extra::buffer and regex_match_results
-    // (which we can move) in the auxiliary data storage.
+    // iterators (e.g., in case of a small string optimization). We also
+    // cannot set the data ahead of time because we may not match. Plus,
+    // resorting to a dynamic memory allocation even if we don't match feels
+    // heavy-handed.
     //
-    string& ns (me.buffer);
+    // So the plan is to store the string in match_extra::data() and
+    // regex_match_results (which we can move) in the auxiliary data storage.
+    //
+    static_assert (sizeof (string) <= match_extra::data_size,
+                   "match data too large");
+
+    string& ns (me.data (string ()));
 
     auto append_name = [&ns,
                         first = true,
