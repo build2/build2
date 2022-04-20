@@ -488,7 +488,8 @@ namespace build2
       //
       optional<const build2::subprojects*> subprojects;
 
-      bool altn; // True if using alternative build file/directory naming.
+      bool altn;   // True if using alternative build file/directory naming.
+      bool loaded; // True if already loaded (load_root()).
 
       // Build file/directory naming scheme used by this project.
       //

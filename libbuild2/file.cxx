@@ -546,7 +546,7 @@ namespace build2
 
       // Switch to the new root scope.
       //
-      if (rs != &root)
+      if (rs != &root && !rs->root_extra->loaded)
         load_root (*rs); // Load new root(s) recursively.
 
       // Now we can figure out src_base and finish setting the scope.
@@ -593,6 +593,7 @@ namespace build2
         nullopt /* amalgamation */,
         nullopt /* subprojects */,
         a,
+        false   /* loaded */,
         a ? alt_build_ext        : std_build_ext,
         a ? alt_build_dir        : std_build_dir,
         a ? alt_buildfile_file   : std_buildfile_file,
@@ -1512,22 +1513,13 @@ namespace build2
   {
     tracer trace ("load_root");
 
-    context& ctx (root.ctx);
-
-    const dir_path& out_root (root.out_path ());
-    const dir_path& src_root (root.src_path ());
-
-    // As an optimization, check if we have already loaded root.build. If
-    // that's the case, then we have already been called for this project.
-    //
-    path f (src_root / root.root_extra->root_file);
-
-    // @@ What if no root.build (like an amalgamation)? Also, why create
-    //    a path to check? Maybe just have a flag in root_extra? Also why
-    //    not put buildfiles in root_extra?
-    //
-    if (root.buildfiles.find (f) != root.buildfiles.end ())
+    if (root.root_extra->loaded)
+    {
+      assert (pre == nullptr && post == nullptr);
       return;
+    }
+
+    context& ctx (root.ctx);
 
     if (ctx.no_external_modules)
       fail << "attempt to load project " << root << " after skipped loading "
@@ -1536,7 +1528,8 @@ namespace build2
     // First load outer roots, if any.
     //
     if (scope* rs = root.parent_scope ()->root_scope ())
-      load_root (*rs);
+      if (!rs->root_extra->loaded)
+        load_root (*rs);
 
     // Finish off initializing bootstrapped modules (before mode).
     //
@@ -1567,6 +1560,11 @@ namespace build2
 
     // Load hooks and root.build.
     //
+    const dir_path& out_root (root.out_path ());
+    const dir_path& src_root (root.src_path ());
+
+    path f (src_root / root.root_extra->root_file);
+
     // We can load the pre hooks before finishing off loading the bootstrapped
     // modules (which, in case of config would load config.build) or after and
     // one can come up with a plausible use-case for either approach. Note,
@@ -1703,6 +1701,8 @@ namespace build2
           dr << left << setw (static_cast<int> (pad)) << n << " [null]";
       }
     }
+
+    root.root_extra->loaded = true;
   }
 
   scope&
@@ -1739,7 +1739,8 @@ namespace build2
 
     if (load)
     {
-      load_root (rs);
+      if (!rs.root_extra->loaded)
+        load_root (rs);
       setup_base (i, out_root, src_root); // Setup as base.
     }
 
@@ -2619,7 +2620,8 @@ namespace build2
 
     // Load the imported root scope.
     //
-    load_root (*root);
+    if (!root->root_extra->loaded)
+      load_root (*root);
 
     // If this is a normal import, then we go through the export stub.
     //
