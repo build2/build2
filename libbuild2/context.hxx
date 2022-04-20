@@ -540,6 +540,26 @@ namespace build2
     build2::meta_operation_table meta_operation_table;
     build2::operation_table operation_table;
 
+    // Import cache (see import_load()).
+    //
+    struct import_key
+    {
+      dir_path out_root; // Imported project's out root.
+      name     target;   // Imported target (unqualified).
+      uint64_t metadata; // Metadata version (0 if none).
+
+      friend bool
+      operator< (const import_key& x, const import_key& y)
+      {
+        int r;
+        return ((r = x.out_root.compare (y.out_root)) != 0 ? r < 0 :
+                (r = x.target.compare (y.target))     != 0 ? r < 0 :
+                x.metadata < y.metadata);
+      }
+    };
+
+    map<import_key, pair<names, const scope&>> import_cache;
+
     // The old/new src_root remapping for subprojects.
     //
     dir_path old_src_root;

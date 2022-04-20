@@ -1522,6 +1522,10 @@ namespace build2
     //
     path f (src_root / root.root_extra->root_file);
 
+    // @@ What if no root.build (like an amalgamation)? Also, why create
+    //    a path to check? Maybe just have a flag in root_extra? Also why
+    //    not put buildfiles in root_extra?
+    //
     if (root.buildfiles.find (f) != root.buildfiles.end ())
       return;
 
@@ -2413,6 +2417,8 @@ namespace build2
   {
     tracer trace ("import_load");
 
+    uint64_t metav (meta ? 1 : 0); // Metadata version.
+
     // We end up here in two cases: Ad hoc import, in which case name is
     // unqualified and absolute and path is a base, not necessarily root. And
     // normal import, in which case name must be project-qualified and path is
@@ -2475,13 +2481,50 @@ namespace build2
       }
     }
 
+    // First check the cache.
+    //
+    using import_key = context::import_key;
+
+    auto cache_find = [&ctx, &tgt, metav] (dir_path& out_root) ->
+      const pair<names, const scope&>*
+    {
+      import_key k {move (out_root), move (tgt), metav};
+
+      auto i (ctx.import_cache.find (k));
+      if (i != ctx.import_cache.end ())
+        return &i->second;
+
+      out_root = move (k.out_root);
+      tgt = move (k.target);
+
+      return nullptr;
+    };
+
+    if (proj)
+    {
+      if (const auto* r = cache_find (out_root))
+        return *r;
+    }
+
+    dir_path cache_out_root;
+
     // Clear current project's environment.
     //
     auto_project_env penv (nullptr);
 
+    // Note: this loop does at most two iterations.
+    //
     for (const scope* proot (nullptr); ; proot = root)
     {
       bool top (proot == nullptr);
+
+      // Check the cache for the subproject.
+      //
+      if (!top && proj)
+      {
+        if (const auto* r = cache_find (out_root))
+          return *r;
+      }
 
       root = create_root (ctx, out_root, src_root)->second.front ();
 
@@ -2561,6 +2604,8 @@ namespace build2
 
         if (i != ps->end ())
         {
+          cache_out_root = move (out_root);
+
           const dir_path& d ((*i).second);
           altn = nullopt;
           out_root = root->out_path () / d;
@@ -2589,6 +2634,9 @@ namespace build2
 
       // "Pass" the imported project's roots to the stub.
       //
+      if (cache_out_root.empty ())
+        cache_out_root = out_root;
+
       ts.assign (ctx.var_out_root) = move (out_root);
       ts.assign (ctx.var_src_root) = move (src_root);
 
@@ -2604,7 +2652,7 @@ namespace build2
       // Pass the metadata compatibility version in import.metadata.
       //
       if (meta)
-        ts.assign (ctx.var_import_metadata) = uint64_t (1);
+        ts.assign (ctx.var_import_metadata) = metav;
 
       // Load the export stub. Note that it is loaded in the context of the
       // importing project, not the imported one. The export stub will
@@ -2640,7 +2688,14 @@ namespace build2
           fail (loc) << "target " << tgt << " is not exported by project "
                      << *proj;
 
-        return pair<names, const scope&> (move (v), *root);
+        pair<names, const scope&> r (move (v), *root);
+
+        // Cache.
+        //
+        ctx.import_cache.emplace (
+          import_key {move (cache_out_root), move (tgt), metav}, r);
+
+        return r;
       }
       catch (const io_error& e)
       {
