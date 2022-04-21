@@ -131,13 +131,13 @@ namespace build2
     if (p.absolute ())
     {
       if (p == b)
-        return cur ? "." + p.separator_string () : string ();
+        return cur ? '.' + p.separator_string () : string ();
 
 #ifndef _WIN32
       if (!home.empty ())
       {
         if (p == home)
-          return "~" + p.separator_string ();
+          return '~' + p.separator_string ();
       }
 #endif
 

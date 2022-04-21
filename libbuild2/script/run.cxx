@@ -1429,7 +1429,10 @@ namespace build2
         // number (start from one) in the script.
         //
         if (li > 0)
-          p += "-" + to_string (li);
+        {
+          p += '-';
+          p += to_string (li);
+        }
 
         // 0 if belongs to a single-command expression, otherwise is the
         // command number (start from one) in the expression.
@@ -1439,7 +1442,10 @@ namespace build2
         // script. These cases are mutually exclusive and so are unambiguous.
         //
         if (ci > 0)
-          p += "-" + to_string (ci);
+        {
+          p += '-';
+          p += to_string (ci);
+        }
 
         return normalize (move (p), temp_dir (env), ll);
       };
