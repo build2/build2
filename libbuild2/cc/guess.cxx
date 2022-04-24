@@ -1608,6 +1608,7 @@ namespace build2
       // "x86"
       // "x64"
       // "ARM"
+      // "ARM64"
       //
       compiler_version ver;
       {
@@ -1671,9 +1672,10 @@ namespace build2
         for (size_t b (0), e (0), n;
              (n = next_word (s, b, e, ' ', ',')) != 0; )
         {
-          if (s.compare (b, n, "x64", 3) == 0 ||
-              s.compare (b, n, "x86", 3) == 0 ||
-              s.compare (b, n, "ARM", 3) == 0 ||
+          if (s.compare (b, n, "x64",   3) == 0 ||
+              s.compare (b, n, "x86",   3) == 0 ||
+              s.compare (b, n, "ARM64", 5) == 0 ||
+              s.compare (b, n, "ARM",   3) == 0 ||
               s.compare (b, n, "80x86", 5) == 0)
           {
             cpu.assign (s, b, n);
@@ -1684,15 +1686,15 @@ namespace build2
         if (cpu.empty ())
           fail << "unable to extract MSVC target CPU from " << "'" << s << "'";
 
-        // Now we need to map x86, x64, and ARM to the target triplets. The
-        // problem is, there aren't any established ones so we got to invent
-        // them ourselves. Based on the discussion in
+        // Now we need to map x86, x64, ARM, and ARM64 to the target
+        // triplets. The problem is, there aren't any established ones so we
+        // got to invent them ourselves. Based on the discussion in
         // <libbutl/target-triplet.hxx>, we need something in the
         // CPU-VENDOR-OS-ABI form.
         //
         // The CPU part is fairly straightforward with x86 mapped to 'i386'
-        // (or maybe 'i686'), x64 to 'x86_64', and ARM to 'arm' (it could also
-        // include the version, e.g., 'amrv8').
+        // (or maybe 'i686'), x64 to 'x86_64', ARM to 'arm' (it could also
+        // include the version, e.g., 'amrv8'), and ARM64 to 'aarch64'.
         //
         // The (toolchain) VENDOR is also straightforward: 'microsoft'. Why
         // not omit it? Two reasons: firstly, there are other compilers with
@@ -1727,9 +1729,10 @@ namespace build2
         // Putting it all together, Visual Studio 2015 will then have the
         // following target triplets:
         //
-        // x86  i386-microsoft-win32-msvc14.0
-        // x64  x86_64-microsoft-win32-msvc14.0
-        // ARM  arm-microsoft-winup-???
+        // x86    i386-microsoft-win32-msvc14.0
+        // x64    x86_64-microsoft-win32-msvc14.0
+        // ARM    arm-microsoft-winup-???
+        // ARM64  aarch64-microsoft-win32-msvc14.0
         //
         if (cpu == "ARM")
           fail << "cl.exe ARM/WinRT/UWP target is not yet supported";
@@ -1739,6 +1742,8 @@ namespace build2
             t = "x86_64-microsoft-win32-msvc";
           else if (cpu == "x86" || cpu == "80x86")
             t = "i386-microsoft-win32-msvc";
+          if (cpu == "ARM64")
+            t = "aarch64-microsoft-win32-msvc";
           else
             assert (false);
 
@@ -1749,6 +1754,8 @@ namespace build2
       }
       else
         ot = t = *xt;
+
+      target_triplet tt (t); // Shouldn't fail.
 
       // If we have the MSVC installation information, then this means we are
       // running out of the Visual Studio command prompt and will have to
@@ -1761,7 +1768,7 @@ namespace build2
 
       if (const msvc_info* mi = static_cast<msvc_info*> (gr.info.get ()))
       {
-        const char* cpu (msvc_cpu (target_triplet (t).cpu));
+        const char* cpu (msvc_cpu (tt.cpu));
 
         lib_dirs = msvc_lib (*mi, x_mo, cpu);
         hdr_dirs = msvc_hdr (*mi, x_mo);
