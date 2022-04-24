@@ -1742,7 +1742,7 @@ namespace build2
             t = "x86_64-microsoft-win32-msvc";
           else if (cpu == "x86" || cpu == "80x86")
             t = "i386-microsoft-win32-msvc";
-          if (cpu == "ARM64")
+          else if (cpu == "ARM64")
             t = "aarch64-microsoft-win32-msvc";
           else
             assert (false);
