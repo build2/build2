@@ -5006,7 +5006,15 @@ namespace build2
             // accurate (parts of the translation unit could have been
             // #ifdef'ed out; see __build2_preprocess).
             //
-            return reprocess ? string () : move (p.checksum);
+            // Also, don't use the checksum for header units since it ignores
+            // preprocessor directives and may therefore cause us to ignore a
+            // change to an exported macro. @@ TODO: maybe we should add a
+            // flag to the parser not to waste time calculating the checksum
+            // in these cases.
+            //
+            return reprocess || ut == unit_type::module_header
+              ? string ()
+              : move (p.checksum);
           }
 
           // Fall through.
