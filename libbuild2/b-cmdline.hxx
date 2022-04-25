@@ -1,8 +1,8 @@
-// file      : libbuild2/cmdline.hxx -*- C++ -*-
+// file      : libbuild2/b-cmdline.hxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef LIBBUILD2_CMDLINE_HXX
-#define LIBBUILD2_CMDLINE_HXX
+#ifndef LIBBUILD2_B_CMDLINE_HXX
+#define LIBBUILD2_B_CMDLINE_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
@@ -15,7 +15,7 @@
 
 namespace build2
 {
-  struct cmdline
+  struct b_cmdline
   {
     strings cmd_vars;
     string buildspec;
@@ -33,12 +33,12 @@ namespace build2
     bool fcache_compress = true;
   };
 
-  LIBBUILD2_SYMEXPORT cmdline
-  parse_cmdline (tracer&,
-                 int argc, char* argv[],
-                 options&,
-                 uint16_t default_verbosity = 1,
-                 size_t default_jobs = 0);
+  LIBBUILD2_SYMEXPORT b_cmdline
+  parse_b_cmdline (tracer&,
+                   int argc, char* argv[],
+                   b_options&,
+                   uint16_t default_verbosity = 1,
+                   size_t default_jobs = 0);
 }
 
-#endif // LIBBUILD2_CMDLINE_HXX
+#endif // LIBBUILD2_B_CMDLINE_HXX

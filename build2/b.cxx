@@ -35,8 +35,8 @@
 
 #include <libbuild2/parser.hxx>
 
-#include <libbuild2/cmdline.hxx>
 #include <libbuild2/b-options.hxx>
+#include <libbuild2/b-cmdline.hxx>
 
 // Build system modules.
 //
@@ -72,7 +72,7 @@ namespace build2
   class result_printer
   {
   public:
-    result_printer (const options& ops,
+    result_printer (const b_options& ops,
                     const action_targets& tgs,
                     json::stream_serializer& js)
         : ops_ (ops), tgs_ (tgs), json_serializer_ (js) {}
@@ -87,7 +87,7 @@ namespace build2
     print_json ();
 
   private:
-    const options ops_;
+    const b_options& ops_;
     const action_targets& tgs_;
     json::stream_serializer& json_serializer_;
   };
@@ -265,7 +265,7 @@ main (int argc, char* argv[])
   init_process ();
 
   int r (0);
-  options ops;
+  b_options ops;
   scheduler sched;
 
   // Statistics.
@@ -276,7 +276,7 @@ main (int argc, char* argv[])
   {
     // Parse the command line.
     //
-    cmdline cmdl (parse_cmdline (trace, argc, argv, ops));
+    b_cmdline cmdl (parse_b_cmdline (trace, argc, argv, ops));
 
     // Handle --build2-metadata (see also buildfile).
     //

@@ -233,11 +233,11 @@ namespace build2
 
 namespace build2
 {
-  // options
+  // b_options
   //
 
-  options::
-  options ()
+  b_options::
+  b_options ()
   : build2_metadata_ (),
     build2_metadata_specified_ (false),
     v_ (),
@@ -291,7 +291,7 @@ namespace build2
   {
   }
 
-  bool options::
+  bool b_options::
   parse (int& argc,
          char** argv,
          bool erase,
@@ -303,7 +303,7 @@ namespace build2
     return r;
   }
 
-  bool options::
+  bool b_options::
   parse (int start,
          int& argc,
          char** argv,
@@ -316,7 +316,7 @@ namespace build2
     return r;
   }
 
-  bool options::
+  bool b_options::
   parse (int& argc,
          char** argv,
          int& end,
@@ -330,7 +330,7 @@ namespace build2
     return r;
   }
 
-  bool options::
+  bool b_options::
   parse (int start,
          int& argc,
          char** argv,
@@ -345,7 +345,7 @@ namespace build2
     return r;
   }
 
-  bool options::
+  bool b_options::
   parse (::build2::build::cli::scanner& s,
          ::build2::build::cli::unknown_mode opt,
          ::build2::build::cli::unknown_mode arg)
@@ -354,8 +354,8 @@ namespace build2
     return r;
   }
 
-  void options::
-  merge (const options& a)
+  void b_options::
+  merge (const b_options& a)
   {
     CLI_POTENTIALLY_UNUSED (a);
 
@@ -580,7 +580,7 @@ namespace build2
     }
   }
 
-  ::build2::build::cli::usage_para options::
+  ::build2::build::cli::usage_para b_options::
   print_usage (::std::ostream& os, ::build2::build::cli::usage_para p)
   {
     CLI_POTENTIALLY_UNUSED (os);
@@ -888,125 +888,125 @@ namespace build2
   }
 
   typedef
-  std::map<std::string, void (*) (options&, ::build2::build::cli::scanner&)>
-  _cli_options_map;
+  std::map<std::string, void (*) (b_options&, ::build2::build::cli::scanner&)>
+  _cli_b_options_map;
 
-  static _cli_options_map _cli_options_map_;
+  static _cli_b_options_map _cli_b_options_map_;
 
-  struct _cli_options_map_init
+  struct _cli_b_options_map_init
   {
-    _cli_options_map_init ()
+    _cli_b_options_map_init ()
     {
-      _cli_options_map_["--build2-metadata"] =
-      &::build2::build::cli::thunk< options, uint64_t, &options::build2_metadata_,
-        &options::build2_metadata_specified_ >;
-      _cli_options_map_["-v"] =
-      &::build2::build::cli::thunk< options, bool, &options::v_ >;
-      _cli_options_map_["-V"] =
-      &::build2::build::cli::thunk< options, bool, &options::V_ >;
-      _cli_options_map_["--quiet"] =
-      &::build2::build::cli::thunk< options, bool, &options::quiet_ >;
-      _cli_options_map_["-q"] =
-      &::build2::build::cli::thunk< options, bool, &options::quiet_ >;
-      _cli_options_map_["--silent"] =
-      &::build2::build::cli::thunk< options, bool, &options::silent_ >;
-      _cli_options_map_["--verbose"] =
-      &::build2::build::cli::thunk< options, uint16_t, &options::verbose_,
-        &options::verbose_specified_ >;
-      _cli_options_map_["--stat"] =
-      &::build2::build::cli::thunk< options, bool, &options::stat_ >;
-      _cli_options_map_["--dump"] =
-      &::build2::build::cli::thunk< options, std::set<string>, &options::dump_,
-        &options::dump_specified_ >;
-      _cli_options_map_["--progress"] =
-      &::build2::build::cli::thunk< options, bool, &options::progress_ >;
-      _cli_options_map_["--no-progress"] =
-      &::build2::build::cli::thunk< options, bool, &options::no_progress_ >;
-      _cli_options_map_["--jobs"] =
-      &::build2::build::cli::thunk< options, size_t, &options::jobs_,
-        &options::jobs_specified_ >;
-      _cli_options_map_["-j"] =
-      &::build2::build::cli::thunk< options, size_t, &options::jobs_,
-        &options::jobs_specified_ >;
-      _cli_options_map_["--max-jobs"] =
-      &::build2::build::cli::thunk< options, size_t, &options::max_jobs_,
-        &options::max_jobs_specified_ >;
-      _cli_options_map_["-J"] =
-      &::build2::build::cli::thunk< options, size_t, &options::max_jobs_,
-        &options::max_jobs_specified_ >;
-      _cli_options_map_["--queue-depth"] =
-      &::build2::build::cli::thunk< options, size_t, &options::queue_depth_,
-        &options::queue_depth_specified_ >;
-      _cli_options_map_["-Q"] =
-      &::build2::build::cli::thunk< options, size_t, &options::queue_depth_,
-        &options::queue_depth_specified_ >;
-      _cli_options_map_["--file-cache"] =
-      &::build2::build::cli::thunk< options, string, &options::file_cache_,
-        &options::file_cache_specified_ >;
-      _cli_options_map_["--max-stack"] =
-      &::build2::build::cli::thunk< options, size_t, &options::max_stack_,
-        &options::max_stack_specified_ >;
-      _cli_options_map_["--serial-stop"] =
-      &::build2::build::cli::thunk< options, bool, &options::serial_stop_ >;
-      _cli_options_map_["-s"] =
-      &::build2::build::cli::thunk< options, bool, &options::serial_stop_ >;
-      _cli_options_map_["--dry-run"] =
-      &::build2::build::cli::thunk< options, bool, &options::dry_run_ >;
-      _cli_options_map_["-n"] =
-      &::build2::build::cli::thunk< options, bool, &options::dry_run_ >;
-      _cli_options_map_["--match-only"] =
-      &::build2::build::cli::thunk< options, bool, &options::match_only_ >;
-      _cli_options_map_["--no-external-modules"] =
-      &::build2::build::cli::thunk< options, bool, &options::no_external_modules_ >;
-      _cli_options_map_["--structured-result"] =
-      &::build2::build::cli::thunk< options, structured_result_format, &options::structured_result_,
-        &options::structured_result_specified_ >;
-      _cli_options_map_["--mtime-check"] =
-      &::build2::build::cli::thunk< options, bool, &options::mtime_check_ >;
-      _cli_options_map_["--no-mtime-check"] =
-      &::build2::build::cli::thunk< options, bool, &options::no_mtime_check_ >;
-      _cli_options_map_["--no-column"] =
-      &::build2::build::cli::thunk< options, bool, &options::no_column_ >;
-      _cli_options_map_["--no-line"] =
-      &::build2::build::cli::thunk< options, bool, &options::no_line_ >;
-      _cli_options_map_["--buildfile"] =
-      &::build2::build::cli::thunk< options, path, &options::buildfile_,
-        &options::buildfile_specified_ >;
-      _cli_options_map_["--config-guess"] =
-      &::build2::build::cli::thunk< options, path, &options::config_guess_,
-        &options::config_guess_specified_ >;
-      _cli_options_map_["--config-sub"] =
-      &::build2::build::cli::thunk< options, path, &options::config_sub_,
-        &options::config_sub_specified_ >;
-      _cli_options_map_["--pager"] =
-      &::build2::build::cli::thunk< options, string, &options::pager_,
-        &options::pager_specified_ >;
-      _cli_options_map_["--pager-option"] =
-      &::build2::build::cli::thunk< options, strings, &options::pager_option_,
-        &options::pager_option_specified_ >;
-      _cli_options_map_["--options-file"] =
-      &::build2::build::cli::thunk< options, string, &options::options_file_,
-        &options::options_file_specified_ >;
-      _cli_options_map_["--default-options"] =
-      &::build2::build::cli::thunk< options, dir_path, &options::default_options_,
-        &options::default_options_specified_ >;
-      _cli_options_map_["--no-default-options"] =
-      &::build2::build::cli::thunk< options, bool, &options::no_default_options_ >;
-      _cli_options_map_["--help"] =
-      &::build2::build::cli::thunk< options, bool, &options::help_ >;
-      _cli_options_map_["--version"] =
-      &::build2::build::cli::thunk< options, bool, &options::version_ >;
+      _cli_b_options_map_["--build2-metadata"] =
+      &::build2::build::cli::thunk< b_options, uint64_t, &b_options::build2_metadata_,
+        &b_options::build2_metadata_specified_ >;
+      _cli_b_options_map_["-v"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::v_ >;
+      _cli_b_options_map_["-V"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::V_ >;
+      _cli_b_options_map_["--quiet"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::quiet_ >;
+      _cli_b_options_map_["-q"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::quiet_ >;
+      _cli_b_options_map_["--silent"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::silent_ >;
+      _cli_b_options_map_["--verbose"] =
+      &::build2::build::cli::thunk< b_options, uint16_t, &b_options::verbose_,
+        &b_options::verbose_specified_ >;
+      _cli_b_options_map_["--stat"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::stat_ >;
+      _cli_b_options_map_["--dump"] =
+      &::build2::build::cli::thunk< b_options, std::set<string>, &b_options::dump_,
+        &b_options::dump_specified_ >;
+      _cli_b_options_map_["--progress"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::progress_ >;
+      _cli_b_options_map_["--no-progress"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::no_progress_ >;
+      _cli_b_options_map_["--jobs"] =
+      &::build2::build::cli::thunk< b_options, size_t, &b_options::jobs_,
+        &b_options::jobs_specified_ >;
+      _cli_b_options_map_["-j"] =
+      &::build2::build::cli::thunk< b_options, size_t, &b_options::jobs_,
+        &b_options::jobs_specified_ >;
+      _cli_b_options_map_["--max-jobs"] =
+      &::build2::build::cli::thunk< b_options, size_t, &b_options::max_jobs_,
+        &b_options::max_jobs_specified_ >;
+      _cli_b_options_map_["-J"] =
+      &::build2::build::cli::thunk< b_options, size_t, &b_options::max_jobs_,
+        &b_options::max_jobs_specified_ >;
+      _cli_b_options_map_["--queue-depth"] =
+      &::build2::build::cli::thunk< b_options, size_t, &b_options::queue_depth_,
+        &b_options::queue_depth_specified_ >;
+      _cli_b_options_map_["-Q"] =
+      &::build2::build::cli::thunk< b_options, size_t, &b_options::queue_depth_,
+        &b_options::queue_depth_specified_ >;
+      _cli_b_options_map_["--file-cache"] =
+      &::build2::build::cli::thunk< b_options, string, &b_options::file_cache_,
+        &b_options::file_cache_specified_ >;
+      _cli_b_options_map_["--max-stack"] =
+      &::build2::build::cli::thunk< b_options, size_t, &b_options::max_stack_,
+        &b_options::max_stack_specified_ >;
+      _cli_b_options_map_["--serial-stop"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::serial_stop_ >;
+      _cli_b_options_map_["-s"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::serial_stop_ >;
+      _cli_b_options_map_["--dry-run"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::dry_run_ >;
+      _cli_b_options_map_["-n"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::dry_run_ >;
+      _cli_b_options_map_["--match-only"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::match_only_ >;
+      _cli_b_options_map_["--no-external-modules"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::no_external_modules_ >;
+      _cli_b_options_map_["--structured-result"] =
+      &::build2::build::cli::thunk< b_options, structured_result_format, &b_options::structured_result_,
+        &b_options::structured_result_specified_ >;
+      _cli_b_options_map_["--mtime-check"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::mtime_check_ >;
+      _cli_b_options_map_["--no-mtime-check"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::no_mtime_check_ >;
+      _cli_b_options_map_["--no-column"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::no_column_ >;
+      _cli_b_options_map_["--no-line"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::no_line_ >;
+      _cli_b_options_map_["--buildfile"] =
+      &::build2::build::cli::thunk< b_options, path, &b_options::buildfile_,
+        &b_options::buildfile_specified_ >;
+      _cli_b_options_map_["--config-guess"] =
+      &::build2::build::cli::thunk< b_options, path, &b_options::config_guess_,
+        &b_options::config_guess_specified_ >;
+      _cli_b_options_map_["--config-sub"] =
+      &::build2::build::cli::thunk< b_options, path, &b_options::config_sub_,
+        &b_options::config_sub_specified_ >;
+      _cli_b_options_map_["--pager"] =
+      &::build2::build::cli::thunk< b_options, string, &b_options::pager_,
+        &b_options::pager_specified_ >;
+      _cli_b_options_map_["--pager-option"] =
+      &::build2::build::cli::thunk< b_options, strings, &b_options::pager_option_,
+        &b_options::pager_option_specified_ >;
+      _cli_b_options_map_["--options-file"] =
+      &::build2::build::cli::thunk< b_options, string, &b_options::options_file_,
+        &b_options::options_file_specified_ >;
+      _cli_b_options_map_["--default-options"] =
+      &::build2::build::cli::thunk< b_options, dir_path, &b_options::default_options_,
+        &b_options::default_options_specified_ >;
+      _cli_b_options_map_["--no-default-options"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::no_default_options_ >;
+      _cli_b_options_map_["--help"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::help_ >;
+      _cli_b_options_map_["--version"] =
+      &::build2::build::cli::thunk< b_options, bool, &b_options::version_ >;
     }
   };
 
-  static _cli_options_map_init _cli_options_map_init_;
+  static _cli_b_options_map_init _cli_b_options_map_init_;
 
-  bool options::
+  bool b_options::
   _parse (const char* o, ::build2::build::cli::scanner& s)
   {
-    _cli_options_map::const_iterator i (_cli_options_map_.find (o));
+    _cli_b_options_map::const_iterator i (_cli_b_options_map_.find (o));
 
-    if (i != _cli_options_map_.end ())
+    if (i != _cli_b_options_map_.end ())
     {
       (*(i->second)) (*this, s);
       return true;
@@ -1015,7 +1015,7 @@ namespace build2
     return false;
   }
 
-  bool options::
+  bool b_options::
   _parse (::build2::build::cli::scanner& s,
           ::build2::build::cli::unknown_mode opt_mode,
           ::build2::build::cli::unknown_mode arg_mode)
@@ -1209,7 +1209,7 @@ namespace build2
        << "\033[1m'--'\033[0m separator. To avoid treating an argument that contains \033[1m'='\033[0m as a variable," << ::std::endl
        << "add the second \033[1m'--'\033[0m separator." << ::std::endl;
 
-    p = ::build2::options::print_usage (os, ::build2::build::cli::usage_para::text);
+    p = ::build2::b_options::print_usage (os, ::build2::build::cli::usage_para::text);
 
     if (p != ::build2::build::cli::usage_para::none)
       os << ::std::endl;

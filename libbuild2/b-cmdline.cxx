@@ -1,7 +1,7 @@
-// file      : libbuild2/cmdline.cxx -*- C++ -*-
+// file      : libbuild2/b-cmdline.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbuild2/cmdline.hxx>
+#include <libbuild2/b-cmdline.hxx>
 
 #include <limits>
 #include <cstring> // strcmp(), strchr()
@@ -19,12 +19,12 @@ namespace cli = build2::build::cli;
 
 namespace build2
 {
-  cmdline
-  parse_cmdline (tracer& trace,
-                 int argc, char* argv[],
-                 options& ops,
-                 uint16_t def_verb,
-                 size_t def_jobs)
+  b_cmdline
+  parse_b_cmdline (tracer& trace,
+                   int argc, char* argv[],
+                   b_options& ops,
+                   uint16_t def_verb,
+                   size_t def_jobs)
   {
     // Note that the diagnostics verbosity level can only be calculated after
     // default options are loaded and merged (see below). Thus, until then we
@@ -41,7 +41,7 @@ namespace build2
       return v;
     };
 
-    cmdline r;
+    b_cmdline r;
 
     // We want to be able to specify options, vars, and buildspecs in any
     // order (it is really handy to just add -v at the end of the command
@@ -290,8 +290,8 @@ namespace build2
 
         // Load default options files.
         //
-        default_options<options> def_ops (
-          load_default_options<options,
+        default_options<b_options> def_ops (
+          load_default_options<b_options,
                                cli::argv_file_scanner,
                                cli::unknown_mode> (
             nullopt /* sys_dir */,
@@ -331,7 +331,7 @@ namespace build2
             merge_default_arguments (
               def_ops,
               r.cmd_vars,
-              [&verify_glb_ovr] (const default_options_entry<options>& e,
+              [&verify_glb_ovr] (const default_options_entry<b_options>& e,
                                  const strings&)
               {
                 path_name fn (e.file);

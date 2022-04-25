@@ -19,10 +19,10 @@
 
 namespace build2
 {
-  class LIBBUILD2_SYMEXPORT options
+  class LIBBUILD2_SYMEXPORT b_options
   {
     public:
-    options ();
+    b_options ();
 
     // Return true if anything has been parsed.
     //
@@ -67,7 +67,7 @@ namespace build2
     // them as if they appeared after options in this instance.
     //
     void
-    merge (const options&);
+    merge (const b_options&);
 
     // Option accessors.
     //

@@ -477,7 +477,7 @@ namespace build2
      "
   }
 
-  class options
+  class b_options
   {
     "\h#options|OPTIONS|"
 
