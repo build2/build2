@@ -3,6 +3,8 @@
 
 #include <libbuild2/script/parser.hxx>
 
+#include <cstring> // strchr()
+
 #include <libbuild2/variable.hxx>
 #include <libbuild2/script/run.hxx>   // exit
 #include <libbuild2/script/lexer.hxx>
@@ -14,6 +16,33 @@ namespace build2
   namespace script
   {
     using type = token_type;
+
+    bool parser::
+    need_cmdline_relex (const string& s)
+    {
+      for (auto i (s.begin ()), e (s.end ()); i != e; ++i)
+      {
+        char c (*i);
+
+        if (c == '\\')
+        {
+          if (++i != e)
+            return false;
+
+          c = *i;
+
+          if (c == '\\' || c == '\'' || c == '\"')
+            return true;
+
+          // Fall through.
+        }
+
+        if (strchr ("|<>&\"'", c) != nullptr)
+          return true;
+      }
+
+      return false;
+    }
 
     value parser::
     parse_variable_line (token& t, type& tt)
@@ -1092,16 +1121,17 @@ namespace build2
 
             // Process what we got.
             //
-            // First see if this is a value that should not be re-lexed. The
-            // long term plan is to only re-lex values of a special type
-            // representing a canned command line.
+            // First see if this is a value that should not be re-lexed. We
+            // only re-lex values of the special `cmdline` type that
+            // represents a canned command line.
             //
             // Otherwise, determine whether anything inside was quoted (note
             // that the current token is "next" and is not part of this).
             //
-            bool q (
-              (pr.value && !relex_) ||
-              (quoted () - (t.qtype != quote_type::unquoted ? 1 : 0)) != 0);
+            bool lex (
+              pr.value
+              ? pr.type != nullptr && pr.type->is_a<cmdline> ()
+              : (quoted () - (t.qtype != quote_type::unquoted ? 1 : 0)) == 0);
 
             for (name& n: ns)
             {
@@ -1123,10 +1153,7 @@ namespace build2
               // interesting characters (operators plus quotes/escapes),
               // then no need to re-lex.
               //
-              // NOTE: update quoting (script.cxx:to_stream_q()) if adding
-              // any new characters.
-              //
-              if (q || s.find_first_of ("|&<>\'\"\\") == string::npos)
+              if (!lex || !need_cmdline_relex (s))
                 add_word (move (s), l);
               else
               {

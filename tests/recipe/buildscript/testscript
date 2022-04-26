@@ -700,6 +700,30 @@ posix = ($cxx.target.class != 'windows')
   $* clean 2>-
 }
 
+: canned-cmdline
+:
+{
+  cat <<EOI >=buildfile;
+    ./:
+    {{
+      x = echo >|
+      y = [cmdline] echo >|
+      diag update
+      $x foo
+      $y bar
+      ([cmdline] $x) baz
+    }}
+    EOI
+
+  $* >> EOO 2>>EOE
+    bar
+    baz
+    EOO
+    update
+    >| foo
+    EOE
+}
+
 : timeout
 :
 if $posix

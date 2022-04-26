@@ -10,7 +10,7 @@ test.arguments = config.cxx=$quote($recall($cxx.path) $cxx.config.mode, true) up
 #
 # trace: cxx::compile::apply extracting (headers|modules) from: .../obje{(test).o...}
 #
-filter = sed -n -e \
+filter = [cmdline] sed -n -e \
   \''s/^trace: cxx::compile_rule::apply: extracting ([^ ]+) from[^{]+\{([^.]+).*/\1 \2/p'\'
 
 +cat <<EOI >=build/root.build

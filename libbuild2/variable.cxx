@@ -1420,6 +1420,138 @@ namespace build2
     &default_empty<project_name>
   };
 
+  // cmdline
+  //
+  cmdline value_traits<cmdline>::
+  convert (names&& ns)
+  {
+    return cmdline (make_move_iterator (ns.begin ()),
+                    make_move_iterator (ns.end ()));
+  }
+
+  void value_traits<cmdline>::
+  assign (value& v, cmdline&& x)
+  {
+    if (v)
+      v.as<cmdline> () = move (x);
+    else
+      new (&v.data_) cmdline (move (x));
+  }
+
+  void value_traits<cmdline>::
+  append (value& v, cmdline&& x)
+  {
+    if (v)
+    {
+      cmdline& p (v.as<cmdline> ());
+
+      if (p.empty ())
+        p.swap (x);
+      else
+        p.insert (p.end (),
+                  make_move_iterator (x.begin ()),
+                  make_move_iterator (x.end ()));
+    }
+    else
+      new (&v.data_) cmdline (move (x));
+  }
+
+  void value_traits<cmdline>::
+  prepend (value& v, cmdline&& x)
+  {
+    if (v)
+    {
+      cmdline& p (v.as<cmdline> ());
+
+      if (!p.empty ())
+        x.insert (x.end (),
+                  make_move_iterator (p.begin ()),
+                  make_move_iterator (p.end ()));
+
+      p.swap (x);
+    }
+    else
+      new (&v.data_) cmdline (move (x));
+  }
+
+  void
+  cmdline_assign (value& v, names&& ns, const variable*)
+  {
+    if (!v)
+    {
+      new (&v.data_) cmdline ();
+      v.null = false;
+    }
+
+    v.as<cmdline> ().assign (make_move_iterator (ns.begin ()),
+                             make_move_iterator (ns.end ()));
+  }
+
+  void
+  cmdline_append (value& v, names&& ns, const variable*)
+  {
+    if (!v)
+    {
+      new (&v.data_) cmdline ();
+      v.null = false;
+    }
+
+    auto& x (v.as<cmdline> ());
+    x.insert (x.end (),
+              make_move_iterator (ns.begin ()),
+              make_move_iterator (ns.end ()));
+  }
+
+  void
+  cmdline_prepend (value& v, names&& ns, const variable*)
+  {
+    if (!v)
+    {
+      new (&v.data_) cmdline ();
+      v.null = false;
+    }
+
+    auto& x (v.as<cmdline> ());
+    x.insert (x.begin (),
+              make_move_iterator (ns.begin ()),
+              make_move_iterator (ns.end ()));
+  }
+
+  static names_view
+  cmdline_reverse (const value& v, names&)
+  {
+    const auto& x (v.as<cmdline> ());
+    return names_view (x.data (), x.size ());
+  }
+
+  static int
+  cmdline_compare (const value& l, const value& r)
+  {
+    return vector_compare<name> (l, r);
+  }
+
+  const cmdline value_traits<cmdline>::empty_instance;
+
+  const char* const value_traits<cmdline>::type_name = "cmdline";
+
+  const value_type value_traits<cmdline>::value_type
+  {
+    type_name,
+    sizeof (cmdline),
+    nullptr,                           // No base.
+    &value_traits<string>::value_type,
+    &default_dtor<cmdline>,
+    &default_copy_ctor<cmdline>,
+    &default_copy_assign<cmdline>,
+    &cmdline_assign,
+    &cmdline_append,
+    &cmdline_prepend,
+    &cmdline_reverse,
+    nullptr,                           // No cast (cast data_ directly).
+    &cmdline_compare,
+    &default_empty<cmdline>
+  };
+
   // variable_pool
   //
   void variable_pool::

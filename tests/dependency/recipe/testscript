@@ -691,7 +691,7 @@ EOE
       EOI
 
     $* $config_cxx <<EOI 2>>~%EOE%
-      c = $cxx.path --version
+      c = [cmdline] $cxx.path --version
       alias{x}:
       {{
         $c
@@ -729,7 +729,7 @@ EOE
     $* <<EOI 2>>EOE != 0
       alias{x}:
       {{
-        foo = bar
+        foo = [cmdline] bar
         $foo
       }}
       dump alias{x}

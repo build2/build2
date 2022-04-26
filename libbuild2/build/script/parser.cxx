@@ -711,6 +711,19 @@ namespace build2
           return nullopt;
         }
 
+        // If this is a value of the special cmdline type, then only do
+        // certain tests below if the value is not quoted and doesn't contain
+        // any characters that would be consumed by re-lexing.
+        //
+        // This is somewhat of a hack but handling this properly would not
+        // only require unquoting but also keeping track of which special
+        // characters were quoted (and thus should be treated literally) and
+        // which were not (and thus should act as separators, etc).
+        //
+        bool qs (pr.type != nullptr        &&
+                 pr.type->is_a<cmdline> () &&
+                 need_cmdline_relex (ns[0].value));
+
         // We have to handle process_path[_ex] and executable target. The
         // process_path[_ex] we may have to recognize syntactically because
         // of the loss of type, for example:
@@ -744,9 +757,13 @@ namespace build2
           pp_vt = pr.type;
           ns.clear ();
         }
-        else if (ns[0].file ())
+        else if (ns[0].file () && !qs)
         {
           // Find the end of the value.
+          //
+          // Note that here we ignore the whole cmdline issue (see above)
+          // for the further values assuming that they are unquoted and
+          // don't contain any special characters.
           //
           auto b (ns.begin ());
           auto i (value_traits<process_path_ex>::find_end (ns));
@@ -814,40 +831,43 @@ namespace build2
         //
         else if (!ns[0].simple ())
         {
-          if (const target* t = search_existing (
-                ns[0], *scope_, ns[0].pair ? ns[1].dir : empty_dir_path))
+          if (!qs)
           {
-            if (const auto* et = t->is_a<exe> ())
+            if (const target* t = search_existing (
+                  ns[0], *scope_, ns[0].pair ? ns[1].dir : empty_dir_path))
             {
+              if (const auto* et = t->is_a<exe> ())
+              {
+                if (pre_parse_)
+                {
+                  if (auto* n = et->lookup_metadata<string> ("name"))
+                  {
+                    set_diag (*n, 3);
+                    return nullopt;
+                  }
+                  // Fall through.
+                }
+                else
+                {
+                  process_path pp (et->process_path ());
+
+                  if (pp.empty ())
+                    fail (l) << "target " << *et << " is out of date" <<
+                      info << "consider specifying it as a prerequisite of "
+                             << environment_->target;
+
+                  ns.erase (ns.begin (), ns.begin () + (ns[0].pair ? 2 : 1));
+                  return optional<process_path> (move (pp));
+                }
+              }
+
               if (pre_parse_)
               {
-                if (auto* n = et->lookup_metadata<string> ("name"))
-                {
-                  set_diag (*n, 3);
-                  return nullopt;
-                }
-                // Fall through.
+                diag_record dr (fail (l));
+                dr << "unable to deduce low-verbosity script diagnostics name "
+                   << "from target " << *t;
+                suggest_diag (dr);
               }
-              else
-              {
-                process_path pp (et->process_path ());
-
-                if (pp.empty ())
-                  fail (l) << "target " << *et << " is out of date" <<
-                    info << "consider specifying it as a prerequisite of "
-                           << environment_->target;
-
-                ns.erase (ns.begin (), ns.begin () + (ns[0].pair ? 2 : 1));
-                return optional<process_path> (move (pp));
-              }
-            }
-
-            if (pre_parse_)
-            {
-              diag_record dr (fail (l));
-              dr << "unable to deduce low-verbosity script diagnostics name "
-                 << "from target " << *t;
-              suggest_diag (dr);
             }
           }
 
@@ -865,26 +885,29 @@ namespace build2
         {
           // If we are here, the name is simple and is not part of a pair.
           //
-          string& v (ns[0].value);
-
-          // Try to interpret the name as a builtin.
-          //
-          const builtin_info* bi (builtins.find (v));
-
-          if (bi != nullptr)
+          if (!qs)
           {
-            set_diag (move (v), bi->weight);
-            return nullopt;
-          }
-          //
-          // Try to interpret the name as a pseudo-builtin.
-          //
-          // Note that both of them has the zero weight and cannot be picked
-          // up as a script name.
-          //
-          else if (v == "set" || v == "exit")
-          {
-            return nullopt;
+            string& v (ns[0].value);
+
+            // Try to interpret the name as a builtin.
+            //
+            const builtin_info* bi (builtins.find (v));
+
+            if (bi != nullptr)
+            {
+              set_diag (move (v), bi->weight);
+              return nullopt;
+            }
+            //
+            // Try to interpret the name as a pseudo-builtin.
+            //
+            // Note that both of them has the zero weight and cannot be picked
+            // up as a script name.
+            //
+            else if (v == "set" || v == "exit")
+            {
+              return nullopt;
+            }
           }
 
           diag_record dr (fail (l));

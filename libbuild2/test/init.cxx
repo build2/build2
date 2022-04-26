@@ -115,8 +115,8 @@ namespace build2
 
       // These are only used in testscript.
       //
-      vp.insert<strings> ("test.redirects");
-      vp.insert<strings> ("test.cleanups");
+      vp.insert<cmdline> ("test.redirects");
+      vp.insert<cmdline> ("test.cleanups");
 
       // Unless already set, default test.target to build.host. Note that it
       // can still be overriden by the user, e.g., in root.build.

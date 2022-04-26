@@ -25,7 +25,7 @@ namespace build2
     class parser: protected build2::parser
     {
     public:
-      parser (context& c, bool relex): build2::parser (c), relex_ (relex) {}
+      parser (context& c): build2::parser (c) {}
 
       // Helpers.
       //
@@ -41,6 +41,15 @@ namespace build2
                               const path_name&); // For diagnostics.
 
       using build2::parser::apply_value_attributes;
+
+      // Return true if a command line element needs to be re-lexed.
+      //
+      // Specifically, it needs to be re-lexed if it contains any of the
+      // special characters (|<>&), quotes ("') or effective escape sequences
+      // (\", \', \\).
+      //
+      static bool
+      need_cmdline_relex (const string&);
 
       // Commonly used parsing functions. Issue diagnostics and throw failed
       // in case of an error.
@@ -200,6 +209,13 @@ namespace build2
       // something that requires re-lexing, for example `foo|bar`, which won't
       // be easy to translate but which are handled by the parser.
       //
+      // Note that the chunk could be of the special cmdline type in which
+      // case the names may need to be "preprocessed" (at least unquoted or
+      // potentially fully re-lexed) before being analyzed/consumed. Note also
+      // that in this case any names left unconsumed must remain of the
+      // cmdline type.
+      //
+      //
       // During the pre-parsing phase the returned process path and names
       // (that must still be parsed) are discarded. The main purpose of the
       // call is to allow implementations to perform static script analysis,
@@ -229,7 +245,6 @@ namespace build2
       size_t replay_quoted_;
 
     protected:
-      bool relex_;
       lexer* lexer_ = nullptr;
     };
   }

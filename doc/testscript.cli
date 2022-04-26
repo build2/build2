@@ -741,6 +741,9 @@ Note also that these \c{test.*} variables only establish a convention. You
 could also put everything into, say \c{test.arguments}, and it will still work
 as expected.
 
+\N|The \c{test.redirects}, \c{test.cleanups}, and \c{$*} variables are of the
+special \c{cmdline} type, see \l{#lexical Lexical Structure} for details.|
+
 Another pre-defined variable is \c{test.target}. It is used to specify the
 test target platform when cross-testing (for example, when running Windows
 test on Linux under Wine). Normally, you would set it in your
@@ -1285,62 +1288,54 @@ here-document single-quoted   here_line_single
 here-document double-quoted   here_line_double   expansions
 \
 
-Finally, unquoted expansions in command lines (test, setup, and teardown) are
-re-lexed in the \c{command_expansion} mode in order to recognize command line
-syntax tokens (redirects, pipes, etc). To illustrate why this re-lexing is
-necessary, consider the following example of a \"canned\" command line:
+Finally, unquoted expansions in command lines (test, setup, and teardown) of
+the special \c{cmdline} type are re-lexed in the \c{command_expansion} mode in
+order to recognize command line syntax tokens (redirects, pipes, etc). To
+illustrate this mechanism, consider the following example of a \"canned\"
+command line:
 
 \
-x = echo >-
-$x foo
+cmd = [cmdline] echo >-
+$cmd foo
 \
 
-The test command line token sequence will be \c{$}, \c{x}, \c{foo}. After the
-expansion we have \c{echo}, \c{>-}, \c{foo}, however, the second element
-(\c{>-}) is not (yet) recognized as a redirect. To recognize it we  re-lex
-the result of the expansion.
+The test command line token sequence will be \c{$}, \c{cmd}, \c{foo}. After
+the expansion we have \c{echo}, \c{>-}, \c{foo}, however, the second element
+(\c{>-}) is not (yet) recognized as a redirect. To recognize it, the result of
+the expansion is re-lexed.
 
 Note that besides the few command line syntax characters, re-lexing will also
 \"consume\" quotes and escapes, for example:
 
 \
-args = \"'foo'\"  # 'foo'
-echo $args      # echo foo
+cmd = [cmdline] echo \"'foo'\"  # echo 'foo'
+$cmd                          # echo foo
 \
 
 To preserve quotes in this context we need to escape them:
 
 \
-args = \"\\\\'foo\\\\'\"  # \'foo\'
-echo $args          # echo 'foo'
-\
-
-Alternatively, for a single value, we could quote the expansion (in order
-to suppress re-lexing; note, however, that quoting will also inhibit
-word-splitting):
-
-\
-arg = \"'foo'\"  # 'foo'
-echo \"$arg\"    # echo 'foo'
+cmd = [cmdline] echo \"\\\\'foo\\\\'\"  # echo \'foo\'
+$cmd                              # echo 'foo'
 \
 
 To minimize unhelpful consumption of escape sequences (for example, in Windows
 paths), re-lexing only performs the \i{effective escaping} for the \c{'\"\\}
 characters. All other escape sequences are passed through uninterpreted. Note
-that this means there is no way to escape command line syntax characters. The
-recommendation is to use quoting except for passing literal quotes, for
-example:
+that this means there is no way to escape command line syntax characters in
+canned commands. The recommendation is to use quoting except for passing
+literal quotes, for example:
 
 \
-args = \'&foo\'  # '&foo'
-echo $args       # echo &foo
+cmd = [cmdline] echo \'&foo\'  # echo '&foo'
+$cmd                           # echo &foo
 \
 
 To make sure that a string is passed as is through both expansions use the
 \i{doubled single-quoting} idiom, for example:
 
 \
-filter = sed -e \''s/foo (bar|baz)/$&/'\'
+filter = [cmdline] sed -e \''s/foo (bar|baz)/$&/'\'
 $* <<EOI | $filter >>EOO
 ...
 EOI

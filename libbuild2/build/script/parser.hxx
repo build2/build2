@@ -28,7 +28,7 @@ namespace build2
         // Pre-parse. Issue diagnostics and throw failed in case of an error.
         //
       public:
-        parser (context& c): build2::script::parser (c, false /* relex */) {}
+        parser (context& c): build2::script::parser (c) {}
 
         // Note that the returned script object references the passed path
         // name.

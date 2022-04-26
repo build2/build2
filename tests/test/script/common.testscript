@@ -31,7 +31,7 @@ end
 # Note that the buildfile is clever hack that relies on the first target
 # automatically becoming dir{./}'s prerequisite.
 #
-c = cat >=testscript
-b = $0 --no-default-options --serial-stop --quiet --buildfile - test \
+c = [cmdline] cat >=testscript
+b = [cmdline] $0 --no-default-options --serial-stop --quiet --buildfile - test \
 <"'testscript{testscript}: \$target'" \
 &?test/***

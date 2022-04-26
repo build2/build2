@@ -30,7 +30,7 @@ namespace build2
         // Pre-parse. Issue diagnostics and throw failed in case of an error.
         //
       public:
-        parser (context& c): build2::script::parser (c, true /* relex */) {}
+        parser (context& c): build2::script::parser (c) {}
 
         void
         pre_parse (script&);

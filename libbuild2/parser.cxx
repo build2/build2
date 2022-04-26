@@ -4731,6 +4731,7 @@ namespace build2
       n == "paths"          ? ptr (value_traits<paths>::value_type)          :
       n == "dir_paths"      ? ptr (value_traits<dir_paths>::value_type)      :
       n == "names"          ? ptr (value_traits<vector<name>>::value_type)   :
+      n == "cmdline"        ? ptr (value_traits<cmdline>::value_type)        :
 
       nullptr;
   }

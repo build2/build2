@@ -1147,6 +1147,35 @@ namespace build2
     static const map_value_type<K, V> value_type;
   };
 
+  // Canned command line to be re-lexed (used in {Build,Test}scripts).
+  //
+  // Note that because the executable can be specific as a target or as
+  // process_path_ex, this is a list of names rather than a list of strings.
+  // Note also that unlike vector<name> this type allows name pairs.
+  //
+  struct cmdline: vector<name>
+  {
+    using vector<name>::vector;
+
+    cmdline () {} // For Clang.
+  };
+
+  template <>
+  struct LIBBUILD2_SYMEXPORT value_traits<cmdline>
+  {
+    static_assert (sizeof (cmdline) <= value::size_, "insufficient space");
+
+    static cmdline convert (names&&);
+    static void assign (value&, cmdline&&);
+    static void append (value&, cmdline&&);
+    static void prepend (value&, cmdline&&);
+    static bool empty (const cmdline& x) {return x.empty ();}
+
+    static const cmdline empty_instance;
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
   // Explicitly pre-instantiate and export value_traits templates for
   // vector/map value types used in the build2 project. Note that this is not
   // merely an optimization since not doing so we may end up with multiple

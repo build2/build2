@@ -20,7 +20,7 @@
   true  = '$* >| -o'
   false = '$* -s 1 >| -o'
 
-  bf = $b 2>-
+  bf = [cmdline] $b 2>-
 
   : true
   :

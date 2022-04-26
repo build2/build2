@@ -27,7 +27,7 @@ EOE
 : invalid-redirect
 :
 $* <<EOI 2>>EOE != 0
-x = "1>&a"
+x = [cmdline] "1>&a"
 cmd $x
 EOI
 <string>:1:4: error: stdout merge redirect file descriptor must be 2

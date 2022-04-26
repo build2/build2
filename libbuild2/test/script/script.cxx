@@ -197,12 +197,12 @@ namespace build2
             test_var      (var_pool.insert<path> ("test")),
             options_var   (var_pool.insert<strings> ("test.options")),
             arguments_var (var_pool.insert<strings> ("test.arguments")),
-            redirects_var (var_pool.insert<strings> ("test.redirects")),
-            cleanups_var  (var_pool.insert<strings> ("test.cleanups")),
+            redirects_var (var_pool.insert<cmdline> ("test.redirects")),
+            cleanups_var  (var_pool.insert<cmdline> ("test.cleanups")),
 
             wd_var (var_pool.insert<dir_path> ("~")),
             id_var (var_pool.insert<path> ("@")),
-            cmd_var (var_pool.insert<strings> ("*")),
+            cmd_var (var_pool.insert<cmdline> ("*")),
             cmdN_var {
               &var_pool.insert<path> ("0"),
               &var_pool.insert<string> ("1"),
@@ -410,11 +410,12 @@ namespace build2
         // First assemble the $* value and save the test variable value into
         // the test program set.
         //
-        strings s;
+        cmdline s;
 
-        auto append = [&s] (const strings& v)
+        auto append = [&s] (const strings& vs)
         {
-          s.insert (s.end (), v.begin (), v.end ());
+          for (const string& v: vs)
+            s.push_back (name (v)); // Simple name.
         };
 
         // If the test variable can't be looked up for any reason (is NULL,
@@ -423,7 +424,7 @@ namespace build2
         if (auto l = lookup (root.test_var))
         {
           const path& p (cast<path> (l));
-          s.push_back (p.representation ());
+          s.push_back (name (p.representation ()));
 
           test_programs[0] = &p;
 
@@ -441,10 +442,16 @@ namespace build2
         size_t n (s.size ());
 
         if (auto l = lookup (root.redirects_var))
-          append (cast<strings> (l));
+        {
+          const auto& v (cast<cmdline> (l));
+          s.insert (s.end (), v.begin (), v.end ());
+        }
 
         if (auto l = lookup (root.cleanups_var))
-          append (cast<strings> (l));
+        {
+          const auto& v (cast<cmdline> (l));
+          s.insert (s.end (), v.begin (), v.end ());
+        }
 
         // Set the $N values if present.
         //
@@ -455,9 +462,9 @@ namespace build2
           if (i < n)
           {
             if (i == 0)
-              v = path (s[i]);
+              v = path (s[i].value);
             else
-              v = s[i];
+              v = s[i].value;
           }
           else
             v = nullptr; // Clear any old values.
@@ -465,6 +472,88 @@ namespace build2
 
         // Set $*.
         //
+        // We need to effective-quote the $test $test.options, $test.arguments
+        // part of it since they will be re-lexed. See the Testscript manual
+        // for details on quoting semantics. In particular, we cannot escape
+        // the special character (|<>&) so we have to rely on quoting. We can
+        // use single-quoting for everything except if the value contains a
+        // single quote. In which case we should probably just do separately-
+        // quoted regions (similar to shell), for example:
+        //
+        // <''>
+        //
+        // Can be quoted as:
+        //
+        // '<'"''"'>'
+        //
+        for (size_t i (0); i != n; ++i)
+        {
+          string& v (s[i].value);
+
+          // Check if the quoting is required for this value.
+          //
+          if (!parser::need_cmdline_relex (v))
+            continue;
+
+          // If the value doesn't contain the single-quote character, then
+          // single-quote it.
+          //
+          size_t p (v.find ('\''));
+
+          if (p == string::npos)
+          {
+            v = "'" + v + "'";
+            continue;
+          }
+
+          // Otherwise quote the regions.
+          //
+          // Note that we double-quote the single-quote character sequences
+          // and single-quote all the other regions.
+          //
+          string r;
+          char q (p == 0 ? '"' : '\''); // Current region quoting mode.
+
+          r += q; // Open the first region.
+
+          for (char c: v)
+          {
+            // If we are in the double-quoting mode, then switch to the
+            // single-quoting mode if a non-single-quote character is
+            // encountered.
+            //
+            if (q == '"')
+            {
+              if (c != '\'')
+              {
+                r += q;   // Close the double-quoted region.
+                q = '\''; // Set the single-quoting mode.
+                r += q;   // Open the single-quoted region.
+              }
+            }
+            //
+            // If we are in the single-quoting mode, then switch to the
+            // double-quoting mode if the single-quote character is
+            // encountered.
+            //
+            else
+            {
+              if (c == '\'')
+              {
+                r += q;  // Close the single-quoted region.
+                q = '"'; // Set the double-quoting mode.
+                r += q;  // Open the double-quoted region.
+              }
+            }
+
+            r += c;
+          }
+
+          r += q; // Close the last region.
+
+          v = move (r);
+        }
+
         assign (root.cmd_var) = move (s);
       }
 
