@@ -4,6 +4,10 @@
 #ifndef LIBBUILD2_PARSER_HXX
 #define LIBBUILD2_PARSER_HXX
 
+#include <exception> // uncaught_exception[s]()
+
+#include <libbutl/ft/exception.hxx> // uncaught_exceptions
+
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
@@ -735,9 +739,10 @@ namespace build2
     }
 
     void
-    replay_stop ()
+    replay_stop (bool verify = true)
     {
-      assert (!peeked_);
+      if (verify)
+        assert (!peeked_);
 
       if (replay_ == replay::play)
         path_ = replay_path_; // Restore old path.
@@ -765,10 +770,23 @@ namespace build2
       ~replay_guard ()
       {
         if (p_ != nullptr)
-          p_->replay_stop ();
+          p_->replay_stop (!uncaught_exception ());
       }
 
     private:
+      // C++17 deprecated uncaught_exception() so use uncaught_exceptions() if
+      // available.
+      //
+      static bool
+      uncaught_exception ()
+      {
+#ifdef __cpp_lib_uncaught_exceptions
+        return std::uncaught_exceptions () != 0;
+#else
+        return std::uncaught_exception ();
+#endif
+      }
+
       parser* p_;
     };
 
