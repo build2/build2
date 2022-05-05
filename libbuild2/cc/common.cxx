@@ -49,19 +49,19 @@ namespace build2
     // array that contains the current library dependency chain all the way to
     // the library passed to process_libraries(). The first element of this
     // array is NULL. If this argument is NULL, then this is a library without
-    // a target (e.g., -lpthread) and its name is in the second argument
-    // (which could be resolved to an absolute path or passed as an -l<name>
-    // option). Otherwise, (the first argument is not NULL), the second
-    // argument contains the target path (which can be empty in case of the
-    // unknown DLL path).
+    // a target (e.g., -lm, -pthread, etc) and its name is in the second
+    // argument (which could be resolved to an absolute path or passed as an
+    // -l<name>/-pthread option). Otherwise, (the first argument is not NULL),
+    // the second argument contains the target path (which can be empty in
+    // case of the unknown DLL path).
     //
-    // Initially, the second argument (library name) was a string (e.g.,
-    // -lpthread) but there are cases where the library is identified with
-    // multiple options, such as -framework CoreServices (there are also cases
-    // like -Wl,--whole-archive -lfoo -lbar -Wl,--no-whole-archive). So now it
-    // is a vector_view that contains a fragment of options (from one of the
-    // *.libs variables) that corresponds to the library (or several
-    // libraries, as in the --whole-archive example above).
+    // Initially, the second argument (library name) was a string (e.g., -lm)
+    // but there are cases where the library is identified with multiple
+    // options, such as -framework CoreServices (there are also cases like
+    // -Wl,--whole-archive -lfoo -lbar -Wl,--no-whole-archive). So now it is a
+    // vector_view that contains a fragment of options (from one of the *.libs
+    // variables) that corresponds to the library (or several libraries, as in
+    // the --whole-archive example above).
     //
     // Storing a reference to elements of library name in proc_lib is legal
     // (they come either from the target's path or from one of the *.libs
@@ -419,8 +419,8 @@ namespace build2
           // Determine the length of the library name fragment as well as
           // whether it is a system library. Possible length values are:
           //
-          // 1 - just the argument itself (-lpthread)
-          // 2 - argument and next element (-l pthread, -framework CoreServices)
+          // 1 - just the argument itself (-lm, -pthread)
+          // 2 - argument and next element (-l m, -framework CoreServices)
           // 0 - unrecognized/until the end (-Wl,--whole-archive ...)
           //
           // See similar code in find_system_library().
@@ -451,9 +451,9 @@ namespace build2
             {
               if (l[0] == '-')
               {
-                // -l<name>, -l <name>
+                // -l<name>, -l <name>, -pthread
                 //
-                if (l[1] == 'l')
+                if (l[1] == 'l' || l == "-pthread")
                 {
                   n = l.size () == 2 ? 2 : 1;
                 }
@@ -502,10 +502,10 @@ namespace build2
               //
               if (n.simple ())
               {
-                // This is something like -lpthread or shell32.lib so should
-                // be a valid path. But it can also be an absolute library
-                // path (e.g., something that may come from our
-                // .{static/shared}.pc files).
+                // This is something like -lm or shell32.lib so should be a
+                // valid path. But it can also be an absolute library path
+                // (e.g., something that may come from our .{static/shared}.pc
+                // files).
                 //
                 if (proc_lib)
                 {
@@ -628,8 +628,8 @@ namespace build2
 
             for (auto i (ns->begin ()), e (ns->end ()); i != e; )
             {
-              // This is something like -lpthread or shell32.lib so should be
-              // a valid path.
+              // This is something like -lm or shell32.lib so should be a
+              // valid path.
               //
               pair<size_t, bool> r (sense_fragment (*i));
 
@@ -1317,7 +1317,7 @@ namespace build2
         // (or custom ones) from *.export.poptions.
         //
         // @@ Should we add .pc files as ad hoc members so pkconfig_save() can
-        // use their names when deriving -l-names (this would be expecially
+        // use their names when deriving -l-names (this would be especially
         // helpful for binless libraries to get hold of prefix/suffix, etc).
         //
         if (pc.first.empty () && pc.second.empty ())

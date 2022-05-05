@@ -222,9 +222,10 @@ namespace build2
       // Note that passing multiple targets at once is not a mere convenience:
       // this also allows for more effective duplicate suppression.
       //
-      // Note also that this function can only be called during execution
-      // after all the specified library targets have been matched. Normally
-      // it is used in ad hoc recipes to implement custom compilation.
+      // Note also that this function can only be called during execution (or,
+      // carefully, during match) after all the specified library targets have
+      // been matched. Normally it is used in ad hoc recipes to implement
+      // custom compilation.
       //
       // Note that this function is not pure.
       //
@@ -303,9 +304,10 @@ namespace build2
       // Note that passing multiple targets at once is not a mere convenience:
       // this also allows for more effective duplicate suppression.
       //
-      // Note also that this function can only be called during execution
-      // after all the specified library targets have been matched. Normally
-      // it is used in ad hoc recipes to implement custom linking.
+      // Note also that this function can only be called during execution (or,
+      // carefully, during match) after all the specified library targets have
+      // been matched. Normally it is used in ad hoc recipes to implement
+      // custom linking.
       //
       // Note that this function is not pure.
       //

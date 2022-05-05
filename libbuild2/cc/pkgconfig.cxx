@@ -741,8 +741,7 @@ namespace build2
           // We only keep -I, -D and -U.
           //
           if (n >= 2 &&
-              o[0] == '-' &&
-              (o[1] == 'I' || o[1] == 'D' || o[1] == 'U'))
+              o[0] == '-' && (o[1] == 'I' || o[1] == 'D' || o[1] == 'U'))
           {
             pops.push_back (move (o));
             arg = (n == 2);
@@ -788,7 +787,8 @@ namespace build2
         // library is binless. But sometimes we may have other linker options,
         // for example, -Wl,... or -pthread. It's probably a bad idea to
         // ignore them. Also, theoretically, we could have just the library
-        // name/path.
+        // name/path. Note that (after some meditation) we consider -pthread
+        // a special form of -l.
         //
         // The tricky part, of course, is to know whether what follows after
         // an option we don't recognize is its argument or another option or
@@ -819,10 +819,10 @@ namespace build2
             continue;
           }
 
-          // See if that's -l or just the library name/path.
+          // See if that's -l, -pthread, or just the library name/path.
           //
           if ((known && o[0] != '-') ||
-              (n > 2 && o[0] == '-' && o[1] == 'l'))
+              (n > 2 && o[0] == '-' && (o[1] == 'l' || o == "-pthread")))
           {
             // Unless binless, the first one is the library itself, which we
             // skip. Note that we don't verify this and theoretically it could
@@ -892,8 +892,8 @@ namespace build2
         // import installed, or via a .pc file (which we could have generated
         // from the export stub). The exception is "runtime libraries" (which
         // are really the extension of libc or the operating system in case of
-        // Windows) such as -lm, -ldl, -lpthread, etc. Those we will detect
-        // and leave as -l*.
+        // Windows) such as -lm, -ldl, -lpthread (or its -pthread variant),
+        // etc. Those we will detect and leave as -l*.
         //
         // If we managed to resolve all the -l's (sans runtime), then we can
         // omit -L's for a nice and tidy command line.
@@ -970,6 +970,11 @@ namespace build2
               }
               continue;
             }
+            else if (tsys == "mingw32")
+            {
+              if (l == "-pthread")
+                continue;
+            }
           }
           else
           {
@@ -979,6 +984,7 @@ namespace build2
                 l == "-lm"       ||
                 l == "-ldl"      ||
                 l == "-lrt"      ||
+                l == "-pthread"  ||
                 l == "-lpthread")
               continue;
 

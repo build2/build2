@@ -156,7 +156,7 @@ namespace build2
         {
           if (s[0] == '-')
           {
-            // -l<name>, -l <name>
+            // -l<name>, -l <name> (Note: not -pthread, which is system)
             //
             if (s[1] == 'l')
             {
@@ -1288,7 +1288,7 @@ namespace build2
           }
 
           // Another thing we must check is for the presence of any simple
-          // libraries (-lpthread, shell32.lib, etc) in *.export.libs. See
+          // libraries (-lm, shell32.lib, etc) in *.export.libs. See
           // process_libraries() for details.
           //
           if (rec_binless)
@@ -1521,6 +1521,16 @@ namespace build2
             // which is used for thread startup. In a somewhat hackish way we
             // represent it as an exe{} member to make sure it gets installed
             // next to the main .js file.
+            //
+            // @@ Note that our recommendation is to pass -pthread in *.libs
+            // but checking that is not straightforward (it could come from
+            // one of the libraries that we are linking). We could have called
+            // append_libraries() (similar to $x.lib_libs()) and then looked
+            // there. But this is quite heavy handed and it's not clear this
+            // is worth the trouble since the -pthread support in Emscripten
+            // is quite high-touch (i.e., it's not like we can write a library
+            // that starts some threads and then run its test as on any other
+            // POSIX platform).
             //
             if (find_option ("-pthread", cmode)         ||
                 find_option ("-pthread", t, c_loptions) ||
