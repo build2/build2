@@ -483,10 +483,15 @@ namespace build2
         return false;
       }
 
-      if (!(r.seen_x || r.seen_c || r.seen_obj || r.seen_lib))
+      // Sometimes we may need to have a binless library whose only purpose is
+      // to export dependencies on other libraries (potentially in a platform-
+      // specific manner; think the whole -pthread mess). So allow a library
+      // without any sources with a hint.
+      //
+      if (!(r.seen_x || r.seen_c || r.seen_obj || r.seen_lib || !hint.empty ()))
       {
-        l4 ([&]{trace << "no " << x_lang << ", C, or obj/lib prerequisite "
-                      << "for target " << t;});
+        l4 ([&]{trace << "no " << x_lang << ", C, obj/lib prerequisite or "
+                      << "hint for target " << t;});
         return false;
       }
 
