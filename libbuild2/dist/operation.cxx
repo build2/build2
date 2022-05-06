@@ -646,8 +646,8 @@ namespace build2
         fail << "dist meta-operation target must be project root directory";
 
       if (rs->out_eq_src ())
-        fail << "in-tree distribution of target " << t <<
-          info << "distribution requires out-of-tree build";
+        fail << "in source distribution of target " << t <<
+          info << "distribution requires out of source build";
 
       dist_project (*rs, &t, prog);
     }

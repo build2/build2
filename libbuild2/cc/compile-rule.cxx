@@ -3193,7 +3193,7 @@ namespace build2
       // And here is another problem: if we have an already generated header
       // in src and the one in out does not yet exist, then the compiler will
       // pick the one in src and we won't even notice. Note that this is not
-      // only an issue with mixing in- and out-of-tree builds (which does feel
+      // only an issue with mixing in and out of source builds (which does feel
       // wrong but is oh so convenient): this is also a problem with
       // pre-generated headers, a technique we use to make installing the
       // generator by end-users optional by shipping pre-generated headers.

@@ -822,7 +822,7 @@ namespace build2
     }
 
     dir_path out;
-    if (src && sd != od) // If in-source build, then out must be empty.
+    if (src && sd != od) // If in source build, then out must be empty.
     {
       out = o.dir.relative () ? od / o.dir : move (o.dir);
       out.normalize ();

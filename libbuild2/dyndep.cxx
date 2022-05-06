@@ -350,7 +350,7 @@ namespace build2
         prev_ = nullptr;
       }
 
-      // See if this path is inside a project with an out-of-tree build and is
+      // See if this path is inside a project with an out of source build and is
       // in the out directory tree.
       //
       const scope& bs (ctx_.scopes.find_out (d));
@@ -520,7 +520,7 @@ namespace build2
             l6 ([&]{trace << "no target with target type " << tt.name;});
         }
 
-        // Note: we can't do this because of the in-source builds where there
+        // Note: we can't do this because of the in source builds where there
         // won't be explicit targets for non-generated files.
         //
         // This should be harmless, however, since in our world generated file

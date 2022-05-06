@@ -57,7 +57,7 @@ namespace build2
 
       // The bootstrap distribution mode. Note that it can only be specified
       // as a global override and is thus marked as unsaved in init(). Unlike
-      // the normal load distribution mode, we can do in-source and multiple
+      // the normal load distribution mode, we can do in source and multiple
       // projects at once.
       //
       // Note also that other config.dist.* variables can only be specified as

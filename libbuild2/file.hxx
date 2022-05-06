@@ -55,7 +55,7 @@ namespace build2
   find_src_root (const dir_path&, optional<bool>& altn);
 
   // The same as above but for project's out. Note that we also check whether
-  // a directory happens to be src_root, in case this is an in-tree build with
+  // a directory happens to be src_root, in case this is an in source build with
   // the result returned as the second half of the pair. Note also that if the
   // input is normalized/actualized, then the output will be as well.
   //
