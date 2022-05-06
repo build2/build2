@@ -89,7 +89,7 @@ $ mv build2/b build2/b-boot
 $ build2/b-boot --version
 \
 
-Or, alternatively, for an out of tree build:
+Or, alternatively, for an out of source build:
 
 \
 $ build2-boot/build2/b-boot config.cxx=g++ config.bin.lib=static \
@@ -150,7 +150,7 @@ $ b uninstall
 $ which b
 \
 
-Or, alternatively, for an out of tree build:
+Or, alternatively, for an out of source build:
 
 \
 $ build2-static/build2/b configure: build2-X.Y.Z/@build2-shared/ \
