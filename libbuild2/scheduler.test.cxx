@@ -2,7 +2,6 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <chrono>
-#include <thread>
 
 #include <iostream>
 

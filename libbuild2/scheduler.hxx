@@ -5,11 +5,9 @@
 #define LIBBUILD2_SCHEDULER_HXX
 
 #include <list>
-#include <mutex>
 #include <tuple>
 #include <atomic>
 #include <type_traits>        // aligned_storage, etc
-#include <condition_variable>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -492,7 +490,7 @@ namespace build2
     static size_t
     hardware_concurrency ()
     {
-      return std::thread::hardware_concurrency ();
+      return build2::thread::hardware_concurrency ();
     }
 
     // Return a prime number that can be used as a lock shard size that's
@@ -509,7 +507,7 @@ namespace build2
     // to become idle. Return the lock over the scheduler mutex. Normally you
     // don't need to call this function directly.
     //
-    using lock = std::unique_lock<std::mutex>;
+    using lock = build2::mlock;
 
     lock
     wait_idle ();
@@ -571,7 +569,7 @@ namespace build2
     size_t                     monitor_init_;             // Initial count.
     function<size_t (size_t)>  monitor_func_;
 
-    std::mutex mutex_;
+    build2::mutex mutex_;
     bool shutdown_ = true;  // Shutdown flag.
 
     optional<size_t> max_stack_;
@@ -611,8 +609,8 @@ namespace build2
     //
     size_t orig_max_active_ = 0;
 
-    std::condition_variable idle_condv_;  // Idle helpers queue.
-    std::condition_variable ready_condv_; // Ready masters queue.
+    build2::condition_variable idle_condv_;  // Idle helpers queue.
+    build2::condition_variable ready_condv_; // Ready masters queue.
 
     // Statistics counters.
     //
@@ -631,8 +629,8 @@ namespace build2
 
     // Deadlock detection.
     //
-    std::thread             dead_thread_;
-    std::condition_variable dead_condv_;
+    build2::thread             dead_thread_;
+    build2::condition_variable dead_condv_;
 
     static void*
     deadlock_monitor (void*);
@@ -653,8 +651,8 @@ namespace build2
     //
     struct wait_slot
     {
-      std::mutex mutex;
-      std::condition_variable condv;
+      build2::mutex mutex;
+      build2::condition_variable condv;
       size_t waiters = 0;
       const atomic_count* task_count;
       bool shutdown = true;
@@ -726,7 +724,7 @@ namespace build2
 
     struct task_queue: task_queue_data
     {
-      std::mutex mutex;
+      build2::mutex mutex;
       bool shutdown = false;
 
       size_t stat_full = 0; // Number of times push() returned NULL.

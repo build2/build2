@@ -29,14 +29,22 @@
 #include <functional>       // hash, function, reference_wrapper
 #include <initializer_list>
 
-#include <mutex>
 #include <atomic>
-#include <thread>
-#include <condition_variable>
 
-#include <libbutl/ft/shared_mutex.hxx>
-#if defined(__cpp_lib_shared_mutex) || defined(__cpp_lib_shared_timed_mutex)
-#  include <shared_mutex>
+#ifndef LIBBUTL_MINGW_STDTHREAD
+#  include <mutex>
+#  include <thread>
+#  include <condition_variable>
+
+#  include <libbutl/ft/shared_mutex.hxx>
+#  if defined(__cpp_lib_shared_mutex) || defined(__cpp_lib_shared_timed_mutex)
+#    include <shared_mutex>
+#  endif
+#else
+#  include <libbutl/mingw-mutex.hxx>
+#  include <libbutl/mingw-thread.hxx>
+#  include <libbutl/mingw-condition_variable.hxx>
+#  include <libbutl/mingw-shared_mutex.hxx>
 #endif
 
 #include <ios>           // ios_base::failure
@@ -189,20 +197,27 @@ namespace build2
   }
 #endif
 
+#ifndef LIBBUTL_MINGW_STDTHREAD
   using std::mutex;
   using mlock = std::unique_lock<mutex>;
 
   using std::condition_variable;
 
-#if   defined(__cpp_lib_shared_mutex)
+  using std::defer_lock;
+  using std::adopt_lock;
+
+  using std::thread;
+  namespace this_thread = std::this_thread;
+
+#  if   defined(__cpp_lib_shared_mutex)
   using shared_mutex = std::shared_mutex;
   using ulock        = std::unique_lock<shared_mutex>;
   using slock        = std::shared_lock<shared_mutex>;
-#elif defined(__cpp_lib_shared_timed_mutex)
+#  elif defined(__cpp_lib_shared_timed_mutex)
   using shared_mutex = std::shared_timed_mutex;
   using ulock        = std::unique_lock<shared_mutex>;
   using slock        = std::shared_lock<shared_mutex>;
-#else
+#  else
   // Because we have this fallback, we need to be careful not to create
   // multiple shared locks in the same thread.
   //
@@ -217,13 +232,23 @@ namespace build2
 
   using ulock        = std::unique_lock<shared_mutex>;
   using slock        = ulock;
+#  endif
+#else // LIBBUTL_MINGW_STDTHREAD
+  using mingw_stdthread::mutex;
+  using mlock = mingw_stdthread::unique_lock<mutex>;
+
+  using mingw_stdthread::condition_variable;
+
+  using mingw_stdthread::defer_lock;
+  using mingw_stdthread::adopt_lock;
+
+  using mingw_stdthread::thread;
+  namespace this_thread = mingw_stdthread::this_thread;
+
+  using shared_mutex = mingw_stdthread::shared_mutex;
+  using ulock        = mingw_stdthread::unique_lock<shared_mutex>;
+  using slock        = mingw_stdthread::shared_lock<shared_mutex>;
 #endif
-
-  using std::defer_lock;
-  using std::adopt_lock;
-
-  using std::thread;
-  namespace this_thread = std::this_thread;
 
   // Global, MT-safe information cache. Normally used for caching information
   // (versions, target triplets, search paths, etc) extracted from other
