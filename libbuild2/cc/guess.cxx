@@ -262,6 +262,8 @@ namespace build2
 "     stdlib:=\"freebsd\"                                                   \n"
 "#  elif defined(__NetBSD__)                                                \n"
 "     stdlib:=\"netbsd\"                                                    \n"
+"#  elif defined(__OpenBSD__)                                               \n"
+"     stdlib:=\"openbsd\"                                                   \n"
 "#  elif defined(__APPLE__)                                                 \n"
 "     stdlib:=\"apple\"                                                     \n"
 "#  elif defined(__EMSCRIPTEN__)                                            \n"
