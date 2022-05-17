@@ -5,8 +5,11 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
 #  include <pthread.h>
-#  ifdef __FreeBSD__
+#  if defined(__FreeBSD__)
 #    include <pthread_np.h> // pthread_attr_get_np() (in <pthread.h> on NetBSD)
+#  elif defined(__OpenBSD__)
+#    include <sys/signal.h>
+#    include <pthread_np.h> // pthread_stackseg_np()
 #  endif
 #endif
 
@@ -849,6 +852,15 @@ namespace build2
 
       if (r != 0)
         throw_system_error (r);
+
+#elif defined(__OpenBSD__)
+      stack_t s;
+      int r (pthread_stackseg_np (pthread_self (), &s));
+
+      if (r != 0)
+        throw_system_error (r);
+
+      stack_size = s.ss_size;
 
 #else // defined(__APPLE__)
       stack_size = pthread_get_stacksize_np (pthread_self ());
