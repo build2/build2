@@ -23,8 +23,8 @@ namespace build2
 
       // $config.origin()
       //
-      // Return the origin of the specified configuration variable value.
-      // Possible result values and their semantics are as follows:
+      // Return the origin of the value of the specified configuration
+      // variable. Possible result values and their semantics are as follows:
       //
       // undefined
       //    The variable is undefined.
@@ -60,33 +60,15 @@ namespace build2
         if (s == nullptr)
           fail << "config.origin() called out of project" << endf;
 
-        string n (convert<string> (move (name)));
+        switch (origin (*s, convert<string> (move (name))).first)
+        {
+        case variable_origin::undefined: return "undefined";
+        case variable_origin::default_:  return "default";
+        case variable_origin::buildfile: return "buildfile";
+        case variable_origin::override_: return "override";
+        }
 
-        // Make sure this is a config.* variable. This could matter since we
-        // reply on the semantics of value::extra. We could also detect
-        // special variables like config.booted, some config.config.*, etc.,
-        // (see config_save() for details) but that seems harmless.
-        //
-        if (n.compare (0, 7, "config.") != 0)
-          fail << "non-config.* variable passed to config.origin()" << endf;
-
-        const variable* var (s->ctx.var_pool.find (n));
-
-        if (var == nullptr)
-          return "undefined";
-
-        pair<lookup, size_t> org (s->lookup_original (*var));
-        pair<lookup, size_t> ovr (var->overrides == nullptr
-                                  ? org
-                                  : s->lookup_override (*var, org));
-
-        if (!ovr.first.defined ())
-          return "undefined";
-
-        if (org.first != ovr.first)
-          return "override";
-
-        return org.first->extra ? "default" : "buildfile";
+        return ""; // Should not reach.
       };
 
       // $config.save()
