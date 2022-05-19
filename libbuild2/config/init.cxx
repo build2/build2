@@ -243,12 +243,23 @@ namespace build2
       auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/, v_p));
       auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));
 
+      // Omit loading the configuration from the config.build file (it is
+      // still loaded from config.config.load if specified). Similar to
+      // config.config.load, only values specified on this project's root
+      // scope and global scope are considered.
+      //
+      // Note that this variable is not saved in config.build and is expected
+      // to always be specified as a command line override.
+      //
+      auto& c_u (vp.insert<bool> ("config.config.unload", true /*ovr*/));
+
       // Configuration variables to disfigure.
       //
       // The exact semantics is to ignore these variables when loading
       // config.build (and any files specified in config.config.load), letting
       // them to take on the default values (more precisely, the current
-      // implementation undefined them after loading config.build).
+      // implementation undefined them after loading config.build). See also
+      // config.config.unload.
       //
       // Note that this variable is not saved in config.build and is expected
       // to always be specified as a command line override.
@@ -352,9 +363,10 @@ namespace build2
                           save_null_omitted | save_empty_omitted | save_base,
                           &save_environment);
 
-      // Load config.build if one exists followed by extra files specified in
-      // config.config.load (we don't need to worry about disfigure since we
-      // will never be init'ed).
+      // Load config.build if one exists (and unless config.config.unload is
+      // specified) followed by extra files specified in config.config.load
+      // (we don't need to worry about disfigure since we will never be
+      // init'ed).
       //
       auto load_config = [&rs, &c_v] (istream& is,
                                       const path_name& in,
@@ -403,11 +415,26 @@ namespace build2
         load_config (open_file_or_stdin (fn, ifs), fn, l);
       };
 
+      // Load config.build unless requested not to.
+      //
       {
-        path f (config_file (rs));
+        // The same semantics as in config.config.load below.
+        //
+        bool u;
+        {
+          lookup l (rs[c_u]);
+          u = (l &&
+               (l.belongs (rs) || l.belongs (ctx.global_scope)) &&
+               cast_false<bool> (l));
+        }
 
-        if (exists (f))
-          load_config_file (f, l);
+        if (!u)
+        {
+          path f (config_file (rs));
+
+          if (exists (f))
+            load_config_file (f, l);
+        }
       }
 
       if (lookup l = rs[c_l])
