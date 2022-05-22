@@ -261,6 +261,21 @@ namespace build2
       // implementation undefined them after loading config.build). See also
       // config.config.unload.
       //
+      // Besides names, variables can also be specified as patterns in the
+      // config.<prefix>.(*|**)[<suffix>] form where `*` matches single
+      // component names (i.e., `foo` but not `foo.bar`), and `**` matches
+      // single and multi-component names. Currently only single wildcard (`*`
+      // or `**`) is supported.  Additionally, a pattern in the
+      // config.<prefix>(*|**) form (i.e., without `.` after <prefix>) matches
+      // config.<prefix>.(*|**) plus config.<prefix> itself (but not
+      // config.<prefix>foo).
+      //
+      // For example, to disfigure all the project configuration variables
+      // (while preserving all the module configuration variables; note
+      // quoting to prevent pattern expansion):
+      //
+      // b config.config.disfigure="'config.hello**'"
+      //
       // Note that this variable is not saved in config.build and is expected
       // to always be specified as a command line override.
       //
@@ -477,16 +492,112 @@ namespace build2
 
       // Undefine variables specified with config.config.disfigure.
       //
-      if (const strings* vs = cast_null<strings> (rs[c_d]))
+      if (const strings* ns = cast_null<strings> (rs[c_d]))
       {
-        for (const string& v: *vs)
+        auto p (rs.vars.lookup_namespace ("config"));
+
+        for (auto i (p.first); i != p.second; )
         {
-          // An unknown variable can't possibly be defined.
+          const variable& var (i->first);
+
+          // This can be one of the overrides (__override, __prefix, etc),
+          // which we skip.
           //
-          if (const variable* var = vp.find (v))
+          if (!var.override ())
           {
-            rs.vars.erase (*var); // Undefine.
+            bool m (false);
+
+            for (const string& n: *ns)
+            {
+              if (n.compare (0, 7, "config.") != 0)
+                fail << "config.* variable expected in "
+                     << "config.config.disfigure instead of '" << n << "'";
+
+              size_t p (n.find ('*'));
+
+              if (p == string::npos)
+              {
+                if ((m = var.name == n))
+                  break;
+              }
+              else
+              {
+                // Pattern in one of these forms:
+                //
+                // config.<prefix>.(*|**)[<suffix>]
+                // config.<prefix>(*|**)
+                //
+                // BTW, an alternative way to handle this would be to
+                // translate it to a path and use our path_match() machinery,
+                // similar to how we do it for build config include/exclude.
+                // Perhaps one day when/if we decide to support multiple
+                // wildcards.
+                //
+                if (p == 7)
+                  fail << "config.<prefix>* pattern expected in "
+                       << "config.config.disfigure instead of '" << n << "'";
+
+                bool r (n[p + 1] == '*'); // Recursive.
+
+                size_t pe; // Prefix end/size.
+                if (n[p - 1] != '.')
+                {
+                  // Second form should have no suffix.
+                  //
+                  if (p + (r ? 2 : 1) != n.size ())
+                    fail << "config.<prefix>(*|**) pattern expected in "
+                         << "config.config.disfigure instead of '" << n << "'";
+
+                  // Match just <prefix>.
+                  //
+                  if ((m = n.compare (0, p, var.name) == 0))
+                    break;
+
+                  pe = p;
+                }
+                else
+                  pe = p - 1;
+
+                // Match <prefix> followed by `.`.
+                //
+                if (n.compare (0, pe, var.name, 0, pe) != 0 ||
+                    var.name[pe] != '.')
+                  continue;
+
+                // Match suffix.
+                //
+                size_t sb (p + (r ? 2 : 1)); // Suffix begin.
+                size_t sn (n.size () - sb);  // Suffix size.
+
+                size_t te; // Stem end.
+                if (sn == 0) // No suffix.
+                  te = var.name.size ();
+                else
+                {
+                  if (var.name.size () < pe + 1 + sn) // Too short.
+                    continue;
+
+                  te = var.name.size () - sn;
+
+                  if (n.compare (sb, sn, var.name, te, sn) != 0)
+                    continue;
+                }
+
+                // Match stem.
+                //
+                if ((m = r || var.name.find ('.', pe + 1) >= te))
+                  break;
+              }
+            }
+
+            if (m)
+            {
+              i = rs.vars.erase (i); // Undefine.
+              continue;
+            }
           }
+
+          ++i;
         }
       }
 

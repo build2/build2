@@ -1627,6 +1627,9 @@ namespace build2
     erase (const variable&);
 
     const_iterator
+    erase (const_iterator);
+
+    const_iterator
     begin () const {return const_iterator (m_.begin (), *this);}
 
     const_iterator

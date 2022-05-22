@@ -1797,6 +1797,14 @@ namespace build2
     return m_.erase (var) != 0;
   }
 
+  variable_map::const_iterator variable_map::
+  erase (const_iterator i)
+  {
+    assert (!global_ || ctx->phase == run_phase::load);
+
+    return const_iterator (m_.erase (i), *this);
+  }
+
   // variable_pattern_map
   //
   variable_map& variable_pattern_map::
