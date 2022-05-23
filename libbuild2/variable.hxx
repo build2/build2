@@ -1301,6 +1301,20 @@ namespace build2
     LIBBUILD2_SYMEXPORT const variable&
     insert_alias (const variable& var, string name);
 
+    // Iteration.
+    //
+  public:
+    using key = butl::map_key<string>;
+    using map = std::unordered_map<key, variable>;
+
+    using const_iterator = butl::map_iterator_adapter<map::const_iterator>;
+
+    const_iterator begin () const {return const_iterator (map_.begin ());}
+    const_iterator end () const {return const_iterator (map_.end ());}
+
+    // Variable patterns.
+    //
+  public:
     // Insert a variable pattern. Any variable that matches this pattern will
     // have the specified type, visibility, and overridability. If match is
     // true, then individual insertions of the matching variable must match
@@ -1327,7 +1341,6 @@ namespace build2
     // to have been applied). So if you use this functionality, watch out
     // for the insertion order (you probably want more specific first).
     //
-  public:
     LIBBUILD2_SYMEXPORT void
     insert_pattern (const string& pattern,
                     optional<const value_type*> type,
@@ -1349,9 +1362,6 @@ namespace build2
     }
 
   public:
-    void
-    clear () {map_.clear ();}
-
     variable_pool (): variable_pool (nullptr) {}
 
     // RW access (only for the global pool).
@@ -1391,9 +1401,6 @@ namespace build2
     // Variable map.
     //
   private:
-    using key = butl::map_key<string>;
-    using map = std::unordered_map<key, variable>;
-
     pair<map::iterator, bool>
     insert (variable&& var)
     {
