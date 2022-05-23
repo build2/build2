@@ -2367,9 +2367,14 @@ namespace build2
       // Use -rpath-link only on targets that support it (Linux, *BSD). Note
       // that we don't really need it for top-level libraries.
       //
+      // Note that more recent versions of FreeBSD are using LLVM lld without
+      // any mentioning of -rpath-link in the man pages.
+      //
+      auto have_link = [this] () {return tclass == "linux" || tclass == "bsd";};
+
       if (link)
       {
-        if (tclass != "linux" && tclass != "bsd")
+        if (!have_link ())
           return;
       }
 
@@ -2399,8 +2404,56 @@ namespace build2
       {
         rpathed_libraries& ls;
         strings&           args;
-        bool               link;
-      } d {ls, args, link};
+        bool               rpath;
+        bool               rpath_link;
+      } d {ls, args, false, false};
+
+      if (link)
+        d.rpath_link = true;
+      else
+      {
+        // While one would naturally expect -rpath to be a superset of
+        // -rpath-link, according to GNU ld:
+        //
+        // "The -rpath option is also used when locating shared objects which
+        //  are needed by shared objects explicitly included in the link; see
+        //  the description of the -rpath-link option. Searching -rpath in
+        //  this way is only supported by native linkers and cross linkers
+        //  which have been configured with the --with-sysroot option."
+        //
+        // So we check if this is cross-compilation and request both options
+        // if that's the case (we have no easy way of detecting whether the
+        // linker has been configured with the --with-sysroot option, whatever
+        // that means, so we will just assume the worst case).
+        //
+        d.rpath = true;
+
+        if (have_link ())
+        {
+          // Detecting cross-compilation is not as easy as it seems. Comparing
+          // complete target triplets proved too strict. For example, we may be
+          // running on x86_64-apple-darwin17.7.0 while the compiler is
+          // targeting x86_64-apple-darwin17.3.0. Also, there is the whole i?86
+          // family of CPUs which, at least for linking, should probably be
+          // considered the same.
+          //
+          const target_triplet& h (*bs.ctx.build_host);
+          const target_triplet& t (ctgt);
+
+          auto x86 = [] (const string& c)
+          {
+            return (c.size () == 4 &&
+                    c[0] == 'i' &&
+                    (c[1] >= '3' && c[1] <= '6') &&
+                    c[2] == '8' &&
+                    c[3] == '6');
+          };
+
+          if (t.system != h.system ||
+              (t.cpu != h.cpu && !(x86 (t.cpu) && x86 (h.cpu))))
+            d.rpath_link = true;
+        }
+      }
 
       auto lib = [&d, this] (
         const target* const* lc,
@@ -2422,13 +2475,22 @@ namespace build2
 
         auto append = [&d] (const string& f)
         {
-          string o (d.link ? "-Wl,-rpath-link," : "-Wl,-rpath,");
-
           size_t p (path::traits_type::rfind_separator (f));
           assert (p != string::npos);
 
-          o.append (f, 0, (p != 0 ? p : 1)); // Don't include trailing slash.
-          d.args.push_back (move (o));
+          if (d.rpath)
+          {
+            string o ("-Wl,-rpath,");
+            o.append (f, 0, (p != 0 ? p : 1)); // Don't include trailing slash.
+            d.args.push_back (move (o));
+          }
+
+          if (d.rpath_link)
+          {
+            string o ("-Wl,-rpath-link,");
+            o.append (f, 0, (p != 0 ? p : 1));
+            d.args.push_back (move (o));
+          }
         };
 
         if (l != nullptr)
