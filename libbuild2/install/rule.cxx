@@ -811,7 +811,7 @@ namespace build2
       cstrings args;
 
       string reld (
-        cast<string> (ctx.global_scope["build.host.class"]) == "windows"
+        ctx.build_host->class_ == "windows"
         ? msys_path (chd)
         : relative (chd).string ());
 
@@ -857,7 +857,7 @@ namespace build2
       dir_path chd (chroot_path (rs, base.dir));
 
       string reld (
-        cast<string> (ctx.global_scope["build.host.class"]) == "windows"
+        ctx.build_host->class_ == "windows"
         ? msys_path (chd)
         : relative (chd).string ());
 

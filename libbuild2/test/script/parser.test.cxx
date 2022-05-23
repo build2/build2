@@ -218,7 +218,7 @@ namespace build2
             tt.assign (
               ctx.var_pool.rw ().insert<target_triplet> ("test.target")));
 
-          v = cast<target_triplet> (ctx.global_scope["build.host"]);
+          v = *ctx.build_host;
 
           testscript& st (
             ctx.targets.insert<testscript> (work,

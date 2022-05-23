@@ -32,7 +32,7 @@ namespace build2
                    const optional<timestamp>& dl)
           : build2::script::environment (
               t.ctx,
-              cast<target_triplet> (t.ctx.global_scope["build.host"]),
+              *t.ctx.build_host,
               dir_name_view (&work, &wd_name),
               temp_dir.path, false /* temp_dir_keep */,
               redirect (redirect_type::none),

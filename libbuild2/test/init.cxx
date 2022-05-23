@@ -125,7 +125,7 @@ namespace build2
         value& v (rs.assign (d.test_target));
 
         if (!v || v.empty ())
-          v = cast<target_triplet> (rs.ctx.global_scope["build.host"]);
+          v = *rs.ctx.build_host;
       }
 
       extra.set_module (new module (move (d)));

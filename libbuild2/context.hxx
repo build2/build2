@@ -390,6 +390,10 @@ namespace build2
     variable_override_cache& global_override_cache;
     const strings& global_var_overrides;
 
+    // Cached values (from global scope).
+    //
+    const target_triplet* build_host; // build.host
+
     // Cached variables.
     //
 

@@ -134,11 +134,12 @@ namespace build2
       // Any variable assigned on the global scope should natually have the
       // global visibility.
       //
-      auto set = [&gs, &vp] (const char* var, auto val)
+      auto set = [&gs, &vp] (const char* var, auto val) -> const value&
       {
         using T = decltype (val);
         value& v (gs.assign (vp.insert<T> (var, variable_visibility::global)));
         v = move (val);
+        return v;
       };
 
       // Build system mode.
@@ -268,7 +269,7 @@ namespace build2
         set ("build.host.version", t.version);
         set ("build.host.class",   t.class_);
 
-        set ("build.host", move (t));
+        build_host = &set ("build.host", move (t)).as<target_triplet> ();
       }
       catch (const invalid_argument& e)
       {
