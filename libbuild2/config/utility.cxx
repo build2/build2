@@ -160,23 +160,34 @@ namespace build2
     pair<variable_origin, lookup>
     origin (const scope& rs, const string& n)
     {
+      const variable* var (rs.ctx.var_pool.find (n));
+
+      if (var == nullptr)
+      {
+        if (n.compare (0, 7, "config.") != 0)
+          throw invalid_argument ("config.* variable expected");
+
+        return make_pair (variable_origin::undefined, lookup ());
+      }
+
+      return origin (rs, *var);
+    }
+
+    pair<variable_origin, lookup>
+    origin (const scope& rs, const variable& var)
+    {
       // Make sure this is a config.* variable. This could matter since we
       // reply on the semantics of value::extra. We could also detect
       // special variables like config.booted, some config.config.*, etc.,
       // (see config_save() for details) but that seems harmless.
       //
-      if (n.compare (0, 7, "config.") != 0)
+      if (var.name.compare (0, 7, "config.") != 0)
         throw invalid_argument ("config.* variable expected");
 
-      const variable* var (rs.ctx.var_pool.find (n));
-
-      if (var == nullptr)
-        return make_pair (variable_origin::undefined, lookup ());
-
-      pair<lookup, size_t> org (rs.lookup_original (*var));
-      pair<lookup, size_t> ovr (var->overrides == nullptr
+      pair<lookup, size_t> org (rs.lookup_original (var));
+      pair<lookup, size_t> ovr (var.overrides == nullptr
                                 ? org
-                                : rs.lookup_override (*var, org));
+                                : rs.lookup_override (var, org));
 
       if (!ovr.first.defined ())
         return make_pair (variable_origin::undefined, lookup ());

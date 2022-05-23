@@ -517,6 +517,9 @@ namespace build2
 
     LIBBUILD2_SYMEXPORT pair<variable_origin, lookup>
     origin (const scope& rs, const string& name);
+
+    LIBBUILD2_SYMEXPORT pair<variable_origin, lookup>
+    origin (const scope& rs, const variable&);
   }
 }
 
