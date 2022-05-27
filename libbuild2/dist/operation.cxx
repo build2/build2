@@ -765,15 +765,28 @@ namespace build2
         // On Windows we use libarchive's bsdtar with auto-compression (tar
         // itself and quite a few compressors are MSYS executables).
         //
+        // OpenBSD tar does not support --format but it appear ustar is the
+        // default (while this is not said explicitly in tar(1), it is said in
+        // pax(1) and confirmed on the mailing list). Nor does it support -a,
+        // at least as of 7.1 but we will let this play out naturally, in case
+        // this support gets added.
+        //
+        // Note also that our long-term plan is to switch to libarchive in
+        // order to generate reproducible archives.
+        //
         const char* l (nullptr); // Compression level (option).
 
 #ifdef _WIN32
-        const char* tar = "bsdtar";
+        args = {"bsdtar", "--format", "ustar"};
 
         if (e == "tar.gz")
           l = "--options=compression-level=9";
 #else
-        const char* tar = "tar";
+        args = {"tar"
+#ifndef __OpenBSD__
+                , "--format", "ustar"
+#endif
+        };
 
         // For gzip it's a good idea to use -9 by default. For bzip2, -9 is
         // the default. And for xz, -9 is not recommended as the default due
@@ -791,13 +804,10 @@ namespace build2
 
         if (c != nullptr)
         {
-          args = {tar,
-                  "--format", "ustar",
-                  "-cf", "-",
-                  pkg.c_str (),
-                  nullptr};
-
-          i = args.size ();
+          args.push_back ("-cf");
+          args.push_back ("-");
+          args.push_back (pkg.c_str ());
+          args.push_back (nullptr); i = args.size ();
           args.push_back (c);
           if (l != nullptr)
             args.push_back (l);
@@ -818,20 +828,13 @@ namespace build2
         }
         else
 #endif
-        if (e == "tar")
-          args = {tar,
-                  "--format", "ustar",
-                  "-cf", ap.string ().c_str (),
-                  pkg.c_str (),
-                  nullptr};
-        else
         {
-          args = {tar,
-                  "--format", "ustar",
-                  "-a"};
-
-          if (l != nullptr)
-            args.push_back (l);
+          if (e != "tar")
+          {
+            args.push_back ("-a");
+            if (l != nullptr)
+              args.push_back (l);
+          }
 
           args.push_back ("-cf");
           args.push_back (ap.string ().c_str ());
