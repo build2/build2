@@ -1761,13 +1761,16 @@ namespace build2
     auto* r (const_cast<value_data*> (p.first));
 
     if (r != nullptr)
+    {
+      r->extra = 0;
       r->version++;
+    }
 
     return pair<value_data*, const variable&> (r, p.second);
   }
 
   pair<value&, bool> variable_map::
-  insert (const variable& var, bool typed)
+  insert (const variable& var, bool typed, bool reset_extra)
   {
     assert (!global_ || ctx->phase == run_phase::load);
 
@@ -1776,6 +1779,9 @@ namespace build2
 
     if (!p.second)
     {
+      if (reset_extra)
+        r.extra = 0;
+
       // Check if this is the first access after being assigned a type.
       //
       // Note: we still need atomic in case this is not a global state.

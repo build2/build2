@@ -58,7 +58,7 @@ namespace build2
       if (!l.defined () || (def_ovr && !l.belongs (rs)))
       {
         value& v (rs.assign (var) = std::forward<T> (def_val)); // VC14
-        v.extra = true; // Default value flag.
+        v.extra = 1; // Default value flag.
 
         n = (sflags & save_default_commented) == 0; // Absence means default.
         l = lookup (v, var, rs);

@@ -4532,7 +4532,7 @@ namespace build2
       // Note that the pattern is preserved if insert fails with regex_error.
       //
       p = scope_->target_vars[ptt].insert (pt, move (pat)).insert (
-        var, kind == type::assign);
+        var, kind == type::assign, false /* reset_extra */);
     }
     catch (const regex_error& e)
     {

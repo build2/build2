@@ -1070,6 +1070,7 @@ namespace build2
 
       e.stem_version = sver;
 
+      e.value.extra = 0; // For consistency (we don't really use it).
       e.value.version++; // Value changed.
     }
     else

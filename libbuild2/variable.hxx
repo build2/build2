@@ -276,7 +276,13 @@ namespace build2
     // Extra data that is associated with the value that can be used to store
     // flags, etc. It is initialized to 0 and copied (but not assigned) from
     // one value to another but is otherwise untouched (not even when the
-    // value is reset to NULL).
+    // value is reset to NULL) unless it is part of variable_map::value_data,
+    // in which case it is reset to 0 on each modification (version
+    // increment; however, see reset_extra flag in variable_map::insert()).
+    //
+    // (The reset on each modification semantics is used to implement the
+    // default value distinction as currently done in the config module but
+    // later probably will be done for ?= and $origin()).
     //
     // Note: if deciding to use for something make sure it is not overlapping
     // with an existing usage.
@@ -1506,7 +1512,10 @@ namespace build2
       using value::value;
       using value::operator=;
 
-      size_t version = 0; // Incremented on each modification (variable_cache).
+      // Incremented on each modification, at which point we also reset
+      // value::extra to 0.
+      //
+      size_t version = 0;
     };
 
     // Note that we guarantee ascending iteration order (e.g., for predictable
@@ -1606,6 +1615,7 @@ namespace build2
     {
       assert (l.vars == this);
       value& r (const_cast<value&> (*l.value));
+      r.extra = 0;
       static_cast<value_data&> (r).version++;
       return r;
     }
@@ -1629,10 +1639,11 @@ namespace build2
 
     // As above but also return an indication of whether the new value (which
     // will be NULL) was actually inserted. Similar to find(), if typed is
-    // false, leave the value untyped even if the variable is.
+    // false, leave the value untyped even if the variable is. If reset_extra
+    // is false, then don't reset the existing value's value::extra.
     //
     pair<value&, bool>
-    insert (const variable&, bool typed = true);
+    insert (const variable&, bool typed = true, bool reset_extra = true);
 
     // Note: does not deal with aliases.
     //
