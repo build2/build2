@@ -4633,8 +4633,8 @@ namespace build2
       : value (names ());
   }
 
-  static const value_type*
-  map_type (const string& n)
+  const value_type* parser::
+  find_value_type (const scope*, const string& n)
   {
     auto ptr = [] (const value_type& vt) {return &vt;};
 
@@ -4680,7 +4680,7 @@ namespace build2
       string& n (a.name);
       value& v (a.value);
 
-      if (const value_type* t = map_type (n))
+      if (const value_type* t = find_value_type (root_, n))
       {
         if (type != nullptr && t != type)
           fail (l) << "multiple variable types: " << n << ", " << type->name;
@@ -4742,7 +4742,7 @@ namespace build2
         null = true;
         // Fall through.
       }
-      else if (const value_type* t = map_type (n))
+      else if (const value_type* t = find_value_type (root_, n))
       {
         if (type != nullptr && t != type)
           fail (l) << "multiple value types: " << n << ", " << type->name;

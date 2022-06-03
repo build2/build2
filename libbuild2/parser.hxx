@@ -120,6 +120,15 @@ namespace build2
     vector<pair<lookup, string>> config_report; // Config value and format.
     bool config_report_new = false;             // One of values is new.
 
+    // Misc utilities.
+    //
+  public:
+    // Return the value type corresponding to the type name or NULL if the
+    // type name is unknown. Pass project's root scope if known.
+    //
+    static const value_type*
+    find_value_type (const scope* rs, const string& name);
+
     // Recursive descent parser.
     //
   protected:
