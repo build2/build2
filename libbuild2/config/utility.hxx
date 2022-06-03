@@ -11,6 +11,8 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/variable.hxx>
 
+#include <libbuild2/config/types.hxx>
+
 #include <libbuild2/export.hxx>
 
 namespace build2
@@ -507,14 +509,6 @@ namespace build2
     //
     // Throws invalid_argument if the passed variable is not config.*.
     //
-    enum class variable_origin
-    {
-      undefined,  // Undefined.
-      default_,   // Default value from the config directive.
-      buildfile,  // Value from a buildfile, normally config.build.
-      override_   // Value from a command line override.
-    };
-
     LIBBUILD2_SYMEXPORT pair<variable_origin, lookup>
     origin (const scope& rs, const string& name);
 
