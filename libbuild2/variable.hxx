@@ -1276,6 +1276,12 @@ namespace build2
     }
 
     const variable&
+    insert (string name, const value_type* type)
+    {
+      return insert (move (name), type, nullptr, nullptr).first;
+    }
+
+    const variable&
     insert (string name,
             const value_type* type,
             bool overridable,
