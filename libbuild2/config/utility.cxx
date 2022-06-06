@@ -177,14 +177,19 @@ namespace build2
     origin (const scope& rs, const variable& var)
     {
       // Make sure this is a config.* variable. This could matter since we
-      // reply on the semantics of value::extra. We could also detect
+      // rely on the semantics of value::extra. We could also detect
       // special variables like config.booted, some config.config.*, etc.,
       // (see config_save() for details) but that seems harmless.
       //
       if (var.name.compare (0, 7, "config.") != 0)
         throw invalid_argument ("config.* variable expected");
 
-      pair<lookup, size_t> org (rs.lookup_original (var));
+      return origin (rs, var, rs.lookup_original (var));
+    }
+
+    pair<variable_origin, lookup>
+    origin (const scope& rs, const variable& var, pair<lookup, size_t> org)
+    {
       pair<lookup, size_t> ovr (var.overrides == nullptr
                                 ? org
                                 : rs.lookup_override (var, org));

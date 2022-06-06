@@ -514,6 +514,14 @@ namespace build2
 
     LIBBUILD2_SYMEXPORT pair<variable_origin, lookup>
     origin (const scope& rs, const variable&);
+
+    // As above but using the result of scope::lookup_original() or
+    // semantically equivalent (e.g., lookup_namespace()).
+    //
+    // Note that this version does not check that the variable is config.*.
+    //
+    LIBBUILD2_SYMEXPORT pair<variable_origin, lookup>
+    origin (const scope& rs, const variable&, pair<lookup, size_t> original);
   }
 }
 
