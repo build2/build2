@@ -553,6 +553,10 @@ namespace build2
     // example, $($x ?  X : Y)) it will be empty (along with qual, which can
     // only be non-empty for a computed variable).
     //
+    // Note also that this function is (currently) not called by some lookup-
+    // like functions ($defined(), $config.origin()). But we should be careful
+    // if/when extending this and audit all the existing use-cases.
+    //
     virtual lookup
     lookup_variable (name&& qual, string&& name, const location&);
 
