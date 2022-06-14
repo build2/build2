@@ -64,6 +64,11 @@ namespace build2
     // omitted value(s) is the default (see a note in lookup_config()
     // documentation for details).
     //
+    // The below lookup_*() functions mark the default value by setting
+    // value::extra to 1. Note that it's exactly 1 and not "not 0" since other
+    // values could have other meaning (see, for example, package skeleton
+    // in bpkg).
+    //
     const uint64_t save_default_commented = 0x01; // Based on value::extra.
     const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
     const uint64_t save_empty_omitted     = 0x04; // Treat empty as undefined.

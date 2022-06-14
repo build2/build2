@@ -509,8 +509,8 @@ namespace build2
 
             // Handle the save_default_commented flag.
             //
-            if ((org.first.defined () && org.first->extra) && // Default value.
-                org.first == ovr.first &&                     // Not overriden.
+            if (org.first.defined () && org.first->extra == 1 && // Default.
+                org.first == ovr.first &&                        // No override.
                 (flags & save_default_commented) != 0)
             {
               os << first () << '#' << n << " =" << endl;

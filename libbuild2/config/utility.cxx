@@ -32,7 +32,7 @@ namespace build2
 
       // Treat an inherited value that was set to default as new.
       //
-      if (l.defined () && l->extra)
+      if (l.defined () && l->extra == 1)
         n = true;
 
       if (var.overrides != nullptr)
@@ -200,7 +200,7 @@ namespace build2
       if (org.first != ovr.first)
         return make_pair (variable_origin::override_, ovr.first);
 
-      return make_pair (org.first->extra
+      return make_pair (org.first->extra == 1
                         ? variable_origin::default_
                         : variable_origin::buildfile,
                         org.first);

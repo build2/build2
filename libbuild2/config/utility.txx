@@ -66,7 +66,7 @@ namespace build2
       }
       // Treat an inherited value that was set to default as new.
       //
-      else if (l->extra)
+      else if (l->extra == 1)
         n = (sflags & save_default_commented) == 0; // Absence means default.
 
       if (var.overrides != nullptr)
