@@ -213,10 +213,11 @@ namespace build2
   bootstrap_post (scope& root);
 
   // Create and bootstrap outer root scopes, if any. Loading is done by
-  // load_root().
+  // load_root(). If subprojects is false, then do not discover or extract
+  // subprojects.
   //
   LIBBUILD2_SYMEXPORT void
-  create_bootstrap_outer (scope& root);
+  create_bootstrap_outer (scope& root, bool subprojects = true);
 
   // Create and bootstrap inner root scopes, if any, recursively.
   //

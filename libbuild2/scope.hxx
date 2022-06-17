@@ -602,7 +602,7 @@ namespace build2
 
     // These two from <libbuild2/file.hxx> set strong_.
     //
-    friend LIBBUILD2_SYMEXPORT void create_bootstrap_outer (scope&);
+    friend LIBBUILD2_SYMEXPORT void create_bootstrap_outer (scope&, bool);
     friend LIBBUILD2_SYMEXPORT scope& create_bootstrap_inner (scope&,
                                                               const dir_path&);
 

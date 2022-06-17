@@ -1360,7 +1360,7 @@ namespace build2
   }
 
   void
-  create_bootstrap_outer (scope& root)
+  create_bootstrap_outer (scope& root, bool subp)
   {
     context& ctx (root.ctx);
 
@@ -1408,7 +1408,7 @@ namespace build2
 
       setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
       bootstrap_pre (rs, altn);
-      bootstrap_src (rs, altn);
+      bootstrap_src (rs, altn, nullopt, subp);
       // bootstrap_post() delayed until after create_bootstrap_outer().
     }
     else
@@ -1419,7 +1419,7 @@ namespace build2
         rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
     }
 
-    create_bootstrap_outer (rs);
+    create_bootstrap_outer (rs, subp);
 
     if (!bstrapped)
       bootstrap_post (rs);
