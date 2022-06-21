@@ -537,15 +537,6 @@ namespace build2
       "Display build statistics."
     }
 
-    std::set<string> --dump
-    {
-      "<phase>",
-      "Dump the build system state after the specified phase. Valid <phase>
-       values are \cb{load} (after loading \cb{buildfiles}) and \cb{match}
-       (after matching rules to targets). Repeat this option to dump the
-       state after multiple phases."
-    }
-
     bool --progress
     {
       "Display build progress. If printing to a terminal the progress is
@@ -740,6 +731,29 @@ namespace build2
     {
       "Don't perform file modification time sanity checks. See
        \cb{--mtime-check} for details."
+    }
+
+    std::set<string> --dump
+    {
+      "<phase>",
+      "Dump the build system state after the specified phase. Valid <phase>
+       values are \cb{load} (after loading \cb{buildfiles}) and \cb{match}
+       (after matching rules to targets). Repeat this option to dump the
+       state after multiple phases."
+    }
+
+    std::vector<name> --trace-match
+    {
+      "<target>",
+      "Trace rule matching for the specified target. This is primarily useful
+       during troubleshooting. Repeat this option to trace multiple targets."
+    }
+
+    std::vector<name> --trace-execute
+    {
+      "<target>",
+      "Trace rule execution for the specified target. This is primarily useful
+       during troubleshooting. Repeat this option to trace multiple targets."
     }
 
     bool --no-column

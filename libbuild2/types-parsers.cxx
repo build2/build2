@@ -3,6 +3,11 @@
 
 #include <libbuild2/types-parsers.hxx>
 
+#include <sstream>
+
+#include <libbuild2/lexer.hxx>
+#include <libbuild2/parser.hxx>
+
 namespace build2
 {
   namespace build
@@ -45,6 +50,44 @@ namespace build2
       {
         xs = true;
         parse_path (x, s);
+      }
+
+      void parser<name>::
+      parse (name& x, bool& xs, scanner& s)
+      {
+        const char* o (s.next ());
+
+        if (!s.more ())
+          throw missing_value (o);
+
+        const char* v (s.next ());
+
+        try
+        {
+          using build2::parser;
+          using std::istringstream;
+
+          istringstream is (v);
+          is.exceptions (istringstream::failbit | istringstream::badbit);
+
+          // @@ TODO: currently this issues diagnostics to diag_stream.
+          //          Perhaps we should redirect it?
+          //
+          path_name in (o);
+          lexer l (is, in, 1 /* line */, "\'\"\\$("); // Effective.
+          parser p (nullptr);
+          names r (p.parse_names (l, nullptr, parser::pattern_mode::preserve));
+
+          if (r.size () != 1)
+            throw invalid_value (o, v);
+
+          x = move (r.front ());
+          xs = true;
+        }
+        catch (const failed&)
+        {
+          throw invalid_value (o, v);
+        }
       }
 
       void parser<structured_result_format>::

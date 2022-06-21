@@ -357,6 +357,70 @@ namespace build2
     return *m;
   };
 
+  static bool
+  trace_target (const target& t, const vector<name>& ns)
+  {
+    for (const name& n: ns)
+    {
+      if (n.untyped () || n.qualified () || n.pattern)
+        fail << "unsupported trace target name '" << n << "'" <<
+          info << "unqualified, typed, non-pattern name expected";
+
+      if (!n.dir.empty ())
+      {
+        if (n.dir.relative () || !n.dir.normalized ())
+          fail << "absolute and normalized trace target directory expected";
+
+        if (t.dir != n.dir)
+          continue;
+      }
+
+      if (n.type == t.type ().name && n.value == t.name)
+        return true;
+    }
+
+    return false;
+  }
+
+  void
+  set_rule_trace (target_lock& l, const rule_match* rm)
+  {
+    action a (l.action);
+    target& t (*l.target);
+
+    // Note: see similar code in execute_impl() for execute.
+    //
+    if (trace_target (t, *t.ctx.trace_match))
+    {
+      diag_record dr (info);
+
+      dr << "matching to " << diag_do (a, t);
+
+      if (rm != nullptr)
+      {
+        const rule& r (rm->second);
+
+        if (const adhoc_rule* ar = dynamic_cast<const adhoc_rule*> (&r))
+        {
+          dr << info (ar->loc);
+
+          if (ar->pattern != nullptr)
+            dr << "using ad hoc pattern rule ";
+          else
+            dr << "using ad hoc recipe ";
+        }
+        else
+          dr << info << "using rule ";
+
+        dr << rm->first;
+      }
+      else
+        dr << info << "using directly-assigned recipe";
+    }
+
+    t[a].rule = rm;
+  }
+
   // Return the matching rule or NULL if no match and try_match is true.
   //
   const rule_match*
@@ -837,7 +901,7 @@ namespace build2
             return make_pair (false, target_state::unknown);
           }
 
-          s.rule = r;
+          set_rule (l, r);
           l.offset = target::offset_matched;
 
           if (step)
@@ -1897,6 +1961,36 @@ namespace build2
           bls = backlink_update_pre (a, t, *blm);
         else
           backlink_clean_pre (a, t, *blm);
+      }
+
+      // Note: see similar code in set_rule_trace() for match.
+      //
+      if (ctx.trace_execute != nullptr && trace_target (t, *ctx.trace_execute))
+      {
+        diag_record dr (info);
+
+        dr << diag_doing (a, t);
+
+        if (s.rule != nullptr)
+        {
+          const rule& r (s.rule->second);
+
+          if (const adhoc_rule* ar = dynamic_cast<const adhoc_rule*> (&r))
+          {
+            dr << info (ar->loc);
+
+            if (ar->pattern != nullptr)
+              dr << "using ad hoc pattern rule ";
+            else
+              dr << "using ad hoc recipe ";
+          }
+          else
+            dr << info << "using rule ";
+
+          dr << s.rule->first;
+        }
+        else
+          dr << info << "using directly-assigned recipe";
       }
 
       ts = execute_recipe (a, t, s.recipe);

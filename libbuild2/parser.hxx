@@ -48,7 +48,7 @@ namespace build2
     explicit
     parser (context& c, stage s = stage::rest)
       : fail ("error", &path_), info ("info", &path_),
-        ctx (c),
+        ctx (&c),
         stage_ (s) {}
 
     // Pattern expansion mode.
@@ -105,6 +105,25 @@ namespace build2
     //
     void
     reset ();
+
+    // Special, context-less mode that can only be used to parse literal
+    // names.
+    //
+  public:
+    static const string name_separators;
+
+    explicit
+    parser (context* c)
+      : fail ("error", &path_), info ("info", &path_),
+        ctx (c),
+        stage_ (stage::rest) {}
+
+    names
+    parse_names (lexer&,
+                 const dir_path* base,
+                 pattern_mode pmode,
+                 const char* what = "name",
+                 const string* separators = &name_separators);
 
     // Ad hoc parsing results for some cases.
     //
@@ -363,9 +382,6 @@ namespace build2
     // project separator. Note that even if it is NULL, the result may still
     // contain non-simple names due to variable expansions.
     //
-
-    static const string name_separators;
-
     names
     parse_names (token& t, token_type& tt,
                  pattern_mode pmode,
@@ -869,7 +885,7 @@ namespace build2
     // NOTE: remember to update reset() if adding anything here.
     //
   protected:
-    context& ctx;
+    context* ctx;
     stage stage_;
 
     bool pre_parse_ = false;

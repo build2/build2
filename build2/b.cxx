@@ -436,6 +436,12 @@ main (int argc, char* argv[])
                                ops.dry_run (),
                                !ops.serial_stop () /* keep_going */,
                                cmdl.cmd_vars));
+
+      if (ops.trace_match_specified ())
+        pctx->trace_match = &ops.trace_match ();
+
+      if (ops.trace_execute_specified ())
+        pctx->trace_execute = &ops.trace_execute ();
     };
 
     new_context ();

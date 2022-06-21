@@ -98,12 +98,6 @@ namespace build2
     const bool&
     stat () const;
 
-    const std::set<string>&
-    dump () const;
-
-    bool
-    dump_specified () const;
-
     const bool&
     progress () const;
 
@@ -163,6 +157,24 @@ namespace build2
 
     const bool&
     no_mtime_check () const;
+
+    const std::set<string>&
+    dump () const;
+
+    bool
+    dump_specified () const;
+
+    const std::vector<name>&
+    trace_match () const;
+
+    bool
+    trace_match_specified () const;
+
+    const std::vector<name>&
+    trace_execute () const;
+
+    bool
+    trace_execute_specified () const;
 
     const bool&
     no_column () const;
@@ -249,8 +261,6 @@ namespace build2
     uint16_t verbose_;
     bool verbose_specified_;
     bool stat_;
-    std::set<string> dump_;
-    bool dump_specified_;
     bool progress_;
     bool no_progress_;
     size_t jobs_;
@@ -271,6 +281,12 @@ namespace build2
     bool structured_result_specified_;
     bool mtime_check_;
     bool no_mtime_check_;
+    std::set<string> dump_;
+    bool dump_specified_;
+    std::vector<name> trace_match_;
+    bool trace_match_specified_;
+    std::vector<name> trace_execute_;
+    bool trace_execute_specified_;
     bool no_column_;
     bool no_line_;
     path buildfile_;

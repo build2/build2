@@ -1418,7 +1418,7 @@ if ($cc.class == 'gcc')
 }
 
 if ($c.target.class != 'windows')
-  c.libs += -lpthread  # only C
+  c.libs += -ldl  # only C
 \
 
 Additionally, as we will see in \l{#intro-operations-config Configuring},
@@ -4443,12 +4443,12 @@ Instead of printing the entire scope, we can also print individual targets by
 specifying one or more target names in \c{dump}. To make things more
 interesting, let's convert our \c{hello} project to use a utility library,
 similar to the unit testing setup (\l{#intro-unit-test Implementing Unit
-Testing}). We will also link to the \c{pthread} library to see an example of a
+Testing}). We will also link to the \c{dl} library to see an example of a
 target-specific variable being dumped:
 
 \
 exe{hello}: libue{hello}: bin.whole = false
-exe{hello}: cxx.libs += -lpthread
+exe{hello}: cxx.libs += -ldl
 libue{hello}: {hxx cxx}{**}
 
 dump exe{hello}
@@ -4460,7 +4460,7 @@ The output will look along these lines:
 buildfile:5:1: dump:
   /tmp/hello/hello/exe{hello.?}:
   {
-    [strings] cxx.libs = -lpthread
+    [strings] cxx.libs = -ldl
   }
   /tmp/hello/hello/exe{hello.?}: /tmp/hello/hello/:libue{hello.?}:
   {
@@ -4560,6 +4560,25 @@ of /tmp/hello/hello/obje{hello.o}
 Higher verbosity levels result in more and more tracing statements being
 printed. These include \c{buildfile} loading and parsing, prerequisite to
 target resolution, as well as build system module and rule-specific logic.
+
+While the tracing statements can be helpful in understanding what is
+happening, they don't make it easy to see why things are happening a
+certain way. In particular, one question that is often encountered during
+build troubleshooting is which dependency chain causes matching or execution
+of a particular target. These questions can be answered with the help of
+the \c{--trace-match} and \c{--trace-execute} options. For example, if we
+want to understand what causes the update of \c{obje{hello\}} in the
+\c{hello} project above:
+
+\
+$ b -s --trace-execute 'obje{hello}'
+info: updating hello/obje{hello}
+  info: using rule cxx.compile
+  info: while updating hello/libue{hello}
+  info: while updating hello/exe{hello}
+  info: while updating dir{hello/}
+  info: while updating dir{./}
+\
 
 Another useful diagnostics option is \c{--mtime-check}. When specified, the
 build system performs a number of file modification time sanity checks that

@@ -219,6 +219,14 @@ namespace build2
     //
     bool keep_going;
 
+    // Targets to trace (see the --trace-* options).
+    //
+    // Note that these must be set after construction and must remain valid
+    // for the lifetime of the context instance.
+    //
+    const vector<name>* trace_match = nullptr;
+    const vector<name>* trace_execute = nullptr;
+
     // In order to perform each operation the build system goes through the
     // following phases:
     //
@@ -587,6 +595,9 @@ namespace build2
     // will be created lazily if and when necessary. Otherwise, it should be a
     // properly setup context (including, normally, a self-reference in
     // modules_context).
+    //
+    // Note: see also the trace_* data members that, if needed, must be set
+    // separately, after construction.
     //
     explicit
     context (scheduler&,

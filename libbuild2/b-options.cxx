@@ -247,8 +247,6 @@ namespace build2
     verbose_ (1),
     verbose_specified_ (false),
     stat_ (),
-    dump_ (),
-    dump_specified_ (false),
     progress_ (),
     no_progress_ (),
     jobs_ (),
@@ -269,6 +267,12 @@ namespace build2
     structured_result_specified_ (false),
     mtime_check_ (),
     no_mtime_check_ (),
+    dump_ (),
+    dump_specified_ (false),
+    trace_match_ (),
+    trace_match_specified_ (false),
+    trace_execute_ (),
+    trace_execute_specified_ (false),
     no_column_ (),
     no_line_ (),
     buildfile_ (),
@@ -403,13 +407,6 @@ namespace build2
         this->stat_, a.stat_);
     }
 
-    if (a.dump_specified_)
-    {
-      ::build2::build::cli::parser< std::set<string>>::merge (
-        this->dump_, a.dump_);
-      this->dump_specified_ = true;
-    }
-
     if (a.progress_)
     {
       ::build2::build::cli::parser< bool>::merge (
@@ -498,6 +495,27 @@ namespace build2
     {
       ::build2::build::cli::parser< bool>::merge (
         this->no_mtime_check_, a.no_mtime_check_);
+    }
+
+    if (a.dump_specified_)
+    {
+      ::build2::build::cli::parser< std::set<string>>::merge (
+        this->dump_, a.dump_);
+      this->dump_specified_ = true;
+    }
+
+    if (a.trace_match_specified_)
+    {
+      ::build2::build::cli::parser< std::vector<name>>::merge (
+        this->trace_match_, a.trace_match_);
+      this->trace_match_specified_ = true;
+    }
+
+    if (a.trace_execute_specified_)
+    {
+      ::build2::build::cli::parser< std::vector<name>>::merge (
+        this->trace_execute_, a.trace_execute_);
+      this->trace_execute_specified_ = true;
     }
 
     if (a.no_column_)
@@ -626,12 +644,6 @@ namespace build2
 
     os << std::endl
        << "\033[1m--stat\033[0m                  Display build statistics." << ::std::endl;
-
-    os << std::endl
-       << "\033[1m--dump\033[0m \033[4mphase\033[0m            Dump the build system state after the specified phase." << ::std::endl
-       << "                        Valid \033[4mphase\033[0m values are \033[1mload\033[0m (after loading \033[1mbuildfiles\033[0m)" << ::std::endl
-       << "                        and \033[1mmatch\033[0m (after matching rules to targets). Repeat" << ::std::endl
-       << "                        this option to dump the state after multiple phases." << ::std::endl;
 
     os << std::endl
        << "\033[1m--progress\033[0m              Display build progress. If printing to a terminal the" << ::std::endl
@@ -805,6 +817,22 @@ namespace build2
        << "                        \033[1m--mtime-check\033[0m for details." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--dump\033[0m \033[4mphase\033[0m            Dump the build system state after the specified phase." << ::std::endl
+       << "                        Valid \033[4mphase\033[0m values are \033[1mload\033[0m (after loading \033[1mbuildfiles\033[0m)" << ::std::endl
+       << "                        and \033[1mmatch\033[0m (after matching rules to targets). Repeat" << ::std::endl
+       << "                        this option to dump the state after multiple phases." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--trace-match\033[0m \033[4mtarget\033[0m    Trace rule matching for the specified target. This is" << ::std::endl
+       << "                        primarily useful during troubleshooting. Repeat this" << ::std::endl
+       << "                        option to trace multiple targets." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--trace-execute\033[0m \033[4mtarget\033[0m  Trace rule execution for the specified target. This is" << ::std::endl
+       << "                        primarily useful during troubleshooting. Repeat this" << ::std::endl
+       << "                        option to trace multiple targets." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--no-column\033[0m             Don't print column numbers in diagnostics." << ::std::endl;
 
     os << std::endl
@@ -915,9 +943,6 @@ namespace build2
         &b_options::verbose_specified_ >;
       _cli_b_options_map_["--stat"] =
       &::build2::build::cli::thunk< b_options, bool, &b_options::stat_ >;
-      _cli_b_options_map_["--dump"] =
-      &::build2::build::cli::thunk< b_options, std::set<string>, &b_options::dump_,
-        &b_options::dump_specified_ >;
       _cli_b_options_map_["--progress"] =
       &::build2::build::cli::thunk< b_options, bool, &b_options::progress_ >;
       _cli_b_options_map_["--no-progress"] =
@@ -965,6 +990,15 @@ namespace build2
       &::build2::build::cli::thunk< b_options, bool, &b_options::mtime_check_ >;
       _cli_b_options_map_["--no-mtime-check"] =
       &::build2::build::cli::thunk< b_options, bool, &b_options::no_mtime_check_ >;
+      _cli_b_options_map_["--dump"] =
+      &::build2::build::cli::thunk< b_options, std::set<string>, &b_options::dump_,
+        &b_options::dump_specified_ >;
+      _cli_b_options_map_["--trace-match"] =
+      &::build2::build::cli::thunk< b_options, std::vector<name>, &b_options::trace_match_,
+        &b_options::trace_match_specified_ >;
+      _cli_b_options_map_["--trace-execute"] =
+      &::build2::build::cli::thunk< b_options, std::vector<name>, &b_options::trace_execute_,
+        &b_options::trace_execute_specified_ >;
       _cli_b_options_map_["--no-column"] =
       &::build2::build::cli::thunk< b_options, bool, &b_options::no_column_ >;
       _cli_b_options_map_["--no-line"] =

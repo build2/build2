@@ -498,6 +498,18 @@ namespace build2
     t.clear_data (a);
   }
 
+  LIBBUILD2_SYMEXPORT void
+  set_rule_trace (target_lock&, const rule_match*);
+
+  inline void
+  set_rule (target_lock& l, const rule_match* r)
+  {
+    if (l.target->ctx.trace_match == nullptr)
+      (*l.target)[l.action].rule = r;
+    else
+      set_rule_trace (l, r);
+  }
+
   inline void
   set_recipe (target_lock& l, recipe&& r)
   {
@@ -549,7 +561,7 @@ namespace build2
             l.target->ctx.phase == run_phase::match);
 
     clear_target (l.action, *l.target);
-    (*l.target)[l.action].rule = nullptr; // No rule.
+    set_rule (l, nullptr); // No rule.
     set_recipe (l, move (r));
     l.offset = target::offset_applied;
   }
@@ -562,7 +574,7 @@ namespace build2
             l.target->ctx.phase == run_phase::match);
 
     clear_target (l.action, *l.target);
-    (*l.target)[l.action].rule = &r;
+    set_rule (l, &r);
     l.offset = target::offset_matched;
   }
 

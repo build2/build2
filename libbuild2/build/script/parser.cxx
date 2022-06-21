@@ -478,8 +478,8 @@ namespace build2
             {
               if (a != perform_update_id)
                 fail (l) << "'depdb' builtin cannot be used to "
-                         << ctx.meta_operation_table[a.meta_operation ()].name
-                         << ' ' << ctx.operation_table[a.operation ()];
+                         << ctx->meta_operation_table[a.meta_operation ()].name
+                         << ' ' << ctx->operation_table[a.operation ()];
             }
 
             if (!file_based_)
@@ -2344,7 +2344,7 @@ namespace build2
       {
         if (perform_update_ && file_based_ && !impure_func_)
         {
-          const function_overloads* f (ctx.functions.find (name));
+          const function_overloads* f (ctx->functions.find (name));
 
           if (f != nullptr && !f->pure)
             impure_func_ = make_pair (move (name), loc);

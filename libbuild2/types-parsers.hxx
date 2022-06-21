@@ -44,6 +44,16 @@ namespace build2
       };
 
       template <>
+      struct parser<name>
+      {
+        static void
+        parse (name&, bool&, scanner&);
+
+        static void
+        merge (name& b, const name& a) {b = a;}
+      };
+
+      template <>
       struct parser<structured_result_format>
       {
         static void

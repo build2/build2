@@ -162,7 +162,7 @@ namespace build2
                    tracer& tr)
     {
       auto r (p.scope_->find_target_type (n, o, loc));
-      return p.ctx.targets.insert (
+      return p.ctx->targets.insert (
         r.first,         // target type
         move (n.dir),
         move (o.dir),
@@ -182,12 +182,12 @@ namespace build2
                  tracer& tr)
     {
       auto r (p.scope_->find_target_type (n, o, loc));
-      return p.ctx.targets.find (r.first,  // target type
-                                 n.dir,
-                                 o.dir,
-                                 n.value,
-                                 r.second, // extension
-                                 tr);
+      return p.ctx->targets.find (r.first,  // target type
+                                  n.dir,
+                                  o.dir,
+                                  n.value,
+                                  r.second, // extension
+                                  tr);
     }
 
     ~enter_target ()
@@ -353,6 +353,37 @@ namespace build2
     apply_value_attributes (&var, lhs, move (rhs), type::assign);
 
     return make_pair (move (lhs), move (t));
+  }
+
+  names parser::
+  parse_names (lexer& l,
+               const dir_path* b,
+               pattern_mode pmode,
+               const char* what,
+               const string* separators)
+  {
+    path_ = &l.name ();
+    lexer_ = &l;
+
+    root_ = nullptr;
+    scope_ = nullptr;
+    target_ = nullptr;
+    prerequisite_ = nullptr;
+
+    pbase_ = b;
+
+    token t;
+    type tt;
+
+    mode (lexer_mode::value, '@');
+    next (t, tt);
+
+    names r (parse_names (t, tt, pmode, what, separators));
+
+    if (tt != type::eos)
+      fail (t) << "unexpected " << t;
+
+    return r;
   }
 
   value parser::
@@ -1870,7 +1901,7 @@ namespace build2
 
             for (metaopspec& m: d.bs)
             {
-              meta_operation_id mi (ctx.meta_operation_table.find (m.name));
+              meta_operation_id mi (ctx->meta_operation_table.find (m.name));
 
               if (mi == 0)
                 fail (l) << "unknown meta-operation " << m.name;
@@ -1880,7 +1911,7 @@ namespace build2
 
               if (mf == nullptr)
                 fail (l) << "project " << *root_ << " does not support meta-"
-                         << "operation " << ctx.meta_operation_table[mi].name;
+                         << "operation " << ctx->meta_operation_table[mi].name;
 
               for (opspec& o: m)
               {
@@ -1896,7 +1927,7 @@ namespace build2
                     fail (l) << "default operation in recipe action" << endf;
                 }
                 else
-                  oi = ctx.operation_table.find (o.name);
+                  oi = ctx->operation_table.find (o.name);
 
                 if (oi == 0)
                   fail (l) << "unknown operation " << o.name;
@@ -1905,7 +1936,7 @@ namespace build2
 
                 if (of == nullptr)
                   fail (l) << "project " << *root_ << " does not support "
-                           << "operation " << ctx.operation_table[oi];
+                           << "operation " << ctx->operation_table[oi];
 
                 // Note: for now always inner (see match_rule() for details).
                 //
@@ -2295,7 +2326,7 @@ namespace build2
 
             if (!v.empty ())
             {
-              oi = ctx.operation_table.find (v);
+              oi = ctx->operation_table.find (v);
 
               if (oi == 0)
                 fail (l) << "unknown operation " << v << " in rule_hint "
@@ -2303,7 +2334,7 @@ namespace build2
 
               if (root_->root_extra->operations[oi] == nullptr)
                 fail (l) << "project " << *root_ << " does not support "
-                         << "operation " << ctx.operation_table[oi]
+                         << "operation " << ctx->operation_table[oi]
                          << " specified in rule_hint attribute";
             }
           }
@@ -3976,7 +4007,7 @@ namespace build2
                 if (!e.arg.empty ())
                   args.push_back (value (e.arg));
 
-                value r (ctx.functions.call (scope_, *e.func, args, l));
+                value r (ctx->functions.call (scope_, *e.func, args, l));
 
                 // We support two types of functions: matchers and extractors:
                 // a matcher returns a statically-typed bool value while an
@@ -4708,10 +4739,10 @@ namespace build2
     //         attributes).
 
     if (type || vis || ovr)
-      ctx.var_pool.update (const_cast<variable&> (var),
-                           type,
-                           vis ? &*vis : nullptr,
-                           ovr ? &*ovr : nullptr);
+      ctx->var_pool.update (const_cast<variable&> (var),
+                            type,
+                            vis ? &*vis : nullptr,
+                            ovr ? &*ovr : nullptr);
 
   }
 
@@ -6097,7 +6128,7 @@ namespace build2
     bool concat_quoted_first (false);
     name concat_data;
 
-    auto concat_typed = [this, &vnull, &vtype,
+    auto concat_typed = [this, what, &vnull, &vtype,
                          &concat, &concat_data] (value&& rhs,
                                                  const location& loc)
     {
@@ -6132,7 +6163,10 @@ namespace build2
               dr << info << "use quoting to force untyped concatenation";
             });
 
-          p = ctx.functions.try_call (
+          if (ctx == nullptr)
+            fail << "literal " << what << " expected";
+
+          p = ctx->functions.try_call (
             scope_, "builtin.concat", vector_view<value> (a), loc);
         }
 
@@ -6860,6 +6894,9 @@ namespace build2
       //
       if (tt == type::dollar || tt == type::lparen)
       {
+        if (ctx == nullptr)
+          fail << "literal " << what << " expected";
+
         // These cases are pretty similar in that in both we quickly end up
         // with a list of names that we need to splice into the result.
         //
@@ -7056,7 +7093,7 @@ namespace build2
             //
             if (!pre_parse_)
             {
-              result_data = ctx.functions.call (scope_, name, args, loc);
+              result_data = ctx->functions.call (scope_, name, args, loc);
               what = "function call";
             }
             else
@@ -7250,7 +7287,10 @@ namespace build2
                   dr << info (loc) << "while converting " << t << " to string";
                 });
 
-              p = ctx.functions.try_call (
+              if (ctx == nullptr)
+                fail << "literal " << what << " expected";
+
+              p = ctx->functions.try_call (
                 scope_, "string", vector_view<value> (&result_data, 1), loc);
             }
 
@@ -7585,7 +7625,7 @@ namespace build2
     lexer l (is, *path_, 1 /* line */, "\'\"\\$(");
     lexer_ = &l;
 
-    root_ = &ctx.global_scope.rw ();
+    root_ = &ctx->global_scope.rw ();
     scope_ = root_;
     target_ = nullptr;
     prerequisite_ = nullptr;
@@ -7978,13 +8018,13 @@ namespace build2
     target& dt (*default_target_);
 
     target* ct (
-      const_cast<target*> (                    // Ok (serial execution).
-        ctx.targets.find (dir::static_type,    // Explicit current dir target.
-                          scope_->out_path (),
-                          dir_path (),         // Out tree target.
-                          string (),
-                          nullopt,
-                          trace)));
+      const_cast<target*> (                     // Ok (serial execution).
+        ctx->targets.find (dir::static_type,    // Explicit current dir target.
+                           scope_->out_path (),
+                           dir_path (),         // Out tree target.
+                           string (),
+                           nullopt,
+                           trace)));
 
     if (ct == nullptr)
     {
@@ -7993,7 +8033,7 @@ namespace build2
       // While this target is not explicitly mentioned in the buildfile, we
       // say that we behave as if it were. Thus not implied.
       //
-      ct = &ctx.targets.insert (dir::static_type,
+      ct = &ctx->targets.insert (dir::static_type,
                                 scope_->out_path (),
                                 dir_path (),
                                 string (),
@@ -8031,7 +8071,7 @@ namespace build2
       out = out_src (d, *root_);
     }
 
-    ctx.targets.insert<buildfile> (
+    ctx->targets.insert<buildfile> (
       move (d),
       move (out),
       p.leaf ().base ().string (),

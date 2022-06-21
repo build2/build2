@@ -68,18 +68,6 @@ namespace build2
     return this->stat_;
   }
 
-  inline const std::set<string>& b_options::
-  dump () const
-  {
-    return this->dump_;
-  }
-
-  inline bool b_options::
-  dump_specified () const
-  {
-    return this->dump_specified_;
-  }
-
   inline const bool& b_options::
   progress () const
   {
@@ -198,6 +186,42 @@ namespace build2
   no_mtime_check () const
   {
     return this->no_mtime_check_;
+  }
+
+  inline const std::set<string>& b_options::
+  dump () const
+  {
+    return this->dump_;
+  }
+
+  inline bool b_options::
+  dump_specified () const
+  {
+    return this->dump_specified_;
+  }
+
+  inline const std::vector<name>& b_options::
+  trace_match () const
+  {
+    return this->trace_match_;
+  }
+
+  inline bool b_options::
+  trace_match_specified () const
+  {
+    return this->trace_match_specified_;
+  }
+
+  inline const std::vector<name>& b_options::
+  trace_execute () const
+  {
+    return this->trace_execute_;
+  }
+
+  inline bool b_options::
+  trace_execute_specified () const
+  {
+    return this->trace_execute_specified_;
   }
 
   inline const bool& b_options::
