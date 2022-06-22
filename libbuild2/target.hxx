@@ -220,6 +220,11 @@ namespace build2
     //
     void
     free ();
+
+    ~match_extra ()
+    {
+      clear_data ();
+    }
   };
 
   // Target.
