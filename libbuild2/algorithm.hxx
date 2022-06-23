@@ -145,6 +145,15 @@ namespace build2
           const string* ext = nullptr,
           const scope* = nullptr);
 
+  template <typename T>
+  const T*
+  search_existing (context&,
+                   const dir_path& dir,
+                   const dir_path& out,
+                   const string& name,
+                   const string* ext = nullptr,
+                   const scope* = nullptr);
+
   // Search for a target identified by the name. The semantics is "as if" we
   // first created a prerequisite based on this name in exactly the same way
   // as the parser would and then searched based on this prerequisite. If the
@@ -471,11 +480,8 @@ namespace build2
   // dependencies. Similar in semantics to match_prerequisites(). Any marked
   // target pointers are skipped.
   //
-  // T can only be const target* or prerequisite_target.
-  //
-  template <typename T>
-  void
-  match_members (action, target&, T const*, size_t);
+  LIBBUILD2_SYMEXPORT void
+  match_members (action, target&, const target* const*, size_t);
 
   template <size_t N>
   inline void
@@ -484,14 +490,16 @@ namespace build2
     match_members (a, t, ts, N);
   }
 
-  inline void
+  // As above plus if the include mask (first) and value (second) are
+  // specified, then only match prerequisites that satisfy the
+  // ((prerequisite_target::include & mask) == value) condition.
+  //
+  LIBBUILD2_SYMEXPORT void
   match_members (action a,
                  target& t,
                  prerequisite_targets& ts,
-                 size_t start = 0)
-  {
-    match_members (a, t, ts.data () + start, ts.size () - start);
-  }
+                 size_t start = 0,
+                 pair<uintptr_t, uintptr_t> include = {0, 0});
 
   // Unless already known, match, and, if necessary, execute the group in
   // order to resolve its members list. Note that even after that the member's

@@ -187,6 +187,21 @@ namespace build2
       t, T::static_type, dir, out, name, ext, scope).template as<T> ();
   }
 
+  template <typename T>
+  inline const T*
+  search_existing (context& ctx,
+                   const dir_path& dir,
+                   const dir_path& out,
+                   const string& name,
+                   const string* ext,
+                   const scope* scope)
+  {
+    const target* r (
+      search_existing (
+        ctx, T::static_type, dir, out, name, ext, scope));
+    return r != nullptr ? &r->template as<T> () : nullptr;
+  }
+
   LIBBUILD2_SYMEXPORT target_lock
   lock_impl (action, const target&, optional<scheduler::work_queue>);
 

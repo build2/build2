@@ -1217,9 +1217,8 @@ namespace build2
     match_prerequisite_range (a, t, group_prerequisite_members (a, t), msm, s);
   }
 
-  template <typename T>
   void
-  match_members (action a, target& t, T const* ts, size_t n)
+  match_members (action a, target& t, const target* const* ts, size_t n)
   {
     // Pretty much identical to match_prerequisite_range() except we don't
     // search.
@@ -1251,15 +1250,45 @@ namespace build2
     }
   }
 
-  // Instantiate only for what we need.
-  //
-  template LIBBUILD2_SYMEXPORT void
-  match_members<const target*> (action, target&,
-                                const target* const*, size_t);
+  void
+  match_members (action a,
+                 target& t,
+                 prerequisite_targets& ts,
+                 size_t s,
+                 pair<uintptr_t, uintptr_t> imv)
+  {
+    size_t n (ts.size ());
 
-  template LIBBUILD2_SYMEXPORT void
-  match_members<prerequisite_target> (action, target&,
-                                      prerequisite_target const*, size_t);
+    wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
+
+    for (size_t i (s); i != n; ++i)
+    {
+      const prerequisite_target& pt (ts[i]);
+      const target* m (pt.target);
+
+      if (m == nullptr ||
+          marked (m)   ||
+          (imv.first != 0 && (pt.include & imv.first) != imv.second))
+        continue;
+
+      match_async (a, *m, t.ctx.count_busy (), t[a].task_count);
+    }
+
+    wg.wait ();
+
+    for (size_t i (s); i != n; ++i)
+    {
+      const prerequisite_target& pt (ts[i]);
+      const target* m (pt.target);
+
+      if (m == nullptr ||
+          marked (m)   ||
+          (imv.first != 0 && (pt.include & imv.first) != imv.second))
+        continue;
+
+      match_complete (a, *m);
+    }
+  }
 
   const fsdir*
   inject_fsdir (action a, target& t, bool parent)
@@ -2312,6 +2341,16 @@ namespace build2
     //
     if (n == 0)
       return false;
+
+    // Provide additional information on what's going on.
+    //
+    auto df = make_diag_frame (
+      [&t](const diag_record& dr)
+      {
+        if (verb != 0)
+          dr << info << "while updating during match prerequisites of "
+             << "target " << t;
+      });
 
     context& ctx (t.ctx);
 
