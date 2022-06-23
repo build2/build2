@@ -370,17 +370,22 @@ namespace build2
         {
           string ds (l, b, (e != string::npos ? e - b : e));
 
+          // Skip empty entries (sometimes found in random MinGW toolchains).
+          //
+          if (!ds.empty ())
+          {
 #ifdef _WIN32
-          if (path_traits::is_separator (ds[0]))
-            add_current_drive (ds);
+            if (path_traits::is_separator (ds[0]))
+              add_current_drive (ds);
 #endif
 
-          d = dir_path (move (ds));
+            d = dir_path (move (ds));
 
-          if (d.relative ())
-            throw invalid_path (move (d).string ());
+            if (d.relative ())
+              throw invalid_path (move (d).string ());
 
-          d.normalize ();
+            d.normalize ();
+          }
         }
         catch (const invalid_path& e)
         {
@@ -388,7 +393,7 @@ namespace build2
                << args[0] << " -print-search-dirs output";
         }
 
-        if (find (r.begin (), r.end (), d) == r.end ())
+        if (!d.empty () && find (r.begin (), r.end (), d) == r.end ())
           r.emplace_back (move (d));
 
         if (e == string::npos)
