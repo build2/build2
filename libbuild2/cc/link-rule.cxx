@@ -914,7 +914,7 @@ namespace build2
       // We do libraries first in order to indicate that we will execute these
       // targets before matching any of the obj/bmi{}. This makes it safe for
       // compile::apply() to unmatch them and therefore not to hinder
-      // parallelism.
+      // parallelism (or mess up for-install'ness).
       //
       // We also create obj/bmi{} chain targets because we need to add
       // (similar to lib{}) all the bmi{} as prerequisites to all the other
@@ -1014,6 +1014,7 @@ namespace build2
         const target*& pt (pto);
 
         // Mark (2 bits):
+        //
         //   0 - lib or update during match
         //   1 - src
         //   2 - mod
@@ -1234,10 +1235,16 @@ namespace build2
         mark (pt, m);
       }
 
-      // Match lib{} and update during match (the only unmarked) in parallel
-      // and wait for completion.
+      // Match lib{} first and then update during match (the only unmarked) in
+      // parallel and wait for completion. We need to match libraries first
+      // because matching generated headers/sources may lead to matching some
+      // of the libraries (for example, if generation requires some of the
+      // metadata; think poptions needed by Qt moc).
       //
-      match_members (a, t, pts, start);
+      match_members (a, t, pts, start, {2 /* mask */, 0 /* value */});
+
+      if (update_match)
+        match_members (a, t, pts, start, {2, 2});
 
       // Check if we have any binful utility libraries.
       //
