@@ -99,6 +99,9 @@ namespace build2
     // For the second signature, targets can only be utility libraries
     // (including the libul{} group).
     //
+    // If <otype> in the first signature is NULL, then it is treated as
+    // the second signature.
+    //
     struct lib_thunk_data
     {
       const char* x;
@@ -137,7 +140,7 @@ namespace build2
       names& ts_ns (vs[0].as<names> ()); // <targets>
 
       optional<linfo> li;
-      if (vs.size () > 1)
+      if (vs.size () > 1 && !vs[1].null)
       {
         names& ot_ns (vs[1].as<names> ()); // <otype>
 
@@ -228,7 +231,7 @@ namespace build2
     void compile_rule::
     functions (function_family& f, const char* x)
     {
-      // $<module>.lib_poptions(<lib-targets>[, <otype>])
+      // $<module>.lib_poptions(<lib-targets>[, <otype>[, <original>]])
       //
       // Return the preprocessor options that should be passed when compiling
       // sources that depend on the specified libraries. The second argument
@@ -239,6 +242,12 @@ namespace build2
       // be returned for lib{} dependencies. This is primarily useful for
       // obtaining poptions to be passed to tools other than C/C++ compilers
       // (for example, Qt moc).
+      //
+      // If <portable> is true, then return the original -I options without
+      // performing any translation (for example, to -isystem or /external:I).
+      // This is the default if <otype> is omitted. To get the translation for
+      // the common interface options, pass [null] for <otype> and true for
+      // <original>.
       //
       // Note that passing multiple targets at once is not a mere convenience:
       // this also allows for more effective duplicate suppression.
@@ -251,12 +260,12 @@ namespace build2
       // Note that this function is not pure.
       //
       f.insert (".lib_poptions", false).
-        insert<lib_thunk_data, names, optional<names>> (
+        insert<lib_thunk_data, names, optional<names*>, optional<names>> (
         &lib_thunk<appended_libraries>,
         lib_thunk_data {
           x,
           [] (void* ls, strings& r,
-              const vector_view<value>&, const module& m, const scope& bs,
+              const vector_view<value>& vs, const module& m, const scope& bs,
               action a, const target& l, bool la, optional<linfo> li)
           {
             // If this is libul{}, get the matched member (see bin::libul_rule
@@ -269,13 +278,14 @@ namespace build2
                  l.prerequisite_targets[a].back ().target->as<file> ()));
 
             bool common (!li);
+            bool original (vs.size () > 2 ? convert<bool> (vs[2]) : !li);
 
             if (!li)
               li = link_info (bs, link_type (f).type);
 
             m.append_library_options (
               *static_cast<appended_libraries*> (ls), r,
-              bs, a, f, la, *li, common);
+              bs, a, f, la, *li, common, original);
           }});
 
       // $<module>.find_system_header(<name>)

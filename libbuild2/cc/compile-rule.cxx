@@ -690,12 +690,12 @@ namespace build2
                             const scope& bs,
                             action a, const file& l, bool la,
                             linfo li,
-                            bool common) const
+                            bool common,
+                            bool original) const
     {
-      // @@ Is this a good idea? We don't know which tool will be using
-      //    these...
-      //
-      const scope* is (isystem (*this) ? effective_iscope (bs) : nullptr);
+      const scope* is (!original && isystem (*this)
+                       ? effective_iscope (bs)
+                       : nullptr);
       append_library_options (ls, args, bs, is, a, l, la, li, common, nullptr);
     }
 
