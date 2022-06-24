@@ -30,33 +30,26 @@ namespace build2
       apply (action, target&) const override;
     };
 
-    // If metadata is false, the this is a "fail rule" for libul{} that issues
-    // diagnostics if someone tries to build this group directly.
-    //
-    // If metadata is true, then this rule only matches with the explicit
-    // `bin.metadata` hint. In this case it picks, matches, and unmatches (if
-    // possible) a member for the purpose of making its metadata (for example,
-    // library's poptions, if it's one of the cc libraries) available.
+    // This rule picks, matches, and unmatches (if possible) a member for the
+    // purpose of making its metadata (for example, library's poptions, if
+    // it's one of the cc libraries) available.
     //
     // The underlying idea here is that someone else (e.g., cc::link_rule)
     // makes a more informed choice and we piggy back on that decision,
     // falling back to making our own based on bin.lib and bin.exe.lib. Note
     // that for update this rule always returns target_state::unchanged.
     //
-    class libul_rule: public rule
+    class libul_rule: public simple_rule
     {
     public:
       explicit
-      libul_rule (bool md): metadata_ (md) {}
+      libul_rule () {}
 
       virtual bool
-      match (action, target&, const string&, match_extra&) const override;
+      match (action, target&) const override;
 
       virtual recipe
-      apply (action, target&, match_extra&) const override;
-
-    private:
-      bool metadata_;
+      apply (action, target&) const override;
     };
 
     // Pass-through to group members rule, similar to alias.

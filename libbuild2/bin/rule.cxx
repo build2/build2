@@ -35,23 +35,14 @@ namespace build2
     // libul_rule
     //
     bool libul_rule::
-    match (action a, target& t, const string& h, match_extra&) const
+    match (action, target&) const
     {
-      if (!metadata_)
-      {
-        fail << diag_doing (a, t) << " target group" <<
-          info << "explicitly select libua{} or libus{} member" <<
-          info << "or use bin.metadata rule hint if this is metadata library";
-      }
-
-      return (h == "bin.metadata");
+      return true;
     }
 
     recipe libul_rule::
-    apply (action a, target& t, match_extra&) const
+    apply (action a, target& t) const
     {
-      assert (metadata_);
-
       // Pick one of the members. First looking for the one already matched.
       //
       const target* m (nullptr);
