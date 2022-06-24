@@ -57,6 +57,11 @@ namespace build2
         // prefer static over shared since it could be faster (but I am sure
         // someone will probably want this configurable).
         //
+        // Maybe we should use the bin.exe.lib order as a heuristics (i.e.,
+        // the most likely utility library to be built is the one most likely
+        // to be linked)? Will need the variables rs-only, similar to
+        // bin.lib, which probably is a good thing. See also libul_rule.
+        //
         if (li.type == otype::e)
         {
           // Utility libraries are project-local which means the primarily

@@ -340,6 +340,9 @@ namespace build2
       static const target_type static_type;
     };
 
+    // @@ Ideally this shouldn't derive from mtime_target (via libx). Maybe
+    //    get rid of libx?
+    //
     class LIBBUILD2_BIN_SYMEXPORT libul: public libx
     {
     public:

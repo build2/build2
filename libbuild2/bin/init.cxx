@@ -29,7 +29,8 @@ namespace build2
   namespace bin
   {
     static const obj_rule obj_;
-    static const libul_rule libul_;
+    static const libul_rule libul_ (false);
+    static const libul_rule libul_metadata_ (true);
     static const lib_rule lib_;
     static const def_rule def_;
 
@@ -575,6 +576,9 @@ namespace build2
 
         r.insert<libul> (perform_update_id, "bin.libul", libul_);
         r.insert<libul> (perform_clean_id,  "bin.libul", libul_);
+
+        r.insert<libul> (perform_update_id, "bin.metadata", libul_metadata_);
+        r.insert<libul> (perform_clean_id,  "bin.metadata", libul_metadata_);
 
         // Similar to alias.
         //
