@@ -397,7 +397,9 @@ namespace build2
             {
               // See link_rule for details.
               //
-              const target* g ((pt.include & 4) != 0 ? f->group : nullptr);
+              const target* g ((pt.include & include_group) != 0
+                               ? f->group
+                               : nullptr);
 
               if (sysd == nullptr) find_sysd ();
               if (!li) find_linfo ();

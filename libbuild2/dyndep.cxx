@@ -56,9 +56,43 @@ namespace build2
     return r;
   }
 
+  // Check if the specified prerequisite is updated during match by any other
+  // prerequisites of the specified target, recursively.
+  //
+  static bool
+  updated_during_match (action a, const target& t, size_t pts_n,
+                        const target& pt)
+  {
+    const auto& pts (t.prerequisite_targets[a]);
+
+    for (size_t i (0); i != pts_n; ++i)
+    {
+      const prerequisite_target& p (pts[i]);
+
+      // @@ This currently doesn't cover adhoc targets if matched with
+      //    buildscript (it stores them in p.data). Probably need to redo
+      //    things there (see adhoc_buildscript_rule::apply()).
+      //
+      if (p.target != nullptr)
+      {
+        if (p.target == &pt &&
+            (p.include & prerequisite_target::include_udm) != 0)
+          return true;
+
+        if (size_t n = p.target->prerequisite_targets[a].size ())
+        {
+          if (updated_during_match (a, *p.target, n, pt))
+            return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   optional<bool> dyndep_rule::
   inject_existing_file (tracer& trace, const char* what,
-                        action a, target& t,
+                        action a, target& t, size_t pts_n,
                         const file& pt,
                         timestamp mt,
                         bool f,
@@ -81,8 +115,11 @@ namespace build2
     recipe_function* const* rf (pt[a].recipe.target<recipe_function*> ());
     if (rf == nullptr || *rf != &noop_action)
     {
-      fail << what << ' ' << pt << " has non-noop recipe" <<
-        info << "consider listing it as static prerequisite of " << t;
+      if (!updated_during_match (a, t, pts_n, pt))
+      {
+        fail << what << ' ' << pt << " has non-noop recipe" <<
+          info << "consider listing it as static prerequisite of " << t;
+      }
     }
 
     bool r (update (trace, a, pt, mt));
@@ -96,7 +133,7 @@ namespace build2
 
   void dyndep_rule::
   verify_existing_file (tracer&, const char* what,
-                        action a, const target& t,
+                        action a, const target& t, size_t pts_n,
                         const file& pt)
   {
     diag_record dr;
@@ -106,11 +143,17 @@ namespace build2
       recipe_function* const* rf (pt[a].recipe.target<recipe_function*> ());
       if (rf == nullptr || *rf != &noop_action)
       {
-        dr << fail << what << ' ' << pt << " has non-noop recipe";
+        if (!updated_during_match (a, t, pts_n, pt))
+        {
+          dr << fail << what << ' ' << pt << " has non-noop recipe";
+        }
       }
     }
     else if (pt.decl == target_decl::real)
     {
+      // Note that this target could not possibly be updated during match
+      // since it's not matched.
+      //
       dr << fail << what << ' ' << pt << " is explicitly declared as "
          << "target and may have non-noop recipe";
     }

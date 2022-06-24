@@ -350,8 +350,8 @@ namespace build2
         include_type pi (
           include (a, xt, p, a.operation () == update_id ? &l : nullptr));
 
-        // Use bit 2 of prerequisite_target::include to signal update during
-        // match and bit 3 -- unmatch.
+        // Use prerequisite_target::include to signal update during match or
+        // unmatch.
         //
         uintptr_t mask (0);
         if (l)
@@ -361,12 +361,12 @@ namespace build2
           if (v == "match")
           {
             if (a == perform_update_id)
-              mask = 2;
+              mask = prerequisite_target::include_udm;
           }
           else if (v == "unmatch")
           {
             if (a == perform_update_id)
-              mask = 4;
+              mask = include_unmatch;
           }
           else if (v != "false" && v != "true" && v != "execute")
           {
@@ -422,7 +422,9 @@ namespace build2
 
         // Handle update=unmatch.
         //
-        unmatch um ((pt.include & 4) != 0 ? unmatch::safe : unmatch::none);
+        unmatch um ((pt.include & include_unmatch) != 0
+                    ? unmatch::safe
+                    : unmatch::none);
 
         pair<bool, target_state> mr (match_complete (a, *pt.target, um));
 
@@ -444,7 +446,7 @@ namespace build2
           if (mr.first)
             pt.target = nullptr;
           else
-            pt.include |= 1;
+            pt.include |= prerequisite_target::include_adhoc;
         }
       }
     }
@@ -464,7 +466,7 @@ namespace build2
     // prerequisite_target::data.
     //
     if (a == perform_update_id)
-      update_during_match_prerequisites (trace, a, xt, 2 /* mask */);
+      update_during_match_prerequisites (trace, a, xt);
 
     // See if this is not update or not on a file-based target.
     //
@@ -531,6 +533,10 @@ namespace build2
     // them to the auxiliary data member in prerequisite_target (see
     // execute_update_prerequisites() for details).
     //
+    // @@ This actually messes up with updated_during_match() check. Could
+    //    we not redo this so that we always keep p.target intact? Can't
+    //    we just omit p.adhoc() targets from $<?
+    //
     for (prerequisite_target& p: pts)
     {
       // Note that fsdir{} injected above is adhoc.
@@ -565,7 +571,7 @@ namespace build2
              p.adhoc ()          ? reinterpret_cast<target*> (p.data) :
              nullptr))
         {
-          if ((p.include & 4) != 0) // Skip update=unmatch.
+          if ((p.include & include_unmatch) != 0) // Skip update=unmatch.
             continue;
 
           hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
@@ -665,7 +671,8 @@ namespace build2
       // update on encountering any non-existent files in depbd, we may
       // actually incorrectly "validate" some number of depdb entires while
       // having an out-of-date main source file. We could probably avoid the
-      // update if we are already updating.
+      // update if we are already updating (or not: there is pre-generation
+      // to consider; see inject_existing_file() for details).
       //
       {
         build::script::parser p (ctx);
@@ -701,7 +708,7 @@ namespace build2
         size_t& skip_count (mdb->skip_count);
 
         auto add = [&trace, what,
-                    a, &bs, &t,
+                    a, &bs, &t, pts_n = mdb->pts_n,
                     &byp, &map_ext,
                     &skip_count, mt] (path fp) -> optional<bool>
         {
@@ -716,7 +723,7 @@ namespace build2
             //
             if (optional<bool> u = dyndep::inject_existing_file (
                   trace, what,
-                  a, t,
+                  a, t, pts_n,
                   *ft, mt,
                   false /* fail */,
                   false /* adhoc */,
@@ -961,7 +968,7 @@ namespace build2
           // @@ Currently we will issue an imprecise diagnostics if this is
           //    a static prerequisite that was not updated (see above).
           //
-          dyndep::verify_existing_file (trace, what, a, t, *ft);
+          dyndep::verify_existing_file (trace, what, a, t, pts_n, *ft);
         }
 
         dd.write (fp);
@@ -1156,7 +1163,7 @@ namespace build2
              p.adhoc ()          ? reinterpret_cast<target*> (p.data)
              : nullptr))
         {
-          if ((p.include & 4) != 0) // Skip update=unmatch.
+          if ((p.include & include_unmatch) != 0) // Skip update=unmatch.
             continue;
 
           hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
@@ -1396,7 +1403,7 @@ namespace build2
           // Compare our timestamp to this prerequisite's skipping
           // update=unmatch.
           //
-          if (!e && (p.include & 4) == 0)
+          if (!e && (p.include & include_unmatch) == 0)
           {
             // If this is an mtime-based target, then compare timestamps.
             //

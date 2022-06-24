@@ -305,6 +305,11 @@ namespace build2
 
       using library_cache = small_vector<library_cache_entry, 32>;
 
+      // The prerequisite_target::include bit that indicates a library
+      // member has been picked from the group.
+      //
+      static const uintptr_t include_group = 0x100;
+
       void
       process_libraries (
         action,

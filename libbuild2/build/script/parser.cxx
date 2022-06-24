@@ -15,6 +15,8 @@
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/make-parser.hxx>
 
+#include <libbuild2/adhoc-rule-buildscript.hxx>
+
 #include <libbuild2/script/run.hxx>
 
 #include <libbuild2/build/script/lexer.hxx>
@@ -1632,7 +1634,7 @@ namespace build2
             // So there is a nuanced interaction between update=match and
             // --update-*.
             //
-            if ((p.include & 4) != 0)
+            if ((p.include & adhoc_buildscript_rule::include_unmatch) != 0)
             {
               l6 ([&]{trace << "skipping unmatched " << *pt;});
               continue;
@@ -1704,6 +1706,11 @@ namespace build2
 
             update = dyndep::update (
               trace, a, *pt, update ? timestamp_unknown : mt) || update;
+
+            // While implicit, it is for a static prerequisite, so marking it
+            // feels correct.
+            //
+            p.include |= prerequisite_target::include_udm;
 
             // Mark as updated (see execute_update_prerequisites() for
             // details.

@@ -65,9 +65,12 @@ namespace build2
     // byproduct of recipe execution (and thus must have all the generated
     // prerequisites specified statically).
     //
+    // Note that this function expects all the static prerequisites of the
+    // target to already be matched and their number passed in pts_n.
+    //
     static optional<bool>
     inject_existing_file (tracer&, const char* what,
-                          action, target&,
+                          action, target&, size_t pts_n,
                           const file& prerequiste,
                           timestamp,
                           bool fail,
@@ -82,7 +85,7 @@ namespace build2
     //
     static void
     verify_existing_file (tracer&, const char* what,
-                          action, const target&,
+                          action, const target&, size_t pts_n,
                           const file& prerequiste);
 
     // Reverse-lookup target type(s) from file name/extension.

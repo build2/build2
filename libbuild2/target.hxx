@@ -75,27 +75,48 @@ namespace build2
   //
   // The include member normally just indicates (in the first bit) whether
   // this prerequisite is ad hoc. But it can also carry additional information
-  // (for example, from operation-specific override) in other bits.
+  // (for example, from operation-specific override) in other bits (see below
+  // for details).
   //
   struct prerequisite_target
   {
     using target_type = build2::target;
 
     prerequisite_target (const target_type* t, bool a = false, uintptr_t d = 0)
-        : target (t), include (a ? 1 : 0), data (d) {}
+        : target (t), include (a ? include_adhoc : 0), data (d) {}
 
     prerequisite_target (const target_type* t, include_type a, uintptr_t d = 0)
         : prerequisite_target (t, a == include_type::adhoc, d) {}
+
+    const target_type* target;
 
     operator const target_type*&  ()       {return target;}
     operator const target_type*   () const {return target;}
     const target_type* operator-> () const {return target;}
 
-    bool adhoc () const {return (include & 1) != 0;}
+    // The first 8 bits are reserved with the first two having the following
+    // semantics:
+    //
+    // adhoc
+    //
+    //   This prerequisite is ad hoc.
+    //
+    // udm
+    //
+    //   This prerequisite is updated during match. Note that only static
+    //   prerequisites that are updated during match should have this bit set
+    //   (see dyndep_rule::*_existing_file() for details).
+    //
+    static const uintptr_t include_adhoc = 0x01;
+    static const uintptr_t include_udm   = 0x02;
 
-    const target_type* target;
-    uintptr_t          include;  // First bit is 1 if include=adhoc.
-    uintptr_t          data;
+    uintptr_t include;
+
+    bool adhoc () const {return (include & include_adhoc) != 0;}
+
+    // Auxiliary data.
+    //
+    uintptr_t data;
   };
   using prerequisite_targets = vector<prerequisite_target>;
 

@@ -1003,7 +1003,7 @@ namespace build2
             if (*um)
             {
               pto.target = &p.search (t); // mark 0
-              pto.include |= 2;
+              pto.include |= prerequisite_target::include_udm;
               update_match = true;
             }
           }
@@ -1144,7 +1144,7 @@ namespace build2
           if (const libx* l = pt->is_a<libx> ())
           {
             pt = link_member (*l, a, li);
-            pto.include |= 4;
+            pto.include |= include_group;
           }
         }
         else
@@ -1231,7 +1231,7 @@ namespace build2
                    << "not supported by this rule";
 
             m = 0;
-            pto.include |= 2;
+            pto.include |= prerequisite_target::include_udm;
             update_match = true;
           }
         }
@@ -1245,10 +1245,14 @@ namespace build2
       // of the libraries (for example, if generation requires some of the
       // metadata; think poptions needed by Qt moc).
       //
-      match_members (a, t, pts, start, {2 /* mask */, 0 /* value */});
+      {
+        auto mask (prerequisite_target::include_udm);
 
-      if (update_match)
-        match_members (a, t, pts, start, {2, 2});
+        match_members (a, t, pts, start, {mask, 0});
+
+        if (update_match)
+          match_members (a, t, pts, start, {mask, mask});
+      }
 
       // Check if we have any binful utility libraries.
       //
@@ -1383,7 +1387,7 @@ namespace build2
       // prerequisite_target::data.
       //
       if (update_match)
-        update_during_match_prerequisites (trace, a, t, 2 /* mask */);
+        update_during_match_prerequisites (trace, a, t);
 
       // Now that we know for sure whether we are binless, derive file name(s)
       // and add ad hoc group members. Note that for binless we still need the

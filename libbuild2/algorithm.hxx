@@ -637,7 +637,10 @@ namespace build2
   // for temporary storage). But it resets data to 0 once done.
   //
   LIBBUILD2_SYMEXPORT bool
-  update_during_match_prerequisites (tracer&, action, target&, uintptr_t mask);
+  update_during_match_prerequisites (
+    tracer&,
+    action, target&,
+    uintptr_t mask = prerequisite_target::include_udm);
 
   // The default prerequisite execute implementation. Call execute_async() on
   // each non-ignored (non-NULL) prerequisite target in a loop and then wait
