@@ -39,6 +39,11 @@ namespace build2
     // 3. dependency libs (prerequisite_targets, left to right, depth-first)
     // 4. dependency libs (*.libs variables).
     //
+    // If proc_opt_group is true, then pass to proc_opt the group rather than
+    // the member if a member was picked (according to linfo) form a group.
+    // This is useful when we only want to see the common options set on the
+    // group.
+    //
     // If either proc_opt or proc_lib return false, then any further
     // processing of this library or its dependencies is skipped. This can be
     // used to "prune" the graph traversal in case of duplicates. Note that
@@ -72,10 +77,14 @@ namespace build2
     // not to pick the liba/libs{} member for installed libraries instead
     // passing the lib{} group itself. This can be used to match the semantics
     // of file_rule which, when matching prerequisites, does not pick the
-    // liba/libs{} member (naturally) but just matches the lib{} group.
+    // liba/libs{} member (naturally) but just matches the lib{} group. Note
+    // that currently this truly only works for installed lib{} since non-
+    // installed ones don't have cc.type set. See proc_opt_group for an
+    // alternative way to (potentially) achieve the desired semantics.
     //
     // Note that if top_li is present, then the target passed to proc_impl,
-    // proc_lib, and proc_opt is always a file.
+    // proc_lib, and proc_opt (unless proc_opt_group is true) is always a
+    // file.
     //
     // The dedup argument is part of the interface dependency deduplication
     // functionality, similar to $x.deduplicate_export_libs(). Note, however,
@@ -87,7 +96,7 @@ namespace build2
       const scope& top_bs,
       optional<linfo> top_li,
       const dir_paths& top_sysd,
-      const mtime_target& l,                     // liba/libs{} or lib{}
+      const mtime_target& l,     // liba/libs{}, libux{}, or lib{}
       bool la,
       lflags lf,
       const function<bool (const target&,
@@ -102,7 +111,8 @@ namespace build2
                            const string& lang,              // lang from cc.type
                            bool com,                        // cc. or x.
                            bool exp)>& proc_opt,            // *.export.
-      bool self /*= false*/,                     // Call proc_lib on l?
+      bool self,             // Call proc_lib on l?
+      bool proc_opt_group,   // Call proc_opt on group instead of member?
       library_cache* cache) const
     {
       library_cache cache_storage;
@@ -115,8 +125,9 @@ namespace build2
         chain.push_back (nullptr);
 
       process_libraries_impl (a, top_bs, top_li, top_sysd,
-                              l, la, lf,
-                              proc_impl, proc_lib, proc_opt, self,
+                              nullptr, l, la, lf,
+                              proc_impl, proc_lib, proc_opt,
+                              self, proc_opt_group,
                               cache, &chain, nullptr);
     }
 
@@ -126,6 +137,7 @@ namespace build2
       const scope& top_bs,
       optional<linfo> top_li,
       const dir_paths& top_sysd,
+      const target* lg,
       const mtime_target& l,
       bool la,
       lflags lf,
@@ -142,6 +154,7 @@ namespace build2
                            bool com,
                            bool exp)>& proc_opt,
       bool self,
+      bool proc_opt_group,
       library_cache* cache,
       small_vector<const target*, 32>* chain,
       small_vector<const target*, 32>* dedup) const
@@ -237,12 +250,14 @@ namespace build2
           //
           if (proc_opt)
           {
+            const target& ol (proc_opt_group && lg != nullptr ? *lg : l);
+
             // If all we know is it's a C-common library, then in both cases
             // we only look for cc.export.*.
             //
             if (cc)
             {
-              if (!proc_opt (l, t, true, true)) break;
+              if (!proc_opt (ol, t, true, true)) break;
             }
             else
             {
@@ -259,24 +274,24 @@ namespace build2
                   //
                   // Note: options come from *.export.* variables.
                   //
-                  if (!proc_opt (l, t, false, true) ||
-                      !proc_opt (l, t, true,  true)) break;
+                  if (!proc_opt (ol, t, false, true) ||
+                      !proc_opt (ol, t, true,  true)) break;
                 }
                 else
                 {
                   // For default export we use the same options as were used
                   // to build the library.
                   //
-                  if (!proc_opt (l, t, false, false) ||
-                      !proc_opt (l, t, true,  false)) break;
+                  if (!proc_opt (ol, t, false, false) ||
+                      !proc_opt (ol, t, true,  false)) break;
                 }
               }
               else
               {
                 // Interface: only add *.export.* (interface dependencies).
                 //
-                if (!proc_opt (l, t, false, true) ||
-                    !proc_opt (l, t, true,  true)) break;
+                if (!proc_opt (ol, t, false, true) ||
+                    !proc_opt (ol, t, true,  true)) break;
               }
             }
           }
@@ -380,12 +395,17 @@ namespace build2
                 (la = (f = pt->is_a<libux> ())) ||
                 (      f = pt->is_a<libs>  ()))
             {
+              // See link_rule for details.
+              //
+              const target* g ((pt.include & 4) != 0 ? f->group : nullptr);
+
               if (sysd == nullptr) find_sysd ();
               if (!li) find_linfo ();
 
               process_libraries_impl (a, bs, *li, *sysd,
-                                      *f, la, pt.data,
-                                      proc_impl, proc_lib, proc_opt, true,
+                                      g, *f, la, pt.data,
+                                      proc_impl, proc_lib, proc_opt,
+                                      true /* self */, proc_opt_group,
                                       cache, chain, nullptr);
             }
           }
@@ -480,7 +500,7 @@ namespace build2
             return make_pair (n, s);
           };
 
-          auto proc_intf = [&l, cache, chain,
+          auto proc_intf = [&l, proc_opt_group, cache, chain,
                             &proc_impl, &proc_lib, &proc_lib_name, &proc_opt,
                             &sysd, &usrd,
                             &find_sysd, &find_linfo, &sense_fragment,
@@ -530,7 +550,7 @@ namespace build2
                 if (sysd == nullptr) find_sysd ();
                 if (!li) find_linfo ();
 
-                const mtime_target& t (
+                pair<const mtime_target&, const target*> p (
                   resolve_library (a,
                                    bs,
                                    n,
@@ -538,6 +558,9 @@ namespace build2
                                    *li,
                                    *sysd, usrd,
                                    cache));
+
+                const mtime_target& t (p.first);
+                const target* g (p.second);
 
                 // Deduplicate.
                 //
@@ -599,8 +622,9 @@ namespace build2
                 //
                 process_libraries_impl (
                   a, bs, *li, *sysd,
-                  t, t.is_a<liba> () || t.is_a<libux> (), 0,
-                  proc_impl, proc_lib, proc_opt, true,
+                  g, t, t.is_a<liba> () || t.is_a<libux> (), 0,
+                  proc_impl, proc_lib, proc_opt,
+                  true /* self */, proc_opt_group,
                   cache, chain, dedup);
               }
 
@@ -746,9 +770,10 @@ namespace build2
     //
     // If li is absent, then don't pick the liba/libs{} member, returning the
     // lib{} target itself. If li is present, then the returned target is
-    // always a file.
+    // always a file. The second half of the returned pair is the group, if
+    // the member was picked.
     //
-    const mtime_target& common::
+    pair<const mtime_target&, const target*> common::
     resolve_library (action a,
                      const scope& s,
                      const name& cn,
@@ -769,7 +794,8 @@ namespace build2
       // large number of times (see Boost for an extreme example of this).
       //
       // Note also that for non-utility libraries we know that only the link
-      // order from linfo is used.
+      // order from linfo is used. While not caching it and always picking an
+      // alternative could also work, we cache it to avoid the lookup.
       //
       if (cache != nullptr)
       {
@@ -789,7 +815,7 @@ namespace build2
                            }));
 
           if (i != cache->end ())
-            return i->lib;
+            return pair<const mtime_target&, const target*> {i->lib, i->group};
         }
         else
           cache = nullptr; // Do not cache.
@@ -831,18 +857,22 @@ namespace build2
       // If this is lib{}/libul{}, pick appropriate member unless we were
       // instructed not to.
       //
+      const target* g (nullptr);
       if (li)
       {
         if (const libx* l = xt->is_a<libx> ())
+        {
+          g = xt;
           xt = link_member (*l, a, *li); // Pick lib*{e,a,s}{}.
+        }
       }
 
       auto& t (xt->as<mtime_target> ());
 
       if (cache != nullptr)
-        cache->push_back (library_cache_entry {lo, cn.type, cn.value, t});
+        cache->push_back (library_cache_entry {lo, cn.type, cn.value, t, g});
 
-      return t;
+      return pair<const mtime_target&, const target*> {t, g};
     }
 
     // Note that pk's scope should not be NULL (even if dir is absolute).

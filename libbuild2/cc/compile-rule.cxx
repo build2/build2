@@ -489,13 +489,16 @@ namespace build2
 
     // Append or hash library options from a pair of *.export.* variables
     // (first is x.* then cc.*) recursively, prerequisite libraries first.
+    // If common is true, then only append common options from the lib{}
+    // groups.
     //
     template <typename T>
     void compile_rule::
     append_library_options (appended_libraries& ls, T& args,
                             const scope& bs,
                             const scope* is, // Internal scope.
-                            action a, const file& l, bool la, linfo li,
+                            action a, const file& l, bool la,
+                            linfo li, bool common,
                             library_cache* lib_cache) const
     {
       struct data
@@ -509,7 +512,7 @@ namespace build2
       //
       auto imp = [] (const target& l, bool la) {return la && l.is_a<libux> ();};
 
-      auto opt = [&d, this] (const target& lt,
+      auto opt = [&d, this] (const target& l, // Note: could be lib{}
                              const string& t, bool com, bool exp)
       {
         // Note that in our model *.export.poptions are always "interface",
@@ -517,8 +520,6 @@ namespace build2
         //
         if (!exp) // Ignore libux.
           return true;
-
-        const file& l (lt.as<file> ());
 
         // Suppress duplicates.
         //
@@ -678,16 +679,24 @@ namespace build2
 
       process_libraries (a, bs, li, sys_lib_dirs,
                          l, la, 0, // lflags unused.
-                         imp, nullptr, opt, false /* self */, lib_cache);
+                         imp, nullptr, opt,
+                         false /* self */,
+                         common /* proc_opt_group */,
+                         lib_cache);
     }
 
     void compile_rule::
     append_library_options (appended_libraries& ls, strings& args,
                             const scope& bs,
-                            action a, const file& l, bool la, linfo li) const
+                            action a, const file& l, bool la,
+                            linfo li,
+                            bool common) const
     {
+      // @@ Is this a good idea? We don't know which tool will be using
+      //    these...
+      //
       const scope* is (isystem (*this) ? effective_iscope (bs) : nullptr);
-      append_library_options (ls, args, bs, is, a, l, la, li, nullptr);
+      append_library_options (ls, args, bs, is, a, l, la, li, common, nullptr);
     }
 
     template <typename T>
@@ -728,7 +737,9 @@ namespace build2
             append_library_options (ls,
                                     args,
                                     bs, iscope (),
-                                    a, *f, la, li,
+                                    a, *f, la,
+                                    li,
+                                    false /* common */,
                                     &lc);
           }
         }
@@ -810,7 +821,9 @@ namespace build2
 
           process_libraries (a, bs, li, sys_lib_dirs,
                              pt->as<file> (), la, 0, // lflags unused.
-                             impf, nullptr, optf, false /* self */,
+                             impf, nullptr, optf,
+                             false /* self */,
+                             false /* proc_opt_group */,
                              &lib_cache);
         }
       }
@@ -6222,7 +6235,9 @@ namespace build2
               //
               process_libraries (a, bs, nullopt, sys_lib_dirs,
                                  *f, la, 0, // lflags unused.
-                                 imp, lib, nullptr, true /* self */,
+                                 imp, lib, nullptr,
+                                 true /* self */,
+                                 false /* proc_opt_group */,
                                  &lib_cache);
 
               if (lt != nullptr)

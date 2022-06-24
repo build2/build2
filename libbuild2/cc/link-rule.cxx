@@ -1138,10 +1138,14 @@ namespace build2
             m = 3; // Mark so it is not matched.
 
           // If this is the lib{}/libul{} group, then pick the appropriate
-          // member.
+          // member. Also note this in prerequisite_target::include (used
+          // by process_libraries()).
           //
           if (const libx* l = pt->is_a<libx> ())
+          {
             pt = link_member (*l, a, li);
+            pto.include |= 4;
+          }
         }
         else
         {
@@ -2360,7 +2364,9 @@ namespace build2
 
       process_libraries (a, bs, li, sys_lib_dirs,
                          l, la,
-                         lf, imp, lib, opt, self,
+                         lf, imp, lib, opt,
+                         self,
+                         false /* proc_opt_group */,
                          lib_cache);
     }
 
@@ -2574,7 +2580,10 @@ namespace build2
 
       process_libraries (a, bs, li, sys_lib_dirs,
                          l, la, 0 /* lflags */,
-                         imp, lib, nullptr, false /* self */, lib_cache);
+                         imp, lib, nullptr,
+                         false /* self */,
+                         false /* proc_opt_group */,
+                         lib_cache);
     }
 
     void link_rule::

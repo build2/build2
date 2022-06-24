@@ -139,7 +139,9 @@ namespace build2
             (     f = pt->is_a<libs>  ()))
           process_libraries (a, bs, li, sys_lib_dirs,
                              *f, la, pt.data,
-                             imp, lib, nullptr, true /* self */,
+                             imp, lib, nullptr,
+                             true /* self */,
+                             false /* proc_opt_group */,
                              &lib_cache);
       }
 
@@ -264,7 +266,9 @@ namespace build2
             (      f = pt->is_a<libs>  ()))
           process_libraries (a, bs, li, sys_lib_dirs,
                              *f, la, pt.data,
-                             imp, lib, nullptr, true /* self */,
+                             imp, lib, nullptr,
+                             true /* self */,
+                             false /* proc_opt_group */,
                              &lib_cache);
       }
 

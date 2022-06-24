@@ -66,7 +66,7 @@ namespace build2
       void
       append_library_options (appended_libraries&, strings&,
                               const scope&,
-                              action, const file&, bool, linfo) const;
+                              action, const file&, bool, linfo, bool) const;
 
       optional<path>
       find_system_header (const path&) const;
@@ -87,7 +87,7 @@ namespace build2
       append_library_options (appended_libraries&, T&,
                               const scope&,
                               const scope*,
-                              action, const file&, bool, linfo,
+                              action, const file&, bool, linfo, bool,
                               library_cache*) const;
 
       template <typename T>

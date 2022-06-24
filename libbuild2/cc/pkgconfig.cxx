@@ -1967,7 +1967,10 @@ namespace build2
           library_cache lib_cache;
           process_libraries (a, bs, li, sys_lib_dirs,
                              l, la, 0, // Link flags.
-                             imp, lib, opt, !binless /* self */, &lib_cache);
+                             imp, lib, opt,
+                             !binless /* self */,
+                             false /* proc_opt_group */, // @@ !priv?
+                             &lib_cache);
 
           for (const string& a: args)
             os << ' ' << a;
@@ -1989,7 +1992,10 @@ namespace build2
 
             process_libraries (a, bs, li, sys_lib_dirs,
                                l, la, 0, // Link flags.
-                               imp, lib, opt, false /* self */, &lib_cache);
+                               imp, lib, opt,
+                               false /* self */,
+                               false /* proc_opt_group */, // @@ !priv?
+                               &lib_cache);
 
             for (const string& a: args)
               os << ' ' << a;

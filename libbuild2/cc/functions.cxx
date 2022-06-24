@@ -85,14 +85,26 @@ namespace build2
       return value (move (r));
     }
 
-    // Common thunk for $x.lib_*(<targets>, <otype> [, ...]) functions.
+    // Common thunk for $x.lib_*(...) functions.
+    //
+    // The two supported function signatures are:
+    //
+    // $x.lib_*(<targets>, <otype> [, ...]])
+    //
+    // $x.lib_*(<targets>)
+    //
+    // For the first signature, the passed targets cannot be library groups
+    // (so they are always file-based) and linfo is always present.
+    //
+    // For the second signature, targets can only be utility libraries
+    // (including the libul{} group).
     //
     struct lib_thunk_data
     {
       const char* x;
       void (*f) (void*, strings&,
                  const vector_view<value>&, const module&, const scope&,
-                 action, const file&, bool, linfo);
+                 action, const target&, bool, optional<linfo>);
     };
 
     static value
@@ -120,13 +132,15 @@ namespace build2
       if (m == nullptr)
         fail << f.name << " called without " << d.x << " module loaded";
 
-      // We can assume these are present due to function's types signature.
+      // We can assume this is present due to function's types signature.
       //
       names& ts_ns (vs[0].as<names> ()); // <targets>
-      names& ot_ns (vs[1].as<names> ()); // <otype>
 
-      linfo li;
+      optional<linfo> li;
+      if (vs.size () > 1)
       {
+        names& ot_ns (vs[1].as<names> ()); // <otype>
+
         string t (convert<string> (move (ot_ns)));
 
         const target_type* tt (bs->find_target_type (t));
@@ -172,21 +186,22 @@ namespace build2
         name& n (*i), o;
         const target& t (to_target (*bs, move (n), move (n.pair ? *++i : o)));
 
-        const file* f;
         bool la (false);
-
-        if ((la = (f = t.is_a<libux> ())) ||
-            (la = (f = t.is_a<liba>  ())) ||
-            (     (f = t.is_a<libs>  ())))
+        if (li
+            ? ((la = t.is_a<libux> ()) ||
+               (la = t.is_a<liba>  ()) ||
+               (     t.is_a<libs>  ()))
+            : ((la = t.is_a<libux> ()) ||
+               (     t.is_a<libul>  ())))
         {
           if (!t.matched (a))
             fail << t << " is not matched" <<
               info << "make sure this target is listed as prerequisite";
 
-          d.f (ls, r, vs, *m, *bs, a, *f, la, li);
+          d.f (ls, r, vs, *m, *bs, a, t, la, li);
         }
         else
-          fail << t << " is not a library target";
+          fail << t << " is not a library of expected type";
       }
 
       return value (move (r));
@@ -213,11 +228,17 @@ namespace build2
     void compile_rule::
     functions (function_family& f, const char* x)
     {
-      // $<module>.lib_poptions(<lib-targets>, <otype>)
+      // $<module>.lib_poptions(<lib-targets>[, <otype>])
       //
       // Return the preprocessor options that should be passed when compiling
       // sources that depend on the specified libraries. The second argument
       // is the output target type (obje, objs, etc).
+      //
+      // The output target type may be omitted for utility libraries (libul{}
+      // or libu[eas]{}). In this case, only "common interface" options will
+      // be returned for lib{} dependencies. This is primarily useful for
+      // obtaining poptions to be passed to tools other than C/C++ compilers
+      // (for example, Qt moc).
       //
       // Note that passing multiple targets at once is not a mere convenience:
       // this also allows for more effective duplicate suppression.
@@ -230,17 +251,31 @@ namespace build2
       // Note that this function is not pure.
       //
       f.insert (".lib_poptions", false).
-        insert<lib_thunk_data, names, names> (
+        insert<lib_thunk_data, names, optional<names>> (
         &lib_thunk<appended_libraries>,
         lib_thunk_data {
           x,
           [] (void* ls, strings& r,
               const vector_view<value>&, const module& m, const scope& bs,
-              action a, const file& l, bool la, linfo li)
+              action a, const target& l, bool la, optional<linfo> li)
           {
+            // If this is libul{}, get the matched member (see bin::libul_rule
+            // for details).
+            //
+            const file& f (
+              la || li
+              ? l.as<file> ()
+              : (la = true,
+                 l.prerequisite_targets[a].back ().target->as<file> ()));
+
+            bool common (!li);
+
+            if (!li)
+              li = link_info (bs, link_type (f).type);
+
             m.append_library_options (
               *static_cast<appended_libraries*> (ls), r,
-              bs, a, l, la, li);
+              bs, a, f, la, *li, common);
           }});
 
       // $<module>.find_system_header(<name>)
@@ -318,7 +353,7 @@ namespace build2
           x,
           [] (void* ls, strings& r,
               const vector_view<value>& vs, const module& m, const scope& bs,
-              action a, const file& l, bool la, linfo li)
+              action a, const target& l, bool la, optional<linfo> li)
           {
             lflags lf (0);
             bool rel (true);
@@ -342,7 +377,8 @@ namespace build2
             m.append_libraries (
               *static_cast<appended_libraries*> (ls), r,
               nullptr /* sha256 */, nullptr /* update */, timestamp_unknown,
-              bs, a, l, la, lf, li, nullopt /* for_install */, self, rel);
+              bs, a, l.as<file> (), la, lf, *li,
+              nullopt /* for_install */, self, rel);
           }});
 
       // $<module>.lib_rpaths(<lib-targets>, <otype> [, <link> [, <self>]])
@@ -374,13 +410,12 @@ namespace build2
           x,
           [] (void* ls, strings& r,
               const vector_view<value>& vs, const module& m, const scope& bs,
-              action a, const file& l, bool la, linfo li)
+              action a, const target& l, bool la, optional<linfo> li)
           {
             bool link (vs.size () > 2 ? convert<bool> (vs[2]) : false);
             bool self (vs.size () > 3 ? convert<bool> (vs[3]) : true);
             m.rpath_libraries (*static_cast<rpathed_libraries*> (ls), r,
-                               bs,
-                               a, l, la, li, link, self);
+                               bs, a, l.as<file> (), la, *li, link, self);
           }});
 
       // $cxx.obj_modules(<obj-targets>)

@@ -300,6 +300,7 @@ namespace build2
         string                                type;  // name::type
         string                                value; // name::value
         reference_wrapper<const mtime_target> lib;
+        const target*                         group;
       };
 
       using library_cache = small_vector<library_cache_entry, 32>;
@@ -319,6 +320,7 @@ namespace build2
                              lflags, const string*, bool)>&,
         const function<bool (const target&, const string&, bool, bool)>&,
         bool = false,
+        bool = false,
         library_cache* = nullptr) const;
 
       void
@@ -327,6 +329,7 @@ namespace build2
         const scope&,
         optional<linfo>,
         const dir_paths&,
+        const target*,
         const mtime_target&,
         bool,
         lflags,
@@ -335,6 +338,7 @@ namespace build2
                              const small_vector<reference_wrapper<const string>, 2>&,
                              lflags, const string*, bool)>&,
         const function<bool (const target&, const string&, bool, bool)>&,
+        bool,
         bool,
         library_cache*,
         small_vector<const target*, 32>*,
@@ -365,7 +369,7 @@ namespace build2
       }
 
     public:
-      const mtime_target&
+      pair<const mtime_target&, const target*>
       resolve_library (action,
                        const scope&,
                        const name&,
