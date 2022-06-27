@@ -7,6 +7,7 @@
 #include <iomanip> // left, setw()
 #include <sstream>
 
+#include <libbuild2/rule.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -2004,6 +2005,7 @@ namespace build2
                   const project_name& pn,
                   const target_type& tt,
                   const string& tn,
+                  bool rule_hint,
                   const char* qual = nullptr)
   {
     string pv (pn.variable ());
@@ -2025,6 +2027,10 @@ namespace build2
       dr << info << "or use " << v << " configuration variable to specify "
          << "its " << (qual != nullptr ? qual : "") << "path";
     }
+
+    if (rule_hint)
+      dr << info << "or use rule_hint attribute to specify a rule that can "
+         << "find this target";
   }
 
   // Return the processed target name as well as the project directory, if
@@ -2295,7 +2301,8 @@ namespace build2
                       auto df = make_diag_frame (
                         [&proj, tt, &on] (const diag_record& dr)
                         {
-                          import_suggest (dr, proj, *tt, on, "alternative ");
+                          import_suggest (
+                            dr, proj, *tt, on, false, "alternative ");
                         });
 
                       md = extract_metadata (e->process_path (),
@@ -2757,7 +2764,7 @@ namespace build2
   pair<names, import_kind>
   import (scope& base,
           name tgt,
-          bool ph2,
+          const optional<string>& ph2,
           bool opt,
           bool metadata,
           const location& loc)
@@ -2822,6 +2829,7 @@ namespace build2
             //
             if (const target* t = import (ctx,
                                           base.find_prerequisite_key (ns, loc),
+                                          *ph2,
                                           opt && !r.second  /* optional */,
                                           nullopt           /* metadata */,
                                           false             /* existing */,
@@ -2858,6 +2866,7 @@ namespace build2
   const target*
   import (context& ctx,
           const prerequisite_key& pk,
+          const string& hint,
           bool opt,
           const optional<string>& meta,
           bool exist,
@@ -2865,16 +2874,72 @@ namespace build2
   {
     tracer trace ("import");
 
-    assert (!meta || !exist);
+    // Neither hint nor metadata can be requested for existing.
+    //
+    assert (!exist || (!meta && hint.empty ()));
 
     assert (pk.proj);
     const project_name& proj (*pk.proj);
 
-    // Target type-specific search.
-    //
     // Note that if this function returns a target, it should have the
     // extension assigned (like the find/insert_target() functions) so that
     // as_name() returns a stable name.
+
+    // Rule-specific resolution.
+    //
+    if (!hint.empty ())
+    {
+      assert (pk.scope != nullptr);
+
+      // Note: similar to/inspired by match_rule().
+      //
+      // Search scopes outwards, stopping at the project root.
+      //
+      for (const scope* s (pk.scope);
+           s != nullptr;
+           s = s->root () ? nullptr : s->parent_scope ())
+      {
+        // We only look for rules that are registered for perform(update).
+        //
+        if (const operation_rule_map* om = s->rules[perform_id])
+        {
+          if (const target_type_rule_map* ttm  = (*om)[update_id])
+          {
+            // Ignore the target type the rules are registered for (this is
+            // about prerequisite types, not target).
+            //
+            // @@ Note that the same rule could be registered for several
+            //    types which means we will keep calling it repeatedly.
+            //
+            for (const auto& p: *ttm)
+            {
+              const name_rule_map& nm (p.second);
+
+              // Filter against the hint.
+              //
+              for (auto p (nm.find_sub (hint)); p.first != p.second; ++p.first)
+              {
+                const string& n (p.first->first);
+                const rule& r (p.first->second);
+
+                auto df = make_diag_frame (
+                  [&pk, &n](const diag_record& dr)
+                  {
+                    if (verb != 0)
+                      dr << info << "while importing " << pk << " using rule "
+                         << n;
+                  });
+
+                if (const target* t = r.import (pk, meta, loc))
+                  return t;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Builtin resolution for certain target types.
     //
     const target_key& tk (pk.tk);
     const target_type& tt (*tk.type);
@@ -2927,8 +2992,7 @@ namespace build2
         auto df = make_diag_frame (
           [&proj, &tt, &tk] (const diag_record& dr)
           {
-            import_suggest (
-              dr, proj, tt, *tk.name, "alternative ");
+            import_suggest (dr, proj, tt, *tk.name, false, "alternative ");
           });
 
         if (!(md = extract_metadata (pp, *meta, opt, loc)))
@@ -2971,7 +3035,9 @@ namespace build2
       dr << info << "consider adding its installation location" <<
         info << "or explicitly specify its project name";
     else
-      import_suggest (dr, proj, tt, *tk.name);
+      // Use metadata as proxy for immediate import.
+      //
+      import_suggest (dr, proj, tt, *tk.name, meta && hint.empty ());
 
     dr << endf;
   }
@@ -2980,7 +3046,7 @@ namespace build2
   import_direct (bool& new_value,
                  scope& base,
                  name tgt,
-                 bool ph2,
+                 const optional<string>& ph2,
                  bool opt,
                  bool metadata,
                  const location& loc,
@@ -3038,6 +3104,7 @@ namespace build2
           //
           pt = import (ctx,
                        base.find_prerequisite_key (ns, loc),
+                       *ph2,
                        opt && !r.second,
                        meta,
                        false /* existing */,
@@ -3094,7 +3161,10 @@ namespace build2
       // The export.metadata value should start with the version followed by
       // the metadata variable prefix.
       //
-      lookup l (t.vars[ctx.var_export_metadata]);
+      // Note: lookup on target, not target::vars since it could come from
+      // the group (think lib{} metadata).
+      //
+      lookup l (t[ctx.var_export_metadata]);
       if (l && !l->empty ())
       {
         const names& ns (cast<names> (l));

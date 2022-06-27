@@ -52,6 +52,21 @@ namespace build2
     rule (const rule&) = delete;
     rule& operator= (const rule&) = delete;
 
+    // Resolve a project-qualified target in a rule-specific manner.
+    //
+    // This is optional functionality that may be provided by some rules to
+    // facilitate immediate importation of certain target types. See the
+    // import machinery for details. The default implementation always returns
+    // NULL.
+    //
+    // Note that if this function returns a target, it should have the
+    // extension assigned so that as_name() returns a stable name.
+    //
+    virtual const target*
+    import (const prerequisite_key&,
+            const optional<string>& metadata,
+            const location&) const;
+
     // Sometimes we want to match only if another rule of ours would match
     // another operation. For example, we would want our install rule to match
     // only if our update rule also matches.

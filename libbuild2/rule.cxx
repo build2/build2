@@ -22,6 +22,14 @@ namespace build2
   {
   }
 
+  const target* rule::
+  import (const prerequisite_key&,
+          const optional<string>&,
+          const location&) const
+  {
+    return nullptr;
+  }
+
   bool rule::
   sub_match (const string& n, operation_id o,
              action a, target& t, match_extra& me) const

@@ -3378,7 +3378,9 @@ namespace build2
     // import[?!] [<attrs>] <var> = [<attrs>] (<target>|<project>%<target>])+
     //
     bool opt (t.value.back () == '?');
-    bool ph2 (opt || t.value.back () == '!');
+    optional<string> ph2 (opt || t.value.back () == '!'
+                          ? optional<string> (string ())
+                          : nullopt);
 
     // We are now in the normal lexing mode and we let the lexer handle `=`.
     //
@@ -3389,26 +3391,53 @@ namespace build2
     // we handle it in an ad hoc manner.
     //
     attributes_push (t, tt);
-    attributes& as (attributes_top ());
 
     bool meta (false);
-    for (auto i (as.begin ()); i != as.end (); )
     {
-      if (i->name == "metadata")
-      {
-        if (!ph2)
-          fail (as.loc) << "loading metadata requires immediate import" <<
-            info << "consider using the import! directive instead";
+      attributes& as (attributes_top ());
+      const location& l (as.loc);
 
-        meta = true;
-      }
-      else
+      for (auto i (as.begin ()); i != as.end (); )
       {
-        ++i;
-        continue;
-      }
+        const string& n (i->name);
+        value& v (i->value);
 
-      i = as.erase (i);
+        if (n == "metadata")
+        {
+          if (!ph2)
+            fail (l) << "loading metadata requires immediate import" <<
+              info << "consider using the import! directive instead";
+
+          meta = true;
+        }
+        else if (n == "rule_hint")
+        {
+          if (!ph2)
+            fail (l) << "rule hint can only be used with immediate import" <<
+              info << "consider using the import! directive instead";
+
+          // Here we only allow a single name.
+          //
+          try
+          {
+            ph2 = convert<string> (move (v));
+
+            if (ph2->empty ())
+              throw invalid_argument ("empty name");
+          }
+          catch (const invalid_argument& e)
+          {
+            fail (l) << "invalid " << n << " attribute value: " << e;
+          }
+        }
+        else
+        {
+          ++i;
+          continue;
+        }
+
+        i = as.erase (i);
+      }
     }
 
     if (tt != type::word)

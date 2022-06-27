@@ -24,6 +24,7 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target*
   import (context&,
           const prerequisite_key&,
+          const string& hint,
           bool optional_,
           const optional<string>& metadata, // False or metadata key.
           bool existing,
@@ -39,13 +40,13 @@ namespace build2
     //    Looks like the only way to do this is to keep location in name and
     //    then in prerequisite. Perhaps one day...
     //
-    return *import (ctx, pk, false, nullopt, false, location ());
+    return *import (ctx, pk, string (), false, nullopt, false, location ());
   }
 
   inline import_result<target>
   import_direct (scope& base,
                  name tgt,
-                 bool ph2, bool opt, bool md,
+                 const optional<string>& ph2, bool opt, bool md,
                  const location& loc, const char* w)
   {
     bool dummy (false);
@@ -59,7 +60,13 @@ namespace build2
                  bool ph2, bool opt, bool md,
                  const location& loc, const char* w)
   {
-    auto r (import_direct (base, move (tgt), ph2, opt, md, loc, w));
+    auto r (import_direct (base,
+                           move (tgt),
+                           ph2 ? optional<string> (string ()) : nullopt,
+                           opt,
+                           md,
+                           loc,
+                           w));
     return import_result<T> {
       r.target != nullptr ? &r.target->as<const T> () : nullptr,
       move (r.name),
@@ -74,7 +81,14 @@ namespace build2
                  bool ph2, bool opt, bool md,
                  const location& loc, const char* w)
   {
-    auto r (import_direct (nv, base, move (tgt), ph2, opt, md, loc, w));
+    auto r (import_direct (nv,
+                           base,
+                           move (tgt),
+                           ph2 ? optional<string> (string ()) : nullopt,
+                           opt,
+                           md,
+                           loc,
+                           w));
     return import_result<T> {
       r.target != nullptr ? &r.target->as<const T> () : nullptr,
       move (r.name),
@@ -84,6 +98,6 @@ namespace build2
   inline const target*
   import_existing (context& ctx, const prerequisite_key& pk)
   {
-    return import (ctx, pk, false, nullopt, true, location ());
+    return import (ctx, pk, string (), false, nullopt, true, location ());
   }
 }

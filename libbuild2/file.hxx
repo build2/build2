@@ -323,10 +323,14 @@ namespace build2
   // original; see the config.import.<proj>.<name>[.<type>] logic for details)
   // in which case it should still be passed to import phase 2.
   //
-  // If phase2 is true then the phase 2 is performed right away (we call it
-  // immediate import). Note that if optional is true, phase2 must be true as
-  // well (and thus there is no rule-specific logic for optional imports). In
-  // case of optional, empty names value is retuned if nothing was found.
+  // If phase2 is present then the phase 2 is performed right away (we call it
+  // immediate import). Note that if optional is true, phase2 must be present
+  // as well (and thus there is no rule-specific logic for optional imports).
+  // In case of optional, empty names value is returned if nothing was found.
+  // The value in phase2 is the optional rule hint that, if not empty, will be
+  // used to lookup a rule that will be asked to resolve the qualified target
+  // (see rule::import()). If it is empty, then built-in resolution logic will
+  // be used for some target types (currently only exe{}).
   //
   // If metadata is true, then load the target metadata. In this case phase2
   // must be true as well.
@@ -345,7 +349,7 @@ namespace build2
   LIBBUILD2_SYMEXPORT pair<names, import_kind>
   import (scope& base,
           name,
-          bool phase2,
+          const optional<string>& phase2,
           bool optional,
           bool metadata,
           const location&);
@@ -360,16 +364,16 @@ namespace build2
   // for example, used by build system modules to perform an implicit import
   // of the corresponding tool.
   //
-  // If phase2 is false, then the second phase's fallback/default logic is
+  // If phase2 is absent, then the second phase's fallback/default logic is
   // only invoked if the import was ad hoc (i.e., a relative path was
   // specified via config.import.<proj>.<name>[.<type>]) with NULL returned
   // otherwise.
   //
-  // If phase2 is true and optional is true, then NULL is returned instead of
-  // failing if phase 2 could not find anything.
+  // If phase2 is present and optional is true, then NULL is returned instead
+  // of failing if phase 2 could not find anything.
   //
   // If metadata is true, then load the target metadata. In this case phase2
-  // must be true as well.
+  // must be present as well.
   //
   // The what argument specifies what triggered the import (for example,
   // "module load") and is used in diagnostics.
@@ -389,7 +393,7 @@ namespace build2
   import_result<target>
   import_direct (scope& base,
                  name,
-                 bool phase2,
+                 const optional<string>& phase2,
                  bool optional,
                  bool metadata,
                  const location&,
@@ -404,13 +408,16 @@ namespace build2
   import_direct (bool& new_value,
                  scope& base,
                  name,
-                 bool phase2,
+                 const optional<string>& phase2,
                  bool optional,
                  bool metadata,
                  const location&,
                  const char* what = "import");
 
 
+  // As above but also cast the target and pass phase2 as bool (primarily
+  // for use in build system modules).
+  //
   template <typename T>
   import_result<T>
   import_direct (scope&,
