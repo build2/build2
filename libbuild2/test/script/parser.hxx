@@ -117,7 +117,7 @@ namespace build2
         //
       protected:
         virtual lookup
-        lookup_variable (name&&, string&&, const location&) override;
+        lookup_variable (names&&, string&&, const location&) override;
 
         // Insert id into the id map checking for duplicates.
         //

@@ -5260,17 +5260,38 @@ namespace build2
       if (pre_parse_)
         return v; // Empty.
 
-      if (v.type != nullptr || !v || v.as<names> ().size () != 1)
-        fail (l) << "expected target before ':'";
-
+      // We used to return this as a <target>:<name> pair but that meant we
+      // could not handle an out-qualified target (which is represented as
+      // <target>@<out> pair). As a somewhat of a hack, we deal with this by
+      // changing the order of the name and target to be <name>:<target> with
+      // the qualified case becoming a "tripple pair" <name>:<target>@<out>.
+      //
+      // @@ This is actually not great since it's possible to observe such a
+      //    tripple pair, for example with `print (file{x}@./:y)`.
+      //
       if (n.type != nullptr || !n || n.as<names> ().size () != 1 ||
           n.as<names> ()[0].pattern)
         fail (nl) << "expected variable name after ':'";
 
-      names& ns (v.as<names> ());
+      names& ns (n.as<names> ());
       ns.back ().pair = ':';
-      ns.push_back (move (n.as<names> ().back ()));
-      return v;
+
+      if (v.type == nullptr && v)
+      {
+        names& ts (v.as<names> ());
+
+        size_t s (ts.size ());
+        if (s == 1 || (s == 2 && ts.front ().pair == '@'))
+        {
+          ns.push_back (move (ts.front ()));
+          if (s == 2)
+            ns.push_back (move (ts.back ()));
+
+          return n;
+        }
+      }
+
+      fail (l) << "expected target before ':'" << endf;
     }
     else
     {
@@ -7004,7 +7025,7 @@ namespace build2
           next (t, tt);
           loc = get_location (t);
 
-          name qual;
+          names qual;
           string name;
 
           if (t.separated)
@@ -7036,8 +7057,6 @@ namespace build2
             {
               using name_type = build2::name;
 
-              //@@ OUT will parse @-pair and do well?
-              //
               values vs (parse_eval (t, tt, pmode));
 
               if (!pre_parse_)
@@ -7059,17 +7078,26 @@ namespace build2
                 // we would be treating all paths as qualified variables. So
                 // we have to do it here.
                 //
-                if      (n == 2 && ns[0].pair == ':')   // $(foo: x)
+                if      (n >= 2 && ns[0].pair == ':')   // $(foo: x)
                 {
-                  qual = move (ns[0]);
+                  // Note: name is first (see eval for details).
+                  //
+                  qual.push_back (move (ns[1]));
 
-                  if (qual.empty ())
+                  if (qual.back ().empty ())
                     fail (loc) << "empty variable/function qualification";
+
+                  if (n > 2)
+                    qual.push_back (move (ns[2]));
+
+                  // Move name to the last position (see below).
+                  //
+                  swap (ns[0], ns[n - 1]);
                 }
                 else if (n == 2 && ns[0].directory ())  // $(foo/ x)
                 {
-                  qual = move (ns[0]);
-                  qual.pair = '/';
+                  qual.push_back (move (ns[0]));
+                  qual.back ().pair = '/';
                 }
                 else if (n > 1)
                   fail (loc) << "expected variable/function name instead of '"
@@ -7093,8 +7121,8 @@ namespace build2
 
                   name = string (s, p + 1);
                   s.resize (p + 1);
-                  qual = name_type (dir_path (move (s)));
-                  qual.pair = '/';
+                  qual.push_back (name_type (dir_path (move (s))));
+                  qual.back ().pair = '/';
                 }
                 else
                   name = move (ns[n - 1].value);
@@ -7903,7 +7931,7 @@ namespace build2
   }
 
   lookup parser::
-  lookup_variable (name&& qual, string&& name, const location& loc)
+  lookup_variable (names&& qual, string&& name, const location& loc)
   {
     if (pre_parse_)
       return lookup ();
@@ -7927,27 +7955,26 @@ namespace build2
     }
     else
     {
-      switch (qual.pair)
+      switch (qual.front ().pair)
       {
       case '/':
         {
-          assert (qual.directory ());
-          sg = enter_scope (*this, move (qual.dir));
+          assert (qual.front ().directory ());
+          sg = enter_scope (*this, move (qual.front ().dir));
           s = scope_;
           break;
         }
-      case ':':
+      default:
         {
-          qual.pair = '\0';
+          build2::name n (move (qual.front ())), o;
 
-          // @@ OUT TODO
-          //
-          tg = enter_target (
-            *this, move (qual), build2::name (), true, loc, trace);
+          if (n.pair)
+            o = move (qual.back ());
+
+          tg = enter_target (*this, move (n), move (o), true, loc, trace);
           t = target_;
           break;
         }
-      default: assert (false);
       }
     }
 

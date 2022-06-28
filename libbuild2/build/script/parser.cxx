@@ -2271,7 +2271,7 @@ namespace build2
       }
 
       lookup parser::
-      lookup_variable (name&& qual, string&& name, const location& loc)
+      lookup_variable (names&& qual, string&& name, const location& loc)
       {
         // In the pre-parse mode collect the referenced variable names for the
         // script semantics change tracking.

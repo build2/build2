@@ -29,7 +29,9 @@ namespace build2
     using target_type_type = build2::target_type;
 
     // Note that unlike targets, for prerequisites an empty out directory
-    // means undetermined rather than being definitely in the out tree.
+    // means undetermined rather than being definitely in the out tree (but
+    // maybe we should make this explicit via optional<>; see the from-target
+    // constructor).
     //
     // It might seem natural to keep the reference to the owner target instead
     // of to the scope. But that's not the semantics that we have, consider:

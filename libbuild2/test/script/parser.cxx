@@ -1661,7 +1661,7 @@ namespace build2
       }
 
       lookup parser::
-      lookup_variable (name&& qual, string&& name, const location& loc)
+      lookup_variable (names&& qual, string&& name, const location& loc)
       {
         if (pre_parse_)
           return lookup ();

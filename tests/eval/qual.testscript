@@ -5,8 +5,9 @@
 
 .include ../common.testscript
 
-$* <'print (file{foo}: bar)' >'file{foo}:bar' : target
-$* <'print (foo/dir{}: bar)' >'dir{foo/}:bar' : scope
+$* <'print (file{foo}:    bar)' >'bar:file{foo}'    : target
+$* <'print (file{foo}@./: bar)' >'bar:file{foo}@./' : target-out
+$* <'print (foo/dir{}:    bar)' >'bar:dir{foo/}'    : target-dir
 
 : attribute
 :

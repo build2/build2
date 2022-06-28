@@ -65,13 +65,15 @@ print (foo: bar)
 print (foo : bar)
 print (foo/: bar)
 print (foo/file{fox}: bar)
+print (file{fox}@./: bar)
 EOI
-foo:bar
-foo:bar
-foo:bar
-foo:bar
-foo/:bar
-foo/file{fox}:bar
+bar:foo
+bar:foo
+bar:foo
+bar:foo
+bar:foo/
+bar:foo/file{fox}
+bar:file{fox}@./
 EOO
 
 : eval-qual-name-expected

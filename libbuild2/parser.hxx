@@ -560,8 +560,12 @@ namespace build2
     // Customization hooks.
     //
   protected:
-    // If qual is not empty, then its pair member should indicate the kind
-    // of qualification: ':' -- target, '/' -- scope.
+    // If qual is not empty, then firt element's pair member indicates the
+    // kind of qualification:
+    //
+    // '\0' -- target
+    // '@'  -- out-qualified target
+    // '/'  -- scope
     //
     // Note that this function is called even during pre-parse with the result
     // unused. In this case a valid name will only be provided for variables
@@ -574,7 +578,7 @@ namespace build2
     // if/when extending this and audit all the existing use-cases.
     //
     virtual lookup
-    lookup_variable (name&& qual, string&& name, const location&);
+    lookup_variable (names&& qual, string&& name, const location&);
 
     // This function is only called during pre-parse and is the continuation
     // of the similar logic in lookup_variable() above (including the fact

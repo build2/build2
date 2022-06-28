@@ -229,7 +229,7 @@ namespace build2
         //
       protected:
         virtual lookup
-        lookup_variable (name&&, string&&, const location&) override;
+        lookup_variable (names&&, string&&, const location&) override;
 
         virtual void
         lookup_function (string&&, const location&) override;
