@@ -670,7 +670,7 @@ namespace build2
     };
 
     bool common::
-    pkgconfig_load (action a,
+    pkgconfig_load (optional<action> act,
                     const scope& s,
                     lib& lt,
                     liba* at,
@@ -680,7 +680,7 @@ namespace build2
                     const dir_path& libd,
                     const dir_paths& top_sysd,
                     const dir_paths& top_usrd,
-                    bool meta) const
+                    pair<bool, bool> metaonly) const
     {
       assert (at != nullptr || st != nullptr);
 
@@ -690,12 +690,16 @@ namespace build2
       if (p.first.empty () && p.second.empty ())
         return false;
 
-      pkgconfig_load (a, s, lt, at, st, p, libd, top_sysd, top_usrd, meta);
+      pkgconfig_load (
+        act, s, lt, at, st, p, libd, top_sysd, top_usrd, metaonly);
       return true;
     }
 
+    // Action should be absent if called during the load phase. If metaonly is
+    // true then only load the metadata.
+    //
     void common::
-    pkgconfig_load (action a,
+    pkgconfig_load (optional<action> act,
                     const scope& s,
                     lib& lt,
                     liba* at,
@@ -704,7 +708,7 @@ namespace build2
                     const dir_path& libd,
                     const dir_paths& top_sysd,
                     const dir_paths& top_usrd,
-                    bool meta) const
+                    pair<bool /* a */, bool /* s */> metaonly) const
     {
       tracer trace (x, "pkgconfig_load");
 
@@ -773,11 +777,11 @@ namespace build2
       // Parse --libs into loptions/libs (interface and implementation). If
       // ps is not NULL, add each resolved library target as a prerequisite.
       //
-      auto parse_libs = [a, &s, top_sysd, this] (target& t,
-                                                 bool binless,
-                                                 const pkgconf& pc,
-                                                 bool la,
-                                                 prerequisites* ps)
+      auto parse_libs = [this, act, &s, top_sysd] (target& t,
+                                                   bool binless,
+                                                   const pkgconf& pc,
+                                                   bool la,
+                                                   prerequisites* ps)
       {
         strings lops;
         vector<name> libs;
@@ -1072,7 +1076,7 @@ namespace build2
                 dr << info (f) << "while resolving pkg-config dependency " << l;
               });
 
-            lt = search_library (a, top_sysd, usrd, pk);
+            lt = search_library (act, top_sysd, usrd, pk);
           }
 
           if (lt != nullptr)
@@ -1204,13 +1208,17 @@ namespace build2
       // Parse user metadata and set extracted variables on the specified
       // target.
       //
-      auto parse_metadata = [&next] (const target&,
+      auto parse_metadata = [&next] (target& t,
                                      pkgconf& pc,
                                      const string& md)
       {
         const location loc (pc.path);
 
+        context& ctx (t.ctx);
+        auto& vp (ctx.var_pool.rw ()); // Load phase.
+
         optional<uint64_t> ver;
+        optional<string> pfx;
 
         string s;
         for (size_t b (0), e (0); !(s = next (md, b, e)).empty (); )
@@ -1223,12 +1231,22 @@ namespace build2
             }
             catch (const invalid_argument& e)
             {
-              fail (loc) << "invalid version in metadata variable; " << e;
+              fail (loc) << "invalid version in build2.metadata variable: "
+                         << e;
             }
 
             if (*ver != 1)
               fail (loc) << "unexpected metadata version " << *ver;
 
+            continue;
+          }
+
+          if (!pfx)
+          {
+            if (s.empty ())
+              fail (loc) << "empty variable prefix in build2.metadata varible";
+
+            pfx = s;
             continue;
           }
 
@@ -1239,17 +1257,13 @@ namespace build2
           if (p == string::npos)
             fail (loc) << "expected name/type pair instead of '" << s << "'";
 
-          //@@ We cannot insert a variable since we are not in the load phase
-          //   (but if we were to somehow support immediate importation of
-          //   libraries, we would be in the load phase).
-          //
-          string var (s, 0, p);
+          string vn (s, 0, p);
           string tn (s, p + 1);
 
-          optional<string> val (pc.variable (var));
+          optional<string> val (pc.variable (vn));
 
           if (!val)
-            fail (loc) << "metadata variable " << var << " not set";
+            fail (loc) << "metadata variable " << vn << " not set";
 
           pair<const value_type*, bool> vt (metadata_type (tn));
           if (vt.first == nullptr)
@@ -1263,17 +1277,23 @@ namespace build2
                           : name (move (s)));
           }
 
-          value v (vt.first);
-          v.assign (move (ns), nullptr /* @@ TODO: var */);
+          const variable& var (vp.insert (move (vn)));
 
-          //names storage;
-          //text << var << " = " << reverse (v, storage);
+          value& v (t.assign (var));
+          v.assign (move (ns), &var);
+          typify (v, *vt.first, &var);
         }
 
         if (!ver)
-          fail (loc) << "version expected in metadata variable";
+          fail (loc) << "version expected in build2.metadata variable";
 
-        // @@ TODO: we should probably also set export.metadata?
+        if (!pfx)
+          fail (loc) << "variable prefix expected in build2.metadata variable";
+
+        // Set export.metadata to indicate the presence of user metadata.
+        //
+        t.assign (ctx.var_export_metadata) = names {
+          name (std::to_string (*ver)), name (move (*pfx))};
       };
 
       // Parse modules, enter them as targets, and add them to the
@@ -1433,17 +1453,8 @@ namespace build2
         }
       };
 
-      // For now we only populate prerequisites for lib{}. To do it for
-      // liba{} would require weeding out duplicates that are already in
-      // lib{}.
+      // Load the information from the pkg-config files.
       //
-      // Currently, this information is only used by the modules machinery to
-      // resolve module names to module files (but we cannot only do this if
-      // modules are enabled since the same installed library can be used by
-      // multiple builds).
-      //
-      prerequisites prs;
-
       pkgconf apc;
       pkgconf spc;
 
@@ -1471,12 +1482,75 @@ namespace build2
       if (ps || ap.empty ())
         spc = pkgconf (sp, pc_dirs, sys_lib_dirs, sys_hdr_dirs);
 
+      // Load user metadata if we are in the load phase.
+      //
+      // Note also that we are not failing here if the metadata was requested
+      // but not present (potentially only partially) letting the caller
+      // (i.e., the import machinery) verify that the export.metadata was set
+      // on the target being imported. This would also allow supporting
+      // optional metadata.
+      //
+      if (!act)
+      {
+        // We can only do it during the load phase.
+        //
+        assert (lt.ctx.phase == run_phase::load);
+
+        pkgconf& ipc (ps ? spc : apc); // As below.
+
+        // Since it's not easy to say if things are the same, we load a copy
+        // into the group and each member, if any.
+        //
+        // @@ TODO: check if already loaded? Don't we have the same problem
+        //    below with reloading the rest for lt? What if we passed NULL
+        //    in this case (and I suppose another bool in metaonly)?
+        //
+        if (optional<string> md = ipc.variable ("build2.metadata"))
+          parse_metadata (lt, ipc, *md);
+
+        if (pa)
+          if (optional<string> md = apc.variable ("build2.metadata"))
+            parse_metadata (*at, apc, *md);
+
+        if (ps)
+          if (optional<string> md = spc.variable ("build2.metadata"))
+            parse_metadata (*st, spc, *md);
+
+        // If we only need metadata, then we are done.
+        //
+        if (at != nullptr && metaonly.first)
+        {
+          pa = false;
+          at = nullptr;
+        }
+
+        if (st != nullptr && metaonly.second)
+        {
+          ps = false;
+          st = nullptr;
+        }
+
+        if (at == nullptr && st == nullptr)
+          return;
+      }
+
       // Sort out the interface dependencies (which we are setting on lib{}).
       // If we have the shared .pc variant, then we use that.  Otherwise --
       // static but extract without the --static option (see also the saving
       // logic).
       //
       pkgconf& ipc (ps ? spc : apc); // Interface package info.
+
+      // For now we only populate prerequisites for lib{}. To do it for
+      // liba{} would require weeding out duplicates that are already in
+      // lib{}.
+      //
+      // Currently, this information is only used by the modules machinery to
+      // resolve module names to module files (but we cannot only do this if
+      // modules are enabled since the same installed library can be used by
+      // multiple builds).
+      //
+      prerequisites prs;
 
       parse_libs (
         lt,
@@ -1506,39 +1580,6 @@ namespace build2
         {
           at->vars.assign ("bin.whole") = (*v == "true");
         }
-      }
-
-      // Load user metadata, if requested.
-      //
-      // Note that we cannot just load if there is the metadata variable since
-      // this could be some third-party .pc file which happens to set the same
-      // variable.
-      //
-      // Note also that we are not failing here if the metadata was requested
-      // but not present (potentially only partially) letting the caller
-      // (i.e., the import machinery) verify that the export.metadata was set
-      // on the target being imported. This would also allow supporting
-      // optional metadata.
-      //
-      if (meta)
-      {
-        // We can only do it during the load phase.
-        //
-        assert (lt.ctx.phase == run_phase::load);
-
-        // Since it's not easy to say if things are the same, we load a copy
-        // into the group and each member, if any.
-        //
-        if (optional<string> md = ipc.variable ("metadata"))
-          parse_metadata (lt, ipc, *md);
-
-        if (pa)
-          if (optional<string> md = apc.variable ("metadata"))
-            parse_metadata (*at, apc, *md);
-
-        if (ps)
-          if (optional<string> md = spc.variable ("metadata"))
-            parse_metadata (*st, spc, *md);
       }
 
       // For now we assume static and shared variants export the same set of
@@ -1574,7 +1615,7 @@ namespace build2
     }
 
     bool common::
-    pkgconfig_load (action,
+    pkgconfig_load (optional<action>,
                     const scope&,
                     lib&,
                     liba*,
@@ -1584,13 +1625,13 @@ namespace build2
                     const dir_path&,
                     const dir_paths&,
                     const dir_paths&,
-                    bool) const
+                    pair<bool, bool>) const
     {
       return false;
     }
 
     void common::
-    pkgconfig_load (action,
+    pkgconfig_load (optional<action>,
                     const scope&,
                     lib&,
                     liba*,
@@ -1599,7 +1640,7 @@ namespace build2
                     const dir_path&,
                     const dir_paths&,
                     const dir_paths&,
-                    bool) const
+                    pair<bool, bool>) const
     {
       assert (false); // Should never be called.
     }
@@ -2017,6 +2058,10 @@ namespace build2
 
         // Save user metadata.
         //
+        // @@ Maybe we should use build2.metadata as a general indication
+        //    of the metadata being present. Having only version would
+        //    indicate absense of user metadata.
+        //
         {
           // The export.metadata value should start with the version followed
           // by the metadata variable prefix.
@@ -2100,11 +2145,12 @@ namespace build2
                 append (*l.group, true);
             }
 
-            // First write the `metadata` variable with the version and all
-            // the variable names/types (which don't require any escaping).
+            // First write the build2.metadata variable with the version,
+            // prefix, and all the variable names/types (which should not
+            // require any escaping).
             //
             os << endl
-               << "metadata = " << ver;
+               << "build2.metadata = " << ver << ' ' << pfx;
 
             for (const binding& b: vars)
             {

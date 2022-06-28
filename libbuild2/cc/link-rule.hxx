@@ -59,6 +59,11 @@ namespace build2
       target_state
       perform_clean (action, const target&, match_data&) const;
 
+      virtual const target*
+      import (const prerequisite_key&,
+              const optional<string>&,
+              const location&) const override;
+
     public:
       // Library handling.
       //

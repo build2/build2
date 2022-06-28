@@ -1122,12 +1122,8 @@ namespace build2
         {
           // Handle imported libraries.
           //
-          // Note that since the search is rule-specific, we don't cache the
-          // target in the prerequisite.
-          //
           if (p.proj ())
-            pt = search_library (
-              a, sys_lib_dirs, usr_lib_dirs, p.prerequisite);
+            pt = search_library (a, sys_lib_dirs, usr_lib_dirs, p.prerequisite);
 
           // The rest is the same basic logic as in search_and_match().
           //
@@ -4253,6 +4249,26 @@ namespace build2
       }
 
       return perform_clean_extra (a, t, extras, adhoc_extras);
+    }
+
+    const target* link_rule::
+    import (const prerequisite_key& pk,
+            const optional<string>&,
+            const location&) const
+    {
+      tracer trace (x, "link_rule::import");
+
+      // @@ TODO: do we want to make metadata loading optional?
+      //
+      optional<dir_paths> usr_lib_dirs;
+      const target* r (search_library (nullopt /* action */,
+                                       sys_lib_dirs, usr_lib_dirs,
+                                       pk));
+
+      if (r == nullptr)
+        l4 ([&]{trace << "unable to find installed library " << pk;});
+
+      return r;
     }
   }
 }

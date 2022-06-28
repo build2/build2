@@ -877,12 +877,13 @@ namespace build2
       return pair<const mtime_target&, const target*> {t, g};
     }
 
-    // Note that pk's scope should not be NULL (even if dir is absolute).
+    // Action should be absent if called during the load phase. Note that pk's
+    // scope should not be NULL (even if dir is absolute).
     //
     // Note: see similar logic in find_system_library().
     //
     target* common::
-    search_library (action act,
+    search_library (optional<action> act,
                     const dir_paths& sysd,
                     optional<dir_paths>& usrd,
                     const prerequisite_key& p,
@@ -890,7 +891,7 @@ namespace build2
     {
       tracer trace (x, "search_library");
 
-      assert (p.scope != nullptr);
+      assert (p.scope != nullptr && (!exist || act));
 
       context& ctx (p.scope->ctx);
       const scope& rs (*p.scope->root_scope ());
@@ -1232,20 +1233,87 @@ namespace build2
       if (exist)
         return r;
 
-      // If we cannot acquire the lock then this mean the target has already
-      // been matched and we assume all of this has already been done.
+      // Try to extract library information from pkg-config. We only add the
+      // default macro if we could not extract more precise information. The
+      // idea is that in .pc files that we generate, we copy those macros (or
+      // custom ones) from *.export.poptions.
       //
-      auto lock = [act] (const target* t) -> target_lock
+      // @@ Should we add .pc files as ad hoc members so pkconfig_save() can
+      // use their names when deriving -l-names (this would be especially
+      // helpful for binless libraries to get hold of prefix/suffix, etc).
+      //
+      auto load_pc = [this, &trace,
+                      act, &p, &name,
+                      &sysd, &usrd,
+                      pd, &pc, lt, a, s] (pair<bool, bool> metaonly)
       {
-        auto l (t != nullptr ? build2::lock (act, *t, true) : target_lock ());
+        l5 ([&]{trace << "loading pkg-config information during "
+                      << (act ? "match" : "load") << " for "
+                      << (a != nullptr ? "static " : "")
+                      << (s != nullptr ? "shared " : "")
+                      << "member(s) of " << *lt << "; metadata only: "
+                      << metaonly.first << " " << metaonly.second;});
 
-        if (l && l.offset == target::offset_matched)
+        // Add the "using static/shared library" macro (used, for example, to
+        // handle DLL export). The absence of either of these macros would
+        // mean some other build system that cannot distinguish between the
+        // two (and no pkg-config information).
+        //
+        auto add_macro = [this] (target& t, const char* suffix)
         {
-          assert ((*t)[act].rule == &file_rule::rule_match);
-          l.unlock ();
-        }
+          // If there is already a value (either in cc.export or x.export),
+          // don't add anything: we don't want to be accumulating defines nor
+          // messing with custom values. And if we are adding, then use the
+          // generic cc.export.
+          //
+          // The only way we could already have this value is if this same
+          // library was also imported as a project (as opposed to installed).
+          // Unlikely but possible. In this case the values were set by the
+          // export stub and we shouldn't touch them.
+          //
+          if (!t.vars[x_export_poptions])
+          {
+            auto p (t.vars.insert (c_export_poptions));
 
-        return l;
+            if (p.second)
+            {
+              // The "standard" macro name will be LIB<NAME>_{STATIC,SHARED},
+              // where <name> is the target name. Here we want to strike a
+              // balance between being unique and not too noisy.
+              //
+              string d ("-DLIB");
+
+              d += sanitize_identifier (
+                ucase (const_cast<const string&> (t.name)));
+
+              d += '_';
+              d += suffix;
+
+              strings o;
+              o.push_back (move (d));
+              p.first = move (o);
+            }
+          }
+        };
+
+        if (pc.first.empty () && pc.second.empty ())
+        {
+          if (!pkgconfig_load (act, *p.scope,
+                               *lt, a, s,
+                               p.proj, name,
+                               *pd, sysd, *usrd,
+                               metaonly))
+          {
+            if (a != nullptr && !metaonly.first)  add_macro (*a, "STATIC");
+            if (s != nullptr && !metaonly.second) add_macro (*s, "SHARED");
+          }
+        }
+        else
+          pkgconfig_load (act, *p.scope,
+                          *lt, a, s,
+                          pc,
+                          *pd, sysd, *usrd,
+                          metaonly);
       };
 
       // Mark as a "cc" library (unless already marked) and set the system
@@ -1266,6 +1334,75 @@ namespace build2
         return p.second;
       };
 
+      // Deal with the load phase case. The rest is already hairy enough so
+      // let's not try to weave this logic into that.
+      //
+      if (!act)
+      {
+        assert (ctx.phase == run_phase::load);
+
+        // The overall idea here is to set everything up so that the default
+        // file_rule matches the returned targets, the same way as it would if
+        // multiple operations were executed for the normal case (see below).
+        //
+        timestamp mt (timestamp_nonexistent);
+        if (a != nullptr) {lt->a = a; a->group = lt; mt = a->mtime ();}
+        if (s != nullptr) {lt->s = s; s->group = lt; mt = s->mtime ();}
+
+        // @@ TODO: we currently always reload pkgconfig for lt (and below).
+        //
+        mark_cc (*lt);
+        lt->mtime (mt);
+
+        // We can only load metadata from here since we can only do this
+        // during the load phase. But it's also possible that a racing match
+        // phase already found and loaded this library without metadata. So
+        // looks like the only way is to load the metadata incrementally. We
+        // can base this decision on the presense/absense of cc.type and
+        // export.metadata.
+        //
+        pair<bool, bool> metaonly {false, false};
+
+        if (a != nullptr && !mark_cc (*a))
+        {
+          if (a->vars[ctx.var_export_metadata])
+            a = nullptr;
+          else
+            metaonly.first = true;
+        }
+
+        if (s != nullptr && !mark_cc (*s))
+        {
+          if (s->vars[ctx.var_export_metadata])
+            s = nullptr;
+          else
+            metaonly.second = true;
+        }
+
+        // Try to extract library information from pkg-config.
+        //
+        if (a != nullptr || s != nullptr)
+          load_pc (metaonly);
+
+        return r;
+      }
+
+      // If we cannot acquire the lock then this mean the target has already
+      // been matched and we assume all of this has already been done.
+      //
+      auto lock = [a = *act] (const target* t) -> target_lock
+      {
+        auto l (t != nullptr ? build2::lock (a, *t, true) : target_lock ());
+
+        if (l && l.offset == target::offset_matched)
+        {
+          assert ((*t)[a].rule == &file_rule::rule_match);
+          l.unlock ();
+        }
+
+        return l;
+      };
+
       target_lock ll (lock (lt));
 
       // Set lib{} group members to indicate what's available. Note that we
@@ -1275,11 +1412,14 @@ namespace build2
       timestamp mt (timestamp_nonexistent);
       if (ll)
       {
-        if (s != nullptr) {lt->s = s; mt = s->mtime ();}
         if (a != nullptr) {lt->a = a; mt = a->mtime ();}
+        if (s != nullptr) {lt->s = s; mt = s->mtime ();}
 
         // Mark the group since sometimes we use it itself instead of one of
         // the liba/libs{} members (see process_libraries_impl() for details).
+        //
+        // @@ TODO: we currently always reload pkgconfig for lt (and above).
+        //    Maybe pass NULL lt to pkgconfig_load() in this case?
         //
         mark_cc (*lt);
       }
@@ -1299,77 +1439,11 @@ namespace build2
       if (a != nullptr && !mark_cc (*a)) a = nullptr;
       if (s != nullptr && !mark_cc (*s)) s = nullptr;
 
-      // Add the "using static/shared library" macro (used, for example, to
-      // handle DLL export). The absence of either of these macros would
-      // mean some other build system that cannot distinguish between the
-      // two (and no pkg-config information).
-      //
-      auto add_macro = [this] (target& t, const char* suffix)
-      {
-        // If there is already a value (either in cc.export or x.export),
-        // don't add anything: we don't want to be accumulating defines nor
-        // messing with custom values. And if we are adding, then use the
-        // generic cc.export.
-        //
-        // The only way we could already have this value is if this same
-        // library was also imported as a project (as opposed to installed).
-        // Unlikely but possible. In this case the values were set by the
-        // export stub and we shouldn't touch them.
-        //
-        if (!t.vars[x_export_poptions])
-        {
-          auto p (t.vars.insert (c_export_poptions));
-
-          if (p.second)
-          {
-            // The "standard" macro name will be LIB<NAME>_{STATIC,SHARED},
-            // where <name> is the target name. Here we want to strike a
-            // balance between being unique and not too noisy.
-            //
-            string d ("-DLIB");
-
-            d += sanitize_identifier (
-              ucase (const_cast<const string&> (t.name)));
-
-            d += '_';
-            d += suffix;
-
-            strings o;
-            o.push_back (move (d));
-            p.first = move (o);
-          }
-        }
-      };
-
       if (ll && (a != nullptr || s != nullptr))
       {
-        // Try to extract library information from pkg-config. We only add the
-        // default macro if we could not extract more precise information. The
-        // idea is that in .pc files that we generate, we copy those macros
-        // (or custom ones) from *.export.poptions.
+        // Try to extract library information from pkg-config.
         //
-        // @@ Should we add .pc files as ad hoc members so pkconfig_save() can
-        // use their names when deriving -l-names (this would be especially
-        // helpful for binless libraries to get hold of prefix/suffix, etc).
-        //
-        if (pc.first.empty () && pc.second.empty ())
-        {
-          if (!pkgconfig_load (act, *p.scope,
-                               *lt, a, s,
-                               p.proj, name,
-                               *pd, sysd, *usrd,
-                               false /* metadata */))
-          {
-            if (a != nullptr) add_macro (*a, "STATIC");
-            if (s != nullptr) add_macro (*s, "SHARED");
-          }
-        }
-        else
-          pkgconfig_load (act, *p.scope,
-                          *lt, a, s,
-                          pc,
-                          *pd, sysd, *usrd,
-                          false /* metadata */);
+        load_pc ({false, false} /* metaonly */);
       }
 
       // If we have the lock (meaning this is the first time), set the matched

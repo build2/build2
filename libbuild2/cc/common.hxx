@@ -396,7 +396,7 @@ namespace build2
                       tracer&);
 
       target*
-      search_library (action,
+      search_library (optional<action>,
                       const dir_paths&,
                       optional<dir_paths>&,
                       const prerequisite_key&,
@@ -442,23 +442,23 @@ namespace build2
                         bool) const;
 
       void
-      pkgconfig_load (action, const scope&,
+      pkgconfig_load (optional<action>, const scope&,
                       bin::lib&, bin::liba*, bin::libs*,
                       const pair<path, path>&,
                       const dir_path&,
                       const dir_paths&,
                       const dir_paths&,
-                      bool) const;
+                      pair<bool, bool>) const;
 
       bool
-      pkgconfig_load (action, const scope&,
+      pkgconfig_load (optional<action>, const scope&,
                       bin::lib&, bin::liba*, bin::libs*,
                       const optional<project_name>&,
                       const string&,
                       const dir_path&,
                       const dir_paths&,
                       const dir_paths&,
-                      bool) const;
+                      pair<bool, bool>) const;
     };
   }
 }
