@@ -2375,20 +2375,20 @@ namespace build2
 
     // Now enter each prerequisite into each target.
     //
-    for (name& pn: pns)
+    for (auto i (pns.begin ()); i != pns.end (); ++i)
     {
       // We cannot reuse the names if we (potentially) may need to pass them
       // as targets in case of a chain (see below).
       //
-      name n (tt != type::colon ? move (pn) : pn);
+      name n (tt != type::colon ? move (*i) : *i);
 
       // See also scope::find_prerequisite_key().
       //
       auto rp (scope_->find_target_type (n, ploc));
-      const target_type* tt (rp.first);
+      const target_type* t (rp.first);
       optional<string>& e (rp.second);
 
-      if (tt == nullptr)
+      if (t == nullptr)
         fail (ploc) << "unknown target type " << n.type;
 
       // Current dir collapses to an empty one.
@@ -2405,10 +2405,24 @@ namespace build2
       // a special indicator. Also, one can easily and natually suppress any
       // searches by specifying the absolute path.
       //
+      name o;
+      if (n.pair)
+      {
+        assert (n.pair == '@');
+
+        ++i;
+        o = tt != type::colon ? move (*i) : *i;
+
+        if (!o.directory ())
+          fail (ploc) << "expected directory after '@'";
+
+        o.dir.normalize (); // Note: don't collapse current to empty.
+      }
+
       prerequisite p (move (n.proj),
-                      *tt,
+                      *t,
                       move (n.dir),
-                      dir_path (),
+                      move (o.dir),
                       move (n.value),
                       move (e),
                       *scope_);
