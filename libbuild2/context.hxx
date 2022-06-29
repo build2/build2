@@ -431,8 +431,8 @@ namespace build2
     const variable* var_import_build2;
     const variable* var_import_target;
 
-    // The import.metadata variable and the --build2-metadata option are used
-    // to pass the metadata compatibility version.
+    // The import.metadata export stub variable and the --build2-metadata
+    // executable option are used to pass the metadata compatibility version.
     //
     // This serves both as an indication that the metadata is required (can be
     // useful, for example, in cases where it is expensive to calculate) as
@@ -444,7 +444,8 @@ namespace build2
     // The export.metadata value should start with the version followed by the
     // metadata variable prefix (for example, cli in cli.version).
     //
-    // The following metadata variable names have pre-defined meaning:
+    // The following metadata variable names have pre-defined meaning for
+    // executable targets (exe{}; see also process_path_ex):
     //
     //   <var-prefix>.name = [string]         # Stable name for diagnostics.
     //   <var-prefix>.version = [string]      # Version for diagnostics.
@@ -454,7 +455,8 @@ namespace build2
     // If the <var-prefix>.name variable is missing, it is set to the target
     // name as imported.
     //
-    // See also process_path_ex.
+    // Note that the same mechanism is used for library user metadata (see
+    // cc::pkgconfig_{load,save}() for details).
     //
     const variable* var_import_metadata;
     const variable* var_export_metadata;

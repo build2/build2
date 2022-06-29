@@ -1205,17 +1205,18 @@ namespace build2
         return r;
       };
 
-      // Parse user metadata and set extracted variables on the specified
-      // target.
+      // Parse the build2.metadata variable value and, if user is true,
+      // extract the user metadata, if any, and set extracted variables on the
+      // specified target.
       //
       auto parse_metadata = [&next] (target& t,
                                      pkgconf& pc,
-                                     const string& md)
+                                     const string& md,
+                                     bool user)
       {
         const location loc (pc.path);
 
         context& ctx (t.ctx);
-        auto& vp (ctx.var_pool.rw ()); // Load phase.
 
         optional<uint64_t> ver;
         optional<string> pfx;
@@ -1237,6 +1238,9 @@ namespace build2
 
             if (*ver != 1)
               fail (loc) << "unexpected metadata version " << *ver;
+
+            if (!user)
+              return;
 
             continue;
           }
@@ -1277,6 +1281,7 @@ namespace build2
                           : name (move (s)));
           }
 
+          auto& vp (ctx.var_pool.rw ()); // Load phase.
           const variable& var (vp.insert (move (vn)));
 
           value& v (t.assign (var));
@@ -1288,7 +1293,7 @@ namespace build2
           fail (loc) << "version expected in build2.metadata variable";
 
         if (!pfx)
-          fail (loc) << "variable prefix expected in build2.metadata variable";
+          return; // No user metadata.
 
         // Set export.metadata to indicate the presence of user metadata.
         //
@@ -1303,7 +1308,7 @@ namespace build2
                             &next, &s, &lt] (const pkgconf& pc,
                                              prerequisites& ps)
       {
-        optional<string> val (pc.variable ("cxx_modules"));
+        optional<string> val (pc.variable ("cxx.modules"));
 
         if (!val)
           return;
@@ -1319,7 +1324,7 @@ namespace build2
               p == 0            || // Empty name.
               p == m.size () - 1)  // Empty path.
             fail << "invalid module information in '" << *val << "'" <<
-              info << "while parsing pkg-config --variable=cxx_modules "
+              info << "while parsing pkg-config --variable=cxx.modules "
                    << pc.path;
 
           string mn (m, 0, p);
@@ -1328,8 +1333,8 @@ namespace build2
 
           // Extract module properties, if any.
           //
-          optional<string> pp (pc.variable ("cxx_module_preprocessed." + mn));
-          optional<string> se (pc.variable ("cxx_module_symexport." + mn));
+          optional<string> pp (pc.variable ("cxx.module_preprocessed." + mn));
+          optional<string> se (pc.variable ("cxx.module_symexport." + mn));
 
           // Replace the partition separator.
           //
@@ -1406,7 +1411,7 @@ namespace build2
                                              const char* lang,
                                              prerequisites& ps)
       {
-        string var (string (lang) + "_importable_headers");
+        string var (string (lang) + ".importable_headers");
         optional<string> val (pc.variable (var));
 
         if (!val)
@@ -1482,7 +1487,8 @@ namespace build2
       if (ps || ap.empty ())
         spc = pkgconf (sp, pc_dirs, sys_lib_dirs, sys_hdr_dirs);
 
-      // Load user metadata if we are in the load phase.
+      // Load the user metadata if we are in the load phase. Otherwise just
+      // determine if we have metadata.
       //
       // Note also that we are not failing here if the metadata was requested
       // but not present (potentially only partially) letting the caller
@@ -1490,6 +1496,8 @@ namespace build2
       // on the target being imported. This would also allow supporting
       // optional metadata.
       //
+      bool apc_meta (false);
+      bool spc_meta (false);
       if (!act)
       {
         // We can only do it during the load phase.
@@ -1506,15 +1514,25 @@ namespace build2
         //    in this case (and I suppose another bool in metaonly)?
         //
         if (optional<string> md = ipc.variable ("build2.metadata"))
-          parse_metadata (lt, ipc, *md);
+          parse_metadata (lt, ipc, *md, true);
 
         if (pa)
+        {
           if (optional<string> md = apc.variable ("build2.metadata"))
-            parse_metadata (*at, apc, *md);
+          {
+            parse_metadata (*at, apc, *md, true);
+            apc_meta = true;
+          }
+        }
 
         if (ps)
+        {
           if (optional<string> md = spc.variable ("build2.metadata"))
-            parse_metadata (*st, spc, *md);
+          {
+            parse_metadata (*st, spc, *md, true);
+            spc_meta = true;
+          }
+        }
 
         // If we only need metadata, then we are done.
         //
@@ -1533,6 +1551,26 @@ namespace build2
         if (at == nullptr && st == nullptr)
           return;
       }
+      else
+      {
+        if (pa)
+        {
+          if (optional<string> md = apc.variable ("build2.metadata"))
+          {
+            parse_metadata (*at, apc, *md, false);
+            apc_meta = true;
+          }
+        }
+
+        if (ps)
+        {
+          if (optional<string> md = spc.variable ("build2.metadata"))
+          {
+            parse_metadata (*st, spc, *md, false);
+            spc_meta = true;
+          }
+        }
+      }
 
       // Sort out the interface dependencies (which we are setting on lib{}).
       // If we have the shared .pc variant, then we use that.  Otherwise --
@@ -1540,6 +1578,7 @@ namespace build2
       // logic).
       //
       pkgconf& ipc (ps ? spc : apc); // Interface package info.
+      bool ipc_meta (ps ? spc_meta : apc_meta);
 
       // For now we only populate prerequisites for lib{}. To do it for
       // liba{} would require weeding out duplicates that are already in
@@ -1570,7 +1609,7 @@ namespace build2
 
       // Load the bin.whole flag (whole archive).
       //
-      if (at != nullptr)
+      if (at != nullptr && (pa ? apc_meta : spc_meta))
       {
         // Note that if unspecified we leave it unset letting the consumer
         // override it, if necessary (see the bin.lib lookup semantics for
@@ -1587,7 +1626,7 @@ namespace build2
       // different sets will most likely lead to all sorts of complications
       // (at least for installed libraries) and life is short.
       //
-      if (modules)
+      if (modules && ipc_meta)
       {
         parse_modules (ipc, prs);
 
@@ -2042,198 +2081,207 @@ namespace build2
               os << ' ' << a;
             os << endl;
 
-            // Save the bin.whole (whole archive) flag (see the link rule for
-            // details on the lookup semantics).
-            //
-            if (cast_false<bool> (
-                  l.lookup_original (ctx.var_pool["bin.whole"],
-                                     true /* target_only */).first))
-            {
-              os << endl
-                 << "bin.whole = true"
-                 << endl;
-            }
+            // See also bin.whole below.
           }
         }
 
-        // Save user metadata.
+        // Save metadata.
         //
-        // @@ Maybe we should use build2.metadata as a general indication
-        //    of the metadata being present. Having only version would
-        //    indicate absense of user metadata.
+        // The build2.metadata variable is a general indication of the
+        // metadata being present. Its value is the metadata version
+        // optionally followed by the user metadata variable prefix and
+        // variable list (see below for details). Having only the version
+        // indicates the absense of user metadata.
         //
+        // See if we have the user metadata.
+        //
+        lookup um (g[ctx.var_export_metadata]); // Target visibility.
+
+        if (um && !um->empty ())
         {
-          // The export.metadata value should start with the version followed
-          // by the metadata variable prefix.
+          const names& ns (cast<names> (um));
+
+          // First verify the version.
           //
-          lookup lu (g[ctx.var_export_metadata]); // Target visibility.
-
-          if (lu && !lu->empty ())
+          uint64_t ver;
+          try
           {
-            const names& ns (cast<names> (lu));
-
-            // First verify the version.
+            // Note: does not change the passed name.
             //
-            uint64_t ver;
-            try
+            ver = value_traits<uint64_t>::convert (
+              ns[0], ns[0].pair ? &ns[1] : nullptr);
+          }
+          catch (const invalid_argument& e)
+          {
+            fail << "invalid metadata version in library " << g << ": " << e;
+          }
+
+          if (ver != 1)
+            fail << "unexpected metadata version " << ver << " in library "
+                 << g;
+
+          // Next verify the metadata variable prefix.
+          //
+          if (ns.size () != 2 || !ns[1].simple ())
+            fail << "invalid metadata variable prefix in library " << g;
+
+          const string& pfx (ns[1].value);
+
+          // Now find all the target-specific variables with this prefix.
+          //
+          // If this is the common .pc file, then we only look in the group.
+          // Otherwise, in the member and the group.
+          //
+          // We only expect a handful of variables so let's use a vector and
+          // linear search instead of a map.
+          //
+          using binding = pair<const variable*, const value*>;
+          vector<binding> vars;
+
+          auto append = [&pfx, &vars] (const target& t, bool dup)
+          {
+            for (auto p (t.vars.lookup_namespace (pfx));
+                 p.first != p.second;
+                 ++p.first)
             {
-              // Note: does not change the passed name.
-              //
-              ver = value_traits<uint64_t>::convert (
-                ns[0], ns[0].pair ? &ns[1] : nullptr);
-            }
-            catch (const invalid_argument& e)
-            {
-              fail << "invalid metadata version in library " << g << ": " << e;
-            }
+              const variable& var (p.first->first);
 
-            if (ver != 1)
-              fail << "unexpected metadata version " << ver << " in library "
-                   << g;
-
-            // Next verify the metadata variable prefix.
-            //
-            if (ns.size () != 2 || !ns[1].simple ())
-              fail << "invalid metadata variable prefix in library " << g;
-
-            const string& pfx (ns[1].value);
-
-            // Now find all the target-specific variables with this prefix.
-            //
-            // If this is the common .pc file, then we only look in the
-            // group. Otherwise, in the member and the group.
-            //
-            // We only expect a handful of variables so let's use a vector and
-            // linear search instead of a map.
-            //
-            using binding = pair<const variable*, const value*>;
-            vector<binding> vars;
-
-            auto append = [&pfx, &vars] (const target& t, bool dup)
-            {
-              for (auto p (t.vars.lookup_namespace (pfx));
-                   p.first != p.second;
-                   ++p.first)
+              if (dup)
               {
-                const variable& var (p.first->first);
-
-                if (dup)
-                {
-                  if (find_if (vars.begin (), vars.end (),
-                               [&var] (const binding& p)
-                               {
-                                 return p.first == &var;
-                               }) != vars.end ())
-                    continue;
-                }
-
-                // Re-lookup the value in order to apply target type/pattern
-                // specific prepends/appends.
-                //
-                lookup l (t[var]);
-                assert (l.defined ());
-
-                vars.emplace_back (&var, l.value);
+                if (find_if (vars.begin (), vars.end (),
+                             [&var] (const binding& p)
+                             {
+                               return p.first == &var;
+                             }) != vars.end ())
+                  continue;
               }
+
+              // Re-lookup the value in order to apply target type/pattern
+              // specific prepends/appends.
+              //
+              lookup l (t[var]);
+              assert (l.defined ());
+
+              vars.emplace_back (&var, l.value);
+            }
+          };
+
+          append (g, false);
+
+          if (!common)
+          {
+            if (l.group != nullptr)
+              append (*l.group, true);
+          }
+
+          // First write the build2.metadata variable with the version,
+          // prefix, and all the variable names/types (which should not
+          // require any escaping).
+          //
+          os << endl
+             << "build2.metadata = " << ver << ' ' << pfx;
+
+          for (const binding& b: vars)
+          {
+            const string& n (b.first->name);
+            const value& v (*b.second);
+
+            // There is no notion of NULL in pkg-config variables and it's
+            // probably best not to conflate them with empty.
+            //
+            if (v.null)
+              fail << "null value in exported variable " << n
+                   << " of library " << l;
+
+            if (v.type == nullptr)
+              fail << "untyped value in exported variable " << n
+                   << " of library " << l;
+
+            // Tighten this to only a sensible subset of types (see
+            // parsing/serialization code for some of the potential problems).
+            //
+            if (!metadata_type (v.type->name).first)
+              fail << "unsupported value type " << v.type->name
+                   << " in exported variable " << n << " of library " << l;
+
+            os << ' ' << n << '/' << v.type->name;
+          }
+
+          os << endl;
+
+          // Now the variables themselves.
+          //
+          string s; // Reuse the buffer.
+          for (const binding& b: vars)
+          {
+            const string& n (b.first->name);
+            const value& v (*b.second);
+
+            names ns;
+            names_view nv (reverse (v, ns));
+
+            os << n << " =";
+
+            auto append = [&l, &n, &s] (const name& v)
+            {
+              if (v.simple ())
+                s += v.value;
+              else if (v.directory ())
+                s += v.dir.representation ();
+              else
+                // It seems like we shouldn't end up here due to the type
+                // check but let's keep it for good measure.
+                //
+                fail << "simple or directory value expected instead of '"
+                     << v << "' in exported variable " << n << " of library "
+                     << l;
             };
 
-            append (g, false);
-
-            if (!common)
+            for (auto i (nv.begin ()); i != nv.end (); ++i)
             {
-              if (l.group != nullptr)
-                append (*l.group, true);
-            }
+              s.clear ();
+              append (*i);
 
-            // First write the build2.metadata variable with the version,
-            // prefix, and all the variable names/types (which should not
-            // require any escaping).
-            //
-            os << endl
-               << "build2.metadata = " << ver << ' ' << pfx;
+              if (i->pair)
+              {
+                // @@ What if the value contains the pair character? Maybe
+                //    quote the halves in this case? Note: need to handle in
+                //    parse_metadata() above if enable here. Note: none of the
+                //    types currently allowed use pairs.
+#if 0
+                s += i->pair;
+                append (*++i);
+#else
+                fail << "pair in exported variable " << n << " of library "
+                     << l;
+#endif
+              }
 
-            for (const binding& b: vars)
-            {
-              const string& n (b.first->name);
-              const value& v (*b.second);
-
-              // There is no notion of NULL in pkg-config variables and it's
-              // probably best not to conflate them with empty.
-              //
-              if (v.null)
-                fail << "null value in exported variable " << n
-                     << " of library " << l;
-
-              if (v.type == nullptr)
-                fail << "untyped value in exported variable " << n
-                     << " of library " << l;
-
-              // Tighten this to only a sensible subset of types (see
-              // parsing/serialization code for some of the potential
-              // problems).
-              //
-              if (!metadata_type (v.type->name).first)
-                fail << "unsupported value type " << v.type->name
-                     << " in exported variable " << n << " of library " << l;
-
-              os << ' ' << n << '/' << v.type->name;
+              os << ' ' << escape (s);
             }
 
             os << endl;
+          }
+        }
+        else
+        {
+          // No user metadata.
+          //
+          os << endl
+             << "build2.metadata = 1" << endl;
+        }
 
-            // Now the variables themselves.
-            //
-            string s; // Reuse the buffer.
-            for (const binding& b: vars)
-            {
-              const string& n (b.first->name);
-              const value& v (*b.second);
-
-              names ns;
-              names_view nv (reverse (v, ns));
-
-              os << n << " =";
-
-              auto append = [&l, &n, &s] (const name& v)
-              {
-                if (v.simple ())
-                  s += v.value;
-                else if (v.directory ())
-                  s += v.dir.representation ();
-                else
-                  // It seems like we shouldn't end up here due to the type
-                  // check but let's keep it for good measure.
-                  //
-                  fail << "simple or directory value expected instead of '"
-                       << v << "' in exported variable " << n
-                       << " of library " << l;
-              };
-
-              for (auto i (nv.begin ()); i != nv.end (); ++i)
-              {
-                s.clear ();
-                append (*i);
-
-                if (i->pair)
-                {
-                  // @@ What if the value contains the pair character? Maybe
-                  //    quote the halves in this case? Note: need to handle in
-                  //    parse_metadata() above if enable here. Note: none of
-                  //    the types currently allowed use pairs.
-#if 0
-                  s += i->pair;
-                  append (*++i);
-#else
-                  fail << "pair in exported variable " << n << " of library "
-                       << l;
-#endif
-                }
-
-                os << ' ' << escape (s);
-              }
-
-              os << endl;
-            }
+        // Save the bin.whole (whole archive) flag (see the link rule for
+        // details on the lookup semantics).
+        //
+        if (la)
+        {
+          if (cast_false<bool> (l.lookup_original (
+                                  ctx.var_pool["bin.whole"],
+                                  true /* target_only */).first))
+          {
+            os << endl
+               << "bin.whole = true" << endl;
           }
         }
 
@@ -2340,7 +2388,7 @@ namespace build2
           if (size_t n = mods.size ())
           {
             os << endl
-               << "cxx_modules =";
+               << "cxx.modules =";
 
             // The partition separator (`:`) is not a valid character in the
             // variable name. In fact, from the pkg-config source we can see
@@ -2365,23 +2413,23 @@ namespace build2
 
             // Module-specific properties. The format is:
             //
-            // <lang>_module_<property>.<module> = <value>
+            // <lang>.module_<property>.<module> = <value>
             //
             for (const module& m: mods)
             {
               if (!m.preprocessed.empty ())
-                os << "cxx_module_preprocessed." << m.name << " = "
+                os << "cxx.module_preprocessed." << m.name << " = "
                    << m.preprocessed << endl;
 
               if (m.symexport)
-                os << "cxx_module_symexport." << m.name << " = true" << endl;
+                os << "cxx.module_symexport." << m.name << " = true" << endl;
             }
           }
 
           if (size_t n = c_hdrs.size ())
           {
             os << endl
-               << "c_importable_headers =";
+               << "c.importable_headers =";
 
             for (const path& h: c_hdrs)
               os << (n != 1 ? " \\\n" : " ") << escape (h.string ());
@@ -2392,7 +2440,7 @@ namespace build2
           if (size_t n = x_hdrs.size ())
           {
             os << endl
-               << x << "_importable_headers =";
+               << x << ".importable_headers =";
 
             for (const path& h: x_hdrs)
               os << (n != 1 ? " \\\n" : " ") << escape (h.string ());

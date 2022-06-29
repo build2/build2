@@ -7789,7 +7789,7 @@ header-like search mechanism (\c{-I} paths, etc.), an explicit list of
 exported modules is provided for each library in its \c{.pc} (\c{pkg-config})
 file.
 
-Specifically, the library's \c{.pc} file contains the \c{cxx_modules} variable
+Specifically, the library's \c{.pc} file contains the \c{cxx.modules} variable
 that lists all the exported C++ modules in the \c{<name>=<path>} form with
 \c{<name>} being the module's C++ name and \c{<path>} \- the module interface
 file's absolute path. For example:
@@ -7800,15 +7800,15 @@ Version: 1.0.0
 Cflags:
 Libs: -L/usr/lib -lhello
 
-cxx_modules = hello.core=/usr/include/hello/core.mxx hello.extra=/usr/include/hello/extra.mxx
+cxx.modules = hello.core=/usr/include/hello/core.mxx hello.extra=/usr/include/hello/extra.mxx
 \
 
 Additional module properties are specified with variables in the
-\c{cxx_module_<property>.<name>} form, for example:
+\c{cxx.module_<property>.<name>} form, for example:
 
 \
-cxx_module_symexport.hello.core = true
-cxx_module_preprocessed.hello.core = all
+cxx.module_symexport.hello.core = true
+cxx.module_preprocessed.hello.core = all
 \
 
 Currently, two properties are defined. The \c{symexport} property with the
