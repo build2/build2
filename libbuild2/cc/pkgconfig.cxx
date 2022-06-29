@@ -1607,6 +1607,10 @@ namespace build2
       if (ps)
         parse_cflags (*st, spc, false);
 
+      // @@ TODO: we can now load cc.type if there is metadata (but need to
+      //          return this rather than set, see search_library() for
+      //          details).
+
       // Load the bin.whole flag (whole archive).
       //
       if (at != nullptr && (pa ? apc_meta : spc_meta))
@@ -2269,6 +2273,26 @@ namespace build2
           //
           os << endl
              << "build2.metadata = 1" << endl;
+        }
+
+        // Save cc.type (see init() for the format documentation).
+        //
+        // Note that this value is set by link_rule and therefore should
+        // be there.
+        //
+        {
+          const string& t (
+            cast<string> (
+              l.state[a].lookup_original (
+                c_type, true /* target_only */).first));
+
+          // If common, then only save the language (the rest could be
+          // static/shared-specific; strictly speaking even the language could
+          // be, but that seems far fetched).
+          //
+          os << endl
+             << "cc.type = " << (common ? string (t, 0, t.find (',')) : t)
+             << endl;
         }
 
         // Save the bin.whole (whole archive) flag (see the link rule for

@@ -139,13 +139,14 @@ namespace build2
       // values are "binless" (library is binless) and "recursively-binless"
       // (library and all its prerequisite libraries are binless). Note that
       // another indication of a binless library is an empty path, which could
-      // easier/faster to check. Note also that there should be no whitespaces
-      // of any kind and <lang> is always first.
+      // be easier/faster to check. Note also that there should be no
+      // whitespaces of any kind and <lang> is always first.
       //
       // This value should be set on the library target as a rule-specific
-      // variable by the matching rule. Currently <lang> is used to decide
-      // which *.libs to use during static linking. The "cc" language is used
-      // in the import installed logic.
+      // variable by the matching rule. It is also saved in the generated
+      // pkg-config files. Currently <lang> is used to decide which *.libs to
+      // use during static linking. The "cc" language is used in the import
+      // installed logic.
       //
       // Note that this variable cannot be set via the target type/pattern-
       // specific mechanism (see process_libraries()).
