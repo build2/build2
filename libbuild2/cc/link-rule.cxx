@@ -1614,7 +1614,7 @@ namespace build2
             // Note also that the order in which we are adding these members
             // is important (see add_addhoc_member() for details).
             //
-            if (t.group->decl >= target_decl::implied
+            if (operator>= (t.group->decl, target_decl::implied) // @@ VC14
                 ? (ot == otype::a || !link_members (rs).a)
                 : search_existing (ctx,
                                    ot == otype::a
@@ -2799,7 +2799,7 @@ namespace build2
 
         if (!m->is_a (la ? pca::static_type : pcs::static_type))
         {
-          if (t.group->decl >= target_decl::implied
+          if (operator>= (t.group->decl, target_decl::implied) // @@ VC14
               ? t.group->matched (a)
               : true)
           {
