@@ -1596,6 +1596,13 @@ namespace build2
           // we will use its bin.lib to decide what will be installed and in
           // perform_update() we will confirm that it is actually installed.
           //
+          // This, of course, works only if we actually have explicit lib{}.
+          // But the user could only have liba{} (common in testing frameworks
+          // that provide main()) or only libs{} (e.g., plugin that can also
+          // be linked). It's also theoretically possible to have both liba{}
+          // and libs{} but no lib{}, in which case it feels correct not to
+          // generate the common file at all.
+          //
           if (ot != otype::e)
           {
             // Note that here we always use the lib name prefix, even on
@@ -1607,7 +1614,13 @@ namespace build2
             // Note also that the order in which we are adding these members
             // is important (see add_addhoc_member() for details).
             //
-            if (ot == otype::a || !link_members (rs).a)
+            if (t.group->decl >= target_decl::implied
+                ? (ot == otype::a || !link_members (rs).a)
+                : search_existing (ctx,
+                                   ot == otype::a
+                                   ? libs::static_type
+                                   : liba::static_type,
+                                   t.dir, t.out, t.name) == nullptr)
             {
               auto& pc (add_adhoc_member<pc> (t));
 
@@ -2786,8 +2799,12 @@ namespace build2
 
         if (!m->is_a (la ? pca::static_type : pcs::static_type))
         {
-          if (t.group->matched (a))
+          if (t.group->decl >= target_decl::implied
+              ? t.group->matched (a)
+              : true)
+          {
             pkgconfig_save (a, t, la, true /* common */, binless);
+          }
           else
             // Mark as non-existent not to confuse the install rule.
             //

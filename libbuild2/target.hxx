@@ -267,11 +267,17 @@ namespace build2
   //
   enum class target_decl: uint8_t
   {
-    prereq_new,  // Created from prerequisite (create_new_target()).
-    prereq_file, // Created from prerequisite/file (search_existing_file ()).
-    implied,     // Target-spec variable assignment, implicitly-entered, etc.
-    real         // Real dependency declaration.
+    prereq_new = 1, // Created from prerequisite (create_new_target()).
+    prereq_file,    // Created from prerequisite/file (search_existing_file()).
+    implied,        // Target-spec variable assignment, implicitly-entered, etc.
+    real            // Real dependency declaration.
   };
+
+  inline bool
+  operator>= (target_decl l, target_decl r)
+  {
+    return static_cast<uint8_t> (l) >= static_cast<uint8_t> (r);
+  }
 
   class LIBBUILD2_SYMEXPORT target
   {

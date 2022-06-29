@@ -542,8 +542,7 @@ namespace build2
             // implied ones because pre-entered members of a target group
             // (e.g., cli.cxx) are implied.
             //
-            if (x->decl == target_decl::real ||
-                x->decl == target_decl::implied)
+            if (x->decl >= target_decl::implied)
             {
               r = x;
               break;

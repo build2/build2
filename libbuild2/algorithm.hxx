@@ -78,6 +78,9 @@ namespace build2
   pair<target&, ulock>
   search_locked (const target&, const target_type&, const prerequisite_key&);
 
+  const target*
+  search_exsiting (context&, const target_type&, const prerequisite_key&);
+
   const target&
   search_new (context&, const target_type&, const prerequisite_key&);
 

@@ -45,6 +45,17 @@ namespace build2
         k.proj, {&tt, k.tk.dir, k.tk.out, k.tk.name, k.tk.ext}, k.scope});
   }
 
+  inline const target*
+  search_exsiting (context& ctx,
+                   const target_type& tt,
+                   const prerequisite_key& k)
+  {
+    return search_existing (
+      ctx,
+      prerequisite_key {
+        k.proj, {&tt, k.tk.dir, k.tk.out, k.tk.name, k.tk.ext}, k.scope});
+  }
+
   inline const target&
   search_new (context& ctx,
               const target_type& tt,
