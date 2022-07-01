@@ -19,6 +19,7 @@
 #include <utility>
 #include <ostream>
 #include <sstream>
+#include <cstring>
 
 namespace build2
 {
@@ -53,10 +54,31 @@ namespace build2
       struct parser<bool>
       {
         static void
-        parse (bool& x, scanner& s)
+        parse (bool& x, bool& xs, scanner& s)
         {
-          s.next ();
-          x = true;
+          const char* o (s.next ());
+
+          if (s.more ())
+          {
+            const char* v (s.next ());
+
+            if (std::strcmp (v, "1")    == 0 ||
+                std::strcmp (v, "true") == 0 ||
+                std::strcmp (v, "TRUE") == 0 ||
+                std::strcmp (v, "True") == 0)
+              x = true;
+            else if (std::strcmp (v, "0")     == 0 ||
+                     std::strcmp (v, "false") == 0 ||
+                     std::strcmp (v, "FALSE") == 0 ||
+                     std::strcmp (v, "False") == 0)
+              x = false;
+            else
+              throw invalid_value (o, v);
+          }
+          else
+            throw missing_value (o);
+
+          xs = true;
         }
       };
 
@@ -173,6 +195,14 @@ namespace build2
         parser<T>::parse (x.*M, s);
       }
 
+      template <typename X, bool X::*M>
+      void
+      thunk (X& x, scanner& s)
+      {
+        s.next ();
+        x.*M = true;
+      }
+
       template <typename X, typename T, T X::*M, bool X::*S>
       void
       thunk (X& x, scanner& s)
@@ -184,7 +214,6 @@ namespace build2
 }
 
 #include <map>
-#include <cstring>
 
 namespace build2
 {
@@ -306,12 +335,12 @@ namespace build2
           &::build2::build::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::default_type_,
             &depdb_dyndep_options::default_type_specified_ >;
           _cli_depdb_dyndep_options_map_["--adhoc"] =
-          &::build2::build::cli::thunk< depdb_dyndep_options, bool, &depdb_dyndep_options::adhoc_ >;
+          &::build2::build::cli::thunk< depdb_dyndep_options, &depdb_dyndep_options::adhoc_ >;
           _cli_depdb_dyndep_options_map_["--cwd"] =
           &::build2::build::cli::thunk< depdb_dyndep_options, dir_path, &depdb_dyndep_options::cwd_,
             &depdb_dyndep_options::cwd_specified_ >;
           _cli_depdb_dyndep_options_map_["--drop-cycles"] =
-          &::build2::build::cli::thunk< depdb_dyndep_options, bool, &depdb_dyndep_options::drop_cycles_ >;
+          &::build2::build::cli::thunk< depdb_dyndep_options, &depdb_dyndep_options::drop_cycles_ >;
         }
       };
 

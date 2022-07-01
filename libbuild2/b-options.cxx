@@ -19,6 +19,7 @@
 #include <utility>
 #include <ostream>
 #include <sstream>
+#include <cstring>
 
 namespace build2
 {
@@ -59,10 +60,31 @@ namespace build2
       struct parser<bool>
       {
         static void
-        parse (bool& x, scanner& s)
+        parse (bool& x, bool& xs, scanner& s)
         {
-          s.next ();
-          x = true;
+          const char* o (s.next ());
+
+          if (s.more ())
+          {
+            const char* v (s.next ());
+
+            if (std::strcmp (v, "1")    == 0 ||
+                std::strcmp (v, "true") == 0 ||
+                std::strcmp (v, "TRUE") == 0 ||
+                std::strcmp (v, "True") == 0)
+              x = true;
+            else if (std::strcmp (v, "0")     == 0 ||
+                     std::strcmp (v, "false") == 0 ||
+                     std::strcmp (v, "FALSE") == 0 ||
+                     std::strcmp (v, "False") == 0)
+              x = false;
+            else
+              throw invalid_value (o, v);
+          }
+          else
+            throw missing_value (o);
+
+          xs = true;
         }
 
         static void
@@ -218,6 +240,14 @@ namespace build2
         parser<T>::parse (x.*M, s);
       }
 
+      template <typename X, bool X::*M>
+      void
+      thunk (X& x, scanner& s)
+      {
+        s.next ();
+        x.*M = true;
+      }
+
       template <typename X, typename T, T X::*M, bool X::*S>
       void
       thunk (X& x, scanner& s)
@@ -229,7 +259,6 @@ namespace build2
 }
 
 #include <map>
-#include <cstring>
 
 namespace build2
 {
@@ -929,24 +958,24 @@ namespace build2
       &::build2::build::cli::thunk< b_options, uint64_t, &b_options::build2_metadata_,
         &b_options::build2_metadata_specified_ >;
       _cli_b_options_map_["-v"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::v_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::v_ >;
       _cli_b_options_map_["-V"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::V_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::V_ >;
       _cli_b_options_map_["--quiet"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::quiet_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::quiet_ >;
       _cli_b_options_map_["-q"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::quiet_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::quiet_ >;
       _cli_b_options_map_["--silent"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::silent_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::silent_ >;
       _cli_b_options_map_["--verbose"] =
       &::build2::build::cli::thunk< b_options, uint16_t, &b_options::verbose_,
         &b_options::verbose_specified_ >;
       _cli_b_options_map_["--stat"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::stat_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::stat_ >;
       _cli_b_options_map_["--progress"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::progress_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::progress_ >;
       _cli_b_options_map_["--no-progress"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::no_progress_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::no_progress_ >;
       _cli_b_options_map_["--jobs"] =
       &::build2::build::cli::thunk< b_options, size_t, &b_options::jobs_,
         &b_options::jobs_specified_ >;
@@ -972,24 +1001,24 @@ namespace build2
       &::build2::build::cli::thunk< b_options, size_t, &b_options::max_stack_,
         &b_options::max_stack_specified_ >;
       _cli_b_options_map_["--serial-stop"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::serial_stop_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::serial_stop_ >;
       _cli_b_options_map_["-s"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::serial_stop_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::serial_stop_ >;
       _cli_b_options_map_["--dry-run"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::dry_run_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::dry_run_ >;
       _cli_b_options_map_["-n"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::dry_run_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::dry_run_ >;
       _cli_b_options_map_["--match-only"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::match_only_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::match_only_ >;
       _cli_b_options_map_["--no-external-modules"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::no_external_modules_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::no_external_modules_ >;
       _cli_b_options_map_["--structured-result"] =
       &::build2::build::cli::thunk< b_options, structured_result_format, &b_options::structured_result_,
         &b_options::structured_result_specified_ >;
       _cli_b_options_map_["--mtime-check"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::mtime_check_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::mtime_check_ >;
       _cli_b_options_map_["--no-mtime-check"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::no_mtime_check_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::no_mtime_check_ >;
       _cli_b_options_map_["--dump"] =
       &::build2::build::cli::thunk< b_options, std::set<string>, &b_options::dump_,
         &b_options::dump_specified_ >;
@@ -1000,9 +1029,9 @@ namespace build2
       &::build2::build::cli::thunk< b_options, std::vector<name>, &b_options::trace_execute_,
         &b_options::trace_execute_specified_ >;
       _cli_b_options_map_["--no-column"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::no_column_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::no_column_ >;
       _cli_b_options_map_["--no-line"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::no_line_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::no_line_ >;
       _cli_b_options_map_["--buildfile"] =
       &::build2::build::cli::thunk< b_options, path, &b_options::buildfile_,
         &b_options::buildfile_specified_ >;
@@ -1025,11 +1054,11 @@ namespace build2
       &::build2::build::cli::thunk< b_options, dir_path, &b_options::default_options_,
         &b_options::default_options_specified_ >;
       _cli_b_options_map_["--no-default-options"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::no_default_options_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::no_default_options_ >;
       _cli_b_options_map_["--help"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::help_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::help_ >;
       _cli_b_options_map_["--version"] =
-      &::build2::build::cli::thunk< b_options, bool, &b_options::version_ >;
+      &::build2::build::cli::thunk< b_options, &b_options::version_ >;
     }
   };
 
