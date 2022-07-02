@@ -1809,6 +1809,20 @@ namespace build2
             fail << "no version variable in project " << n <<
               info << "while generating " << p;
 
+          // When comparing versions, pkg-config uses RPM semantics, which is
+          // basically comparing each all-digit/alpha fragments in order.
+          // This means, for example, a semver with a pre-release will be
+          // compared incorrectly (pre-release will be greater than the final
+          // version). We could detect if this project uses stdver and chop
+          // off any pre-release information (so, essentially only saving the
+          // major.minor.patch part). But that means such .pc files will
+          // contain inaccurate version information. And seeing that we don't
+          // recommend using pkg-config (rather primitive) package dependency
+          // support, having complete version information for documentation
+          // seems more important.
+          //
+          // @@ Maybe still makes sense to only save version.project_id?
+          //
           const string& v (cast<string> (vl));
 
           os << "Name: " << n << endl;
