@@ -101,7 +101,11 @@ namespace build2
     //
     pkgconf () = default;
 
-    ~pkgconf ();
+    ~pkgconf ()
+    {
+      if (client_ != nullptr) // Not empty.
+        free ();
+    }
 
     // Movable-only type.
     //
@@ -119,8 +123,15 @@ namespace build2
     {
       if (this != &p)
       {
-        this->~pkgconf ();
-        new (this) pkgconf (move (p)); // Assume noexcept move-construction.
+        if (client_ != nullptr) // Not empty.
+          free ();
+
+        path = move (p.path);
+        client_ = p.client_;
+        pkg_ = p.pkg_;
+
+        p.client_ = nullptr;
+        p.pkg_ = nullptr;
       }
       return *this;
     }
@@ -129,10 +140,10 @@ namespace build2
     pkgconf& operator= (const pkgconf&) = delete;
 
     strings
-    cflags (bool stat) const;
+    cflags (bool static_) const;
 
     strings
-    libs (bool stat) const;
+    libs (bool static_) const;
 
     optional<string>
     variable (const char*) const;
@@ -141,6 +152,9 @@ namespace build2
     variable (const string& s) const {return variable (s.c_str ());}
 
   private:
+    void
+    free ();
+
     // Keep them as raw pointers not to deal with API thread-unsafety in
     // deleters and introducing additional mutex locks.
     //
@@ -149,11 +163,10 @@ namespace build2
   };
 
   // Currently the library is not thread-safe, even on the pkgconf_client_t
-  // level (see issue #128 for details).
-  //
-  // @@ An update: seems that the obvious thread-safety issues are fixed.
-  //    However, let's keep mutex locking for now not to introduce potential
-  //    issues before we make sure that there are no other ones.
+  // level (see issue #128 for details). While it seems that the obvious
+  // thread-safety issues are fixed, the default personality initialization,
+  // which is still not thread-safe. So let's keep the mutex for now not to
+  // introduce potential issues.
   //
   static mutex pkgconf_mutex;
 
@@ -170,8 +183,8 @@ namespace build2
   //   to the PKG_CONFIG_PATH environment variable\n
   //   Package 'foo', required by 'bar', not found\n
   //
-  // For the above example callback will be called 4 times. To suppress all the
-  // junk we will use PKGCONF_PKG_PKGF_SIMPLIFY_ERRORS to get just:
+  // For the above example callback will be called 4 times. To suppress all
+  // the junk we will use PKGCONF_PKG_PKGF_SIMPLIFY_ERRORS to get just:
   //
   //   Package 'foo', required by 'bar', not found\n
   //
@@ -189,7 +202,7 @@ namespace build2
   static bool
   pkgconf_error_handler (const char* msg, const pkgconf_client_t*, const void*)
   {
-    error << runtime_error (msg); // Sanitize the message.
+    error << runtime_error (msg); // Sanitize the message (trailing dot, etc).
     return true;
   }
 
@@ -362,17 +375,14 @@ namespace build2
     client_ = c.release ();
   }
 
-  pkgconf::
-  ~pkgconf ()
+  void pkgconf::
+  free ()
   {
-    if (client_ != nullptr) // Not empty.
-    {
-      assert (pkg_ != nullptr);
+    assert (pkg_ != nullptr);
 
-      mlock l (pkgconf_mutex);
-      pkgconf_pkg_unref (client_, pkg_);
-      pkgconf_client_free (client_);
-    }
+    mlock l (pkgconf_mutex);
+    pkgconf_pkg_unref (client_, pkg_);
+    pkgconf_client_free (client_);
   }
 
   strings pkgconf::
