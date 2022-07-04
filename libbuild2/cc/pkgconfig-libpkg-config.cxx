@@ -73,22 +73,9 @@ namespace build2
         //
         if (opt != nullptr)
         {
-          // @@ TMP (hopefully).
-          //
-          // Note that we should restore the directory path that was
-          // (mis)interpreted as an option, for example:
-          //
-          // -I -Ifoo
-          //
-          // In the above example option '-I' is followed by directory
-          // '-Ifoo', which is represented by libpkgconf library as fragment
-          // 'foo' with type 'I'.
-          //
-          if (!pkgconf_path_match_list (
-                frag->type == '\0'
-                ? frag->data
-                : (string ({'-', frag->type}) + frag->data).c_str (),
-                &sysdirs))
+          assert (frag->type == '\0'); // See pkgconf_fragment_add().
+
+          if (!pkgconf_path_match_list (frag->data, &sysdirs))
           {
             add (opt);
             add (frag);
