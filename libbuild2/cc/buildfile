@@ -6,14 +6,23 @@
 include ../
 impl_libs = ../lib{build2} # Implied interface dependency.
 
-import impl_libs += libpkgconf%lib{pkgconf}
+libpkgconf = $config.build2.libpkgconf
+
+if $libpkgconf
+  import impl_libs += libpkgconf%lib{pkgconf}
+else
+  import impl_libs += libpkg-config%lib{pkg-config}
 
 include ../bin/
 intf_libs = ../bin/lib{build2-bin}
 
-./: lib{build2-cc}: libul{build2-cc}: {hxx ixx txx cxx}{** -**.test...} \
-  h{msvc-setup}                                                         \
+./: lib{build2-cc}: libul{build2-cc}:               \
+  {hxx ixx txx cxx}{** -pkgconfig-lib* -**.test...} \
+  h{msvc-setup}                                     \
   $intf_libs $impl_libs
+
+libul{build2-cc}: cxx{pkgconfig-libpkgconf}: include = $libpkgconf
+libul{build2-cc}: cxx{pkgconfig-libpkg-config}: include = (!$libpkgconf)
 
 # Unit tests.
 #
@@ -37,6 +46,9 @@ for t: cxx{**.test...}
 #
 obja{*}: cxx.poptions += -DLIBBUILD2_CC_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBBUILD2_CC_SHARED_BUILD
+
+if $libpkgconf
+  cxx.poptions += -DBUILD2_LIBPKGCONF
 
 if ($cxx.target.class == 'windows')
   cxx.libs += $regex.apply(advapi32 ole32 oleaut32,        \

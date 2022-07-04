@@ -9,7 +9,11 @@
 //
 #ifndef BUILD2_BOOTSTRAP
 
-#include <libpkgconf/libpkgconf.h>
+#ifndef BUILD2_LIBPKGCONF
+#  include <libpkg-config/pkg-config.h>
+#else
+#  include <libpkgconf/libpkgconf.h>
+#endif
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -74,11 +78,13 @@ namespace build2
       void
       free ();
 
-      // Keep them as raw pointers not to deal with API thread-unsafety in
-      // deleters and introducing additional mutex locks.
-      //
+#ifndef BUILD2_LIBPKGCONF
+      pkg_config_client_t* client_ = nullptr;
+      pkg_config_pkg_t* pkg_ = nullptr;
+#else
       pkgconf_client_t* client_ = nullptr;
       pkgconf_pkg_t* pkg_ = nullptr;
+#endif
     };
 
     inline pkgconfig::

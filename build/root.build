@@ -49,3 +49,11 @@ using? cli
 # Specify the test target for cross-testing.
 #
 test.target = $cxx.target
+
+# Temporary ability to build with now deprecated libpkgconf instead of
+# libpkg-config. Note that libpkgconf is known to have issues on Windows and
+# Mac OS so this should only be used on Linux and maybe BSDs. Also note that
+# we will only keep this until upstream (again) breaks backwards compatibility
+# at which point we will drop this support.
+#
+config [bool, config.report=false] config.build2.libpkgconf ?= false

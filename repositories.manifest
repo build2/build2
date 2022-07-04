@@ -7,4 +7,4 @@ location: ../libbutl.git##HEAD
 
 :
 role: prerequisite
-location: https://git.build2.org/packaging/pkgconf/pkgconf.git##HEAD
+location: https://github.com/build2/libpkg-config.git##HEAD
