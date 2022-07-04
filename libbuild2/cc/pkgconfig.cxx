@@ -22,6 +22,8 @@
 #include <libbuild2/cc/compile-rule.hxx>
 #include <libbuild2/cc/link-rule.hxx>
 
+using namespace std; // VC16
+
 namespace build2
 {
   namespace cc
