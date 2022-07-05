@@ -1749,8 +1749,7 @@ namespace build2
           };
           vector<binding> vars;
 
-          auto append = [this,
-                         &l, &pfx, &vars,
+          auto append = [&l, &pfx, &vars,
                          tmp = string ()] (const target& t, bool dup) mutable
           {
             for (auto p (t.vars.lookup_namespace (pfx));
