@@ -1730,26 +1730,78 @@ namespace build2
           // If this is the common .pc file, then we only look in the group.
           // Otherwise, in the member and the group.
           //
+          // To allow setting different values for the for-install and
+          // development build cases (required when a library comes with
+          // additional "assets"), we recognize the special .for_install
+          // variable name suffix: if there is a both <prefix>.<name> and
+          // <prefix>.<name>.for_install variables, then here we take the
+          // value from the latter. Note that we don't consider just
+          // <prefix>.for_install as special (so it's available to the user).
+          //
           // We only expect a handful of variables so let's use a vector and
           // linear search instead of a map.
           //
-          using binding = pair<const variable*, const value*>;
+          struct binding
+          {
+            const string*  name; // Name to be saved (without .for_install).
+            const variable* var; // Actual variable (potentially .for_install).
+            const value*    val; // Actual value.
+          };
           vector<binding> vars;
 
-          auto append = [&pfx, &vars] (const target& t, bool dup)
+          auto append = [this,
+                         &l, &pfx, &vars,
+                         tmp = string ()] (const target& t, bool dup) mutable
           {
             for (auto p (t.vars.lookup_namespace (pfx));
                  p.first != p.second;
                  ++p.first)
             {
-              const variable& var (p.first->first);
+              const variable* var (&p.first->first.get ());
+
+              // Handle .for_install.
+              //
+              // The plan is as follows: if this is .for_install, then just
+              // verify we also have the value without the suffix and skip
+              // it. Otherwise, check if there also the .for_install variant
+              // and if so, use that instead. While we could probably do this
+              // more efficiently by remembering what we saw in vars, this is
+              // not performance-sensitive and so we keep it simple for now.
+              //
+              const string* name;
+              {
+                const string& v (var->name);
+                size_t n (v.size ());
+
+                if (n > pfx.size () + 1 + 12 && // <prefix>..for_install
+                    v.compare (n - 12, 12, ".for_install") == 0)
+                {
+                  tmp.assign (v, 0, n - 12);
+
+                  if (t.vars.find (tmp) == t.vars.end ())
+                    fail << v << " variant without " << tmp << " in library "
+                         << l;
+
+                  continue;
+                }
+                else
+                {
+                  name = &v;
+
+                  tmp = v; tmp += ".for_install";
+
+                  auto i (t.vars.find (tmp));
+                  if (i != t.vars.end ())
+                    var = &i->first.get ();
+                }
+              }
 
               if (dup)
               {
                 if (find_if (vars.begin (), vars.end (),
-                             [&var] (const binding& p)
+                             [name] (const binding& p)
                              {
-                               return p.first == &var;
+                               return *p.name == *name;
                              }) != vars.end ())
                   continue;
               }
@@ -1757,10 +1809,10 @@ namespace build2
               // Re-lookup the value in order to apply target type/pattern
               // specific prepends/appends.
               //
-              lookup l (t[var]);
+              lookup l (t[*var]);
               assert (l.defined ());
 
-              vars.emplace_back (&var, l.value);
+              vars.push_back (binding {name, var, l.value});
             }
           };
 
@@ -1781,46 +1833,48 @@ namespace build2
 
           for (const binding& b: vars)
           {
-            const string& n (b.first->name);
-            const value& v (*b.second);
+            const variable& var (*b.var);
+            const value& val (*b.val);
 
             // There is no notion of NULL in pkg-config variables and it's
             // probably best not to conflate them with empty.
             //
-            if (v.null)
-              fail << "null value in exported variable " << n
+            if (val.null)
+              fail << "null value in exported variable " << var
                    << " of library " << l;
 
-            if (v.type == nullptr)
-              fail << "untyped value in exported variable " << n
+            if (val.type == nullptr)
+              fail << "untyped value in exported variable " << var
                    << " of library " << l;
 
             // Tighten this to only a sensible subset of types (see
             // parsing/serialization code for some of the potential problems).
             //
-            if (!metadata_type (v.type->name).first)
-              fail << "unsupported value type " << v.type->name
-                   << " in exported variable " << n << " of library " << l;
+            if (!metadata_type (val.type->name).first)
+              fail << "unsupported value type " << val.type->name
+                   << " in exported variable " << var << " of library " << l;
 
-            os << ' ' << n << '/' << v.type->name;
+            os << " \\" << endl
+               << *b.name << '/' << val.type->name;
           }
 
-          os << endl;
+          os << endl
+             << endl;
 
           // Now the variables themselves.
           //
           string s; // Reuse the buffer.
           for (const binding& b: vars)
           {
-            const string& n (b.first->name);
-            const value& v (*b.second);
+            const variable& var (*b.var);
+            const value& val (*b.val);
 
             names ns;
-            names_view nv (reverse (v, ns));
+            names_view nv (reverse (val, ns));
 
-            os << n << " =";
+            os << *b.name << " =";
 
-            auto append = [&l, &n, &s] (const name& v)
+            auto append = [&l, &var, &s] (const name& v)
             {
               if (v.simple ())
                 s += v.value;
@@ -1831,7 +1885,7 @@ namespace build2
                 // check but let's keep it for good measure.
                 //
                 fail << "simple or directory value expected instead of '"
-                     << v << "' in exported variable " << n << " of library "
+                     << v << "' in exported variable " << var << " of library "
                      << l;
             };
 
@@ -1850,7 +1904,7 @@ namespace build2
                 s += i->pair;
                 append (*++i);
 #else
-                fail << "pair in exported variable " << n << " of library "
+                fail << "pair in exported variable " << var << " of library "
                      << l;
 #endif
               }

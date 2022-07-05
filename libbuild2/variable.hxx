@@ -1645,8 +1645,23 @@ namespace build2
     pair<value&, bool>
     insert (const variable&, bool typed = true, bool reset_extra = true);
 
-    // Note: does not deal with aliases.
+    // Note: the following functions do not deal with aliases.
     //
+    const_iterator
+    find (const variable& var) const
+    {
+      return const_iterator (m_.find (var), *this);
+    }
+
+    const_iterator
+    find (const string& name) const
+    {
+      const variable* var (ctx != nullptr
+                           ? ctx->var_pool.find (name)
+                           : nullptr);
+      return var != nullptr ? find (*var) : end ();
+    }
+
     bool
     erase (const variable&);
 
