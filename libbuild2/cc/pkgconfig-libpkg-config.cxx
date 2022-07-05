@@ -191,19 +191,19 @@ namespace build2
         // besides the public ones while collecting the flags. Note that we do
         // this for both static and shared linking.
         //
-        PKGCONF_PKG_PKGF_SEARCH_PRIVATE |
+        LIBPKG_CONFIG_PKG_PKGF_SEARCH_PRIVATE |
 
         // Collect flags from Cflags.private besides those from Cflags for the
         // static linking.
         //
         (stat
-         ? PKGCONF_PKG_PKGF_MERGE_PRIVATE_FRAGMENTS
+         ? LIBPKG_CONFIG_PKG_PKGF_ADD_PRIVATE_FRAGMENTS
          : 0));
 
       pkgconf_list_t f = PKGCONF_LIST_INITIALIZER; // Aggregate initialization.
       int e (pkgconf_pkg_cflags (client_, pkg_, &f, max_depth));
 
-      if (e != PKGCONF_PKG_ERRF_OK)
+      if (e != LIBPKG_CONFIG_PKG_ERRF_OK)
         throw failed (); // Assume the diagnostics is issued.
 
       unique_ptr<pkgconf_list_t, fragments_deleter> fd (&f); // Auto-deleter.
@@ -223,14 +223,14 @@ namespace build2
         // (see above) and from the Libs.private value for the static linking.
         //
         (stat
-         ? PKGCONF_PKG_PKGF_SEARCH_PRIVATE |
-         PKGCONF_PKG_PKGF_MERGE_PRIVATE_FRAGMENTS
+         ? LIBPKG_CONFIG_PKG_PKGF_SEARCH_PRIVATE |
+           LIBPKG_CONFIG_PKG_PKGF_ADD_PRIVATE_FRAGMENTS
          : 0));
 
       pkgconf_list_t f = PKGCONF_LIST_INITIALIZER; // Aggregate initialization.
       int e (pkgconf_pkg_libs (client_, pkg_, &f, max_depth));
 
-      if (e != PKGCONF_PKG_ERRF_OK)
+      if (e != LIBPKG_CONFIG_PKG_ERRF_OK)
         throw failed (); // Assume the diagnostics is issued.
 
       unique_ptr<pkgconf_list_t, fragments_deleter> fd (&f); // Auto-deleter.
