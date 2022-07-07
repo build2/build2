@@ -278,7 +278,7 @@ namespace build2
     // Note that while this function is not technically pure, we don't mark it
     // as such for the same reasons as $path() above.
     //
-    fn["process_path"] += [](const scope* s, names ns)
+    ft["process_path"] += [](const scope* s, names ns)
     {
       if (s == nullptr)
         fail << "target.process_path() called out of scope";
