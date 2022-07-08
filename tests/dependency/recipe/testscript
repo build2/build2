@@ -675,7 +675,7 @@ EOE
   : process-path-ex
   :
   {
-    config_cxx = config.cxx=$quote($recall($cxx.path) $cxx.config.mode, true)
+    config_cxx = config.cxx=$quote($recall($cxx.path) $cxx.config.mode)
 
     mkdir build;
     cat <<EOI >=build/bootstrap.build;
