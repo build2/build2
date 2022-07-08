@@ -26,7 +26,7 @@ namespace build2
 
         if (c == '\\')
         {
-          if (++i != e)
+          if (++i == e)
             return false;
 
           c = *i;
