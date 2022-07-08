@@ -5008,9 +5008,95 @@ $ b -v config.libhello.woptions=-Wno-extra
 g++ ... -Wall -Wextra -Wno-extra -Werror ...
 \
 
-While we have already seen some examples of how to propagate the configuration
-values to our source code, \l{#proj-config-propag Configuration Propagation}
-discusses this topic in more detail.
+If you do not plan to package your project, then the above rules are the only
+constraints you have. However, if your project is also a package, then other
+projects that use it as a dependency may have preferences and requirements
+regarding its configuration. And it becomes the job of the package manager
+(\c{bpkg}) to negotiate a suitable configuration between all the dependents of
+your project. This can be a difficult problem to solve optimally in a
+reasonable time and to help the package manager come up with the best
+configuration quickly you should follow the below additional rules and
+recommendations for configuration of packages (but which are also generally
+good ideas):
+
+\ol|
+
+\li|Prefer \c{bool} configuration variables. For example, if your project
+    supports a fixed number of backends, then provide a \c{bool} variable to
+    enable each rather than a single variable that lists all the backends to
+    be enabled.|
+
+\li|Avoid project configuration variable dependencies, that is, where the
+    default value of one variable depends on the value of another. But if you
+    do need such a dependency, make sure it is expressed using the original
+    \c{config.<project>.*} variables rather than any intermediate/computed
+    values. For example:
+
+    \
+    # Enable Y only if X is enabled.
+    #
+    config [bool] config.hello.x ?= false
+    config [bool] config.hello.y ?= $config.libhello.x
+    \
+
+    |
+
+\li|Do not make project configuration variables conditional. In other words,
+    the set of configuration variables and their types should be a static
+    property of the project. If you do need to make a certain configuration
+    variable \"unavailable\" or \"disabled\" if certain conditions are met
+    (for example, on a certain platform or based on the value of another
+    configuration variable), then express this with a default value and/or a
+    check. For example:
+
+    \
+    windows = ($cxx.target.class == 'windows')
+
+    # Y should only be enabled if X is enabled and we are not on
+    # Windows.
+    #
+    config [bool] config.hello.x ?= false
+    config [bool] config.hello.y ?= ($config.hello.x && !$windows)
+
+    if $config.libhello.y
+    {
+      assert $config.hello.x \"Y can only be enabled if X is enabled\"
+      assert (!$windows)     \"Y cannot be enabled on Windows\"
+    }
+    \
+
+    |
+
+|
+
+Additionally, if you wish to factor some \c{config} directives into a separate
+file (for example, if you have a large number of them or you would like to
+share them with subprojects) and source it from your \c{build/root.build},
+then it is recommended that you place this file into the \c{build/config/}
+subdirectory, where the package manager expects to find such files. For
+example:
+
+\
+# root.build
+#
+
+...
+
+source $src_root/build/config/common.build
+\
+
+\N|If you would prefer to keep such a file in a different location (for
+example, because it contains things other than \c{config} directives), then
+you will need to manually list it in your package's \c{manifest} file, see the
+\l{bpkg#manifest-package-x-build \c{{bootstrap,root,*\}-build[2]}} values for
+details.|
+
+Another effect of the \c{config} directive is to print the configuration
+variable in the project's configuration report. This functionality is
+discussed in the following section. While we have already seen some examples
+of how to propagate the configuration values to our source code,
+\l{#proj-config-propag Configuration Propagation} discusses this topic in more
+detail.
 
 
 \h#proj-config-report|Configuration Report|
