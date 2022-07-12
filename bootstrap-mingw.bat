@@ -107,7 +107,7 @@ for %%d in (%src%) do (
 )
 
 echo on
-%cxx% -I%libbutl% -I. -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"x86_64-w64-mingw32\" %ops% -o build2\b-boot.exe %r% -limagehlp
+%cxx% -I%libbutl% -I. -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"x86_64-w64-mingw32\" %ops% -o build2\b-boot.exe %r% -pthread -limagehlp
 @echo off
 if errorlevel 1 goto error
 
