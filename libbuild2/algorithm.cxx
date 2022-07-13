@@ -1031,7 +1031,7 @@ namespace build2
   }
 
   static group_view
-  resolve_members_impl (action a, const target& g, target_lock l)
+  resolve_members_impl (action a, const target& g, target_lock&& l)
   {
     // Note that we will be unlocked if the target is already applied.
     //
