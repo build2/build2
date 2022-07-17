@@ -30,7 +30,7 @@ namespace build2
   // Note that max size for the "small size optimization" in std::function
   // (which is what move_only_function_ex is based on) ranges (in pointer
   // sizes) from 0 (GCC libstdc++ prior to 5) to 2 (GCC 5 and later) to 3
-  // (Clang libc++) to 6 (VC 14.2). With the size ranging (in bytes for 64-bit
+  // (Clang libc++) to 6 (VC 14.3). With the size ranging (in bytes for 64-bit
   // target) from 32 (GCC) to 64 (VC).
   //
   using recipe_function = target_state (action, const target&);

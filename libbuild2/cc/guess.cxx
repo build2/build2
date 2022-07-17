@@ -1426,10 +1426,12 @@ namespace build2
       // And VC 16 seems to have the runtime version 14.1 (and not 14.2, as
       // one might expect; DLLs are still *140.dll but there are now _1 and _2
       // variants for, say, msvcp140.dll). We will, however, call it 14.2
-      // (which is the version of the "toolset") in our target triplet.
+      // (which is the version of the "toolset") in our target triplet. And we
+      // will call VC 17 14.3 (which is also the version of the "toolset").
       //
       // year   ver   cl     crt/dll   toolset
       //
+      // 2022   17.X  19.3X  14.?/140  14.3X
       // 2019   16.X  19.2X  14.2/140  14.2X
       // 2017   15.9  19.16  14.1/140  14.16
       // 2017   15.8  19.15  14.1/140
@@ -1448,7 +1450,8 @@ namespace build2
       //
       // _MSC_VER is the numeric cl version, e.g., 1921 for 19.21.
       //
-      /**/ if (v.major == 19 && v.minor >= 20) return "14.2";
+      /**/ if (v.major == 19 && v.minor >= 30) return "14.3";
+      else if (v.major == 19 && v.minor >= 20) return "14.2";
       else if (v.major == 19 && v.minor >= 10) return "14.1";
       else if (v.major == 19 && v.minor ==  0) return "14.0";
       else if (v.major == 18 && v.minor ==  0) return "12.0";
