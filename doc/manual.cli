@@ -5013,8 +5013,9 @@ constraints you have. However, if your project is also a package, then other
 projects that use it as a dependency may have preferences and requirements
 regarding its configuration. And it becomes the job of the package manager
 (\c{bpkg}) to negotiate a suitable configuration between all the dependents of
-your project. This can be a difficult problem to solve optimally in a
-reasonable time and to help the package manager come up with the best
+your project (see \l{bpkg#dep-config-negotiation Dependency Configuration
+Negotiation} for details). This can be a difficult problem to solve optimally
+in a reasonable time and to help the package manager come up with the best
 configuration quickly you should follow the below additional rules and
 recommendations for configuration of packages (but which are also generally
 good ideas):
@@ -5073,7 +5074,8 @@ Additionally, if you wish to factor some \c{config} directives into a separate
 file (for example, if you have a large number of them or you would like to
 share them with subprojects) and source it from your \c{build/root.build},
 then it is recommended that you place this file into the \c{build/config/}
-subdirectory, where the package manager expects to find such files. For
+subdirectory, where the package manager expects to find such files (see
+\l{bpkg#package-skeleton Package Build System Skeleton} for background). For
 example:
 
 \
