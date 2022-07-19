@@ -91,6 +91,12 @@ namespace build2
     parse_export_stub (istream& is, const path_name& name,
                        scope& rs, scope& bs)
     {
+      auto g = make_guard ([this, old = imported_] () mutable
+                           {
+                             imported_ = old;
+                           });
+      imported_ = true;
+
       parse_buildfile (is, name, &rs, bs);
       return move (export_value);
     }
@@ -905,6 +911,9 @@ namespace build2
     const dir_path* pbase_ = nullptr; // Current pattern base directory.
 
     small_vector<attributes, 2> attributes_;
+
+    bool imported_ = false;        // True if loaded via export stub.
+    optional<location> condition_; // Innermost if/switch (but not in recipe).
 
     target* default_target_ = nullptr;
 

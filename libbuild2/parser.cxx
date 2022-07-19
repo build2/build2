@@ -247,6 +247,8 @@ namespace build2
   {
     pre_parse_ = false;
     attributes_.clear ();
+    imported_ = false;
+    condition_ = nullopt;
     default_target_ = nullptr;
     peeked_ = false;
     replay_ = replay::stop;
@@ -2368,6 +2370,34 @@ namespace build2
     //
     tracer trace ("parser::parse_dependency", &path_);
 
+    // Diagnose conditional prerequisites. Note that we want to diagnose this
+    // even if pns is empty (think empty variable expansion; the literal "no
+    // prerequisites" case is handled elsewhere). We also want to omit this
+    // check for imported buildfiles (export stub can reasonably wrap loading
+    // of a buildfile in a condition).
+    //
+    // @@ TMP For now we only do it during the dist meta-operation. In the
+    //        future we should tighten this to any meta-operation provided
+    //        the dist module is loaded.
+    //
+    // @@ TMP For now it's a warning because we have dependencies like
+    //        cli.cxx{foo}: cli{foo} which are not currently possible to
+    //        rewrite (cli.cxx{} is not always registered).
+    //
+    if (condition_ &&
+        !imported_ &&
+        ctx->current_mif != nullptr &&
+        ctx->current_mif->id == dist_id)
+    {
+      warn (tloc) << "conditional dependency declaration may result in "
+                  << "incomplete distribution" <<
+        info (ploc) << "prerequisite declared here" <<
+        info (*condition_) << "conditional buildfile fragment starts here" <<
+        info << "instead use `include` prerequisite-specific variable to "
+             << "conditionally include prerequisites" <<
+        info << "for example: <target>: <prerequisite>: include = (<condition>)";
+    }
+
     // First enter all the targets.
     //
     small_vector<reference_wrapper<target>, 1> tgs (
@@ -3699,6 +3729,12 @@ namespace build2
   void parser::
   parse_if_else (token& t, type& tt)
   {
+    auto g = make_guard ([this, old = condition_] () mutable
+                         {
+                           condition_ = old;
+                         });
+    condition_ = get_location (t);
+
     parse_if_else (t, tt,
                    false /* multi */,
                    [this] (token& t, type& tt, bool s, const string& k)
@@ -3840,6 +3876,12 @@ namespace build2
   void parser::
   parse_switch (token& t, type& tt)
   {
+    auto g = make_guard ([this, old = condition_] () mutable
+                         {
+                           condition_ = old;
+                         });
+    condition_ = get_location (t);
+
     parse_switch (t, tt,
                   false /* multi */,
                   [this] (token& t, type& tt, bool s, const string& k)
