@@ -245,7 +245,12 @@ namespace build2
 
     if (ctx.phase == run_phase::match)
     {
-      return c == offset_applied;
+      // While it will normally be applied, it could also be already executed.
+      //
+      // Note that we can't do >= offset_applied since offset_busy means it is
+      // being matched.
+      //
+      return c == offset_applied || c == offset_executed;
     }
     else
     {

@@ -597,12 +597,7 @@ namespace build2
                   const char* w (nullptr);
                   if (t.ctx.phase == run_phase::match)
                   {
-                    size_t o (
-                      t.state[a].task_count.load (memory_order_consume) -
-                      t.ctx.count_base ());
-
-                    if (o != target::offset_applied &&
-                        o != target::offset_executed)
+                    if (!t.matched (a))
                       w = "not matched";
                   }
                   else if (t.mtime () == timestamp_unknown)
