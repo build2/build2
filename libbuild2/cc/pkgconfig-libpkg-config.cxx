@@ -19,11 +19,20 @@ namespace build2
 
     static void
     error_handler (unsigned int,
+                   const char* file,
+                   size_t line,
                    const char* msg,
                    const pkg_config_client_t*,
                    const void*)
     {
-      error << msg;
+      if (file != nullptr)
+      {
+        path_name n (file);
+        const location l (n, static_cast<uint64_t> (line));
+        error (l) << msg;
+      }
+      else
+        error << msg;
     }
 
     // Deleters.
@@ -120,6 +129,8 @@ namespace build2
     // to filling the allocated structures. So such a code complication on our
     // side would be useless. Also, for some functions the NULL result has a
     // special semantics, for example "not found". @@ TODO: can we fix this?
+    // This is now somewhat addressed, see the eflags argument in
+    // pkg_config_pkg_find().
     //
     pkgconfig::
     pkgconfig (path_type p,
@@ -160,10 +171,19 @@ namespace build2
       // @@ Hm, is there a way to force this resolution? But we may not
       //    need this (e.g., only loading from variables).
       //
-      pkg_ = pkg_config_pkg_find (c.get (), path.string ().c_str ());
+      unsigned int e;
+      pkg_ = pkg_config_pkg_find (c.get (), path.string ().c_str (), &e);
 
       if (pkg_ == nullptr)
-        fail << "package '" << path << "' not found or invalid";
+      {
+        if (e == LIBPKG_CONFIG_ERRF_OK)
+          fail << "package '" << path << "' not found";
+        else
+          // Diagnostics should have already been issued except for allocation
+          // errors.
+          //
+          fail << "unable to load package '" << path << "'";
+      }
 
       // Add the .pc file search directories.
       //
@@ -205,7 +225,7 @@ namespace build2
       pkg_config_list_t f = LIBPKG_CONFIG_LIST_INITIALIZER; // Empty list.
       int e (pkg_config_pkg_cflags (client_, pkg_, &f, max_depth));
 
-      if (e != LIBPKG_CONFIG_PKG_ERRF_OK)
+      if (e != LIBPKG_CONFIG_ERRF_OK)
         throw failed (); // Assume the diagnostics is issued.
 
       unique_ptr<pkg_config_list_t, fragments_deleter> fd (&f);
@@ -230,7 +250,7 @@ namespace build2
       pkg_config_list_t f = LIBPKG_CONFIG_LIST_INITIALIZER; // Empty list.
       int e (pkg_config_pkg_libs (client_, pkg_, &f, max_depth));
 
-      if (e != LIBPKG_CONFIG_PKG_ERRF_OK)
+      if (e != LIBPKG_CONFIG_ERRF_OK)
         throw failed (); // Assume the diagnostics is issued.
 
       unique_ptr<pkg_config_list_t, fragments_deleter> fd (&f);
