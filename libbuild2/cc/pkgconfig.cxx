@@ -1311,7 +1311,7 @@ namespace build2
       // This is the lib{} group if we are generating the common file and the
       // target itself otherwise.
       //
-      const file& g (common ? l.group->as<file> () : l);
+      const target& g (common ? *l.group : l);
 
       // By default we assume things go into install.{include, lib}.
       //
