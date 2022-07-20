@@ -247,7 +247,6 @@ namespace build2
   {
     pre_parse_ = false;
     attributes_.clear ();
-    imported_ = false;
     condition_ = nullopt;
     default_target_ = nullptr;
     peeked_ = false;
@@ -2372,9 +2371,7 @@ namespace build2
 
     // Diagnose conditional prerequisites. Note that we want to diagnose this
     // even if pns is empty (think empty variable expansion; the literal "no
-    // prerequisites" case is handled elsewhere). We also want to omit this
-    // check for imported buildfiles (export stub can reasonably wrap loading
-    // of a buildfile in a condition).
+    // prerequisites" case is handled elsewhere).
     //
     // @@ TMP For now we only do it during the dist meta-operation. In the
     //        future we should tighten this to any meta-operation provided
@@ -2385,7 +2382,6 @@ namespace build2
     //        rewrite (cli.cxx{} is not always registered).
     //
     if (condition_ &&
-        !imported_ &&
         ctx->current_mif != nullptr &&
         ctx->current_mif->id == dist_id)
     {
@@ -2917,6 +2913,18 @@ namespace build2
         l5 ([&]{trace (l) << "skipping already included " << p;});
         continue;
       }
+
+      // Clear/restore if/switch location.
+      //
+      // We do it here but not in parse_source since the included buildfile is
+      // in a sense expected to be a standalone entity (think a file included
+      // from an export stub).
+      //
+      auto g = make_guard ([this, old = condition_] () mutable
+                           {
+                             condition_ = old;
+                           });
+      condition_ = nullopt;
 
       try
       {
