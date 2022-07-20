@@ -2389,7 +2389,7 @@ namespace build2
                   << "incomplete distribution" <<
         info (ploc) << "prerequisite declared here" <<
         info (*condition_) << "conditional buildfile fragment starts here" <<
-        info << "instead use `include` prerequisite-specific variable to "
+        info << "instead use 'include' prerequisite-specific variable to "
              << "conditionally include prerequisites" <<
         info << "for example: <target>: <prerequisite>: include = (<condition>)";
     }
