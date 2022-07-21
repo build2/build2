@@ -177,7 +177,11 @@ namespace build2
           // "LLVM version 3.5.2"
           // "LLVM version 5.0.0"
           //
-          if (l.compare (0, 13, "LLVM version ") == 0)
+          // But it can also be prefixed with some stuff, for example:
+          //
+          // "Debian LLVM version 14.0.6"
+          //
+          if (l.find ("LLVM version ") != string::npos)
           {
             semantic_version v (parse_version (l, l.rfind (' ') + 1));
             return guess_result ("llvm", move (l), move (v));
@@ -280,7 +284,7 @@ namespace build2
 
             // "LLVM version ".
             //
-            if (l.compare (0, 13, "LLVM version ") == 0)
+            if (l.find ("LLVM version ") != string::npos)
               return guess_result ("llvm", move (l), semantic_version ());
 
             // On FreeBSD we get "ranlib" rather than "BSD ranlib" for some
@@ -437,17 +441,22 @@ namespace build2
           string id;
           optional<semantic_version> ver;
 
+          size_t p;
+
           // Microsoft link.exe output starts with "Microsoft (R) ".
           //
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
           {
             id = "msvc";
           }
-          // LLD prints a line in the form "LLD X.Y.Z ...".
+          // LLD prints a line in the form "LLD X.Y.Z ...". But it can also
+          // be prefixed with some stuff, for example:
           //
-          else if (l.compare (0, 4, "LLD ") == 0)
+          // Debian LLD 14.0.6 (compatible with GNU linkers)
+          //
+          else if ((p = l.find ("LLD ")) != string::npos)
           {
-            ver = parse_version (l, 4);
+            ver = parse_version (l, p + 4);
 
             // The only way to distinguish between various LLD drivers is via
             // their name. Handle potential prefixes (say a target) and
@@ -764,7 +773,10 @@ namespace build2
           // LLVM nm --version output has a line that starts with
           // "LLVM version" followed by a version.
           //
-          if (l.compare (0, 13, "LLVM version ") == 0)
+          // But let's assume it can be prefixed with some stuff like the rest
+          // of the LLVM tools (see above).
+          //
+          if (l.find ("LLVM version ") != string::npos)
             return guess_result ("llvm", move (l), semantic_version ());
 
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
