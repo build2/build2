@@ -24,6 +24,8 @@
 
 #include <libbuild2/adhoc-rule-regex-pattern.hxx>
 
+#include <libbuild2/dist/module.hxx> // module
+
 #include <libbuild2/config/utility.hxx> // lookup_config
 
 using namespace std;
@@ -2385,13 +2387,23 @@ namespace build2
         ctx->current_mif != nullptr &&
         ctx->current_mif->id == dist_id)
     {
-      warn (tloc) << "conditional dependency declaration may result in "
-                  << "incomplete distribution" <<
-        info (ploc) << "prerequisite declared here" <<
-        info (*condition_) << "conditional buildfile fragment starts here" <<
-        info << "instead use 'include' prerequisite-specific variable to "
-             << "conditionally include prerequisites" <<
-        info << "for example: <target>: <prerequisite>: include = (<condition>)";
+      // Only issue the warning for the projects being distributed. In
+      // particular, this makes sure we don't complain about imported
+      // projects.
+      //
+      auto* dm (root_->find_module<dist::module> (dist::module::name));
+
+      if (dm != nullptr && dm->distributed)
+      {
+        warn (tloc) << "conditional dependency declaration may result in "
+                    << "incomplete distribution" <<
+          info (ploc) << "prerequisite declared here" <<
+          info (*condition_) << "conditional buildfile fragment starts here" <<
+          info << "instead use 'include' prerequisite-specific variable to "
+               << "conditionally include prerequisites" <<
+          info << "for example: "
+               << "<target>: <prerequisite>: include = (<condition>)";
+      }
     }
 
     // First enter all the targets.

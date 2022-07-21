@@ -73,6 +73,7 @@ namespace build2
           : var_dist_package (v_d_p) {}
 
     public:
+      bool distributed = false; // True if this project is being distributed.
       vector<path> adhoc;
 
       struct callback

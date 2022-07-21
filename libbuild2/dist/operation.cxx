@@ -64,6 +64,30 @@ namespace build2
       return o;
     }
 
+    static void
+    dist_load_load (const values& vs,
+                    scope& rs,
+                    const path& bf,
+                    const dir_path& out_base,
+                    const dir_path& src_base,
+                    const location& l)
+    {
+      // @@ TMP: redo after release (do it here and not in execute, also add
+      //         custom search and do the other half there).
+      //
+#if 0
+      if (rs.out_path () != out_base || rs.src_path () != src_base)
+        fail (l) << "dist meta-operation target must be project root directory";
+#endif
+
+      // Mark this project as being distributed.
+      //
+      if (auto* m = rs.find_module<module> (module::name))
+        m->distributed = true;
+
+      load (vs, rs, bf, out_base, src_base, l);
+    }
+
     // Enter the specified source file as a target of type T. The path is
     // expected to be normalized and relative to src_root. If the third
     // argument is false, then first check if the file exists. If the fourth
@@ -1037,7 +1061,7 @@ namespace build2
       true,    // bootstrap_outer
       nullptr, // meta-operation pre
       &dist_operation_pre,
-      &load,   // normal load
+      &dist_load_load,
       &search, // normal search
       nullptr, // no match (see dist_execute()).
       &dist_load_execute,
@@ -1073,7 +1097,7 @@ namespace build2
       init_config (rs);
     }
 
-    void
+    static void
     dist_bootstrap_search (const values&,
                            const scope& rs,
                            const scope&,
