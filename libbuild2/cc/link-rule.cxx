@@ -1615,7 +1615,7 @@ namespace build2
             // is important (see add_addhoc_member() for details).
             //
             if (operator>= (t.group->decl, target_decl::implied) // @@ VC14
-                ? (ot == otype::a || !link_members (rs).a)
+                ? ot == (link_members (rs).a ? otype::a : otype::s)
                 : search_existing (ctx,
                                    ot == otype::a
                                    ? libs::static_type
