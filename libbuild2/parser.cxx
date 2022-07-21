@@ -2402,7 +2402,9 @@ namespace build2
           info << "instead use 'include' prerequisite-specific variable to "
                << "conditionally include prerequisites" <<
           info << "for example: "
-               << "<target>: <prerequisite>: include = (<condition>)";
+               << "<target>: <prerequisite>: include = (<condition>)" <<
+          info << "for details, see https://github.com/build2/HOWTO/blob/"
+               << "master/entries/keep-build-graph-config-independent.md";
       }
     }
 
