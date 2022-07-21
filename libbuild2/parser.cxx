@@ -2389,9 +2389,10 @@ namespace build2
     {
       // Only issue the warning for the projects being distributed. In
       // particular, this makes sure we don't complain about imported
-      // projects.
+      // projects. Note: use amalgamation to cover bundled subprojects.
       //
-      auto* dm (root_->find_module<dist::module> (dist::module::name));
+      auto* dm (root_->bundle_scope ()->find_module<dist::module> (
+                  dist::module::name));
 
       if (dm != nullptr && dm->distributed)
       {
