@@ -471,7 +471,7 @@ namespace build2
 
      \
      $ b config.install.root=c:\projects\install
-     $ b \"config.install.root='c:\Program Files (x86)\test\'\"
+     $ b \"config.install.root='c:\Program Files\test\'\"
      $ b 'config.cxx.poptions=-DFOO_STR=\"foo\"'
      \
      "
