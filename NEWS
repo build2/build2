@@ -1,5 +1,31 @@
 Version 0.15.0
 
+  * Generated C/C++ headers and ad hoc sources are now updated during match.
+
+    Specifically, all headers as well as ad hoc headers and sources are now
+    treated by the cc::link_rule as if they had update=match unless explicit
+    update=execute is specified (see below on the update operation-specific
+    variable).
+
+    This change should be transparent to most project. For background and
+    discussion of rare cases where you may wish to disable this, see:
+
+    https://github.com/build2/HOWTO/blob/master/entries/handle-auto-generated-headers.md
+
+  * Support for rule hints.
+
+    A rule hint is a target attribute, for example:
+
+    [rule_hint=cxx] exe{hello}: c{hello}
+
+    Rule hints can be used to resolve ambiguity when multiple rules match the
+    same target as well as to override an unambiguous match.
+
+    In cc::link_rule we now support "linking" libraries without any sources or
+    headers with a hint. This can be useful for creating "metadata libraries"
+    whose only purpose is to convey metadata (options to use and/or libraries
+    to link).
+
   * UTF-8 is now the default input/source character set for C/C++ compilation.
 
     Specifically, the cc module now passes the appropriate compiler option
@@ -12,6 +38,81 @@ Version 0.15.0
     For various ways to fix this, see:
 
     https://github.com/build2/HOWTO/blob/master/entries/convert-source-files-to-utf8.md
+
+  * Project configuration variables are now non-nullable by default.
+
+    A project configuration variable with the NULL default value is naturally
+    assumed nullable, for example:
+
+    config [string] config.libhello.fallback_name ?= [null]
+
+    Otherwise, to make a project configuration nullable use the `null`
+    variable attribute, for example:
+
+    config [string, null] config.libhello.fallback_name ?= "World"
+
+  * New $relative(<path>, <dir-path>) function.
+
+  * New $root_directory(<path>) function.
+
+  * New $size() function to get the size of string, path, dir_path.
+
+  * New $size() function to get the size of a sequence (strings, paths, etc).
+
+  * New $sort() function to sort a sequence (strings, paths, etc).
+
+    The function has the following signature:
+
+    $sort(<sequence> [, <flags>])
+
+    The following flag is supported by all the overloads:
+
+      dedup - in addition to sorting also remove duplicates
+
+          Additionally, the strings overload also support the following flag:
+
+      icase - sort ignoring case
+
+    Note that on case-insensitive filesystem the paths and dir_paths
+    overload's order is case-insensitive.
+
+  * New $config.origin() function for querying configuration value origin.
+
+    Give a config.* variable name, this function returns one of `undefined`,
+    `default`, `buildfile`, or `override`.
+
+  * Recognition of -pthread as a special -l option in *.libs.
+
+    For background, see:
+
+    https://github.com/build2/HOWTO/blob/master/entries/link-pthread.md
+
+  * The bin.whole (whole archive) value is now saved in generated pkg-config
+    files.
+
+  * Ability to customize header and library search paths in generated
+    pkg-config files.
+
+    Specifically, {cc,c,cxx}.pkgconfig.{include,lib} variables specify header
+    (-I) and library (-L) search paths to use in the generated pkg-config
+    files instead of the default install.{include,lib}. Relative paths are
+    resolved as installation paths. For example:
+
+    lib{Qt6Core}: cxx.pkgconfig.include = include/qt6/
+
+  * Ability to save user metadata in C/C++ libraries, including in generated
+    pkg-config files.
+
+    For background and details, see:
+
+    https://github.com/build2/HOWTO/blob/master/entries/convey-additional-information-with-exe-lib.md
+
+  * Support for rule-specific search in immediate import.
+
+    We can now nominate a rule to perform the rule-specific search (if
+    requires) using the rule_hint attribute. For example:
+
+    import! [metadata, rule_hint=cxx.link] lib = libhello%lib{hello}
 
   * Support for dynamic dependencies in ad hoc recipes.
 
@@ -146,6 +247,128 @@ Version 0.15.0
     Planned future improvements include support the `lines` (list of files,
     one per line) input format in addition to `make` and support for dynamic
     targets in addition to prerequisites.
+
+  * Support for specifying custom ad hoc pattern rule names.
+
+    Besides improving diagnostics, this allows us to use such a name in the
+    rule hints, for example:
+
+    [rule_name=hello.link] exe{~'/(.*)/'}: obje{~'/\1/'}
+    {{
+      $cxx.path -o $path($>) $path($<[0])
+    }}
+
+    [rule_hint=hello] exe{hello}: obje{hello}
+
+    obje{hello}: c{hello-c}
+
+  * Ability to disfigure specific configuration variables.
+
+    The new config.config.disfigure variable can be used to specify the list
+    of variables to ignore when loading config.build (and any files specified
+    in config.config.load), letting them to take on the default values. For
+    example:
+
+    $ b configure config.config.disfigure=config.hello.fancy
+
+    Besides names, variables can also be specified as patterns in the
+    config.<prefix>.(*|**)[<suffix>] form where `*` matches single
+    component names (i.e., `foo` but not `foo.bar`), and `**` matches
+    single and multi-component names. Currently only single wildcard (`*` or
+    `**`) is supported.  Additionally, a pattern in the config.<prefix>(*|**)
+    form (i.e., without `.` after <prefix>) matches config.<prefix>.(*|**)
+    plus config.<prefix> itself (but not config.<prefix>foo).
+
+    For example, to disfigure all the project configuration variables (while
+    preserving all the module configuration variables; note quoting to prevent
+    pattern expansion):
+
+    $ b config.config.disfigure="'config.hello**'"
+
+  * Ability to omit loading config.build.
+
+    If the new config.config.unload variable is set to true, then omit loading
+    the project's configuration from the config.build file. Note that the
+    configuration is still loaded from config.config.load if specified. Note
+    also that similar to config.config.load, only overrides specified on this
+    project's root scope and global scope are considered.
+
+  * Ability to match libul{} targets.
+
+    The bin.libul rule picks, matches, and unmatches (if possible) a member
+    for the purpose of making its metadata (for example, library's poptions,
+    if it's one of the cc libraries) available.
+
+  * Ability to get common interface options via ${c,cxx}.lib_poptions().
+
+    Specifically, the output target type may now be omitted for utility
+    libraries (libul{} and libu[eas]{}). In this case, only "common interface"
+    options will be returned for lib{} dependencies. This is primarily useful
+    for obtaining poptions to be passed to tools other than C/C++ compilers
+    (for example, Qt moc).
+
+  * Ability to control -I translation to -isystem or /external:I in
+    ${c,cxx}.lib_poptions().
+
+    See the function documentation for details.
+
+  * New `update` operation-specific variable.
+
+    This variable is similar to the already existing `clean` and `test`
+    variables but besides the standard `true` and `false` values, it can also
+    be set to `unmatch` (match but do not update) and `match` (update during
+    match) and `execute` (update during execute, as is normally; this value is
+    primarily useful if the rule has the `match` semantics by default).
+
+    Note that the unmatch (match but do not update) and match (update during
+    match) values are only supported by certain rules (and potentially only
+    for certain prerequisite types).
+
+    Additionally:
+
+    - All the operation-specific variables are now checked for `false` as an
+      override for the prerequisite-specific `include` variable. This can now
+      be used to disable a prerequisite for update, for example:
+
+      ./: exe{test}: update = false
+
+    - Ad hoc Buildscript recipes now support update=unmatch|match.
+
+    - The cc::link_rule now supports the `match` value for headers and ad hoc
+      prerequisites. This can be used to make sure all the library headers are
+      updated before matching any of its (or dependent's) object files.
+
+  * New build.mode global scope variable.
+
+    This variable signals the mode the build system may be running in. The two
+    core modes are `no-external-modules` (bootstrapping of external modules is
+    disabled, see --no-external-modules for details) and `normal` (normal
+    execution). Other build system drivers may invent additional modes (for
+    example, the bpkg `skeleton` mode; see "Package Build System Skeleton" in
+    the package manager manual for details).
+
+  * New cmdline value type for canned command lines.
+
+    The Testscript and Buildscript languages now use the special cmdline value
+    type for canned command lines. Specifically, the re-lexing after expansion
+    now only happens if the expended value is of the cmdline type. See
+    "Lexical Structure" in the Testscript manual for details.
+
+  * The bash build system module now installs bash modules into
+    bin/<project>.bash/ instead of bin/<project>/ to avoid clashes.
+
+  * New --trace-{match,execute} options.
+
+    These options can be used to understand which dependency chain causes
+    matching or execution of a particular target. See b(1) for details.
+
+  * JSON format support for the --structured-result option and the info meta
+    operation.
+
+    See b(1) for details.
+
+  * Switch to using libpkg-config instead of libpkfconf for loading pkg-config
+    files.
 
 Version 0.14.0
 
