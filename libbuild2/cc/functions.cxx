@@ -243,7 +243,7 @@ namespace build2
       // obtaining poptions to be passed to tools other than C/C++ compilers
       // (for example, Qt moc).
       //
-      // If <portable> is true, then return the original -I options without
+      // If <original> is true, then return the original -I options without
       // performing any translation (for example, to -isystem or /external:I).
       // This is the default if <otype> is omitted. To get the translation for
       // the common interface options, pass [null] for <otype> and true for
