@@ -7,7 +7,7 @@ Version 0.15.0
     update=execute is specified (see below on the update operation-specific
     variable).
 
-    This change should be transparent to most project. For background and
+    This change should be transparent to most projects. For background and
     discussion of rare cases where you may wish to disable this, see:
 
     https://github.com/build2/HOWTO/blob/master/entries/handle-auto-generated-headers.md
@@ -73,8 +73,8 @@ Version 0.15.0
 
       icase - sort ignoring case
 
-    Note that on case-insensitive filesystem the paths and dir_paths
-    overload's order is case-insensitive.
+    Note that on case-insensitive filesystems the paths and dir_paths
+    overloads' order is case-insensitive.
 
   * New $config.origin() function for querying configuration value origin.
 
@@ -110,7 +110,7 @@ Version 0.15.0
   * Support for rule-specific search in immediate import.
 
     We can now nominate a rule to perform the rule-specific search (if
-    requires) using the rule_hint attribute. For example:
+    required) using the rule_hint attribute. For example:
 
     import! [metadata, rule_hint=cxx.link] lib = libhello%lib{hello}
 
@@ -244,9 +244,9 @@ Version 0.15.0
       $cxx.path $poptions $coptions $cxx.mode -o $o -c $s
     }}
 
-    Planned future improvements include support the `lines` (list of files,
-    one per line) input format in addition to `make` and support for dynamic
-    targets in addition to prerequisites.
+    Planned future improvements include support for the `lines` (list of
+    files, one per line) input format in addition to `make` and support for
+    dynamic targets in addition to prerequisites.
 
   * Support for specifying custom ad hoc pattern rule names.
 
