@@ -839,7 +839,9 @@ namespace build2
           // @@ Isn't libul{} member already picked or am I missing something?
           //    If not, then we may need the same in recursive-binless logic.
           //
-          assert (false); // @@ TMP
+#if 0
+          assert (false); // @@ TMP (remove before 0.16.0 release)
+#endif
           ux = &link_member (*ul, a, li)->as<libux> ();
         }
         else if ((ux = pt->is_a<libue> ()) ||
