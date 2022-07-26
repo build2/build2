@@ -377,6 +377,7 @@ namespace build2
             << "#include <libbuild2/depdb.hxx>"                         << '\n'
             << "#include <libbuild2/scope.hxx>"                         << '\n'
             << "#include <libbuild2/target.hxx>"                        << '\n'
+            << "#include <libbuild2/dyndep.hxx>"                        << '\n'
             << "#include <libbuild2/context.hxx>"                       << '\n'
             << "#include <libbuild2/variable.hxx>"                      << '\n'
             << "#include <libbuild2/algorithm.hxx>"                     << '\n'
