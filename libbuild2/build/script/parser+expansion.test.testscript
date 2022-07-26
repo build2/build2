@@ -24,19 +24,15 @@ EOI
   buildfile:12:5: info: while parsing string 'xy'a bc'
 EOE
 
-# @@ TMP
-#
-#\
 : invalid-redirect
 :
 $* <<EOI 2>>EOE != 0
-x = [cmd_line] "1>&a"
+x = [cmdline] "1>&a"
 cmd $x
 EOI
 <string>:1:4: error: stdout merge redirect file descriptor must be 2
   buildfile:12:5: info: while parsing string '1>&a'
 EOE
-#\
 
 : expansion-re-parse
 :
