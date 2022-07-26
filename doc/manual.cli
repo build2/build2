@@ -311,6 +311,16 @@ it searches for a target for the \c{cxx{hello\}} prerequisite. During this
 search, the \c{extension} variable is looked up and its value is used to end
 up with the \c{hello.cxx} file.
 
+\N|To resolve a rule match ambiguity or to override a default match \c{build2}
+uses \i{rule hints}. For example, if we wanted link a C executable using the
+C++ link rule:
+
+\
+[rule_hint=cxx] exe{hello}: c{hello}
+\
+
+|
+
 Here is our new dependency declaration again:
 
 \
@@ -4624,15 +4634,20 @@ cross-compilation (specifically, inability to run tests).
 
 As a result, we recommend using \i{expectation-based} configuration where your
 project assumes a feature to be available if certain conditions are
-met. Examples of such conditions at the source code level include feature
-test macros, platform macros, runtime library macros, compiler macros, etc.,
-with the build system modules exposing some of the same information via
-variables to allow making similar decisions in \c{buildfiles}. Another
-alternative is to automatically adapt to missing features using more advanced
-techniques such as C++ SFINAE. And in situations where none of this is
-possible, we recommend delegating the decision to the user via a configuration
-value.  Our experience with \c{build2} as well as those of other large
-cross-platform projects such as Boost show that this is a viable strategy.
+met. Examples of such conditions at the source code level include feature test
+macros, platform macros, runtime library macros, compiler macros, etc., with
+the build system modules exposing some of the same information via variables
+to allow making similar decisions in \c{buildfiles}. The standard
+pre-installed \l{https://github.com/build2/libbuild2-autoconf/ \c{autoconf}}
+build system module provides emulation of GNU \c{autoconf} using this
+approach.
+
+Another alternative is to automatically adapt to missing features using more
+advanced techniques such as C++ SFINAE. And in situations where none of this
+is possible, we recommend delegating the decision to the user via a
+configuration value.  Our experience with \c{build2} as well as those of other
+large cross-platform projects such as Boost show that this is a viable
+strategy.
 
 Having said that, \c{build2} does provide the ability to extract configuration
 information from the environment (\c{$getenv()} function) or other tools
