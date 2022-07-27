@@ -129,7 +129,7 @@ Version 0.15.0
       coptions = $cc.coptions $cxx.coptions
 
       depdb dyndep $poptions --what=header --default-type=h -- \
-	$cxx.path $poptions $coptions $cxx.mode -M -MG $s
+        $cxx.path $poptions $coptions $cxx.mode -M -MG $s
 
       diag c++ ($<[0])
 
@@ -140,7 +140,7 @@ Version 0.15.0
 
     t = $(o).t
     depdb dyndep $poptions --what=header --default-type=h --file $t -- \
-	$cxx.path $poptions $coptions $cxx.mode -M -MG $s >$t
+      $cxx.path $poptions $coptions $cxx.mode -M -MG $s >$t
 
     The above depdb-dyndep commands will run the C++ compiler with the -M -MG
     options to extract the header dependency information, parse the resulting
@@ -231,17 +231,47 @@ Version 0.15.0
       s = $path($<[0])
       o = $path($>)
 
-      poptions  = $cxx.poptions $cc.poptions
-      poptions += $cxx.lib_poptions(libue{hello-meta}, obje)
+      lib_poptions = $cxx.lib_poptions(libue{hello-meta}, obje)
+      depdb hash $lib_poptions
+
+      poptions  = $cxx.poptions $cc.poptions $lib_poptions
       coptions  = $cc.coptions $cxx.coptions
 
       depdb dyndep $poptions --what=header --default-type=h \
         --update-exclude libue{hello-meta} -- \
-	$cxx.path $poptions $coptions $cxx.mode -M -MG $s
+          $cxx.path $poptions $coptions $cxx.mode -M -MG $s
 
       diag c++ ($<[0])
 
       $cxx.path $poptions $coptions $cxx.mode -o $o -c $s
+    }}
+
+    As another example, sometimes we need to extract the "common interface"
+    preprocessor options that are independent of the the library type (static
+    or shared). For example, the Qt moc compiler needs to "see" the C/C++
+    preprocessor options from imported libraries if they could affect its
+    input. Here is how we can implement this:
+
+    import libs = libhello%lib{hello}
+
+    libul{hello-meta}: $libs
+
+    cxx{hello-moc}: hxx{hello} libul{hello-meta} $moc
+    {{
+      s = $path($<[0])
+      o = $path($>[0])
+      t = $(o).t
+
+      lib_poptions = $cxx.lib_poptions(libul{hello-meta})
+      depdb hash $lib_poptions
+
+      depdb dyndep --byproduct --drop-cycles --what=header --default-type=h \
+        --update-exclude libul{hello-meta} --file $t
+
+      diag moc ($<[0])
+
+      $moc $cc.poptions $cxx.poptions $lib_poptions \
+        -f $leaf($s) --output-dep-file --dep-file-path $t -o $o $s
     }}
 
     Planned future improvements include support for the `lines` (list of
