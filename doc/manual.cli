@@ -4320,10 +4320,10 @@ latter is used to update generated source code (such as headers) that is
 required to complete the match.|
 
 Debugging issues in each phase requires different techniques. Let's start with
-the load phase. As mentioned in \l{#intro-lang Build Language}, \c{buildfiles}
-are processed linearly with directives executed and variables expanded as they
-are encountered. As we have already seen, to print a variable value we can use
-the \c{info} directive. For example:
+the load phase. As mentioned in \l{#intro-lang Buildfile Language},
+\c{buildfiles} are processed linearly with directives executed and variables
+expanded as they are encountered. As we have already seen, to print a variable
+value we can use the \c{info} directive. For example:
 
 \
 x = X
