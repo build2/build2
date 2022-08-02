@@ -32,7 +32,7 @@ namespace build2
       in_rule (): rule ("bash.in 1", "bash.in", '@', false /* strict */) {}
 
       virtual bool
-      match (action, target&) const override;
+      match (action, target&, const string&, match_extra&) const override;
 
       virtual recipe
       apply (action, target&) const override;

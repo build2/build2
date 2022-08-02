@@ -63,16 +63,16 @@ namespace build2
     // in_rule
     //
     bool in_rule::
-    match (action a, target& t) const
+    match (action a, target& t, const string& hint, match_extra&) const
     {
       tracer trace ("bash::in_rule::match");
 
-      // Note that for bash{} we match even if the target does not depend on
-      // any modules (while it could have been handled by the in module, that
-      // would require loading it).
+      // Note that for bash{} and for exe{} with hint we match even if the
+      // target does not depend on any modules (while it could have been
+      // handled by the in module, that would require loading it).
       //
-      bool fi (false);           // Found in.
-      bool fm (t.is_a<bash> ()); // Found module.
+      bool fi (false);                             // Found in.
+      bool fm (!hint.empty () || t.is_a<bash> ()); // Found module.
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
@@ -86,7 +86,8 @@ namespace build2
         l4 ([&]{trace << "no in file prerequisite for target " << t;});
 
       if (!fm)
-        l4 ([&]{trace << "no bash module prerequisite for target " << t;});
+        l4 ([&]{trace << "no bash module prerequisite or hint for target "
+                      << t;});
 
       return fi && fm;
     }
