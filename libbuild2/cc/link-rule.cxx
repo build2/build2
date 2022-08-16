@@ -1561,22 +1561,26 @@ namespace build2
           //
           if (!binless && ot != otype::a && tsys == "win32-msvc")
           {
-            if (find_option ("/DEBUG", t, c_loptions, true) ||
-                find_option ("/DEBUG", t, x_loptions, true))
+            const string* o;
+            if ((o = find_option_prefix ("/DEBUG", t, c_loptions, true)) != nullptr ||
+                (o = find_option_prefix ("/DEBUG", t, x_loptions, true)) != nullptr)
             {
-              const target_type& tt (*bs.find_target_type ("pdb"));
+              if (icasecmp (*o, "/DEBUG:NONE") != 0)
+              {
+                const target_type& tt (*bs.find_target_type ("pdb"));
 
-              // We call the target foo.{exe,dll}.pdb rather than just foo.pdb
-              // because we can have both foo.exe and foo.dll in the same
-              // directory.
-              //
-              file& pdb (add_adhoc_member<file> (t, tt, e));
+                // We call the target foo.{exe,dll}.pdb rather than just
+                // foo.pdb because we can have both foo.exe and foo.dll in the
+                // same directory.
+                //
+                file& pdb (add_adhoc_member<file> (t, tt, e));
 
-              // Note that the path is derived from the exe/dll path (so it
-              // will include the version in case of a dll).
-              //
-              if (pdb.path ().empty ())
-                pdb.derive_path (t.path ());
+                // Note that the path is derived from the exe/dll path (so it
+                // will include the version in case of a dll).
+                //
+                if (pdb.path ().empty ())
+                  pdb.derive_path (t.path ());
+              }
             }
           }
 
@@ -3608,14 +3612,17 @@ namespace build2
           // If we have /DEBUG then name the .pdb file. It is an ad hoc group
           // member.
           //
-          if (find_option ("/DEBUG", args, true))
+          if (const char* o = find_option_prefix ("/DEBUG", args, true))
           {
-            const file& pdb (
-              *find_adhoc_member<file> (t, *bs.find_target_type ("pdb")));
+            if (icasecmp (o, "/DEBUG:NONE") != 0)
+            {
+              const file& pdb (
+                *find_adhoc_member<file> (t, *bs.find_target_type ("pdb")));
 
-            out1 = "/PDB:";
-            out1 += relative (pdb.path ()).string ();
-            args.push_back (out1.c_str ());
+              out1 = "/PDB:";
+              out1 += relative (pdb.path ()).string ();
+              args.push_back (out1.c_str ());
+            }
           }
 
           out = "/OUT:" + relt.string ();
