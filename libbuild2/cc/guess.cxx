@@ -414,9 +414,9 @@ namespace build2
     //
     struct msvc_info
     {
-      dir_path msvc_dir; // VC directory (...\Tools\MSVC\<ver>\).
-      dir_path psdk_dir; // Platfor SDK version (under Include/, Lib/, etc).
-      string   psdk_ver; // Platfor SDK directory (...\Windows Kits\<ver>\).
+      dir_path msvc_dir; // VC tools directory (...\Tools\MSVC\<ver>\).
+      dir_path psdk_dir; // Platform SDK directory (...\Windows Kits\<ver>\).
+      string   psdk_ver; // Platform SDK version (under Include/, Lib/, etc).
     };
 
 #if defined(_WIN32) && !defined(BUILD2_BOOTSTRAP)
@@ -458,12 +458,15 @@ namespace build2
       {0x87, 0xBF, 0xD5, 0x77, 0x83, 0x8F, 0x1D, 0x5C}};
 
     // If cl is not empty, then find an installation that contains this cl.exe
-    // path.
+    // path. In this case the path must be absolute and normalized.
     //
     static optional<msvc_info>
-    find_msvc (const path& cl =  path ())
+    find_msvc (const path& cl = path ())
     {
       using namespace butl;
+
+      assert (cl.empty () ||
+              (cl.absolute () && cl.normalized (false /* sep */)));
 
       msvc_info r;
 
@@ -530,7 +533,7 @@ namespace build2
           // Note: we cannot use bstr_t due to the Clang 9.0 bug #42842.
           //
           BSTR p;
-          if (vs->ResolvePath (L"VC", &p) !=  S_OK)
+          if (vs->ResolvePath (L"VC", &p) != S_OK)
             return dir_path ();
 
           unique_ptr<wchar_t, bstr_deleter> deleter (p);
@@ -636,36 +639,73 @@ namespace build2
             return nullopt;
         }
 
-        // Read the VC version from the file and bail out on error.
+        // If cl.exe path is not specified, then deduce the default VC tools
+        // directory for this Visual Studio instance. Otherwise, extract the
+        // tools directory from this path.
         //
-        string vc_ver; // For example, 14.23.28105.
-
-        path vp (
-          r.msvc_dir /
-          path ("Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt"));
-
-        try
-        {
-          ifdstream is (vp);
-          vc_ver = trim (is.read_text ());
-        }
-        catch (const io_error&) {}
-
-        // Make sure that the VC version directory exists.
+        // Note that in the latter case we could potentially avoid the above
+        // iterating over the VS instances, but let's make sure that the
+        // specified cl.exe path actually belongs to one of them as a sanity
+        // check.
         //
-        if (!vc_ver.empty ())
-        try
+        if (cl.empty ())
         {
-          ((r.msvc_dir /= "Tools") /= "MSVC") /= vc_ver;
+          // Read the VC version from the file and bail out on error.
+          //
+          string vc_ver; // For example, 14.23.28105.
 
-          if (!dir_exists (r.msvc_dir))
-            r.msvc_dir.clear ();
+          path vp (
+            r.msvc_dir /
+            path ("Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt"));
+
+          try
+          {
+            ifdstream is (vp);
+            vc_ver = trim (is.read_text ());
+          }
+          catch (const io_error&) {}
+
+          if (vc_ver.empty ())
+            return nullopt;
+
+          // Make sure that the VC version directory exists.
+          //
+          try
+          {
+            ((r.msvc_dir /= "Tools") /= "MSVC") /= vc_ver;
+
+            if (!dir_exists (r.msvc_dir))
+              return nullopt;
+          }
+          catch (const invalid_path&) {return nullopt;}
+          catch (const system_error&) {return nullopt;}
         }
-        catch (const invalid_path&) {}
-        catch (const system_error&) {}
+        else
+        {
+          (r.msvc_dir /= "Tools") /= "MSVC";
 
-        if (r.msvc_dir.empty ())
-          return nullopt;
+          // Extract the VC tools version from the cl.exe path and append it
+          // to r.msvc_dir.
+          //
+          if (!cl.sub (r.msvc_dir))
+            return nullopt;
+
+          // For example, 14.23.28105\bin\Hostx64\x64\cl.exe.
+          //
+          path p (cl.leaf (r.msvc_dir)); // Can't throw.
+
+          auto i (p.begin ()); // Tools version.
+          if (i == p.end ())
+            return nullopt;
+
+          r.msvc_dir /= *i; // Can't throw.
+
+          // For good measure, make sure that the tools version is not the
+          // last component in the cl.exe path.
+          //
+          if (++i == p.end ())
+            return nullopt;
+        }
       }
 
       // Try to obtain the latest Platform SDK directory and version.
@@ -928,10 +968,12 @@ namespace build2
           // We try to find the matching installation only for MSVC (for Clang
           // we extract this information from the compiler).
           //
-          if (xc.absolute () &&
-              (pt == type::msvc && !pv))
+          if (xc.absolute () && (pt == type::msvc && !pv))
           {
-            if (optional<msvc_info> mi = find_msvc (xc))
+            path cl (xc);    // Absolute but may not be normalized.
+            cl.normalize (); // Can't throw since this is an existing path.
+
+            if (optional<msvc_info> mi = find_msvc (cl))
             {
               search_info = info_ptr (
                 new msvc_info (move (*mi)), msvc_info_deleter);
