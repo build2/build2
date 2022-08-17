@@ -34,6 +34,8 @@ namespace build2
       virtual bool
       match (action, target&, const string&, match_extra&) const override;
 
+      using in::rule::match; // Make Clang happy.
+
       virtual recipe
       apply (action, target&) const override;
 
