@@ -759,6 +759,31 @@ namespace build2
           output_info (d, op);
         }
 
+        // Note that a here-document regex without ':' modifier can never
+        // match an empty output since it always contains the trailing empty
+        // line-char. This can be confusing, as for example while testing a
+        // program which can print some line or nothing with the following
+        // test:
+        //
+        // $* >>~%EOO%
+        //   %(
+        //   Hello, World!
+        //   %)?
+        //   EOO
+        //
+        // Note that the above line-regex contains 4 line-chars and will never
+        // match empty output.
+        //
+        // Thus, let's complete an empty output with an empty line-char for
+        // such a regex, so it may potentially match.
+        //
+        if (ls.empty ()                              &&
+            rd.type == redirect_type::here_doc_regex &&
+            rd.modifiers ().find (':') == string::npos)
+        {
+          ls += line_char (string (), regex.pool);
+        }
+
         // Match the output with the regex.
         //
         // Note that we don't distinguish between the line_regex and
