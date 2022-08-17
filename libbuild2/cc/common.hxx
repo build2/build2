@@ -384,6 +384,11 @@ namespace build2
                        optional<dir_paths>&,
                        library_cache* = nullptr) const;
 
+      struct non_existent_library
+      {
+        const mtime_target& target;
+      };
+
       template <typename T>
       static ulock
       insert_library (context&,

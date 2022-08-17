@@ -552,64 +552,84 @@ namespace build2
                 if (sysd == nullptr) find_sysd ();
                 if (!li) find_linfo ();
 
-                pair<const mtime_target&, const target*> p (
-                  resolve_library (a,
+                const mtime_target* t;
+                const target* g;
+
+                const char* w (nullptr);
+                try
+                {
+                  pair<const mtime_target&, const target*> p (
+                    resolve_library (a,
                                    bs,
-                                   n,
-                                   (n.pair ? (++i)->dir : dir_path ()),
-                                   *li,
-                                   *sysd, usrd,
-                                   cache));
+                                     n,
+                                     (n.pair ? (++i)->dir : dir_path ()),
+                                     *li,
+                                     *sysd, usrd,
+                                     cache));
 
-                const mtime_target& t (p.first);
-                const target* g (p.second);
+                  t = &p.first;
+                  g = p.second;
 
-                // Deduplicate.
-                //
-                // Note that dedup_start makes sure we only consider our
-                // interface dependencies while maintaining the "through"
-                // list.
-                //
-                if (dedup != nullptr)
-                {
-                  if (find (dedup->begin () + dedup_start,
-                            dedup->end (),
-                            &t) != dedup->end ())
+                  // Deduplicate.
+                  //
+                  // Note that dedup_start makes sure we only consider our
+                  // interface dependencies while maintaining the "through"
+                  // list.
+                  //
+                  if (dedup != nullptr)
                   {
-                    ++i;
-                    continue;
-                  }
+                    if (find (dedup->begin () + dedup_start,
+                              dedup->end (),
+                              t) != dedup->end ())
+                    {
+                      ++i;
+                      continue;
+                    }
 
-                  dedup->push_back (&t);
+                    dedup->push_back (t);
+                  }
+                }
+                catch (const non_existent_library& e)
+                {
+                  // This is another manifestation of the "mentioned in
+                  // *.export.libs but not in prerequisites" case (see below).
+                  //
+                  t = &e.target;
+                  w = "unknown";
                 }
 
-                if (proc_lib)
+                // This can happen if the target is mentioned in *.export.libs
+                // (i.e., it is an interface dependency) but not in the
+                // library's prerequisites (i.e., it is not an implementation
+                // dependency).
+                //
+                // Note that we used to just check for path being assigned but
+                // on Windows import-installed DLLs may legally have empty
+                // paths.
+                //
+                if (w != nullptr)
+                  ; // See above.
+                else if (l.ctx.phase == run_phase::match)
                 {
-                  // This can happen if the target is mentioned in
-                  // *.export.libs (i.e., it is an interface dependency) but
-                  // not in the library's prerequisites (i.e., it is not an
-                  // implementation dependency).
+                  if (!t->matched (a))
+                    w = "not matched";
+                }
+                else if (proc_lib)
+                {
+                  // Note that this check we only do if there is proc_lib
+                  // (since it's valid to process library's options before
+                  // updating it).
                   //
-                  // Note that we used to just check for path being assigned
-                  // but on Windows import-installed DLLs may legally have
-                  // empty paths.
-                  //
-                  const char* w (nullptr);
-                  if (t.ctx.phase == run_phase::match)
-                  {
-                    if (!t.matched (a))
-                      w = "not matched";
-                  }
-                  else if (t.mtime () == timestamp_unknown)
+                  if (t->mtime () == timestamp_unknown)
                     w = "out of date";
-
-                  if (w != nullptr)
-                    fail   << (impl ? "implementation" : "interface")
-                           << " dependency " << t << " is " << w <<
-                      info << "mentioned in *.export." << (impl ? "impl_" : "")
-                           << "libs of target " << l <<
-                      info << "is it a prerequisite of " << l << "?";
                 }
+
+                if (w != nullptr)
+                  fail   << (impl ? "implementation" : "interface")
+                         << " dependency " << *t << " is " << w <<
+                    info << "mentioned in *.export." << (impl ? "impl_" : "")
+                         << "libs of target " << l <<
+                    info << "is it a prerequisite of " << l << "?";
 
                 // Process it recursively.
                 //
@@ -619,7 +639,7 @@ namespace build2
                 //
                 process_libraries_impl (
                   a, bs, *li, *sysd,
-                  g, t, t.is_a<liba> () || t.is_a<libux> (), 0,
+                  g, *t, t->is_a<liba> () || t->is_a<libux> (), 0,
                   proc_impl, proc_lib, proc_opt,
                   true /* self */, proc_opt_group,
                   cache, chain, dedup);
@@ -769,6 +789,8 @@ namespace build2
     // lib{} target itself. If li is present, then the returned target is
     // always a file. The second half of the returned pair is the group, if
     // the member was picked.
+    //
+    // Note: may throw non_existent_library.
     //
     pair<const mtime_target&, const target*> common::
     resolve_library (action a,

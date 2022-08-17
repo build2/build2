@@ -27,7 +27,9 @@ namespace build2
                                          target_decl::implied,
                                          trace));
 
-      assert (!exist || !p.second);
+      if (exist && p.second)
+        throw non_existent_library {p.first.template as<mtime_target> ()};
+
       r = &p.first.template as<T> ();
       return move (p.second);
     }
