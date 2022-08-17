@@ -611,25 +611,36 @@ namespace build2
                   ; // See above.
                 else if (l.ctx.phase == run_phase::match)
                 {
-                  if (!t->matched (a))
-                    w = "not matched";
+                  // We allow not matching installed libraries if all we need
+                  // is their options (see compile_rule::apply()).
+                  //
+                  if (proc_lib || t->base_scope ().root_scope () != nullptr)
+                  {
+                    if (!t->matched (a))
+                      w = "not matched";
+                  }
                 }
-                else if (proc_lib)
+                else
                 {
                   // Note that this check we only do if there is proc_lib
                   // (since it's valid to process library's options before
                   // updating it).
                   //
-                  if (t->mtime () == timestamp_unknown)
-                    w = "out of date";
+                  if (proc_lib)
+                  {
+                    if (t->mtime () == timestamp_unknown)
+                      w = "out of date";
+                  }
                 }
 
                 if (w != nullptr)
+                {
                   fail   << (impl ? "implementation" : "interface")
                          << " dependency " << *t << " is " << w <<
                     info << "mentioned in *.export." << (impl ? "impl_" : "")
                          << "libs of target " << l <<
                     info << "is it a prerequisite of " << l << "?";
+                }
 
                 // Process it recursively.
                 //
