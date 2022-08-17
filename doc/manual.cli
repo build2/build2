@@ -458,7 +458,7 @@ invocation. In other words, expect an experience similar to a plain
 \c{Makefile}.
 
 One notable example where simple projects are handy is a \i{glue
-\c{buildfiles}} that \"pulls\" together several other projects, usually for
+\c{buildfile}} that \"pulls\" together several other projects, usually for
 convenience of development. See \l{#intro-import Target Importation} for
 details.|
 
