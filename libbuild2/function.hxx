@@ -952,7 +952,8 @@ namespace build2
 
     // Low-level interface that can be used to pass additional data.
     //
-    // Note that the call to this function sidesteps the thunk.
+    // Note that the call to this function sidesteps the thunk. One notable
+    // consequence of this is that the values are not checked for NULL.
     //
     template <typename D, typename... A>
     void

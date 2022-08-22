@@ -61,6 +61,9 @@ namespace build2
 
       // We can assume these are present due to function's types signature.
       //
+      if (vs[0].null)
+        throw invalid_argument ("null value");
+
       names& ts_ns (vs[0].as<names> ()); // <targets>
 
       // In a somewhat hackish way strip the outer operation to match how we
@@ -137,6 +140,9 @@ namespace build2
 
       // We can assume this is present due to function's types signature.
       //
+      if (vs[0].null)
+        throw invalid_argument ("null value");
+
       names& ts_ns (vs[0].as<names> ()); // <targets>
 
       optional<linfo> li;
@@ -369,6 +375,9 @@ namespace build2
             bool rel (true);
             if (vs.size () > 2)
             {
+              if (vs[2].null)
+                throw invalid_argument ("null value");
+
               for (const name& f: vs[2].as<names> ())
               {
                 string s (convert<string> (name (f)));
@@ -520,6 +529,9 @@ namespace build2
             // We can assume the argument is present due to function's types
             // signature.
             //
+            if (vs[0].null)
+              throw invalid_argument ("null value");
+
             names& r (vs[0].as<names> ());
             m->deduplicate_export_libs (*bs,
                                         vector<name> (r.begin (), r.end ()),
