@@ -1,5 +1,11 @@
 Version 0.15.0
 
+  * The in.substitution variable has been renamed to in.mode.
+
+    The original name is still recognized for backwards compatibility.
+
+Version 0.15.0
+
   * Generated C/C++ headers and ad hoc sources are now updated during match.
 
     Specifically, all headers as well as ad hoc headers and sources are now
@@ -1552,10 +1558,10 @@ Version 0.8.0
 
     The alternative variable substitution symbol can be specified with the
     in.symbol variable and lax (instead of the default strict) mode with
-    in.substitution. For example:
+    in.mode. For example:
 
     file{test}: in.symbol = '@'
-    file{test}: in.substitution = lax
+    file{test}: in.mode = lax
 
   * New 'bash' build system module that provides modularization support for
     bash scripts. See the build system manual for all the details.
@@ -1730,7 +1736,7 @@ Version 0.7.0
   * Support for forwarded configurations with target backlinking. See the
     configure meta-operation discussion in b(1) for details.
 
-  * Improvements to the in module (in.symbol, in.substitution={strict|lax}).
+  * Improvements to the in module (in.symbol, in.mode={strict|lax}).
 
   * New $directory(), $base(), $leaf() and $extension() path functions.
 

@@ -108,7 +108,7 @@ namespace build2
       // Substitution mode.
       //
       bool strict (strict_);
-      if (const string* s = cast_null<string> (t["in.substitution"]))
+      if (const string* s = cast_null<string> (t["in.mode"]))
       {
         if (*s == "lax")
           strict = false;

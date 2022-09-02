@@ -3459,7 +3459,7 @@ example:
 h{config}: in{config}
 {
   in.symbol = '@'
-  in.substitution = lax
+  in.mode = lax
 
   SYSTEM_NAME = $c.target.system
   SYSTEM_PROCESSOR = $c.target.cpu
@@ -8838,13 +8838,13 @@ symbol is expected to start a substitution with unresolved (to a variable
 value) names treated as errors. The double substitution symbol (for example,
 \c{$$}) serves as an escape sequence.
 
-The substitution mode can be relaxed using the \c{in.substitution} variable.
-Its valid values are \c{strict} (default) and \c{lax}. In the lax mode a pair
-of substitution symbols is only treated as a substitution if what's between
-them looks like a build system variable name (that is, it doesn't contain
-spaces, etc). Everything else, including unterminated substitution symbols, is
-copied as is. Note also that in this mode the double substitution symbol is
-not treated as an escape sequence.
+The substitution mode can be relaxed using the \c{in.mode} variable. Its
+valid values are \c{strict} (default) and \c{lax}. In the lax mode a pair of
+substitution symbols is only treated as a substitution if what's between them
+looks like a build system variable name (that is, it doesn't contain spaces,
+etc). Everything else, including unterminated substitution symbols, is copied
+as is. Note also that in this mode the double substitution symbol is not
+treated as an escape sequence.
 
 The lax mode is mostly useful when trying to reuse existing \c{.in} files from
 other build systems, such as \c{autoconf}. Note, however, that the lax mode is
@@ -8857,7 +8857,7 @@ substitutions as is. For example:
 h{config}: in{config} # config.h.in
 {
   in.symbol = '@'
-  in.substitution = lax
+  in.mode = lax
 
   CMAKE_SYSTEM_NAME = $c.target.system
   CMAKE_SYSTEM_PROCESSOR = $c.target.cpu
@@ -8884,11 +8884,12 @@ h{config}: in{config}
 }
 \
 
-A number of other build system modules, for example, \l{#module-version
-\c{version}} and \l{#module-bash \c{bash}}, are based on the \c{in} module and
-provide extended functionality. The \c{in} preprocessing rule matches any
-\c{file{\}}-based target that has the corresponding \c{in{\}} prerequisite
-provided none of the extended rules match.
+A number of other build system modules, for example,
+\l{https://github.com/build2/libbuild2-autoconf/ \c{autoconf}},
+\l{#module-version \c{version}}, and \l{#module-bash \c{bash}}, are based on
+the \c{in} module and provide extended functionality. The \c{in} preprocessing
+rule matches any \c{file{\}}-based target that has the corresponding \c{in{\}}
+prerequisite provided none of the extended rules match.
 
 
 \h1#module-bash|\c{bash} Module|

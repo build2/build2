@@ -58,7 +58,11 @@ namespace build2
         // is still stricter than the autoconf's semantics which also leaves
         // unknown substitutions as is.
         //
-        vp.insert<string> ("in.substitution");
+        const variable& im (vp.insert<string> ("in.mode"));
+
+        // Original name of this variable for backwards compatibility.
+        //
+        vp.insert_alias (im, "in.substitution");
 
         // Fallback value to use for NULL value substitutions. If unspecified,
         // NULL substitutions are an error.

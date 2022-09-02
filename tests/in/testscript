@@ -33,7 +33,7 @@ cat <<EOI >=test.in;
   EOI
 $* <<EOI &test &test.d;
   file{test}: in{test}
-  file{test}: in.substitution = lax
+  file{test}: in.mode = lax
   EOI
 cat test >>EOO
   $10
