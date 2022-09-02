@@ -1644,6 +1644,15 @@ $ b update: hello/exe{hello}   # Update specific target
 $ b update: libhello/ tests/   # Update two targets.
 \
 
+\N|If you are running \c{build2} from PowerShell, then you will need to use
+quoting when updating specific targets, for example:
+
+\
+$ b update: 'hello/exe{hello}'
+\
+
+|
+
 Let's revisit \c{build/bootstrap.build} from our \c{hello} project:
 
 \
