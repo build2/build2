@@ -1701,7 +1701,7 @@ namespace build2
     // Parse a recipe chain.
     //
     // % [<attrs>] [<buildspec>]
-    // [if|switch ...]
+    // [if|if!|switch ...]
     // {{ [<lang> ...]
     //   ...
     // }}
@@ -2090,7 +2090,7 @@ namespace build2
           // handy if we want to provide a custom recipe but only on certain
           // platforms or some such).
 
-          if (n == "if")
+          if (n == "if" || n == "if!")
           {
             parse_if_else (t, tt, true /* multi */, parse_block);
             continue;
