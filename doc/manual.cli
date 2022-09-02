@@ -8871,6 +8871,42 @@ target-specific variables. Typed variable values are converted to string
 using the corresponding \c{builtin.string()} function overload before
 substitution.
 
+While specifying substitution values as \c{buildfile} variables is usually
+natural, sometimes this may not be possible or convenient. Specifically, we
+may have substitution names that cannot be specified as \c{buildfile}
+variables, for example, because they start with an underscore (and are thus
+reserved) or because they refer to one of the predefined variables. Also, we
+may need to have different groups of substitution values for different cases,
+for example, for different platforms, and it would be convenient to pass such
+groups around as a single value.
+
+To support these requirements the substitution values can alternatively be
+specified as key-value pairs in the \c{in.substitutions} variable. Note that
+entries in this substitution map take precedence over the \c{buildfile}
+variables. For example:
+
+\
+/* config.h.in */
+
+#define _GNU_SOURCE   @_GNU_SOURCE@
+#define _POSIX_SOURCE @_POSIX_SOURCE@
+\
+
+\
+# buildfile
+
+h{config}: in{config}
+{
+  in.symbol = '@'
+  in.mode = lax
+
+  in.substitutions = _GNU_SOURCE@0 _POSIX_SOURCE@1
+}
+\
+
+\N|In the above example, the \c{@} characters in \c{in.symbol} and
+\c{in.substitutions} are unrelated.|
+
 Using an undefined variable in a substitution is an error. Using a \c{null}
 value in a substitution is also an error unless the fallback value is
 specified with the \c{in.null} variable. For example:
@@ -8883,6 +8919,15 @@ h{config}: in{config}
   in.null = '' # Substitute null values with empty string.
 }
 \
+
+\N|To specify a \c{null} value using the \c{in.substitutions} mechanism omit
+the value, for example:
+
+\
+in.substitutions = _GNU_SOURCE
+\
+
+|
 
 A number of other build system modules, for example,
 \l{https://github.com/build2/libbuild2-autoconf/ \c{autoconf}},

@@ -34,6 +34,7 @@ namespace build2
               const target&,
               const string&,
               optional<uint64_t>,
+              const substitution_map*,
               const optional<string>&) const override;
     };
 

@@ -116,6 +116,11 @@ namespace build2
           fail << "invalid substitution mode '" << *s << "'";
       }
 
+      // Substitution map.
+      //
+      const substitution_map* smap (
+        cast_null<map<string, optional<string>>> (t["in.substitutions"]));
+
       // NULL substitutions.
       //
       optional<string> null;
@@ -251,7 +256,7 @@ namespace build2
                   substitute (location (ip, ln),
                               a, t,
                               name, flags,
-                              strict, null));
+                              strict, smap, null));
 
                 assert (v); // Rule semantics change without version increment?
 
@@ -379,7 +384,7 @@ namespace build2
                    a, t,
                    dd, dd_skip,
                    s, 0,
-                   nl, sym, strict, null);
+                   nl, sym, strict, smap, null);
 
           ofs << s;
         }
@@ -445,6 +450,7 @@ namespace build2
              const char* nl,
              char sym,
              bool strict,
+             const substitution_map* smap,
              const optional<string>& null) const
     {
       // Scan the line looking for substiutions in the $<name>$ form. In the
@@ -500,8 +506,7 @@ namespace build2
                                                dd, dd_skip,
                                                string (s, b + 1, e - b -1),
                                                nullopt /* flags */,
-                                               strict,
-                                               null))
+                                               strict, smap, null))
         {
           replace_newlines (*val, nl);
 
@@ -522,9 +527,10 @@ namespace build2
                 const string& n,
                 optional<uint64_t> flags,
                 bool strict,
+                const substitution_map* smap,
                 const optional<string>& null) const
     {
-      optional<string> val (substitute (l, a, t, n, flags, strict, null));
+      optional<string> val (substitute (l, a, t, n, flags, strict, smap, null));
 
       if (val)
       {
@@ -561,6 +567,7 @@ namespace build2
                 const string& n,
                 optional<uint64_t> flags,
                 bool strict,
+                const substitution_map* smap,
                 const optional<string>& null) const
     {
       // In the lax mode scan the fragment to make sure it is a variable name
@@ -585,7 +592,7 @@ namespace build2
         }
       }
 
-      return lookup (l, a, t, n, flags, null);
+      return lookup (l, a, t, n, flags, smap, null);
     }
 
     string rule::
@@ -593,10 +600,32 @@ namespace build2
             action, const target& t,
             const string& n,
             optional<uint64_t> flags,
+            const substitution_map* smap,
             const optional<string>& null) const
     {
       assert (!flags);
 
+      // First look in the substitution map.
+      //
+      if (smap != nullptr)
+      {
+        auto i (smap->find (n));
+
+        if (i != smap->end ())
+        {
+          if (i->second)
+            return *i->second;
+
+          if (null)
+            return *null;
+
+          fail (loc) << "null value in substitution map entry '" << n << "'" <<
+            info << "use in.null to specify null value substiution string";
+        }
+      }
+
+      // Next look for the buildfile variable.
+      //
       auto l (t[n]);
 
       if (l.defined ())
@@ -607,9 +636,9 @@ namespace build2
         {
           if (null)
             return *null;
-          else
-            fail (loc) << "null value in variable '" << n << "'" <<
-              info << "use in.null to specify null value substiution string";
+
+          fail (loc) << "null value in variable '" << n << "'" <<
+            info << "use in.null to specify null value substiution string";
         }
 
         // For typed values call string() for conversion.

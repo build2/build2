@@ -64,6 +64,22 @@ namespace build2
         //
         vp.insert_alias (im, "in.substitution");
 
+        // Substitution map. Substitutions can be specified as key-value pairs
+        // rather than buildfile variables. This map is checked before the
+        // variables. An absent value in key-value has the NULL semantics.
+        //
+        // This mechanism has two primary uses: Firstly, it allows us to have
+        // substitution names that cannot be specified as buildfile variables.
+        // For example, a name may start with an underscore and thus be
+        // reserved or it may refer to one of the predefined variables such a
+        // `include` or `extension` that may have a wrong visibility and/or
+        // type.
+        //
+        // Secondly, this mechanism allows us to encapsulate a group of
+        // substitutions and pass this group around as a single value.
+        //
+        vp.insert<map<string, optional<string>>> ("in.substitutions");
+
         // Fallback value to use for NULL value substitutions. If unspecified,
         // NULL substitutions are an error.
         //

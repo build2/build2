@@ -54,6 +54,7 @@ namespace build2
 
       // Customization hooks and helpers.
       //
+      using substitution_map = map<string, optional<string>>;
 
       // Perform prerequisite search.
       //
@@ -89,6 +90,7 @@ namespace build2
               action, const target&,
               const string& name,
               optional<uint64_t> flags,
+              const substitution_map*,
               const optional<string>& null) const;
 
       // Perform variable substitution. Return nullopt if it should be
@@ -100,6 +102,7 @@ namespace build2
                   const string& name,
                   optional<uint64_t> flags,
                   bool strict,
+                  const substitution_map*,
                   const optional<string>& null) const;
 
       // Call the above version and do any necessary depdb saving.
@@ -111,6 +114,7 @@ namespace build2
                   const string& name,
                   optional<uint64_t> flags,
                   bool strict,
+                  const substitution_map*,
                   const optional<string>& null) const;
 
       // Process a line of input from the specified position performing any
@@ -124,6 +128,7 @@ namespace build2
                const char* newline,
                char sym,
                bool strict,
+               const substitution_map*,
                const optional<string>& null) const;
 
       // Replace newlines in a multi-line value with the given newline

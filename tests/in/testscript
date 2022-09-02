@@ -17,11 +17,34 @@ cat <<EOI >=test.in;
   EOI
 cat <<EOI >=buildfile;
   file{test}: in{test}
-  file{test}: foo = FOO
+  {
+    foo = FOO
+  }
   EOI
 $* <<<buildfile;
 cat test >>EOO;
   foo = FOO
+  EOO
+$* clean <<<buildfile
+
+: substitution-map
+:
+cat <<EOI >=test.in;
+  foo = $_foo$
+  bar = $bar$
+  EOI
+cat <<EOI >=buildfile;
+  file{test}: in{test}
+  {
+    in.substitutions  = _foo@FOO
+    in.substitutions += bar@BAR
+    bar = wrong
+  }
+  EOI
+$* <<<buildfile;
+cat test >>EOO;
+  foo = FOO
+  bar = BAR
   EOO
 $* clean <<<buildfile
 
@@ -33,7 +56,9 @@ cat <<EOI >=test.in;
   EOI
 $* <<EOI &test &test.d;
   file{test}: in{test}
-  file{test}: in.mode = lax
+  {
+    in.mode = lax
+  }
   EOI
 cat test >>EOO
   $10

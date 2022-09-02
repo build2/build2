@@ -115,6 +115,7 @@ namespace build2
             const target& t,
             const string& n,
             optional<uint64_t> flags,
+            const substitution_map* smap,
             const optional<string>& null) const
     {
       assert (!flags);
@@ -138,8 +139,7 @@ namespace build2
                              a,
                              t,
                              p == string::npos ? n : string (n, p + 1),
-                             nullopt,
-                             null);
+                             nullopt, smap, null);
       }
 
       string pn (n, 0, p);

@@ -52,6 +52,7 @@ namespace build2
                   const string&,
                   optional<uint64_t>,
                   bool,
+                  const substitution_map*,
                   const optional<string>&) const override;
 
       string
