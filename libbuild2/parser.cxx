@@ -2590,21 +2590,6 @@ namespace build2
       return;
     }
 
-    // What should we do if there are no prerequisites (for example, because
-    // of an empty wildcard result)? We can fail or we can ignore. In most
-    // cases, however, this is probably an error (for example, forgetting to
-    // checkout a git submodule) so let's not confuse the user and fail (one
-    // can always handle the optional prerequisites case with a variable and
-    // an if).
-    //
-    if (pns.empty ())
-      fail (ploc) << "no prerequisites in dependency chain or prerequisite-"
-                  << "specific variable assignment";
-
-    next_with_attributes (t, tt); // Recognize attributes after `:`.
-
-    auto at (attributes_push (t, tt));
-
     // If we are here, then this can be one of three things:
     //
     // 1. A prerequisite-specific variable bloc:
@@ -2618,10 +2603,37 @@ namespace build2
     //
     //    foo: bar: x = y
     //
-    // 3. A further dependency chain :
+    // 3. A further dependency chain:
     //
     //    foo: bar: baz ...
     //
+    // What should we do if there are no prerequisites, for example, because
+    // of an empty wildcard result or empty variable expansion? We can fail or
+    // we can ignore. In most cases, however, this is probably an error (for
+    // example, forgetting to checkout a git submodule) so let's not confuse
+    // the user and fail (one can always handle the optional prerequisites
+    // case with a variable and an if).
+    //
+    // On the other hand, we allow just empty prerequisites (which is also the
+    // more common case by far) and so it's strange that we don't allow the
+    // same with, say, `include = false`:
+    //
+    // exe{foo}: cxx{$empty}                  # Ok.
+    // exe{foo}: cxx{$empty}: include = false # Not Ok?
+    //
+    // So let's ignore in the first two cases (variable block and assignment)
+    // for consistency. The dependency chain is iffy both conceptually and
+    // implementation-wise (it could be followed by a variable block). So
+    // let's keep it an error for now.
+    //
+    // Note that the syntactically-empty prerequisite list is still an error:
+    //
+    // exe{foo}: : include = false # Error.
+    //
+    next_with_attributes (t, tt); // Recognize attributes after `:`.
+
+    auto at (attributes_push (t, tt));
+
     if (tt == type::newline || tt == type::eos)
     {
       attributes_pop (); // Must be none since can't be standalone.
@@ -2636,15 +2648,22 @@ namespace build2
 
       // Parse the block for each prerequisites of each target.
       //
-      for_each_p ([this] (token& t, token_type& tt)
-                  {
-                    next (t, tt); // First token inside the block.
+      if (!pns.empty ())
+        for_each_p ([this] (token& t, token_type& tt)
+                    {
+                      next (t, tt); // First token inside the block.
 
-                    parse_variable_block (t, tt);
+                      parse_variable_block (t, tt);
 
-                    if (tt != type::rcbrace)
-                      fail (t) << "expected '}' instead of " << t;
-                  });
+                      if (tt != type::rcbrace)
+                        fail (t) << "expected '}' instead of " << t;
+                    });
+      else
+      {
+        skip_block (t, tt);
+        if (tt != type::rcbrace)
+          fail (t) << "expected '}' instead of " << t;
+      }
 
       next (t, tt);                    // Presumably newline after '}'.
       next_after_newline (t, tt, '}'); // Should be on its own line.
@@ -2667,10 +2686,13 @@ namespace build2
 
         // Parse the assignment for each prerequisites of each target.
         //
-        for_each_p ([this, &var, at] (token& t, token_type& tt)
-                    {
-                      parse_variable (t, tt, var, at);
-                    });
+        if (!pns.empty ())
+          for_each_p ([this, &var, at] (token& t, token_type& tt)
+                      {
+                        parse_variable (t, tt, var, at);
+                      });
+        else
+          skip_line (t, tt);
 
         next_after_newline (t, tt);
 
@@ -2689,6 +2711,9 @@ namespace build2
       //
       else
       {
+        if (pns.empty ())
+          fail (ploc) << "no prerequisites in dependency chain";
+
         // @@ This is actually ambiguous: prerequisite or target attributes
         //    (or both or neither)? Perhaps this should be prerequisites for
         //    the same reason as below (these are prerequsites first).
