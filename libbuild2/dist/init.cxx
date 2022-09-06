@@ -71,7 +71,26 @@ namespace build2
       vp.insert<paths>        ("dist.archives");
       vp.insert<paths>        ("dist.checksums");
 
-      vp.insert<bool> ("dist", variable_visibility::target); // Flag.
+      // The dist flag or path. Normally it is a flag (true or false) but can
+      // also be used to remap the distribution location.
+      //
+      // In the latter case it specifies the "imaginary" source location which
+      // is used to derive the corresponding distribution local. This location
+      // can be specified as either a directory path (to remap with the same
+      // file name) or a file path (to remap with a different name). And the
+      // way we distinguish between the two is via the presence/absence of the
+      // trailing directory separator. If the path is relative, then it's
+      // treated relative to the target directory. Note that to make things
+      // less error prone, simple paths without any directory separators are
+      // not allowed (use ./<name> instead).
+      //
+      // Note that if multiple targets end up with the same source location,
+      // the behavior is undefined and no diagnostics is issued.
+      //
+      // Note also that such remapping has no effect in the bootstrap
+      // distribution mode.
+      //
+      vp.insert<path> ("dist", variable_visibility::target);
 
       // Project's package name. Note: if set, must be in bootstrap.build.
       //

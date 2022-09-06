@@ -27,14 +27,14 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const process_path& cmd, const dir_path&);
+    install (const process_path&, const dir_path&);
 
-    // install <file> <dir>
+    // install <file> <dir>[/<name>]
     //
     // Return the destination file path.
     //
     static path
-    install (const process_path& cmd, const file&, const dir_path&);
+    install (const process_path&, const file&, const dir_path&, const path&);
 
     // tar|zip ... <dir>/<pkg>.<ext> <pkg>
     //
@@ -254,9 +254,12 @@ namespace build2
       //
       action_targets files;
 
+      const variable* dist_var (nullptr);
       if (tgt != nullptr)
       {
         l5 ([&]{trace << "load dist " << rs;});
+
+        dist_var = ctx.var_pool.find ("dist");
 
         // Match a rule for every operation supported by this project. Skip
         // default_id.
@@ -392,8 +395,6 @@ namespace build2
         // Note that we are not showing progress here (e.g., "N targets to
         // distribute") since it will be useless (too fast).
         //
-        const variable& dist_var (ctx.var_pool["dist"]);
-
         for (const auto& pt: ctx.targets)
         {
           file* ft (pt->is_a<file> ());
@@ -405,29 +406,29 @@ namespace build2
           {
             // Include unless explicitly excluded.
             //
-            auto l ((*ft)[dist_var]);
+            if (const path* v = cast_null<path> ((*ft)[dist_var]))
+            {
+              if (v->string () == "false")
+              {
+                l5 ([&]{trace << "excluding " << *ft;});
+                continue;
+              }
+            }
 
-            if (l && !cast<bool> (l))
-              l5 ([&]{trace << "excluding " << *ft;});
-            else
-              files.push_back (ft);
-
-            continue;
+            files.push_back (ft);
           }
-
-          if (ft->dir.sub (out_root))
+          else if (ft->dir.sub (out_root))
           {
             // Exclude unless explicitly included.
             //
-            auto l ((*ft)[dist_var]);
-
-            if (l && cast<bool> (l))
+            if (const path* v = cast_null<path> ((*ft)[dist_var]))
             {
-              l5 ([&]{trace << "including " << *ft;});
-              files.push_back (ft);
+              if (v->string () != "false")
+              {
+                l5 ([&]{trace << "including " << *ft;});
+                files.push_back (ft);
+              }
             }
-
-            continue;
           }
         }
 
@@ -518,14 +519,61 @@ namespace build2
 
         // Figure out where this file is inside the target directory.
         //
-        bool src (t.dir.sub (src_root));
-        dir_path dl (src ? t.dir.leaf (src_root) : t.dir.leaf (out_root));
+        // First see if the path has been remapped (unless bootstrap).
+        //
+        const path* rp (nullptr);
+        if (tgt != nullptr)
+        {
+          if ((rp = cast_null<path> (t[dist_var])) != nullptr)
+          {
+            if (rp->string () == "true") // Wouldn't be here if false.
+              rp = nullptr;
+          }
+        }
+
+        bool src;
+        path rn;
+        dir_path dl;
+        if (rp == nullptr)
+        {
+          src = t.dir.sub (src_root);
+          dl = src ? t.dir.leaf (src_root) : t.dir.leaf (out_root);
+        }
+        else
+        {
+          // Sort the remapped path into name (if any) and directory,
+          // completing the latter if relative.
+          //
+          bool n (!rp->to_directory ());
+
+          if (n)
+          {
+            if (rp->simple ())
+            {
+              fail << "expected true, false, of path in the dist variable "
+                   << "value of target " << t <<
+                info << "specify ./" << *rp << " to remap the name";
+            }
+
+            rn = rp->leaf ();
+          }
+
+          dir_path rd (n ? rp->directory () : path_cast<dir_path> (*rp));
+
+          if (rd.relative ())
+            rd = t.dir / rd;
+
+          rd.normalize ();
+
+          src = rd.sub (src_root);
+          dl = src ? rd.leaf (src_root) : rd.leaf (out_root);
+        }
 
         dir_path d (td / dl);
         if (!exists (d))
           install (dist_cmd, d);
 
-        path r (install (dist_cmd, t, d));
+        path r (install (dist_cmd, t, d, rn));
 
         // See if this file is in a subproject.
         //
@@ -696,13 +744,19 @@ namespace build2
       run (cmd, args);
     }
 
-    // install <file> <dir>
+    // install <file> <dir>[/<name>]
     //
     static path
-    install (const process_path& cmd, const file& t, const dir_path& d)
+    install (const process_path& cmd,
+             const file& t,
+             const dir_path& d,
+             const path& n)
     {
-      dir_path reld (relative (d));
+      path reld (relative (d));
       path relf (relative (t.path ()));
+
+      if (!n.empty ())
+        reld /= n.string ();
 
       cstrings args {cmd.recall_string ()};
 
@@ -732,7 +786,7 @@ namespace build2
 
       run (cmd, args);
 
-      return d / relf.leaf ();
+      return d / (n.empty () ? relf.leaf () : n);
     }
 
     static path
