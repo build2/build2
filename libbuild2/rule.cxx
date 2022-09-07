@@ -195,7 +195,7 @@ namespace build2
     // Inject dependency on our directory (note: not parent) so that it is
     // automatically created on update and removed on clean.
     //
-    inject_fsdir (a, t, false);
+    inject_fsdir (a, t, true, false);
 
     match_prerequisites (a, t);
     return default_recipe;

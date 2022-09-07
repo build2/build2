@@ -1291,7 +1291,7 @@ namespace build2
   }
 
   const fsdir*
-  inject_fsdir (action a, target& t, bool parent)
+  inject_fsdir (action a, target& t, bool prereq, bool parent)
   {
     tracer trace ("inject_fsdir");
 
@@ -1320,7 +1320,7 @@ namespace build2
       //
       r = &search<fsdir> (t, d, dir_path (), string (), nullptr, nullptr);
     }
-    else
+    else if (prereq)
     {
       // See if one was mentioned explicitly.
       //

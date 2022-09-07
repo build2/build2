@@ -325,7 +325,11 @@ namespace build2
     // We do it always instead of only if one of the targets is path-based in
     // case the recipe creates temporary files or some such.
     //
-    const fsdir* dir (inject_fsdir (a, xt));
+    // Note that we disable the prerequisite search for fsdir{} because of the
+    // prerequisites injected by the pattern. So we have to handle this ad hoc
+    // below.
+    //
+    const fsdir* dir (inject_fsdir (a, xt, false /* prereq */));
 
     // Match prerequisites.
     //
@@ -382,6 +386,9 @@ namespace build2
 
         const target& pt (p.search (xt));
 
+        if (&pt == dir) // Don't add injected fsdir{} twice.
+          continue;
+
         if (clean && !pt.in (*bs.root_scope ()))
           continue;
 
@@ -405,7 +412,7 @@ namespace build2
 
       for (const prerequisite_target& pt: pts)
       {
-        if (pt.target == dir)
+        if (pt.target == dir) // Don't match injected fsdir{} twice.
           continue;
 
         match_async (a, *pt.target, ctx.count_busy (), xt[a].task_count);
@@ -417,7 +424,7 @@ namespace build2
       //
       for (prerequisite_target& pt: pts)
       {
-        if (pt.target == dir)
+        if (pt.target == dir) // See above.
           continue;
 
         // Handle update=unmatch.
@@ -524,6 +531,27 @@ namespace build2
     //
     file& t (xt.as<file> ());
     const path& tp (t.path ());
+
+    // Re-acquire fsdir{} specified by the user, similar to inject_fsdir()
+    // (which we have disabled; see above).
+    //
+    if (dir == nullptr)
+    {
+      for (const target* pt: pts)
+      {
+        if (pt != nullptr)
+        {
+          if (const fsdir* dt = pt->is_a<fsdir> ())
+          {
+            if (dt->dir == t.dir)
+            {
+              dir = dt;
+              break;
+            }
+          }
+        }
+      }
+    }
 
     if (dir != nullptr)
       fsdir_rule::perform_update_direct (a, t);

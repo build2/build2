@@ -546,13 +546,13 @@ namespace build2
   // the injected target or NULL. Normally this function is called from the
   // rule's apply() function.
   //
-  // As an extension, this function will also search for an existing fsdir{}
-  // prerequisite for the directory and if one exists, return that (even if
-  // the target is in src tree). This can be used, for example, to place
-  // output into an otherwise non-existent directory.
+  // As an extension, unless prereq is false, this function will also search
+  // for an existing fsdir{} prerequisite for the directory and if one exists,
+  // return that (even if the target is in src tree). This can be used, for
+  // example, to place output into an otherwise non-existent directory.
   //
   LIBBUILD2_SYMEXPORT const fsdir*
-  inject_fsdir (action, target&, bool parent = true);
+  inject_fsdir (action, target&, bool prereq = true, bool parent = true);
 
   // Execute the action on target, assuming a rule has been matched and the
   // recipe for this action has been set. This is the synchrounous executor
