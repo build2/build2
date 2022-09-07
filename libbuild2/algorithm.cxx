@@ -827,46 +827,46 @@ namespace build2
     target& t (*l.target);
     target::opstate& s (t[a]);
 
-    // Intercept and handle matching an ad hoc group member.
-    //
-    if (t.adhoc_group_member ())
-    {
-      assert (!step);
-
-      const target& g (*t.group);
-
-      // It feels natural to "convert" this call to the one for the group,
-      // including the try_match part. Semantically, we want to achieve the
-      // following:
-      //
-      // [try_]match (a, g);
-      // match_recipe (l, group_recipe);
-      //
-      auto df = make_diag_frame (
-        [a, &t](const diag_record& dr)
-        {
-          if (verb != 0)
-            dr << info << "while matching group rule to " << diag_do (a, t);
-        });
-
-      pair<bool, target_state> r (match_impl (a, g, 0, nullptr, try_match));
-
-      if (r.first)
-      {
-        if (r.second != target_state::failed)
-        {
-          match_inc_dependents (a, g);
-          match_recipe (l, group_recipe);
-        }
-      }
-      else
-        l.offset = target::offset_tried;
-
-      return r; // Group state (must be consistent with matched_state()).
-    }
-
     try
     {
+      // Intercept and handle matching an ad hoc group member.
+      //
+      if (t.adhoc_group_member ())
+      {
+        assert (!step);
+
+        const target& g (*t.group);
+
+        // It feels natural to "convert" this call to the one for the group,
+        // including the try_match part. Semantically, we want to achieve the
+        // following:
+        //
+        // [try_]match (a, g);
+        // match_recipe (l, group_recipe);
+        //
+        auto df = make_diag_frame (
+          [a, &t](const diag_record& dr)
+          {
+            if (verb != 0)
+              dr << info << "while matching group rule to " << diag_do (a, t);
+          });
+
+        pair<bool, target_state> r (match_impl (a, g, 0, nullptr, try_match));
+
+        if (r.first)
+        {
+          if (r.second != target_state::failed)
+          {
+            match_inc_dependents (a, g);
+            match_recipe (l, group_recipe);
+          }
+        }
+        else
+          l.offset = target::offset_tried;
+
+        return r; // Group state (must be consistent with matched_state()).
+      }
+
       // Continue from where the target has been left off.
       //
       switch (l.offset)
