@@ -158,6 +158,11 @@ namespace build2
     {
       ++r.second;
 
+      // While we went back to not treating the first member as a group for
+      // variable lookup, let's keep this logic in case one day we end up with
+      // a separate ad hoc group target.
+      //
+#if 0
       // In case of an ad hoc group, we may have to look in two groups.
       //
       if ((g1 = group) != nullptr)
@@ -175,6 +180,19 @@ namespace build2
           }
         }
       }
+#else
+      // Skip looking up in the ad hoc group, which is semantically the
+      // first/primary member.
+      //
+      if ((g1 = group == nullptr
+           ? nullptr
+           : group->adhoc_group () ? group->group : group))
+      {
+        auto p (g1->vars.lookup (var));
+        if (p.first != nullptr)
+          r.first = lookup_type (*p.first, p.second, g1->vars);
+      }
+#endif
     }
 
     // Delegate to scope's lookup_original().

@@ -408,6 +408,10 @@ namespace build2
     // - Ad hoc group cannot have sub-groups (of any kind) though an ad hoc
     //   group can be a sub-group of an explicit group.
     //
+    // - Member variable lookup skips the ad hoc group (since the group is the
+    //   first member, this is normally what we want). But special semantics
+    //   could be arranged; see var_backlink, for example.
+    //
     // Note that ad hoc groups can be part of explicit groups. In a sense, we
     // have a two-level grouping: an explicit group with its members each of
     // which can be an ad hoc group. For example, lib{} contains libs{} which
@@ -415,6 +419,16 @@ namespace build2
     //
     // Use add_adhoc_member(), find_adhoc_member() from algorithms to manage
     // ad hoc members.
+    //
+    // One conceptual issue we have with our ad hoc group implementation is
+    // that the behavior could be sensitive to the order in which the members
+    // are specified (due to the primary member logic). For example, unless we
+    // specify the header in the header/source group first, it will not be
+    // installed. Perhaps the solution is to synthesize a separate group
+    // target for the ad hoc members (with a special target type that rules
+    // like install could recognize). See also the variable lookup semantics.
+    // We could also probably support see_through via an attribute or some
+    // such.
     //
     const_ptr<target> adhoc_member = nullptr;
 
