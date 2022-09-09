@@ -190,10 +190,12 @@ namespace build2
 
     using adhoc_names = small_vector<adhoc_names_loc, 1>;
 
-    void
+    vector<reference_wrapper<target>>
     enter_adhoc_members (adhoc_names_loc&&, bool);
 
-    small_vector<reference_wrapper<target>, 1>
+    small_vector<pair<reference_wrapper<target>,          // Target.
+                      vector<reference_wrapper<target>>>, // Ad hoc members.
+                 1>
     enter_targets (names&&, const location&,
                    adhoc_names&&,
                    size_t,
@@ -769,6 +771,16 @@ namespace build2
 
       replay_i_ = 0;
       replay_ = replay::play;
+    }
+
+    void
+    replay_skip ()
+    {
+      assert (replay_ == replay::play);
+
+      assert (!peeked_);
+
+      replay_i_ = replay_data_.size () - 1;
     }
 
     void

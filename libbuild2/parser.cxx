@@ -717,6 +717,7 @@ namespace build2
         // evaluated. The function signature is:
         //
         // void (token& t, type& tt,
+        //       bool adhoc_member,
         //       optional<pattern_type>, const target_type* pat_tt, string pat,
         //       const location& pat_loc)
         //
@@ -817,16 +818,20 @@ namespace build2
           if (ttype == nullptr)
             fail (nloc) << "unknown target type " << n.type;
 
-          f (t, tt, n.pattern, ttype, move (n.value), nloc);
+          f (t, tt, false, n.pattern, ttype, move (n.value), nloc);
         };
 
         auto for_each = [this, &trace, &for_one_pat,
                          &t, &tt, &as, &ns, &nloc, &ans] (auto&& f)
         {
+          // We need replay if we have multiple targets or ad hoc members.
+          //
           // Note: watch out for an out-qualified single target (two names).
           //
           replay_guard rg (*this,
-                           ns.size () > 2 || (ns.size () == 2 && !ns[0].pair));
+                           ns.size () > 2 ||
+                           (ns.size () == 2 && !ns[0].pair) ||
+                           !ans.empty ());
 
           for (size_t i (0), e (ns.size ()); i != e; )
           {
@@ -857,27 +862,38 @@ namespace build2
             }
             else
             {
-              name o (n.pair ? move (ns[++i]) : name ());
-              enter_target tg (*this,
-                               move (n),
-                               move (o),
-                               true /* implied */,
-                               nloc,
-                               trace);
-
-              if (!as.empty ())
-                apply_target_attributes (*target_, as);
-
-              // Enter ad hoc members.
-              //
-              if (!ans.empty ())
+              vector<reference_wrapper<target>> ams;
               {
-                // Note: index after the pair increment.
+                name o (n.pair ? move (ns[++i]) : name ());
+                enter_target tg (*this,
+                                 move (n),
+                                 move (o),
+                                 true /* implied */,
+                                 nloc,
+                                 trace);
+
+                if (!as.empty ())
+                  apply_target_attributes (*target_, as);
+
+                // Enter ad hoc members.
                 //
-                enter_adhoc_members (move (ans[i]), true /* implied */);
+                if (!ans.empty ())
+                {
+                  // Note: index after the pair increment.
+                  //
+                  ams = enter_adhoc_members (move (ans[i]), true /* implied */);
+                }
+
+                f (t, tt, false, nullopt, nullptr, string (), location ());
               }
 
-              f (t, tt, nullopt, nullptr, string (), location ());
+              for (target& am: ams)
+              {
+                rg.play (); // Replay.
+
+                enter_target tg (*this, am);
+                f (t, tt, true, nullopt, nullptr, string (), location ());
+              }
             }
 
             if (++i != e)
@@ -931,7 +947,7 @@ namespace build2
             ploc = get_location (t);
             pns = parse_names (t, tt, pattern_mode::preserve);
 
-            // Target-specific variable assignment.
+            // Target type/pattern-specific variable assignment.
             //
             if (tt == type::assign || tt == type::prepend || tt == type::append)
             {
@@ -955,6 +971,7 @@ namespace build2
               for_one_pat (
                 [this, &var, akind, &aloc] (
                   token& t, type& tt,
+                  bool,
                   optional<pattern_type> pt, const target_type* ptt,
                   string pat, const location& ploc)
                 {
@@ -1000,6 +1017,7 @@ namespace build2
             for_one_pat (
               [this] (
                 token& t, type& tt,
+                bool,
                 optional<pattern_type> pt, const target_type* ptt,
                 string pat, const location& ploc)
               {
@@ -1350,6 +1368,7 @@ namespace build2
               st = token (t), // Save start token (will be gone on replay).
               recipes = small_vector<shared_ptr<adhoc_rule>, 1> ()]
               (token& t, type& tt,
+               bool am,
                optional<pattern_type> pt, const target_type* ptt, string pat,
                const location& ploc) mutable
             {
@@ -1378,6 +1397,16 @@ namespace build2
               }
               else
                 rt = st;
+
+              // If this is an ad hoc group member then we know we are
+              // replaying and can skip the recipe.
+              //
+              if (am)
+              {
+                replay_skip ();
+                next (t, tt);
+                return;
+              }
 
               if (pt)
                 fail (rt) << "unexpected recipe after target type/pattern" <<
@@ -1449,6 +1478,7 @@ namespace build2
           for_each (
             [this, &var, akind, &aloc] (
               token& t, type& tt,
+              bool,
               optional<pattern_type> pt, const target_type* ptt, string pat,
               const location& ploc)
             {
@@ -2150,10 +2180,13 @@ namespace build2
     }
   }
 
-  void parser::
+  vector<reference_wrapper<target>> parser::
   enter_adhoc_members (adhoc_names_loc&& ans, bool implied)
   {
     tracer trace ("parser::enter_adhoc_members", &path_);
+
+    vector<reference_wrapper<target>> r;
+    r.reserve (ans.ns.size ());
 
     names& ns (ans.ns);
     const location& loc (ans.loc);
@@ -2218,10 +2251,15 @@ namespace build2
         if (file* ft = at.is_a<file> ())
           ft->derive_path ();
       }
+
+      r.push_back (at);
     }
+
+    return r;
   }
 
-  small_vector<reference_wrapper<target>, 1> parser::
+  small_vector<pair<reference_wrapper<target>,
+                    vector<reference_wrapper<target>>>, 1> parser::
   enter_targets (names&& tns, const location& tloc, // Target names.
                  adhoc_names&& ans,                 // Ad hoc target names.
                  size_t prereq_size,
@@ -2232,7 +2270,8 @@ namespace build2
     //
     tracer trace ("parser::enter_targets", &path_);
 
-    small_vector<reference_wrapper<target>, 1> tgs;
+    small_vector<pair<reference_wrapper<target>,
+                      vector<reference_wrapper<target>>>, 1> tgs;
 
     for (size_t i (0); i != tns.size (); ++i)
     {
@@ -2259,11 +2298,12 @@ namespace build2
 
       // Enter ad hoc members.
       //
+      vector<reference_wrapper<target>> ams;
       if (!ans.empty ())
       {
         // Note: index after the pair increment.
         //
-        enter_adhoc_members (move (ans[i]), false /* implied */);
+        ams = enter_adhoc_members (move (ans[i]), false /* implied */);
       }
 
       if (default_target_ == nullptr)
@@ -2271,7 +2311,7 @@ namespace build2
 
       target_->prerequisites_state_.store (2, memory_order_relaxed);
       target_->prerequisites_.reserve (prereq_size);
-      tgs.push_back (*target_);
+      tgs.emplace_back (*target_, move (ams));
     }
 
     return tgs;
@@ -2411,8 +2451,9 @@ namespace build2
 
     // First enter all the targets.
     //
-    small_vector<reference_wrapper<target>, 1> tgs (
-      enter_targets (move (tns), tloc, move (ans), pns.size (), tas));
+    small_vector<pair<reference_wrapper<target>,
+                      vector<reference_wrapper<target>>>, 1>
+      tgs (enter_targets (move (tns), tloc, move (ans), pns.size (), tas));
 
     // Now enter each prerequisite into each target.
     //
@@ -2472,7 +2513,7 @@ namespace build2
       {
         // Move last prerequisite (which will normally be the only one).
         //
-        target& t (*i);
+        target& t (i->first);
         t.prerequisites_.push_back (++i == e
                                     ? move (p)
                                     : prerequisite (p, memory_order_relaxed));
@@ -2491,14 +2532,27 @@ namespace build2
     //
     auto for_each_t = [this, &t, &tt, &tgs] (auto&& f)
     {
-      replay_guard rg (*this, tgs.size () > 1);
+      // We need replay if we have multiple targets or ad hoc members.
+      //
+      replay_guard rg (*this, tgs.size () > 1 || !tgs[0].second.empty ());
 
       for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
       {
-        target& tg (*ti);
-        enter_target tgg (*this, tg);
+        target& tg (ti->first);
+        const vector<reference_wrapper<target>>& ams (ti->second);
 
-        f (t, tt);
+        {
+          enter_target g (*this, tg);
+          f (t, tt, false);
+        }
+
+        for (target& am: ams)
+        {
+          rg.play (); // Replay.
+
+          enter_target g (*this, am);
+          f (t, tt, true);
+        }
 
         if (++ti != te)
           rg.play (); // Replay.
@@ -2511,8 +2565,8 @@ namespace build2
 
       for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
       {
-        target& tg (*ti);
-        enter_target tgg (*this, tg);
+        target& tg (ti->first);
+        enter_target g (*this, tg);
 
         for (size_t pn (tg.prerequisites_.size ()), pi (pn - pns.size ());
              pi != pn; )
@@ -2555,7 +2609,7 @@ namespace build2
           this,
           st = token (t), // Save start token (will be gone on replay).
           recipes = small_vector<shared_ptr<adhoc_rule>, 1> ()]
-          (token& t, type& tt) mutable
+          (token& t, type& tt, bool am) mutable
         {
           token rt; // Recipe start token.
 
@@ -2580,6 +2634,16 @@ namespace build2
           }
           else
             rt = st;
+
+          // If this is an ad hoc group member then we know we are
+          // replaying and can skip the recipe.
+          //
+          if (am)
+          {
+            replay_skip ();
+            next (t, tt);
+            return;
+          }
 
           parse_recipe (t, tt, rt, recipes);
         };
