@@ -1853,6 +1853,7 @@ namespace build2
   {
     using mode = backlink_mode;
 
+    context& ctx (t.ctx);
     const scope& s (t.base_scope ());
 
     backlinks bls;
@@ -1895,11 +1896,12 @@ namespace build2
         // Note that we want to avoid group or tt/patter-spec lookup. And
         // since this is an ad hoc member (which means it was either declared
         // in the buildfile or added by the rule), we assume that the value,
-        // if any, will be set as a rule-specific variable (since setting it
-        // as a target-specific wouldn't be MT-safe). @@ Don't think this
-        // applies to declared ad hoc members.
+        // if any, will be set as a target or rule-specific variable.
         //
-        lookup l (mt->state[a].vars[t.ctx.var_backlink]);
+        lookup l (mt->state[a].vars[ctx.var_backlink]);
+
+        if (!l)
+          l = mt->vars[ctx.var_backlink];
 
         optional<mode> bm (l ? backlink_test (*mt, l) : m);
 

@@ -158,21 +158,18 @@ namespace build2
     {
       ++r.second;
 
-#if 1
+      // While we went back to not treating the first member as a group for
+      // variable lookup, let's keep this logic in case one day we end up with
+      // a separate ad hoc group target.
+      //
+#if 0
       // In case of an ad hoc group, we may have to look in two groups.
       //
       if ((g1 = group) != nullptr)
       {
         auto p (g1->vars.lookup (var));
         if (p.first != nullptr)
-        {
-          if (g1->adhoc_group ())
-            fail << "ad hoc group variable lookup " << var <<
-              info << "member " << *this <<
-              info << "group  " << *g1;
-
           r.first = lookup_type (*p.first, p.second, g1->vars);
-        }
         else
         {
           if ((g2 = g1->group) != nullptr)
@@ -215,17 +212,6 @@ namespace build2
                                      &tk,
                                      g1 != nullptr ? &g1k : nullptr,
                                      g2 != nullptr ? &g2k : nullptr));
-
-        if (p.first && g1 != nullptr && g1->adhoc_group ())
-        {
-          for (size_t d (2); d <= p.second; d += 3)
-          {
-            if (p.second == d)
-              fail << "ad hoc group type/pattern variable lookup " << var <<
-                info << "member " << *this <<
-                info << "group  " << *g1;
-          }
-        }
 
         r.first = move (p.first);
         r.second = r.first ? r.second + p.second : p.second;
