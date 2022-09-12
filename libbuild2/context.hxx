@@ -494,9 +494,31 @@ namespace build2
     // symbolic  - make a symbolic link.
     // hard      - make a hard link.
     // copy      - make a copy.
-    // overwrite - copy over but don't remove on clean (committed gen code).
+    // overwrite - copy over but don't remove on clean.
     //
     // Note that it can be set by a matching rule as a rule-specific variable.
+    //
+    // Note also that the overwrite mode was originally meant for handling
+    // pregenerated source code. But in the end this did not pan out for
+    // the following reasons:
+    //
+    // 1. This would mean that the pregenerated and regenerated files end up
+    //    in the same place (e.g., depending on the develop mode) and it's
+    //    hard to make this work without resorting to a conditional graph.
+    //
+    //    This could potentially be addressed by allowing backlink to specify
+    //    a different location (similar to dist).
+    //
+    // 2. This support for pregenerated source code would be tied to forwarded
+    //    configurations.
+    //
+    // Nevertheless, there may be a kernel of an idea here in that we may be
+    // able to provide a built-in "post-copy" mechanism which would allow one
+    // to have a pregenerated setup even when using non-ad hoc recipes
+    // (currently we just manually diff/copy stuff at the end of a recipe).
+    // (Or maybe we should stick to ad hoc recipes with post-diff/copy and
+    // just expose a mechanism to delegate to a different rule, which we
+    // already have).
     //
     // [string] target visibility
     //
