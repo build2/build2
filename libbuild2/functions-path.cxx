@@ -667,5 +667,15 @@ namespace build2
     {
       return concat_dir_path_string (move (l), convert<string> (move (ur)));
     };
+
+    b[".concat"] += [](dir_path l, dir_path r)
+    {
+      return value (move (l /= r));
+    };
+
+    b[".concat"] += [](dir_path l, path r)
+    {
+      return value (path_cast<path> (move (l)) /= r);
+    };
   }
 }
