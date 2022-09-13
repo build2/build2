@@ -1253,8 +1253,13 @@ namespace build2
 
             for (shared_ptr<adhoc_rule>& pr: recipes)
             {
-              pr->pattern = &rp; // Connect recipe to pattern.
-              rp.rules.push_back (move (pr));
+              // Can be NULL if the recipe is disabled with a condition.
+              //
+              if (pr != nullptr)
+              {
+                pr->pattern = &rp; // Connect recipe to pattern.
+                rp.rules.push_back (move (pr));
+              }
             }
 
             // Register this adhoc rule for all its actions.
@@ -1766,7 +1771,15 @@ namespace build2
     t = start; tt = t.type;
     for (size_t i (0); tt == type::percent || tt == type::multi_lcbrace; ++i)
     {
-      recipes.push_back (nullptr); // For missing else/default (see below).
+      // For missing else/default (see below).
+      //
+      // Note that it may remain NULL if we have, say, an if-condition that
+      // evaluates to false and no else. While it may be tempting to get rid
+      // of such "holes", it's not easy due to the replay semantics (see the
+      // target_ != nullptr block below). So we expect the caller to be
+      // prepared to handle this.
+      //
+      recipes.push_back (nullptr);
 
       attributes as;
       buildspec bs;
