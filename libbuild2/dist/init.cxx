@@ -3,8 +3,9 @@
 
 #include <libbuild2/dist/init.hxx>
 
-#include <libbuild2/scope.hxx>
 #include <libbuild2/file.hxx>
+#include <libbuild2/rule.hxx>
+#include <libbuild2/scope.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/config/utility.hxx>
@@ -208,6 +209,15 @@ namespace build2
       //
       rs.insert_rule<target> (dist_id, 0, "dist",       rule_);
       rs.insert_rule<alias>  (dist_id, 0, "dist.alias", rule_);
+
+      // We need this rule for out-of-any-project dependencies (for example,
+      // executables imported from /usr/bin, etc). We are registering it on
+      // the global scope similar to builtin rules.
+      //
+      // See a similar rule in the config module.
+      //
+      rs.global_scope ().insert_rule<mtime_target> (
+        dist_id, 0, "dist.file", file_rule::instance);
 
       // Configuration.
       //

@@ -1307,7 +1307,9 @@ namespace build2
                 // recipe for dist.
                 //
                 // And the same for the configure meta-operation to, for
-                // example, make sure a hinted ad hoc rule matches.
+                // example, make sure a hinted ad hoc rule matches. @@ Hm,
+                // maybe we fixed this with action-specific hints? But the
+                // injection part above may still apply.
                 //
                 if (a.meta_operation () == perform_id)
                 {

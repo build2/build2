@@ -702,9 +702,11 @@ namespace build2
 
       // Register alias and fallback rule for the configure meta-operation.
       //
-      // We need this rule for out-of-any-project dependencies (e.g.,
-      // libraries imported from /usr/lib). We are registring it on the
+      // We need this rule for out-of-any-project dependencies (for example,
+      // libraries imported from /usr/lib). We are registering it on the
       // global scope similar to builtin rules.
+      //
+      // See a similar rule in the dist module.
       //
       rs.global_scope ().insert_rule<mtime_target> (
         configure_id, 0, "config.file", file_rule::instance);
