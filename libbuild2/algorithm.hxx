@@ -191,6 +191,7 @@ namespace build2
     action_type  action;
     target_type* target = nullptr;
     size_t       offset = 0;
+    bool         first;
 
     explicit operator bool () const {return target != nullptr;}
 
@@ -209,13 +210,14 @@ namespace build2
     // Implementation details.
     //
     ~target_lock ();
-    target_lock (action_type, target_type*, size_t);
+    target_lock (action_type, target_type*, size_t, bool);
 
     struct data
     {
       action_type action;
       target_type* target;
       size_t offset;
+      bool first;
     };
 
     data

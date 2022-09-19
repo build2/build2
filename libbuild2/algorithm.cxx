@@ -256,7 +256,7 @@ namespace build2
           fail << "dependency cycle detected involving target " << ct;
 
         if (!wq)
-          return target_lock {a, nullptr, e - b};
+          return target_lock {a, nullptr, e - b, false};
 
         // We also unlock the phase for the duration of the wait. Why?
         // Consider this scenario: we are trying to match a dir{} target whose
@@ -272,7 +272,7 @@ namespace build2
       // We don't lock already applied or executed targets.
       //
       if (e >= appl)
-        return target_lock {a, nullptr, e - b};
+        return target_lock {a, nullptr, e - b, false};
     }
 
     // We now have the lock. Analyze the old value and decide what to do.
@@ -281,7 +281,8 @@ namespace build2
     target::opstate& s (t[a]);
 
     size_t offset;
-    if (e <= b)
+    bool first;
+    if ((first = (e <= b)))
     {
       // First lock for this operation.
       //
@@ -298,7 +299,7 @@ namespace build2
               offset == target::offset_matched);
     }
 
-    return target_lock {a, &t, offset};
+    return target_lock {a, &t, offset, first};
   }
 
   void
@@ -991,7 +992,7 @@ namespace build2
             *task_count,
             [a, try_match] (const diag_frame* ds,
                             const target_lock* ls,
-                            target& t, size_t offset)
+                            target& t, size_t offset, bool first)
             {
               // Switch to caller's diag and lock stacks.
               //
@@ -1002,7 +1003,7 @@ namespace build2
               {
                 phase_lock pl (t.ctx, run_phase::match); // Throws.
                 {
-                  target_lock l {a, &t, offset}; // Reassemble.
+                  target_lock l {a, &t, offset, first}; // Reassemble.
                   match_impl (l, false /* step */, try_match);
                   // Unlock within the match phase.
                 }
@@ -1012,7 +1013,8 @@ namespace build2
             diag_frame::stack (),
             target_lock::stack (),
             ref (*ld.target),
-            ld.offset))
+            ld.offset,
+            ld.first))
         return make_pair (true, target_state::postponed); // Queued.
 
       // Matched synchronously, fall through.

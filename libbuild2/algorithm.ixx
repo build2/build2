@@ -220,8 +220,8 @@ namespace build2
   unlock_impl (action, target&, size_t);
 
   inline target_lock::
-  target_lock (action_type a, target_type* t, size_t o)
-      : action (a), target (t), offset (o)
+  target_lock (action_type a, target_type* t, size_t o, bool f)
+      : action (a), target (t), offset (o), first (f)
   {
     if (target != nullptr)
       prev = stack (this);
@@ -260,7 +260,7 @@ namespace build2
   inline auto target_lock::
   release () -> data
   {
-    data r {action, target, offset};
+    data r {action, target, offset, first};
 
     if (target != nullptr)
     {
