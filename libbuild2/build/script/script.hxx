@@ -75,9 +75,10 @@ namespace build2
         // script parser for details).
         //
         bool             depdb_clear;
+        bool             depdb_value;                    // String or hash.
         optional<size_t> depdb_dyndep;                   // Pos of first dyndep.
         bool             depdb_dyndep_byproduct = false; // dyndep --byproduct
-        lines_type       depdb_preamble;
+        lines_type       depdb_preamble;                 // Note include vars.
         bool             depdb_preamble_temp_dir = false; // True if refs $~.
 
         location start_loc;

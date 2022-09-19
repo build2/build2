@@ -327,7 +327,8 @@ namespace build2
         //                         recipe should be provided.
         //
         //
-        optional<location> depdb_clear_;    // depdb-clear location.
+        optional<location> depdb_clear_;         // depdb-clear location.
+        bool               depdb_value_ = false; // depdb-{string,hash}
         optional<pair<location, size_t>>
                            depdb_dyndep_;   // depdb-dyndep location/position.
         bool               depdb_dyndep_byproduct_ = false; // --byproduct
@@ -343,6 +344,12 @@ namespace build2
         // turns out to be a body line.
         //
         optional<pair<string, location>> impure_func_;
+
+        // Similar to the impure function above but for a computed (e.g.,
+        // target-qualified) variable expansion. In this case we don't have a
+        // name (it's computed).
+        //
+        optional<location> computed_var_;
 
         // True during pre-parsing when the pre-parse mode is temporarily
         // suspended to perform expansion.

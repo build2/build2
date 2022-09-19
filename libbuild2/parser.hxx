@@ -562,7 +562,7 @@ namespace build2
     // Customization hooks.
     //
   protected:
-    // If qual is not empty, then firt element's pair member indicates the
+    // If qual is not empty, then first element's pair member indicates the
     // kind of qualification:
     //
     // '\0' -- target

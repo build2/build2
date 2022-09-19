@@ -108,7 +108,7 @@ posix = ($cxx.target.class != 'windows')
     $* clean 2>-
   }
 
-  : untracked-var
+  : computed-var
   :
   {
     cat <<EOI >=buildfile;
@@ -121,9 +121,29 @@ posix = ($cxx.target.class != 'windows')
       }}
       EOI
 
+    $* 2>>EOE != 0
+      buildfile:6:10: error: expansion of computed variable is only allowed in depdb preamble
+        info: consider using 'depdb' builtin to track its value changes
+      EOE
+  }
+
+  : untracked-var
+  :
+  {
+    cat <<EOI >=buildfile;
+      a = a
+      b = b
+      foo:
+      {{
+        x = true
+        y = $($x ? a : b)
+        depdb env BOGUS
+        echo $y >$path($>)
+      }}
+      EOI
+
     $* 2>>~%EOE% != 0;
-      echo file{foo}
-      buildfile:6:10: error: use of untracked variable 'a'
+      buildfile:6:8: error: use of untracked variable 'a'
         info: use the 'depdb' builtin to manually track it
       %.+
       EOE
@@ -201,13 +221,15 @@ posix = ($cxx.target.class != 'windows')
         a = $process.run(cat baz)
         foo: bar
         {{
+          x = true
+          y = $($x ? a : b)
           depdb hash "$a"
+
           diag compose $>
 
           cp $path($<) $path($>)
 
-          x = true
-          echo "$($x ? a : b)" >>$path($>)
+          echo $y >>$path($>)
         }}
         EOI
 

@@ -93,6 +93,15 @@ namespace build2
             info << "consider using 'depdb' builtin to track its result "
                  << "changes";
 
+        // Diagnose computed variable exansions.
+        //
+        if (computed_var_)
+          fail (*computed_var_)
+            << "expansion of computed variable is only allowed in depdb "
+            << "preamble" <<
+            info << "consider using 'depdb' builtin to track its value "
+                 << "changes";
+
         // Diagnose absent/ambigous script name.
         //
         {
@@ -137,6 +146,7 @@ namespace build2
         // Save the custom dependency change tracking lines, if present.
         //
         s.depdb_clear = depdb_clear_.has_value ();
+        s.depdb_value = depdb_value_;
         if (depdb_dyndep_)
         {
           s.depdb_dyndep = depdb_dyndep_->second;
@@ -579,6 +589,8 @@ namespace build2
                     info (depdb_dyndep_->first) << "'depdb dyndep' call is here";
               }
 
+              depdb_value_ = depdb_value_ || (v == "string" || v == "hash");
+
               // Move the script body to the end of the depdb preamble.
               //
               // Note that at this (pre-parsing) stage we cannot evaluate if
@@ -603,10 +615,12 @@ namespace build2
                 script_->body_temp_dir = false;
               }
 
-              // Reset the impure function call info since it's valid for the
-              // depdb preamble.
+              // Reset the impure function call and computed variable
+              // expansion tracking since both are valid for the depdb
+              // preamble.
               //
               impure_func_ = nullopt;
+              computed_var_ = nullopt;
 
               // Instruct the parser to save the depdb builtin line separately
               // from the script lines, when it is fully parsed. Note that the
@@ -2299,6 +2313,9 @@ namespace build2
         // In the pre-parse mode collect the referenced variable names for the
         // script semantics change tracking.
         //
+        // Note that during pre-parse a computed (including qualified) name
+        // is signalled as an empty name.
+        //
         if (pre_parse_ || pre_parse_suspended_)
         {
           lookup r;
@@ -2332,12 +2349,27 @@ namespace build2
                 vars.push_back (move (name));
             }
           }
+          else
+          {
+            // What about pre_parse_suspended_? Don't think it makes sense to
+            // diagnose this since it can be indirect (that is, via an
+            // intermediate variable).
+            //
+            if (perform_update_ && file_based_ && !computed_var_)
+              computed_var_ = loc;
+          }
 
           return r;
         }
 
         if (!qual.empty ())
-          fail (loc) << "qualified variable name";
+        {
+          // Qualified variable is computed and we expect the user to track
+          // its changes manually.
+          //
+          return build2::script::parser::lookup_variable (
+            move (qual), move (name), loc);
+        }
 
         lookup r (environment_->lookup (name));
 
@@ -2348,13 +2380,13 @@ namespace build2
         // diag builtin argument change (which can be affected by such a
         // variable expansion) doesn't affect the script semantics and the
         // depdb argument is specifically used for the script semantics change
-        // tracking. We also omit this check it the depdb builtin is used in
-        // the script, assuming that such variables are tracked manually, if
-        // required.
+        // tracking. We also omit this check if the depdb "value" (string,
+        // hash) builtin is used in the script, assuming that such variables
+        // are tracked manually, if required.
         //
         if (script_ != nullptr    &&
             !script_->depdb_clear &&
-            script_->depdb_preamble.empty ())
+            !script_->depdb_value)
         {
           if (r.defined () && !r.belongs (*environment_))
           {
