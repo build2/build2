@@ -1371,7 +1371,14 @@ namespace build2
 
         // The overall idea here is to set everything up so that the default
         // file_rule matches the returned targets, the same way as it would if
-        // multiple operations were executed for the normal case (see below).
+        // multiple operations were executed for the match phase (see below).
+        //
+        // Note however, that there is no guarantee that we won't end up in
+        // the match phase code below even after loading things here. For
+        // example, the same library could be searched from pkgconfig_load()
+        // if specified as -l. And if we try to re-assign group members, then
+        // that would be a race condition. So we use the cc mark to detect
+        // this.
         //
         timestamp mt (timestamp_nonexistent);
         if (a != nullptr) {lt->a = a; a->group = lt; mt = a->mtime ();}
@@ -1440,16 +1447,22 @@ namespace build2
       timestamp mt (timestamp_nonexistent);
       if (ll)
       {
-        if (a != nullptr) {lt->a = a; mt = a->mtime ();}
-        if (s != nullptr) {lt->s = s; mt = s->mtime ();}
-
         // Mark the group since sometimes we use it itself instead of one of
         // the liba/libs{} members (see process_libraries_impl() for details).
+        //
+        // If it's already marked, then it could have been imported during
+        // load (see above).
         //
         // @@ TODO: we currently always reload pkgconfig for lt (and above).
         //    Maybe pass NULL lt to pkgconfig_load() in this case?
         //
-        mark_cc (*lt);
+        if (mark_cc (*lt))
+        {
+          if (a != nullptr) {lt->a = a; mt = a->mtime ();}
+          if (s != nullptr) {lt->s = s; mt = s->mtime ();}
+        }
+        else
+          ll.unlock ();
       }
 
       target_lock al (lock (a));
@@ -1458,14 +1471,14 @@ namespace build2
       if (!al) a = nullptr;
       if (!sl) s = nullptr;
 
-      if (a != nullptr) a->group = lt;
-      if (s != nullptr) s->group = lt;
-
-      // If the library already has cc.type, then assume it was either
-      // already imported or was matched by a rule.
+      // If the library already has cc.type, then assume it was either already
+      // imported (e.g., during load) or was matched by a rule.
       //
       if (a != nullptr && !mark_cc (*a)) a = nullptr;
       if (s != nullptr && !mark_cc (*s)) s = nullptr;
+
+      if (a != nullptr) a->group = lt;
+      if (s != nullptr) s->group = lt;
 
       if (ll && (a != nullptr || s != nullptr))
       {
@@ -1484,8 +1497,8 @@ namespace build2
       //
       // Note also that these calls clear target data.
       //
-      if (al) match_rule (al, file_rule::rule_match);
-      if (sl) match_rule (sl, file_rule::rule_match);
+      if (a != nullptr) match_rule (al, file_rule::rule_match);
+      if (s != nullptr) match_rule (sl, file_rule::rule_match);
       if (ll)
       {
         match_rule (ll, file_rule::rule_match);
