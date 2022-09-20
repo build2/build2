@@ -44,16 +44,16 @@ namespace build2
     void
     run (environment&,
          const command_expr&,
-         size_t index,
+         const iteration_index*, size_t index,
          const location&,
          string* output = nullptr);
 
     bool
-    run_if (environment&,
-            const command_expr&,
-            size_t index,
-            const location&,
-            string* output = nullptr);
+    run_cond (environment&,
+              const command_expr&,
+              const iteration_index*, size_t index,
+              const location&,
+              string* output = nullptr);
 
     // Perform the registered special file cleanups in the direct order and
     // then the regular cleanups in the reverse order.

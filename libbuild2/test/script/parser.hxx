@@ -62,7 +62,13 @@ namespace build2
                         optional<description>&,
                         lines* = nullptr,
                         bool one = false,
-                        bool if_line = false);
+                        optional<line_type> flow_control_type = nullopt);
+
+        bool
+        pre_parse_block_line (token&, token_type&,
+                              line_type block_type,
+                              optional<description>&,
+                              lines&);
 
         bool
         pre_parse_if_else (token&, token_type&,
@@ -78,6 +84,11 @@ namespace build2
         pre_parse_if_else_command (token&, token_type&,
                                    optional<description>&,
                                    lines&);
+
+        bool
+        pre_parse_while (token&, token_type&,
+                         optional<description>&,
+                         lines&);
 
         void
         pre_parse_directive (token&, token_type&);

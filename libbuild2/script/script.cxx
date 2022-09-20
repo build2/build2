@@ -27,6 +27,7 @@ namespace build2
       case line_type::cmd_elif:  s = "'elif'";   break;
       case line_type::cmd_elifn: s = "'elif!'";  break;
       case line_type::cmd_else:  s = "'else'";   break;
+      case line_type::cmd_while: s = "'while'";  break;
       case line_type::cmd_end:   s = "'end'";    break;
       }
 
@@ -186,14 +187,14 @@ namespace build2
     void
     dump (ostream& os, const string& ind, const lines& ls)
     {
-      // Additionally indent the if-branch lines.
+      // Additionally indent the flow control construct block lines.
       //
-      string if_ind;
+      string fc_ind;
 
       for (const line& l: ls)
       {
-        // Before printing indentation, decrease it if the else or end line is
-        // reached.
+        // Before printing indentation, decrease it if the else, end, etc line
+        // is reached.
         //
         switch (l.type)
         {
@@ -202,9 +203,9 @@ namespace build2
         case line_type::cmd_else:
         case line_type::cmd_end:
           {
-            size_t n (if_ind.size ());
+            size_t n (fc_ind.size ());
             assert (n >= 2);
-            if_ind.resize (n - 2);
+            fc_ind.resize (n - 2);
             break;
           }
         default: break;
@@ -212,9 +213,10 @@ namespace build2
 
         // Print indentations.
         //
-        os << ind << if_ind;
+        os << ind << fc_ind;
 
-        // After printing indentation, increase it for if/else branch.
+        // After printing indentation, increase it for the flow control
+        // construct block lines.
         //
         switch (l.type)
         {
@@ -222,7 +224,8 @@ namespace build2
         case line_type::cmd_ifn:
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
-        case line_type::cmd_else:  if_ind += "  "; break;
+        case line_type::cmd_else:
+        case line_type::cmd_while: fc_ind += "  "; break;
         default: break;
         }
 

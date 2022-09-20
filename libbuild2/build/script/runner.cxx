@@ -96,7 +96,7 @@ namespace build2
       void default_runner::
       run (environment& env,
            const command_expr& expr,
-           size_t li,
+           const iteration_index* ii, size_t li,
            const location& ll)
       {
         if (verb >= 3)
@@ -115,20 +115,21 @@ namespace build2
                               (p.recall.string () == "set" ||
                                p.recall.string () == "exit");
                      }) != expr.end ())
-          build2::script::run (env, expr, li, ll);
+          build2::script::run (env, expr, ii, li, ll);
         else if (verb >= 2)
           text << expr;
       }
 
       bool default_runner::
-      run_if (environment& env,
-              const command_expr& expr,
-              size_t li, const location& ll)
+      run_cond (environment& env,
+                const command_expr& expr,
+                const iteration_index* ii, size_t li,
+                const location& ll)
       {
         if (verb >= 3)
           text << ": ?" << expr;
 
-        return build2::script::run_if (env, expr, li, ll);
+        return build2::script::run_cond (env, expr, ii, li, ll);
       }
     }
   }

@@ -166,13 +166,13 @@ namespace build2
                                       const location&);
 
       using exec_cmd_function = void (token&, token_type&,
-                                      size_t li,
+                                      const iteration_index*, size_t li,
                                       bool single,
                                       const location&);
 
-      using exec_if_function  = bool (token&, token_type&,
-                                      size_t li,
-                                      const location&);
+      using exec_cond_function  = bool (token&, token_type&,
+                                        const iteration_index*, size_t li,
+                                        const location&);
 
       // If a parser implementation doesn't pre-enter variables into a pool
       // during the pre-parsing phase, then they are entered during the
@@ -183,8 +183,8 @@ namespace build2
       exec_lines (lines::const_iterator b, lines::const_iterator e,
                   const function<exec_set_function>&,
                   const function<exec_cmd_function>&,
-                  const function<exec_if_function>&,
-                  size_t& li,
+                  const function<exec_cond_function>&,
+                  const iteration_index*, size_t& li,
                   variable_pool* = nullptr);
 
       // Customization hooks.

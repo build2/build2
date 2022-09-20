@@ -27,6 +27,7 @@ namespace build2
       cmd_elif,
       cmd_elifn,
       cmd_else,
+      cmd_while,
       cmd_end
     };
 
@@ -379,6 +380,15 @@ namespace build2
 
     ostream&
     operator<< (ostream&, const command_expr&);
+
+    // Stack-allocated linked list of iteration indexes of the nested loops.
+    //
+    struct iteration_index
+    {
+      size_t index; // 1-based.
+
+      const iteration_index* prev; // NULL for the top-most loop.
+    };
 
     struct timeout
     {

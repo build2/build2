@@ -35,14 +35,14 @@ namespace build2
         virtual void
         run (environment&,
              const command_expr&,
-             size_t index,
+             const iteration_index*, size_t index,
              const location&) = 0;
 
         virtual bool
-        run_if (environment&,
-                const command_expr&,
-                size_t,
-                const location&) = 0;
+        run_cond (environment&,
+                  const command_expr&,
+                  const iteration_index*, size_t,
+                  const location&) = 0;
 
         // Location is the script end location (for diagnostics, etc).
         //
@@ -52,9 +52,9 @@ namespace build2
 
       // Run command expressions.
       //
-      // In dry-run mode don't run the expressions unless they are if-
-      // conditions or execute the set or exit builtins, but print them at
-      // verbosity level 2 and up.
+      // In dry-run mode don't run the expressions unless they are flow
+      // control construct conditions or execute the set or exit builtins, but
+      // print them at verbosity level 2 and up.
       //
       class default_runner: public runner
       {
@@ -65,14 +65,14 @@ namespace build2
         virtual void
         run (environment&,
              const command_expr&,
-             size_t,
+             const iteration_index*, size_t,
              const location&) override;
 
         virtual bool
-        run_if (environment&,
-                const command_expr&,
-                size_t,
-                const location&) override;
+        run_cond (environment&,
+                  const command_expr&,
+                  const iteration_index*, size_t,
+                  const location&) override;
 
         virtual void
         leave (environment&, const location&) override;

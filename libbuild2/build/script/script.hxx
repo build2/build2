@@ -20,12 +20,13 @@ namespace build2
     namespace script
     {
       using build2::script::line;
-      using build2::script::lines;
       using build2::script::line_type;
+      using build2::script::lines;
       using build2::script::redirect;
       using build2::script::redirect_type;
       using build2::script::expr_term;
       using build2::script::command_expr;
+      using build2::script::iteration_index;
       using build2::script::deadline;
       using build2::script::timeout;
 

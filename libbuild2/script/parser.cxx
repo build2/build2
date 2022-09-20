@@ -2061,6 +2061,7 @@ namespace build2
         else if (n == "elif")  r = line_type::cmd_elif;
         else if (n == "elif!") r = line_type::cmd_elifn;
         else if (n == "else")  r = line_type::cmd_else;
+        else if (n == "while") r = line_type::cmd_while;
         else if (n == "end")   r = line_type::cmd_end;
         else
         {
@@ -2091,8 +2092,8 @@ namespace build2
     exec_lines (lines::const_iterator i, lines::const_iterator e,
                 const function<exec_set_function>& exec_set,
                 const function<exec_cmd_function>& exec_cmd,
-                const function<exec_if_function>& exec_if,
-                size_t& li,
+                const function<exec_cond_function>& exec_cond,
+                const iteration_index* ii, size_t& li,
                 variable_pool* var_pool)
     {
       try
@@ -2115,6 +2116,69 @@ namespace build2
           //
           next (t, tt);
           const location ll (get_location (t));
+
+          // If end is true, then find the flow control construct's end ('end'
+          // line). Otherwise, find the flow control construct's block end
+          // ('end', 'else', etc). If skip is true then increment the command
+          // line index.
+          //
+          auto fcend = [e, &li] (lines::const_iterator j,
+                                 bool end,
+                                 bool skip) -> lines::const_iterator
+          {
+            // We need to be aware of nested flow control constructs.
+            //
+            size_t n (0);
+
+            for (++j; j != e; ++j)
+            {
+              line_type lt (j->type);
+
+              if (lt == line_type::cmd_if  ||
+                  lt == line_type::cmd_ifn ||
+                  lt == line_type::cmd_while)
+                ++n;
+
+              // If we are nested then we just wait until we get back
+              // to the surface.
+              //
+              if (n == 0)
+              {
+                switch (lt)
+                {
+                case line_type::cmd_elif:
+                case line_type::cmd_elifn:
+                case line_type::cmd_else:
+                  if (end) break;
+                  // Fall through.
+                case line_type::cmd_end:  return j;
+                default: break;
+                }
+              }
+
+              if (lt == line_type::cmd_end)
+                --n;
+
+              if (skip)
+              {
+                // Note that we don't count else and end as commands.
+                //
+                switch (lt)
+                {
+                case line_type::cmd:
+                case line_type::cmd_if:
+                case line_type::cmd_ifn:
+                case line_type::cmd_elif:
+                case line_type::cmd_elifn:
+                case line_type::cmd_while: ++li; break;
+                default:                         break;
+                }
+              }
+            }
+
+            assert (false); // Missing end.
+            return e;
+          };
 
           switch (lt)
           {
@@ -2151,7 +2215,7 @@ namespace build2
                   single = true;
               }
 
-              exec_cmd (t, tt, li++, single, ll);
+              exec_cmd (t, tt, ii, li++, single, ll);
 
               replay_stop ();
               break;
@@ -2167,7 +2231,7 @@ namespace build2
               bool take;
               if (lt != line_type::cmd_else)
               {
-                take = exec_if (t, tt, li++, ll);
+                take = exec_cond (t, tt, ii, li++, ll);
 
                 if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
                   take = !take;
@@ -2180,90 +2244,85 @@ namespace build2
 
               replay_stop ();
 
-              // If end is true, then find the 'end' line. Otherwise, find
-              // the next if-else line. If skip is true then increment the
-              // command line index.
-              //
-              auto next = [e, &li] (lines::const_iterator j,
-                                    bool end,
-                                    bool skip) -> lines::const_iterator
-                {
-                  // We need to be aware of nested if-else chains.
-                  //
-                  size_t n (0);
-
-                  for (++j; j != e; ++j)
-                  {
-                    line_type lt (j->type);
-
-                    if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
-                      ++n;
-
-                    // If we are nested then we just wait until we get back
-                    // to the surface.
-                    //
-                    if (n == 0)
-                    {
-                      switch (lt)
-                      {
-                      case line_type::cmd_elif:
-                      case line_type::cmd_elifn:
-                      case line_type::cmd_else:
-                        if (end) break;
-                        // Fall through.
-                      case line_type::cmd_end:  return j;
-                      default: break;
-                      }
-                    }
-
-                    if (lt == line_type::cmd_end)
-                      --n;
-
-                    if (skip)
-                    {
-                      // Note that we don't count else and end as commands.
-                      //
-                      switch (lt)
-                      {
-                      case line_type::cmd:
-                      case line_type::cmd_if:
-                      case line_type::cmd_ifn:
-                      case line_type::cmd_elif:
-                      case line_type::cmd_elifn: ++li; break;
-                      default:                         break;
-                      }
-                    }
-                  }
-
-                  assert (false); // Missing end.
-                  return e;
-                };
-
               // If we are taking this branch then we need to parse all the
-              // lines until the next if-else line and then skip all the
-              // lines until the end (unless next is already end).
+              // lines until the next if-else line and then skip all the lines
+              // until the end (unless we are already at the end).
               //
               // Otherwise, we need to skip all the lines until the next
               // if-else line and then continue parsing.
               //
               if (take)
               {
-                // Next if-else.
+                // Find block end.
                 //
-                lines::const_iterator j (next (i, false, false));
+                lines::const_iterator j (fcend (i, false, false));
+
                 if (!exec_lines (i + 1, j,
-                                 exec_set, exec_cmd, exec_if,
-                                 li,
+                                 exec_set, exec_cmd, exec_cond,
+                                 ii, li,
                                  var_pool))
                   return false;
 
-                i = j->type == line_type::cmd_end ? j : next (j, true, true);
+                // Find construct end.
+                //
+                i = j->type == line_type::cmd_end ? j : fcend (j, true, true);
               }
               else
               {
-                i = next (i, false, true);
+                // Find block end.
+                //
+                i = fcend (i, false, true);
+
                 if (i->type != line_type::cmd_end)
                   --i; // Continue with this line (e.g., elif or else).
+              }
+
+              break;
+            }
+          case line_type::cmd_while:
+            {
+              size_t wli (li);
+
+              for (iteration_index wi {1, ii};; wi.index++)
+              {
+                next (t, tt); // Skip to start of command.
+
+                bool exec (exec_cond (t, tt, &wi, li++, ll));
+
+                replay_stop ();
+
+                // If the condition evaluates to true, then we need to parse
+                // all the lines until the end line, prepare for the condition
+                // reevaluation, and re-iterate.
+                //
+                // Otherwise, we need to skip all the lines until the end
+                // line, bail out from the loop, and continue parsing.
+                //
+                if (exec)
+                {
+                  // Find construct end.
+                  //
+                  lines::const_iterator j (fcend (i, true, false));
+
+                  if (!exec_lines (i + 1, j,
+                                   exec_set, exec_cmd, exec_cond,
+                                   &wi, li,
+                                   var_pool))
+                    return false;
+
+                  // Prepare for the condition reevaluation.
+                  //
+                  replay_data (replay_tokens (ln.tokens));
+                  next (t, tt);
+                  li = wli;
+                }
+                else
+                {
+                  // Find construct end.
+                  //
+                  i = fcend (i, true, true);
+                  break; // Bail out from the while-loop.
+                }
               }
 
               break;

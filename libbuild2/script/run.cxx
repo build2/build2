@@ -809,7 +809,7 @@ namespace build2
         // regex to file for troubleshooting regardless of whether we print
         // the diagnostics or not. We, however, register it for cleanup in the
         // later case (the expression may still succeed, we can be evaluating
-        // the if condition, etc).
+        // the flow control construct condition, etc).
         //
         optional<path> rp;
         if (env.temp_dir_keep)
@@ -1239,7 +1239,8 @@ namespace build2
               command_pipe::const_iterator bc,
               command_pipe::const_iterator ec,
               auto_fd ifd,
-              size_t ci, size_t li, const location& ll,
+              const iteration_index* ii, size_t li, size_t ci,
+              const location& ll,
               bool diag,
               string* output,
               optional<deadline> dl = nullopt,
@@ -1444,19 +1445,28 @@ namespace build2
 
       // Create a unique path for a command standard stream cache file.
       //
-      auto std_path = [&env, &ci, &li, &ll] (const char* n) -> path
+      auto std_path = [&env, ii, &li, &ci, &ll] (const char* nm) -> path
       {
         using std::to_string;
 
-        path p (n);
+        string s (nm);
+        size_t n (s.size ());
+
+        if (ii != nullptr)
+        {
+          // Note: reverse order (outermost to innermost).
+          //
+          for (const iteration_index* i (ii); i != nullptr; i = i->prev)
+            s.insert (n, "-i" + to_string (i->index));
+        }
 
         // 0 if belongs to a single-line script, otherwise is the command line
         // number (start from one) in the script.
         //
-        if (li > 0)
+        if (li != 0)
         {
-          p += '-';
-          p += to_string (li);
+          s += "-n";
+          s += to_string (li);
         }
 
         // 0 if belongs to a single-command expression, otherwise is the
@@ -1466,13 +1476,13 @@ namespace build2
         // single-line script or to N-th single-command line of multi-line
         // script. These cases are mutually exclusive and so are unambiguous.
         //
-        if (ci > 0)
+        if (ci != 0)
         {
-          p += '-';
-          p += to_string (ci);
+          s += "-c";
+          s += to_string (ci);
         }
 
-        return normalize (move (p), temp_dir (env), ll);
+        return normalize (path (move (s)), temp_dir (env), ll);
       };
 
       // If this is the first pipeline command, then open stdin descriptor
@@ -2206,7 +2216,7 @@ namespace build2
           success = run_pipe (env,
                               nc, ec,
                               move (ofd.in),
-                              ci + 1, li, ll, diag,
+                              ii, li, ci + 1, ll, diag,
                               output,
                               dl, dl_cmd,
                               &pc);
@@ -2333,7 +2343,7 @@ namespace build2
           success = run_pipe (env,
                               nc, ec,
                               move (ofd.in),
-                              ci + 1, li, ll, diag,
+                              ii, li, ci + 1, ll, diag,
                               output,
                               dl, dl_cmd,
                               &pc);
@@ -2471,7 +2481,8 @@ namespace build2
     static bool
     run_expr (environment& env,
               const command_expr& expr,
-              size_t li, const location& ll,
+              const iteration_index* ii, size_t li,
+              const location& ll,
               bool diag,
               string* output)
     {
@@ -2517,7 +2528,7 @@ namespace build2
           r = run_pipe (env,
                         p.begin (), p.end (),
                         auto_fd (),
-                        ci, li, ll, print,
+                        ii, li, ci, ll, print,
                         output);
         }
 
@@ -2530,26 +2541,28 @@ namespace build2
     void
     run (environment& env,
          const command_expr& expr,
-         size_t li, const location& ll,
+         const iteration_index* ii, size_t li,
+         const location& ll,
          string* output)
     {
       // Note that we don't print the expression at any verbosity level
       // assuming that the caller does this, potentially providing some
       // additional information (command type, etc).
       //
-      if (!run_expr (env, expr, li, ll, true /* diag */, output))
+      if (!run_expr (env, expr, ii, li, ll, true /* diag */, output))
         throw failed (); // Assume diagnostics is already printed.
     }
 
     bool
-    run_if (environment& env,
-            const command_expr& expr,
-            size_t li, const location& ll,
-            string* output)
+    run_cond (environment& env,
+              const command_expr& expr,
+              const iteration_index* ii, size_t li,
+              const location& ll,
+              string* output)
     {
       // Note that we don't print the expression here (see above).
       //
-      return run_expr (env, expr, li, ll, false /* diag */, output);
+      return run_expr (env, expr, ii, li, ll, false /* diag */, output);
     }
 
     void

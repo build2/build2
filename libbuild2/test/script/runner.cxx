@@ -142,7 +142,8 @@ namespace build2
       void default_runner::
       run (scope& sp,
            const command_expr& expr, command_type ct,
-           size_t li, const location& ll)
+           const iteration_index* ii, size_t li,
+           const location& ll)
       {
         // Noop for teardown commands if keeping tests output is requested.
         //
@@ -175,13 +176,14 @@ namespace build2
             dr << info << "test id: " << sp.id_path.posix_string ();
           });
 
-        build2::script::run (sp, expr, li, ll);
+        build2::script::run (sp, expr, ii, li, ll);
       }
 
       bool default_runner::
-      run_if (scope& sp,
-              const command_expr& expr,
-              size_t li, const location& ll)
+      run_cond (scope& sp,
+                const command_expr& expr,
+                const iteration_index* ii, size_t li,
+                const location& ll)
       {
         if (verb >= 3)
           text << ": ?" << expr;
@@ -197,7 +199,7 @@ namespace build2
             dr << info << "test id: " << sp.id_path.posix_string ();
           });
 
-        return build2::script::run_if (sp, expr, li, ll);
+        return build2::script::run_cond (sp, expr, ii, li, ll);
       }
     }
   }

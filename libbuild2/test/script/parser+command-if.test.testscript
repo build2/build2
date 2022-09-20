@@ -315,6 +315,7 @@
 }
 
 : end
+:
 {
   : without-if
   :
@@ -322,7 +323,7 @@
   cmd
   end
   EOI
-  testscript:2:1: error: 'end' without preceding 'if'
+  testscript:2:1: error: 'end' without preceding 'if', 'for', or 'while'
   EOE
 
   : without-if-semi
@@ -331,10 +332,11 @@
   cmd;
   end
   EOI
-  testscript:2:1: error: 'end' without preceding 'if'
+  testscript:2:1: error: 'end' without preceding 'if', 'for', or 'while'
   EOE
 
   : before
+  :
   {
     : semi
     :

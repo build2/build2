@@ -29,7 +29,9 @@ namespace build2
       class print_runner: public runner
       {
       public:
-        print_runner (bool line): line_ (line) {}
+        print_runner (bool line, bool iterations):
+            line_ (line),
+            iterations_ (iterations) {}
 
         virtual void
         enter (environment&, const location&) override {}
@@ -37,27 +39,27 @@ namespace build2
         virtual void
         run (environment&,
              const command_expr& e,
-             size_t i,
+             const iteration_index* ii, size_t i,
              const location&) override
         {
           cout << e;
 
-          if (line_)
-            cout << " # " << i;
+          if (line_ || iterations_)
+            print_line_info (ii, i);
 
           cout << endl;
         }
 
         virtual bool
-        run_if (environment&,
-                const command_expr& e,
-                size_t i,
-                const location&) override
+        run_cond (environment&,
+                  const command_expr& e,
+                  const iteration_index* ii, size_t i,
+                  const location&) override
         {
           cout << "? " << e;
 
-          if (line_)
-            cout << " # " << i;
+          if (line_ || iterations_)
+            print_line_info (ii, i);
 
           cout << endl;
 
@@ -68,12 +70,32 @@ namespace build2
         leave (environment&, const location&) override {}
 
       private:
+        void
+        print_line_info (const iteration_index* ii, size_t i) const
+        {
+          cout << " #";
+
+          if (line_)
+            cout << ' ' << i;
+
+          if (iterations_ && ii != nullptr)
+          {
+            string s;
+            for (const iteration_index* i (ii); i != nullptr; i = i->prev)
+              s.insert (0, " i" + to_string (i->index));
+
+            cout << s;
+          }
+        }
+
+      private:
         bool line_;
+        bool iterations_;
       };
 
       // Usages:
       //
-      // argv[0] [-l]
+      // argv[0] [-l] [-r]
       // argv[0] -b [-t]
       // argv[0] -d [-t]
       // argv[0] -q
@@ -98,6 +120,9 @@ namespace build2
       //
       // -l
       //    Print the script line number for each executed expression.
+      //
+      // -r
+      //    Print the loop iteration numbers for each executed expression.
       //
       // -b
       //    Dump the parsed script body to stdout.
@@ -136,6 +161,7 @@ namespace build2
         } m (mode::run);
 
         bool print_line (false);
+        bool print_iterations (false);
         optional<string> diag_name;
         bool temp_dir (false);
 
@@ -145,6 +171,8 @@ namespace build2
 
           if (a == "-l")
             print_line = true;
+          else if (a == "-r")
+            print_iterations = true;
           else if (a == "-b")
             m = mode::body;
           else if (a == "-d")
@@ -170,8 +198,9 @@ namespace build2
           }
         }
 
-        assert (!print_line || m == mode::run);
-        assert (!diag_name  || m == mode::diag);
+        assert (!print_line       || m == mode::run);
+        assert (!print_iterations || m == mode::run);
+        assert (!diag_name        || m == mode::diag);
 
         // Fake build system driver, default verbosity.
         //
@@ -223,7 +252,7 @@ namespace build2
           case mode::run:
             {
               environment e (perform_update_id, tt, s.body_temp_dir);
-              print_runner r (print_line);
+              print_runner r (print_line, print_iterations);
               p.execute_body (ctx.global_scope, ctx.global_scope, e, s, r);
               break;
             }

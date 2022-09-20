@@ -293,21 +293,27 @@ namespace build2
       }
 
       // Parse a logical line (as well as scope-if since the only way to
-      // recognize it is to parse the if line).
+      // recognize it is to parse the if line), handling the flow control
+      // constructs recursively.
       //
       // If one is true then only parse one line returning an indication of
-      // whether the line ended with a semicolon. If if_line is true then this
-      // line can be an if-else construct flow control line (else, end, etc).
+      // whether the line ended with a semicolon. If the flow control
+      // construct type is specified, then this line is assumed to belong to
+      // such construct.
       //
       bool parser::
       pre_parse_line (token& t, type& tt,
                       optional<description>& d,
                       lines* ls,
                       bool one,
-                      bool if_line)
+                      optional<line_type> fct)
       {
         // enter: next token is peeked at (type in tt)
         // leave: newline
+
+        assert (!fct                      ||
+                *fct == line_type::cmd_if ||
+                *fct == line_type::cmd_while);
 
         // Note: token is only peeked at.
         //
@@ -364,8 +370,9 @@ namespace build2
             {
               const string& n (t.value);
 
-              if      (n == "if")  lt = line_type::cmd_if;
-              else if (n == "if!") lt = line_type::cmd_ifn;
+              if      (n == "if")    lt = line_type::cmd_if;
+              else if (n == "if!")   lt = line_type::cmd_ifn;
+              else if (n == "while") lt = line_type::cmd_while;
             }
 
             break;
@@ -420,16 +427,20 @@ namespace build2
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
         case line_type::cmd_else:
+          {
+            if (!fct || *fct != line_type::cmd_if)
+              fail (t) << lt << " without preceding 'if'";
+          }
+          // Fall through.
         case line_type::cmd_end:
           {
-            if (!if_line)
-            {
-              fail (t) << lt << " without preceding 'if'";
-            }
+            if (!fct)
+              fail (t) << lt << " without preceding 'if', 'for', or 'while'";
           }
           // Fall through.
         case line_type::cmd_if:
         case line_type::cmd_ifn:
+        case line_type::cmd_while:
           next (t, tt); // Skip to start of command.
           // Fall through.
         case line_type::cmd:
@@ -440,8 +451,9 @@ namespace build2
               p = parse_command_expr (t, tt, lexer::redirect_aliases);
 
             // Colon and semicolon are only valid in test command lines and
-            // after 'end' in if-else. Note that we still recognize them
-            // lexically, they are just not valid tokens per the grammar.
+            // after 'end' in a flow control construct. Note that we still
+            // recognize them lexically, they are just not valid tokens per
+            // the grammar.
             //
             if (tt != type::newline)
             {
@@ -504,14 +516,17 @@ namespace build2
           if (ls->empty ())
             return semi;
         }
+        else if (lt == line_type::cmd_while)
+          semi = pre_parse_while (t, tt, d, *ls);
 
         // Unless we were told where to put it, decide where it actually goes.
         //
         if (ls == &ls_data)
         {
-          // First pre-check variable and variable-if: by themselves (i.e.,
-          // without a trailing semicolon) they are treated as either setup or
-          // teardown without plus/minus. Also handle illegal line types.
+          // First pre-check variables and variable-only flow control
+          // constructs: by themselves (i.e., without a trailing semicolon)
+          // they are treated as either setup or teardown without
+          // plus/minus. Also handle illegal line types.
           //
           switch (lt)
           {
@@ -524,8 +539,9 @@ namespace build2
             }
           case line_type::cmd_if:
           case line_type::cmd_ifn:
+          case line_type::cmd_while:
             {
-              // See if this is a variable-only command-if.
+              // See if this is a variable-only flow control construct.
               //
               if (find_if (ls_data.begin (), ls_data.end (),
                            [] (const line& l) {
@@ -549,7 +565,7 @@ namespace build2
                     fail (ll) << "description before setup/teardown variable";
                   else
                     fail (ll) << "description before/after setup/teardown "
-                              << "variable-if";
+                              << "variable-only " << lt;
                 }
 
                 // If we don't have any nested scopes or teardown commands,
@@ -793,7 +809,7 @@ namespace build2
                                      td,
                                      &ls,
                                      true /* one */,
-                                     true /* if_line */));
+                                     line_type::cmd_if));
 
           assert (ls.size () == 1 && ls.back ().type == lt);
           assert (tt == type::newline);
@@ -831,6 +847,97 @@ namespace build2
         return false; // We never end with a semi.
       }
 
+      // Pre-parse the flow control construct block line. Fail if the line is
+      // unexpectedly followed with a semicolon or test description.
+      //
+      bool parser::
+      pre_parse_block_line (token& t, type& tt,
+                            line_type bt,
+                            optional<description>& d,
+                            lines& ls)
+      {
+        // enter: peeked first token of the line (type in tt)
+        // leave: newline
+
+        const location ll (get_location (peeked ()));
+
+        switch (tt)
+        {
+        case type::colon:
+          fail (ll) << "description inside " << bt << endf;
+        case type::eos:
+        case type::rcbrace:
+        case type::lcbrace:
+          fail (ll) << "expected closing 'end'" << endf;
+        case type::plus:
+          fail (ll) << "setup command inside " << bt << endf;
+        case type::minus:
+          fail (ll) << "teardown command inside " << bt << endf;
+        }
+
+        // Parse one line. Note that this one line can still be multiple lines
+        // in case of a flow control construct. In this case we want to view
+        // it as, for example, cmd_if, not cmd_end. Thus remember the start
+        // position of the next logical line.
+        //
+        size_t i (ls.size ());
+
+        line_type fct; // Flow control type the block type relates to.
+
+        switch (bt)
+        {
+        case line_type::cmd_if:
+        case line_type::cmd_ifn:
+        case line_type::cmd_elif:
+        case line_type::cmd_elifn:
+        case line_type::cmd_else:
+          {
+            fct = line_type::cmd_if;
+            break;
+          }
+        case line_type::cmd_while:
+          {
+            fct = line_type::cmd_while;
+            break;
+          }
+        default: assert(false);
+        }
+
+        optional<description> td;
+        bool semi (pre_parse_line (t, tt, td, &ls, true /* one */, fct));
+
+        assert (tt == type::newline);
+
+        line_type lt (ls[i].type);
+
+        // First take care of 'end'.
+        //
+        if (lt == line_type::cmd_end)
+        {
+          if (td)
+          {
+            if (d)
+              fail (ll) << "both leading and trailing descriptions";
+
+            d = move (td);
+          }
+
+          return semi;
+        }
+
+        // For any other line trailing semi or description is illegal.
+        //
+        // @@ Not the exact location of semi/colon.
+        //
+        if (semi)
+          fail (ll) << "';' inside " << bt;
+
+        if (td)
+          fail (ll) << "description inside " << bt;
+
+        return false;
+      }
+
       bool parser::
       pre_parse_if_else_command (token& t, type& tt,
                                  optional<description>& d,
@@ -839,70 +946,23 @@ namespace build2
         // enter: peeked first token of next line (type in tt)
         // leave: newline
 
-        // Parse lines until we see closing 'end'. Nested if-else blocks are
-        // handled recursively.
+        // Parse lines until we see closing 'end'.
         //
         for (line_type bt (line_type::cmd_if); // Current block.
              ;
              tt = peek (lexer_mode::first_token))
         {
           const location ll (get_location (peeked ()));
-
-          switch (tt)
-          {
-          case type::colon:
-            fail (ll) << "description inside " << bt << endf;
-          case type::eos:
-          case type::rcbrace:
-          case type::lcbrace:
-            fail (ll) << "expected closing 'end'" << endf;
-          case type::plus:
-            fail (ll) << "setup command inside " << bt << endf;
-          case type::minus:
-            fail (ll) << "teardown command inside " << bt << endf;
-          }
-
-          // Parse one line. Note that this one line can still be multiple
-          // lines in case of if-else. In this case we want to view it as
-          // cmd_if, not cmd_end. Thus remember the start position of the
-          // next logical line.
-          //
           size_t i (ls.size ());
 
-          optional<description> td;
-          bool semi (pre_parse_line (t, tt,
-                                     td,
-                                     &ls,
-                                     true /* one */,
-                                     true /* if_line */));
-          assert (tt == type::newline);
+          bool semi (pre_parse_block_line (t, tt, bt, d, ls));
 
           line_type lt (ls[i].type);
 
           // First take care of 'end'.
           //
           if (lt == line_type::cmd_end)
-          {
-            if (td)
-            {
-              if (d)
-                fail (ll) << "both leading and trailing descriptions";
-
-              d = move (td);
-            }
-
             return semi;
-          }
-
-          // For any other line trailing semi or description is illegal.
-          //
-          // @@ Not the exact location of semi/colon.
-          //
-          if (semi)
-            fail (ll) << "';' inside " << bt;
-
-          if (td)
-            fail (ll) << "description inside " << bt;
 
           // Check if-else block sequencing.
           //
@@ -924,6 +984,36 @@ namespace build2
           default: break;
           }
         }
+
+        assert (false); // Can't be here.
+        return false;
+      }
+
+      bool parser::
+      pre_parse_while (token& t, type& tt,
+                       optional<description>& d,
+                       lines& ls)
+      {
+        // enter: <newline> (previous line)
+        // leave: <newline>
+
+        tt = peek (lexer_mode::first_token);
+
+        // Parse lines until we see closing 'end'.
+        //
+        for (;; tt = peek (lexer_mode::first_token))
+        {
+          size_t i (ls.size ());
+
+          bool semi (
+            pre_parse_block_line (t, tt, line_type::cmd_while, d, ls));
+
+          if (ls[i].type == line_type::cmd_end)
+            return semi;
+        }
+
+        assert (false); // Can't be here.
+        return false;
       }
 
       void parser::
@@ -1424,7 +1514,7 @@ namespace build2
         command_type ct;
 
         auto exec_cmd = [&ct, this] (token& t, build2::script::token_type& tt,
-                                     size_t li,
+                                     const iteration_index* ii, size_t li,
                                      bool single,
                                      const location& ll)
         {
@@ -1437,19 +1527,20 @@ namespace build2
           command_expr ce (
             parse_command_line (t, static_cast<token_type&> (tt)));
 
-          runner_->run (*scope_, ce, ct, li, ll);
+          runner_->run (*scope_, ce, ct, ii, li, ll);
         };
 
-        auto exec_if = [this] (token& t, build2::script::token_type& tt,
-                               size_t li,
-                               const location& ll)
+        auto exec_cond = [this] (token& t, build2::script::token_type& tt,
+                                 const iteration_index* ii, size_t li,
+                                 const location& ll)
         {
           command_expr ce (
             parse_command_line (t, static_cast<token_type&> (tt)));
 
-          // Assume if-else always involves multiple commands.
+          // Assume a flow control construct always involves multiple
+          // commands.
           //
-          return runner_->run_if (*scope_, ce, li, ll);
+          return runner_->run_cond (*scope_, ce, ii, li, ll);
         };
 
         size_t li (1);
@@ -1459,16 +1550,16 @@ namespace build2
           ct = command_type::test;
 
           exec_lines (t->tests_.begin (), t->tests_.end (),
-                      exec_set, exec_cmd, exec_if,
-                      li);
+                      exec_set, exec_cmd, exec_cond,
+                      nullptr /* iteration_index */, li);
         }
         else if (group* g = dynamic_cast<group*> (scope_))
         {
           ct = command_type::setup;
 
           bool exec_scope (exec_lines (g->setup_.begin (), g->setup_.end (),
-                                       exec_set, exec_cmd, exec_if,
-                                       li));
+                                       exec_set, exec_cmd, exec_cond,
+                                       nullptr /* iteration_index */, li));
 
           if (exec_scope)
           {
@@ -1526,7 +1617,8 @@ namespace build2
 
                   try
                   {
-                    take = runner_->run_if (*scope_, ce, li++, ll);
+                    take = runner_->run_cond (
+                      *scope_, ce, nullptr /* iteration_index */, li++, ll);
                   }
                   catch (const exit_scope& e)
                   {
@@ -1637,8 +1729,8 @@ namespace build2
           ct = command_type::teardown;
 
           exec_lines (g->tdown_.begin (), g->tdown_.end (),
-                      exec_set, exec_cmd, exec_if,
-                      li);
+                      exec_set, exec_cmd, exec_cond,
+                      nullptr /* iteration_index */, li);
         }
         else
           assert (false);

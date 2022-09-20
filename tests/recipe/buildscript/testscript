@@ -487,7 +487,7 @@ posix = ($cxx.target.class != 'windows')
       : normal
       :
       {
-	cat <<EOI >=bar.h;
+        cat <<EOI >=bar.h;
           bar
           EOI
 
@@ -519,23 +519,23 @@ posix = ($cxx.target.class != 'windows')
           }}
           EOI
 
-	$* 2>>EOE;
+        $* 2>>EOE;
           gen h{baz.h}
           gen h{foo.h}
           EOE
 
-	cat foo.h >>EOO;
-	  bar
-	  baz
-	  EOO
+        cat foo.h >>EOO;
+          bar
+          baz
+          EOO
 
-	$* clean 2>-
+        $* clean 2>-
       }
 
       : byproduct
       :
       {
-	cat <<EOI >=bar.h;
+        cat <<EOI >=bar.h;
           bar
           EOI
 
@@ -562,17 +562,17 @@ posix = ($cxx.target.class != 'windows')
           }}
           EOI
 
-	$* 2>>EOE;
+        $* 2>>EOE;
           gen h{baz.h}
           gen h{foo.h}
           EOE
 
-	cat foo.h >>EOO;
-	  bar
-	  baz
-	  EOO
+        cat foo.h >>EOO;
+          bar
+          baz
+          EOO
 
-	$* clean 2>-
+        $* clean 2>-
       }
     }
   }
@@ -884,4 +884,30 @@ if $posix
   $* 2>>EOE
     alias{bar} alias{far}
     EOE
+}
+
+: flow-control-construct
+:
+{
+  : while
+  :
+  {
+    echo 'bar' >=bar;
+
+    cat <<EOI >=buildfile;
+      foo: bar
+      {{
+        p = $path($>)
+        while test -f $p != 0
+          cp $path($<) $p
+        end
+      }}
+      EOI
+
+    $* 2>'cp file{foo}';
+
+    cat <<<foo >'bar';
+
+    $* clean 2>-
+  }
 }

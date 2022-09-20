@@ -1,0 +1,16 @@
+# file      : tests/test/script/runner/while.testscript
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+: basics
+:
+$c <<EOI && $b >>EOO
+  while ($v != "aa")
+    echo "$v" >|
+    v = "$(v)a"
+  end
+  EOI
+
+  a
+  EOO

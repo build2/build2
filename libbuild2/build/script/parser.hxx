@@ -65,10 +65,17 @@ namespace build2
         pre_parse_script ();
 
         void
-        pre_parse_line (token&, token_type&, bool if_line = false);
+        pre_parse_line (token&, token_type&,
+                        optional<line_type> flow_control_type = nullopt);
+
+        void
+        pre_parse_block_line (token&, token_type&, line_type block_type);
 
         void
         pre_parse_if_else (token&, token_type&);
+
+        void
+        pre_parse_while (token&, token_type&);
 
         command_expr
         parse_command_line (token&, token_type&);
@@ -367,13 +374,13 @@ namespace build2
         //
         line* save_line_;
 
-        // The if-else nesting level (and in the future for other flow
-        // control constructs).
+        // The flow control constructs nesting level.
         //
-        // Maintained during pre-parsing and is incremented when the cmd_if or
-        // cmd_ifn lines are encountered, which in particular means that it is
-        // already incremented by the time the if-condition expression is
-        // pre-parsed. Decremented when the cmd_end line is encountered.
+        // Maintained during pre-parsing and is incremented when flow control
+        // construct condition lines are encountered, which in particular
+        // means that it is already incremented by the time the condition
+        // expression is pre-parsed. Decremented when the cmd_end line is
+        // encountered.
         //
         size_t level_ = 0;
 

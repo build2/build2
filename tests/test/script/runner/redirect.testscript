@@ -654,9 +654,9 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     $* -o bar >?out
     EOI
     %testscript:2: error: ../../../../../driver(.exe)? stdout doesn't match expected%
-      info: stdout: test/1/stdout-2
+      info: stdout: test/1/stdout-n2
       info: expected stdout: test/1/out
-      info: stdout diff: test/1/stdout-2.diff
+      info: stdout diff: test/1/stdout-n2.diff
     %--- \.*%
     %\+\+\+ \.*%
     %@@ \.*%

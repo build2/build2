@@ -51,11 +51,14 @@ namespace build2
         virtual void
         run (scope&,
              const command_expr&, command_type,
-             size_t index,
+             const iteration_index*, size_t index,
              const location&) = 0;
 
         virtual bool
-        run_if (scope&, const command_expr&, size_t, const location&) = 0;
+        run_cond (scope&,
+                  const command_expr&,
+                  const iteration_index*, size_t,
+                  const location&) = 0;
 
         // Location is the scope end location (for diagnostics, etc).
         //
@@ -84,11 +87,14 @@ namespace build2
         virtual void
         run (scope&,
              const command_expr&, command_type,
-             size_t,
+             const iteration_index*, size_t,
              const location&) override;
 
         virtual bool
-        run_if (scope&, const command_expr&, size_t, const location&) override;
+        run_cond (scope&,
+                  const command_expr&,
+                  const iteration_index*, size_t,
+                  const location&) override;
 
         virtual void
         leave (scope&, const location&) override;

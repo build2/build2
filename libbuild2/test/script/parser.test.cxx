@@ -33,8 +33,11 @@ namespace build2
       class print_runner: public runner
       {
       public:
-        print_runner (bool scope, bool id, bool line)
-            : scope_ (scope), id_ (id), line_ (line) {}
+        print_runner (bool scope, bool id, bool line, bool iterations)
+            : scope_ (scope),
+              id_ (id),
+              line_ (line),
+              iterations_ (iterations) {}
 
         virtual bool
         test (scope&) const override
@@ -99,7 +102,7 @@ namespace build2
         virtual void
         run (scope&,
              const command_expr& e, command_type t,
-             size_t i,
+             const iteration_index* ii, size_t i,
              const location&) override
         {
           const char* s (nullptr);
@@ -113,22 +116,22 @@ namespace build2
 
           cout << ind_ << s << e;
 
-          if (line_)
-            cout << " # " << i;
+          if (line_ || iterations_)
+            print_line_info (ii, i);
 
           cout << endl;
         }
 
         virtual bool
-        run_if (scope&,
-                const command_expr& e,
-                size_t i,
-                const location&) override
+        run_cond (scope&,
+                  const command_expr& e,
+                  const iteration_index* ii, size_t i,
+                  const location&) override
         {
           cout << ind_ << "? " << e;
 
-          if (line_)
-            cout << " # " << i;
+          if (line_ || iterations_)
+            print_line_info (ii, i);
 
           cout << endl;
 
@@ -146,13 +149,33 @@ namespace build2
         }
 
       private:
+        void
+        print_line_info (const iteration_index* ii, size_t i) const
+        {
+          cout << " #";
+
+          if (line_)
+            cout << ' ' << i;
+
+          if (iterations_ && ii != nullptr)
+          {
+            string s;
+            for (const iteration_index* i (ii); i != nullptr; i = i->prev)
+              s.insert (0, " i" + to_string (i->index));
+
+            cout << s;
+          }
+        }
+
+      private:
         bool scope_;
         bool id_;
         bool line_;
+        bool iterations_;
         string ind_;
       };
 
-      // Usage: argv[0] [-s] [-i] [-l] [<testscript-name>]
+      // Usage: argv[0] [-s] [-i] [-l] [-r] [<testscript-name>]
       //
       int
       main (int argc, char* argv[])
@@ -174,6 +197,7 @@ namespace build2
         bool scope (false);
         bool id (false);
         bool line (false);
+        bool iterations (false);
         path name;
 
         for (int i (1); i != argc; ++i)
@@ -186,6 +210,8 @@ namespace build2
             id = true;
           else if (a == "-l")
             line = true;
+          else if (a == "-r")
+            iterations = true;
           else
           {
             name = path (move (a));
@@ -236,7 +262,7 @@ namespace build2
           script s (tt, st, dir_path (work) /= "test-driver");
           p.pre_parse (cin, s);
 
-          print_runner r (scope, id, line);
+          print_runner r (scope, id, line, iterations);
           p.execute (s, r);
         }
         catch (const failed&)

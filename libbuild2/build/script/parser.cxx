@@ -193,9 +193,22 @@ namespace build2
         }
       }
 
+      // Parse a logical line, handling the flow control constructs
+      // recursively.
+      //
+      // If the flow control construct type is specified, then this line is
+      // assumed to belong to such a construct.
+      //
       void parser::
-      pre_parse_line (token& t, type& tt, bool if_line)
+      pre_parse_line (token& t, type& tt, optional<line_type> fct)
       {
+        // enter: next token is peeked at (type in tt)
+        // leave: newline
+
+        assert (!fct                      ||
+                *fct == line_type::cmd_if ||
+                *fct == line_type::cmd_while);
+
         // Determine the line type/start token.
         //
         line_type lt (
@@ -235,19 +248,25 @@ namespace build2
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
         case line_type::cmd_else:
+          {
+            if (!fct || *fct != line_type::cmd_if)
+              fail (t) << lt << " without preceding 'if'";
+          }
+          // Fall through.
         case line_type::cmd_end:
           {
-            if (!if_line)
-            {
-              fail (t) << lt << " without preceding 'if'";
-            }
+            if (!fct)
+              fail (t) << lt << " without preceding 'if', 'for', or 'while'";
           }
           // Fall through.
         case line_type::cmd_if:
         case line_type::cmd_ifn:
+        case line_type::cmd_while:
           next (t, tt); // Skip to start of command.
 
-          if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
+          if (lt == line_type::cmd_if  ||
+              lt == line_type::cmd_ifn ||
+              lt == line_type::cmd_while)
             ++level_;
           else if (lt == line_type::cmd_end)
             --level_;
@@ -287,6 +306,50 @@ namespace build2
 
           pre_parse_if_else (t, tt);
         }
+        else if (lt == line_type::cmd_while)
+        {
+          tt = peek (lexer_mode::first_token);
+
+          pre_parse_while (t, tt);
+        }
+      }
+
+      // Pre-parse the flow control construct block line.
+      //
+      void parser::
+      pre_parse_block_line (token& t, type& tt, line_type bt)
+      {
+        // enter: peeked first token of the line (type in tt)
+        // leave: newline
+
+        const location ll (get_location (peeked ()));
+
+        if (tt == type::eos)
+          fail (ll) << "expected closing 'end'";
+
+        line_type fct; // Flow control type the block type relates to.
+
+        switch (bt)
+        {
+        case line_type::cmd_if:
+        case line_type::cmd_ifn:
+        case line_type::cmd_elif:
+        case line_type::cmd_elifn:
+        case line_type::cmd_else:
+          {
+            fct = line_type::cmd_if;
+            break;
+          }
+        case line_type::cmd_while:
+          {
+            fct = line_type::cmd_while;
+            break;
+          }
+        default: assert(false);
+        }
+
+        pre_parse_line (t, tt, fct);
+        assert (tt == type::newline);
       }
 
       void parser::
@@ -295,8 +358,7 @@ namespace build2
         // enter: peeked first token of next line (type in tt)
         // leave: newline
 
-        // Parse lines until we see closing 'end'. Nested if-else blocks are
-        // handled recursively.
+        // Parse lines until we see closing 'end'.
         //
         for (line_type bt (line_type::cmd_if); // Current block.
              ;
@@ -304,25 +366,21 @@ namespace build2
         {
           const location ll (get_location (peeked ()));
 
-          if (tt == type::eos)
-            fail (ll) << "expected closing 'end'";
-
           // Parse one line. Note that this one line can still be multiple
-          // lines in case of if-else. In this case we want to view it as
-          // cmd_if, not cmd_end. Thus remember the start position of the
-          // next logical line.
+          // lines in case of a flow control construct. In this case we want
+          // to view it as cmd_if, not cmd_end. Thus remember the start
+          // position of the next logical line.
           //
           size_t i (script_->body.size ());
 
-          pre_parse_line (t, tt, true /* if_line */);
-          assert (tt == type::newline);
+          pre_parse_block_line (t, tt, bt);
 
           line_type lt (script_->body[i].type);
 
           // First take care of 'end'.
           //
           if (lt == line_type::cmd_end)
-            return;
+            break;
 
           // Check if-else block sequencing.
           //
@@ -343,6 +401,25 @@ namespace build2
           case line_type::cmd_else:  bt = line_type::cmd_else; break;
           default: break;
           }
+        }
+      }
+
+      void parser::
+      pre_parse_while (token& t, type& tt)
+      {
+        // enter: peeked first token of next line (type in tt)
+        // leave: newline
+
+        // Parse lines until we see closing 'end'.
+        //
+        for (;; tt = peek (lexer_mode::first_token))
+        {
+          size_t i (script_->body.size ());
+
+          pre_parse_block_line (t, tt, line_type::cmd_while);
+
+          if (script_->body[i].type == line_type::cmd_end)
+            break;
         }
       }
 
@@ -946,7 +1023,7 @@ namespace build2
         // Note that we rely on "small function object" optimization here.
         //
         auto exec_cmd = [this] (token& t, build2::script::token_type& tt,
-                                size_t li,
+                                const iteration_index* ii, size_t li,
                                 bool single,
                                 const location& ll)
         {
@@ -958,7 +1035,7 @@ namespace build2
           command_expr ce (
             parse_command_line (t, static_cast<token_type&> (tt)));
 
-          runner_->run (*environment_, ce, li, ll);
+          runner_->run (*environment_, ce, ii, li, ll);
         };
 
         exec_lines (s.body, exec_cmd);
@@ -1009,13 +1086,13 @@ namespace build2
 
         auto exec_cmd = [this, &data] (token& t,
                                        build2::script::token_type& tt,
-                                       size_t li,
+                                       const iteration_index* ii, size_t li,
                                        bool /* single */,
                                        const location& ll)
         {
           // Note that we never reset the line index to zero (as we do in
-          // execute_body()) assuming that there are some script body
-          // commands to follow.
+          // execute_body()) assuming that there are some script body commands
+          // to follow.
           //
           if (tt == type::word && t.value == "depdb")
           {
@@ -1128,7 +1205,7 @@ namespace build2
                 info (rt[0].location ()) << "depdb preamble ends here";
             }
 
-            runner_->run (*environment_, ce, li, ll);
+            runner_->run (*environment_, ce, ii, li, ll);
           }
         };
 
@@ -1191,20 +1268,22 @@ namespace build2
           apply_value_attributes (&var, lhs, move (rhs), kind);
         };
 
-        auto exec_if = [this] (token& t, build2::script::token_type& tt,
-                               size_t li,
-                               const location& ll)
+        auto exec_cond = [this] (token& t, build2::script::token_type& tt,
+                                 const iteration_index* ii, size_t li,
+                                 const location& ll)
         {
           command_expr ce (
             parse_command_line (t, static_cast<token_type&> (tt)));
 
-          // Assume if-else always involves multiple commands.
+          // Assume a flow control construct always involves multiple
+          // commands.
           //
-          return runner_->run_if (*environment_, ce, li, ll);
+          return runner_->run_cond (*environment_, ce, ii, li, ll);
         };
 
         build2::script::parser::exec_lines (begin, end,
-                                            exec_set, exec_cmd, exec_if,
+                                            exec_set, exec_cmd, exec_cond,
+                                            nullptr /* iteration_index */,
                                             environment_->exec_line,
                                             &environment_->var_pool);
       }
@@ -2145,10 +2224,12 @@ namespace build2
             istringstream iss;
             if (prog)
             {
+              // Note: depdb is disallowed inside flow control constructs.
+              //
               string s;
               build2::script::run (*environment_,
                                    cmd,
-                                   li,
+                                   nullptr /* iteration_index */, li,
                                    ll,
                                    !file ? &s : nullptr);
 

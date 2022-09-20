@@ -279,7 +279,7 @@
   cmd
   end
   EOI
-  buildfile:12:1: error: 'end' without preceding 'if'
+  buildfile:12:1: error: 'end' without preceding 'if', 'for', or 'while'
   EOE
 
   : before

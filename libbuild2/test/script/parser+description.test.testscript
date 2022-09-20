@@ -313,7 +313,7 @@
     x = y
   end
   EOI
-  testscript:2:1: error: description before/after setup/teardown variable-if
+  testscript:2:1: error: description before/after setup/teardown variable-only 'if'
   EOE
 
   : var-if-after
@@ -323,7 +323,7 @@
     x = y
   end : foo
   EOI
-  testscript:1:1: error: description before/after setup/teardown variable-if
+  testscript:1:1: error: description before/after setup/teardown variable-only 'if'
   EOE
 
   : test
