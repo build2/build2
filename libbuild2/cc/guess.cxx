@@ -1517,8 +1517,8 @@ namespace build2
     // Studio command prompt puts into INCLUDE) including any paths from the
     // compiler mode and their count.
     //
-    // Note that currently we don't add any ATL/MFC or WinRT paths (but could
-    // do that probably first checking if they exist/empty).
+    // Note that currently we don't add any ATL/MFC paths (but could do that
+    // probably first checking if they exist/empty).
     //
     static pair<dir_paths, size_t>
     msvc_hdr (const msvc_info& mi, const strings& mo)
@@ -1543,6 +1543,7 @@ namespace build2
         r.push_back (dir_path (d) /= "ucrt"  );
         r.push_back (dir_path (d) /= "shared");
         r.push_back (dir_path (d) /= "um"    );
+        r.push_back (dir_path (d) /= "winrt" );
       }
 
       return make_pair (move (r), rn);
@@ -1751,7 +1752,7 @@ namespace build2
         //
         // OS-ABI is where things are not as clear cut. The OS part shouldn't
         // probably be just 'windows' since we have Win32 and WinCE. And
-        // WinRT.  And Universal Windows Platform (UWP). So perhaps the
+        // WinRT. And Universal Windows Platform (UWP). So perhaps the
         // following values for OS: 'win32', 'wince', 'winrt', 'winup'.
         //
         // For 'win32' the ABI part could signal the Microsoft C/C++ runtime
