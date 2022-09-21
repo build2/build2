@@ -427,6 +427,7 @@ namespace build2
     action a, const scope& bs, const target& t,
     path& fp, bool cache, bool norm,
     bool insert,
+    bool dynamic,
     const function<dyndep_rule::map_extension_func>& map_extension,
     const target_type& fallback,
     const function<dyndep_rule::prefix_map_func>& get_pfx_map,
@@ -435,13 +436,21 @@ namespace build2
     // NOTE: see enter_header() caching logic if changing anyting here with
     //       regards to the target and base scope usage.
 
-    // Find or maybe insert the target. The directory is only moved from if
-    // insert is true. Note that it must be normalized.
+    // Find or maybe insert the target.
+    //
+    // If insert is false, then don't consider dynamically-created targets
+    // (i.e., those that are not real or implied) unless dynamic is true, in
+    // which case return the target that would have been inserted.
+    //
+    // The directory is only moved from if insert is true. Note that it must
+    // be normalized.
     //
     auto find = [&trace, what, &t,
-                 &map_extension, &fallback] (dir_path&& d,
-                                             path&& f,
-                                             bool insert) -> const file*
+                 &map_extension,
+                 &fallback] (dir_path&& d,
+                             path&& f,
+                             bool insert,
+                             bool dynamic = false) -> const file*
     {
       // Split the file into its name part and extension. Here we can assume
       // the name part is a valid filesystem name.
@@ -496,9 +505,9 @@ namespace build2
       if (tts.empty ())
       {
         // If the project doesn't "know" this extension then we can't possibly
-        // find an explicit target of this type.
+        // find a real or implied target of this type.
         //
-        if (!insert)
+        if (!insert && !dynamic)
         {
           l6 ([&]{trace << "unknown " << what << ' ' << n << " extension '"
                         << e << "'";});
@@ -552,7 +561,7 @@ namespace build2
               // Cache the dynamic target corresponding to tts[0] since that's
               // what we will be inserting (see below).
               //
-              if (insert && i == 0)
+              if ((insert || dynamic) && i == 0)
                 f = x;
 
               l6 ([&]{trace << "dynamic target with target type " << tt.name;});
@@ -594,7 +603,7 @@ namespace build2
       // @@ OPT: move d, out, n
       //
       if (r == nullptr && insert)
-        r = &search (t, *tts[0], d, out, n, &e, nullptr);
+        r = &search (t, *tts[0], d, out, n, &e);
 
       return static_cast<const file*> (r);
     };
@@ -695,7 +704,11 @@ namespace build2
                 // Maybe for diagnostics (i.e., we will actually try to build
                 // something there instead of just saying no mapping).
                 //
-                pt = find (pd / d, fp.leaf (), insert && !i->first.empty ());
+                if (i->first.empty ())
+                  pt = find (pd / d, fp.leaf (), false);
+                else
+                  pt = find (pd / d, fp.leaf (), insert, dynamic);
+
                 if (pt != nullptr)
                 {
                   fp = pd / fp;
@@ -755,7 +768,7 @@ namespace build2
       if (pt == nullptr)
       {
         l6 ([&]{trace << (insert ? "entering " : "finding ") << fp;});
-        pt = find (fp.directory (), fp.leaf (), insert);
+        pt = find (fp.directory (), fp.leaf (), insert, dynamic);
       }
     }
 
@@ -774,7 +787,7 @@ namespace build2
     return enter_file_impl (trace, what,
                             a, bs, t,
                             fp, cache, norm,
-                            true /* insert */,
+                            true /* insert */, false,
                             map_ext, fallback, pfx_map, so_map);
   }
 
@@ -782,6 +795,7 @@ namespace build2
   find_file (tracer& trace, const char* what,
              action a, const scope& bs, const target& t,
              path& fp, bool cache, bool norm,
+             bool dynamic,
              const function<map_extension_func>& map_ext,
              const target_type& fallback,
              const function<prefix_map_func>& pfx_map,
@@ -790,7 +804,7 @@ namespace build2
     return enter_file_impl (trace, what,
                             a, bs, t,
                             fp, cache, norm,
-                            false /* insert */,
+                            false /* insert */, dynamic,
                             map_ext, fallback, pfx_map, so_map);
   }
 

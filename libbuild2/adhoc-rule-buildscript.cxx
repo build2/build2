@@ -949,10 +949,20 @@ namespace build2
       {
         normalize_external (fp, what);
 
+        // Note that unless we take into account dynamic targets, the skip
+        // logic below falls apart since we neither see targets entered via
+        // prerequsites (skip static prerequisites) nor by the cache=true code
+        // above (skip depdb entries).
+        //
+        // If this turns out to be racy (which is the reason we would skip
+        // dynamic targets; see the fine_file() implementation for details),
+        // then the only answer for now is to not use the byproduct mode.
+        //
         if (const build2::file* ft = dyndep::find_file (
               trace, what,
               a, bs, t,
               fp, false /* cache */, true /* normalized */,
+              true /* dynamic */,
               map_ext, *byp.default_type).first)
         {
           // Skip if this is one of the static prerequisites provided it was

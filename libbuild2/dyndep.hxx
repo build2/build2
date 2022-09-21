@@ -210,13 +210,14 @@ namespace build2
                 const srcout_map& = {});
 
     // As above but do not insert the target if it doesn't already exist. This
-    // function also returns NULL if the target exists but is implied (that
-    // is, not declared in a buildfile).
+    // function also returns NULL if the target exists but is dynamic (that
+    // is, not real or implied), unless the dynamic argument is true.
     //
     static pair<const file*, bool>
     find_file (tracer&, const char* what,
                action, const scope& base, const target&,
                path& prerequisite, bool cache, bool normalized,
+               bool dynamic,
                const function<map_extension_func>&,
                const target_type& fallback,
                const function<prefix_map_func>& = nullptr,

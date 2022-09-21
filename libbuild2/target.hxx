@@ -258,6 +258,9 @@ namespace build2
   // Note that the order of the enumerators is arranged so that their
   // integral values indicate whether one "overrides" the other.
   //
+  // We refer to the targets other than real and implied as
+  // dynamically-created or just dynamic.
+  //
   // @@ We have cases (like pkg-config extraction) where it should probably be
   //    prereq_file rather than implied (also audit targets.insert<> calls).
   //
