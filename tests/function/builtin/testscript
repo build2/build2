@@ -77,6 +77,14 @@
   $* <'print $type($identity(abc))'            >''         : untyped
 }
 
+: string
+:
+{
+  $* <'print $string([uint64] 0xffff)'        >'65535'      : uint
+  $* <'print $string([uint64] 0xffff, 16)'    >'0xffff'     : uint-hex
+  $* <'print $string([uint64] 0xffff, 16, 8)' >'0x0000ffff' : uint-hex-width
+}
+
 : sort
 :
 {

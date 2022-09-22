@@ -69,6 +69,7 @@ namespace build2
   using butl::alpha;
   using butl::alnum;
   using butl::digit;
+  using butl::wspace;
 
   using butl::trim;
   using butl::next_word;

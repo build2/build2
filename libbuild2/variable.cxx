@@ -515,13 +515,22 @@ namespace build2
     {
       try
       {
-        // May throw invalid_argument or out_of_range.
-        //
-        size_t i;
-        int64_t r (stoll (n.value, &i));
+        const string& v (n.value);
 
-        if (i == n.value.size ())
-          return r;
+        if (!wspace (v[0]))
+        {
+          // Note that unlike uint64, we don't support hex notation for int64.
+
+          // May throw invalid_argument or out_of_range.
+          //
+          size_t i;
+          int64_t r (stoll (v, &i));
+
+          if (i == v.size ())
+            return r;
+
+          // Fall through.
+        }
 
         // Fall through.
       }
@@ -563,13 +572,22 @@ namespace build2
     {
       try
       {
-        // May throw invalid_argument or out_of_range.
-        //
-        size_t i;
-        uint64_t r (stoull (n.value, &i));
+        const string& v (n.value);
 
-        if (i == n.value.size ())
-          return r;
+        if (!wspace (v[0]))
+        {
+          int b (v[0] == '0' && (v[1] == 'x' || v[1] == 'X') ? 16 : 10);
+
+          // May throw invalid_argument or out_of_range.
+          //
+          size_t i;
+          uint64_t r (stoull (v, &i, b));
+
+          if (i == v.size ())
+            return r;
+
+          // Fall through.
+        }
 
         // Fall through.
       }
