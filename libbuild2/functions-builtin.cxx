@@ -123,6 +123,37 @@ namespace build2
 
     f["identity"] += [](value* v) {return move (*v);};
 
+    // $integer_sequence(<begin>, <end>[, <step>])
+    //
+    // Return the list of uint64 integers starting from <begin> (including) to
+    // <end> (excluding) with the specified <step> or 1 if unspecified. If
+    // <begin> is greater than <end>, empty list is returned.
+    //
+    // Note that currently negative numbers are not supported but this could
+    // be handled if required (e.g., by returning int64s in this case).
+    //
+    // Note also that we could improve this by adding a shortcut to get the
+    // indexes of a list (for example, $indexes(<list>) plus potentially a
+    // similar $keys() function for maps).
+    //
+    f["integer_sequence"] += [](value begin, value end, optional<value> step)
+    {
+      uint64_t b (convert<uint64_t> (move (begin)));
+      uint64_t e (convert<uint64_t> (move (end)));
+      uint64_t s (step ? convert<uint64_t> (move (*step)) : 1);
+
+      uint64s r;
+      if (b < e)
+      {
+        r.reserve (static_cast<size_t> ((e - b) / s + 1));
+
+        for (; b < e; b += s)
+          r.push_back (static_cast<size_t> (b));
+      }
+
+      return r;
+    };
+
     // string
     //
     f["string"] += [](bool b) {return b ? "true" : "false";};
