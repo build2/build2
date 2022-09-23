@@ -28,6 +28,7 @@ namespace build2
       cmd_elifn,
       cmd_else,
       cmd_while,
+      cmd_for,
       cmd_end
     };
 

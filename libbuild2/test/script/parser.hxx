@@ -86,9 +86,10 @@ namespace build2
                                    lines&);
 
         bool
-        pre_parse_while (token&, token_type&,
-                         optional<description>&,
-                         lines&);
+        pre_parse_loop (token&, token_type&,
+                        line_type,
+                        optional<description>&,
+                        lines&);
 
         void
         pre_parse_directive (token&, token_type&);

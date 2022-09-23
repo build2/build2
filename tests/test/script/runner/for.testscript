@@ -1,0 +1,42 @@
+# File      : tests/test/script/runner/for.testscript
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+: form-1
+:
+: for x: ...
+:
+{
+  : basics
+  :
+  $c <<EOI && $b >>EOO
+    for x: a b
+      echo "$x" >|
+    end
+    EOI
+    a
+    b
+    EOO
+
+  : test-options
+  :
+  $c <<EOI && $b >>~%EOO%
+    for test.options: -a -b
+      echo $* >|
+    end
+    EOI
+    %.+ -a%
+    %.+ -b%
+    EOO
+
+  : special-var
+  :
+  $c <<EOI && $b 2>>EOE != 0
+    for *: -a -b
+      echo $* >|
+    end
+    EOI
+    testscript:1:5: error: attempt to set '*' variable directly
+    EOE
+}

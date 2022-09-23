@@ -311,9 +311,10 @@ namespace build2
         // enter: next token is peeked at (type in tt)
         // leave: newline
 
-        assert (!fct                      ||
-                *fct == line_type::cmd_if ||
-                *fct == line_type::cmd_while);
+        assert (!fct                         ||
+                *fct == line_type::cmd_if    ||
+                *fct == line_type::cmd_while ||
+                *fct == line_type::cmd_for);
 
         // Note: token is only peeked at.
         //
@@ -373,6 +374,7 @@ namespace build2
               if      (n == "if")    lt = line_type::cmd_if;
               else if (n == "if!")   lt = line_type::cmd_ifn;
               else if (n == "while") lt = line_type::cmd_while;
+              else if (n == "for")   lt = line_type::cmd_for;
             }
 
             break;
@@ -414,13 +416,67 @@ namespace build2
             mode (lexer_mode::variable_line);
             parse_variable_line (t, tt);
 
+            // Note that the semicolon token is only required during
+            // pre-parsing to decide which line list the current line should
+            // go to and provides no additional semantics during the
+            // execution. Moreover, build2::script::parser::exec_lines()
+            // doesn't expect this token to be present. Thus, we just drop
+            // this token from the saved tokens.
+            //
             semi = (tt == type::semi);
 
-            if (tt == type::semi)
+            if (semi)
+            {
+              replay_pop ();
               next (t, tt);
+            }
 
             if (tt != type::newline)
               fail (t) << "expected newline instead of " << t;
+
+            break;
+          }
+        case line_type::cmd_for:
+          {
+            // First take care of the variable name. There is no reason not to
+            // support variable attributes.
+            //
+            mode (lexer_mode::normal);
+
+            next_with_attributes (t, tt);
+            attributes_push (t, tt);
+
+            if (tt != type::word || t.qtype != quote_type::unquoted)
+              fail (t) << "expected variable name instead of " << t;
+
+            string& n (t.value);
+
+            if (special_variable (n))
+              fail (t) << "attempt to set '" << n << "' variable directly";
+
+            ln.var = &script_->var_pool.insert (move (n));
+
+            next (t, tt);
+
+            if (tt != type::colon)
+            {
+              // @@ TMP We will need to fallback to parsing the 'for x <...'
+              //        form instead.
+              //
+              fail (t) << "expected ':' instead of " << t
+                       << " after variable name";
+            }
+
+            expire_mode (); // Expire the normal lexer mode.
+
+            // Parse the value similar to the var line type (see above),
+            // except for the fact that we don't expect a trailing semicolon.
+            //
+            mode (lexer_mode::variable_line);
+            parse_variable_line (t, tt);
+
+            if (tt != type::newline)
+              fail (t) << "expected newline instead of " << t << " after for";
 
             break;
           }
@@ -480,7 +536,8 @@ namespace build2
             case type::semi:
               {
                 semi = true;
-                next (t, tt); // Get newline.
+                replay_pop (); // See above for the reasoning.
+                next (t, tt);  // Get newline.
                 break;
               }
             }
@@ -506,18 +563,29 @@ namespace build2
         ln.tokens = replay_data ();
         ls->push_back (move (ln));
 
-        if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
+        switch (lt)
         {
-          semi = pre_parse_if_else (t, tt, d, *ls);
+        case line_type::cmd_if:
+        case line_type::cmd_ifn:
+          {
+            semi = pre_parse_if_else (t, tt, d, *ls);
 
-          // If this turned out to be scope-if, then ls is empty, semi is
-          // false, and none of the below logic applies.
-          //
-          if (ls->empty ())
-            return semi;
+            // If this turned out to be scope-if, then ls is empty, semi is
+            // false, and none of the below logic applies.
+            //
+            if (ls->empty ())
+              return semi;
+
+            break;
+          }
+        case line_type::cmd_while:
+        case line_type::cmd_for:
+          {
+            semi = pre_parse_loop (t, tt, lt, d, *ls);
+            break;
+          }
+        default: break;
         }
-        else if (lt == line_type::cmd_while)
-          semi = pre_parse_while (t, tt, d, *ls);
 
         // Unless we were told where to put it, decide where it actually goes.
         //
@@ -540,6 +608,7 @@ namespace build2
           case line_type::cmd_if:
           case line_type::cmd_ifn:
           case line_type::cmd_while:
+          case line_type::cmd_for:
             {
               // See if this is a variable-only flow control construct.
               //
@@ -896,8 +965,9 @@ namespace build2
             break;
           }
         case line_type::cmd_while:
+        case line_type::cmd_for:
           {
-            fct = line_type::cmd_while;
+            fct = bt;
             break;
           }
         default: assert(false);
@@ -990,12 +1060,15 @@ namespace build2
       }
 
       bool parser::
-      pre_parse_while (token& t, type& tt,
-                       optional<description>& d,
-                       lines& ls)
+      pre_parse_loop (token& t, type& tt,
+                      line_type lt,
+                      optional<description>& d,
+                      lines& ls)
       {
         // enter: <newline> (previous line)
         // leave: <newline>
+
+        assert (lt == line_type::cmd_while || lt == line_type::cmd_for);
 
         tt = peek (lexer_mode::first_token);
 
@@ -1005,8 +1078,7 @@ namespace build2
         {
           size_t i (ls.size ());
 
-          bool semi (
-            pre_parse_block_line (t, tt, line_type::cmd_while, d, ls));
+          bool semi (pre_parse_block_line (t, tt, lt, d, ls));
 
           if (ls[i].type == line_type::cmd_end)
             return semi;
@@ -1359,11 +1431,8 @@ namespace build2
         pair<command_expr, here_docs> p (
           parse_command_expr (t, tt, lexer::redirect_aliases));
 
-        switch (tt)
-        {
-        case type::colon: parse_trailing_description (t, tt); break;
-        case type::semi: next (t, tt); break; // Get newline.
-        }
+        if (tt == type::colon)
+          parse_trailing_description (t, tt);
 
         assert (tt == type::newline);
 
@@ -1480,30 +1549,19 @@ namespace build2
         // Note that we rely on "small function object" optimization for the
         // exec_*() lambdas.
         //
-        auto exec_set = [this] (const variable& var,
-                                token& t, build2::script::token_type& tt,
-                                const location&)
+        auto exec_assign = [this] (const variable& var,
+                                   value&& val,
+                                   type kind,
+                                   const location& l)
         {
-          next (t, tt);
-          type kind (tt); // Assignment kind.
-
-          // We cannot reuse the value mode (see above for details).
-          //
-          mode (lexer_mode::variable_line);
-          value rhs (parse_variable_line (t, tt));
-
-          if (tt == type::semi)
-            next (t, tt);
-
-          assert (tt == type::newline);
-
-          // Assign.
-          //
           value& lhs (kind == type::assign
                       ? scope_->assign (var)
                       : scope_->append (var));
 
-          apply_value_attributes (&var, lhs, move (rhs), kind);
+          if (kind == type::assign)
+            lhs = move (val);
+          else
+            append_value (&var, lhs, move (val), l);
 
           if (script_->test_command_var (var.name))
             scope_->reset_special ();
@@ -1550,16 +1608,17 @@ namespace build2
           ct = command_type::test;
 
           exec_lines (t->tests_.begin (), t->tests_.end (),
-                      exec_set, exec_cmd, exec_cond,
+                      exec_assign, exec_cmd, exec_cond,
                       nullptr /* iteration_index */, li);
         }
         else if (group* g = dynamic_cast<group*> (scope_))
         {
           ct = command_type::setup;
 
-          bool exec_scope (exec_lines (g->setup_.begin (), g->setup_.end (),
-                                       exec_set, exec_cmd, exec_cond,
-                                       nullptr /* iteration_index */, li));
+          bool exec_scope (
+            exec_lines (g->setup_.begin (), g->setup_.end (),
+                        exec_assign, exec_cmd, exec_cond,
+                        nullptr /* iteration_index */, li));
 
           if (exec_scope)
           {
@@ -1729,7 +1788,7 @@ namespace build2
           ct = command_type::teardown;
 
           exec_lines (g->tdown_.begin (), g->tdown_.end (),
-                      exec_set, exec_cmd, exec_cond,
+                      exec_assign, exec_cmd, exec_cond,
                       nullptr /* iteration_index */, li);
         }
         else

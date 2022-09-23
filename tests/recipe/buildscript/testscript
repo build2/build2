@@ -910,4 +910,126 @@ if $posix
 
     $* clean 2>-
   }
+
+  : for
+  :
+  {
+    : form-1
+    :
+    : for x: ...
+    :
+    {
+      : basics
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar baz
+          {{
+            p = $path($>)
+            rm -f $p
+
+            for f: $<
+              cat $path($f) >>$p
+            end
+          }}
+          EOI
+
+        $* 2>'cat file{foo}';
+
+        cat <<<foo >>EOO;
+          bar
+          baz
+          EOO
+
+        $* clean 2>-
+      }
+
+      : depdb
+      :
+      {
+        : inside
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              for f: $<
+                depdb hash $f
+              end
+
+              p = $path($>)
+              rm -f $p
+
+              for f: $<
+                cat $path($f) >>$p
+              end
+            }}
+            EOI
+
+          $* 2>>EOE != 0
+            buildfile:4:5: error: 'depdb' call inside flow control construct
+            EOE
+        }
+
+        : after-commands
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              for f: $<
+                echo $path($f) >-
+              end
+
+              depdb hash a
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0;
+            buildfile:4:5: error: disallowed command in depdb preamble
+              info: only variable assignments are allowed in depdb preamble
+              buildfile:7:3: info: depdb preamble ends here
+            %.{3}
+            EOE
+
+          $* clean 2>-
+        }
+
+        : after-vars
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              h =
+              for f: $<
+                h += $path($f)
+              end
+
+              depdb hash $h
+
+              p = $path($>)
+              rm -f $p
+
+              for f: $<
+                cat $path($f) >>$p
+              end
+            }}
+            EOI
+
+          $* 2>'cat file{foo}';
+          $* clean 2>-
+        }
+      }
+    }
+  }
 }

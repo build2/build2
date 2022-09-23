@@ -42,6 +42,11 @@ namespace build2
 
       using build2::parser::apply_value_attributes;
 
+      // The variable is optional and is only used for diagnostics.
+      //
+      void
+      append_value (const variable*, value& lhs, value&& rhs, const location&);
+
       // Return true if a command line element needs to be re-lexed.
       //
       // Specifically, it needs to be re-lexed if it contains any of the
@@ -159,11 +164,13 @@ namespace build2
     protected:
       // Return false if the execution of the script should be terminated with
       // the success status (e.g., as a result of encountering the exit
-      // builtin). For unsuccessful termination the failed exception is thrown.
+      // builtin). For unsuccessful termination the failed exception is
+      // thrown.
       //
-      using exec_set_function = void (const variable&,
-                                      token&, token_type&,
-                                      const location&);
+      using exec_assign_function = void (const variable&,
+                                         value&&,
+                                         token_type kind,
+                                         const location&);
 
       using exec_cmd_function = void (token&, token_type&,
                                       const iteration_index*, size_t li,
@@ -181,7 +188,7 @@ namespace build2
       //
       bool
       exec_lines (lines::const_iterator b, lines::const_iterator e,
-                  const function<exec_set_function>&,
+                  const function<exec_assign_function>&,
                   const function<exec_cmd_function>&,
                   const function<exec_cond_function>&,
                   const iteration_index*, size_t& li,

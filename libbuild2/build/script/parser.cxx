@@ -205,9 +205,10 @@ namespace build2
         // enter: next token is peeked at (type in tt)
         // leave: newline
 
-        assert (!fct                      ||
-                *fct == line_type::cmd_if ||
-                *fct == line_type::cmd_while);
+        assert (!fct                         ||
+                *fct == line_type::cmd_if    ||
+                *fct == line_type::cmd_while ||
+                *fct == line_type::cmd_for);
 
         // Determine the line type/start token.
         //
@@ -242,6 +243,52 @@ namespace build2
 
             if (tt != type::newline)
               fail (t) << "expected newline instead of " << t;
+
+            break;
+          }
+        case line_type::cmd_for:
+          {
+            // First take care of the variable name.
+            //
+            mode (lexer_mode::normal);
+
+            next_with_attributes (t, tt);
+            attributes_push (t, tt);
+
+            if (tt != type::word || t.qtype != quote_type::unquoted)
+              fail (t) << "expected variable name instead of " << t;
+
+            const string& n (t.value);
+
+            if (special_variable (n))
+              fail (t) << "attempt to set '" << n << "' variable directly";
+
+            // We don't pre-enter variables.
+            //
+            ln.var = nullptr;
+
+            next (t, tt);
+
+            if (tt != type::colon)
+            {
+              // @@ TMP We will need to fallback to parsing the 'for x <...'
+              //        form instead.
+              //
+              fail (t) << "expected ':' instead of " << t
+                       << " after variable name";
+            }
+
+            expire_mode (); // Expire the normal lexer mode.
+
+            // Parse the value similar to the var line type (see above).
+            //
+            mode (lexer_mode::variable_line);
+            parse_variable_line (t, tt);
+
+            if (tt != type::newline)
+              fail (t) << "expected newline instead of " << t << " after for";
+
+            ++level_;
 
             break;
           }
@@ -300,17 +347,25 @@ namespace build2
             *save_line_ = move (ln);
         }
 
-        if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
+        switch (lt)
         {
-          tt = peek (lexer_mode::first_token);
+        case line_type::cmd_if:
+        case line_type::cmd_ifn:
+          {
+            tt = peek (lexer_mode::first_token);
 
-          pre_parse_if_else (t, tt);
-        }
-        else if (lt == line_type::cmd_while)
-        {
-          tt = peek (lexer_mode::first_token);
+            pre_parse_if_else (t, tt);
+            break;
+          }
+        case line_type::cmd_while:
+        case line_type::cmd_for:
+          {
+            tt = peek (lexer_mode::first_token);
 
-          pre_parse_while (t, tt);
+            pre_parse_loop (t, tt, lt);
+            break;
+          }
+        default: break;
         }
       }
 
@@ -341,8 +396,9 @@ namespace build2
             break;
           }
         case line_type::cmd_while:
+        case line_type::cmd_for:
           {
-            fct = line_type::cmd_while;
+            fct = bt;
             break;
           }
         default: assert(false);
@@ -405,10 +461,12 @@ namespace build2
       }
 
       void parser::
-      pre_parse_while (token& t, type& tt)
+      pre_parse_loop (token& t, type& tt, line_type lt)
       {
         // enter: peeked first token of next line (type in tt)
         // leave: newline
+
+        assert (lt == line_type::cmd_while || lt == line_type::cmd_for);
 
         // Parse lines until we see closing 'end'.
         //
@@ -416,7 +474,7 @@ namespace build2
         {
           size_t i (script_->body.size ());
 
-          pre_parse_block_line (t, tt, line_type::cmd_while);
+          pre_parse_block_line (t, tt, lt);
 
           if (script_->body[i].type == line_type::cmd_end)
             break;
@@ -1247,25 +1305,19 @@ namespace build2
         // Note that we rely on "small function object" optimization for the
         // exec_*() lambdas.
         //
-        auto exec_set = [this] (const variable& var,
-                                token& t, build2::script::token_type& tt,
-                                const location&)
+        auto exec_assign = [this] (const variable& var,
+                                   value&& val,
+                                   type kind,
+                                   const location& l)
         {
-          next (t, tt);
-          type kind (tt); // Assignment kind.
-
-          mode (lexer_mode::variable_line);
-          value rhs (parse_variable_line (t, tt));
-
-          assert (tt == type::newline);
-
-          // Assign.
-          //
           value& lhs (kind == type::assign
                       ? environment_->assign (var)
                       : environment_->append (var));
 
-          apply_value_attributes (&var, lhs, move (rhs), kind);
+          if (kind == type::assign)
+            lhs = move (val);
+          else
+            append_value (&var, lhs, move (val), l);
         };
 
         auto exec_cond = [this] (token& t, build2::script::token_type& tt,
@@ -1281,11 +1333,12 @@ namespace build2
           return runner_->run_cond (*environment_, ce, ii, li, ll);
         };
 
-        build2::script::parser::exec_lines (begin, end,
-                                            exec_set, exec_cmd, exec_cond,
-                                            nullptr /* iteration_index */,
-                                            environment_->exec_line,
-                                            &environment_->var_pool);
+        build2::script::parser::exec_lines (
+          begin, end,
+          exec_assign, exec_cmd, exec_cond,
+          nullptr /* iteration_index */,
+          environment_->exec_line,
+          &environment_->var_pool);
       }
 
       names parser::

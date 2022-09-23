@@ -75,7 +75,7 @@ namespace build2
         pre_parse_if_else (token&, token_type&);
 
         void
-        pre_parse_while (token&, token_type&);
+        pre_parse_loop (token&, token_type&, line_type);
 
         command_expr
         parse_command_line (token&, token_type&);

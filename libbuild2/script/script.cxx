@@ -28,6 +28,7 @@ namespace build2
       case line_type::cmd_elifn: s = "'elif!'";  break;
       case line_type::cmd_else:  s = "'else'";   break;
       case line_type::cmd_while: s = "'while'";  break;
+      case line_type::cmd_for:   s = "'for'";    break;
       case line_type::cmd_end:   s = "'end'";    break;
       }
 
@@ -225,7 +226,8 @@ namespace build2
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
         case line_type::cmd_else:
-        case line_type::cmd_while: fc_ind += "  "; break;
+        case line_type::cmd_while:
+        case line_type::cmd_for:   fc_ind += "  "; break;
         default: break;
         }
 

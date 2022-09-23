@@ -759,6 +759,16 @@ namespace build2
     }
 
     void
+    replay_pop ()
+    {
+      assert (replay_ == replay::save);
+
+      assert (!peeked_ && !replay_data_.empty ());
+
+      replay_data_.pop_back ();
+    }
+
+    void
     replay_play ()
     {
       assert ((replay_ == replay::save && !replay_data_.empty ()) ||

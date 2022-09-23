@@ -2035,6 +2035,37 @@ namespace build2
       build2::parser::apply_value_attributes (var, lhs, move (rhs), kind);
     }
 
+    void parser::
+    append_value (const variable* var,
+                  value& v,
+                  value&& rhs,
+                  const location& l)
+    {
+      if (rhs) // Don't append/prepent NULL.
+      {
+        // Perform the type conversion (see
+        // build2::parser::apply_value_attributes() for the approach
+        // reasoning).
+        //
+        if (rhs.type != nullptr)
+        {
+          if (!v)
+            v.type = rhs.type;
+          else if (v.type == nullptr)
+            typify (v, *rhs.type, var);
+          else if (v.type != rhs.type)
+            fail (l) << "conflicting original value type " << v.type->name
+                     << " and append value type " << rhs.type->name;
+
+          // Reduce this to the untyped value case.
+          //
+          untypify (rhs);
+        }
+
+        v.append (move (rhs).as<names> (), var);
+      }
+    }
+
     line_type parser::
     pre_parse_line_start (token& t, token_type& tt, lexer_mode stm)
     {
@@ -2062,6 +2093,7 @@ namespace build2
         else if (n == "elif!") r = line_type::cmd_elifn;
         else if (n == "else")  r = line_type::cmd_else;
         else if (n == "while") r = line_type::cmd_while;
+        else if (n == "for")   r = line_type::cmd_for;
         else if (n == "end")   r = line_type::cmd_end;
         else
         {
@@ -2090,7 +2122,7 @@ namespace build2
 
     bool parser::
     exec_lines (lines::const_iterator i, lines::const_iterator e,
-                const function<exec_set_function>& exec_set,
+                const function<exec_assign_function>& exec_assign,
                 const function<exec_cmd_function>& exec_cmd,
                 const function<exec_cond_function>& exec_cond,
                 const iteration_index* ii, size_t& li,
@@ -2134,9 +2166,10 @@ namespace build2
             {
               line_type lt (j->type);
 
-              if (lt == line_type::cmd_if  ||
-                  lt == line_type::cmd_ifn ||
-                  lt == line_type::cmd_while)
+              if (lt == line_type::cmd_if    ||
+                  lt == line_type::cmd_ifn   ||
+                  lt == line_type::cmd_while ||
+                  lt == line_type::cmd_for)
                 ++n;
 
               // If we are nested then we just wait until we get back
@@ -2162,6 +2195,9 @@ namespace build2
               if (skip)
               {
                 // Note that we don't count else and end as commands.
+                //
+                // @@ Note that for the for-loop's second and third forms
+                //    will probably need to increment li.
                 //
                 switch (lt)
                 {
@@ -2197,7 +2233,25 @@ namespace build2
                 var = &var_pool->insert (t.value);
               }
 
-              exec_set (*var, t, tt, ll);
+              next (t, tt);
+              type kind (tt); // Assignment kind.
+
+              assert (kind == type::assign || kind == type::append);
+
+              // Parse the value with the potential attributes.
+              //
+              // Note that we don't really need to change the mode since we
+              // are replaying the tokens.
+              //
+              value val;
+              apply_value_attributes (var,
+                                      val,
+                                      parse_variable_line (t, tt),
+                                      kind);
+
+              assert (tt == type::newline);
+
+              exec_assign (*var, move (val), kind, ll);
 
               replay_stop ();
               break;
@@ -2258,7 +2312,7 @@ namespace build2
                 lines::const_iterator j (fcend (i, false, false));
 
                 if (!exec_lines (i + 1, j,
-                                 exec_set, exec_cmd, exec_cond,
+                                 exec_assign, exec_cmd, exec_cond,
                                  ii, li,
                                  var_pool))
                   return false;
@@ -2281,6 +2335,10 @@ namespace build2
             }
           case line_type::cmd_while:
             {
+              // The while-loop construct end. Set on the first iteration.
+              //
+              lines::const_iterator we (e);
+
               size_t wli (li);
 
               for (iteration_index wi {1, ii};; wi.index++)
@@ -2300,12 +2358,13 @@ namespace build2
                 //
                 if (exec)
                 {
-                  // Find construct end.
+                  // Find the construct end, if it is not found yet.
                   //
-                  lines::const_iterator j (fcend (i, true, false));
+                  if (we == e)
+                    we = fcend (i, true, false);
 
-                  if (!exec_lines (i + 1, j,
-                                   exec_set, exec_cmd, exec_cond,
+                  if (!exec_lines (i + 1, we,
+                                   exec_assign, exec_cmd, exec_cond,
                                    &wi, li,
                                    var_pool))
                     return false;
@@ -2318,7 +2377,8 @@ namespace build2
                 }
                 else
                 {
-                  // Find construct end.
+                  // Position to the construct end, always incrementing the
+                  // line index (skip is true).
                   //
                   i = fcend (i, true, true);
                   break; // Bail out from the while-loop.
@@ -2327,9 +2387,117 @@ namespace build2
 
               break;
             }
+          case line_type::cmd_for:
+            {
+              // Parse the variable name with the potential attributes.
+              //
+              next_with_attributes (t, tt);
+              attributes_push (t, tt);
+
+              assert (tt == type::word && t.qtype == quote_type::unquoted);
+
+              string vn (move (t.value));
+
+              // Enter the variable into the pool if this is not done during
+              // the script parsing (see the var line type handling for
+              // details).
+              //
+              const variable* var (ln.var);
+
+              if (var == nullptr)
+              {
+                assert (var_pool != nullptr);
+
+                var = &var_pool->insert (move (vn));
+              }
+
+              apply_variable_attributes (*var);
+
+              next (t, tt); // Skip the colon.
+              assert (tt == type::colon);
+
+              // Parse the value with the potential attributes.
+              //
+              // Note that we don't really need to change the mode since we
+              // are replaying the tokens.
+              //
+              value val;
+              apply_value_attributes (nullptr /* variable */,
+                                      val,
+                                      parse_variable_line (t, tt),
+                                      type::assign);
+
+              replay_stop ();
+
+              // If the value is not NULL then iterate over its elements,
+              // assigning them to the for-loop variable, and parsing all the
+              // construct lines afterwards. Then position to the end line of
+              // the construct and continue parsing.
+
+              // The for-loop construct end. Set on the first iteration.
+              //
+              lines::const_iterator fe (e);
+
+              if (val)
+              {
+                // If this value is a vector, then save its element type so
+                // that we can typify each element below.
+                //
+                const value_type* etype (nullptr);
+
+                if (val.type != nullptr)
+                {
+                  etype = val.type->element_type;
+                  untypify (val);
+                }
+
+                size_t fli (li);
+                iteration_index fi {1, ii};
+
+                // @@ Handle pairs.
+                //
+                //    Do we need to always lex the variable values (for-loop
+                //    and var lines) pair-character aware?
+                //
+                //    Can there be any harm if a value with pairs is
+                //    substituted into the command line?
+                //
+                for (name& n: val.as<names> ())
+                {
+                  li = fli;
+
+                  value v (names {move (n)}); // Untyped.
+
+                  if (etype != nullptr)
+                    typify (v, *etype, var);
+
+                  exec_assign (*var, move (v), type::assign, ll);
+
+                  // Find the construct end, if it is not found yet.
+                  //
+                  if (fe == e)
+                    fe = fcend (i, true, false);
+
+                  if (!exec_lines (i + 1, fe,
+                                   exec_assign, exec_cmd, exec_cond,
+                                   &fi, li,
+                                   var_pool))
+                    return false;
+
+                  fi.index++;
+                }
+              }
+
+              // Position to construct end.
+              //
+              i = (fe != e ? fe : fcend (i, true, true));
+
+              break;
+            }
           case line_type::cmd_end:
             {
               assert (false);
+              break;
             }
           }
         }

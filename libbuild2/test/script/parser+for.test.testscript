@@ -1,0 +1,315 @@
+# file      : libbuild2/test/script/parser+for.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: form-1
+:
+: for x: ...
+:
+{
+  : for
+  :
+  {
+    : no-var
+    :
+    $* <<EOI 2>>EOE != 0
+    for
+      cmd
+    end
+    EOI
+    testscript:1:4: error: expected variable name instead of <newline>
+    EOE
+
+    : untyped
+    :
+    $* <<EOI >>EOO
+    for x: a b
+      cmd $x
+    end
+    EOI
+    cmd a
+    cmd b
+    EOO
+
+    : null
+    :
+    $* <<EOI >:''
+    for x: [null]
+      cmd $x
+    end
+    EOI
+
+    : empty
+    :
+    $* <<EOI >:''
+    for x:
+      cmd $x
+    end
+    EOI
+
+    : expansion
+    :
+    $* <<EOI >>EOO
+    vs = a b
+    for x: $vs
+      cmd $x
+    end
+    EOI
+    cmd a
+    cmd b
+    EOO
+
+    : typed-value
+    :
+    $* <<EOI >>~%EOO%
+    for x: [dir_paths] a b
+      cmd $x
+    end
+    EOI
+    %cmd (a/|'a\\')%
+    %cmd (b/|'b\\')%
+    EOO
+
+    : typed-var
+    :
+    $* <<EOI >>~%EOO%
+    for [dir_path] x: a b
+      cmd $x
+    end
+    EOI
+    %cmd (a/|'a\\')%
+    %cmd (b/|'b\\')%
+    EOO
+
+    : type-mismatch
+    :
+    $* <<EOI 2>>EOE != 0
+    for [string] x: [dir_paths] a b
+      cmd $x
+    end
+    EOI
+    error: type mismatch in variable x
+      info: value type is dir_path
+      info: variable type is string
+    EOE
+
+    : scope-var
+    :
+    $* <<EOI >>EOO
+    x = x
+
+    for x: a b
+      cmd $x
+    end
+
+    -cmd $x
+    EOI
+    cmd a
+    cmd b
+    -cmd x
+    EOO
+  }
+
+  : after-semi
+  :
+  $* -s <<EOI >>EOO
+  cmd1;
+  for x: a b
+    cmd2 $x
+  end
+  EOI
+  {
+    {
+      cmd1
+      cmd2 a
+      cmd2 b
+    }
+  }
+  EOO
+
+  : setup
+  :
+  $* -s <<EOI >>EOO
+  +for x: a b
+    cmd $x
+  end
+  EOI
+  {
+    +cmd a
+    +cmd b
+  }
+  EOO
+
+  : tdown
+  :
+  $* -s <<EOI >>EOO
+  -for x: a b
+    cmd $x
+  end
+  EOI
+  {
+    -cmd a
+    -cmd b
+  }
+  EOO
+
+  : end
+  :
+  {
+    : without-end
+    :
+    $* <<EOI 2>>EOE != 0
+    for x: a b
+      cmd
+    EOI
+    testscript:3:1: error: expected closing 'end'
+    EOE
+  }
+
+  : elif
+  :
+  {
+    : without-if
+    :
+    $* <<EOI 2>>EOE != 0
+    for x: a b
+      elif true
+        cmd
+      end
+    end
+    EOI
+    testscript:2:3: error: 'elif' without preceding 'if'
+    EOE
+  }
+
+  : nested
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    for x: a b
+      cmd1 $x               # 1
+      if ($x == "a")        # 2
+        cmd2                # 3
+        for y: x y
+          cmd3              # 4
+        end
+      else
+        cmd4                # 5
+      end
+      cmd5                  # 6
+    end;
+    cmd6                    # 7
+    EOI
+    cmd1 a # 1 i1
+    ? true # 2 i1
+    cmd2 # 3 i1
+    cmd3 # 4 i1 i1
+    cmd3 # 4 i1 i2
+    cmd5 # 6 i1
+    cmd1 b # 1 i2
+    ? false # 2 i2
+    cmd4 # 5 i2
+    cmd5 # 6 i2
+    cmd6 # 7
+    EOO
+  }
+
+  : contained
+  :
+  {
+    : semi
+    :
+    $* <<EOI 2>>EOE != 0
+    for x:
+      cmd;
+      cmd
+    end
+    EOI
+    testscript:2:3: error: ';' inside 'for'
+    EOE
+
+    : colon-leading
+    :
+    $* <<EOI 2>>EOE != 0
+    for x:
+      : foo
+      cmd
+    end
+    EOI
+    testscript:2:3: error: description inside 'for'
+    EOE
+
+    : colon-trailing
+    :
+    $* <<EOI 2>>EOE != 0
+    for x:
+      cmd : foo
+    end
+    EOI
+    testscript:2:3: error: description inside 'for'
+    EOE
+
+    : eos
+    :
+    $* <<EOI 2>>EOE != 0
+    for x:
+    EOI
+    testscript:2:1: error: expected closing 'end'
+    EOE
+
+    : scope
+    :
+    $* <<EOI 2>>EOE != 0
+    for x:
+      cmd
+      {
+      }
+    end
+    EOI
+    testscript:3:3: error: expected closing 'end'
+    EOE
+
+    : setup
+    :
+    $* <<EOI 2>>EOE != 0
+    for x:
+      +cmd
+    end
+    EOI
+    testscript:2:3: error: setup command inside 'for'
+    EOE
+
+    : tdown
+    :
+    $* <<EOI 2>>EOE != 0
+    for x:
+      -cmd
+    end
+    EOI
+    testscript:2:3: error: teardown command inside 'for'
+    EOE
+  }
+
+  : var
+  :
+  $* <<EOI >>EOO
+  for x: a b
+    cmd1 $x
+  end;
+  cmd2 $x
+  EOI
+  cmd1 a
+  cmd1 b
+  cmd2 b
+  EOO
+
+  : leading-and-trailing-description
+  :
+  $* <<EOI 2>>EOE != 0
+  : foo
+  for x: a b
+    cmd
+  end : bar
+  EOI
+  testscript:4:1: error: both leading and trailing descriptions
+  EOE
+}
