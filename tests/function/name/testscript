@@ -3,6 +3,42 @@
 
 .include ../../common.testscript
 
+: is_a
+:
+{
+  $* <'print $is_a(file{foo},    path_target)' >'true'  : basics-true
+  $* <'print $is_a(alias{foo},   path_target)' >'false' : basics-false
+  $* <'print $is_a(file{foo}@./, path_target)' >'true'  : out
+  $* <<EOI                                     >'true'  : derived
+  define txt: file
+  print $is_a(txt{foo}, path_target)
+  EOI
+}
+
+: filter
+:
+{
+  $* <<EOI >'file{foo}@./ txt{baz}' : basics
+  define txt: file
+  print $filter(file{foo}@./ alias{bar} dir{./} txt{baz}, file)
+  EOI
+
+  $* <<EOI >'file{foo}@./ txt{baz}' : basics-out
+  define txt: file
+  print $filter_out(file{foo}@./ alias{bar} dir{./} txt{baz}, alias)
+  EOI
+
+  $* <<EOI >'file{foo}@./ dir{./} txt{baz}' : multiple
+  define txt: file
+  print $filter(file{foo}@./ alias{bar} dir{./} txt{baz}, file dir)
+  EOI
+
+  $* <<EOI >'file{foo}@./ alias{bar}' : multiple-out
+  define txt: file
+  print $filter_out(file{foo}@./ alias{bar} dir{./} txt{baz}, txt dir)
+  EOI
+}
+
 : size
 :
 {
