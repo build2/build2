@@ -226,9 +226,19 @@ namespace build2
         }
         else if (t->decl != target_decl::real)
         {
-          dr << info << "target " << *t << " is not explicitly declared "
-             << "in any buildfile" <<
-            info << "perhaps it is a dynamic dependency?";
+          if (t->decl == target_decl::implied)
+          {
+            dr << info << "target " << *t << " is implied by a buildfile";
+          }
+          else
+          {
+            dr << info << "target " << *t << " is not declared in a buildfile";
+
+            if (t->decl == target_decl::prereq_file)
+              dr << " but has corresponding existing file";
+
+            dr << info << "perhaps it is a dynamic dependency?";
+          }
         }
       }
     }
