@@ -5910,7 +5910,13 @@ namespace build2
         // multiple entries for each pattern.
         //
         if (!interm)
-          d.appf (move (m).representation (), optional<string> (d.e));
+        {
+          // If the extension is empty (meaning there should be no extension,
+          // for example hxx{Q*.}), skip entries with extensions.
+          //
+          if (!d.e || !d.e->empty () || m.extension_cstring () == nullptr)
+            d.appf (move (m).representation (), optional<string> (d.e));
+        }
 
         return true;
       };
@@ -6085,6 +6091,7 @@ namespace build2
         if ((n.pair & 0x02) != 0)
         {
           e = move (n.type);
+          n.type.clear ();
 
           // Remove non-empty extension from the name (it got to be there, see
           // above).
