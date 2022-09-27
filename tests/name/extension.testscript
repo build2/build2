@@ -131,7 +131,7 @@ EOI
     EOI
     f.oo
 
-    txt{f.oo.}
+
     EOO
 
     : default-extension
