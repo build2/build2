@@ -1176,9 +1176,13 @@ namespace build2
     // For an alias we don't want to silently create a target since it will do
     // nothing and it most likely not what the user intended.
     //
+    // But, allowing implied aliases seems harmless since all the alias does
+    // is pull its prerequisites. And they are handy to use as metadata
+    // carriers.
+    //
     const target* e (search_existing_target (t.ctx, pk));
 
-    if (e == nullptr || e->decl != target_decl::real)
+    if (e == nullptr || !(operator>= (e->decl, target_decl::implied)))
       fail << "no explicit target for " << pk;
 
     return e;
@@ -1269,7 +1273,8 @@ namespace build2
   {
     tracer trace ("dir_search");
 
-    // The first step is like in search_alias(): looks for an existing target.
+    // The first step is like in alias_search(): looks for an existing target
+    // (but unlike alias, no implied, think `test/: install=false`).
     //
     const target* e (search_existing_target (t.ctx, pk));
 
