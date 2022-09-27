@@ -507,6 +507,7 @@ namespace build2
                      cmp ("bcrypt")          ||
                      cmp ("crypt32")         ||
                      cmp ("dbgeng")          ||
+                     cmp ("dbghelp")         ||
                      cmp ("d2d1")            ||
                      cmp ("d3d",   3)        || // d3d*
                      cmp ("dwmapi")          ||
@@ -519,6 +520,7 @@ namespace build2
                      cmp ("imm32")           ||
                      cmp ("iphlpapi")        ||
                      cmp ("kernel32")        ||
+                     cmp ("mincore")         ||
                      cmp ("mpr")             ||
                      cmp ("mswsock")         ||
                      cmp ("msxml", 5)        || // msxml*
