@@ -528,6 +528,7 @@ namespace build2
                      cmp ("ole32")           ||
                      cmp ("oleaut32")        ||
                      cmp ("opengl32")        ||
+                     cmp ("powrprof")        ||
                      cmp ("psapi")           ||
                      cmp ("rpcrt4")          ||
                      cmp ("secur32")         ||
@@ -538,6 +539,7 @@ namespace build2
                      cmp ("userenv")         ||
                      cmp ("uuid")            ||
                      cmp ("version")         ||
+                     cmp ("winhttp")         ||
                      cmp ("winmm")           ||
                      cmp ("winspool")        ||
                      cmp ("ws2")             ||
