@@ -7457,12 +7457,44 @@ namespace build2
             }
             else
             {
-              // @@ TODO: we would want to return a value with element type.
+              // Similar logic to parse_for().
               //
-              //result_data = ...
-              fail (l)    << "typed value subscript not yet supported" <<
-                info (bl) << "use the '\\[' escape sequence if this is a "
-                          << "wildcard pattern";
+              // @@ Maybe we should invent type-aware subscript? Could also
+              //    be used for non-index subscripts (map keys etc).
+              //
+              const value_type* etype (result->type->element_type);
+
+              value val (result == &result_data
+                         ? value (move (result_data))
+                         : value (*result));
+
+              untypify (val);
+
+              names& ns (val.as<names> ());
+
+              // Pair-aware subscript.
+              //
+              names r;
+              for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
+              {
+                bool p (i->pair);
+
+                if (j == 0)
+                {
+                  r.push_back (move (*i));
+                  if (p)
+                    r.push_back (move (*++i));
+                  break;
+                }
+
+                if (p)
+                  ++i;
+              }
+
+              result_data = r.empty () ? value () : value (move (r));
+
+              if (etype != nullptr)
+                typify (result_data, *etype, nullptr /* var */);
             }
 
             result = &result_data;
