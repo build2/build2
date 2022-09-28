@@ -1281,6 +1281,11 @@ namespace build2
     // file must be generated based on the static library to get accurate
     // Libs.private.
     //
+    // The other things that we omit from the common variant are -l options
+    // for binless libraries (so that it's usable from other build systems) as
+    // well as metadata (which could become incomplete due the previous
+    // omissions; for example, importable headers metadata).
+    //
     void link_rule::
     pkgconfig_save (action a,
                     const file& l,
@@ -1562,7 +1567,8 @@ namespace build2
             appended_libraries*  pls; // Previous.
             appended_libraries*  ls;  // Current.
             strings&             args;
-          } d {os, nullptr, &ls, args};
+            bool                 common;
+          } d {os, nullptr, &ls, args, common};
 
           auto imp = [&priv] (const target&, bool la) {return priv && la;};
 
@@ -1606,7 +1612,17 @@ namespace build2
             if (l != nullptr)
             {
               if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.
-                d.args.push_back (save_library_target (*l));
+              {
+                // Omit binless libraries from the common .pc file (see
+                // above).
+                //
+                // Note that in this case we still want to recursively
+                // traverse such libraries since they may still link to some
+                // non-binless system libraries (-lm, etc).
+                //
+                if (!d.common || !l->path ().empty ())
+                  d.args.push_back (save_library_target (*l));
+              }
             }
             else
             {
@@ -1687,8 +1703,15 @@ namespace build2
           }
         }
 
-        // Save metadata.
+        // Save metadata unless this is the common .pc file (see above).
         //
+        if (common)
+        {
+          os.close ();
+          arm.cancel ();
+          return;
+        }
+
         // The build2.metadata variable is a general indication of the
         // metadata being present. Its value is the metadata version
         // optionally followed by the user metadata variable prefix and

@@ -870,7 +870,6 @@ namespace build2
               (type[p += 19] == '\0' || type[p] == ','));
     }
 
-
     recipe link_rule::
     apply (action a, target& xt, match_extra&) const
     {
