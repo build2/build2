@@ -1944,7 +1944,10 @@ namespace build2
       {
         // Execute the builtin.
         //
-        if (verb >= 2)
+        // Don't print the true and false builtins, since they are normally
+        // used for the commands execution flow control.
+        //
+        if (verb >= 2 && program != "true" && program != "false")
           print_process (process_args ());
 
         // Some of the script builtins (cp, mkdir, etc) extend libbutl
