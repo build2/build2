@@ -1305,19 +1305,25 @@ namespace build2
         // Note that we rely on "small function object" optimization for the
         // exec_*() lambdas.
         //
-        auto exec_assign = [this] (const variable& var,
-                                   value&& val,
-                                   type kind,
-                                   const location& l)
+        auto exec_set = [this] (const variable& var,
+                                token& t, build2::script::token_type& tt,
+                                const location&)
         {
+          next (t, tt);
+          type kind (tt); // Assignment kind.
+
+          mode (lexer_mode::variable_line);
+          value rhs (parse_variable_line (t, tt));
+
+          assert (tt == type::newline);
+
+          // Assign.
+          //
           value& lhs (kind == type::assign
                       ? environment_->assign (var)
                       : environment_->append (var));
 
-          if (kind == type::assign)
-            lhs = move (val);
-          else
-            append_value (&var, lhs, move (val), l);
+          apply_value_attributes (&var, lhs, move (rhs), kind);
         };
 
         auto exec_cond = [this] (token& t, build2::script::token_type& tt,
@@ -1333,9 +1339,22 @@ namespace build2
           return runner_->run_cond (*environment_, ce, ii, li, ll);
         };
 
+        auto exec_for = [this] (const variable& var,
+                                value&& val,
+                                const location& l)
+        {
+          value& lhs (environment_->assign (var));
+
+          // To match the function semantics also pass the value's type
+          // attribute, restoring it from RHS. Note that the value can't be
+          // NULL.
+          //
+          apply_value (&var, lhs, move (val), type::assign, l, val.type);
+        };
+
         build2::script::parser::exec_lines (
           begin, end,
-          exec_assign, exec_cmd, exec_cond,
+          exec_set, exec_cmd, exec_cond, exec_for,
           nullptr /* iteration_index */,
           environment_->exec_line,
           &environment_->var_pool);

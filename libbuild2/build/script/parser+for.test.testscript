@@ -87,9 +87,7 @@
       cmd $x
     end
     EOI
-    error: type mismatch in variable x
-      info: value type is dir_path
-      info: variable type is string
+    buildfile:11:1: error: conflicting variable x type string and value type dir_path
     EOE
 
     : defined-var

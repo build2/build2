@@ -5001,6 +5001,18 @@ namespace build2
         fail (l) << "unexpected value in attribute " << a;
     }
 
+    apply_value (var, v, move (rhs), kind, l, type, null);
+  }
+
+  void parser::
+  apply_value (const variable* var,
+               value& v,
+               value&& rhs,
+               type kind,
+               const location& l,
+               const value_type* type,
+               bool null)
+  {
     // When do we set the type and when do we keep the original? This gets
     // tricky for append/prepend where both values contribute. The guiding
     // rule here is that if the user specified the type, then they reasonable

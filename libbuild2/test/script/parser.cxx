@@ -1549,19 +1549,27 @@ namespace build2
         // Note that we rely on "small function object" optimization for the
         // exec_*() lambdas.
         //
-        auto exec_assign = [this] (const variable& var,
-                                   value&& val,
-                                   type kind,
-                                   const location& l)
+        auto exec_set = [this] (const variable& var,
+                                token& t, build2::script::token_type& tt,
+                                const location&)
         {
+          next (t, tt);
+          type kind (tt); // Assignment kind.
+
+          // We cannot reuse the value mode (see above for details).
+          //
+          mode (lexer_mode::variable_line);
+          value rhs (parse_variable_line (t, tt));
+
+          assert (tt == type::newline);
+
+          // Assign.
+          //
           value& lhs (kind == type::assign
                       ? scope_->assign (var)
                       : scope_->append (var));
 
-          if (kind == type::assign)
-            lhs = move (val);
-          else
-            append_value (&var, lhs, move (val), l);
+          apply_value_attributes (&var, lhs, move (rhs), kind);
 
           if (script_->test_command_var (var.name))
             scope_->reset_special ();
@@ -1601,6 +1609,22 @@ namespace build2
           return runner_->run_cond (*scope_, ce, ii, li, ll);
         };
 
+        auto exec_for = [this] (const variable& var,
+                                value&& val,
+                                const location& l)
+        {
+          value& lhs (scope_->assign (var));
+
+          // To match the function semantics also pass the value's type
+          // attribute, restoring it from RHS. Note that the value can't be
+          // NULL.
+          //
+          apply_value (&var, lhs, move (val), type::assign, l, val.type);
+
+          if (script_->test_command_var (var.name))
+            scope_->reset_special ();
+        };
+
         size_t li (1);
 
         if (test* t = dynamic_cast<test*> (scope_))
@@ -1608,7 +1632,7 @@ namespace build2
           ct = command_type::test;
 
           exec_lines (t->tests_.begin (), t->tests_.end (),
-                      exec_assign, exec_cmd, exec_cond,
+                      exec_set, exec_cmd, exec_cond, exec_for,
                       nullptr /* iteration_index */, li);
         }
         else if (group* g = dynamic_cast<group*> (scope_))
@@ -1617,7 +1641,7 @@ namespace build2
 
           bool exec_scope (
             exec_lines (g->setup_.begin (), g->setup_.end (),
-                        exec_assign, exec_cmd, exec_cond,
+                        exec_set, exec_cmd, exec_cond, exec_for,
                         nullptr /* iteration_index */, li));
 
           if (exec_scope)
@@ -1788,7 +1812,7 @@ namespace build2
           ct = command_type::teardown;
 
           exec_lines (g->tdown_.begin (), g->tdown_.end (),
-                      exec_assign, exec_cmd, exec_cond,
+                      exec_set, exec_cmd, exec_cond, exec_for,
                       nullptr /* iteration_index */, li);
         }
         else

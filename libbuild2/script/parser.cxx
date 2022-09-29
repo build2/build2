@@ -2035,37 +2035,6 @@ namespace build2
       build2::parser::apply_value_attributes (var, lhs, move (rhs), kind);
     }
 
-    void parser::
-    append_value (const variable* var,
-                  value& v,
-                  value&& rhs,
-                  const location& l)
-    {
-      if (rhs) // Don't append/prepent NULL.
-      {
-        // Perform the type conversion (see
-        // build2::parser::apply_value_attributes() for the approach
-        // reasoning).
-        //
-        if (rhs.type != nullptr)
-        {
-          if (!v)
-            v.type = rhs.type;
-          else if (v.type == nullptr)
-            typify (v, *rhs.type, var);
-          else if (v.type != rhs.type)
-            fail (l) << "conflicting original value type " << v.type->name
-                     << " and append value type " << rhs.type->name;
-
-          // Reduce this to the untyped value case.
-          //
-          untypify (rhs);
-        }
-
-        v.append (move (rhs).as<names> (), var);
-      }
-    }
-
     line_type parser::
     pre_parse_line_start (token& t, token_type& tt, lexer_mode stm)
     {
@@ -2122,9 +2091,10 @@ namespace build2
 
     bool parser::
     exec_lines (lines::const_iterator i, lines::const_iterator e,
-                const function<exec_assign_function>& exec_assign,
+                const function<exec_set_function>& exec_set,
                 const function<exec_cmd_function>& exec_cmd,
                 const function<exec_cond_function>& exec_cond,
+                const function<exec_for_function>& exec_for,
                 const iteration_index* ii, size_t& li,
                 variable_pool* var_pool)
     {
@@ -2233,25 +2203,7 @@ namespace build2
                 var = &var_pool->insert (t.value);
               }
 
-              next (t, tt);
-              type kind (tt); // Assignment kind.
-
-              assert (kind == type::assign || kind == type::append);
-
-              // Parse the value with the potential attributes.
-              //
-              // Note that we don't really need to change the mode since we
-              // are replaying the tokens.
-              //
-              value val;
-              apply_value_attributes (var,
-                                      val,
-                                      parse_variable_line (t, tt),
-                                      kind);
-
-              assert (tt == type::newline);
-
-              exec_assign (*var, move (val), kind, ll);
+              exec_set (*var, t, tt, ll);
 
               replay_stop ();
               break;
@@ -2312,7 +2264,7 @@ namespace build2
                 lines::const_iterator j (fcend (i, false, false));
 
                 if (!exec_lines (i + 1, j,
-                                 exec_assign, exec_cmd, exec_cond,
+                                 exec_set, exec_cmd, exec_cond, exec_for,
                                  ii, li,
                                  var_pool))
                   return false;
@@ -2364,7 +2316,7 @@ namespace build2
                     we = fcend (i, true, false);
 
                   if (!exec_lines (i + 1, we,
-                                   exec_assign, exec_cmd, exec_cond,
+                                   exec_set, exec_cmd, exec_cond, exec_for,
                                    &wi, li,
                                    var_pool))
                     return false;
@@ -2471,7 +2423,7 @@ namespace build2
                   if (etype != nullptr)
                     typify (v, *etype, var);
 
-                  exec_assign (*var, move (v), type::assign, ll);
+                  exec_for (*var, move (v), ll);
 
                   // Find the construct end, if it is not found yet.
                   //
@@ -2479,7 +2431,7 @@ namespace build2
                     fe = fcend (i, true, false);
 
                   if (!exec_lines (i + 1, fe,
-                                   exec_assign, exec_cmd, exec_cond,
+                                   exec_set, exec_cmd, exec_cond, exec_for,
                                    &fi, li,
                                    var_pool))
                     return false;
