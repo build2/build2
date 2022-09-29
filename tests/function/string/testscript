@@ -46,3 +46,19 @@
   $* <'print $size([string] abc)' >'3' : basics
   $* <'print $size([string] )'    >'0' : zero
 }
+
+: find
+:
+{
+  $* <'print $find([strings] x y z, y)'        >'true'  : basics-true
+  $* <'print $find([strings] x y z, Y)'        >'false' : basics-false
+  $* <'print $find([strings] x y z, Y, icase)' >'true'  : icase
+}
+
+: find_index
+:
+{
+  $* <'print $find_index([strings] x y z, y)'        >'1' : basics-true
+  $* <'print $find_index([strings] x y z, Y)'        >'3' : basics-false
+  $* <'print $find_index([strings] x y z, Y, icase)' >'1' : icase
+}

@@ -49,6 +49,20 @@
 : sort
 :
 {
-  $* <'print $sort( d/t{a} t{c b} d/t{a})'        >'t{b} t{c} d/t{a} d/t{a}' : basics
-  $* <'print $sort( d/t{a} t{c b} d/t{a}, dedup)' >'t{b} t{c} d/t{a}'        : dedup
+  $* <'print $sort(d/t{a} t{c b} d/t{a})'        >'t{b} t{c} d/t{a} d/t{a}' : basics
+  $* <'print $sort(d/t{a} t{c b} d/t{a}, dedup)' >'t{b} t{c} d/t{a}'        : dedup
+}
+
+: find
+:
+{
+  $* <'print $find([names] d/t{a} t{a b}, t{a})'   >'true'  : basics-true
+  $* <'print $find([names] d/t{a} t{a b}, d/t{b})' >'false' : basics-false
+}
+
+: find_index
+:
+{
+  $* <'print $find_index([names] d/t{a} t{a b}, t{a})'   >'1'  : basics-true
+  $* <'print $find_index([names] d/t{a} t{a b}, d/t{b})' >'3' : basics-false
 }

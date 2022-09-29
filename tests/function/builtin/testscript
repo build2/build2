@@ -100,6 +100,20 @@
   $* <'print $sort([uint64s] 0 2 1 000, dedup)' >'0 1 2'   : dedup
 }
 
+: find
+:
+{
+  $* <'print $find([uint64s] 1 2 3, 2)' >'true'  : basics-true
+  $* <'print $find([uint64s] 1 2 3, 0)' >'false' : basics-false
+}
+
+: find_index
+:
+{
+  $* <'print $find_index([int64s] -1 -2 -3, -2)' >'1' : basics-true
+  $* <'print $find_index([int64s] -1 -2 -3,  0)' >'3' : basics-false
+}
+
 : getenv
 :
 {

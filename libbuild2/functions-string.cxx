@@ -8,6 +8,32 @@ using namespace std;
 
 namespace build2
 {
+  static size_t
+  find_index (const strings& vs, value&& v, optional<names>&& fs)
+  {
+    bool ic (false);
+    if (fs)
+    {
+      for (name& f: *fs)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "icase")
+          ic = true;
+        else
+          throw invalid_argument ("invalid flag '" + s + "'");
+      }
+    }
+
+    auto i (find_if (vs.begin (), vs.end (),
+                     [ic, y = convert<string> (move (v))] (const string& x)
+                     {
+                       return (ic ? icasecmp (x, y) : x.compare (y)) == 0;
+                     }));
+
+    return i != vs.end () ? i - vs.begin () : vs.size ();
+  };
+
   void
   string_functions (function_map& m)
   {
@@ -133,6 +159,36 @@ namespace build2
                  v.end ());
 
       return v;
+    };
+
+    // $find(<strings>, <string>[, <flags>])
+    //
+    // Return true if the string sequence contains the specified string.
+    //
+    // The following flags are supported:
+    //
+    //   icase - compare ignoring case
+    //
+    // See also $regex.find_{match,search}().
+    //
+    f["find"] += [](strings vs, value v, optional<names> fs)
+    {
+      return find_index (vs, move (v), move (fs)) != vs.size ();
+    };
+
+    // $find_index(<strings>, <string>[, <flags>])
+    //
+    // Return the index of the first element in the string sequence that
+    // is equal to the specified string or $size(<strings>) if none is
+    // found.
+    //
+    // The following flags are supported:
+    //
+    //   icase - compare ignoring case
+    //
+    f["find_index"] += [](strings vs, value v, optional<names> fs)
+    {
+      return find_index (vs, move (v), move (fs));
     };
 
     // String-specific overloads from builtins.

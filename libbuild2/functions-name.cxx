@@ -330,6 +330,31 @@ namespace build2
       return ns;
     };
 
+    // $find(<names>, <name>)
+    //
+    // Return true if the name sequence contains the specified name.
+    //
+    fn["find"] += [](names vs, names v)
+    {
+      //@@ TODO: shouldn't we do this in a pair-aware manner?
+
+      return find (vs.begin (), vs.end (),
+                   convert<name> (move (v))) != vs.end ();
+    };
+
+    // $find_index(<names>, <name>)
+    //
+    // Return the index of the first element in the name sequence that is
+    // equal to the specified name or $size(<names>) if none is found.
+    //
+    fn["find_index"] += [](names vs, names v)
+    {
+      //@@ TODO: shouldn't we do this in a pair-aware manner?
+
+      auto i (find (vs.begin (), vs.end (), convert<name> (move (v))));
+      return i != vs.end () ? i - vs.begin () : vs.size ();
+    };
+
     // Functions that can be called only on real targets.
     //
     function_family ft (m, "target");

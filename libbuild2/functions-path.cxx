@@ -541,8 +541,8 @@ namespace build2
     // $sort(<paths> [, <flags>])
     // $sort(<dir_paths> [, <flags>])
     //
-    // Sort paths in ascending order. Note that on case-insensitive filesystem
-    // the order is case-insensitive.
+    // Sort paths in ascending order. Note that on hosts with a case-
+    // insensitive filesystem the order is case-insensitive.
     //
     // The following flags are supported:
     //
@@ -566,6 +566,45 @@ namespace build2
         v.erase (unique (v.begin(), v.end()), v.end ());
 
       return v;
+    };
+
+    // $find(<paths>, <path>)
+    // $find(<dir_paths>, <dir_path>)
+    //
+    // Return true if the path sequence contains the specified path. Note that
+    // on hosts with a case-insensitive filesystem the comparison is
+    // case-insensitive.
+    //
+    f["find"] += [](paths vs, value v)
+    {
+      return find (vs.begin (), vs.end (),
+                   convert<path> (move (v))) != vs.end ();
+    };
+
+    f["find"] += [](dir_paths vs, value v)
+    {
+      return find (vs.begin (), vs.end (),
+                   convert<dir_path> (move (v))) != vs.end ();
+    };
+
+    // $find_index(<paths>, <path>)
+    // $find_index(<dir_paths>, <dir_path>)
+    //
+    // Return the index of the first element in the path sequence that is
+    // equal to the specified path or $size(<paths>) if none is found. Note
+    // that on hosts with a case-insensitive filesystem the comparison is
+    // case-insensitive.
+    //
+    f["find_index"] += [](paths vs, value v)
+    {
+      auto i (find (vs.begin (), vs.end (), convert<path> (move (v))));
+      return i != vs.end () ? i - vs.begin () : vs.size ();
+    };
+
+    f["find_index"] += [](dir_paths vs, value v)
+    {
+      auto i (find (vs.begin (), vs.end (), convert<dir_path> (move (v))));
+      return i != vs.end () ? i - vs.begin () : vs.size ();
     };
 
     // $path.match(<val>, <pat> [, <start>])

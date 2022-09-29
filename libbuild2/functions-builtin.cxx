@@ -219,6 +219,39 @@ namespace build2
       return v;
     };
 
+    // $find(<ints>, <int>)
+    //
+    // Return true if the integer sequence contains the specified integer.
+    //
+    f["find"] += [](int64s vs, value v)
+    {
+      return find (vs.begin (), vs.end (),
+                   convert<int64_t> (move (v))) != vs.end ();
+    };
+
+    f["find"] += [](uint64s vs, value v)
+    {
+      return find (vs.begin (), vs.end (),
+                   convert<uint64_t> (move (v))) != vs.end ();
+    };
+
+    // $find_index(<ints>, <int>)
+    //
+    // Return the index of the first element in the integer sequence that is
+    // equal to the specified integer or $size(<ints>) if none is found.
+    //
+    f["find_index"] += [](int64s vs, value v)
+    {
+      auto i (find (vs.begin (), vs.end (), convert<int64_t> (move (v))));
+      return i != vs.end () ? i - vs.begin () : vs.size ();
+    };
+
+    f["find_index"] += [](uint64s vs, value v)
+    {
+      auto i (find (vs.begin (), vs.end (), convert<uint64_t> (move (v))));
+      return i != vs.end () ? i - vs.begin () : vs.size ();
+    };
+
     // getenv
     //
     // Return NULL if the environment variable is not set, untyped value

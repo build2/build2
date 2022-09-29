@@ -158,6 +158,20 @@ if! $posix
   $* <'print $size([dir_path] )'     >'0' : dir-zero
 }
 
+: find
+:
+{
+  $* <'print $find([paths] x y z, y)' >'true'  : basics-true
+  $* <'print $find([paths] x y z, a)' >'false' : basics-false
+}
+
+: find_index
+:
+{
+  $* <'print $find_index([dir_paths] x y z, y)' >'1' : basics-true
+  $* <'print $find_index([dir_paths] x y z, a)' >'3' : basics-false
+}
+
 : invalid-path
 :
 p = ($posix ? /../foo : 'c:/../foo');
