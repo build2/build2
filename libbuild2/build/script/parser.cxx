@@ -807,10 +807,48 @@ namespace build2
           //
           // This is also the reason why we add a diag frame.
           //
+          // The problem turned out to be worse than originally thought: we
+          // may call a function (for example, as part of if) with invalid
+          // arguments. And this could happen in the depdb preamble, which
+          // means we cannot fix this by moving the depdb builtin (which must
+          // come after the preamble). So let's peek at what's ahead and omit
+          // the expansion if it's anything iffy, namely, eval context or
+          // function call.
+          //
+          bool skip_diag (false);
           if (pre_parse_ && diag_weight_ != 4)
           {
-            pre_parse_ = false; // Make parse_names() perform expansions.
-            pre_parse_suspended_ = true;
+            // Based on the buildfile expansion parsing logic.
+            //
+            if (tt == type::lparen) // Evaluation context.
+              skip_diag = true;
+            else if (tt == type::dollar)
+            {
+              type ptt (peek (lexer_mode::variable));
+
+              if (!peeked ().separated)
+              {
+                if (ptt == type::lparen)
+                {
+                  // While strictly speaking this can also be a function call,
+                  // this is highly unusual and we will assume it's a variable
+                  // expansion.
+                }
+                else if (ptt == type::word)
+                {
+                  pair<char, bool> r (lexer_->peek_char ());
+
+                  if (r.first == '(' && !r.second) // Function call.
+                    skip_diag = true;
+                }
+              }
+            }
+
+            if (!skip_diag)
+            {
+              pre_parse_ = false; // Make parse_names() perform expansions.
+              pre_parse_suspended_ = true;
+            }
           }
 
           auto df = make_diag_frame (
@@ -838,7 +876,7 @@ namespace build2
             pre_parse_ = true;
           }
 
-          if (pre_parse_ && diag_weight_ == 4)
+          if (pre_parse_ && (diag_weight_ == 4 || skip_diag))
             return nullopt;
         }
 

@@ -42,6 +42,22 @@ namespace build2
     return make_pair (make_pair (r[0], r[1]), sep_);
   }
 
+  pair<char, bool> lexer::
+  peek_char ()
+  {
+    auto p (skip_spaces ());
+    assert (!p.second);
+    sep_ = p.first;
+
+    char r ('\0');
+
+    xchar c (peek ());
+    if (!eos (c))
+      r = c;
+
+    return make_pair (r, sep_);
+  }
+
   void lexer::
   mode (lexer_mode m, char ps, optional<const char*> esc, uintptr_t data)
   {
