@@ -1,0 +1,41 @@
+# file      : tests/function/integer/testscript
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.testscript
+
+: integer-sequence
+:
+{
+  $* <'print $integer_sequence(1, 3)'    >'1 2'     : basics
+  $* <'print $integer_sequence(1, 0)'    >''        : empty
+  $* <'print $integer_sequence(0, 8, 2)' >'0 2 4 6' : step
+}
+
+: string
+:
+{
+  $* <'print $string([uint64] 0xffff)'        >'65535'      : uint
+  $* <'print $string([uint64] 0xffff, 16)'    >'0xffff'     : uint-hex
+  $* <'print $string([uint64] 0xffff, 16, 8)' >'0x0000ffff' : uint-hex-width
+}
+
+: sort
+:
+{
+  $* <'print $sort([uint64s] 0 2 1 000)'        >'0 0 1 2' : basics
+  $* <'print $sort([uint64s] 0 2 1 000, dedup)' >'0 1 2'   : dedup
+}
+
+: find
+:
+{
+  $* <'print $find([uint64s] 1 2 3, 2)' >'true'  : basics-true
+  $* <'print $find([uint64s] 1 2 3, 0)' >'false' : basics-false
+}
+
+: find_index
+:
+{
+  $* <'print $find_index([int64s] -1 -2 -3, -2)' >'1' : basics-true
+  $* <'print $find_index([int64s] -1 -2 -3,  0)' >'3' : basics-false
+}

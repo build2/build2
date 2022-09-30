@@ -349,8 +349,10 @@ namespace build2
   // Static-initialize the function map and populate with builtin functions.
   //
 
+  void bool_functions (function_map&);           // functions-bool.cxx
   void builtin_functions (function_map&);        // functions-builtin.cxx
   void filesystem_functions (function_map&);     // functions-filesystem.cxx
+  void integer_functions (function_map&);        // functions-integer.cxx
   void name_functions (function_map&);           // functions-name.cxx
   void path_functions (function_map&);           // functions-path.cxx
   void process_functions (function_map&);        // functions-process.cxx
@@ -363,8 +365,10 @@ namespace build2
   void
   insert_builtin_functions (function_map& m)
   {
+    bool_functions (m);
     builtin_functions (m);
     filesystem_functions (m);
+    integer_functions (m);
     name_functions (m);
     path_functions (m);
     process_functions (m);
