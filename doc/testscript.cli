@@ -1635,7 +1635,7 @@ variable is assigned. You can, however, use variables assigned in the
 buildfile. For example:
 
 \
-include common-$(cxx.target.class).testscript
+.include common-$(cxx.target.class).testscript
 \
 
 \h2#syntax-directive-include|Include|
