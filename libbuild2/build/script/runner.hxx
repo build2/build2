@@ -32,10 +32,14 @@ namespace build2
         // Location is the start position of this command line in the script.
         // It can be used in diagnostics.
         //
+        // Optionally, execute the specified function instead of the last
+        // pipe command.
+        //
         virtual void
         run (environment&,
              const command_expr&,
              const iteration_index*, size_t index,
+             const function<command_function>&,
              const location&) = 0;
 
         virtual bool
@@ -66,6 +70,7 @@ namespace build2
         run (environment&,
              const command_expr&,
              const iteration_index*, size_t,
+             const function<command_function>&,
              const location&) override;
 
         virtual bool

@@ -28,7 +28,8 @@ namespace build2
       cmd_elifn,
       cmd_else,
       cmd_while,
-      cmd_for,
+      cmd_for_args,   // `for x: ...`
+      cmd_for_stream, // `... | for x` and `for x <...`
       cmd_end
     };
 
@@ -42,7 +43,7 @@ namespace build2
 
       union
       {
-        const variable* var; // Pre-entered for line_type::var.
+        const variable* var; // Pre-entered for line_type::{var,cmd_for_*}.
       };
     };
 
@@ -547,7 +548,7 @@ namespace build2
       // Set variable value with optional (non-empty) attributes.
       //
       virtual void
-      set_variable (string&& name,
+      set_variable (string name,
                     names&&,
                     const string& attrs,
                     const location&) = 0;
@@ -579,6 +580,17 @@ namespace build2
       virtual
       ~environment () = default;
     };
+
+    // Custom command function that can be executed at the end of the pipe.
+    // Should throw io_error on the underlying OS error.
+    //
+    using command_function = void (environment&,
+                                   const strings& args,
+                                   auto_fd in,
+                                   bool pipe,
+                                   const optional<deadline>&,
+                                   const command& deadline_cmd,
+                                   const location&);
 
     // Helpers.
     //

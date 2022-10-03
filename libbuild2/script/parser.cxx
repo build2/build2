@@ -4,10 +4,13 @@
 #include <libbuild2/script/parser.hxx>
 
 #include <cstring> // strchr()
+#include <sstream>
 
 #include <libbuild2/variable.hxx>
-#include <libbuild2/script/run.hxx>   // exit
+
+#include <libbuild2/script/run.hxx>             // exit, stream_reader
 #include <libbuild2/script/lexer.hxx>
+#include <libbuild2/script/builtin-options.hxx>
 
 using namespace std;
 
@@ -140,18 +143,20 @@ namespace build2
       return nullopt;
     }
 
-    pair<command_expr, parser::here_docs> parser::
+    parser::parse_command_expr_result parser::
     parse_command_expr (token& t, type& tt,
-                        const redirect_aliases& ra)
+                        const redirect_aliases& ra,
+                        optional<token>&& program)
     {
-      // enter: first token of the command line
+      // enter: first (or second, if program) token of the command line
       // leave: <newline> or unknown token
 
       command_expr expr;
 
       // OR-ed to an implied false for the first term.
       //
-      expr.push_back ({expr_operator::log_or, command_pipe ()});
+      if (!pre_parse_)
+        expr.push_back ({expr_operator::log_or, command_pipe ()});
 
       command c; // Command being assembled.
 
@@ -218,8 +223,8 @@ namespace build2
       // Add the next word to either one of the pending positions or to
       // program arguments by default.
       //
-      auto add_word = [&c, &p, &mod, &check_regex_mod, this] (
-        string&& w, const location& l)
+      auto add_word = [&c, &p, &mod, &check_regex_mod, this]
+                      (string&& w, const location& l)
       {
         auto add_merge = [&l, this] (optional<redirect>& r,
                                      const string& w,
@@ -697,10 +702,29 @@ namespace build2
       const location ll (get_location (t)); // Line location.
 
       // Keep parsing chunks of the command line until we see one of the
-      // "terminators" (newline, exit status comparison, etc).
+      // "terminators" (newline or unknown/unexpected token).
       //
       location l (ll);
       names ns; // Reuse to reduce allocations.
+
+      bool for_loop (false);
+
+      if (program)
+      {
+        assert (program->type == type::word);
+
+        // Note that here we skip all the parse_program() business since the
+        // program can only be one of the specially-recognized names.
+        //
+        if (program->value == "for")
+          for_loop = true;
+        else
+          assert (false); // Must be specially-recognized program.
+
+        // Save the program name and continue parsing as a command.
+        //
+        add_word (move (program->value), get_location (*program));
+      }
 
       for (bool done (false); !done; l = get_location (t))
       {
@@ -717,6 +741,9 @@ namespace build2
         case type::equal:
         case type::not_equal:
           {
+            if (for_loop)
+              fail (l) << "for-loop exit code cannot be checked";
+
             if (!pre_parse_)
               check_pending (l);
 
@@ -747,30 +774,39 @@ namespace build2
           }
 
         case type::pipe:
+          if (for_loop)
+            fail (l) << "for-loop must be last command in a pipe";
+          // Fall through.
+
         case type::log_or:
         case type::log_and:
+          if (for_loop)
+            fail (l) << "command expression involving for-loop";
+          // Fall through.
 
-        case type::in_pass:
+        case type::clean:
+          if (for_loop)
+            fail (l) << "cleanup in for-loop";
+          // Fall through.
+
         case type::out_pass:
-
-        case type::in_null:
         case type::out_null:
-
         case type::out_trace:
-
         case type::out_merge:
-
-        case type::in_str:
-        case type::in_doc:
         case type::out_str:
         case type::out_doc:
-
-        case type::in_file:
         case type::out_file_cmp:
         case type::out_file_ovr:
         case type::out_file_app:
+          if (for_loop)
+            fail (l) << "output redirect in for-loop";
+          // Fall through.
 
-        case type::clean:
+        case type::in_pass:
+        case type::in_null:
+        case type::in_str:
+        case type::in_doc:
+        case type::in_file:
           {
             if (pre_parse_)
             {
@@ -968,6 +1004,42 @@ namespace build2
             next (t, tt);
             break;
           }
+        case type::lsbrace:
+          {
+            // Recompose the attributes into a single command argument.
+            //
+            assert (!pre_parse_);
+
+            attributes_push (t, tt, true /* standalone */);
+
+            attributes as (attributes_pop ());
+            assert (!as.empty ());
+
+            ostringstream os;
+            names storage;
+            char c ('[');
+            for (const attribute& a: as)
+            {
+              os << c << a.name;
+
+              if (!a.value.null)
+              {
+                os << '=';
+
+                storage.clear ();
+                to_stream (os,
+                           reverse (a.value, storage),
+                           quote_mode::normal,
+                           '@');
+              }
+
+              c = ',';
+            }
+            os << ']';
+
+            add_word (os.str (), l);
+            break;
+          }
         default:
           {
             // Bail out if this is one of the unknown tokens.
@@ -1053,16 +1125,33 @@ namespace build2
             bool prog (p == pending::program_first ||
                        p == pending::program_next);
 
-            // Check if this is the env pseudo-builtin.
+            // Check if this is the env pseudo-builtin or the for-loop.
             //
             bool env (false);
-            if (prog && tt == type::word && t.value == "env")
+            if (prog && tt == type::word)
             {
-              parsed_env r (parse_env_builtin (t, tt));
-              c.cwd       = move (r.cwd);
-              c.variables = move (r.variables);
-              c.timeout   = r.timeout;
-              env = true;
+              if (t.value == "env")
+              {
+                parsed_env r (parse_env_builtin (t, tt));
+                c.cwd       = move (r.cwd);
+                c.variables = move (r.variables);
+                c.timeout   = r.timeout;
+                env = true;
+              }
+              else if (t.value == "for")
+              {
+                if (expr.size () > 1)
+                  fail (l) << "command expression involving for-loop";
+
+                for_loop = true;
+
+                // Save 'for' as a program name and continue parsing as a
+                // command.
+                //
+                add_word (move (t.value), l);
+                next (t, tt);
+                continue;
+              }
             }
 
             // Parse the next chunk as names to get expansion, etc. Note that
@@ -1243,9 +1332,16 @@ namespace build2
                   switch (tt)
                   {
                   case type::pipe:
+                    if (for_loop)
+                      fail (l) << "for-loop must be last command in a pipe";
+                    // Fall through.
+
                   case type::log_or:
                   case type::log_and:
                     {
+                      if (for_loop)
+                        fail (l) << "command expression involving for-loop";
+
                       // Check that the previous command makes sense.
                       //
                       check_command (l, tt != type::pipe);
@@ -1265,30 +1361,11 @@ namespace build2
                       break;
                     }
 
-                  case type::in_pass:
-                  case type::out_pass:
-
-                  case type::in_null:
-                  case type::out_null:
-
-                  case type::out_trace:
-
-                  case type::out_merge:
-
-                  case type::in_str:
-                  case type::out_str:
-
-                  case type::in_file:
-                  case type::out_file_cmp:
-                  case type::out_file_ovr:
-                  case type::out_file_app:
-                    {
-                      parse_redirect (move (t), tt, l);
-                      break;
-                    }
-
                   case type::clean:
                     {
+                      if (for_loop)
+                        fail (l) << "cleanup in for-loop";
+
                       parse_clean (t);
                       break;
                     }
@@ -1297,6 +1374,27 @@ namespace build2
                   case type::out_doc:
                     {
                       fail (l) << "here-document redirect in expansion";
+                      break;
+                    }
+
+                  case type::out_pass:
+                  case type::out_null:
+                  case type::out_trace:
+                  case type::out_merge:
+                  case type::out_str:
+                  case type::out_file_cmp:
+                  case type::out_file_ovr:
+                  case type::out_file_app:
+                    if (for_loop)
+                      fail (l) << "output redirect in for-loop";
+                    // Fall through.
+
+                  case type::in_pass:
+                  case type::in_null:
+                  case type::in_str:
+                  case type::in_file:
+                    {
+                      parse_redirect (move (t), tt, l);
                       break;
                     }
                   }
@@ -1326,7 +1424,7 @@ namespace build2
         expr.back ().pipe.push_back (move (c));
       }
 
-      return make_pair (move (expr), move (hd));
+      return parse_command_expr_result {move (expr), move (hd), for_loop};
     }
 
     parser::parsed_env parser::
@@ -1575,7 +1673,7 @@ namespace build2
 
     void parser::
     parse_here_documents (token& t, type& tt,
-                          pair<command_expr, here_docs>& p)
+                          parse_command_expr_result& pr)
     {
       // enter: newline
       // leave: newline
@@ -1583,7 +1681,7 @@ namespace build2
       // Parse here-document fragments in the order they were mentioned on
       // the command line.
       //
-      for (here_doc& h: p.second)
+      for (here_doc& h: pr.docs)
       {
         // Switch to the here-line mode which is like single/double-quoted
         // string but recognized the newline as a separator.
@@ -1603,7 +1701,7 @@ namespace build2
         {
           auto i (h.redirects.cbegin ());
 
-          command& c (p.first[i->expr].pipe[i->pipe]);
+          command& c (pr.expr[i->expr].pipe[i->pipe]);
 
           optional<redirect>& r (i->fd == 0 ? c.in  :
                                  i->fd == 1 ? c.out :
@@ -1635,7 +1733,7 @@ namespace build2
           //
           for (++i; i != h.redirects.cend (); ++i)
           {
-            command& c (p.first[i->expr].pipe[i->pipe]);
+            command& c (pr.expr[i->expr].pipe[i->pipe]);
 
             optional<redirect>& ir (i->fd == 0 ? c.in  :
                                     i->fd == 1 ? c.out :
@@ -2062,7 +2160,7 @@ namespace build2
         else if (n == "elif!") r = line_type::cmd_elifn;
         else if (n == "else")  r = line_type::cmd_else;
         else if (n == "while") r = line_type::cmd_while;
-        else if (n == "for")   r = line_type::cmd_for;
+        else if (n == "for")   r = line_type::cmd_for_stream;
         else if (n == "end")   r = line_type::cmd_end;
         else
         {
@@ -2136,10 +2234,11 @@ namespace build2
             {
               line_type lt (j->type);
 
-              if (lt == line_type::cmd_if    ||
-                  lt == line_type::cmd_ifn   ||
-                  lt == line_type::cmd_while ||
-                  lt == line_type::cmd_for)
+              if (lt == line_type::cmd_if         ||
+                  lt == line_type::cmd_ifn        ||
+                  lt == line_type::cmd_while      ||
+                  lt == line_type::cmd_for_stream ||
+                  lt == line_type::cmd_for_args)
                 ++n;
 
               // If we are nested then we just wait until we get back
@@ -2164,10 +2263,8 @@ namespace build2
 
               if (skip)
               {
-                // Note that we don't count else and end as commands.
-                //
-                // @@ Note that for the for-loop's second and third forms
-                //    will probably need to increment li.
+                // Note that we don't count else, end, and 'for x: ...' as
+                // commands.
                 //
                 switch (lt)
                 {
@@ -2176,8 +2273,9 @@ namespace build2
                 case line_type::cmd_ifn:
                 case line_type::cmd_elif:
                 case line_type::cmd_elifn:
-                case line_type::cmd_while: ++li; break;
-                default:                         break;
+                case line_type::cmd_for_stream:
+                case line_type::cmd_while:      ++li; break;
+                default:                              break;
                 }
               }
             }
@@ -2221,7 +2319,10 @@ namespace build2
                   single = true;
               }
 
-              exec_cmd (t, tt, ii, li++, single, ll);
+              exec_cmd (t, tt,
+                        ii, li++, single,
+                        nullptr /* command_function */,
+                        ll);
 
               replay_stop ();
               break;
@@ -2339,7 +2440,147 @@ namespace build2
 
               break;
             }
-          case line_type::cmd_for:
+          case line_type::cmd_for_stream:
+            {
+              // The for-loop construct end. Set on the first iteration.
+              //
+              lines::const_iterator fe (e);
+
+              // Let's "wrap up" all the required data into the single object
+              // to rely on the "small function object" optimization.
+              //
+              struct
+              {
+                lines::const_iterator i;
+                lines::const_iterator e;
+                const function<exec_set_function>& exec_set;
+                const function<exec_cmd_function>& exec_cmd;
+                const function<exec_cond_function>& exec_cond;
+                const function<exec_for_function>& exec_for;
+                const iteration_index* ii;
+                size_t& li;
+                variable_pool* var_pool;
+                decltype (fcend)& fce;
+                lines::const_iterator& fe;
+              } d {i, e,
+                    exec_set, exec_cmd, exec_cond, exec_for,
+                    ii, li,
+                    var_pool,
+                    fcend,
+                    fe};
+
+              function<command_function> cf (
+                [&d, this]
+                (environment& env,
+                 const strings& args,
+                 auto_fd in,
+                 bool pipe,
+                 const optional<deadline>& dl,
+                 const command& deadline_cmd,
+                 const location& ll)
+                {
+                  namespace cli = build2::build::cli;
+
+                  try
+                  {
+                    // Parse arguments.
+                    //
+                    cli::vector_scanner scan (args);
+                    for_options ops (scan);
+
+                    // Note: diagnostics consistent with the set builtin.
+                    //
+                    if (ops.whitespace () && ops.newline ())
+                      fail (ll) << "for: both -n|--newline and "
+                                << "-w|--whitespace specified";
+
+                    if (!scan.more ())
+                      fail (ll) << "for: missing variable name";
+
+                    // Either attributes or variable name.
+                    //
+                    string a (scan.next ());
+                    const string* ats (!scan.more () ? nullptr : &a);
+                    string vname (!scan.more () ? move (a) : scan.next ());
+
+                    if (scan.more ())
+                      fail (ll) << "for: unexpected argument '"
+                                << scan.next () << "'";
+
+                    if (ats != nullptr && ats->empty ())
+                      fail (ll) << "for: empty variable attributes";
+
+                    if (vname.empty ())
+                      fail (ll) << "for: empty variable name";
+
+                    // Let's also diagnose the `... | for x:...` misuse which
+                    // can probably be quite common.
+                    //
+                    if (vname.find (':') != string::npos)
+                      fail (ll) << "for: ':' after variable name";
+
+                    stream_reader sr (
+                      move (in), pipe,
+                      ops.whitespace (), ops.newline (), ops.exact (),
+                      dl, deadline_cmd,
+                      ll);
+
+                    // Since the command pipe is parsed, we can stop
+                    // replaying. Note that we should do this before calling
+                    // exec_lines() for the loop body. Also note that we
+                    // should increment the line index before that.
+                    //
+                    replay_stop ();
+
+                    size_t fli (++d.li);
+                    iteration_index fi {1, d.ii};
+
+                    for (optional<string> s; (s = sr.next ()); )
+                    {
+                      d.li = fli;
+
+                      // Don't move from the variable name since it is used on
+                      // each iteration.
+                      //
+                      env.set_variable (vname,
+                                        names {name (move (*s))},
+                                        ats != nullptr ? *ats : empty_string,
+                                        ll);
+
+                      // Find the construct end, if it is not found yet.
+                      //
+                      if (d.fe == d.e)
+                        d.fe = d.fce (d.i, true, false);
+
+                      if (!exec_lines (d.i + 1, d.fe,
+                                       d.exec_set,
+                                       d.exec_cmd,
+                                       d.exec_cond,
+                                       d.exec_for,
+                                       &fi, d.li,
+                                       d.var_pool))
+                      {
+                        throw exit (true);
+                      }
+
+                      fi.index++;
+                    }
+                  }
+                  catch (const cli::exception& e)
+                  {
+                    fail (ll) << "for: " << e;
+                  }
+                });
+
+              exec_cmd (t, tt, ii, li, false /* single */, cf, ll);
+
+              // Position to construct end.
+              //
+              i = (fe != e ? fe : fcend (i, true, true));
+
+              break;
+            }
+          case line_type::cmd_for_args:
             {
               // Parse the variable name with the potential attributes.
               //

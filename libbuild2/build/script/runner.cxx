@@ -97,25 +97,28 @@ namespace build2
       run (environment& env,
            const command_expr& expr,
            const iteration_index* ii, size_t li,
+           const function<command_function>& cf,
            const location& ll)
       {
         if (verb >= 3)
           text << ":  " << expr;
 
         // Run the expression if we are not in the dry-run mode or if it
-        // executes the set or exit builtin and just print the expression
-        // otherwise at verbosity level 2 and up.
+        // executes the set or exit builtin or it is a for-loop. Otherwise,
+        // just print the expression otherwise at verbosity level 2 and up.
         //
         if (!env.context.dry_run ||
             find_if (expr.begin (), expr.end (),
-                     [] (const expr_term& et)
+                     [&cf] (const expr_term& et)
                      {
                        const process_path& p (et.pipe.back ().program);
                        return p.initial == nullptr &&
                               (p.recall.string () == "set" ||
-                               p.recall.string () == "exit");
+                               p.recall.string () == "exit" ||
+                               (cf != nullptr &&
+                                p.recall.string () == "for"));
                      }) != expr.end ())
-          build2::script::run (env, expr, ii, li, ll);
+          build2::script::run (env, expr, ii, li, ll, cf);
         else if (verb >= 2)
           text << expr;
       }

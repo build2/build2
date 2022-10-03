@@ -253,6 +253,90 @@ namespace build2
       vector<string> clear_;
       bool clear_specified_;
     };
+
+    class for_options
+    {
+      public:
+      for_options ();
+
+      for_options (int& argc,
+                   char** argv,
+                   bool erase = false,
+                   ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+                   ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
+
+      for_options (int start,
+                   int& argc,
+                   char** argv,
+                   bool erase = false,
+                   ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+                   ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
+
+      for_options (int& argc,
+                   char** argv,
+                   int& end,
+                   bool erase = false,
+                   ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+                   ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
+
+      for_options (int start,
+                   int& argc,
+                   char** argv,
+                   int& end,
+                   bool erase = false,
+                   ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+                   ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
+
+      for_options (::build2::build::cli::scanner&,
+                   ::build2::build::cli::unknown_mode option = ::build2::build::cli::unknown_mode::fail,
+                   ::build2::build::cli::unknown_mode argument = ::build2::build::cli::unknown_mode::stop);
+
+      // Option accessors and modifiers.
+      //
+      const bool&
+      exact () const;
+
+      bool&
+      exact ();
+
+      void
+      exact (const bool&);
+
+      const bool&
+      newline () const;
+
+      bool&
+      newline ();
+
+      void
+      newline (const bool&);
+
+      const bool&
+      whitespace () const;
+
+      bool&
+      whitespace ();
+
+      void
+      whitespace (const bool&);
+
+      // Implementation details.
+      //
+      protected:
+      bool
+      _parse (const char*, ::build2::build::cli::scanner&);
+
+      private:
+      bool
+      _parse (::build2::build::cli::scanner&,
+              ::build2::build::cli::unknown_mode option,
+              ::build2::build::cli::unknown_mode argument);
+
+      public:
+      bool exact_;
+      bool newline_;
+      bool whitespace_;
+    };
   }
 }
 

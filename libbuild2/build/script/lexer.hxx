@@ -24,9 +24,10 @@ namespace build2
         enum
         {
           command_line = base_type::value_next,
-          first_token,  // Expires at the end of the token.
-          second_token, // Expires at the end of the token.
-          variable_line // Expires at the end of the line.
+          first_token,   // Expires at the end of the token.
+          second_token,  // Expires at the end of the token.
+          variable_line, // Expires at the end of the line.
+          for_loop       // Used for sensing the for-loop leading tokens.
         };
 
         lexer_mode () = default;

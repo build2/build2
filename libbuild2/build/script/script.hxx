@@ -24,11 +24,13 @@ namespace build2
       using build2::script::lines;
       using build2::script::redirect;
       using build2::script::redirect_type;
+      using build2::script::command;
       using build2::script::expr_term;
       using build2::script::command_expr;
       using build2::script::iteration_index;
       using build2::script::deadline;
       using build2::script::timeout;
+      using build2::script::command_function;
 
       // Forward declarations.
       //
@@ -166,7 +168,7 @@ namespace build2
         size_t exec_line = 1;
 
         virtual void
-        set_variable (string&& name,
+        set_variable (string name,
                       names&&,
                       const string& attrs,
                       const location&) override;

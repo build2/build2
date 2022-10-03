@@ -205,10 +205,11 @@ namespace build2
         // enter: next token is peeked at (type in tt)
         // leave: newline
 
-        assert (!fct                         ||
-                *fct == line_type::cmd_if    ||
-                *fct == line_type::cmd_while ||
-                *fct == line_type::cmd_for);
+        assert (!fct                              ||
+                *fct == line_type::cmd_if         ||
+                *fct == line_type::cmd_while      ||
+                *fct == line_type::cmd_for_stream ||
+                *fct == line_type::cmd_for_args);
 
         // Determine the line type/start token.
         //
@@ -246,50 +247,107 @@ namespace build2
 
             break;
           }
-        case line_type::cmd_for:
+          //
+          // See pre_parse_line_start() for details.
+          //
+        case line_type::cmd_for_args: assert (false); break;
+        case line_type::cmd_for_stream:
           {
-            // First take care of the variable name.
+            // First we need to sense the next few tokens and detect which
+            // form of the loop we are dealing with, the first (for x: ...)
+            // or the third (x <...) one. Note that the second form (... | for
+            // x) is handled separately.
             //
-            mode (lexer_mode::normal);
+            // @@ Do we diagnose `... | for x: ...`?
+            //
+            // If the next token doesn't introduce a variable (doesn't start
+            // attributes and doesn't look like a variable name), then this is
+            // the third form. Otherwise, if colon follows the variable name,
+            // then this is the first form and the third form otherwise.
+            //
+            // Note that for the third form we will need to pass the 'for'
+            // token as a program name to the command expression parsing
+            // function since it will be gone from the token stream by that
+            // time. Thus, we save it.
+            //
+            // Note also that in this model it won't be possible to support
+            // options in the first form.
+            //
+            token pt (t);
+            assert (pt.type == type::word && pt.value == "for");
 
+            mode (lexer_mode::for_loop);
             next_with_attributes (t, tt);
-            attributes_push (t, tt);
 
-            if (tt != type::word || t.qtype != quote_type::unquoted)
-              fail (t) << "expected variable name instead of " << t;
-
-            const string& n (t.value);
-
-            if (special_variable (n))
-              fail (t) << "attempt to set '" << n << "' variable directly";
-
-            // We don't pre-enter variables.
+            // Note that we also consider special variable names (those that
+            // don't clash with the command line elements like redirects, etc)
+            // to later fail gracefully.
             //
-            ln.var = nullptr;
+            string& n (t.value);
 
-            next (t, tt);
-
-            if (tt != type::colon)
+            if (tt == type::lsbrace ||                       // Attributes.
+                (tt == type::word                &&          // Variable name.
+                 t.qtype == quote_type::unquoted &&
+                 (n[0] == '_' || alpha (n[0]) || n == "~")))
             {
-              // @@ TMP We will need to fallback to parsing the 'for x <...'
-              //        form instead.
-              //
-              fail (t) << "expected ':' instead of " << t
-                       << " after variable name";
+              attributes_push (t, tt);
+
+              if (tt != type::word || t.qtype != quote_type::unquoted)
+                fail (t) << "expected variable name instead of " << t;
+
+              if (special_variable (n))
+                fail (t) << "attempt to set '" << n << "' special variable";
+
+              if (lexer_->peek_char ().first == ':')
+                lt = line_type::cmd_for_args;
             }
 
-            expire_mode (); // Expire the normal lexer mode.
+            if (lt == line_type::cmd_for_stream) // for x <...
+            {
+              // At this point `t` contains the token that follows the `for`
+              // token and, potentially, the attributes. Now pre-parse the
+              // command expression in the command_line lexer mode starting
+              // from this position and also passing the 'for' token as a
+              // program name.
+              //
+              // Note that the fact that the potential attributes are already
+              // parsed doesn't affect the command expression pre-parsing.
+              // Also note that they will be available during the execution
+              // phase being replayed.
+              //
+              expire_mode (); // Expire the for-loop lexer mode.
 
-            // Parse the value similar to the var line type (see above).
-            //
-            mode (lexer_mode::variable_line);
-            parse_variable_line (t, tt);
+              parse_command_expr_result r (
+                parse_command_expr (t, tt,
+                                    lexer::redirect_aliases,
+                                    move (pt)));
 
-            if (tt != type::newline)
-              fail (t) << "expected newline instead of " << t << " after for";
+              assert (r.for_loop);
 
+              if (tt != type::newline)
+                fail (t) << "expected newline instead of " << t;
+
+              parse_here_documents (t, tt, r);
+            }
+            else                                 // for x: ...
+            {
+              next (t, tt);
+
+              assert (tt == type::colon);
+
+              expire_mode (); // Expire the for-loop lexer mode.
+
+              // Parse the value similar to the var line type (see above).
+              //
+              mode (lexer_mode::variable_line);
+              parse_variable_line (t, tt);
+
+              if (tt != type::newline)
+                fail (t) << "expected newline instead of " << t << " after for";
+            }
+
+            ln.var = nullptr;
             ++level_;
-
             break;
           }
         case line_type::cmd_elif:
@@ -321,15 +379,24 @@ namespace build2
           // Fall through.
         case line_type::cmd:
           {
-            pair<command_expr, here_docs> p;
+            parse_command_expr_result r;
 
             if (lt != line_type::cmd_else && lt != line_type::cmd_end)
-              p = parse_command_expr (t, tt, lexer::redirect_aliases);
+              r = parse_command_expr (t, tt, lexer::redirect_aliases);
+
+            if (r.for_loop)
+            {
+              lt     = line_type::cmd_for_stream;
+              ln.var = nullptr;
+
+              ++level_;
+            }
 
             if (tt != type::newline)
               fail (t) << "expected newline instead of " << t;
 
-            parse_here_documents (t, tt, p);
+            parse_here_documents (t, tt, r);
+
             break;
           }
         }
@@ -358,7 +425,8 @@ namespace build2
             break;
           }
         case line_type::cmd_while:
-        case line_type::cmd_for:
+        case line_type::cmd_for_stream:
+        case line_type::cmd_for_args:
           {
             tt = peek (lexer_mode::first_token);
 
@@ -396,7 +464,8 @@ namespace build2
             break;
           }
         case line_type::cmd_while:
-        case line_type::cmd_for:
+        case line_type::cmd_for_stream:
+        case line_type::cmd_for_args:
           {
             fct = bt;
             break;
@@ -466,7 +535,9 @@ namespace build2
         // enter: peeked first token of next line (type in tt)
         // leave: newline
 
-        assert (lt == line_type::cmd_while || lt == line_type::cmd_for);
+        assert (lt == line_type::cmd_while      ||
+                lt == line_type::cmd_for_stream ||
+                lt == line_type::cmd_for_args);
 
         // Parse lines until we see closing 'end'.
         //
@@ -491,12 +562,12 @@ namespace build2
         //
         assert (!pre_parse_);
 
-        pair<command_expr, here_docs> p (
+        parse_command_expr_result pr (
           parse_command_expr (t, tt, lexer::redirect_aliases));
 
         assert (tt == type::newline);
 
-        parse_here_documents (t, tt, p);
+        parse_here_documents (t, tt, pr);
         assert (tt == type::newline);
 
         // @@ Note that currently running programs via a runner (e.g., see
@@ -509,7 +580,7 @@ namespace build2
         //    passed to the environment constructor, similar to passing the
         //    script deadline.
         //
-        return move (p.first);
+        return move (pr.expr);
       }
 
       //
@@ -1121,6 +1192,7 @@ namespace build2
         auto exec_cmd = [this] (token& t, build2::script::token_type& tt,
                                 const iteration_index* ii, size_t li,
                                 bool single,
+                                const function<command_function>& cf,
                                 const location& ll)
         {
           // We use the 0 index to signal that this is the only command.
@@ -1131,7 +1203,7 @@ namespace build2
           command_expr ce (
             parse_command_line (t, static_cast<token_type&> (tt)));
 
-          runner_->run (*environment_, ce, ii, li, ll);
+          runner_->run (*environment_, ce, ii, li, cf, ll);
         };
 
         exec_lines (s.body, exec_cmd);
@@ -1184,6 +1256,7 @@ namespace build2
                                        build2::script::token_type& tt,
                                        const iteration_index* ii, size_t li,
                                        bool /* single */,
+                                       const function<command_function>& cf,
                                        const location& ll)
         {
           // Note that we never reset the line index to zero (as we do in
@@ -1282,14 +1355,17 @@ namespace build2
             command_expr ce (
               parse_command_line (t, static_cast<token_type&> (tt)));
 
-            // Verify that this expression executes the set builtin.
+            // Verify that this expression executes the set builtin or is a
+            // for-loop.
             //
             if (find_if (ce.begin (), ce.end (),
-                         [] (const expr_term& et)
+                         [&cf] (const expr_term& et)
                          {
                            const process_path& p (et.pipe.back ().program);
                            return p.initial == nullptr &&
-                                  p.recall.string () == "set";
+                                  (p.recall.string () == "set" ||
+                                  (cf != nullptr &&
+                                   p.recall.string () == "for"));
                          }) == ce.end ())
             {
               const replay_tokens& rt (data.scr.depdb_preamble.back ().tokens);
@@ -1301,7 +1377,7 @@ namespace build2
                 info (rt[0].location ()) << "depdb preamble ends here";
             }
 
-            runner_->run (*environment_, ce, ii, li, ll);
+            runner_->run (*environment_, ce, ii, li, cf, ll);
           }
         };
 
@@ -2336,18 +2412,36 @@ namespace build2
             {
               // Note: depdb is disallowed inside flow control constructs.
               //
-              string s;
-              build2::script::run (*environment_,
-                                   cmd,
-                                   nullptr /* iteration_index */, li,
-                                   ll,
-                                   !file ? &s : nullptr);
-
               if (!file)
               {
-                iss.str (move (s));
+                function<command_function> cf (
+                  [&iss]
+                  (build2::script::environment&,
+                   const strings&,
+                   auto_fd in,
+                   bool pipe,
+                   const optional<deadline>& dl,
+                   const command& deadline_cmd,
+                   const location& ll)
+                  {
+                    iss.str (stream_read (move (in),
+                                          pipe,
+                                          dl,
+                                          deadline_cmd,
+                                          ll));
+                  });
+
+                build2::script::run (*environment_,
+                                     cmd,
+                                     nullptr /* iteration_index */, li,
+                                     ll,
+                                     cf, false /* last_cmd */);
+
                 iss.exceptions (istream::badbit);
               }
+              else
+                build2::script::run (
+                  *environment_, cmd, nullptr /* iteration_index */, li, ll);
             }
 
             ifdstream ifs (ifdstream::badbit);
@@ -2490,7 +2584,8 @@ namespace build2
           environment_->set_special_variables (a);
       }
 
-      // When add a special variable don't forget to update lexer::word().
+      // When add a special variable don't forget to update lexer::word() and
+      // for-loop parsing in pre_parse_line().
       //
       bool parser::
       special_variable (const string& n) noexcept

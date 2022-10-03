@@ -41,6 +41,12 @@ namespace build2
 
         switch (m)
         {
+        case lexer_mode::for_loop:
+          {
+            // Leading tokens of the for-loop. Like command_line but also
+            // recognizes lsbrace like value.
+          }
+          // Fall through.
         case lexer_mode::command_line:
           {
             s1 = ":;=!|&<> $(#\t\n";
@@ -122,6 +128,7 @@ namespace build2
         case lexer_mode::first_token:
         case lexer_mode::second_token:
         case lexer_mode::variable_line:
+        case lexer_mode::for_loop:
           r = next_line ();
           break;
         case lexer_mode::description_line:
@@ -157,7 +164,8 @@ namespace build2
         //
         if (st.lsbrace)
         {
-          assert (m == lexer_mode::variable_line);
+          assert (m == lexer_mode::variable_line ||
+                  m == lexer_mode::for_loop);
 
           state_.top ().lsbrace = false; // Note: st is a copy.
 
@@ -197,10 +205,11 @@ namespace build2
 
         // Line separators.
         //
-        if (m == lexer_mode::command_line ||
-            m == lexer_mode::first_token  ||
-            m == lexer_mode::second_token ||
-            m == lexer_mode::variable_line)
+        if (m == lexer_mode::command_line  ||
+            m == lexer_mode::first_token   ||
+            m == lexer_mode::second_token  ||
+            m == lexer_mode::variable_line ||
+            m == lexer_mode::for_loop)
         {
           switch (c)
           {
@@ -210,7 +219,8 @@ namespace build2
 
         if (m == lexer_mode::command_line ||
             m == lexer_mode::first_token  ||
-            m == lexer_mode::second_token)
+            m == lexer_mode::second_token ||
+            m == lexer_mode::for_loop)
         {
           switch (c)
           {
@@ -222,7 +232,8 @@ namespace build2
         //
         if (m == lexer_mode::command_line ||
             m == lexer_mode::first_token  ||
-            m == lexer_mode::second_token)
+            m == lexer_mode::second_token ||
+            m == lexer_mode::for_loop)
         {
           switch (c)
           {
@@ -244,7 +255,8 @@ namespace build2
         //
         if (m == lexer_mode::command_line ||
             m == lexer_mode::first_token  ||
-            m == lexer_mode::second_token)
+            m == lexer_mode::second_token ||
+            m == lexer_mode::for_loop)
         {
           if (optional<token> t = next_cmd_op (c, sep))
             return move (*t);

@@ -32,6 +32,7 @@ namespace build2
       using build2::script::environment_vars;
       using build2::script::deadline;
       using build2::script::timeout;
+      using build2::script::command_function;
 
       class parser; // Required by VC for 'friend class parser' declaration.
 
@@ -105,7 +106,7 @@ namespace build2
         small_vector<const path*, 1> test_programs;
 
         void
-        set_variable (string&& name,
+        set_variable (string name,
                       names&&,
                       const string& attrs,
                       const location&) override;

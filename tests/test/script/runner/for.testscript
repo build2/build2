@@ -39,4 +39,379 @@
     EOI
     testscript:1:5: error: attempt to set '*' variable directly
     EOE
+
+  : exit
+  :
+  $c <<EOI && $b >>EOO
+    for x: a b
+      echo "$x" >|
+      exit
+    end
+    EOI
+    a
+    EOO
+
+  : error
+  :
+  $c <<EOI && $b >>EOO 2>>EOE != 0
+    for x: a b
+      echo "$x" >|
+      exit 'fed up'
+    end
+    EOI
+    a
+    EOO
+    testscript:3:3: error: fed up
+      info: test id: 1
+    EOE
+}
+
+: form-2
+:
+: ... | for x
+:
+{
+  : whitespace-split
+  :
+  $c <<EOI && $b >>EOO
+    echo " a b " | for -w x
+      echo "'$x'" >|
+    end
+    EOI
+    'a'
+    'b'
+    EOO
+
+  : newline-split
+  :
+  $c <<EOI && $b >>EOO
+    cat <<EOF | for -n x
+
+
+    a
+
+
+    b
+
+    EOF
+      echo "'$x'" >|
+    end
+    EOI
+    ''
+    ''
+    'a'
+    ''
+    ''
+    'b'
+    ''
+    EOO
+
+  : typed
+  :
+  $c <<EOI && $b >>/EOO
+    echo "a b" | for -w [dir_path] x
+      echo $x >|
+    end
+    EOI
+    a/
+    b/
+    EOO
+
+  : nested
+  :
+  $c <<EOI && $b >>EOO
+    echo "a b" | for -w x
+      echo "x y" | for -w y
+        echo "'$x $y'" >|
+      end
+    end
+    EOI
+    'a x'
+    'a y'
+    'b x'
+    'b y'
+    EOO
+
+  : nested-diag
+  :
+  $c <<EOI && $b 2>>/~%EOE% != 0
+    echo "a b" | for -w x
+      echo "x y" | for -w y
+        echo "'$x $y'" >"'a x'"
+      end
+    end
+    EOI
+    testscript:3:5: error: echo stdout doesn't match expected
+      info: stdout: test/1/stdout-i1-i2-n3
+      info: expected stdout: test/1/stdout-i1-i2-n3.orig
+      info: stdout diff: test/1/stdout-i1-i2-n3.diff
+    %.+
+    EOE
+
+  : var-value
+  :
+  $c <<EOI && $b >>EOO
+    x = 'x';
+    echo "a b" | for -w x
+    end;
+    echo $x >|
+    EOI
+    b
+    EOO
+
+  : invalid-option
+  :
+  $c <<EOI && $b 2>>/~%EOE% != 0
+    echo "a b" | for -a x
+      echo $x >|
+    end
+    EOI
+    testscript:1:1: error: for: unknown option '-a'
+    %.
+    EOE
+
+
+  : no-variable
+  :
+  $c <<EOI && $b 2>>/~%EOE% != 0
+    echo "a b" | for -w
+      echo $x >|
+    end
+    EOI
+    testscript:1:1: error: for: missing variable name
+    %.
+    EOE
+
+  : special-var
+  :
+  $c <<EOI && $b 2>>EOE != 0
+    echo "a b" | for -w *
+      echo $* >|
+    end
+    EOI
+    testscript:1:1: error: attempt to set '*' variable directly
+      info: test id: 1
+    EOE
+
+  : misuse
+  :
+  $c <<EOI && $b 2>>EOE != 0
+    echo "a b" | for v:
+      echo $v >|
+    end
+    EOI
+    testscript:1:19: error: expected newline instead of ':'
+    EOE
+
+  : exit
+  :
+  $c <<EOI && $b >>EOO
+    for x: a b
+      echo "$x" >|
+      exit
+    end
+    EOI
+    a
+    EOO
+
+  : error
+  :
+  $c <<EOI && $b >>EOO 2>>EOE != 0
+    for x: a b
+      echo "$x" >|
+      exit 'fed up'
+    end
+    EOI
+    a
+    EOO
+    testscript:3:3: error: fed up
+      info: test id: 1
+    EOE
+}
+
+: form-3
+:
+: for x <...
+:
+{
+  : whitespace-split
+  :
+  $c <<EOI && $b >>EOO
+    for -w x <" a b "
+      echo "'$x'" >|
+    end
+    EOI
+    'a'
+    'b'
+    EOO
+
+  : newline-split
+  :
+  $c <<EOI && $b >>EOO
+    for -n x <<EOF
+
+
+    a
+
+
+    b
+
+    EOF
+      echo "'$x'" >|
+    end
+    EOI
+    ''
+    ''
+    'a'
+    ''
+    ''
+    'b'
+    ''
+    EOO
+
+  : string-before-var
+  :
+  $c <<EOI && $b >>EOO
+    for <"a b" -w x
+      echo "'$x'" >|
+    end
+    EOI
+    'a'
+    'b'
+    EOO
+
+  : here-doc-before-var
+  :
+  $c <<EOI && $b >>EOO
+    for <<EOF -n x
+    a
+    b
+    EOF
+      echo "'$x'" >|
+    end
+    EOI
+    'a'
+    'b'
+    EOO
+
+  : typed
+  :
+  $c <<EOI && $b >>/EOO
+    for -w [dir_path] x <"a b"
+      echo $x >|
+    end
+    EOI
+    a/
+    b/
+    EOO
+
+  : typed-no-ops
+  :
+  $c <<EOI && $b >>/EOO
+    for [dir_path] x <"a b"
+      echo $x >|
+    end
+    EOI
+    a b/
+    EOO
+
+  : nested
+  :
+  $c <<EOI && $b >>EOO
+    for -w x <"a b"
+      for -w y <"x y"
+        echo "'$x $y'" >|
+      end
+    end
+    EOI
+    'a x'
+    'a y'
+    'b x'
+    'b y'
+    EOO
+
+  : nested-diag
+  :
+  $c <<EOI && $b 2>>/~%EOE% != 0
+    for -w x <"a b"
+      for -w y <"x y"
+        echo "'$x $y'" >"'a x'"
+      end
+    end
+    EOI
+    testscript:3:5: error: echo stdout doesn't match expected
+      info: stdout: test/1/stdout-i1-i2-n3
+      info: expected stdout: test/1/stdout-i1-i2-n3.orig
+      info: stdout diff: test/1/stdout-i1-i2-n3.diff
+    %.+
+    EOE
+
+  : var-value
+  :
+  $c <<EOI && $b >>EOO
+    x = 'x';
+    for -w x <"a b"
+    end;
+    echo $x >|
+    EOI
+    b
+    EOO
+
+  : invalid-option
+  :
+  $c <<EOI && $b 2>>/~%EOE% != 0
+    for -a x <"a b"
+      echo $x >|
+    end
+    EOI
+    testscript:1:1: error: for: unknown option '-a'
+    %.
+    EOE
+
+
+  : no-variable
+  :
+  $c <<EOI && $b 2>>/~%EOE% != 0
+    for -w <"a b"
+      echo $x >|
+    end
+    EOI
+    testscript:1:1: error: for: missing variable name
+    %.
+    EOE
+
+  : special-var
+  :
+  $c <<EOI && $b 2>>EOE != 0
+    for * <"a b"
+      echo $* >|
+    end
+    EOI
+    testscript:1:5: error: attempt to set '*' variable directly
+    EOE
+
+  : exit
+  :
+  $c <<EOI && $b >>EOO
+    for x: a b
+      echo "$x" >|
+      exit
+    end
+    EOI
+    a
+    EOO
+
+  : error
+  :
+  $c <<EOI && $b >>EOO 2>>EOE != 0
+    for x: a b
+      echo "$x" >|
+      exit 'fed up'
+    end
+    EOI
+    a
+    EOO
+    testscript:3:3: error: fed up
+      info: test id: 1
+    EOE
 }

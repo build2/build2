@@ -311,10 +311,11 @@ namespace build2
         // enter: next token is peeked at (type in tt)
         // leave: newline
 
-        assert (!fct                         ||
-                *fct == line_type::cmd_if    ||
-                *fct == line_type::cmd_while ||
-                *fct == line_type::cmd_for);
+        assert (!fct                              ||
+                *fct == line_type::cmd_if         ||
+                *fct == line_type::cmd_while      ||
+                *fct == line_type::cmd_for_stream ||
+                *fct == line_type::cmd_for_args);
 
         // Note: token is only peeked at.
         //
@@ -324,6 +325,52 @@ namespace build2
         //
         line_type lt;
         type st (type::eos); // Later, can only be set to plus or minus.
+        bool semi (false);
+
+        // Parse the command line tail, starting from the newline or the
+        // potential colon/semicolon token.
+        //
+        // Note that colon and semicolon are only valid in test command lines
+        // and after 'end' in flow control constructs. Note that we always
+        // recognize them lexically, even when they are not valid tokens per
+        // the grammar.
+        //
+        auto parse_command_tail = [&t, &tt, &st, &lt, &d, &semi, &ll, this] ()
+        {
+          if (tt != type::newline)
+          {
+            if (lt != line_type::cmd && lt != line_type::cmd_end)
+              fail (t) << "expected newline instead of " << t;
+
+            switch (st)
+            {
+            case type::plus:  fail (t) << t << " after setup command" << endf;
+            case type::minus: fail (t) << t << " after teardown command" << endf;
+            }
+          }
+
+          switch (tt)
+          {
+          case type::colon:
+            {
+              if (d)
+                fail (ll) << "both leading and trailing descriptions";
+
+              d = parse_trailing_description (t, tt);
+              break;
+            }
+          case type::semi:
+            {
+              semi = true;
+              replay_pop (); // See above for the reasoning.
+              next (t, tt);  // Get newline.
+              break;
+            }
+          }
+
+          if (tt != type::newline)
+            fail (t) << "expected newline instead of " << t;
+        };
 
         switch (tt)
         {
@@ -371,10 +418,12 @@ namespace build2
             {
               const string& n (t.value);
 
+              // Handle the for-loop consistently with pre_parse_line_start().
+              //
               if      (n == "if")    lt = line_type::cmd_if;
               else if (n == "if!")   lt = line_type::cmd_ifn;
               else if (n == "while") lt = line_type::cmd_while;
-              else if (n == "for")   lt = line_type::cmd_for;
+              else if (n == "for")   lt = line_type::cmd_for_stream;
             }
 
             break;
@@ -388,8 +437,6 @@ namespace build2
 
         // Pre-parse the line keeping track of whether it ends with a semi.
         //
-        bool semi (false);
-
         line ln;
         switch (lt)
         {
@@ -436,47 +483,80 @@ namespace build2
 
             break;
           }
-        case line_type::cmd_for:
+          //
+          // See pre_parse_line_start() for details.
+          //
+        case line_type::cmd_for_args: assert (false); break;
+        case line_type::cmd_for_stream:
           {
-            // First take care of the variable name. There is no reason not to
-            // support variable attributes.
+            // First we need to sense the next few tokens and detect which
+            // form of the for-loop that actually is (see
+            // libbuild2/build/script/parser.cxx for details).
             //
-            mode (lexer_mode::normal);
+            token pt (t);
+            assert (pt.type == type::word && pt.value == "for");
 
+            mode (lexer_mode::for_loop);
             next_with_attributes (t, tt);
-            attributes_push (t, tt);
-
-            if (tt != type::word || t.qtype != quote_type::unquoted)
-              fail (t) << "expected variable name instead of " << t;
 
             string& n (t.value);
 
-            if (special_variable (n))
-              fail (t) << "attempt to set '" << n << "' variable directly";
-
-            ln.var = &script_->var_pool.insert (move (n));
-
-            next (t, tt);
-
-            if (tt != type::colon)
+            if (tt == type::lsbrace ||                       // Attributes.
+                (tt == type::word                &&          // Variable name.
+                 t.qtype == quote_type::unquoted &&
+                 (n[0] == '_'  ||
+                  alpha (n[0]) ||
+                  n == "*"     ||
+                  n == "~"     ||
+                  n == "@")))
             {
-              // @@ TMP We will need to fallback to parsing the 'for x <...'
-              //        form instead.
-              //
-              fail (t) << "expected ':' instead of " << t
-                       << " after variable name";
+              attributes_push (t, tt);
+
+              if (tt != type::word || t.qtype != quote_type::unquoted)
+                fail (t) << "expected variable name instead of " << t;
+
+              if (special_variable (n))
+                fail (t) << "attempt to set '" << n << "' variable directly";
+
+              if (lexer_->peek_char ().first == ':')
+                lt = line_type::cmd_for_args;
             }
 
-            expire_mode (); // Expire the normal lexer mode.
+            if (lt == line_type::cmd_for_stream) // for x <...
+            {
+              ln.var = nullptr;
 
-            // Parse the value similar to the var line type (see above),
-            // except for the fact that we don't expect a trailing semicolon.
-            //
-            mode (lexer_mode::variable_line);
-            parse_variable_line (t, tt);
+              expire_mode ();
 
-            if (tt != type::newline)
-              fail (t) << "expected newline instead of " << t << " after for";
+              parse_command_expr_result r (
+                parse_command_expr (t, tt,
+                                    lexer::redirect_aliases,
+                                    move (pt)));
+
+              assert (r.for_loop);
+
+              parse_command_tail ();
+              parse_here_documents (t, tt, r);
+            }
+            else                                 // for x: ...
+            {
+              ln.var = &script_->var_pool.insert (move (n));
+
+              next (t, tt);
+
+              assert (tt == type::colon);
+
+              expire_mode ();
+
+              // Parse the value similar to the var line type (see above),
+              // except for the fact that we don't expect a trailing semicolon.
+              //
+              mode (lexer_mode::variable_line);
+              parse_variable_line (t, tt);
+
+              if (tt != type::newline)
+                fail (t) << "expected newline instead of " << t << " after for";
+            }
 
             break;
           }
@@ -501,51 +581,20 @@ namespace build2
           // Fall through.
         case line_type::cmd:
           {
-            pair<command_expr, here_docs> p;
+            parse_command_expr_result r;
 
             if (lt != line_type::cmd_else && lt != line_type::cmd_end)
-              p = parse_command_expr (t, tt, lexer::redirect_aliases);
+              r = parse_command_expr (t, tt, lexer::redirect_aliases);
 
-            // Colon and semicolon are only valid in test command lines and
-            // after 'end' in a flow control construct. Note that we still
-            // recognize them lexically, they are just not valid tokens per
-            // the grammar.
-            //
-            if (tt != type::newline)
+            if (r.for_loop)
             {
-              if (lt != line_type::cmd && lt != line_type::cmd_end)
-                fail (t) << "expected newline instead of " << t;
-
-              switch (st)
-              {
-              case type::plus:  fail (t) << t << " after setup command" << endf;
-              case type::minus: fail (t) << t << " after teardown command" << endf;
-              }
+              lt     = line_type::cmd_for_stream;
+              ln.var = nullptr;
             }
 
-            switch (tt)
-            {
-            case type::colon:
-              {
-                if (d)
-                  fail (ll) << "both leading and trailing descriptions";
+            parse_command_tail ();
+            parse_here_documents (t, tt, r);
 
-                d = parse_trailing_description (t, tt);
-                break;
-              }
-            case type::semi:
-              {
-                semi = true;
-                replay_pop (); // See above for the reasoning.
-                next (t, tt);  // Get newline.
-                break;
-              }
-            }
-
-            if (tt != type::newline)
-              fail (t) << "expected newline instead of " << t;
-
-            parse_here_documents (t, tt, p);
             break;
           }
         }
@@ -579,7 +628,8 @@ namespace build2
             break;
           }
         case line_type::cmd_while:
-        case line_type::cmd_for:
+        case line_type::cmd_for_stream:
+        case line_type::cmd_for_args:
           {
             semi = pre_parse_loop (t, tt, lt, d, *ls);
             break;
@@ -608,7 +658,8 @@ namespace build2
           case line_type::cmd_if:
           case line_type::cmd_ifn:
           case line_type::cmd_while:
-          case line_type::cmd_for:
+          case line_type::cmd_for_stream:
+          case line_type::cmd_for_args:
             {
               // See if this is a variable-only flow control construct.
               //
@@ -951,7 +1002,7 @@ namespace build2
         //
         size_t i (ls.size ());
 
-        line_type fct; // Flow control type the block type relates to.
+        line_type fct; // Flow control construct type the block type relates to.
 
         switch (bt)
         {
@@ -965,7 +1016,8 @@ namespace build2
             break;
           }
         case line_type::cmd_while:
-        case line_type::cmd_for:
+        case line_type::cmd_for_stream:
+        case line_type::cmd_for_args:
           {
             fct = bt;
             break;
@@ -1068,7 +1120,9 @@ namespace build2
         // enter: <newline> (previous line)
         // leave: <newline>
 
-        assert (lt == line_type::cmd_while || lt == line_type::cmd_for);
+        assert (lt == line_type::cmd_while      ||
+                lt == line_type::cmd_for_stream ||
+                lt == line_type::cmd_for_args);
 
         tt = peek (lexer_mode::first_token);
 
@@ -1428,7 +1482,7 @@ namespace build2
 
         // Note: this one is only used during execution.
 
-        pair<command_expr, here_docs> p (
+        parse_command_expr_result pr (
           parse_command_expr (t, tt, lexer::redirect_aliases));
 
         if (tt == type::colon)
@@ -1436,10 +1490,10 @@ namespace build2
 
         assert (tt == type::newline);
 
-        parse_here_documents (t, tt, p);
+        parse_here_documents (t, tt, pr);
         assert (tt == type::newline);
 
-        command_expr r (move (p.first));
+        command_expr r (move (pr.expr));
 
         // If the test program runner is specified, then adjust the
         // expressions to run test programs via this runner.
@@ -1582,6 +1636,7 @@ namespace build2
         auto exec_cmd = [&ct, this] (token& t, build2::script::token_type& tt,
                                      const iteration_index* ii, size_t li,
                                      bool single,
+                                     const function<command_function>& cf,
                                      const location& ll)
         {
           // We use the 0 index to signal that this is the only command.
@@ -1593,7 +1648,7 @@ namespace build2
           command_expr ce (
             parse_command_line (t, static_cast<token_type&> (tt)));
 
-          runner_->run (*scope_, ce, ct, ii, li, ll);
+          runner_->run (*scope_, ce, ct, ii, li, cf, ll);
         };
 
         auto exec_cond = [this] (token& t, build2::script::token_type& tt,
@@ -1827,7 +1882,8 @@ namespace build2
       // The rest.
       //
 
-      // When add a special variable don't forget to update lexer::word().
+      // When add a special variable don't forget to update lexer::word() and
+      // for-loop parsing in pre_parse_line().
       //
       bool parser::
       special_variable (const string& n) noexcept

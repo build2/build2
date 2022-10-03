@@ -115,7 +115,7 @@ namespace build2
       }
 
       void scope::
-      set_variable (string&& nm,
+      set_variable (string nm,
                     names&& val,
                     const string& attrs,
                     const location& ll)

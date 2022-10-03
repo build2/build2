@@ -30,5 +30,12 @@ namespace build2
       vector<string> --unset|-u;
       vector<string> --clear|-c;
     };
+
+    class for_options
+    {
+      bool --exact|-e;
+      bool --newline|-n;
+      bool --whitespace|-w;
+    };
   }
 }

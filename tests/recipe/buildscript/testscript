@@ -886,29 +886,164 @@ if $posix
     EOE
 }
 
-: flow-control-construct
+: loop
 :
 {
   : while
   :
   {
-    echo 'bar' >=bar;
+    : basics
+    :
+    {
+      echo 'bar' >=bar;
 
-    cat <<EOI >=buildfile;
-      foo: bar
-      {{
-        p = $path($>)
-        while test -f $p != 0
-          cp $path($<) $p
-        end
-      }}
-      EOI
+      cat <<EOI >=buildfile;
+        foo: bar
+        {{
+          p = $path($>)
+          while test -f $p != 0
+            cp $path($<) $p
+          end
+        }}
+        EOI
 
-    $* 2>'cp file{foo}';
+      $* 2>'cp file{foo}';
 
-    cat <<<foo >'bar';
+      cat <<<foo >'bar';
 
-    $* clean 2>-
+      $* clean 2>-
+    }
+
+    : exit
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        foo: bar
+        {{
+          diag gen ($>)
+
+          p = $path($>)
+          while test -f $p != 0
+            touch $p
+            exit
+            cp $path($<) $p
+          end
+        }}
+        EOI
+
+      $* 2>'gen file{foo.}';
+
+      cat <<<foo >:'';
+
+      $* clean 2>-
+    }
+
+    : error
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        foo: bar
+        {{
+          diag gen ($>)
+
+          p = $path($>)
+          while test -f $p != 0
+            touch $p
+            exit 'fed up'
+            cp $path($<) $p
+          end
+        }}
+        EOI
+
+      $* 2>>~%EOE% != 0;
+        gen file{foo.}
+        buildfile:8:5: error: fed up
+        %.{3}
+        EOE
+
+      $* clean 2>-
+    }
+
+    : depdb
+    :
+    {
+      : inside
+      :
+      {
+        echo 'bar' >=bar;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($>)
+            while test -f $p != 0
+              depdb hash $p
+              cp $path($<) $p
+            end
+          }}
+          EOI
+
+        $* 2>>EOE != 0
+          buildfile:5:5: error: 'depdb' call inside flow control construct
+          EOE
+      }
+
+      : after-commands
+      :
+      {
+        echo 'bar' >=bar;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($>)
+            while test -f $p != 0
+              cp $path($<) $p
+            end
+
+            depdb hash $p
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0;
+          buildfile:5:5: error: disallowed command in depdb preamble
+            info: only variable assignments are allowed in depdb preamble
+            buildfile:8:3: info: depdb preamble ends here
+          %.{3}
+          EOE
+
+        $* clean 2>-
+      }
+
+      : after-vars
+      :
+      {
+        echo 'bar' >=bar;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($<)
+
+            h =
+            while test -f $p != 0
+              h += $p
+            end
+
+            depdb hash $p
+
+            cat $p >$path($>)
+          }}
+          EOI
+
+        $* 2>'cat file{foo}';
+        $* clean 2>-
+      }
+    }
   }
 
   : for
@@ -943,6 +1078,85 @@ if $posix
           bar
           baz
           EOO
+
+        $* clean 2>-
+      }
+
+      : special-var
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            for ~: $<
+              cat $path($f) >>$p
+            end
+          }}
+          EOI
+
+        $* 2>>EOE != 0
+          buildfile:6:7: error: attempt to set '~' special variable
+          EOE
+      }
+
+      : exit
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            for f: $<
+              cat $path($f) >>$p
+              exit
+            end
+          }}
+          EOI
+
+        $* 2>'cat file{foo}';
+
+        cat <<<foo >>EOO;
+          bar
+          EOO
+
+        $* clean 2>-
+      }
+
+      : error
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            for f: $<
+              cat $path($f) >>$p
+              exit 'fed up'
+            end
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0;
+          cat file{foo}
+          buildfile:8:5: error: fed up
+          %.{3}
+          EOE
 
         $* clean 2>-
       }
@@ -1027,6 +1241,457 @@ if $posix
             EOI
 
           $* 2>'cat file{foo}';
+          $* clean 2>-
+        }
+      }
+    }
+
+    : form-2
+    :
+    : ... | for x
+    :
+    {
+      : basics
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar baz
+          {{
+            diag gen ($>)
+
+            p = $path($>)
+            rm -f $p
+
+            echo $path($<) | for -w f
+              cat $f >>$p
+            end
+          }}
+          EOI
+
+        $* 2>'gen file{foo.}';
+
+        cat <<<foo >>EOO;
+          bar
+          baz
+          EOO
+
+        $* clean 2>-
+      }
+
+      : special-var
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            diag gen ($>)
+
+            p = $path($>)
+            rm -f $p
+
+            echo $path($<) | for ~
+              cat $f >>$p
+            end
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0;
+          gen file{foo.}
+          buildfile:8:3: error: attempt to set '~' special variable
+          %.{3}
+          EOE
+
+        $* clean 2>-
+      }
+
+      : misuse
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            diag gen ($>)
+
+            p = $path($>)
+            rm -f $p
+
+            echo $path($<) | for x:
+              cat $f >>$p
+            end
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0;
+          gen file{foo.}
+          buildfile:8:3: error: for: ':' after variable name
+          %.{3}
+          EOE
+
+        $* clean 2>-
+      }
+
+      : exit
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            diag gen ($>)
+
+            p = $path($>)
+            rm -f $p
+
+            echo $path($<) | for -w f
+              cat $f >>$p
+              exit
+            end
+          }}
+          EOI
+
+        $* 2>'gen file{foo.}';
+
+        cat <<<foo >>EOO;
+          bar
+          EOO
+
+        $* clean 2>-
+      }
+
+      : error
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            diag gen ($>)
+
+            p = $path($>)
+            rm -f $p
+
+            echo $path($<) | for -w f
+              cat $f >>$p
+              exit 'fed up'
+            end
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0;
+          gen file{foo.}
+          buildfile:10:5: error: fed up
+          %.{3}
+          EOE
+
+        $* clean 2>-
+      }
+
+      : depdb
+      :
+      {
+        : inside
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              echo $path($<) | for -w f
+                depdb hash $f
+              end
+
+              p = $path($>)
+              rm -f $p
+
+              echo $path($<) | for -w f
+                cat $f >>$p
+              end
+            }}
+            EOI
+
+          $* 2>>EOE != 0
+            buildfile:4:5: error: 'depdb' call inside flow control construct
+            EOE
+        }
+
+        : after-commands
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              echo $path($<) | for -w f
+                echo $f >-
+              end
+
+              depdb hash $p
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0;
+            buildfile:4:5: error: disallowed command in depdb preamble
+              info: only variable assignments are allowed in depdb preamble
+              buildfile:7:3: info: depdb preamble ends here
+            %.{3}
+            EOE
+
+          $* clean 2>-
+        }
+
+        : after-vars
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              h =
+              echo $path($<) | for -w f
+                h += $f
+              end
+
+              depdb hash $h
+
+              diag gen ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              for f: $<
+                cat $path($f) >>$p
+              end
+            }}
+            EOI
+
+          $* 2>'gen file{foo.}';
+          $* clean 2>-
+        }
+      }
+    }
+
+    : form-3
+    :
+    : for x <...
+    :
+    {
+      : basics
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar baz
+          {{
+            diag gen ($>)
+
+            p = $path($>)
+            rm -f $p
+
+            for -w f <<"EOF"
+            $path($<)
+            EOF
+              cat $f >>$p
+            end
+
+            for <<"EOF" -w f
+            $path($<)
+            EOF
+              cat $f >>$p
+            end
+          }}
+          EOI
+
+        $* 2>'gen file{foo.}';
+
+        cat <<<foo >>EOO;
+          bar
+          baz
+          bar
+          baz
+          EOO
+
+        $* clean 2>-
+      }
+
+      : special-var
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+           for ~ <<<$path($<)
+              cat $f >>$p
+            end
+          }}
+          EOI
+
+        $* 2>>EOE != 0
+          buildfile:6:6: error: attempt to set '~' special variable
+          EOE
+      }
+
+      : exit
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+           for f <<<$path($<)
+              cat $f >>$p
+              exit
+            end
+          }}
+          EOI
+
+        $* 2>'cat file{foo}';
+
+        cat <<<foo >>EOO;
+          bar
+          EOO
+
+        $* clean 2>-
+      }
+
+      : error
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+           for f <<<$path($<)
+              cat $f >>$p
+              exit 'fed up'
+            end
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0;
+          cat file{foo}
+          buildfile:8:5: error: fed up
+          %.{3}
+          EOE
+
+        $* clean 2>-
+      }
+
+      : depdb
+      :
+      {
+        : inside
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              for -w f <<<$path($<)
+                depdb hash $f
+              end
+
+              p = $path($>)
+              rm -f $p
+
+              echo $path($<) | for -w f
+                cat $f >>$p
+              end
+            }}
+            EOI
+
+          $* 2>>EOE != 0
+            buildfile:4:5: error: 'depdb' call inside flow control construct
+            EOE
+        }
+
+        : after-commands
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              for -w f <<<$path($<)
+                echo $f >-
+              end
+
+              depdb hash a
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0;
+            buildfile:4:5: error: disallowed command in depdb preamble
+              info: only variable assignments are allowed in depdb preamble
+              buildfile:7:3: info: depdb preamble ends here
+            %.{3}
+            EOE
+
+          $* clean 2>-
+        }
+
+        : after-vars
+        :
+        {
+          echo 'bar' >=bar;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              h =
+              for -w f <<<$path($<)
+                h += $f
+              end
+
+              depdb hash $h
+
+              diag gen ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              for f: $<
+                cat $path($f) >>$p
+              end
+            }}
+            EOI
+
+          $* 2>'gen file{foo.}';
           $* clean 2>-
         }
       }

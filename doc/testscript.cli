@@ -1418,6 +1418,7 @@ while potentially spanning several physical lines. The \c{-line} suffix
 here signifies a \i{logical line}, for example, a command line plus its
 here-document fragments.
 
+
 \h#syntax-grammar|Grammar|
 
 The complete grammar of the Testscript language is presented next with the
@@ -1474,33 +1475,58 @@ test:
   +(variable-line|command-like)
 
 variable-like:
-  variable-line|variable-if
+  variable-line|variable-flow
 
 variable-line:
   <variable-name> ('='|'+='|'=+') value-attributes? <value> ';'?
 
 value-attributes: '[' <key-value-pairs> ']'
 
+variable-flow:
+  variable-if|variable-for|variable-while
+
 variable-if:
   ('if'|'if!') command-line
-  variable-if-body
+  variable-flow-body
   *variable-elif
   ?variable-else
-  'end'
+  'end' ';'?
 
 variable-elif:
   ('elif'|'elif!') command-line
-  variable-if-body
+  variable-flow-body
 
 variable-else:
   'else'
-  variable-if-body
+  variable-flow-body
 
-variable-if-body:
+variable-flow-body:
   *variable-like
 
+variable-for:
+  variable-for-args|variable-for-stream
+
+variable-for-args:
+  'for' variable-attributes? <variable-name> ':' \
+  value-attributes? <value>
+  variable-flow-body
+  'end' ';'?
+
+variable-attributes: '[' <key-value-pairs> ']'
+
+variable-for-stream:
+  (command-pipe '|')? \
+  'for' (<opt>|stdin)* variable-attributes? <variable-name> (stdin)*
+  variable-flow-body
+  'end' ';'?
+
+variable-while:
+  'while' command-line
+  variable-flow-body
+  'end' ';'?
+
 command-like:
-  command-line|command-if
+  command-line|command-flow
 
 command-line: command-expr (';'|(':' <text>))?
   *here-document
@@ -1513,23 +1539,46 @@ command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
 
 command-exit: ('=='|'!=') <exit-status>
 
+command-flow:
+  command-if|command-for|command-while
+
 command-if:
   ('if'|'if!') command-line
-  command-if-body
+  command-flow-body
   *command-elif
   ?command-else
   'end' (';'|(':' <text>))?
 
 command-elif:
   ('elif'|'elif!') command-line
-  command-if-body
+  command-flow-body
 
 command-else:
   'else'
-  command-if-body
+  command-flow-body
 
-command-if-body:
+command-flow-body:
   *(variable-line|command-like)
+
+command-for:
+  command-for-args|command-for-stream
+
+command-for-args:
+  'for' variable-attributes? <variable-name> ':' \
+  value-attributes? <value>
+  command-flow-body
+  'end' (';'|(':' <text>))?
+
+command-for-stream:
+  (command-pipe '|')? \
+  'for' (<opt>|stdin)* variable-attributes? <variable-name> (stdin)*
+  command-flow-body
+  'end' (';'|(':' <text>))?
+
+command-while:
+  'while' command-line
+  command-flow-body
+  'end' (';'|(':' <text>))?
 
 redirect: stdin|stdout|stderr
 
@@ -1563,6 +1612,12 @@ description:
   +(':' <text>)
 \
 
+Note that the only purpose of having a separate (from the command flow control
+constructs) variable-only flow control constructs is to remove the error-prone
+requirement of having to specify \c{+} and \c{-} prefixes in group
+setup/teardown.
+
+
 \h#syntax-script|Script|
 
 \
@@ -1572,6 +1627,7 @@ script:
 
 A testscript file is an implicit group scope (see \l{#model Model and
 Execution} for details).
+
 
 \h#syntax-scope|Scope|
 
@@ -1622,6 +1678,7 @@ the scopes in an \c{if-else} chain are alternative implementations of the same
 group/test (thus the single description). If at least one of them is a group
 scope, then all the others are treated as groups as well.
 
+
 \h#syntax-directive|Directive|
 
 \
@@ -1654,6 +1711,7 @@ this scope should not be included again. The implementation is not required to
 handle links when determining if two paths are to the same file. Relative
 paths are assumed to be relative to the including testscript file.
 
+
 \h#syntax-setup-teardown|Setup and Teardown|
 
 \
@@ -1667,10 +1725,11 @@ setup-line: '+' command-like
 tdown-line: '-' command-like
 \
 
-Note that variable assignments (including \c{variable-if}) do not use the
+Note that variable assignments (including \c{variable-flow}) do not use the
 \c{'+'} and \c{'-'} prefixes. A standalone (not part of a test) variable
 assignment is automatically treated as a setup if no tests have yet been
 encountered in this scope and as a teardown otherwise.
+
 
 \h#syntax-test|Test|
 
@@ -1690,11 +1749,12 @@ cat <'verbose = true' >=$conf;
 test1 $conf
 \
 
+
 \h#syntax-variable|Variable|
 
 \
 variable-like:
-  variable-line|variable-if
+  variable-line|variable-flow
 
 variable-line:
   <variable-name> ('='|'+='|'=+') value-attributes? <value> ';'?
@@ -1713,25 +1773,26 @@ echo $args # foo bar fox   baz
 The value can only be followed by \c{;} inside a test to signal the test
 continuation.
 
+
 \h#syntax-variable-if|Variable-If|
 
 \
 variable-if:
   ('if'|'if!') command-line
-  variable-if-body
+  variable-flow-body
   *variable-elif
   ?variable-else
-  'end'
+  'end' ';'?
 
 variable-elif:
   ('elif'|'elif!') command-line
-  variable-if-body
+  variable-flow-body
 
 variable-else:
   'else'
-  variable-if-body
+  variable-flow-body
 
-variable-if-body:
+variable-flow-body:
   *variable-like
 \
 
@@ -1755,15 +1816,107 @@ with a ternary operator is often more concise:
 slash = ($cxx.target.class == 'windows' ? \\\\ : /)
 \
 
-Note also that the only purpose of having a separate (from \c{command-if})
-variable-only if-block is to remove the error-prone requirement of having to
-specify \c{+} and \c{-} prefixes in group setup/teardown.
+
+\h#syntax-variable-for|Variable-For|
+
+\
+variable-for:
+  variable-for-args|variable-for-stream
+
+variable-for-args:
+  'for' variable-attributes? <variable-name> ':' \
+  value-attributes? <value>
+  variable-flow-body
+  'end' ';'?
+
+variable-for-stream:
+  (command-pipe '|')? \
+  'for' (<opt>|stdin)* variable-attributes? <variable-name> (stdin)*
+  variable-flow-body
+  'end' ';'?
+
+variable-flow-body:
+  *variable-like
+\
+
+A group of variables can be set in a loop, while iterating over elements of a
+potentially empty list and setting the specified variable (called \i{loop
+variable}) to the corresponding element on each iteration. At the end of the
+iteration the loop variable contains the value of the last element, if any.
+
+In the first form the list results from an expression containing variable
+expansions, function calls, eval contexts, and/or literal values. For example:
+
+\
+us =
+ls =
+
+for v: $vs
+  us += $string.ucase($v)
+  ls += $string.lcase($v)
+end
+\
+
+In the second form the list is read from \c{stdin} input. The input data can
+be split into elements at newlines or whitespaces if \c{-n} or \c{-w} option,
+respectively, is specified. This form supports the same set of options as the
+\l{#builtins-set \c{set}} pseudo-builtin. For example:
+
+\
+us =
+ls =
+
+cat values.txt | for -n v
+  us += $string.ucase($v)
+  ls += $string.lcase($v)
+end
+\
+
+This example can actually be simplified as:
+
+\
+us =
+ls =
+
+for -n v <=values.txt
+  us += $string.ucase($v)
+  ls += $string.lcase($v)
+end
+\
+
+
+\h#syntax-variable-while|Variable-While|
+
+\
+variable-while:
+  'while' command-line
+  variable-flow-body
+  'end' ';'?
+
+variable-flow-body:
+  *variable-like
+\
+
+A group of variables can be set in a loop, while iterating until the condition
+evaluates to \c{false}. The condition \c{command-line} semantics is the same
+as in \c{scope-if}. For example:
+
+\
+r =
+i = [uint64] 0
+
+while ($i != 2)
+  r += ($vs[$i])
+  i += 1
+end
+\
+
 
 \h#syntax-command|Command|
 
 \
 command-like:
-  command-line|command-if
+  command-line|command-flow
 
 command-line: command-expr (';'|(':' <text>))?
   *here-document
@@ -1778,7 +1931,7 @@ command-exit: ('=='|'!=') <exit-status>
 \
 
 A command line is a command expression. If it appears directly (as opposed to
-inside \c{command-if}) in a test, then it can be followed by \c{;} to signal
+inside \c{command-flow}) in a test, then it can be followed by \c{;} to signal
 the test continuation or by \c{:} and the trailing description.
 
 A command expression can combine several command pipes with logical AND and OR
@@ -1803,25 +1956,26 @@ to succeed (0 exit code). The logical result of executing a command is
 therefore a boolean value which is used in the higher-level constructs (pipe
 and expression).
 
+
 \h#syntax-command-if|Command-If|
 
 \
 command-if:
   ('if'|'if!') command-line
-  command-if-body
+  command-flow-body
   *command-elif
   ?command-else
   'end' (';'|(':' <text>))?
 
 command-elif:
   ('elif'|'elif!') command-line
-  command-if-body
+  command-flow-body
 
 command-else:
   'else'
-  command-if-body
+  command-flow-body
 
-command-if-body:
+command-flow-body:
   *(variable-line|command-like)
 \
 
@@ -1840,6 +1994,105 @@ else
 end;
 test1 $foo
 \
+
+
+\h#syntax-command-for|Command-For|
+
+\
+command-for:
+  command-for-args|command-for-stream
+
+command-for-args:
+  'for' variable-attributes? <variable-name> ':' \
+  value-attributes? <value>
+  command-flow-body
+  'end' (';'|(':' <text>))?
+
+command-for-stream:
+  (command-pipe '|')? \
+  'for' (<opt>|stdin)* variable-attributes? <variable-name> (stdin)*
+  command-flow-body
+  'end' (';'|(':' <text>))?
+
+command-flow-body:
+  *(variable-line|command-like)
+\
+
+A group of commands can be executed in a loop, while iterating over elements
+of a potentially empty list and setting the specified variable (called \i{loop
+variable}) to the corresponding element on each iteration. At the end of the
+iteration the loop variable contains the value of the last element, if any.
+Note that in a compound test, commands inside \c{command-for} must not end
+with \c{;}. Rather, \c{;} may follow \c{end}.
+
+In the first form the list results from an expression containing variable
+expansions, function calls, eval contexts, and/or literal values. For example:
+
+\
+ls = ;
+for v: $vs
+  test1 $string.ucase($v)
+  ls += $string.lcase($v)
+end;
+test2 $ls
+\
+
+In the second form the list is read from \c{stdin} input. The input data can
+be split into elements at newlines or whitespaces if \c{-n} or \c{-w} option,
+respectively, is specified. This form supports the same set of options as the
+\l{#builtins-set \c{set}} pseudo-builtin. For example:
+
+\
+ls = ;
+cat values.txt | for -n v
+  test1 $string.ucase($v)
+  ls += $string.lcase($v)
+end;
+test2 $ls
+\
+
+This example can actually be simplified:
+
+\
+ls = ;
+for -n v <=values.txt
+  test1 $string.ucase($v)
+  ls += $string.lcase($v)
+end;
+test2 $ls
+\
+
+
+\h#syntax-command-while|Command-While|
+
+\
+command-while:
+  'while' command-line
+  command-flow-body
+  'end' (';'|(':' <text>))?
+
+command-flow-body:
+  *(variable-line|command-like)
+\
+
+A group of commands can be executed in a loop, while iterating until the
+condition evaluates to \c{false}. The condition \c{command-line} semantics is
+the same as in \c{scope-if}. Note that in a compound test, commands inside
+\c{command-while} must not end with \c{;}. Rather, \c{;} may follow
+\c{end}. For example:
+
+\
+r = ;
+i = [uint64] 0;
+while ($i != 2)
+  v = ($vs[$i])
+  test1 $v
+  r += $v
+  i += 1
+end;
+test2 $r
+\
+
 
 \h#syntax-redirect|Redirect|
 
@@ -1968,6 +2221,7 @@ rather than a literal. Note that if present, it must be specified last.
 Similar to the input redirects, an output here-document redirect must be
 specified literally on the command line. See \l{#syntax-here-document Here
 Document} for details.
+
 
 \h#syntax-here-document|Here-Document|
 

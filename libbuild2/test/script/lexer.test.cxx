@@ -36,6 +36,7 @@ namespace build2
           else if (s == "variable-line")     m = lexer_mode::variable_line;
           else if (s == "description-line")  m = lexer_mode::description_line;
           else if (s == "variable")          m = lexer_mode::variable;
+          else if (s == "for-loop")          m = lexer_mode::for_loop;
           else                               assert (false);
         }
 

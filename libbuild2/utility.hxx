@@ -91,6 +91,7 @@ namespace build2
 
   // <libbutl/fdstream.hxx>
   //
+  using butl::fdopen_null;
   using butl::open_file_or_stdin;
   using butl::open_file_or_stdout;
 

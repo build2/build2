@@ -143,6 +143,7 @@ namespace build2
       run (scope& sp,
            const command_expr& expr, command_type ct,
            const iteration_index* ii, size_t li,
+           const function<command_function>& cf,
            const location& ll)
       {
         // Noop for teardown commands if keeping tests output is requested.
@@ -176,7 +177,7 @@ namespace build2
             dr << info << "test id: " << sp.id_path.posix_string ();
           });
 
-        build2::script::run (sp, expr, ii, li, ll);
+        build2::script::run (sp, expr, ii, li, ll, cf);
       }
 
       bool default_runner::

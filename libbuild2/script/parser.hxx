@@ -97,15 +97,34 @@ namespace build2
       };
       using here_docs = vector<here_doc>;
 
-      pair<command_expr, here_docs>
-      parse_command_expr (token&, token_type&, const redirect_aliases&);
+      struct parse_command_expr_result
+      {
+        command_expr expr; // Single pipe for the for-loop.
+        here_docs    docs;
+        bool         for_loop = false;
+
+        parse_command_expr_result () = default;
+
+        parse_command_expr_result (command_expr&& e,
+                                   here_docs&& h,
+                                   bool f)
+            : expr (move (e)), docs (move (h)), for_loop (f) {}
+      };
+
+      // Pass the first special command program name (token_type::word) if it
+      // is already pre-parsed.
+      //
+      parse_command_expr_result
+      parse_command_expr (token&, token_type&,
+                          const redirect_aliases&,
+                          optional<token>&& program = nullopt);
 
       command_exit
       parse_command_exit (token&, token_type&);
 
       void
       parse_here_documents (token&, token_type&,
-                            pair<command_expr, here_docs>&);
+                            parse_command_expr_result&);
 
       struct parsed_doc
       {
@@ -134,6 +153,11 @@ namespace build2
       // Start pre-parsing a script line returning its type, detected based on
       // the first two tokens. Use the specified lexer mode to peek the second
       // token.
+      //
+      // Always return the cmd_for_stream line type for the for-loop. Note
+      // that the for-loop form cannot be detected easily, based on the first
+      // two tokens. Also note that the detection can be specific for the
+      // script implementation (custom lexing mode, special variables, etc).
       //
       line_type
       pre_parse_line_start (token&, token_type&, lexer_mode);
@@ -169,6 +193,7 @@ namespace build2
       using exec_cmd_function = void (token&, token_type&,
                                       const iteration_index*, size_t li,
                                       bool single,
+                                      const function<command_function>&,
                                       const location&);
 
       using exec_cond_function  = bool (token&, token_type&,

@@ -343,6 +343,201 @@
       EOE
     EOI
   }
+
+  : split
+  :
+  : Test various splitting modes as above, but now reading the stream in the
+  : non-blocking mode.
+  :
+  {
+    : whitespace-separated-list
+    :
+    {
+      : non-exact
+      :
+      {
+        : non-empty
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set -w baz <' foo   bar ';
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar"'
+        EOI
+
+        : empty
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set -w baz <:'';
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >''
+        EOI
+
+        : spaces
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set -w baz <'  ';
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >''
+        EOI
+      }
+
+      : exact
+      :
+      {
+        : trailing-ws
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set --exact --whitespace baz <' foo   bar ';
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar" ""'
+        EOI
+
+        : no-trailing-ws
+        :
+        : Note that we need to strip the default trailing newline as well with the
+        : ':' modifier.
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set -e -w baz <:' foo bar';
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar"'
+        EOI
+
+        : empty
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set -e -w baz <:'';
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >''
+        EOI
+
+        : spaces
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set -e -w baz <'  ';
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >'""'
+        EOI
+      }
+    }
+
+    : newline-separated-list
+    :
+    {
+      : non-exact
+      :
+      $c <<EOI && $b
+      timeout 10;
+      set -n baz <<EOF;
+
+      foo
+
+      bar
+
+      EOF
+      echo $regex.apply($baz, '^(.*)$', '"\1"') >'"" "foo" "" "bar" ""'
+      EOI
+
+      : exact
+      :
+      {
+        : trailing-newline
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set --exact --newline baz <<EOF;
+
+        foo
+
+        bar
+
+        EOF
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >'"" "foo" "" "bar" "" ""'
+        EOI
+
+        : no-trailing-newline
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set --exact --newline baz <<:EOF;
+
+        foo
+
+        bar
+        EOF
+        echo $regex.apply($baz, '^(.*)$', '"\1"') >'"" "foo" "" "bar"'
+        EOI
+      }
+    }
+
+    : string
+    :
+    {
+      : non-exact
+      :
+      $c <<EOI && $b
+      timeout 10;
+      set baz <<EOF;
+
+      foo
+
+      bar
+
+      EOF
+      echo ($baz[0]) >>EOO
+
+      foo
+
+      bar
+
+      EOO
+      EOI
+
+      : exact
+      :
+      : Note that echo adds the trailing newline, so EOF and EOO here-documents
+      : differ by this newline.
+      :
+      {
+        : trailing-newline
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set -e baz <<EOF;
+
+        foo
+
+        bar
+        EOF
+        echo ($baz[0]) >>EOO
+
+        foo
+
+        bar
+
+        EOO
+        EOI
+
+        : no-trailing-newline
+        :
+        $c <<EOI && $b
+        timeout 10;
+        set -e baz <<:EOF;
+
+        foo
+
+        bar
+        EOF
+        echo ($baz[0]) >>EOO
+
+        foo
+
+        bar
+        EOO
+        EOI
+      }
+    }
+  }
 }
 
 : attributes

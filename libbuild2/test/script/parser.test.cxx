@@ -100,11 +100,32 @@ namespace build2
         }
 
         virtual void
-        run (scope&,
+        run (scope& env,
              const command_expr& e, command_type t,
              const iteration_index* ii, size_t i,
-             const location&) override
+             const function<command_function>& cf,
+             const location& ll) override
         {
+          // If the functions is specified, then just execute it with an empty
+          // stdin so it can perform the housekeeping (stop replaying tokens,
+          // increment line index, etc).
+          //
+          if (cf != nullptr)
+          {
+            assert (e.size () == 1 && !e[0].pipe.empty ());
+
+            const command& c (e[0].pipe.back ());
+
+            // Must be enforced by the caller.
+            //
+            assert (!c.out && !c.err && !c.exit);
+
+            cf (env, c.arguments,
+                fdopen_null (), false /* pipe */,
+                nullopt /* deadline */, c,
+                ll);
+          }
+
           const char* s (nullptr);
 
           switch (t)

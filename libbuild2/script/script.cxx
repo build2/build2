@@ -20,16 +20,17 @@ namespace build2
 
       switch (lt)
       {
-      case line_type::var:       s = "variable"; break;
-      case line_type::cmd:       s = "command";  break;
-      case line_type::cmd_if:    s = "'if'";     break;
-      case line_type::cmd_ifn:   s = "'if!'";    break;
-      case line_type::cmd_elif:  s = "'elif'";   break;
-      case line_type::cmd_elifn: s = "'elif!'";  break;
-      case line_type::cmd_else:  s = "'else'";   break;
-      case line_type::cmd_while: s = "'while'";  break;
-      case line_type::cmd_for:   s = "'for'";    break;
-      case line_type::cmd_end:   s = "'end'";    break;
+      case line_type::var:            s = "variable"; break;
+      case line_type::cmd:            s = "command";  break;
+      case line_type::cmd_if:         s = "'if'";     break;
+      case line_type::cmd_ifn:        s = "'if!'";    break;
+      case line_type::cmd_elif:       s = "'elif'";   break;
+      case line_type::cmd_elifn:      s = "'elif!'";  break;
+      case line_type::cmd_else:       s = "'else'";   break;
+      case line_type::cmd_while:      s = "'while'";  break;
+      case line_type::cmd_for_args:   s = "'for'";    break;
+      case line_type::cmd_for_stream: s = "'for'";    break;
+      case line_type::cmd_end:        s = "'end'";    break;
       }
 
       return o << s;
@@ -227,7 +228,8 @@ namespace build2
         case line_type::cmd_elifn:
         case line_type::cmd_else:
         case line_type::cmd_while:
-        case line_type::cmd_for:   fc_ind += "  "; break;
+        case line_type::cmd_for_args:
+        case line_type::cmd_for_stream: fc_ind += "  "; break;
         default: break;
         }
 

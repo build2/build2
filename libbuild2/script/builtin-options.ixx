@@ -153,6 +153,63 @@ namespace build2
     {
       this->clear_specified_ = x;
     }
+
+    // for_options
+    //
+
+    inline const bool& for_options::
+    exact () const
+    {
+      return this->exact_;
+    }
+
+    inline bool& for_options::
+    exact ()
+    {
+      return this->exact_;
+    }
+
+    inline void for_options::
+    exact (const bool& x)
+    {
+      this->exact_ = x;
+    }
+
+    inline const bool& for_options::
+    newline () const
+    {
+      return this->newline_;
+    }
+
+    inline bool& for_options::
+    newline ()
+    {
+      return this->newline_;
+    }
+
+    inline void for_options::
+    newline (const bool& x)
+    {
+      this->newline_ = x;
+    }
+
+    inline const bool& for_options::
+    whitespace () const
+    {
+      return this->whitespace_;
+    }
+
+    inline bool& for_options::
+    whitespace ()
+    {
+      return this->whitespace_;
+    }
+
+    inline void for_options::
+    whitespace (const bool& x)
+    {
+      this->whitespace_ = x;
+    }
   }
 }
 

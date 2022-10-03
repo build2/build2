@@ -9,7 +9,8 @@
 #  include <libbutl/win32-utility.hxx> // DBG_TERMINATE_PROCESS
 #endif
 
-#include <ios> // streamsize
+#include <ios>     // streamsize
+#include <cstring> // strchr()
 
 #include <libbutl/regex.hxx>
 #include <libbutl/builtin.hxx>
@@ -971,81 +972,201 @@ namespace build2
              : path (c.program.recall_string ());
     }
 
-    // Read out the stream content into a string. Throw io_error on the
-    // underlying OS error.
-    //
-    // If the execution deadline is specified, then turn the stream into the
-    // non-blocking mode reading its content in chunks and with a single
-    // operation otherwise. If the specified deadline is reached while
-    // reading the stream, then bail out for the successful deadline and
-    // fail otherwise. Note that in the former case the result will be
-    // incomplete, but we leave it to the caller to handle that.
-    //
-    // Note that on Windows we can only turn pipe file descriptors into the
-    // non-blocking mode. Thus, we have no choice but to read from
-    // descriptors of other types synchronously there. That implies that we
-    // can potentially block indefinitely reading a file and missing the
-    // deadline on Windows. Note though, that the user can normally rewrite
-    // the command, for example, `set foo <<<file` with `cat file | set foo`
-    // to avoid this problem.
-    //
-    static string
-    read (auto_fd in,
+    stream_reader::
+    stream_reader(auto_fd&& in,
 #ifndef _WIN32
-          bool,
+                  bool,
 #else
-          bool pipe,
+                  bool pipe,
 #endif
-          const optional<deadline>& dl,
-          const command& deadline_cmd,
-          const location& ll)
+                  bool ws, bool nl, bool ex,
+                  const optional<deadline>& dl,
+                  const command& dc,
+                  const location& l)
+        : whitespace_ (ws),
+          newline_ (nl),
+          exact_ (ex),
+          deadline_cmd_ (dc),
+          location_ (l)
     {
-      string r;
-      ifdstream cin;
-
 #ifndef _WIN32
       if (dl)
 #else
       if (dl && pipe)
 #endif
       {
-        fdselect_set fds {in.get ()};
-        cin.open (move (in), fdstream_mode::non_blocking);
-
-        const timestamp& dlt (dl->value);
-
-        for (char buf[4096];; )
-        {
-          timestamp now (system_clock::now ());
-
-          if (dlt <= now || ifdselect (fds, dlt - now) == 0)
-          {
-            if (!dl->success)
-              fail (ll) << cmd_path (deadline_cmd)
-                        << " terminated: execution timeout expired";
-            else
-              break;
-          }
-
-          streamsize n (cin.readsome (buf, sizeof (buf)));
-
-          // Bail out if eos is reached.
-          //
-          if (n == 0)
-            break;
-
-          r.append (buf, n);
-        }
+        is_.open (move (in), fdstream_mode::non_blocking);
+        deadline_ = dl;
       }
       else
+        is_.open (move (in));
+    }
+
+    optional<string> stream_reader::
+    next ()
+    {
+      if (!is_.is_open ())
+        return nullopt;
+
+      // If eos is not reached, then read and return a character. Otherwise
+      // close the stream and return nullopt. If the deadline is specified and
+      // is reached, then return nullopt for the successful deadline (as if
+      // eof is reached) and fail otherwise.
+      //
+      // Set the empty_ flag to false after the first character is read.
+      //
+      auto get = [this] () -> optional<char>
       {
-        cin.open (move (in));
-        r = cin.read_text ();
+        char r;
+
+        if (deadline_) // Reading a character in the non-blocking mode.
+        {
+          fdselect_set fds {is_.fd ()};
+
+          // Only fallback to ifdselect() if there is no character immediately
+          // available.
+          //
+          for (;;)
+          {
+            streamsize n (is_.readsome (&r, 1));
+
+            if (n == 1)
+              break;
+
+            if (is_.eof ())
+            {
+              is_.close ();
+              return nullopt;
+            }
+
+            const timestamp& dlt (deadline_->value);
+            timestamp now (system_clock::now ());
+
+            if (dlt <= now || ifdselect (fds, dlt - now) == 0)
+            {
+              is_.close ();
+
+              if (!deadline_->success)
+                fail (location_) << cmd_path (deadline_cmd_)
+                                 << " terminated: execution timeout expired";
+              else
+                return nullopt;
+            }
+          }
+        }
+        else           // Reading a character in the blocking mode.
+        {
+          if (is_.peek () == ifdstream::traits_type::eof ())
+          {
+            is_.close ();
+            return nullopt;
+          }
+
+          is_.get (r);
+        }
+
+        empty_ = false;
+        return r;
+      };
+
+      if (whitespace_) // The whitespace mode.
+      {
+        const char* sep (" \n\r\t");
+
+        // Note that we collapse multiple consecutive whitespaces.
+        //
+        optional<char> c;
+
+        // Skip the whitespaces.
+        //
+        while ((c = get ()) && strchr (sep, *c) != nullptr) ;
+
+        // Bail out for the trailing whitespace(s) or an empty stream.
+        //
+        if (!c)
+        {
+          // Return the trailing "blank" after the trailing whitespaces in the
+          // exact mode, unless the stream is empty.
+          //
+          return exact_ && !empty_ ? empty_string : optional<string> ();
+        }
+
+        // Read the word until eof or a whitespace character is encountered.
+        //
+        string r (1, *c);
+        while ((c = get ()) && strchr (sep, *c) == nullptr)
+          r += *c;
+
+        return optional<string> (move (r));
       }
+      else             // The newline or no-split mode.
+      {
+        // Note that we don't collapse multiple consecutive newlines.
+        //
+        // Note also that we always sanitize CRs, so in the no-split mode we
+        // need to loop rather than read the whole text at once.
+        //
+        optional<string> r;
 
-      cin.close ();
+        do
+        {
+          string l;
+          optional<char> c;
 
-      return r;
+          // Read the line until eof or newline character is encountered.
+          //
+          while ((c = get ()) && *c != '\n')
+            l += *c;
+
+          // Strip the trailing CRs that can appear while, for example,
+          // cross-testing Windows target or as a part of msvcrt junk
+          // production (see above).
+          //
+          while (!l.empty () && l.back () == '\r')
+            l.pop_back ();
+
+          // Append the line.
+          //
+          if (!l.empty () || // Non-empty.
+              c           || // Empty, non-trailing.
+              (exact_ &&     // Empty, trailing, in the exact mode for
+               !empty_))     // non-empty stream.
+          {
+            if (newline_ || !r)
+            {
+              r = move (l);
+            }
+            else
+            {
+              *r += '\n';
+              *r += l;
+            }
+          }
+        }
+        while (!newline_ && is_.is_open ());
+
+        return r;
+      }
+    }
+
+    string
+    stream_read (auto_fd&& in,
+                 bool pipe,
+                 const optional<deadline>& dl,
+                 const command& dc,
+                 const location& ll)
+    {
+      stream_reader sr (move (in),
+                        pipe,
+                        false /* whitespace */,
+                        false /* newline */,
+                        true /* exact */,
+                        dl,
+                        dc,
+                        ll);
+
+      optional<string> s (sr.next ());
+      return s ? move (*s) : empty_string;
     }
 
     // The set pseudo-builtin: set variable from the stdin input.
@@ -1087,87 +1208,17 @@ namespace build2
         if (vname.empty ())
           fail (ll) << "set: empty variable name";
 
-        // Read out the stream content into a string while keeping an eye on
-        // the deadline.
-        //
-        string s (read (move (in), pipe, dl, deadline_cmd, ll));
+        stream_reader sr (move (in), pipe,
+                          ops.whitespace (), ops.newline (), ops.exact (),
+                          dl, deadline_cmd,
+                          ll);
 
         // Parse the stream content into the variable value.
         //
         names ns;
 
-        if (!s.empty ())
-        {
-          if (ops.whitespace ()) // The whitespace mode.
-          {
-            // Note that we collapse multiple consecutive whitespaces.
-            //
-            for (size_t p (0); p != string::npos; )
-            {
-              // Skip the whitespaces.
-              //
-              const char* sep (" \n\r\t");
-              size_t b (s.find_first_not_of (sep, p));
-
-              if (b != string::npos) // Word beginning.
-              {
-                size_t e (s.find_first_of (sep, b)); // Find the word end.
-                ns.emplace_back (string (s, b, e != string::npos ? e - b : e));
-
-                p = e;
-              }
-              else // Trailings whitespaces.
-              {
-                // Append the trailing "blank" after the trailing whitespaces
-                // in the exact mode.
-                //
-                if (ops.exact ())
-                  ns.emplace_back (empty_string);
-
-                // Bail out since the end of the string is reached.
-                //
-                break;
-              }
-            }
-          }
-          else // The newline or no-split mode.
-          {
-            // Note that we don't collapse multiple consecutive newlines.
-            //
-            // Note also that we always sanitize CRs so this loop is always
-            // needed.
-            //
-            for (size_t p (0); p != string::npos; )
-            {
-              size_t e (s.find ('\n', p));
-              string l (s, p, e != string::npos ? e - p : e);
-
-              // Strip the trailing CRs that can appear while, for example,
-              // cross-testing Windows target or as a part of msvcrt junk
-              // production (see above).
-              //
-              while (!l.empty () && l.back () == '\r')
-                l.pop_back ();
-
-              // Append the line.
-              //
-              if (!l.empty ()       || // Non-empty.
-                  e != string::npos || // Empty, non-trailing.
-                  ops.exact ())        // Empty, trailing, in the exact mode.
-              {
-                if (ops.newline () || ns.empty ())
-                  ns.emplace_back (move (l));
-                else
-                {
-                  ns[0].value += '\n';
-                  ns[0].value += l;
-                }
-              }
-
-              p = e != string::npos ? e + 1 : e;
-            }
-          }
-        }
+        for (optional<string> s; (s = sr.next ()); )
+          ns.emplace_back (move (*s));
 
         env.set_variable (move (vname),
                           move (ns),
@@ -1242,7 +1293,7 @@ namespace build2
               const iteration_index* ii, size_t li, size_t ci,
               const location& ll,
               bool diag,
-              string* output,
+              const function<command_function>& cf, bool last_cmd,
               optional<deadline> dl = nullopt,
               const command* dl_cmd = nullptr, // env -t <cmd>
               pipe_command* prev_cmd = nullptr)
@@ -1253,8 +1304,10 @@ namespace build2
       //
       if (bc == ec)
       {
-        if (output != nullptr)
+        if (cf != nullptr)
         {
+          assert (!last_cmd); // Otherwise we wouldn't be here.
+
           // The pipeline can't be empty.
           //
           assert (ifd != nullfd && prev_cmd != nullptr);
@@ -1263,15 +1316,14 @@ namespace build2
 
           try
           {
-            *output = read (move (ifd),
-                            true /* pipe */,
-                            dl,
-                            dl_cmd != nullptr ? *dl_cmd : c,
-                            ll);
+            cf (env, strings () /* arguments */,
+                move (ifd), true /* pipe */,
+                dl, dl_cmd != nullptr ? *dl_cmd : c,
+                ll);
           }
           catch (const io_error& e)
           {
-            fail (ll) << "io error reading " << cmd_path (c) << " output: "
+            fail (ll) << "unable to read from " << cmd_path (c) << " output: "
                       << e;
           }
         }
@@ -1329,9 +1381,10 @@ namespace build2
       command_pipe::const_iterator nc (bc + 1);
       bool last (nc == ec);
 
-      // Make sure that stdout is not redirected if meant to be read.
+      // Make sure that stdout is not redirected if meant to be read (last_cmd
+      // is false) or cannot not be produced (last_cmd is true).
       //
-      if (last && output != nullptr && c.out)
+      if (last && c.out && cf != nullptr)
         fail (ll) << "stdout cannot be redirected";
 
       // True if the process path is not pre-searched and the program path
@@ -1345,7 +1398,7 @@ namespace build2
 
       const redirect& in ((c.in ? *c.in : env.in).effective ());
 
-      const redirect* out (!last || output != nullptr
+      const redirect* out (!last || (cf != nullptr && !last_cmd)
                            ? nullptr // stdout is piped.
                            : &(c.out ? *c.out : env.out).effective ());
 
@@ -1413,7 +1466,7 @@ namespace build2
         if (c.out)
           fail (ll) << program << " builtin stdout cannot be redirected";
 
-        if (output != nullptr)
+        if (cf != nullptr && !last_cmd)
           fail (ll) << program << " builtin stdout cannot be read";
 
         if (c.err)
@@ -1620,7 +1673,7 @@ namespace build2
         if (c.out)
           fail (ll) << "set builtin stdout cannot be redirected";
 
-        if (output != nullptr)
+        if (cf != nullptr && !last_cmd)
           fail (ll) << "set builtin stdout cannot be read";
 
         if (c.err)
@@ -1636,6 +1689,39 @@ namespace build2
                      move (ifd), !first,
                      dl, dl_cmd != nullptr ? *dl_cmd : c,
                      ll);
+
+        return true;
+      }
+
+      // If this is the last command in the pipe and the command function is
+      // specified for it, then call it.
+      //
+      if (last && cf != nullptr && last_cmd)
+      {
+        // Must be enforced by the caller.
+        //
+        assert (!c.out && !c.err && !c.exit);
+
+        try
+        {
+          cf (env, c.arguments,
+              move (ifd), !first,
+              dl, dl_cmd != nullptr ? *dl_cmd : c,
+              ll);
+        }
+        catch (const io_error& e)
+        {
+          diag_record dr (fail (ll));
+
+          dr << cmd_path (c) << ": unable to read from ";
+
+          if (prev_cmd != nullptr)
+            dr << cmd_path (prev_cmd->cmd) << " output";
+          else
+            dr << "stdin";
+
+          dr << ": " << e;
+        }
 
         return true;
       }
@@ -2220,7 +2306,7 @@ namespace build2
                               nc, ec,
                               move (ofd.in),
                               ii, li, ci + 1, ll, diag,
-                              output,
+                              cf, last_cmd,
                               dl, dl_cmd,
                               &pc);
 
@@ -2347,7 +2433,7 @@ namespace build2
                               nc, ec,
                               move (ofd.in),
                               ii, li, ci + 1, ll, diag,
-                              output,
+                              cf, last_cmd,
                               dl, dl_cmd,
                               &pc);
 
@@ -2487,7 +2573,7 @@ namespace build2
               const iteration_index* ii, size_t li,
               const location& ll,
               bool diag,
-              string* output)
+              const function<command_function>& cf, bool last_cmd)
     {
       // Commands are numbered sequentially throughout the expression
       // starting with 1. Number 0 means the command is a single one.
@@ -2532,7 +2618,7 @@ namespace build2
                         p.begin (), p.end (),
                         auto_fd (),
                         ii, li, ci, ll, print,
-                        output);
+                        cf, last_cmd);
         }
 
         ci += p.size ();
@@ -2546,13 +2632,18 @@ namespace build2
          const command_expr& expr,
          const iteration_index* ii, size_t li,
          const location& ll,
-         string* output)
+         const function<command_function>& cf,
+         bool last_cmd)
     {
       // Note that we don't print the expression at any verbosity level
       // assuming that the caller does this, potentially providing some
       // additional information (command type, etc).
       //
-      if (!run_expr (env, expr, ii, li, ll, true /* diag */, output))
+      if (!run_expr (env,
+                     expr,
+                     ii, li, ll,
+                     true /* diag */,
+                     cf, last_cmd))
         throw failed (); // Assume diagnostics is already printed.
     }
 
@@ -2561,11 +2652,15 @@ namespace build2
               const command_expr& expr,
               const iteration_index* ii, size_t li,
               const location& ll,
-              string* output)
+              const function<command_function>& cf, bool last_cmd)
     {
       // Note that we don't print the expression here (see above).
       //
-      return run_expr (env, expr, ii, li, ll, false /* diag */, output);
+      return run_expr (env,
+                       expr,
+                       ii, li, ll,
+                       false /* diag */,
+                       cf, last_cmd);
     }
 
     void
