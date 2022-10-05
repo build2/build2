@@ -3372,8 +3372,10 @@ namespace build2
               // See perform_update() for details on the choice of options.
               //
               {
-                bool sc (find_option_prefix ("/source-charset:", args));
-                bool ec (find_option_prefix ("/execution-charset:", args));
+                bool sc (find_option_prefixes (
+                           {"/source-charset:", "-source-charset:"}, args));
+                bool ec (find_option_prefixes (
+                           {"/execution-charset:", "-execution-charset:"}, args));
 
                 if (!sc && !ec)
                   args.push_back ("/utf-8");
@@ -3389,15 +3391,16 @@ namespace build2
 
               if (cvariant != "clang" && isystem (*this))
               {
-                if (find_option_prefix ("/external:I", args) &&
-                    !find_option_prefix ("/external:W", args))
+                if (find_option_prefixes ({"/external:I", "-external:I"}, args) &&
+                    !find_option_prefixes ({"/external:W", "-external:W"}, args))
                   args.push_back ("/external:W0");
               }
 
-              if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
+              if (x_lang == lang::cxx &&
+                  !find_option_prefixes ({"/EH", "-EH"}, args))
                 args.push_back ("/EHsc");
 
-              if (!find_option_prefixes ({"/MD", "/MT"}, args))
+              if (!find_option_prefixes ({"/MD", "/MT", "-MD", "-MT"}, args))
                 args.push_back ("/MD");
 
               args.push_back ("/P");            // Preprocess to file.
@@ -4737,8 +4740,10 @@ namespace build2
               // See perform_update() for details on the choice of options.
               //
               {
-                bool sc (find_option_prefix ("/source-charset:", args));
-                bool ec (find_option_prefix ("/execution-charset:", args));
+                bool sc (find_option_prefixes (
+                           {"/source-charset:", "-source-charset:"}, args));
+                bool ec (find_option_prefixes (
+                           {"/execution-charset:", "-execution-charset:"}, args));
 
                 if (!sc && !ec)
                   args.push_back ("/utf-8");
@@ -4754,15 +4759,16 @@ namespace build2
 
               if (cvariant != "clang" && isystem (*this))
               {
-                if (find_option_prefix ("/external:I", args) &&
-                    !find_option_prefix ("/external:W", args))
+                if (find_option_prefixes ({"/external:I", "-external:I"}, args) &&
+                    !find_option_prefixes ({"/external:W", "-external:W"}, args))
                   args.push_back ("/external:W0");
               }
 
-              if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
+              if (x_lang == lang::cxx &&
+                  !find_option_prefixes ({"/EH", "-EH"}, args))
                 args.push_back ("/EHsc");
 
-              if (!find_option_prefixes ({"/MD", "/MT"}, args))
+              if (!find_option_prefixes ({"/MD", "/MT", "-MD", "-MT"}, args))
                 args.push_back ("/MD");
 
               args.push_back ("/E");
@@ -6691,8 +6697,10 @@ namespace build2
           // Note that clang-cl supports /utf-8 and /*-charset.
           //
           {
-            bool sc (find_option_prefix ("/source-charset:", args));
-            bool ec (find_option_prefix ("/execution-charset:", args));
+            bool sc (find_option_prefixes (
+                       {"/source-charset:", "-source-charset:"}, args));
+            bool ec (find_option_prefixes (
+                       {"/execution-charset:", "-execution-charset:"}, args));
 
             if (!sc && !ec)
               args.push_back ("/utf-8");
@@ -6711,8 +6719,8 @@ namespace build2
           //
           if (cvariant != "clang" && isystem (*this))
           {
-            if (find_option_prefix ("/external:I", args) &&
-                !find_option_prefix ("/external:W", args))
+            if (find_option_prefixes ({"/external:I", "-external:I"}, args) &&
+                !find_option_prefixes ({"/external:W", "-external:W"}, args))
               args.push_back ("/external:W0");
           }
 
@@ -6726,7 +6734,9 @@ namespace build2
           // For C looks like no /EH* (exceptions supported but no C++ objects
           // destroyed) is a reasonable default.
           //
-          if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
+
+          if (x_lang == lang::cxx &&
+              !find_option_prefixes ({"/EH", "-EH"}, args))
             args.push_back ("/EHsc");
 
           // The runtime is a bit more interesting. At first it may seem like
@@ -6748,7 +6758,7 @@ namespace build2
           // unreasonable thing to do). So by default we will always use the
           // release runtime.
           //
-          if (!find_option_prefixes ({"/MD", "/MT"}, args))
+          if (!find_option_prefixes ({"/MD", "/MT", "-MD", "-MT"}, args))
             args.push_back ("/MD");
 
           msvc_sanitize_cl (args);
@@ -6773,7 +6783,7 @@ namespace build2
           //
           // @@ MOD: TODO deal with absent relo.
           //
-          if (find_options ({"/Zi", "/ZI"}, args))
+          if (find_options ({"/Zi", "/ZI", "-Zi", "-ZI"}, args))
           {
             if (fc)
               args.push_back ("/Fd:");
