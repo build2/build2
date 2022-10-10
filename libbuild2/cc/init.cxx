@@ -338,10 +338,11 @@ namespace build2
       //
       if (!cast_false<bool> (rs["bin.config.loaded"]))
       {
-        // Prepare configuration hints. They are only used on the first load
-        // of bin.config so we only populate them on our first load.
+        // Prepare configuration hints (pretend it belongs to root scope).
+        // They are only used on the first load of bin.config so we only
+        // populate them on our first load.
         //
-        variable_map h (rs.ctx);
+        variable_map h (rs);
 
         if (first)
         {

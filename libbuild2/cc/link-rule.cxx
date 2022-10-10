@@ -1914,6 +1914,8 @@ namespace build2
           bool u;
           if ((u = pt->is_a<libux> ()) || pt->is_a<liba> ())
           {
+            // Note: go straight for the public variable pool.
+            //
             const variable& var (ctx.var_pool["bin.whole"]); // @@ Cache.
 
             // See the bin module for the lookup semantics discussion. Note
@@ -2364,6 +2366,8 @@ namespace build2
         //
         if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
         {
+          // Note: go straight for the public variable pool.
+          //
           const variable& var (
             com
             ? (exp ? c_export_loptions : c_loptions)
@@ -2751,7 +2755,7 @@ namespace build2
       // those that don't match. Note that we have to do it after updating
       // prerequisites to keep the dependency counts straight.
       //
-      if (const variable* var_fi = ctx.var_pool.find ("for_install"))
+      if (const variable* var_fi = rs.var_pool ().find ("for_install"))
       {
         // Parallel prerequisites/prerequisite_targets loop.
         //
@@ -3006,6 +3010,8 @@ namespace build2
       else
       {
         // For VC we use link.exe directly.
+        //
+        // Note: go straight for the public variable pool.
         //
         const string& cs (
           cast<string> (

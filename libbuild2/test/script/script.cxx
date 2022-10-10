@@ -30,7 +30,7 @@ namespace build2
       scope_base::
       scope_base (script& s)
           : root (s),
-            vars (s.test_target.ctx, false /* global */)
+            vars (s.test_target.ctx, false /* shared */) // Note: managed.
       {
         vars.assign (root.wd_var) = dir_path ();
       }
@@ -355,7 +355,7 @@ namespace build2
         // in parallel). Plus, if there is no such variable, then we cannot
         // possibly find any value.
         //
-        const variable* pvar (context.var_pool.find (n));
+        const variable* pvar (root.target_scope.var_pool ().find (n));
 
         if (pvar == nullptr)
           return lookup_type ();

@@ -195,6 +195,8 @@ namespace build2
       //
       const target_triplet* tgt (nullptr);
       {
+        // Note: go straight for the public variable pool.
+        //
         const variable& var (ctx.var_pool["config.bin.target"]);
 
         // We first see if the value was specified via the configuration
@@ -272,6 +274,8 @@ namespace build2
       //
       const string* pat (nullptr);
       {
+        // Note: go straight for the public variable pool.
+        //
         const variable& var (ctx.var_pool["config.bin.pattern"]);
 
         // We first see if the value was specified via the configuration

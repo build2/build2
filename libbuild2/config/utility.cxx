@@ -81,7 +81,9 @@ namespace build2
                       const string& n,
                       initializer_list<const char*> ig)
     {
-      auto& vp (rs.var_pool ());
+      // Note: go straight for the public variable pool.
+      //
+      auto& vp (rs.ctx.var_pool);
 
       // Search all outer scopes for any value in this namespace.
       //
@@ -160,6 +162,8 @@ namespace build2
     pair<variable_origin, lookup>
     origin (const scope& rs, const string& n)
     {
+      // Note: go straight for the public variable pool.
+      //
       const variable* var (rs.ctx.var_pool.find (n));
 
       if (var == nullptr)

@@ -89,10 +89,12 @@ namespace build2
       class environment: public build2::script::environment
       {
       public:
+        using scope_type = build2::scope;
         using target_type = build2::target;
 
         environment (action,
                      const target_type&,
+                     const scope_type&,
                      bool temp_dir,
                      const optional<timestamp>& deadline = nullopt);
 
@@ -113,11 +115,12 @@ namespace build2
         environment& operator= (const environment&) = delete;
 
       public:
-        // Primary target this environment is for.
+        // Primary target this environment is for and its base scope;
         //
         const target_type& target;
+        const scope_type&  scope;
 
-        // Script-local variable pool and map.
+        // Script-private variable pool and map.
         //
         // Note that it may be tempting to reuse the rule-specific variables
         // for this but they should not be modified during execution (i.e.,

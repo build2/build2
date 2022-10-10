@@ -27,10 +27,11 @@ namespace build2
   static inline void
   hash_script_vars (sha256& cs,
                     const build::script::script& s,
+                    const scope& bs,
                     const target& t,
                     names& storage)
   {
-    context& ctx (t.ctx);
+    auto& vp (bs.var_pool ());
 
     for (const string& n: s.vars)
     {
@@ -38,7 +39,7 @@ namespace build2
 
       lookup l;
 
-      if (const variable* var = ctx.var_pool.find (n))
+      if (const variable* var = vp.find (n))
         l = t[var];
 
       cs.append (!l.defined () ? '\x1' : l->null ? '\x2' : '\x3');
@@ -221,8 +222,8 @@ namespace build2
 
   struct adhoc_buildscript_rule::match_data
   {
-    match_data (action a, const target& t, bool temp_dir)
-        : env (a, t, temp_dir) {}
+    match_data (action a, const target& t, const scope& bs, bool temp_dir)
+        : env (a, t, bs, temp_dir) {}
 
     build::script::environment env;
     build::script::default_runner run;
@@ -236,8 +237,10 @@ namespace build2
 
   struct adhoc_buildscript_rule::match_data_byproduct
   {
-    match_data_byproduct (action a, const target& t, bool temp_dir)
-        : env (a, t, temp_dir) {}
+    match_data_byproduct (action a, const target& t,
+                          const scope& bs,
+                          bool temp_dir)
+        : env (a, t, bs, temp_dir) {}
 
     build::script::environment env;
     build::script::default_runner run;
@@ -608,7 +611,7 @@ namespace build2
 
       {
         sha256 cs;
-        hash_script_vars (cs, script, t, storage);
+        hash_script_vars (cs, script, bs, t, storage);
 
         if (dd.expect (cs.string ()) != nullptr)
           l4 ([&]{trace << "recipe variable change forcing update of " << t;});
@@ -645,10 +648,10 @@ namespace build2
     if (script.depdb_dyndep_byproduct)
     {
       mdb.reset (new match_data_byproduct (
-                   a, t, script.depdb_preamble_temp_dir));
+                   a, t, bs, script.depdb_preamble_temp_dir));
     }
     else
-      md.reset (new match_data (a, t, script.depdb_preamble_temp_dir));
+      md.reset (new match_data (a, t, bs, script.depdb_preamble_temp_dir));
 
 
     build::script::environment& env (mdb != nullptr ? mdb->env : md->env);
@@ -1176,6 +1179,8 @@ namespace build2
     const file& t (xt.as<file> ());
     const path& tp (t.path ());
 
+    const scope& bs (t.base_scope ());
+
     // Update prerequisites and determine if any of them render this target
     // out-of-date.
     //
@@ -1263,7 +1268,7 @@ namespace build2
       //
       {
         sha256 cs;
-        hash_script_vars (cs, script, t, storage);
+        hash_script_vars (cs, script, bs, t, storage);
 
         if (dd.expect (cs.string ()) != nullptr)
           l4 ([&]{trace << "recipe variable change forcing update of " << t;});
@@ -1294,8 +1299,6 @@ namespace build2
       }
     }
 
-    const scope* bs (nullptr);
-
     // Execute the custom dependency change tracking commands, if present.
     //
     // Note that we share the environment between the execute_depdb_preamble()
@@ -1320,20 +1323,18 @@ namespace build2
       }
     }
 
-    build::script::environment env (a, t, false /* temp_dir */);
+    build::script::environment env (a, t, bs, false /* temp_dir */);
     build::script::default_runner run;
 
     if (depdb_preamble)
     {
-      bs = &t.base_scope ();
-
       if (script.depdb_preamble_temp_dir)
         env.set_temp_dir_variable ();
 
       build::script::parser p (ctx);
 
       run.enter (env, script.start_loc);
-      p.execute_depdb_preamble (a, *bs, t, env, script, run, dd);
+      p.execute_depdb_preamble (a, bs, t, env, script, run, dd);
     }
 
     // Update if depdb mismatch.
@@ -1362,10 +1363,7 @@ namespace build2
     {
       // Prepare to execute the script diag line and/or body.
       //
-      if (bs == nullptr)
-        bs = &t.base_scope ();
-
-      if ((r = execute_update_file (*bs, a, t, env, run)))
+      if ((r = execute_update_file (bs, a, t, env, run)))
       {
         if (!ctx.dry_run)
           dd.check_mtime (tp);
@@ -1604,7 +1602,7 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      build::script::environment e (a, t, script.body_temp_dir, deadline);
+      build::script::environment e (a, t, bs, script.body_temp_dir, deadline);
       build::script::parser p (ctx);
 
       if (verb == 1)

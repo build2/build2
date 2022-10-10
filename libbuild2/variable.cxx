@@ -1740,6 +1740,7 @@ namespace build2
         variable {
           move (n),
           nullptr,
+          nullptr,
           pt,
           nullptr,
           pv != nullptr ? *pv : variable_visibility::project}));
@@ -1747,7 +1748,10 @@ namespace build2
     variable& var (r.first->second);
 
     if (r.second)
+    {
+      var.owner = this;
       var.aliases = &var;
+    }
     else // Note: overridden variable will always exist.
     {
       // This is tricky: if the pattern does not require a match, then we
@@ -1868,7 +1872,66 @@ namespace build2
 
   // variable_map
   //
-  const variable_map empty_variable_map (nullptr /* context */);
+  const variable_map empty_variable_map (variable_map::owner::empty);
+
+  // Need scope/target definition thus not inline.
+  //
+  variable_map::
+  variable_map (const scope& s, bool shared)
+    : shared_ (shared), owner_ (owner::scope), scope_ (&s), ctx (&s.ctx)
+  {
+  }
+
+  variable_map::
+  variable_map (const target& t, bool shared)
+      : shared_ (shared), owner_ (owner::target), target_ (&t), ctx (&t.ctx)
+  {
+  }
+
+  variable_map::
+  variable_map (const prerequisite& p, bool shared)
+    : shared_ (shared),
+      owner_ (owner::prereq), prereq_ (&p),
+      ctx (&p.scope.ctx)
+  {
+  }
+
+  variable_map::
+  variable_map (variable_map&& v, const prerequisite& p, bool shared)
+      : shared_ (shared),
+        owner_ (owner::scope), prereq_ (&p),
+        ctx (&p.scope.ctx),
+        m_ (move (v.m_))
+  {
+  }
+
+  variable_map::
+  variable_map (const variable_map& v, const prerequisite& p, bool shared)
+      : shared_ (shared),
+        owner_ (owner::scope), prereq_ (&p),
+        ctx (&p.scope.ctx),
+        m_ (v.m_)
+  {
+  }
+
+  lookup variable_map::
+  lookup (const string& name) const
+  {
+    lookup_type r;
+
+    const scope* bs (owner_ == owner::scope  ? scope_                  :
+                     owner_ == owner::target ? &target_->base_scope () :
+                     owner_ == owner::prereq ? &prereq_->scope         :
+                     nullptr);
+
+    if (const variable* var = bs->var_pool ().find (name))
+    {
+      auto p (lookup (*var));
+      r = lookup_type (p.first, &p.second, this);
+    }
+
+    return r;
+  }
 
   auto variable_map::
   lookup (const variable& var, bool typed, bool aliased) const ->
@@ -1919,6 +1982,19 @@ namespace build2
     return pair<value_data*, const variable&> (r, p.second);
   }
 
+  value& variable_map::
+  assign (const string& name)
+  {
+    assert (owner_ != owner::context);
+
+    const scope* bs (owner_ == owner::scope  ? scope_                  :
+                     owner_ == owner::target ? &target_->base_scope () :
+                     owner_ == owner::prereq ? &prereq_->scope         :
+                     nullptr);
+
+    return insert (bs->var_pool ()[name]).first;
+  }
+
   pair<value&, bool> variable_map::
   insert (const variable& var, bool typed, bool reset_extra)
   {
@@ -1945,6 +2021,21 @@ namespace build2
     return pair<value&, bool> (r, p.second);
   }
 
+  auto variable_map::
+  find (const string& name) const -> const_iterator
+  {
+    assert (owner_ != owner::context);
+
+    const scope* bs (owner_ == owner::scope  ? scope_                  :
+                     owner_ == owner::target ? &target_->base_scope () :
+                     owner_ == owner::prereq ? &prereq_->scope         :
+                     nullptr);
+
+
+    const variable* var (bs->var_pool ().find (name));
+    return var != nullptr ? find (*var) : end ();
+  }
+
   bool variable_map::
   erase (const variable& var)
   {
@@ -1966,6 +2057,9 @@ namespace build2
   variable_map& variable_pattern_map::
   insert (pattern_type type, string&& text)
   {
+    // Note that this variable map is special and we use context as its owner
+    // (see variable_map for details).
+    //
     auto r (map_.emplace (pattern {type, false, move (text), {}},
                           variable_map (ctx, shared_)));
 

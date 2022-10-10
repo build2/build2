@@ -28,6 +28,7 @@ namespace build2
       environment::
       environment (action a,
                    const target_type& t,
+                   const scope_type& s,
                    bool temp,
                    const optional<timestamp>& dl)
           : build2::script::environment (
@@ -39,7 +40,8 @@ namespace build2
               redirect (redirect_type::merge, 2),
               redirect (redirect_type::pass)),
             target (t),
-            vars (context, false /* global */),
+            scope (s),
+            vars (context, false /* shared */), // Note: managed.
             var_ts (var_pool.insert (">")),
             var_ps (var_pool.insert ("<")),
             script_deadline (to_deadline (dl, false /* success */))
@@ -233,7 +235,7 @@ namespace build2
         // in parallel). Plus, if there is no such variable, then we cannot
         // possibly find any value.
         //
-        const variable* pvar (context.var_pool.find (n));
+        const variable* pvar (scope.var_pool ().find (n));
 
         if (pvar == nullptr)
           return lookup_type ();

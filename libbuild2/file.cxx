@@ -582,11 +582,15 @@ namespace build2
       fail << "variable out_root expected as first line in " << f << endf;
   }
 
-  static void
+  // Note: not static due to being a friend of variable_pool.
+  //
+  void
   setup_root_extra (scope& root, optional<bool>& altn)
   {
     assert (altn && root.root_extra == nullptr);
     bool a (*altn);
+
+    context& ctx (root.ctx);
 
     root.root_extra.reset (
       new scope::root_extra_type {
@@ -607,6 +611,7 @@ namespace build2
         a ? alt_export_file      : std_export_file,
         a ? alt_src_root_file    : std_src_root_file,
         a ? alt_out_root_file    : std_out_root_file,
+        {&ctx, &ctx.var_pool.rw (root)}, /* var_pool */
         {}, /* meta_operations */
         {}, /* operations */
         {}, /* modules */
@@ -3197,13 +3202,15 @@ namespace build2
 
         const string& pfx (ns[1].value);
 
-        auto& vp (ctx.var_pool.rw ()); // Load phase.
-
         // See if we have the stable program name in the <var-prefix>.name
         // variable. If its missing, set it to the metadata key (i.e., target
         // name as imported) by default.
         //
         {
+          // Note: go straight for the public variable pool.
+          //
+          auto& vp (ctx.var_pool.rw ()); // Load phase.
+
           value& nv (t.assign (vp.insert (pfx + ".name")));
           if (!nv)
             nv = *meta;

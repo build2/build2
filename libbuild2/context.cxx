@@ -52,7 +52,10 @@ namespace build2
     variable_override_cache global_override_cache;
     strings global_var_overrides;
 
-    data (context& c): scopes (c), targets (c), var_pool (&c /* global */) {}
+    data (context& c)
+        : scopes (c),
+          targets (c),
+          var_pool (&c /* shared */, nullptr /* outer */) {}
   };
 
   context::
@@ -479,6 +482,7 @@ namespace build2
         unique_ptr<variable> p (
           new variable {
             n + '.' + to_string (i + 1) + '.' + k,
+            &vp     /* owner */,
             nullptr /* aliases   */,
             nullptr /* type      */,
             nullptr /* overrides */,
@@ -708,7 +712,7 @@ namespace build2
 
     auto find_ovar = [this] (const char* n)
     {
-      const variable* v (var_pool.find (n));
+      const variable* v (var_pool.find (n)); // @@ TMP: pub/prv vars
 
       // The operation variable should have prerequisite or target visibility.
       //

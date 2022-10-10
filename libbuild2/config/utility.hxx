@@ -271,6 +271,8 @@ namespace build2
                    const string& var,
                    uint64_t save_flags = 0)
     {
+      // Note: go straight for the public variable pool.
+      //
       return lookup_config (rs, rs.ctx.var_pool[var], save_flags);
     }
 
@@ -280,6 +282,8 @@ namespace build2
                    const string& var,
                    uint64_t save_flags = 0)
     {
+      // Note: go straight for the public variable pool.
+      //
       return lookup_config (new_value, rs, rs.ctx.var_pool[var], save_flags);
     }
 
@@ -367,6 +371,8 @@ namespace build2
                    uint64_t save_flags = 0,
                    bool override = false)
     {
+      // Note: go straight for the public variable pool.
+      //
       return lookup_config (rs,
                             rs.ctx.var_pool[var],
                             std::forward<T> (default_value), // VC14
@@ -383,6 +389,8 @@ namespace build2
                    uint64_t save_flags = 0,
                    bool override = false)
     {
+      // Note: go straight for the public variable pool.
+      //
       return lookup_config (new_value,
                             rs,
                             rs.ctx.var_pool[var],

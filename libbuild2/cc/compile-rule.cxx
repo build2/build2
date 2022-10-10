@@ -530,6 +530,8 @@ namespace build2
         if (find (d.ls.begin (), d.ls.end (), &l) != d.ls.end ())
           return false;
 
+        // Note: go straight for the public variable pool.
+        //
         const variable& var (
           com
           ? c_export_poptions
@@ -781,6 +783,8 @@ namespace build2
         //
         if (const scope* rs = l.base_scope ().root_scope ())
         {
+          // Note: go straight for the public variable pool.
+          //
           const variable& var (
             com
             ? c_export_poptions

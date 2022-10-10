@@ -60,7 +60,7 @@ namespace build2
         fail << "visibility() called out of scope" << endf;
 
       const variable* var (
-        s->ctx.var_pool.find (convert<string> (move (name))));
+        s->var_pool ().find (convert<string> (move (name))));
 
       return (var != nullptr
               ? optional<string> (to_string (var->visibility))

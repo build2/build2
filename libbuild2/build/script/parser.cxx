@@ -2526,10 +2526,8 @@ namespace build2
           {
             if (pre_parse_suspended_)
             {
-              const variable* pvar (scope_->ctx.var_pool.find (name));
-
-              if (pvar != nullptr)
-                r = (*scope_)[*pvar];
+              if (const variable* var = scope_->var_pool ().find (name))
+                r = (*scope_)[*var];
             }
 
             if (!depdb_clear_)

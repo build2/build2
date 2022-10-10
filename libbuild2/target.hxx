@@ -619,8 +619,9 @@ namespace build2
     lookup_type
     operator[] (const string& name) const
     {
-      const variable* var (ctx.var_pool.find (name));
-      return var != nullptr ? operator[] (*var) : lookup_type ();
+      const scope& bs (base_scope ());
+      const variable* var (bs.var_pool ().find (name));
+      return var != nullptr ? lookup (*var, &bs).first : lookup_type ();
     }
 
     // As above but also return the depth at which the value is found. The
@@ -632,12 +633,14 @@ namespace build2
     // earlier. If no value is found, then the depth is set to ~0.
     //
     pair<lookup_type, size_t>
-    lookup (const variable& var) const
+    lookup (const variable& var, const scope* bs = nullptr) const
     {
-      auto p (lookup_original (var));
+      auto p (lookup_original (var, false, bs));
       return var.overrides == nullptr
         ? p
-        : base_scope ().lookup_override (var, move (p), true);
+        : (bs != nullptr
+           ? *bs
+           : base_scope ()).lookup_override (var, move (p), true);
     }
 
     // If target_only is true, then only look in target and its target group
@@ -781,13 +784,6 @@ namespace build2
         return operator[] (*var);
       }
 
-      lookup_type
-      operator[] (const string& name) const
-      {
-        const variable* var (target_->ctx.var_pool.find (name));
-        return var != nullptr ? operator[] (*var) : lookup_type ();
-      }
-
       // As above but also return the depth at which the value is found. The
       // depth is calculated by adding 1 for each test performed. So a value
       // that is from the rule will have depth 1. That from the target - 2,
@@ -816,14 +812,18 @@ namespace build2
       value&
       assign (const variable* var) {return vars.assign (var);} // For cached.
 
+      // Implementation details.
+      //
     public:
       explicit
-      opstate (context& c): vars (c, false /* global */) {}
+      opstate (context& c): vars (variable_map::owner::target, &c) {}
 
     private:
       friend class target_set;
 
-      const target* target_ = nullptr; // Back-pointer, set by target_set.
+      // Back-pointer, set by target_set along with vars.target_.
+      //
+      const target* target_ = nullptr;
     };
 
     action_state<opstate> state;
@@ -1163,7 +1163,7 @@ namespace build2
     target (context& c, dir_path d, dir_path o, string n)
         : ctx (c),
           dir (move (d)), out (move (o)), name (move (n)),
-          vars (c, false /* global */),
+          vars (*this, false /* shared */),
           state (c)
     {
       dynamic_type = &static_type;

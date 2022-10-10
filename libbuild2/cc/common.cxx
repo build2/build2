@@ -164,6 +164,9 @@ namespace build2
       if (self && proc_lib)
         chain->push_back (&l);
 
+      // We only lookup public variables so go straight for the public
+      // variable pool.
+      //
       auto& vp (top_bs.ctx.var_pool);
 
       do // Breakout loop.
@@ -347,7 +350,7 @@ namespace build2
         // Find system search directories corresponding to this library, i.e.,
         // from its project and for its type (C, C++, etc).
         //
-        auto find_sysd = [&top_sysd, t, cc, same, &bs, &sysd, this] ()
+        auto find_sysd = [&top_sysd, &vp, t, cc, same, &bs, &sysd, this] ()
         {
           // Use the search dirs corresponding to this library scope/type.
           //
@@ -356,7 +359,7 @@ namespace build2
           : &cast<dir_paths> (
             bs.root_scope ()->vars[same
                                    ? x_sys_lib_dirs
-                                   : bs.ctx.var_pool[t + ".sys_lib_dirs"]]);
+                                   : vp[t + ".sys_lib_dirs"]]);
         };
 
         auto find_linfo = [top_li, t, cc, &bs, &l, &li] ()

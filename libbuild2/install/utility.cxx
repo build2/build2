@@ -12,6 +12,8 @@ namespace build2
     {
       context& ctx (t.ctx);
 
+      // Note: go straight for the public variable pool.
+      //
       const variable& var (*ctx.var_pool.find ("config.install.scope"));
 
       if (const string* s = cast_null<string> (ctx.global_scope[var]))

@@ -265,9 +265,9 @@ namespace build2
       //
       if (!cc_loaded)
       {
-        // Prepare configuration hints.
+        // Prepare configuration hints (pretend it belongs to root scope).
         //
-        variable_map h (rs.ctx);
+        variable_map h (rs);
 
         // Note that all these variables have already been registered.
         //
@@ -376,7 +376,9 @@ namespace build2
       //
       if (!cast_false<bool> (rs["cc.core.config.loaded"]))
       {
-        variable_map h (rs.ctx);
+        // Prepare configuration hints (pretend it belongs to root scope).
+        //
+        variable_map h (rs);
 
         if (!xi.bin_pattern.empty ())
           h.assign ("config.bin.pattern") = xi.bin_pattern;

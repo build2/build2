@@ -136,7 +136,7 @@ namespace build2
     lookup_type
     operator[] (const string& name) const
     {
-      const variable* var (ctx.var_pool.find (name));
+      const variable* var (var_pool ().find (name));
       return var != nullptr ? operator[] (*var) : lookup_type ();
     }
 
@@ -508,6 +508,10 @@ namespace build2
       const path&     src_root_file;  // build[2]/bootstrap/src-root.build[2]
       const path&     out_root_file;  // build[2]/bootstrap/src-root.build[2]
 
+      // Project-private variable pool.
+      //
+      variable_pool var_pool;
+
       // Meta/operations supported by this project.
       //
       build2::meta_operations meta_operations;
@@ -589,10 +593,19 @@ namespace build2
       return const_cast<scope&> (*this);
     }
 
+    // @@ TODO: find root scope and return its var_pool falling back to
+    //          ctx.var_pool if no root scope.
+    //
     variable_pool&
     var_pool ()
     {
       return ctx.var_pool.rw (*this);
+    }
+
+    const variable_pool&
+    var_pool () const
+    {
+      return ctx.var_pool;
     }
 
   private:

@@ -207,6 +207,8 @@ namespace build2
         // saved according to config.config.persist potentially warning if the
         // variable would otherwise be dropped.
         //
+        // Note: go straight for the public variable pool.
+        //
         auto& vp (ctx.var_pool);
 
         for (auto p (rs.vars.lookup_namespace ("config"));
@@ -636,6 +638,8 @@ namespace build2
         }
       }
 
+      // Note: go straight for the public variable pool.
+      //
       value& v (rs.assign (*rs.ctx.var_pool.find ("config.config.environment")));
 
       // Note that setting new config.config.environment value invalidates the
@@ -910,6 +914,8 @@ namespace build2
 
       context& ctx (fwd ? ts[0].as<scope> ().ctx : ts[0].as<target> ().ctx);
 
+      // Note: go straight for the public variable pool.
+      //
       const variable* c_s (ctx.var_pool.find ("config.config.save"));
 
       if (c_s->overrides == nullptr)
@@ -1275,6 +1281,8 @@ namespace build2
 
       // Add the default config.config.persist value unless there is a custom
       // one (specified as a command line override).
+      //
+      // Note: go straight for the public variable pool.
       //
       const variable& var (*ctx.var_pool.find ("config.config.persist"));
 

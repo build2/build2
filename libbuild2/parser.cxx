@@ -4952,11 +4952,10 @@ namespace build2
     //         attributes).
 
     if (type || vis || ovr)
-      ctx->var_pool.update (const_cast<variable&> (var),
-                            type,
-                            vis ? &*vis : nullptr,
-                            ovr ? &*ovr : nullptr);
-
+      var.owner->update (const_cast<variable&> (var),
+                         type,
+                         vis ? &*vis : nullptr,
+                         ovr ? &*ovr : nullptr);
   }
 
   void parser::

@@ -33,7 +33,7 @@ namespace build2
   //
   scope::
   scope (context& c, bool shared)
-      : ctx (c), vars (c, shared), target_vars (c, shared)
+      : ctx (c), vars (*this, shared), target_vars (c, shared)
   {
   }
 

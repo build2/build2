@@ -145,13 +145,27 @@ namespace build2
     return o << to_string (v);
   }
 
-  // variable
+  // A variable.
   //
-  // The two variables are considered the same if they have the same name.
+  // A variable can be public, project-private, or script-private, which
+  // corresponds to the variable pool it belongs to. The two variables from
+  // the same pool are considered the same if they have the same name. The
+  // variable access (public/private) rules are:
+  //
+  // - Qualified variable are by default public while unqualified -- private.
+  //
+  // - Private must have project or lesser visibility and not be overridable.
+  //
+  // - An unqualified public variable can only be pre-entered during the
+  //   context construction (to make sure it is not entered as private).
+  //
+  // - There is no scope-private variables in our model due to side-loading,
+  //   target type/pattern-specific append, etc.
   //
   // Variables can be aliases of each other in which case they form a circular
   // linked list (the aliases pointer for variable without any aliases points
-  // to the variable itself).
+  // to the variable itself). This mechanism should only be used for variables
+  // of the same access (normally public).
   //
   // If the variable is overridden on the command line, then override is the
   // linked list of the special override variables. Their names are derived
@@ -198,6 +212,7 @@ namespace build2
   struct variable
   {
     string name;
+    const variable_pool* owner;
     const variable* aliases;               // Circular linked list.
     const value_type* type;                // If NULL, then not (yet) typed.
     unique_ptr<const variable> overrides;
@@ -467,7 +482,6 @@ namespace build2
   template <typename T> T cast_true (const value&);
   template <typename T> T cast_true (const lookup&);
 
-
   // Assign value type to the value. The variable is optional and is only used
   // for diagnostics.
   //
@@ -492,7 +506,7 @@ namespace build2
   vector_view<name>
   reverse (value&, names& storage);
 
-  // Variable lookup result, AKA, binding of a name to a value.
+  // Variable lookup result, AKA, binding of a variable to a value.
   //
   // A variable can be undefined, NULL, or contain a (potentially empty)
   // value.
@@ -1404,7 +1418,17 @@ namespace build2
     }
 
   public:
-    variable_pool (): variable_pool (nullptr) {}
+    // Create a private pool.
+    //
+    explicit
+    variable_pool (variable_pool* outer = nullptr)
+        : variable_pool (nullptr /* shared */, outer) {}
+
+    variable_pool (variable_pool&&) = delete;
+    variable_pool& operator= (variable_pool&&) = delete;
+
+    variable_pool (const variable_pool&) = delete;
+    variable_pool& operator= (const variable_pool&) = delete;
 
     // RW access (only for shared pools).
     //
@@ -1497,11 +1521,13 @@ namespace build2
     //
   private:
     friend class context;
+    friend void setup_root_extra (scope&, optional<bool>&);
 
-    explicit
-    variable_pool (context* shared): shared_ (shared) {}
+    variable_pool (context* shared, variable_pool* outer)
+        : shared_ (shared), outer_ (outer) {}
 
-    context* shared_;
+    context*      shared_;
+    variable_pool* outer_;
   };
 }
 
@@ -1587,8 +1613,13 @@ namespace build2
     lookup_type
     operator[] (const variable& var) const
     {
-      auto p (lookup (var));
-      return lookup_type (p.first, &p.second, this);
+      lookup_type r;
+      if (!empty ())
+      {
+        auto p (lookup (var));
+        r = lookup_type (p.first, &p.second, this);
+      }
+      return r;
     }
 
     lookup_type
@@ -1601,11 +1632,16 @@ namespace build2
     lookup_type
     operator[] (const string& name) const
     {
-      const variable* var (ctx != nullptr
-                           ? ctx->var_pool.find (name)
-                           : nullptr);
-      return var != nullptr ? operator[] (*var) : lookup_type ();
+      assert (owner_ != owner::context);
+
+      lookup_type r;
+      if (!empty ())
+        r = lookup (name);
+      return r;
     }
+
+    lookup_type
+    lookup (const string& name) const;
 
     // If typed is false, leave the value untyped even if the variable is. If
     // aliased is false, then don't consider aliases (used by the variable
@@ -1633,7 +1669,9 @@ namespace build2
       // insert anything.
       //
       return lookup_namespace (variable {
-          move (ns), nullptr, nullptr, nullptr, variable_visibility::project});
+          move (ns),
+          nullptr, nullptr, nullptr, nullptr,
+          variable_visibility::project});
     }
 
     // Convert a lookup pointing to a value belonging to this variable map
@@ -1662,10 +1700,10 @@ namespace build2
       return assign (*var);
     }
 
-    // Note that the variable is expected to have already been registered.
+    // Note that the variable is expected to have already been inserted.
     //
     value&
-    assign (const string& name) {return insert (ctx->var_pool[name]).first;}
+    assign (const string& name);
 
     // As above but also return an indication of whether the new value (which
     // will be NULL) was actually inserted. Similar to find(), if typed is
@@ -1684,13 +1722,7 @@ namespace build2
     }
 
     const_iterator
-    find (const string& name) const
-    {
-      const variable* var (ctx != nullptr
-                           ? ctx->var_pool.find (name)
-                           : nullptr);
-      return var != nullptr ? find (*var) : end ();
-    }
+    find (const string& name) const;
 
     bool
     erase (const variable&);
@@ -1712,21 +1744,55 @@ namespace build2
 
   public:
     // Shared should be true if this map is part of the shared build state
-    // (e.g., scopes, etc) and thus should only be modified during the load
-    // phase.
+    // (e.g., scopes) and thus should only be modified during the load phase.
     //
     explicit
-    variable_map (context& c, bool shared = false)
-      : ctx (&c), shared_ (shared) {}
+    variable_map (const scope& owner, bool shared = false);
+
+    explicit
+    variable_map (const target& owner, bool shared = false);
+
+    explicit
+    variable_map (const prerequisite& owner, bool shared = false);
+
+    variable_map (variable_map&&, const prerequisite&, bool shared = false);
+    variable_map (const variable_map&, const prerequisite&, bool shared = false);
+
+    variable_map&
+    operator= (variable_map&& v) {m_ = move (v.m_); return *this;}
+
+    variable_map&
+    operator= (const variable_map& v) {m_ = v.m_; return *this;}
+
+    // The context owner is for special "managed" variable maps. Note that
+    // such maps cannot lookup/insert variable names specified as strings.
+    //
+    variable_map (context& c, bool shared)
+      : shared_ (shared), owner_ (owner::context), ctx (&c) {}
+
+    variable_map (variable_map&& v)
+      : shared_ (v.shared_), owner_ (v.owner_), ctx (v.ctx), m_ (move (v.m_))
+    {
+      assert (owner_ == owner::context);
+    }
+
+    variable_map (const variable_map& v)
+      : shared_ (v.shared_), owner_ (v.owner_), ctx (v.ctx), m_ (v.m_)
+    {
+      assert (v.owner_ == owner::context);
+    }
 
     void
     clear () {m_.clear ();}
 
-    // Implementation details (only used for empty_variable_map).
+    // Implementation details.
     //
   public:
+    enum class owner {empty, context, scope, target, prereq};
+
     explicit
-    variable_map (context* c): ctx (c) {}
+    variable_map (owner o, context* c = nullptr, bool shared = false)
+      : shared_ (shared), owner_ (o), ctx (c) {}
 
   private:
     friend class variable_type_map;
@@ -1735,9 +1801,18 @@ namespace build2
     typify (const value_data&, const variable&) const;
 
   private:
+    friend class target_set;
+
+    bool shared_;
+    owner owner_;
+    union
+    {
+      const scope*        scope_;
+      const target*       target_;
+      const prerequisite* prereq_;
+    };
     context* ctx;
     map_type m_;
-    bool shared_;
   };
 
   LIBBUILD2_SYMEXPORT extern const variable_map empty_variable_map;

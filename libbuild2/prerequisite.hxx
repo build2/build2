@@ -93,7 +93,7 @@ namespace build2
           name (move (n)),
           ext (move (e)),
           scope (s),
-          vars (s.ctx, false /* global */) {}
+          vars (*this, false /* shared */) {}
 
     // Make a prerequisite from a target.
     //
@@ -147,7 +147,7 @@ namespace build2
           ext (move (x.ext)),
           scope (x.scope),
           target (x.target.load (memory_order_relaxed)),
-          vars (move (x.vars)) {}
+          vars (move (x.vars), *this, false /* shared */) {}
 
     prerequisite (const prerequisite& x, memory_order o = memory_order_consume)
         : proj (x.proj),
@@ -158,7 +158,7 @@ namespace build2
           ext (x.ext),
           scope (x.scope),
           target (x.target.load (o)),
-          vars (x.vars) {}
+          vars (x.vars, *this, false /* shared */) {}
   };
 
   inline ostream&

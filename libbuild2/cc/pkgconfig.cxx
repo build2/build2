@@ -802,6 +802,11 @@ namespace build2
 
         context& ctx (t.ctx);
 
+        // These should be public (qualified) variables so go straight for
+        // the public variable pool.
+        //
+        auto& vp (ctx.var_pool.rw ()); // Load phase.
+
         optional<uint64_t> ver;
         optional<string> pfx;
 
@@ -865,7 +870,6 @@ namespace build2
                           : name (move (s)));
           }
 
-          auto& vp (ctx.var_pool.rw ()); // Load phase.
           const variable& var (vp.insert (move (vn)));
 
           value& v (t.assign (var));
@@ -1974,6 +1978,8 @@ namespace build2
         //
         if (la)
         {
+          // Note: go straight for the public variable pool.
+          //
           if (cast_false<bool> (l.lookup_original (
                                   ctx.var_pool["bin.whole"],
                                   true /* target_only */).first))

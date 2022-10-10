@@ -755,6 +755,8 @@ namespace build2
         t->decl = decl;
         t->state.inner.target_ = t;
         t->state.outer.target_ = t;
+        t->state.inner.vars.target_ = t;
+        t->state.outer.vars.target_ = t;
 
         if (ctx.phase != run_phase::load && !need_lock)
           ul.unlock ();

@@ -259,7 +259,7 @@ namespace build2
       {
         l5 ([&]{trace << "load dist " << rs;});
 
-        dist_var = ctx.var_pool.find ("dist");
+        dist_var = rs.var_pool ().find ("dist");
 
         // Match a rule for every operation supported by this project. Skip
         // default_id.

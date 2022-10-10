@@ -232,6 +232,8 @@ namespace build2
 
           tt.path (path ("driver"));
 
+          const scope& bs (tt.base_scope ());
+
           small_vector<action, 1> acts {perform_update_id};
 
           // Parse and run.
@@ -239,7 +241,7 @@ namespace build2
           parser p (ctx);
           path_name nm ("buildfile");
 
-          script s (p.pre_parse (tt.base_scope (), tt.type (), acts,
+          script s (p.pre_parse (bs, tt.type (), acts,
                                  cin, nm,
                                  11 /* line */,
                                  (m != mode::diag
@@ -251,7 +253,7 @@ namespace build2
           {
           case mode::run:
             {
-              environment e (perform_update_id, tt, s.body_temp_dir);
+              environment e (perform_update_id, tt, bs, s.body_temp_dir);
               print_runner r (print_line, print_iterations);
               p.execute_body (ctx.global_scope, ctx.global_scope, e, s, r);
               break;
@@ -266,7 +268,7 @@ namespace build2
               {
                 assert (s.diag_line);
 
-                environment e (perform_update_id, tt, false /* temp_dir */);
+                environment e (perform_update_id, tt, bs, false /* temp_dir */);
 
                 cout << "diag: " << p.execute_special (ctx.global_scope,
                                                        ctx.global_scope,
