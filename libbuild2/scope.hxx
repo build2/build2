@@ -606,7 +606,7 @@ namespace build2
     friend LIBBUILD2_SYMEXPORT scope& create_bootstrap_inner (scope&,
                                                               const dir_path&);
 
-    scope (context&, bool global);
+    scope (context&, bool shared);
     ~scope ();
 
     // Return true if this root scope can be amalgamated.
@@ -698,7 +698,7 @@ namespace build2
   {
   public:
     temp_scope (scope& p)
-        : scope (p.ctx, false /* global */)
+        : scope (p.ctx, false /* shared */)
     {
       out_path_ = p.out_path_;
       src_path_ = p.src_path_;

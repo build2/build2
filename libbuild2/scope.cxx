@@ -32,8 +32,8 @@ namespace build2
   // scope
   //
   scope::
-  scope (context& c, bool global)
-      : ctx (c), vars (c, global), target_vars (c, global)
+  scope (context& c, bool shared)
+      : ctx (c), vars (c, shared), target_vars (c, shared)
   {
   }
 
@@ -1028,7 +1028,7 @@ namespace build2
 
     if (er.first->second.front () == nullptr)
     {
-      er.first->second.front () = new scope (ctx, true /* global */);
+      er.first->second.front () = new scope (ctx, true /* shared */);
       er.second = true;
     }
 

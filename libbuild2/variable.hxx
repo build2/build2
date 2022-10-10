@@ -1231,7 +1231,8 @@ namespace build2
 
   // Variable pool.
   //
-  // The global (as in, context-wide) version is protected by the phase mutex.
+  // The shared versions (as in, context or project-wide) are protected by the
+  // phase mutex and thus can only be modified during the load phase.
   //
   class variable_pool
   {
@@ -1405,12 +1406,12 @@ namespace build2
   public:
     variable_pool (): variable_pool (nullptr) {}
 
-    // RW access (only for the global pool).
+    // RW access (only for shared pools).
     //
     variable_pool&
     rw () const
     {
-      assert (global_->phase == run_phase::load);
+      assert (shared_->phase == run_phase::load);
       return const_cast<variable_pool&> (*this);
     }
 
@@ -1492,15 +1493,15 @@ namespace build2
   private:
     multiset<pattern> patterns_;
 
-    // Global pool flag/context.
+    // Shared pool flag/context.
     //
   private:
     friend class context;
 
     explicit
-    variable_pool (context* global): global_ (global) {}
+    variable_pool (context* shared): shared_ (shared) {}
 
-    context* global_;
+    context* shared_;
   };
 }
 
@@ -1710,12 +1711,13 @@ namespace build2
     size () const {return m_.size ();}
 
   public:
-    // Global should be true if this map is part of the global build state
-    // (e.g., scopes, etc).
+    // Shared should be true if this map is part of the shared build state
+    // (e.g., scopes, etc) and thus should only be modified during the load
+    // phase.
     //
     explicit
-    variable_map (context& c, bool global = false)
-      : ctx (&c), global_ (global) {}
+    variable_map (context& c, bool shared = false)
+      : ctx (&c), shared_ (shared) {}
 
     void
     clear () {m_.clear ();}
@@ -1735,7 +1737,7 @@ namespace build2
   private:
     context* ctx;
     map_type m_;
-    bool global_;
+    bool shared_;
   };
 
   LIBBUILD2_SYMEXPORT extern const variable_map empty_variable_map;
@@ -1868,8 +1870,8 @@ namespace build2
     using const_iterator = map_type::const_iterator;
     using const_reverse_iterator = map_type::const_reverse_iterator;
 
-    variable_pattern_map (context& c, bool global)
-        : ctx (c), global_ (global) {}
+    variable_pattern_map (context& c, bool shared)
+        : ctx (c), shared_ (shared) {}
 
     // Note that here we assume the "outer" pattern format (delimiters, flags,
     // etc) is valid.
@@ -1885,7 +1887,7 @@ namespace build2
     operator[] (string text)
     {
       return map_.emplace (pattern {pattern_type::path, false, move (text), {}},
-                           variable_map (ctx, global_)).first->second;
+                           variable_map (ctx, shared_)).first->second;
     }
 
     const_iterator         begin ()  const {return map_.begin ();}
@@ -1897,7 +1899,7 @@ namespace build2
   private:
     context& ctx;
     map_type map_;
-    bool global_;
+    bool shared_;
   };
 
   class LIBBUILD2_SYMEXPORT variable_type_map
@@ -1907,13 +1909,13 @@ namespace build2
                          variable_pattern_map>;
     using const_iterator = map_type::const_iterator;
 
-    variable_type_map (context& c, bool global): ctx (c), global_ (global) {}
+    variable_type_map (context& c, bool shared): ctx (c), shared_ (shared) {}
 
     variable_pattern_map&
     operator[] (const target_type& t)
     {
       return map_.emplace (
-        t, variable_pattern_map (ctx, global_)).first->second;
+        t, variable_pattern_map (ctx, shared_)).first->second;
     }
 
     const_iterator begin () const {return map_.begin ();}
@@ -1943,7 +1945,7 @@ namespace build2
   private:
     context& ctx;
     map_type map_;
-    bool global_;
+    bool shared_;
   };
 }
 

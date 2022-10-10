@@ -1710,7 +1710,7 @@ namespace build2
           const bool* o,
           bool pat)
   {
-    assert (!global_ || global_->phase == run_phase::load);
+    assert (!shared_ || shared_->phase == run_phase::load);
 
     // Apply pattern.
     //
@@ -1804,7 +1804,7 @@ namespace build2
                   bool retro,
                   bool match)
   {
-    assert (!global_ || global_->phase == run_phase::load);
+    assert (!shared_ || shared_->phase == run_phase::load);
 
     size_t pn (p.size ());
 
@@ -1922,7 +1922,7 @@ namespace build2
   pair<value&, bool> variable_map::
   insert (const variable& var, bool typed, bool reset_extra)
   {
-    assert (!global_ || ctx->phase == run_phase::load);
+    assert (!shared_ || ctx->phase == run_phase::load);
 
     auto p (m_.emplace (var, value_data (typed ? var.type : nullptr)));
     value_data& r (p.first->second);
@@ -1934,7 +1934,7 @@ namespace build2
 
       // Check if this is the first access after being assigned a type.
       //
-      // Note: we still need atomic in case this is not a global state.
+      // Note: we still need atomic in case this is not a shared state.
       //
       if (typed && var.type != nullptr)
         typify (r, var);
@@ -1948,7 +1948,7 @@ namespace build2
   bool variable_map::
   erase (const variable& var)
   {
-    assert (!global_ || ctx->phase == run_phase::load);
+    assert (!shared_ || ctx->phase == run_phase::load);
 
     return m_.erase (var) != 0;
   }
@@ -1956,7 +1956,7 @@ namespace build2
   variable_map::const_iterator variable_map::
   erase (const_iterator i)
   {
-    assert (!global_ || ctx->phase == run_phase::load);
+    assert (!shared_ || ctx->phase == run_phase::load);
 
     return const_iterator (m_.erase (i), *this);
   }
@@ -1967,7 +1967,7 @@ namespace build2
   insert (pattern_type type, string&& text)
   {
     auto r (map_.emplace (pattern {type, false, move (text), {}},
-                          variable_map (ctx, global_)));
+                          variable_map (ctx, shared_)));
 
     // Compile the regex.
     //
