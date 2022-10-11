@@ -26,6 +26,7 @@ namespace build2
 
   struct variable;
   class variable_pool;
+  class variable_patterns;
   class variable_map;
   struct variable_override;
   using variable_overrides = vector<variable_override>;

@@ -380,7 +380,8 @@ namespace build2
     //
     const scope_map& scopes;
     target_set& targets;
-    const variable_pool& var_pool;           // Public variables.
+    const variable_pool& var_pool;           // Public variables pool.
+    const variable_patterns& var_patterns;   // Public variables patterns.
     const variable_overrides& var_overrides; // Project and relative scope.
     function_map& functions;
 

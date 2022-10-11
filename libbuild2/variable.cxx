@@ -1659,7 +1659,7 @@ namespace build2
   }
 
   static inline void
-  merge_pattern (const variable_pool::pattern& p,
+  merge_pattern (const variable_patterns::pattern& p,
                  const build2::value_type*& t,
                  const variable_visibility*& v,
                  const bool*& o)
@@ -1714,16 +1714,18 @@ namespace build2
 
     // Apply pattern.
     //
+    using pattern = variable_patterns::pattern;
+
     const pattern* pa (nullptr);
     auto pt (t); auto pv (v); auto po (o);
 
-    if (pat)
+    if (pat && patterns_ != nullptr)
     {
       if (n.find ('.') != string::npos)
       {
         // Reverse means from the "largest" (most specific).
         //
-        for (const pattern& p: reverse_iterate (patterns_))
+        for (const pattern& p: reverse_iterate (patterns_->patterns_))
         {
           if (match_pattern (n, p.prefix, p.suffix, p.multi))
           {
@@ -1800,13 +1802,13 @@ namespace build2
     return a;
   }
 
-  void variable_pool::
-  insert_pattern (const string& p,
-                  optional<const value_type*> t,
-                  optional<bool> o,
-                  optional<variable_visibility> v,
-                  bool retro,
-                  bool match)
+  void variable_patterns::
+  insert (const string& p,
+          optional<const value_type*> t,
+          optional<bool> o,
+          optional<variable_visibility> v,
+          bool retro,
+          bool match)
   {
     assert (!shared_ || shared_->phase == run_phase::load);
 
@@ -1842,9 +1844,9 @@ namespace build2
 
     // Apply retrospectively to existing variables.
     //
-    if (retro)
+    if (retro && pool_ != nullptr)
     {
-      for (auto& p: map_)
+      for (auto& p: pool_->map_)
       {
         variable& var (p.second);
 
@@ -1861,10 +1863,10 @@ namespace build2
           }
 
           if (j == e)
-            update (var,
-                    t ?  *t : nullptr,
-                    v ? &*v : nullptr,
-                    o ? &*o : nullptr); // Not changing the key.
+            pool_->update (var,
+                           t ?  *t : nullptr,
+                           v ? &*v : nullptr,
+                           o ? &*o : nullptr); // Not changing the key.
         }
       }
     }

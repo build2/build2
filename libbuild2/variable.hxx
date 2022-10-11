@@ -148,9 +148,9 @@ namespace build2
   // A variable.
   //
   // A variable can be public, project-private, or script-private, which
-  // corresponds to the variable pool it belongs to. The two variables from
-  // the same pool are considered the same if they have the same name. The
-  // variable access (public/private) rules are:
+  // corresponds to the variable pool it belongs to (see variable_pool). The
+  // two variables from the same pool are considered the same if they have the
+  // same name. The variable access (public/private) rules are:
   //
   // - Qualified variable are by default public while unqualified -- private.
   //
@@ -1248,7 +1248,9 @@ namespace build2
   // The shared versions (as in, context or project-wide) are protected by the
   // phase mutex and thus can only be modified during the load phase.
   //
-  class variable_pool
+  class variable_patterns;
+
+  class LIBBUILD2_SYMEXPORT variable_pool
   {
   public:
     // Find existing (assert exists).
@@ -1352,9 +1354,10 @@ namespace build2
     // Overridable aliased variables are most likely a bad idea: without a
     // significant effort, the overrides will only be applied along the alias
     // names (i.e., there would be no cross-alias overriding). So for now we
-    // don't allow this (use the common variable mechanism instead).
+    // don't allow this (manually handle multiple names by merging their
+    // values instead).
     //
-    LIBBUILD2_SYMEXPORT const variable&
+    const variable&
     insert_alias (const variable& var, string name);
 
     // Iteration.
@@ -1368,8 +1371,122 @@ namespace build2
     const_iterator begin () const {return const_iterator (map_.begin ());}
     const_iterator end () const {return const_iterator (map_.end ());}
 
-    // Variable patterns.
+    // Construction.
     //
+    // There are three specific variable pool instances:
+    //
+    // shared     outer
+    // ----------------
+    // true        null  --  public variable pool in context
+    // true    not null  --  project-private pool in scope::root_extra
+    //                       with outer pointing to context::var_pool
+    // false       null  --  script-private pool in script::environment
+    //
+    // Notice that the script-private pool doesn't rely on outer and does
+    // its own pool chaining. So currently we assume that if outer is not
+    // NULL, then this is a project-private pool.
+    //
+  private:
+    friend class context;
+    friend void setup_root_extra (scope&, optional<bool>&);
+
+    // Shared pool (public or project-private). The shared argument is
+    // flag/context.
+    //
+    variable_pool (context* shared,
+                   variable_pool* outer,
+                   const variable_patterns* patterns)
+      : shared_ (shared), outer_ (outer), patterns_ (patterns) {}
+
+  public:
+    // Script-private pool.
+    //
+    explicit
+    variable_pool (const variable_patterns* patterns = nullptr)
+      : shared_ (nullptr), outer_ (nullptr), patterns_ (patterns) {}
+
+    variable_pool (variable_pool&&) = delete;
+    variable_pool& operator= (variable_pool&&) = delete;
+
+    variable_pool (const variable_pool&) = delete;
+    variable_pool& operator= (const variable_pool&) = delete;
+
+  public:
+    // RW access (only for shared pools).
+    //
+    variable_pool&
+    rw () const
+    {
+      assert (shared_->phase == run_phase::load);
+      return const_cast<variable_pool&> (*this);
+    }
+
+    variable_pool&
+    rw (scope&) const {return const_cast<variable_pool&> (*this);}
+
+    // Entities that can access bypassing the lock proof.
+    //
+    friend class parser;
+    friend class scope;
+
+  private:
+    // Note that in insert() NULL overridable is interpreted as false unless
+    // overridden by a pattern while in update() NULL overridable is ignored.
+    //
+    pair<variable&, bool>
+    insert (string name,
+            const value_type*,
+            const variable_visibility*,
+            const bool* overridable,
+            bool pattern = true);
+
+    void
+    update (variable&,
+            const value_type*,
+            const variable_visibility*,
+            const bool*) const;
+
+    // Variable map.
+    //
+  private:
+    pair<map::iterator, bool>
+    insert (variable&& var)
+    {
+      // Keeping a pointer to the key while moving things during insertion is
+      // tricky. We could use a C-string instead of C++ for a key but that
+      // gets hairy very quickly (there is no std::hash for C-strings). So
+      // let's rely on small object-optimized std::string for now.
+      //
+      string n (var.name);
+      auto r (map_.insert (map::value_type (&n, move (var))));
+
+      if (r.second)
+        r.first->first.p = &r.first->second.name;
+
+      return r;
+    }
+
+  private:
+    friend class variable_patterns;
+
+    context* shared_;
+    variable_pool* outer_;
+    const variable_patterns* patterns_;
+    map map_;
+  };
+
+  // Variable patterns.
+  //
+  // This mechanism is used to assign variable types/visibility/overridability
+  // based on the variable name pattern. This mechanism can only be used for
+  // qualified variables and is thus only provided for the public variable
+  // pool.
+  //
+  // Similar to variable_pool, the shared versions are protected by the phase
+  // mutex and thus can only be modified during the load phase.
+  //
+  class LIBBUILD2_SYMEXPORT variable_patterns
+  {
   public:
     // Insert a variable pattern. Any variable that matches this pattern will
     // have the specified type, visibility, and overridability. If match is
@@ -1397,97 +1514,52 @@ namespace build2
     // to have been applied). So if you use this functionality, watch out
     // for the insertion order (you probably want more specific first).
     //
-    LIBBUILD2_SYMEXPORT void
-    insert_pattern (const string& pattern,
-                    optional<const value_type*> type,
-                    optional<bool> overridable,
-                    optional<variable_visibility>,
-                    bool retro = false,
-                    bool match = true);
+    void
+    insert (const string& pattern,
+            optional<const value_type*> type,
+            optional<bool> overridable,
+            optional<variable_visibility>,
+            bool retro = false,
+            bool match = true);
 
     template <typename T>
     void
-    insert_pattern (const string& p,
-                    optional<bool> overridable,
-                    optional<variable_visibility> v,
-                    bool retro = false,
-                    bool match = true)
+    insert (const string& p,
+            optional<bool> overridable,
+            optional<variable_visibility> v,
+            bool retro = false,
+            bool match = true)
     {
-      insert_pattern (
-        p, &value_traits<T>::value_type, overridable, v, retro, match);
+      insert (p, &value_traits<T>::value_type, overridable, v, retro, match);
     }
 
   public:
-    // Create a private pool.
+    // The shared argument is flag/context. The pool argument is for
+    // retrospective pattern application.
     //
     explicit
-    variable_pool (variable_pool* outer = nullptr)
-        : variable_pool (nullptr /* shared */, outer) {}
+    variable_patterns (context* shared, variable_pool* pool)
+      : shared_ (shared), pool_ (pool) {}
 
-    variable_pool (variable_pool&&) = delete;
-    variable_pool& operator= (variable_pool&&) = delete;
+    variable_patterns (variable_patterns&&) = delete;
+    variable_patterns& operator= (variable_patterns&&) = delete;
 
-    variable_pool (const variable_pool&) = delete;
-    variable_pool& operator= (const variable_pool&) = delete;
+    variable_patterns (const variable_patterns&) = delete;
+    variable_patterns& operator= (const variable_patterns&) = delete;
 
+  public:
     // RW access (only for shared pools).
     //
-    variable_pool&
+    variable_patterns&
     rw () const
     {
       assert (shared_->phase == run_phase::load);
-      return const_cast<variable_pool&> (*this);
+      return const_cast<variable_patterns&> (*this);
     }
 
-    variable_pool&
-    rw (scope&) const {return const_cast<variable_pool&> (*this);}
+    variable_patterns&
+    rw (scope&) const {return const_cast<variable_patterns&> (*this);}
 
-    // Entities that can access bypassing the lock proof.
-    //
-    friend class parser;
-    friend class scope;
-
-  private:
-    // Note that in insert() NULL overridable is interpreted as false unless
-    // overridden by a pattern while in update() NULL overridable is ignored.
-    //
-    LIBBUILD2_SYMEXPORT pair<variable&, bool>
-    insert (string name,
-            const value_type*,
-            const variable_visibility*,
-            const bool* overridable,
-            bool pattern = true);
-
-    LIBBUILD2_SYMEXPORT void
-    update (variable&,
-            const value_type*,
-            const variable_visibility*,
-            const bool*) const;
-
-    // Variable map.
-    //
-  private:
-    pair<map::iterator, bool>
-    insert (variable&& var)
-    {
-      // Keeping a pointer to the key while moving things during insertion is
-      // tricky. We could use a C-string instead of C++ for a key but that
-      // gets hairy very quickly (there is no std::hash for C-strings). So
-      // let's rely on small object-optimized std::string for now.
-      //
-      string n (var.name);
-      auto r (map_.insert (map::value_type (&n, move (var))));
-
-      if (r.second)
-        r.first->first.p = &r.first->second.name;
-
-      return r;
-    }
-
-    map map_;
-
-    // Patterns.
-    //
   public:
     struct pattern
     {
@@ -1515,19 +1587,11 @@ namespace build2
     };
 
   private:
+    friend class variable_pool;
+
+    context* shared_;
+    variable_pool* pool_;
     multiset<pattern> patterns_;
-
-    // Shared pool flag/context.
-    //
-  private:
-    friend class context;
-    friend void setup_root_extra (scope&, optional<bool>&);
-
-    variable_pool (context* shared, variable_pool* outer)
-        : shared_ (shared), outer_ (outer) {}
-
-    context*      shared_;
-    variable_pool* outer_;
   };
 }
 

@@ -611,7 +611,7 @@ namespace build2
         a ? alt_export_file      : std_export_file,
         a ? alt_src_root_file    : std_src_root_file,
         a ? alt_out_root_file    : std_out_root_file,
-        {&ctx, &ctx.var_pool.rw (root)}, /* var_pool */
+        {&ctx, &ctx.var_pool.rw (root), nullptr}, /* var_pool */
         {}, /* meta_operations */
         {}, /* operations */
         {}, /* modules */

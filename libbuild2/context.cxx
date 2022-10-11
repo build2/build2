@@ -45,6 +45,7 @@ namespace build2
     scope_map scopes;
     target_set targets;
     variable_pool var_pool;
+    variable_patterns var_patterns;
     variable_overrides var_overrides;
     function_map functions;
 
@@ -55,7 +56,8 @@ namespace build2
     data (context& c)
         : scopes (c),
           targets (c),
-          var_pool (&c /* shared */, nullptr /* outer */) {}
+          var_pool (&c /* shared */, nullptr /* outer */, &var_patterns),
+          var_patterns (&c /* shared */, &var_pool) {}
   };
 
   context::
@@ -81,6 +83,7 @@ namespace build2
         scopes (data_->scopes),
         targets (data_->targets),
         var_pool (data_->var_pool),
+        var_patterns (data_->var_patterns),
         var_overrides (data_->var_overrides),
         functions (data_->functions),
         global_scope (create_global_scope (data_->scopes)),
@@ -99,6 +102,7 @@ namespace build2
 
     scope_map& sm (data_->scopes);
     variable_pool& vp (data_->var_pool);
+    variable_patterns& vpats (data_->var_patterns);
 
     insert_builtin_functions (functions);
 
@@ -330,7 +334,7 @@ namespace build2
     // Note that some config.config.* variables have project visibility thus
     // the match argument is false.
     //
-    vp.insert_pattern ("config.**", nullopt, true, v_g, true, false);
+    vpats.insert ("config.**", nullopt, true, v_g, true, false);
 
     // Parse and enter the command line variables. We do it before entering
     // any other variables so that all the variables that are overriden are
@@ -548,24 +552,26 @@ namespace build2
     const auto v_t (variable_visibility::target);
     const auto v_q (variable_visibility::prereq);
 
-    vp.insert_pattern<bool> ("config.**.configured", false, v_p);
+    vpats.insert<bool> ("config.**.configured", false, v_p);
 
-    // file.cxx:import() (note: order is important; see insert_pattern()).
+    // file.cxx:import()
+    //
+    // Note: the order is important (see variable_patterns::insert()).
     //
     // Note that if any are overriden, they are "pre-typed" by the config.**
     // pattern above and we just "add" the types.
     //
-    vp.insert_pattern<abs_dir_path> ("config.import.*",  true, v_g, true);
-    vp.insert_pattern<path>         ("config.import.**", true, v_g, true);
+    vpats.insert<abs_dir_path> ("config.import.*",  true, v_g, true);
+    vpats.insert<path>         ("config.import.**", true, v_g, true);
 
     // module.cxx:boot/init_module().
     //
     // Note that we also have the config.<module>.configured variable (see
     // above).
     //
-    vp.insert_pattern<bool> ("**.booted",     false /* overridable */, v_p);
-    vp.insert_pattern<bool> ("**.loaded",     false,                   v_p);
-    vp.insert_pattern<bool> ("**.configured", false,                   v_p);
+    vpats.insert<bool> ("**.booted",     false /* overridable */, v_p);
+    vpats.insert<bool> ("**.loaded",     false,                   v_p);
+    vpats.insert<bool> ("**.configured", false,                   v_p);
 
     var_src_root = &vp.insert<dir_path> ("src_root");
     var_out_root = &vp.insert<dir_path> ("out_root");
