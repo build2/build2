@@ -208,7 +208,7 @@ namespace build2
 
     for (action a: r.actions)
       os << ' ' << re.meta_operations[a.meta_operation ()]->name <<
-        '(' << re.operations[a.operation ()]->name << ')';
+        '(' << re.operations[a.operation ()].info->name << ')';
 
     os << endl;
     r.dump_text (os, ind);
@@ -289,7 +289,7 @@ namespace build2
         os << "rule_hint=";
 
         if (v.operation != default_id)
-          os << s.root_scope ()->root_extra->operations[v.operation]->name
+          os << s.root_scope ()->root_extra->operations[v.operation].info->name
              << '@';
 
         os << v.hint;

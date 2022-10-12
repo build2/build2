@@ -916,8 +916,21 @@ namespace build2
   inline const variable* variable_pool::
   find (const string& n) const
   {
+    // The pool chaining semantics for lookup: first check own pool then, if
+    // not found, check the outer pool.
+    //
     auto i (map_.find (&n));
-    return i != map_.end () ? &i->second : nullptr;
+    if (i != map_.end ())
+      return &i->second;
+
+    if (outer_ != nullptr)
+    {
+      i = outer_->map_.find (&n);
+      if (i != outer_->map_.end ())
+        return &i->second;
+    }
+
+    return nullptr;
   }
 
   // variable_map

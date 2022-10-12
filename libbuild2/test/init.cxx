@@ -30,11 +30,6 @@ namespace build2
 
       l5 ([&]{trace << "for " << rs;});
 
-      // Register our operations.
-      //
-      rs.insert_operation (test_id, op_test);
-      rs.insert_operation (update_for_test_id, op_update_for_test);
-
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build.
       //
@@ -127,6 +122,11 @@ namespace build2
         if (!v || v.empty ())
           v = *rs.ctx.build_host;
       }
+
+      // Register our operations.
+      //
+      rs.insert_operation (test_id,            op_test,            &d.var_test);
+      rs.insert_operation (update_for_test_id, op_update_for_test, &d.var_test);
 
       extra.set_module (new module (move (d)));
     }

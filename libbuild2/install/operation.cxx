@@ -37,7 +37,6 @@ namespace build2
       0,
       "install",
       "install",
-      "install",
       "installing",
       "installed",
       "has nothing to install", // We cannot "be installed".
@@ -62,7 +61,6 @@ namespace build2
       uninstall_id,
       0,
       "uninstall",
-      "install",
       "uninstall",
       "uninstalling",
       "uninstalled",
@@ -81,7 +79,6 @@ namespace build2
       update_id, // Note: not update_for_install_id.
       install_id,
       op_update.name,
-      op_update.var_name,
       op_update.name_do,
       op_update.name_doing,
       op_update.name_did,

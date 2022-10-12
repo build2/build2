@@ -3462,9 +3462,12 @@ namespace build2
         // In a somewhat hackish way we pass the variable in an undefined
         // lookup.
         //
+        // Note: consistent with parse_variable_name() wrt overridability.
+        //
         l = lookup ();
         l.var = &root_->var_pool ().insert (
-          move (report_var), true /* overridable */);
+          move (report_var),
+          report_var.find ('.') != string::npos /* overridable */);
       }
 
       if (l.var != nullptr)
@@ -4680,10 +4683,12 @@ namespace build2
   {
     // Enter a variable name for assignment (as opposed to lookup).
 
+    // If the variable is qualified (and thus public), make it overridable.
+    //
     // Note that the overridability can still be restricted (e.g., by a module
     // that enters this variable or by a pattern).
     //
-    bool ovr (true);
+    bool ovr (on.find ('.') != string::npos);
     auto r (scope_->var_pool ().insert (move (on), nullptr, nullptr, &ovr));
 
     if (!r.second)
@@ -4950,6 +4955,9 @@ namespace build2
 
     //@@ TODO: the same checks for vis and ovr (when we have the corresponding
     //         attributes).
+
+    //@@ TODO: need to verify/diagnose ovr and visibility for project-private
+    //         variables.
 
     if (type || vis || ovr)
       var.owner->update (const_cast<variable&> (var),

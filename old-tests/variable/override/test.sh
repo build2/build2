@@ -197,9 +197,9 @@ test %v+=S %v=+P a=as <<EOF
 .     : P x S
 d     : P x S
 d/t   : P x S
-p     : P x S
-p/d   : P x S
-p/d/t : P x S
+p     : P S
+p/d   : P S
+p/d/t : P S
 EOF
 
 test %v+=S %v=+P a=as p_a=as <<EOF
@@ -229,9 +229,9 @@ test v+=S a=as <<EOF
 .     : x S
 d     : x S
 d/t   : x S
-p     : x S
-p/d   : x S
-p/d/t : x S
+p     : S
+p/d   : S
+p/d/t : S
 EOF
 
 test %v=+P a=as p_a=as <<EOF
@@ -271,9 +271,9 @@ test v+=S v=+P a=as d_a=ap d_t_a=ap p_a=ap p_d_a=ap p_d_t_a=ap <<EOF
 .     : P x S
 d     : P x s S
 d/t   : P x s s S
-p     : P x s S
-p/d   : P x s s S
-p/d/t : P x s s s S
+p     : P s S
+p/d   : P s s S
+p/d/t : P s s s S
 EOF
 
 # These ones are surprising. I guess the moral is we shouldn't do "blind"
@@ -284,9 +284,9 @@ test %v=X a=as d_a=ap p_a=ap p_d_a=ap <<EOF
 .     : X
 d     : X
 d/t   : X
-p     : x s
-p/d   : x s s
-p/d/t : x s s
+p     : s
+p/d   : s s
+p/d/t : s s
 EOF
 
 test %v+=S a=as d_a=ap p_a=ap p_d_a=ap <<EOF
@@ -294,9 +294,9 @@ test %v+=S a=as d_a=ap p_a=ap p_d_a=ap <<EOF
 .     : x S
 d     : x s S
 d/t   : x s S
-p     : x s
-p/d   : x s s
-p/d/t : x s s
+p     : s
+p/d   : s s
+p/d/t : s s
 EOF
 
 test %v+=S a=as d_a=ap p_a=ap p_d_a=ap ./ p/ <<EOF
@@ -304,9 +304,9 @@ test %v+=S a=as d_a=ap p_a=ap p_d_a=ap ./ p/ <<EOF
 .     : x S
 d     : x s S
 d/t   : x s S
-p     : x s S
-p/d   : x s s S
-p/d/t : x s s S
+p     : s S
+p/d   : s s S
+p/d/t : s s S
 EOF
 
 # Typed override.
@@ -326,7 +326,7 @@ test v+=S v=+P t=string a=as d_a=ap d_t_a=ap p_a=ap p_d_a=ap p_d_t_a=ap <<EOF
 .     : PxS
 d     : PxsS
 d/t   : PxssS
-p     : PxsS
-p/d   : PxssS
-p/d/t : PxsssS
+p     : PsS
+p/d   : PssS
+p/d/t : PsssS
 EOF

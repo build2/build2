@@ -1270,7 +1270,7 @@ namespace build2
     //
     // Note also that a pattern and later insertions may restrict (but not
     // relax) visibility and overridability.
-
+    //
     const variable&
     insert (string name)
     {
@@ -1357,6 +1357,8 @@ namespace build2
     // don't allow this (manually handle multiple names by merging their
     // values instead).
     //
+    // Note: currently only public variables can be aliased.
+    //
     const variable&
     insert_alias (const variable& var, string name);
 
@@ -1380,6 +1382,8 @@ namespace build2
     // true        null  --  public variable pool in context
     // true    not null  --  project-private pool in scope::root_extra
     //                       with outer pointing to context::var_pool
+    // false   not null  --  temporary scope-private pool in temp_scope
+    //                       with outer pointing to context::var_pool
     // false       null  --  script-private pool in script::environment
     //
     // Notice that the script-private pool doesn't rely on outer and does
@@ -1388,6 +1392,7 @@ namespace build2
     //
   private:
     friend class context;
+    friend class temp_scope;
     friend void setup_root_extra (scope&, optional<bool>&);
 
     // Shared pool (public or project-private). The shared argument is
@@ -1440,6 +1445,8 @@ namespace build2
             const bool* overridable,
             bool pattern = true);
 
+    // Note: the variable must belong to this pool.
+    //
     void
     update (variable&,
             const value_type*,
@@ -1457,7 +1464,7 @@ namespace build2
       // gets hairy very quickly (there is no std::hash for C-strings). So
       // let's rely on small object-optimized std::string for now.
       //
-      string n (var.name);
+      string n (var.name); // @@ PERF (maybe keep reuse buffer at least?)
       auto r (map_.insert (map::value_type (&n, move (var))));
 
       if (r.second)

@@ -253,7 +253,7 @@ namespace build2
     // change already existing nodes or invalidate any references to such (the
     // idea here is that one should be able to load additional buildfiles as
     // long as they don't interfere with the existing build state). The
-    // "islands" are identified by the load_generation number (0 for the
+    // "islands" are identified by the load_generation number (1 for the
     // initial/serial load). It is incremented in case of a phase switch and
     // can be stored in various "nodes" to verify modifications are only done
     // "within the islands". Another example of invalidation would be
@@ -262,6 +262,10 @@ namespace build2
     // bad because we may have made decisions based on the original hierarchy,
     // for example, we may have queried a variable which in the new hierarchy
     // would "see" a new value from the newly inserted scope.
+    //
+    // The special load_generation value 0 indicates initialization before
+    // anything has been loaded. Currently, it is changed to 1 at the end
+    // of the context constructor.
     //
     run_phase phase = run_phase::load;
     size_t load_generation = 0;
@@ -308,11 +312,6 @@ namespace build2
 
     const operation_info* current_inner_oif;
     const operation_info* current_outer_oif;
-
-    // Current operation-specific variables.
-    //
-    const variable* current_inner_ovar;
-    const variable* current_outer_ovar;
 
     action
     current_action () const
@@ -549,7 +548,7 @@ namespace build2
     // operations. The initial idea was to extend this value to allow
     // specifying the operation (e.g., clean@false). However, later we
     // realized that we could reuse the "operation-specific variables"
-    // (update, clean, install, test; see context::current_ovar) with a more
+    // (update, clean, install, test; see project_operation_info) with a more
     // natural-looking and composable result. Plus, this allows for
     // operation-specific "modifiers", for example, "unmatch" and "update
     // during match" logic for update (see var_update for details) or

@@ -250,6 +250,21 @@ namespace build2
 
       context& ctx (rs.ctx);
 
+      // Enter module variables (note that init() below enters some more).
+      //
+      auto& vp (rs.var_pool ());
+
+      // The install variable is a path, not dir_path, since it can be used
+      // to both specify the target directory (to install with the same file
+      // name) or target file (to install with a different name). And the
+      // way we distinguish between the two is via the presence/absence of
+      // the trailing directory separator.
+      //
+      // Plus it can have the special true/false values when acting as a
+      // operation variable.
+      //
+      auto& ovar (vp.insert<path> ("install", variable_visibility::target));
+
       // Register the install function family if this is the first instance of
       // the install modules.
       //
@@ -258,9 +273,9 @@ namespace build2
 
       // Register our operations.
       //
-      rs.insert_operation (install_id,            op_install);
-      rs.insert_operation (uninstall_id,          op_uninstall);
-      rs.insert_operation (update_for_install_id, op_update_for_install);
+      rs.insert_operation (install_id,            op_install,            &ovar);
+      rs.insert_operation (uninstall_id,          op_uninstall,          &ovar);
+      rs.insert_operation (update_for_install_id, op_update_for_install, &ovar);
     }
 
     static const path cmd ("install");
@@ -317,13 +332,6 @@ namespace build2
       // Note that the set_dir() calls below enter some more.
       //
       {
-        // The install variable is a path, not dir_path, since it can be used
-        // to both specify the target directory (to install with the same file
-        // name) or target file (to install with a different name). And the
-        // way we distinguish between the two is via the presence/absence of
-        // the trailing directory separator.
-        //
-        vp.insert<path>   ("install",     variable_visibility::target);
         vp.insert<bool>   ("for_install", variable_visibility::prereq);
         vp.insert<string> ("install.mode");
         vp.insert<bool>   ("install.subdirs");

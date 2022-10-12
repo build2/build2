@@ -124,7 +124,9 @@ namespace build2
 
     try
     {
-      scope& s (ctx.global_scope.rw ());
+      // Use temp scope for the private variable pool.
+      //
+      temp_scope s (ctx.global_scope.rw ());
 
       parser p (ctx);
       p.parse_buildfile (cin, path_name ("buildfile"), &s, s);

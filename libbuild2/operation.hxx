@@ -196,7 +196,6 @@ namespace build2
     const operation_id id;
     const operation_id outer_id;
     const char* name;
-    const char* var_name; // Operation variable or NULL if not used.
 
     // Name derivatives for diagnostics. Note that unlike meta-operations,
     // these can only be empty for the default operation (id 1), And
@@ -308,35 +307,36 @@ namespace build2
 
   using operation_table = butl::string_table<operation_id>;
 
-  // These are "sparse" in the sense that we may have "holes" that
-  // are represented as NULL pointers. Also, lookup out of bounds
-  // is treated as a hole.
+  // This is a "sparse" vector in the sense that we may have "holes" that are
+  // represented as default-initialized empty instances (for example, NULL if
+  // T is a pointer). Also, lookup out of bounds is treated as a hole.
   //
   template <typename T, size_t N>
   struct sparse_vector
   {
-    using base_type = small_vector<T*, N>;
+    using base_type = small_vector<T, N>;
     using size_type = typename base_type::size_type;
 
     void
-    insert (size_type i, T& x)
+    insert (size_type i, T x)
     {
       size_type n (v_.size ());
 
       if (i < n)
-        v_[i] = &x;
+        v_[i] = x;
       else
       {
         if (n != i)
-          v_.resize (i, nullptr); // Add holes.
-        v_.push_back (&x);
+          v_.resize (i, T ()); // Add holes.
+
+        v_.push_back (move (x));
       }
     }
 
-    T*
+    T
     operator[] (size_type i) const
     {
-      return i < v_.size () ? v_[i] : nullptr;
+      return i < v_.size () ? v_[i] : T ();
     }
 
     bool
@@ -351,8 +351,28 @@ namespace build2
     base_type v_;
   };
 
-  using meta_operations = sparse_vector<const meta_operation_info, 8>;
-  using operations = sparse_vector<const operation_info, 10>;
+  // For operations we keep both the pointer to its description as well
+  // as to its operation variable (see var_include) which may belong to
+  // the project-private variable pool.
+  //
+  struct project_operation_info
+  {
+    const operation_info* info = nullptr;
+    const variable*       ovar = nullptr; // Operation variable.
+
+    // Allow treating it as pointer to operation_info in most contexts.
+    //
+    operator const operation_info*() const {return info;}
+    bool operator== (nullptr_t) {return info == nullptr;}
+    bool operator!= (nullptr_t) {return info != nullptr;}
+
+    project_operation_info (const operation_info* i = nullptr, // VC14
+                            const variable* v = nullptr)
+        : info (i), ovar (v) {}
+  };
+
+  using meta_operations = sparse_vector<const meta_operation_info*, 8>;
+  using operations = sparse_vector<project_operation_info, 10>;
 }
 
 namespace butl

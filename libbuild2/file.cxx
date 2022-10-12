@@ -582,7 +582,7 @@ namespace build2
       fail << "variable out_root expected as first line in " << f << endf;
   }
 
-  // Note: not static due to being a friend of variable_pool.
+  // Note: not static due to being a friend of scope and variable_pool.
   //
   void
   setup_root_extra (scope& root, optional<bool>& altn)
@@ -620,6 +620,8 @@ namespace build2
         {}, /* environment */
         ""} /* environment_checksum */);
 
+    root.var_pool_ = &root.root_extra->var_pool;
+
     // Enter built-in meta-operation and operation names. Loading of
     // modules (via the src bootstrap; see below) can result in
     // additional meta/operations being added.
@@ -628,9 +630,9 @@ namespace build2
     root.insert_meta_operation (perform_id, mo_perform);
     root.insert_meta_operation (info_id,    mo_info);
 
-    root.insert_operation (default_id, op_default);
-    root.insert_operation (update_id,  op_update);
-    root.insert_operation (clean_id,   op_clean);
+    root.insert_operation (default_id, op_default, nullptr);
+    root.insert_operation (update_id,  op_update,  ctx.var_update);
+    root.insert_operation (clean_id,   op_clean,   ctx.var_clean);
   }
 
   value&

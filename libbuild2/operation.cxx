@@ -978,7 +978,6 @@ namespace build2
     default_id,
     0,
     "<default>",
-    nullptr,
     "",
     "",
     "",
@@ -1006,7 +1005,6 @@ namespace build2
     0,
     "update",
     "update",
-    "update",
     "updating",
     "updated",
     "is up to date",
@@ -1021,7 +1019,6 @@ namespace build2
   const operation_info op_clean {
     clean_id,
     0,
-    "clean",
     "clean",
     "clean",
     "cleaning",

@@ -510,6 +510,8 @@ namespace build2
 
       // Project-private variable pool.
       //
+      // Note: see scope::var_pool_ and use scope::var_pool().
+      //
       variable_pool var_pool;
 
       // Meta/operations supported by this project.
@@ -551,16 +553,27 @@ namespace build2
 
     unique_ptr<root_extra_type> root_extra;
 
+    // The last argument is the operation variable (see var_include) or NULL
+    // if not used.
+    //
     void
-    insert_operation (operation_id id, const operation_info& in)
+    insert_operation (operation_id id,
+                      const operation_info& in,
+                      const variable* ovar)
     {
-      root_extra->operations.insert (id, in);
+      // The operation variable should have prerequisite or target visibility.
+      //
+      assert (ovar == nullptr ||
+              (ovar->visibility == variable_visibility::prereq ||
+               ovar->visibility == variable_visibility::target));
+
+      root_extra->operations.insert (id, project_operation_info {&in, ovar});
     }
 
     void
     insert_meta_operation (meta_operation_id id, const meta_operation_info& in)
     {
-      root_extra->meta_operations.insert (id, in);
+      root_extra->meta_operations.insert (id, &in);
     }
 
     bool
@@ -593,19 +606,29 @@ namespace build2
       return const_cast<scope&> (*this);
     }
 
-    // @@ TODO: find root scope and return its var_pool falling back to
-    //          ctx.var_pool if no root scope.
+    // Return the project-private variable pool (which is chained to the
+    // public pool) unless pub is true, in which case return the public pool.
+    //
+    // You would normally go for the public pool directly as an optimization
+    // (for example, in the module's init()) if you know all your variables
+    // are qualified and thus public.
     //
     variable_pool&
-    var_pool ()
+    var_pool (bool pub = false)
     {
-      return ctx.var_pool.rw (*this);
+      return (pub                  ? ctx.var_pool      :
+              var_pool_ != nullptr ? *var_pool_        :
+              root_     != nullptr ? *root_->var_pool_ :
+              ctx.var_pool).rw (*this);
     }
 
     const variable_pool&
-    var_pool () const
+    var_pool (bool pub = false) const
     {
-      return ctx.var_pool;
+      return (pub                  ? ctx.var_pool      :
+              var_pool_ != nullptr ? *var_pool_        :
+              root_     != nullptr ? *root_->var_pool_ :
+              ctx.var_pool);
     }
 
   private:
@@ -615,6 +638,7 @@ namespace build2
 
     // These two from <libbuild2/file.hxx> set strong_.
     //
+    friend void setup_root_extra (scope&, optional<bool>&);
     friend LIBBUILD2_SYMEXPORT void create_bootstrap_outer (scope&, bool);
     friend LIBBUILD2_SYMEXPORT scope& create_bootstrap_inner (scope&,
                                                               const dir_path&);
@@ -634,6 +658,8 @@ namespace build2
     scope* root_;
     scope* strong_ = nullptr; // Only set on root scopes.
                               // NULL means no strong amalgamtion.
+
+    variable_pool* var_pool_ = nullptr; // For temp_scope override.
   };
 
   inline bool
@@ -701,24 +727,28 @@ namespace build2
 
   // Temporary scope. The idea is to be able to create a temporary scope in
   // order not to change the variables in the current scope. Such a scope is
-  // not entered in to the scope map. As a result it can only be used as a
-  // temporary set of variables. In particular, defining targets directly in
-  // such a scope will surely end up badly. Defining any nested scopes will be
-  // as if defining such a scope in the parent (since path() returns parent's
-  // path).
+  // not entered in to the scope map and its parent is the global scope. As a
+  // result it can only be used as a temporary set of variables. In
+  // particular, defining targets directly in such a scope will surely end up
+  // badly.
   //
   class temp_scope: public scope
   {
   public:
-    temp_scope (scope& p)
-        : scope (p.ctx, false /* shared */)
+    temp_scope (scope& gs)
+        : scope (gs.ctx, false /* shared */),
+          var_pool_ (nullptr /* shared */, &gs.ctx.var_pool.rw (gs), nullptr)
     {
-      out_path_ = p.out_path_;
-      src_path_ = p.src_path_;
-      parent_ = &p;
-      root_ = p.root_;
-      // No need to copy strong_ since we are never root scope.
+      // Note that making this scope its own root is a bad idea.
+      //
+      root_ = nullptr;
+      parent_ = &gs;
+      out_path_ = gs.out_path_;
+      scope::var_pool_ = &var_pool_;
     }
+
+  private:
+    variable_pool var_pool_;
   };
 
   // Scope map. Protected by the phase mutex.

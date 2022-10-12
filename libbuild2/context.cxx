@@ -464,6 +464,18 @@ namespace build2
 
       string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);
 
+      // Make sure it is qualified.
+      //
+      // We can support overridable public unqualified variables (which must
+      // all be pre-entered by the end of this constructor) but we will need
+      // to detect their names here in an ad hoc manner (we cannot enter them
+      // before this logic because of the "untyped override" requirement).
+      //
+      // Note: issue the same diagnostics as in variable_pool::update().
+      //
+      if (n.find ('.') == string::npos)
+        fail << "variable " << n << " cannot be overridden";
+
       if (c == '!' && dir)
         fail << "scope-qualified global override of variable " << n;
 
@@ -620,6 +632,10 @@ namespace build2
       r.insert<mtime_target> (perform_update_id, "build.file", file_rule::instance);
       r.insert<mtime_target> (perform_clean_id,  "build.file", file_rule::instance);
     }
+
+    // End of initialization.
+    //
+    load_generation = 1;
   }
 
   context::
@@ -715,29 +731,6 @@ namespace build2
     current_on++;
     current_mode = inner_oif.mode;
     current_diag_noise = diag_noise;
-
-    auto find_ovar = [this] (const char* n)
-    {
-      const variable* v (var_pool.find (n)); // @@ TMP: pub/prv vars
-
-      // The operation variable should have prerequisite or target visibility.
-      //
-      assert (v != nullptr &&
-              (v->visibility == variable_visibility::prereq ||
-               v->visibility == variable_visibility::target));
-
-      return v;
-    };
-
-    current_inner_ovar =
-      inner_oif.var_name != nullptr
-      ? find_ovar (inner_oif.var_name)
-      : nullptr;
-
-    current_outer_ovar =
-      outer_oif != nullptr && outer_oif->var_name != nullptr
-      ? find_ovar (outer_oif->var_name)
-      : nullptr;
 
     // Reset counters (serial execution).
     //

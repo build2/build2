@@ -582,15 +582,22 @@ namespace build2
 
     names storage;
     names_view ns;
-    const variable* current_ovar (nullptr);
+    const variable* ovar (nullptr);
 
     if (r != include_type::excluded)
     {
-      current_ovar = a.outer ()
-        ? ctx.current_outer_ovar
-        : ctx.current_inner_ovar;
+      // Instead of going via potentially expensive target::base_scope(), use
+      // the prerequisite's scope; while it may not be the same as the
+      // targets's base scope, they must have the same root scope.
+      //
+      const scope& rs (*p.scope.root_scope ());
 
-      if (current_ovar != nullptr && (l = p.vars[*current_ovar]))
+      ovar = rs.root_extra->operations[
+        (a.outer ()
+         ? ctx.current_outer_oif
+         : ctx.current_inner_oif)->id].ovar;
+
+      if (ovar != nullptr && (l = p.vars[*ovar]))
       {
         // Maybe we should optimize this for the common cases (bool, path,
         // name)? But then again we don't expect many such overrides. Plus
@@ -635,7 +642,7 @@ namespace build2
         // Note: we have to delay this until the meta-operation callback above
         // had a chance to override it.
         //
-        fail << "unrecognized " << *current_ovar << " variable value "
+        fail << "unrecognized " << *ovar << " variable value "
              << "'" << ns << "' specified for prerequisite " << p;
       }
     }

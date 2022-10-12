@@ -332,13 +332,13 @@ EOI
   :
   {
     mkdir dir;
-    $* <'print $d' 'd=*/' >/'dir/'          : dir
+    $* <'print $p.d' 'p.d=*/' >/'dir/'          : dir
 
     mkdir dir;
-    $* <'print $d' 'd=dir{*}' >/'dir{dir/}' : dir-type
+    $* <'print $p.d' 'p.d=dir{*}' >/'dir{dir/}' : dir-type
 
     touch foo.txt;
-    $* <'print $f' 'f=*.txt' >'foo.txt'     : feil
+    $* <'print $p.f' 'p.f=*.txt' >'foo.txt'     : feil
   }
 
   : buildspec

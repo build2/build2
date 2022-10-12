@@ -8,18 +8,18 @@
 {
   : value-version
   :
-  $* x+=01 y+=01 <<EOI >>EOO
-  x = [string] 0
-  print $x
+  $* p.x+=01 p.y+=01 <<EOI >>EOO
+  p.x = [string] 0
+  print $p.x
 
-  x = [uint64] 1
-  print $x
+  p.x = [uint64] 1
+  print $p.x
 
-  y = 0
-  print $y
+  p.y = 0
+  print $p.y
 
-  [uint64] y = [null]
-  print $y
+  [uint64] p.y = [null]
+  print $p.y
   EOI
   001
   2
@@ -29,21 +29,21 @@
 
   : value-position
   :
-  $* x+=01 <<EOI >>EOO
-  x = [string] 0
+  $* p.x+=01 <<EOI >>EOO
+  p.x = [string] 0
 
-  print $x
+  print $p.x
   dir/
   {
-    print $x
+    print $p.x
   }
 
-  dir/ x = [uint64] 1
+  dir/ p.x = [uint64] 1
 
-  print $x
+  print $p.x
   dir/
   {
-    print $x
+    print $p.x
   }
 
   EOI
@@ -59,17 +59,17 @@
 : Test overriding cached target type/pattern-specific prepend/append
 :
 {
-  $* x+=X <<EOI >>EOO
-  x = 0
-  file{*}: x += a
+  $* p.x+=X <<EOI >>EOO
+  p.x = 0
+  file{*}: p.x += a
 
-  print $(file{foo}:x)
+  print $(file{foo}:p.x)
 
-  x = 1                 # Should invalidate both caches.
-  print $(file{foo}:x)
+  p.x = 1                 # Should invalidate both caches.
+  print $(file{foo}:p.x)
 
-  file{*}: x += b       # Should invalidate both caches.
-  print $(file{foo}:x)
+  file{*}: p.x += b       # Should invalidate both caches.
+  print $(file{foo}:p.x)
   EOI
   0 a X
   1 a X
@@ -82,24 +82,24 @@
 {
   : after
   :
-  $* x=1 x+=2 x=+0 <<EOI >>EOO
-  print $x
+  $* p.x=1 p.x+=2 p.x=+0 <<EOI >>EOO
+  print $p.x
   EOI
   0 1 2
   EOO
 
   : before
   :
-  $* x+=2 x=+0 x=1 <<EOI >>EOO
-  print $x
+  $* p.x+=2 p.x=+0 p.x=1 <<EOI >>EOO
+  print $p.x
   EOI
   1
   EOO
 
   : both
   :
-  $* x=+0 x=1 x+=2 <<EOI >>EOO
-  print $x
+  $* p.x=+0 p.x=1 p.x+=2 <<EOI >>EOO
+  print $p.x
   EOI
   1 2
   EOO
@@ -110,9 +110,9 @@
 {
   : assign
   :
-  $* x=0 !y=0 x=1 !y=1 <<EOI >>EOO
-  print $x
-  print $y
+  $* p.x=0 !p.y=0 p.x=1 !p.y=1 <<EOI >>EOO
+  print $p.x
+  print $p.y
   EOI
   1
   1
@@ -120,16 +120,16 @@
 
   : append
   :
-  $* x=0 x+=1 x+=2 <<EOI >>EOO
-  print $x
+  $* p.x=0 p.x+=1 p.x+=2 <<EOI >>EOO
+  print $p.x
   EOI
   0 1 2
   EOO
 
   : prepend
   :
-  $* x=2 x=+1 x=+0 <<EOI >>EOO
-  print $x
+  $* p.x=2 p.x=+1 p.x=+0 <<EOI >>EOO
+  print $p.x
   EOI
   0 1 2
   EOO

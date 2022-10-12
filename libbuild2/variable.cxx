@@ -1578,6 +1578,17 @@ namespace build2
           const variable_visibility* v,
           const bool* o) const
   {
+    assert (var.owner == this);
+
+    if (outer_ != nullptr)
+    {
+      // Project-private variable. Assert visibility/overridability, the same
+      // as in insert().
+      //
+      assert ((o == nullptr || !*o) &&
+              (v == nullptr || *v >= variable_visibility::project));
+    }
+
     // Check overridability (all overrides, if any, should already have
     // been entered; see context ctor for details).
     //
@@ -1710,6 +1721,52 @@ namespace build2
           const bool* o,
           bool pat)
   {
+    if (outer_ != nullptr)
+    {
+      // Project-private pool.
+      //
+      if (n.find ('.') != string::npos) // Qualified.
+        return outer_->insert (move (n), t, v, o, pat);
+
+      // Unqualified.
+      //
+      // The pool chaining semantics for insertion: first check the outer pool
+      // then, if not found, insert in own pool.
+      //
+      if (const variable* var = outer_->find (n))
+      {
+        // Verify type/visibility/overridability.
+        //
+        // Should we assert or fail? Currently the buildfile parser goes
+        // through update() to set these so let's do assert for now. We also
+        // require equality (these are a handful of special variables).
+        //
+        assert ((t == nullptr ||  t == var->type) &&
+                (v == nullptr || *v == var->visibility) &&
+                (o == nullptr || *o || var->overrides == nullptr));
+
+        return pair<variable&, bool> (const_cast<variable&> (*var), false);
+      }
+
+      // Project-private variable. Assert visibility/overridability and fall
+      // through. Again, we expect the buildfile parser to verify and diagnose
+      // these.
+      //
+      // Note: similar code in update().
+      //
+      assert ((o == nullptr || !*o) &&
+              (v == nullptr || *v >= variable_visibility::project));
+    }
+    else if (shared_)
+    {
+      // Public pool.
+      //
+      // Make sure all the unqualified variables are pre-entered during
+      // initialization.
+      //
+      assert (shared_->load_generation == 0 || n.find ('.') != string::npos);
+    }
+
     assert (!shared_ || shared_->phase == run_phase::load);
 
     // Apply pattern.
@@ -1781,7 +1838,15 @@ namespace build2
   const variable& variable_pool::
   insert_alias (const variable& var, string n)
   {
-    assert (var.aliases != nullptr && var.overrides == nullptr);
+    if (outer_ != nullptr)
+    {
+      assert (n.find ('.') != string::npos); // Qualified.
+      return outer_->insert_alias (var, move (n));
+    }
+
+    assert (var.owner == this      &&
+            var.aliases != nullptr &&
+            var.overrides == nullptr);
 
     variable& a (insert (move (n),
                          var.type,
