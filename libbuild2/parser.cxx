@@ -4929,19 +4929,62 @@ namespace build2
       string& n (a.name);
       value& v (a.value);
 
-      if (const value_type* t = find_value_type (root_, n))
+      if (n == "visibility")
       {
+        try
+        {
+          string s (convert<string> (move (v)));
+
+          variable_visibility r;
+          if      (s == "global")       r = variable_visibility::global;
+          else if (s == "project")      r = variable_visibility::project;
+          else if (s == "scope")        r = variable_visibility::scope;
+          else if (s == "target")       r = variable_visibility::target;
+          else if (s == "prerequisite") r = variable_visibility::prereq;
+          else throw invalid_argument ("unknown visibility name");
+
+          if (vis && r != *vis)
+            fail (l) << "conflicting variable visibilities: " << s << ", "
+                     << *vis;
+
+          vis = r;
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (l) << "invalid " << n << " attribute value: " << e;
+        }
+      }
+      else if (n == "overridable")
+      {
+        try
+        {
+          // Treat absent value (represented as NULL) as true.
+          //
+          bool r (v.null || convert<bool> (move (v)));
+
+          if (ovr && r != *ovr)
+            fail (l) << "conflicting variable overridabilities";
+
+          ovr = r;
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (l) << "invalid " << n << " attribute value: " << e;
+        }
+      }
+      else if (const value_type* t = find_value_type (root_, n))
+      {
+        if (!v.null)
+          fail (l) << "unexpected value in attribute " << a;
+
         if (type != nullptr && t != type)
-          fail (l) << "multiple variable types: " << n << ", " << type->name;
+          fail (l) << "conflicting variable types: " << n << ", "
+                   << type->name;
 
         type = t;
-        // Fall through.
       }
       else
         fail (l) << "unknown variable attribute " << a;
-
-      if (!v.null)
-        fail (l) << "unexpected value in attribute " << a;
     }
 
     if (type != nullptr && var.type != nullptr)
@@ -4953,11 +4996,27 @@ namespace build2
                  << var.type->name << " to " << type->name;
     }
 
-    //@@ TODO: the same checks for vis and ovr (when we have the corresponding
-    //         attributes).
+    if (vis)
+    {
+      // Note that this logic naturally makes sure that a project-private
+      // variable doesn't have global visibility (since it would have been
+      // entered with the project visibility).
+      //
+      if (var.visibility == *vis)
+        vis = nullopt;
+      else if (var.visibility > *vis) // See variable_pool::update().
+        fail (l) << "changing variable " << var << " visibility from "
+                 << var.visibility << " to " << *vis;
+    }
 
-    //@@ TODO: need to verify/diagnose ovr and visibility for project-private
-    //         variables.
+    if (ovr)
+    {
+      // Note that the overridability incompatibilities are diagnosed by
+      // update(). So we just need to diagnose the project-private case.
+      //
+      if (*ovr && var.owner != &ctx->var_pool)
+        fail (l) << "private variable " << var << " cannot be overridable";
+    }
 
     if (type || vis || ovr)
       var.owner->update (const_cast<variable&> (var),
@@ -4996,7 +5055,7 @@ namespace build2
       else if (const value_type* t = find_value_type (root_, n))
       {
         if (type != nullptr && t != type)
-          fail (l) << "multiple value types: " << n << ", " << type->name;
+          fail (l) << "conflicting value types: " << n << ", " << type->name;
 
         type = t;
         // Fall through.

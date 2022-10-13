@@ -83,6 +83,10 @@ namespace build2
       const variable& var (p.first);
       const value& v (p.second);
 
+      // On one hand it might be helpful to print the visibility. On the
+      // other, it is always specified which means there will be a lot of
+      // noise. So probably not.
+      //
       if (var.type != nullptr)
         os << '[' << var.type->name << "] ";
 

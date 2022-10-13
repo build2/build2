@@ -106,6 +106,9 @@ namespace build2
     scope,   // This scope (no outer scopes).
     target,  // Target and target type/pattern-specific.
     prereq   // Prerequisite-specific.
+
+    // Note: remember to update the visibility attribute parsing if adding
+    //       any new values here.
   };
 
   // VC14 reports ambiguity but seems to work if we don't provide any.
