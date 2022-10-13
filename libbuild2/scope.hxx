@@ -549,6 +549,8 @@ namespace build2
       // when, for example, caching environment-sensitive information.
       //
       string environment_checksum;
+
+      root_extra_type (scope&, bool altn); // file.cxx
     };
 
     unique_ptr<root_extra_type> root_extra;
@@ -636,9 +638,8 @@ namespace build2
     friend class scope_map;
     friend class temp_scope;
 
-    // These two from <libbuild2/file.hxx> set strong_.
+    // These from <libbuild2/file.hxx> set strong_.
     //
-    friend void setup_root_extra (scope&, optional<bool>&);
     friend LIBBUILD2_SYMEXPORT void create_bootstrap_outer (scope&, bool);
     friend LIBBUILD2_SYMEXPORT scope& create_bootstrap_inner (scope&,
                                                               const dir_path&);

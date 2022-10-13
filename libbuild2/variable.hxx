@@ -1396,7 +1396,6 @@ namespace build2
   private:
     friend class context;
     friend class temp_scope;
-    friend void setup_root_extra (scope&, optional<bool>&);
 
     // Shared pool (public or project-private). The shared argument is
     // flag/context.

@@ -582,45 +582,37 @@ namespace build2
       fail << "variable out_root expected as first line in " << f << endf;
   }
 
-  // Note: not static due to being a friend of scope and variable_pool.
-  //
-  void
+  scope::root_extra_type::
+  root_extra_type (scope& root, bool a)
+      : altn (a),
+        loaded (false),
+
+        build_ext        (a ? alt_build_ext        : std_build_ext),
+        build_dir        (a ? alt_build_dir        : std_build_dir),
+        buildfile_file   (a ? alt_buildfile_file   : std_buildfile_file),
+        buildignore_file (a ? alt_buildignore_file : std_buildignore_file),
+        root_dir         (a ? alt_root_dir         : std_root_dir),
+        bootstrap_dir    (a ? alt_bootstrap_dir    : std_bootstrap_dir),
+        build_build_dir  (a ? alt_build_build_dir  : std_build_build_dir),
+        bootstrap_file   (a ? alt_bootstrap_file   : std_bootstrap_file),
+        root_file        (a ? alt_root_file        : std_root_file),
+        export_file      (a ? alt_export_file      : std_export_file),
+        src_root_file    (a ? alt_src_root_file    : std_src_root_file),
+        out_root_file    (a ? alt_out_root_file    : std_out_root_file),
+
+        var_pool (&root.ctx, &root.ctx.var_pool.rw (root), nullptr)
+  {
+    root.var_pool_ = &var_pool;
+  }
+
+  static void
   setup_root_extra (scope& root, optional<bool>& altn)
   {
     assert (altn && root.root_extra == nullptr);
-    bool a (*altn);
 
     context& ctx (root.ctx);
 
-    root.root_extra.reset (
-      new scope::root_extra_type {
-        nullopt /* project */,
-        nullopt /* amalgamation */,
-        nullopt /* subprojects */,
-        a,
-        false   /* loaded */,
-        a ? alt_build_ext        : std_build_ext,
-        a ? alt_build_dir        : std_build_dir,
-        a ? alt_buildfile_file   : std_buildfile_file,
-        a ? alt_buildignore_file : std_buildignore_file,
-        a ? alt_root_dir         : std_root_dir,
-        a ? alt_bootstrap_dir    : std_bootstrap_dir,
-        a ? alt_build_build_dir  : std_build_build_dir,
-        a ? alt_bootstrap_file   : std_bootstrap_file,
-        a ? alt_root_file        : std_root_file,
-        a ? alt_export_file      : std_export_file,
-        a ? alt_src_root_file    : std_src_root_file,
-        a ? alt_out_root_file    : std_out_root_file,
-        {&ctx, &ctx.var_pool.rw (root), nullptr}, /* var_pool */
-        {}, /* meta_operations */
-        {}, /* operations */
-        {}, /* modules */
-        {}, /* override_cache */
-        {}, /* target_types */
-        {}, /* environment */
-        ""} /* environment_checksum */);
-
-    root.var_pool_ = &root.root_extra->var_pool;
+    root.root_extra.reset (new scope::root_extra_type (root, *altn));
 
     // Enter built-in meta-operation and operation names. Loading of
     // modules (via the src bootstrap; see below) can result in
