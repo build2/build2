@@ -1333,7 +1333,7 @@ if $posix
         $* 2>>~%EOE% != 0;
           gen file{foo.}
           buildfile:8:3: error: for: ':' after variable name
-          %.{3}
+          %.+
           EOE
 
         $* clean 2>-

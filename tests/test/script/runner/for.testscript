@@ -167,7 +167,7 @@
     end
     EOI
     testscript:1:1: error: for: unknown option '-a'
-    %.
+    %.+
     EOE
 
 
@@ -179,7 +179,7 @@
     end
     EOI
     testscript:1:1: error: for: missing variable name
-    %.
+    %.+
     EOE
 
   : special-var
