@@ -905,14 +905,6 @@ namespace build2
 
   // variable_pool
   //
-  inline const variable& variable_pool::
-  operator[] (const string& n) const
-  {
-    const variable* r (find (n));
-    assert (r != nullptr);
-    return *r;
-  }
-
   inline const variable* variable_pool::
   find (const string& n) const
   {
@@ -931,6 +923,14 @@ namespace build2
     }
 
     return nullptr;
+  }
+
+  inline const variable& variable_pool::
+  operator[] (const string& n) const
+  {
+    const variable* r (find (n));
+    assert (r != nullptr);
+    return *r;
   }
 
   // variable_map
