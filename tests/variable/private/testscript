@@ -1,0 +1,46 @@
+# file      : tests/variable/private/testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Test public/private variable mode.
+
+buildfile = true
+test.arguments = 'noop(../)'
+
+.include ../../common.testscript
+
++cat <<EOI >=build/bootstrap.build
+project = test
+amalgamation =
+subprojects = subproj
+
+using install
+EOI
++cat <<EOI >=buildfile
+[string] foo = abc
+print $type($foo) $foo
+
+subproj/: install = false
+print $type($(subproj/: install)) $(subproj/: install)
+
+include subproj/
+EOI
+
+: subproj
+:
+mkdir build;
+cat <<EOI >=build/bootstrap.build;
+project = subporj
+EOI
+cat <<EOI >=buildfile;
+[uint64] foo = 0123
+print $type($foo) $foo
+
+[bool] install = true
+print $type($install) $install
+EOI
+$* >>EOO
+string abc
+path false
+uint64 123
+bool true
+EOO
