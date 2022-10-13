@@ -802,13 +802,10 @@ namespace build2
 
         context& ctx (t.ctx);
 
-        // These should be public (qualified) variables so go straight for
-        // the public variable pool.
-        //
-        auto& vp (ctx.var_pool.rw ()); // Load phase.
-
         optional<uint64_t> ver;
         optional<string> pfx;
+
+        variable_pool* vp (nullptr); // Resolve lazily.
 
         string s;
         for (size_t b (0), e (0); !(s = next (md, b, e)).empty (); )
@@ -870,7 +867,13 @@ namespace build2
                           : name (move (s)));
           }
 
-          const variable& var (vp.insert (move (vn)));
+          // These should be public (qualified) variables so go straight for
+          // the public variable pool.
+          //
+          if (vp == nullptr)
+            vp = &ctx.var_pool.rw (); // Load phase if user==true.
+
+          const variable& var (vp->insert (move (vn)));
 
           value& v (t.assign (var));
           v.assign (move (ns), &var);
