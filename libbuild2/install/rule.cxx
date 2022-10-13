@@ -697,6 +697,10 @@ namespace build2
       bool n (!p->to_directory ());
       dir_path d (n ? p->directory () : path_cast<dir_path> (*p));
 
+      if (n && d.empty ())
+        fail << "relative installation file path '" << p
+             << "' has no directory component";
+
       install_dirs ids (resolve (f, d));
 
       if (!n)
@@ -997,6 +1001,10 @@ namespace build2
         bool n (!p.to_directory ());
         dir_path d (n ? p.directory () : path_cast<dir_path> (p));
 
+        if (n && d.empty ())
+          fail << "relative installation file path '" << p
+               << "' has no directory component";
+
         // Resolve target directory.
         //
         install_dirs ids (resolve (t, d));
@@ -1295,6 +1303,10 @@ namespace build2
       {
         bool n (!p.to_directory ());
         dir_path d (n ? p.directory () : path_cast<dir_path> (p));
+
+        if (n && d.empty ())
+          fail << "relative installation file path '" << p
+               << "' has no directory component";
 
         // Resolve target directory.
         //
