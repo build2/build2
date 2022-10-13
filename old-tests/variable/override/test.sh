@@ -53,16 +53,16 @@ function test ()
   fi
 }
 
-fail "foo= [string] bar"    # error: typed override of variable foo
-#fail "!foo=bar" "!foo=BAR" # error: multiple global overrides of variable foo
-#fail "foo=bar" "foo=BAR"   # error: multiple project overrides of variable foo
-#fail "%foo=bar" "%foo=BAR" # error: multiple project overrides of variable foo
+fail "p.foo= [string] bar"    # error: typed override of variable p.foo
+#fail "!p.foo=bar" "!p.foo=BAR" # error: multiple global overrides of variable p.foo
+#fail "p.foo=bar"  "p.foo=BAR"  # error: multiple project overrides of variable p.foo
+#fail "%p.foo=bar" "%p.foo=BAR" # error: multiple project overrides of variable p.foo
 
-test --buildfile simple foo=bar ./ ./ <<< "bar"  # Multiple bootstraps of the same project.
+test --buildfile simple p.foo=bar ./ ./ <<< "bar"  # Multiple bootstraps of the same project.
 
 # Visibility/qualification.
 #
-test !v=X <<EOF
+test !p.v=X <<EOF
 /     : X
 .     : X
 d     : X
@@ -72,7 +72,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test v=X <<EOF
+test p.v=X <<EOF
 /     :
 .     : X
 d     : X
@@ -82,7 +82,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test ./v=X <<EOF
+test ./p.v=X <<EOF
 /     :
 .     : X
 d     : X
@@ -92,7 +92,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test .../v=X <<EOF
+test .../p.v=X <<EOF
 /     :
 .     : X
 d     : X
@@ -102,7 +102,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test ./p/v=X <<EOF
+test ./p/p.v=X <<EOF
 /     :
 .     :
 d     :
@@ -112,7 +112,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test .../p/v=X <<EOF
+test .../p/p.v=X <<EOF
 /     :
 .     :
 d     :
@@ -122,7 +122,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test v=X --buildfile loader ./p/ <<EOF
+test p.v=X --buildfile loader ./p/ <<EOF
 /     :
 .     : X
 d     : X
@@ -132,7 +132,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test .../v=X --buildfile loader ./p/ <<EOF
+test .../p.v=X --buildfile loader ./p/ <<EOF
 /     :
 .     :
 d     :
@@ -142,7 +142,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test /v=X <<EOF
+test /p.v=X <<EOF
 /     :
 .     : X
 d     : X
@@ -152,7 +152,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test v=X p_a=as <<EOF
+test p.v=X p.p_a=as <<EOF
 /     :
 .     : X
 d     : X
@@ -162,7 +162,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test %v=X <<EOF
+test %p.v=X <<EOF
 /     :
 .     : X
 d     : X
@@ -172,7 +172,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test %v=X p_a=as <<EOF
+test %p.v=X p.p_a=as <<EOF
 /     :
 .     : X
 d     : X
@@ -182,7 +182,7 @@ p/d   : x
 p/d/t : x
 EOF
 
-test /v=X d_a=as p_d_a=as <<EOF
+test /p.v=X p.d_a=as p.p_d_a=as <<EOF
 /     :
 .     : X
 d     : x
@@ -192,7 +192,7 @@ p/d   : x
 p/d/t : x
 EOF
 
-test %v+=S %v=+P a=as <<EOF
+test %p.v+=S %p.v=+P p.a=as <<EOF
 /     :
 .     : P x S
 d     : P x S
@@ -202,7 +202,7 @@ p/d   : P S
 p/d/t : P S
 EOF
 
-test %v+=S %v=+P a=as p_a=as <<EOF
+test %p.v+=S %p.v=+P p.a=as p.p_a=as <<EOF
 /     :
 .     : P x S
 d     : P x S
@@ -214,7 +214,7 @@ EOF
 
 # Append/Prepend in override.
 #
-test v+=S <<EOF
+test p.v+=S <<EOF
 /     :
 .     : S
 d     : S
@@ -224,7 +224,7 @@ p/d   : S
 p/d/t : S
 EOF
 
-test v+=S a=as <<EOF
+test p.v+=S p.a=as <<EOF
 /     :
 .     : x S
 d     : x S
@@ -234,7 +234,7 @@ p/d   : S
 p/d/t : S
 EOF
 
-test %v=+P a=as p_a=as <<EOF
+test %p.v=+P p.a=as p.p_a=as <<EOF
 /     :
 .     : P x
 d     : P x
@@ -244,7 +244,7 @@ p/d   : x
 p/d/t : x
 EOF
 
-test %v+=S v=+P a=as p_a=as <<EOF
+test %p.v+=S p.v=+P p.a=as p.p_a=as <<EOF
 /     :
 .     : P x S
 d     : P x S
@@ -256,7 +256,7 @@ EOF
 
 # Append/Prepend in both.
 #
-test v=X a=ap d_a=ap p_a=ap p_d_a=ap <<EOF
+test p.v=X p.a=ap p.d_a=ap p.p_a=ap p.p_d_a=ap <<EOF
 /     :
 .     : X
 d     : X
@@ -266,7 +266,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test v+=S v=+P a=as d_a=ap d_t_a=ap p_a=ap p_d_a=ap p_d_t_a=ap <<EOF
+test p.v+=S p.v=+P p.a=as p.d_a=ap p.d_t_a=ap p.p_a=ap p.p_d_a=ap p.p_d_t_a=ap <<EOF
 /     :
 .     : P x S
 d     : P x s S
@@ -279,7 +279,7 @@ EOF
 # These ones are surprising. I guess the moral is we shouldn't do "blind"
 # cross-project append/prepend.
 #
-test %v=X a=as d_a=ap p_a=ap p_d_a=ap <<EOF
+test %p.v=X p.a=as p.d_a=ap p.p_a=ap p.p_d_a=ap <<EOF
 /     :
 .     : X
 d     : X
@@ -289,7 +289,7 @@ p/d   : s s
 p/d/t : s s
 EOF
 
-test %v+=S a=as d_a=ap p_a=ap p_d_a=ap <<EOF
+test %p.v+=S p.a=as p.d_a=ap p.p_a=ap p.p_d_a=ap <<EOF
 /     :
 .     : x S
 d     : x s S
@@ -299,7 +299,7 @@ p/d   : s s
 p/d/t : s s
 EOF
 
-test %v+=S a=as d_a=ap p_a=ap p_d_a=ap ./ p/ <<EOF
+test %p.v+=S p.a=as p.d_a=ap p.p_a=ap p.p_d_a=ap ./ p/ <<EOF
 /     :
 .     : x S
 d     : x s S
@@ -311,7 +311,7 @@ EOF
 
 # Typed override.
 #
-test v+=S v=+P t=string <<EOF
+test p.v+=S p.v=+P p.t=string <<EOF
 /     :
 .     : PS
 d     : PS
@@ -321,7 +321,7 @@ p/d   : PS
 p/d/t : PS
 EOF
 
-test v+=S v=+P t=string a=as d_a=ap d_t_a=ap p_a=ap p_d_a=ap p_d_t_a=ap <<EOF
+test p.v+=S p.v=+P p.t=string p.a=as p.d_a=ap p.d_t_a=ap p.p_a=ap p.p_d_a=ap p.p_d_t_a=ap <<EOF
 /     :
 .     : PxS
 d     : PxsS
