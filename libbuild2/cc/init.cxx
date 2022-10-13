@@ -86,7 +86,10 @@ namespace build2
 
       // Enter variables.
       //
-      auto& vp (rs.var_pool ());
+      // All the variables we enter are qualified so go straight for the
+      // public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
 
       auto v_t (variable_visibility::target);
 

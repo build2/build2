@@ -166,6 +166,8 @@ namespace build2
 
       bool global (*name == '\0');
 
+      auto& vp (rs.var_pool (true /* default */)); // All qualified.
+
       if (spec)
       {
         vn = "config.install";
@@ -175,7 +177,7 @@ namespace build2
           vn += name;
         }
         vn += var;
-        const variable& vr (rs.var_pool ().insert<CT> (move (vn)));
+        const variable& vr (vp.insert<CT> (move (vn)));
 
         using config::lookup_config;
 
@@ -192,7 +194,7 @@ namespace build2
       vn = "install.";
       vn += name;
       vn += var;
-      const variable& vr (rs.var_pool ().insert<T> (move (vn)));
+      const variable& vr (vp.insert<T> (move (vn)));
 
       value& v (rs.assign (vr));
 
@@ -236,7 +238,7 @@ namespace build2
       // This one doesn't have config.* value (only set in a buildfile).
       //
       if (!global)
-        rs.var_pool ().insert<bool> (string ("install.") + n + ".subdirs");
+        rs.var_pool (true).insert<bool> (string ("install.") + n + ".subdirs");
     }
 
     void
@@ -252,8 +254,6 @@ namespace build2
 
       // Enter module variables (note that init() below enters some more).
       //
-      auto& vp (rs.var_pool ());
-
       // The install variable is a path, not dir_path, since it can be used
       // to both specify the target directory (to install with the same file
       // name) or target file (to install with a different name). And the
@@ -263,7 +263,8 @@ namespace build2
       // Plus it can have the special true/false values when acting as a
       // operation variable.
       //
-      auto& ovar (vp.insert<path> ("install", variable_visibility::target));
+      auto& ovar (rs.var_pool ().insert<path> ("install",
+                                               variable_visibility::target));
 
       // Register the install function family if this is the first instance of
       // the install modules.
@@ -327,15 +328,17 @@ namespace build2
 
       // Enter module variables.
       //
-      auto& vp (rs.var_pool ());
+      rs.var_pool ().insert<bool> ("for_install", variable_visibility::prereq);
+
+      // The rest of the variables we enter are qualified so go straight
+      // for the public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
 
       // Note that the set_dir() calls below enter some more.
       //
-      {
-        vp.insert<bool>   ("for_install", variable_visibility::prereq);
-        vp.insert<string> ("install.mode");
-        vp.insert<bool>   ("install.subdirs");
-      }
+      vp.insert<string> ("install.mode");
+      vp.insert<bool>   ("install.subdirs");
 
       // Environment.
       //

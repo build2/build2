@@ -130,7 +130,7 @@ namespace build2
       // Pattern-typed as bool.
       //
       const variable& var (
-        rs.var_pool ().insert ("config." + n + ".configured"));
+        rs.var_pool (true).insert ("config." + n + ".configured"));
 
       save_variable (rs, var);
 
@@ -144,7 +144,7 @@ namespace build2
       // Pattern-typed as bool.
       //
       const variable& var (
-        rs.var_pool ().insert ("config." + n + ".configured"));
+        rs.var_pool (true).insert ("config." + n + ".configured"));
 
       save_variable (rs, var);
 

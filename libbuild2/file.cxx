@@ -2138,7 +2138,9 @@ namespace build2
     // over anything that we may discover. In particular, we will prefer it
     // over any bundled subprojects.
     //
-    auto& vp (iroot.var_pool ());
+    // Note: go straight for the public variable pool.
+    //
+    auto& vp (iroot.var_pool (true /* public */));
 
     using config::lookup_config;
 

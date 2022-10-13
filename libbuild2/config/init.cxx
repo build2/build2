@@ -100,7 +100,10 @@ namespace build2
       // reserved to not be valid module names (`build`). We also currently
       // treat `import` as special.
       //
-      auto& vp (rs.var_pool ());
+      // All the variables we enter are qualified so go straight for the
+      // public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
 
       // NOTE: all config.** variables are by default made (via a pattern) to
       // be overridable with global visibility. So we must override this if a
@@ -234,7 +237,7 @@ namespace build2
                  ? &extra.module_as<module> ()
                  : nullptr);
 
-      auto& vp (rs.var_pool ());
+      auto& vp (rs.var_pool (true /* public */));
 
       // Note: config.* is pattern-typed to global visibility.
       //

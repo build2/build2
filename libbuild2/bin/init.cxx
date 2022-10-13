@@ -54,11 +54,14 @@ namespace build2
 
       // Enter variables.
       //
+      // All the variables we enter are qualified so go straight for the
+      // public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
+
       // Target is a string and not target_triplet because it can be
       // specified by the user.
       //
-      auto& vp (rs.var_pool ());
-
       vp.insert<string>    ("config.bin.target");
       vp.insert<string>    ("config.bin.pattern");
 
@@ -628,7 +631,10 @@ namespace build2
       //
       if (first)
       {
-        auto& vp (rs.var_pool ());
+        // All the variables we enter are qualified so go straight for the
+        // public variable pool.
+        //
+        auto& vp (rs.var_pool (true /* public */));
 
         vp.insert<path> ("config.bin.ar");
         vp.insert<path> ("config.bin.ranlib");
@@ -802,7 +808,10 @@ namespace build2
       //
       if (first)
       {
-        auto& vp (rs.var_pool ());
+        // All the variables we enter are qualified so go straight for the
+        // public variable pool.
+        //
+        auto& vp (rs.var_pool (true /* public */));
 
         vp.insert<path> ("config.bin.ld");
       }
@@ -960,7 +969,10 @@ namespace build2
       //
       if (first)
       {
-        auto& vp (rs.var_pool ());
+        // All the variables we enter are qualified so go straight for the
+        // public variable pool.
+        //
+        auto& vp (rs.var_pool (true /* public */));
 
         vp.insert<path> ("config.bin.rc");
       }
@@ -1059,7 +1071,10 @@ namespace build2
       //
       if (first)
       {
-        auto& vp (rs.var_pool ());
+        // All the variables we enter are qualified so go straight for the
+        // public variable pool.
+        //
+        auto& vp (rs.var_pool (true /* public */));
 
         vp.insert<path> ("config.bin.nm");
       }

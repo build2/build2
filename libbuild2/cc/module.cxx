@@ -41,7 +41,10 @@ namespace build2
 
       config::save_module (rs, x, 250);
 
-      auto& vp (rs.var_pool ());
+      // All the variables we enter are qualified so go straight for the
+      // public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
 
       // Must already exist.
       //

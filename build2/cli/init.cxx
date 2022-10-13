@@ -72,7 +72,9 @@ namespace build2
 
       // Enter metadata variables.
       //
-      auto& vp (rs.var_pool ());
+      // They are all qualified so go straight for the public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
 
       auto& v_ver (vp.insert<string> ("cli.version"));
       auto& v_sum (vp.insert<string> ("cli.checksum"));

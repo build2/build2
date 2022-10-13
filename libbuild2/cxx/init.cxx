@@ -93,7 +93,7 @@ namespace build2
 
       // Feature flags.
       //
-      auto& vp (rs.var_pool ());
+      auto& vp (rs.var_pool (true /* public */)); // All qualified.
 
       // Similar to config.cxx.std, config.cxx.features.* overrides
       // cxx.features.*.
@@ -469,7 +469,10 @@ namespace build2
 
       // Enter all the variables and initialize the module data.
       //
-      auto& vp (rs.var_pool ());
+      // All the variables we enter are qualified so go straight for the
+      // public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
 
       cc::config_data d {
         cc::lang::cxx,
@@ -811,7 +814,7 @@ namespace build2
       auto& cm (
         load_module<config_module> (rs, rs, "cxx.config", loc, extra.hints));
 
-      auto& vp (rs.var_pool ());
+      auto& vp (rs.var_pool (true /* public */)); // All qualified.
 
       bool modules (cast<bool> (rs["cxx.features.modules"]));
 

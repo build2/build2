@@ -435,7 +435,7 @@ namespace build2
       const V* cv (
         cast_null<V> (
           lookup_config (rs,
-                         rs.var_pool ().insert<V> ("config." + var),
+                         rs.var_pool (true).insert<V> ("config." + var),
                          std::forward<T> (default_value)))); // VC14
 
       value& v (bs.assign<V> (move (var)));
@@ -453,7 +453,7 @@ namespace build2
       const V* cv (
         cast_null<V> (
           lookup_config (rs,
-                         rs.var_pool ().insert<V> ("config." + var),
+                         rs.var_pool (true).insert<V> ("config." + var),
                          std::forward<T> (default_value)))); // VC14
 
       value& v (bs.append<V> (move (var)));

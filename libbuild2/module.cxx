@@ -674,7 +674,7 @@ namespace build2
       i->boot_init = e.init;
     }
 
-    rs.assign (rs.var_pool ().insert (mod + ".booted")) = (mf != nullptr);
+    rs.assign (rs.var_pool (true).insert (mod + ".booted")) = (mf != nullptr);
   }
 
   void
@@ -743,7 +743,7 @@ namespace build2
     // buildfile-visible (where we use the term "load a module"; see the note
     // on terminology above)
     //
-    auto& vp (rs.var_pool ());
+    auto& vp (rs.var_pool (true));
     value& lv (bs.assign (vp.insert (mod + ".loaded")));
     value& cv (bs.assign (vp.insert (mod + ".configured")));
 

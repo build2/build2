@@ -154,7 +154,10 @@ namespace build2
 
       // Enter all the variables and initialize the module data.
       //
-      auto& vp (rs.var_pool ());
+      // All the variables we enter are qualified so go straight for the
+      // public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
 
       cc::config_data d {
         cc::lang::c,

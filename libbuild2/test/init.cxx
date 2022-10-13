@@ -33,7 +33,11 @@ namespace build2
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build.
       //
-      auto& vp (rs.var_pool ());
+      // Most of the variables we enter are qualified so go straight for the
+      // public variable pool.
+      //
+      auto& vp (rs.var_pool (true /* public */));
+      auto& pvp (rs.var_pool ()); // For `test` and `for_test`.
 
       common_data d {
 
@@ -64,7 +68,7 @@ namespace build2
         // The test variable is a name which can be a path (with the
         // true/false special values) or a target name.
         //
-        vp.insert<name>    ("test", variable_visibility::target),
+        pvp.insert<name>   ("test", variable_visibility::target),
         vp.insert<strings> ("test.options"),
         vp.insert<strings> ("test.arguments"),
 
@@ -106,7 +110,7 @@ namespace build2
 
       // This one is used by other modules/rules.
       //
-      vp.insert<bool> ("for_test", variable_visibility::prereq);
+      pvp.insert<bool> ("for_test", variable_visibility::prereq);
 
       // These are only used in testscript.
       //

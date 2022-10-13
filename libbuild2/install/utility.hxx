@@ -43,7 +43,7 @@ namespace build2
     {
       auto r (
         s.target_vars[tt]["*"].insert (
-          *s.var_pool ().find ("install.mode")));
+          *s.ctx.var_pool.find ("install.mode")));
 
       if (r.second) // Already set by the user?
         r.first = move (m);
