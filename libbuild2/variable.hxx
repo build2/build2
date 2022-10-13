@@ -1420,12 +1420,12 @@ namespace build2
     variable_pool& operator= (const variable_pool&) = delete;
 
   public:
-    // RW access (only for shared pools).
+    // RW access (only for shared pools plus the temp_scope special case).
     //
     variable_pool&
     rw () const
     {
-      assert (shared_->phase == run_phase::load);
+      assert (shared_ == nullptr || shared_->phase == run_phase::load);
       return const_cast<variable_pool&> (*this);
     }
 

@@ -160,6 +160,53 @@ namespace build2
   //
   class LIBBUILD2_SYMEXPORT context
   {
+  public:
+    // In order to perform each operation the build system goes through the
+    // following phases:
+    //
+    // load     - load the buildfiles
+    // match    - search prerequisites and match rules
+    // execute  - execute the matched rule
+    //
+    // The build system starts with a "serial load" phase and then continues
+    // with parallel match and execute. Match, however, can be interrupted
+    // both with load and execute.
+    //
+    // Match can be interrupted with "exclusive load" in order to load
+    // additional buildfiles. Similarly, it can be interrupted with (parallel)
+    // execute in order to build targetd required to complete the match (for
+    // example, generated source code or source code generators themselves).
+    //
+    // Such interruptions are performed by phase change that is protected by
+    // phase_mutex (which is also used to synchronize the state changes
+    // between phases).
+    //
+    // Serial load can perform arbitrary changes to the build state. Exclusive
+    // load, however, can only perform "island appends". That is, it can
+    // create new "nodes" (variables, scopes, etc) but not (semantically)
+    // change already existing nodes or invalidate any references to such (the
+    // idea here is that one should be able to load additional buildfiles as
+    // long as they don't interfere with the existing build state). The
+    // "islands" are identified by the load_generation number (1 for the
+    // initial/serial load). It is incremented in case of a phase switch and
+    // can be stored in various "nodes" to verify modifications are only done
+    // "within the islands". Another example of invalidation would be
+    // insertion of a new scope "under" an existing target thus changing its
+    // scope hierarchy (and potentially even its base scope). This would be
+    // bad because we may have made decisions based on the original hierarchy,
+    // for example, we may have queried a variable which in the new hierarchy
+    // would "see" a new value from the newly inserted scope.
+    //
+    // The special load_generation value 0 indicates initialization before
+    // anything has been loaded. Currently, it is changed to 1 at the end
+    // of the context constructor.
+    //
+    // Note must come (and thus initialized) before the data_ member.
+    //
+    run_phase phase = run_phase::load;
+    size_t load_generation = 0;
+
+  private:
     struct data;
     unique_ptr<data> data_;
 
@@ -226,49 +273,6 @@ namespace build2
     //
     const vector<name>* trace_match = nullptr;
     const vector<name>* trace_execute = nullptr;
-
-    // In order to perform each operation the build system goes through the
-    // following phases:
-    //
-    // load     - load the buildfiles
-    // match    - search prerequisites and match rules
-    // execute  - execute the matched rule
-    //
-    // The build system starts with a "serial load" phase and then continues
-    // with parallel match and execute. Match, however, can be interrupted
-    // both with load and execute.
-    //
-    // Match can be interrupted with "exclusive load" in order to load
-    // additional buildfiles. Similarly, it can be interrupted with (parallel)
-    // execute in order to build targetd required to complete the match (for
-    // example, generated source code or source code generators themselves).
-    //
-    // Such interruptions are performed by phase change that is protected by
-    // phase_mutex (which is also used to synchronize the state changes
-    // between phases).
-    //
-    // Serial load can perform arbitrary changes to the build state. Exclusive
-    // load, however, can only perform "island appends". That is, it can
-    // create new "nodes" (variables, scopes, etc) but not (semantically)
-    // change already existing nodes or invalidate any references to such (the
-    // idea here is that one should be able to load additional buildfiles as
-    // long as they don't interfere with the existing build state). The
-    // "islands" are identified by the load_generation number (1 for the
-    // initial/serial load). It is incremented in case of a phase switch and
-    // can be stored in various "nodes" to verify modifications are only done
-    // "within the islands". Another example of invalidation would be
-    // insertion of a new scope "under" an existing target thus changing its
-    // scope hierarchy (and potentially even its base scope). This would be
-    // bad because we may have made decisions based on the original hierarchy,
-    // for example, we may have queried a variable which in the new hierarchy
-    // would "see" a new value from the newly inserted scope.
-    //
-    // The special load_generation value 0 indicates initialization before
-    // anything has been loaded. Currently, it is changed to 1 at the end
-    // of the context constructor.
-    //
-    run_phase phase = run_phase::load;
-    size_t load_generation = 0;
 
     // A "tri-mutex" that keeps all the threads in one of the three phases.
     // When a thread wants to switch a phase, it has to wait for all the other
