@@ -96,7 +96,6 @@ namespace build2
                       environment&, const script&, runner&,
                       bool enter = true, bool leave = true);
 
-
         // Execute the first or the second (dyndep) half of the depdb
         // preamble.
         //
@@ -174,15 +173,21 @@ namespace build2
           return v;
         }
 
-        // Parse a special builtin line into names, performing the variable
-        // and pattern expansions. If omit_builtin is true, then omit the
-        // builtin name from the result.
+        // If the diag argument is true, then execute the preamble including
+        // the (trailing) diagnostics line and return the resulting names (see
+        // exec_special() for the diagnostics line execution semantics).
+        // Otherwise, execute the preamble excluding the diagnostics line and
+        // return an empty names list. If requested, call the runner's enter()
+        // and leave() functions that initialize/clean up the environment
+        // before/after the preamble execution.
+        //
+        // Note: having both root and base scopes for testing (where we pass
+        // global scope for both).
         //
         names
-        execute_special (const scope& root, const scope& base,
-                         environment&,
-                         const line&,
-                         bool omit_builtin = true);
+        execute_diag_preamble (const scope& root, const scope& base,
+                               environment&, const script&, runner&,
+                               bool diag, bool enter, bool leave);
 
       protected:
         // Setup the parser for subsequent exec_*() function calls.
@@ -203,6 +208,10 @@ namespace build2
           exec_lines (l.begin (), l.end (), c);
         }
 
+        // Parse a special builtin line into names, performing the variable
+        // and pattern expansions. Optionally, skip the first token (builtin
+        // name, etc).
+        //
         names
         exec_special (token&, build2::script::token_type&, bool skip_first);
 
@@ -293,18 +302,20 @@ namespace build2
         //
         // If the diag builtin is encountered, then its whole line is saved
         // (including the leading 'diag' word) for later execution and the
-        // diagnostics weight is set to 4.
+        // diagnostics weight is set to 4. The preceding lines, which can only
+        // contain variable assignments (including via the set builtin,
+        // potentially inside the flow control constructs), are also saved.
         //
         // Any attempt to manually set the custom diagnostics twice (the diag
         // builtin after the script name or after another diag builtin) is
         // reported as ambiguity.
         //
-        // At the end of pre-parsing either diag_name_ or diag_line_ (but not
-        // both) are present.
+        // At the end of pre-parsing either diag_name_ is present or
+        // diag_preamble_ is not empty (but not both).
         //
         optional<pair<string, location>> diag_name_;
         optional<pair<string, location>> diag_name2_; // Ambiguous script name.
-        optional<pair<line, location>>   diag_line_;
+        lines                            diag_preamble_;
         uint8_t                          diag_weight_ = 0;
 
         // Custom dependency change tracking.
@@ -368,9 +379,9 @@ namespace build2
         // Before the script line gets parsed, it is set to a temporary value
         // that will by default be appended to the script. However,
         // parse_program() can point it to a different location where the line
-        // should be saved instead (e.g., diag_line_, etc) or set it to NULL
-        // if the line is handled in an ad-hoc way and should be dropped
-        // (e.g., depdb_clear_, etc).
+        // should be saved instead (e.g., diag_preamble_ back, etc) or set it
+        // to NULL if the line is handled in an ad-hoc way and should be
+        // dropped (e.g., depdb_clear_, etc).
         //
         line* save_line_;
 

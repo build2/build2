@@ -47,13 +47,11 @@ namespace build2
       class script
       {
       public:
-        using lines_type = build::script::lines;
-
         // Note that the variables are not pre-entered into a pool during the
         // parsing phase, so the line variable pointers are NULL.
         //
-        lines_type body;
-        bool       body_temp_dir = false; // True if the body references $~.
+        lines body;
+        bool  body_temp_dir = false; // True if the body references $~.
 
         // Referenced ordinary (non-special) variables.
         //
@@ -68,11 +66,13 @@ namespace build2
         small_vector<string, 2> vars; // 2 for command and options.
 
         // Command name for low-verbosity diagnostics and custom low-verbosity
-        // diagnostics line. Note: cannot be both (see the script parser for
+        // diagnostics line, potentially preceded with the variable
+        // assignments. Note: cannot be both (see the script parser for
         // details).
         //
         optional<string> diag_name;
-        optional<line>   diag_line;
+        lines            diag_preamble;
+        bool             diag_preamble_temp_dir = false; // True if refs $~.
 
         // The script's custom dependency change tracking lines (see the
         // script parser for details).
@@ -81,7 +81,7 @@ namespace build2
         bool             depdb_value;                    // String or hash.
         optional<size_t> depdb_dyndep;                   // Pos of first dyndep.
         bool             depdb_dyndep_byproduct = false; // dyndep --byproduct
-        lines_type       depdb_preamble;                 // Note include vars.
+        lines            depdb_preamble;                 // Note include vars.
         bool             depdb_preamble_temp_dir = false; // True if refs $~.
 
         location start_loc;

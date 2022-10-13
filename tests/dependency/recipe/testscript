@@ -845,8 +845,11 @@ EOE
       %  .+alias\{x\}:%
         % perform(update)
         {{
+          rm a
+          echo b | set c
           diag bar
-      %.{4}
+          fo$v
+        }}
       EOE
   }
 }

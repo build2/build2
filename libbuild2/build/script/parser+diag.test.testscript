@@ -19,16 +19,76 @@ $* <<EOI >>EOO
   name: echo
   EOO
 
-: diag
+: preamble
 :
-$* <<EOI >>~%EOO%
-  echo abc
-  cat abc
-  diag copy >= $>
-  cp <- $>
-  EOI
-  %diag: copy >= .+file\{driver\.\}%
-  EOO
+{
+  : disambiguate
+  :
+  $* <<EOI >>~%EOO%
+    echo abc | set v
+    cat abc | set v
+    diag copy >= $>
+    cp <- $>
+    EOI
+    echo abc | set v
+    cat abc | set v
+    %diag: copy >= .+file\{driver\.\}%
+    EOO
+
+  : name
+  :
+  $* <<EOI >>EOO
+    n = foo
+    diag copy $n
+    cp $n $>
+    EOI
+    diag: copy foo
+    EOO
+
+  : temp_dir
+  :
+  {
+    test.options += -t
+
+    : no
+    :
+    $* <<EOI >false
+      f = foo
+      diag $f
+      f = $~/f
+      foo "$f"
+      EOI
+
+    : no-depdb
+    :
+    $* <<EOI >false
+      f = $~/f
+      depdb hash "$f"
+      diag $f
+      f = $~/f
+      foo "$f"
+      EOI
+
+    : yes
+    :
+    $* <<EOI >true
+      f = $~/f
+      diag $f
+      foo $f
+      EOI
+
+    : yes-depdb
+    :
+    $* <<EOI >true
+      f = $~/f
+      depdb hash "$f"
+      f = $~/t
+      diag $f
+      f = $~/f
+      foo "$f"
+      EOI
+  }
+}
 
 : ambiguity
 :

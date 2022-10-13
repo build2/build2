@@ -107,7 +107,7 @@ namespace build2
         {
           diag_record dr;
 
-          if (!diag_name_ && !diag_line_)
+          if (!diag_name_ && diag_preamble_.empty ())
           {
             dr << fail (s.start_loc)
                << "unable to deduce low-verbosity script diagnostics name";
@@ -136,12 +136,12 @@ namespace build2
 
         // Save the script name or custom diagnostics line.
         //
-        assert (diag_name_.has_value () != diag_line_.has_value ());
+        assert (diag_name_.has_value () == diag_preamble_.empty ());
 
         if (diag_name_)
           s.diag_name = move (diag_name_->first);
         else
-          s.diag_line = move (diag_line_->first);
+          s.diag_preamble = move (diag_preamble_);
 
         // Save the custom dependency change tracking lines, if present.
         //
@@ -641,6 +641,12 @@ namespace build2
               fail (l) << "'" << v << "' call via 'env' builtin";
           };
 
+          auto diag_loc = [this] ()
+          {
+            assert (!diag_preamble_.empty ());
+            return diag_preamble_.back ().tokens[0].location ();
+          };
+
           if (v == "diag")
           {
             verify ();
@@ -657,24 +663,41 @@ namespace build2
               }
               else           // Custom diagnostics.
               {
-                assert (diag_line_);
-
                 fail (l) << "multiple 'diag' builtin calls" <<
-                  info (diag_line_->second) << "previous call is here";
+                  info (diag_loc ()) << "previous call is here";
               }
             }
 
-            // Instruct the parser to save the diag builtin line separately
-            // from the script lines, when it is fully parsed. Note that it
-            // will be executed prior to the script body execution to obtain
-            // the custom diagnostics.
+            // Move the script body to the end of the diag preamble.
             //
-            diag_line_   = make_pair (line (), l);
-            save_line_   = &diag_line_->first;
-            diag_weight_ = 4;
+            // Note that we move into the preamble whatever is there and delay
+            // the check until the execution (see the depdb preamble
+            // collecting for the reasoning).
+            //
+            lines& ls (script_->body);
+            diag_preamble_.insert (diag_preamble_.end (),
+                                   make_move_iterator (ls.begin ()),
+                                   make_move_iterator (ls.end ()));
+            ls.clear ();
 
-            diag_name_  = nullopt;
-            diag_name2_ = nullopt;
+            // Also move the body_temp_dir flag, if it is true.
+            //
+            if (script_->body_temp_dir)
+            {
+              script_->diag_preamble_temp_dir = true;
+              script_->body_temp_dir = false;
+            }
+
+            // Similar to the depdb preamble collection, instruct the parser
+            // to save the depdb builtin line separately from the script
+            // lines.
+            //
+            diag_preamble_.push_back (line ());
+            save_line_ = &diag_preamble_.back ();
+
+            diag_weight_ = 4;
+            diag_name_   = nullopt;
+            diag_name2_  = nullopt;
 
             // Note that the rest of the line contains the builtin argument to
             // be printed, thus we parse it in the value lexer mode.
@@ -704,9 +727,8 @@ namespace build2
               fail (l) << "'depdb' builtin can only be used for file-based "
                        << "targets";
 
-            if (diag_line_)
-              fail (diag_line_->second)
-                << "'diag' builtin call before 'depdb' call" <<
+            if (!diag_preamble_.empty ())
+              fail (diag_loc ()) << "'diag' builtin call before 'depdb' call" <<
                 info (l) << "'depdb' call is here";
 
             // Note that the rest of the line contains the builtin command
@@ -1212,6 +1234,24 @@ namespace build2
           runner_->leave (e, s.end_loc);
       }
 
+      // Return true if the specified expression executes the set builtin or
+      // is a for-loop.
+      //
+      static bool
+      valid_preamble_cmd (const command_expr& ce,
+                          const function<command_function>& cf)
+      {
+        return find_if (
+          ce.begin (), ce.end (),
+          [&cf] (const expr_term& et)
+          {
+            const process_path& p (et.pipe.back ().program);
+            return p.initial == nullptr &&
+                   (p.recall.string () == "set" ||
+                    (cf != nullptr && p.recall.string () == "for"));
+          }) != ce.end ();
+      }
+
       void parser::
       exec_depdb_preamble (action a, const scope& bs, const file& t,
                            environment& e, const script& s, runner& r,
@@ -1355,18 +1395,7 @@ namespace build2
             command_expr ce (
               parse_command_line (t, static_cast<token_type&> (tt)));
 
-            // Verify that this expression executes the set builtin or is a
-            // for-loop.
-            //
-            if (find_if (ce.begin (), ce.end (),
-                         [&cf] (const expr_term& et)
-                         {
-                           const process_path& p (et.pipe.back ().program);
-                           return p.initial == nullptr &&
-                                  (p.recall.string () == "set" ||
-                                  (cf != nullptr &&
-                                   p.recall.string () == "for"));
-                         }) == ce.end ())
+            if (!valid_preamble_cmd (ce, cf))
             {
               const replay_tokens& rt (data.scr.depdb_preamble.back ().tokens);
               assert (!rt.empty ());
@@ -1382,6 +1411,79 @@ namespace build2
         };
 
         exec_lines (begin, end, exec_cmd);
+      }
+
+      names parser::
+      execute_diag_preamble (const scope& rs, const scope& bs,
+                             environment& e, const script& s, runner& r,
+                             bool diag, bool enter, bool leave)
+      {
+        tracer trace ("exec_diag_preamble");
+
+        assert (!s.diag_preamble.empty ());
+
+        const line& dl (s.diag_preamble.back ()); // Diag builtin line.
+
+        pre_exec (rs, bs, e, &s, &r);
+
+        if (enter)
+          runner_->enter (e, s.start_loc);
+
+        // Perform the variable assignments.
+        //
+        auto exec_cmd = [&dl, this] (token& t,
+                                     build2::script::token_type& tt,
+                                     const iteration_index* ii, size_t li,
+                                     bool /* single */,
+                                     const function<command_function>& cf,
+                                     const location& ll)
+        {
+          // Note that we never reset the line index to zero (as we do in
+          // execute_body()) assuming that there are some script body commands
+          // to follow.
+          //
+          command_expr ce (
+            parse_command_line (t, static_cast<token_type&> (tt)));
+
+          if (!valid_preamble_cmd (ce, cf))
+          {
+            const replay_tokens& rt (dl.tokens);
+            assert (!rt.empty ());
+
+            fail (ll) << "disallowed command in diag preamble" <<
+              info << "only variable assignments are allowed in diag preamble"
+                   << info (rt[0].location ()) << "diag preamble ends here";
+          }
+
+          runner_->run (*environment_, ce, ii, li, cf, ll);
+        };
+
+        exec_lines (s.diag_preamble.begin (), s.diag_preamble.end () - 1,
+                    exec_cmd);
+
+        // Execute the diag line, if requested.
+        //
+        names ns;
+
+        if (diag)
+        {
+          // Copy the tokens and start playing.
+          //
+          replay_data (replay_tokens (dl.tokens));
+
+          token t;
+          build2::script::token_type tt;
+          next (t, tt);
+
+          ns = exec_special (t, tt, true /* skip_first */);
+
+          replay_stop ();
+        }
+
+        if (leave)
+          runner_->leave (e, s.end_loc);
+
+        return ns;
       }
 
       void parser::
@@ -1485,28 +1587,6 @@ namespace build2
         return tt != type::newline && tt != type::eos
                ? parse_names (t, tt, pattern_mode::ignore)
                : names ();
-      }
-
-      names parser::
-      execute_special (const scope& rs, const scope& bs,
-                       environment& e,
-                       const line& ln,
-                       bool omit_builtin)
-      {
-        pre_exec (rs, bs, e, nullptr /* script */, nullptr /* runner */);
-
-        // Copy the tokens and start playing.
-        //
-        replay_data (replay_tokens (ln.tokens));
-
-        token t;
-        build2::script::token_type tt;
-        next (t, tt);
-
-        names r (exec_special (t, tt, omit_builtin));
-
-        replay_stop ();
-        return r;
       }
 
       void parser::

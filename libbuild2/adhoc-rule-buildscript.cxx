@@ -199,11 +199,7 @@ namespace build2
       os << ind << "depdb clear" << endl;
 
     script::dump (os, ind, script.depdb_preamble);
-
-    if (script.diag_line)
-    {
-      os << ind; script::dump (os, *script.diag_line, true /* newline */);
-    }
+    script::dump (os, ind, script.diag_preamble);
 
     script::dump (os, ind, script.body);
     ind.resize (ind.size () - 2);
@@ -1361,7 +1357,7 @@ namespace build2
     bool r (false);
     if (!ctx.dry_run || verb != 0)
     {
-      // Prepare to execute the script diag line and/or body.
+      // Prepare to execute the script diag preamble and/or body.
       //
       if ((r = execute_update_file (bs, a, t, env, run)))
       {
@@ -1472,8 +1468,8 @@ namespace build2
     return e ? nullopt : optional<target_state> (rs);
   }
 
-  // Return true if execute_body() was called and thus the caller should call
-  // run.leave().
+  // Return true if execute_diag_preamble() and/or execute_body() were called
+  // and thus the caller should call run.leave().
   //
   bool adhoc_buildscript_rule::
   execute_update_file (const scope& bs,
@@ -1492,13 +1488,13 @@ namespace build2
     //
     build::script::parser p (ctx);
 
-    if (verb == 1)
+    bool exec_body  (!ctx.dry_run || verb >= 2);
+    bool exec_diag  (!script.diag_preamble.empty () && (exec_body || verb == 1));
+    bool exec_depdb (!script.depdb_preamble.empty ());
+
+    if (script.diag_name)
     {
-      if (script.diag_line)
-      {
-        text << p.execute_special (rs, bs, env, *script.diag_line);
-      }
-      else
+      if (verb == 1)
       {
         // @@ TODO (and in default_action() below):
         //
@@ -1512,8 +1508,23 @@ namespace build2
         text << *script.diag_name << ' ' << t;
       }
     }
+    else if (exec_diag)
+    {
+      if (script.diag_preamble_temp_dir && !script.depdb_preamble_temp_dir)
+        env.set_temp_dir_variable ();
 
-    if (!ctx.dry_run || verb >= 2)
+      names diag (
+        p.execute_diag_preamble (rs, bs,
+                                 env, script, run,
+                                 verb == 1   /* diag */,
+                                 !exec_depdb /* enter */,
+                                 false       /* leave */));
+
+      if (verb == 1)
+        text << diag;
+    }
+
+    if (exec_body)
     {
       // On failure remove the target files that may potentially exist but
       // be invalid.
@@ -1529,13 +1540,15 @@ namespace build2
         }
       }
 
-      if (script.body_temp_dir && !script.depdb_preamble_temp_dir)
+      if (script.body_temp_dir            &&
+          !script.depdb_preamble_temp_dir &&
+          !script.diag_preamble_temp_dir)
         env.set_temp_dir_variable ();
 
       p.execute_body (rs, bs,
                       env, script, run,
-                      script.depdb_preamble.empty () /* enter */,
-                      false                          /* leave */);
+                      !exec_depdb && !exec_diag /* enter */,
+                      false                     /* leave */);
 
       if (!ctx.dry_run)
       {
@@ -1564,11 +1577,9 @@ namespace build2
         for (auto& rm: rms)
           rm.cancel ();
       }
-
-      return true;
     }
-    else
-      return false;
+
+    return exec_diag || exec_body;
   }
 
   target_state adhoc_buildscript_rule::
@@ -1602,27 +1613,45 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      build::script::environment e (a, t, bs, script.body_temp_dir, deadline);
+      build::script::environment e (a, t, bs, false /* temp_dir */, deadline);
       build::script::parser p (ctx);
+      build::script::default_runner r;
 
-      if (verb == 1)
+      bool exec_body (!ctx.dry_run || verb >= 2);
+      bool exec_diag (!script.diag_preamble.empty () &&
+                      (exec_body || verb == 1));
+
+      if (script.diag_name)
       {
-        if (script.diag_line)
-        {
-          text << p.execute_special (rs, bs, e, *script.diag_line);
-        }
-        else
+        if (verb == 1)
         {
           // @@ TODO: as above (execute_update_file()).
           //
           text << *script.diag_name << ' ' << t;
         }
       }
-
-      if (!ctx.dry_run || verb >= 2)
+      else if (exec_diag)
       {
-        build::script::default_runner r;
-        p.execute_body (rs, bs, e, script, r);
+        if (script.diag_preamble_temp_dir)
+          e.set_temp_dir_variable ();
+
+        names diag (
+          p.execute_diag_preamble (rs, bs,
+                                   e, script, r,
+                                   verb == 1  /* diag */,
+                                   true       /* enter */,
+                                   !exec_body /* leave */));
+
+        if (verb == 1)
+          text << diag;
+      }
+
+      if (exec_body)
+      {
+        if (script.body_temp_dir && !script.diag_preamble_temp_dir)
+          e.set_temp_dir_variable ();
+
+        p.execute_body (rs, bs, e, script, r, !exec_diag /* enter */);
       }
     }
 

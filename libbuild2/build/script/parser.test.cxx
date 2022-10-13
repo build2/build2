@@ -119,8 +119,8 @@ namespace build2
       // argv[0] [-l] [-r]
       // argv[0] -b [-t]
       // argv[0] -d [-t]
+      // argv[0] -g [-t] [<diag-name>]
       // argv[0] -q
-      // argv[0] -g [<diag-name>]
       //
       // In the first form read the script from stdin and trace the script
       // body execution to stdout using the custom print runner.
@@ -131,13 +131,13 @@ namespace build2
       // In the third form read the script from stdin, parse it and dump the
       // depdb preamble lines to stdout.
       //
-      // In the forth form read the script from stdin, parse it and print
-      // line tokens quoting information to stdout.
-      //
-      // In the fifth form read the script from stdin, parse it and print the
+      // In the forth form read the script from stdin, parse it and print the
       // low-verbosity script diagnostics name or custom low-verbosity
       // diagnostics to stdout. If the script doesn't deduce any of them, then
       // print the diagnostics and exit with non-zero code.
+      //
+      // In the fifth form read the script from stdin, parse it and print
+      // line tokens quoting information to stdout.
       //
       // -l
       //    Print the script line number for each executed expression.
@@ -151,9 +151,13 @@ namespace build2
       // -d
       //    Dump the parsed script depdb preamble to stdout.
       //
+      // -g
+      //    Dump the low-verbosity script diagnostics name or custom
+      //    low-verbosity diagnostics to stdout.
+      //
       // -t
-      //    Print true if the body (-b) or depdb preamble (-d) references the
-      //    temporary directory and false otherwise.
+      //    Print true if the body (-b), depdb preamble (-d), or diag preamble
+      //    (-g) references the temporary directory and false otherwise.
       //
       // -q
       //    Print the parsed script tokens quoting information to sdout. If a
@@ -162,10 +166,6 @@ namespace build2
       //
       //    <quoting>      := 'S' | 'D' | 'M'
       //    <completeness> := 'C' | 'P'
-      //
-      // -g
-      //    Dump the low-verbosity script diagnostics name or custom
-      //    low-verbosity diagnostics to stdout.
       //
       int
       main (int argc, char* argv[])
@@ -177,8 +177,8 @@ namespace build2
           run,
           body,
           depdb_preamble,
-          quoting,
-          diag
+          diag,
+          quoting
         } m (mode::run);
 
         bool print_line (false);
@@ -198,15 +198,17 @@ namespace build2
             m = mode::body;
           else if (a == "-d")
             m = mode::depdb_preamble;
+          else if (a == "-g")
+            m = mode::diag;
           else if (a == "-t")
           {
-            assert (m == mode::body || m == mode::depdb_preamble);
+            assert (m == mode::body           ||
+                    m == mode::depdb_preamble ||
+                    m == mode::diag);
             temp_dir = true;
           }
           else if (a == "-q")
             m = mode::quoting;
-          else if (a == "-g")
-            m = mode::diag;
           else
           {
             if (m == mode::diag)
@@ -219,8 +221,8 @@ namespace build2
           }
         }
 
-        assert (!print_line       || m == mode::run);
-        assert (!print_iterations || m == mode::run);
+        assert (!print_line       || m == mode::run || m == mode::diag);
+        assert (!print_iterations || m == mode::run || m == mode::diag);
         assert (!diag_name        || m == mode::diag);
 
         // Fake build system driver, default verbosity.
@@ -274,9 +276,29 @@ namespace build2
           {
           case mode::run:
             {
-              environment e (perform_update_id, tt, bs, s.body_temp_dir);
+              environment e (perform_update_id, tt, bs, false /* temp_dir */);
               print_runner r (print_line, print_iterations);
-              p.execute_body (ctx.global_scope, ctx.global_scope, e, s, r);
+
+              bool exec_diag (!s.diag_preamble.empty ());
+
+              if (exec_diag)
+              {
+                if (s.diag_preamble_temp_dir)
+                  e.set_temp_dir_variable ();
+
+                p.execute_diag_preamble (ctx.global_scope, ctx.global_scope,
+                                         e, s, r,
+                                         false /* diag */,
+                                         true  /* enter */,
+                                         false /* leave */);
+              }
+
+              if (s.body_temp_dir && !s.diag_preamble_temp_dir)
+                e.set_temp_dir_variable ();
+
+              p.execute_body (ctx.global_scope, ctx.global_scope,
+                              e, s, r,
+                              !exec_diag /* enter */);
               break;
             }
           case mode::diag:
@@ -287,14 +309,26 @@ namespace build2
               }
               else
               {
-                assert (s.diag_line);
+                if (!temp_dir)
+                {
+                  environment e (perform_update_id,
+                                 tt,
+                                 bs,
+                                 s.diag_preamble_temp_dir);
 
-                environment e (perform_update_id, tt, bs, false /* temp_dir */);
+                  print_runner r (print_line, print_iterations);
 
-                cout << "diag: " << p.execute_special (ctx.global_scope,
+                  names diag (p.execute_diag_preamble (ctx.global_scope,
                                                        ctx.global_scope,
-                                                       e,
-                                                       *s.diag_line) << endl;
+                                                       e, s, r,
+                                                       true /* diag */,
+                                                       true /* enter */,
+                                                       true /* leave */));
+
+                  cout << "diag: " << diag << endl;
+                }
+                else
+                  cout << (s.diag_preamble_temp_dir ? "true" : "false") << endl;
               }
 
               break;

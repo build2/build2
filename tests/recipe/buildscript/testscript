@@ -182,6 +182,25 @@ posix = ($cxx.target.class != 'windows')
     $* clean 2>-
   }
 
+  : diag
+  :
+  {
+    cat <<EOI >=buildfile;
+      foo:
+      {{
+        v1 = foo
+        echo bar | set v2
+        diag $v1 $v2 $>
+        echo "$v1 $v2" >$path($>)
+      }}
+      EOI
+
+      $* 2>'foo bar file{foo.}';
+      cat <<<foo >'foo bar';
+
+      $* clean 2>-
+  }
+
   : depdb
   :
   {
