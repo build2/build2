@@ -1612,7 +1612,7 @@ description:
   +(':' <text>)
 \
 
-Note that the only purpose of having a separate (from the command flow control
+Note that the only purpose of having separate (from the command flow control
 constructs) variable-only flow control constructs is to remove the error-prone
 requirement of having to specify \c{+} and \c{-} prefixes in group
 setup/teardown.
@@ -1839,48 +1839,31 @@ variable-flow-body:
   *variable-like
 \
 
-A group of variables can be set in a loop, while iterating over elements of a
-potentially empty list and setting the specified variable (called \i{loop
-variable}) to the corresponding element on each iteration. At the end of the
-iteration the loop variable contains the value of the last element, if any.
-
-In the first form the list results from an expression containing variable
-expansions, function calls, eval contexts, and/or literal values. For example:
+A group of variables can be set in a loop while iterating over elements of a
+list. The iteration semantics is the same as in \c{command-for}. For example:
 
 \
-us =
-ls =
-
-for v: $vs
-  us += $string.ucase($v)
-  ls += $string.lcase($v)
+uvalues =
+for v: $values
+  uvalues += $string.ucase($v)
 end
 \
 
-In the second form the list is read from \c{stdin} input. The input data can
-be split into elements at newlines or whitespaces if \c{-n} or \c{-w} option,
-respectively, is specified. This form supports the same set of options as the
-\l{#builtins-set \c{set}} pseudo-builtin. For example:
+Another example:
 
 \
-us =
-ls =
-
+uvalues =
 cat values.txt | for -n v
-  us += $string.ucase($v)
-  ls += $string.lcase($v)
+  uvalues += $string.ucase($v)
 end
 \
 
-This example can actually be simplified as:
+Or using the \c{stdin} redirect:
 
 \
-us =
-ls =
-
+uvalues =
 for -n v <=values.txt
-  us += $string.ucase($v)
-  ls += $string.lcase($v)
+  uvalues += $string.ucase($v)
 end
 \
 
@@ -1897,16 +1880,16 @@ variable-flow-body:
   *variable-like
 \
 
-A group of variables can be set in a loop, while iterating until the condition
-evaluates to \c{false}. The condition \c{command-line} semantics is the same
-as in \c{scope-if}. For example:
+A group of variables can be set in a loop while the condition evaluates to
+\c{true}. The condition \c{command-line} semantics is the same as in
+\c{scope-if}. For example:
 
 \
-r =
+uvalues =
 i = [uint64] 0
-
-while ($i != 2)
-  r += ($vs[$i])
+n = $size($values)
+while ($i != $n)
+  uvalues += $string.ucase($values[$i])
   i += 1
 end
 \
@@ -2018,49 +2001,47 @@ command-flow-body:
   *(variable-line|command-like)
 \
 
-A group of commands can be executed in a loop, while iterating over elements
-of a potentially empty list and setting the specified variable (called \i{loop
-variable}) to the corresponding element on each iteration. At the end of the
-iteration the loop variable contains the value of the last element, if any.
-Note that in a compound test, commands inside \c{command-for} must not end
-with \c{;}. Rather, \c{;} may follow \c{end}.
+A group of commands can be executed in a loop while iterating over elements of
+a list and setting the specified variable (called \i{loop variable}) to the
+corresponding element on each iteration. At the end of the iteration the loop
+variable contains the value of the last element, if any.  Note that in a
+compound test, commands inside \c{command-for} must not end with
+\c{;}. Rather, \c{;} may follow \c{end}.
 
-In the first form the list results from an expression containing variable
-expansions, function calls, eval contexts, and/or literal values. For example:
+The \c{for} loop has two forms: In the first form the list is specified as
+arguments. Similar to the \c{for} loop in the Buildfile language, it can
+contain variable expansions, function calls, evaluation contexts, and/or
+literal values. For example:
 
 \
-ls = ;
-for v: $vs
-  test1 $string.ucase($v)
-  ls += $string.lcase($v)
+for v: $values
+  test1 $v
 end;
-test2 $ls
+test2
 \
 
-In the second form the list is read from \c{stdin} input. The input data can
-be split into elements at newlines or whitespaces if \c{-n} or \c{-w} option,
-respectively, is specified. This form supports the same set of options as the
-\l{#builtins-set \c{set}} pseudo-builtin. For example:
+In the second form the list is read from the \c{stdin} input. The input data
+is split into elements either at whitespaces (default) or newlines, which can
+be controlled with the \c{-n|--newline} and \c{-w|--whitespace} options.
+Overall, this form supports the same set of options as the \l{#builtins-set
+\c{set}} pseudo-builtin. For example:
 
 \
-ls = ;
 cat values.txt | for -n v
-  test1 $string.ucase($v)
-  ls += $string.lcase($v)
-end;
-test2 $ls
+  test1 $v
+end
 \
 
-This example can actually be simplified:
+Or using the \c{stdin} redirect:
 
 \
-ls = ;
 for -n v <=values.txt
-  test1 $string.ucase($v)
-  ls += $string.lcase($v)
-end;
-test2 $ls
+  test1 $v
+end
 \
+
+Both forms can include value attributes enclosed in \c{[]} to be applied to
+each element, again similar to the \l{#builtins-set \c{set}} pseudo-builtin.
 
 
 \h#syntax-command-while|Command-While|
@@ -2075,22 +2056,27 @@ command-flow-body:
   *(variable-line|command-like)
 \
 
-A group of commands can be executed in a loop, while iterating until the
-condition evaluates to \c{false}. The condition \c{command-line} semantics is
-the same as in \c{scope-if}. Note that in a compound test, commands inside
-\c{command-while} must not end with \c{;}. Rather, \c{;} may follow
-\c{end}. For example:
+A group of commands can be executed in a loop while a condition evaluates to
+\c{true}. The condition \c{command-line} semantics is the same as in
+\c{scope-if}. Note that in a compound test, commands inside \c{command-while}
+must not end with \c{;}. Rather, \c{;} may follow \c{end}. For example:
 
 \
-r = ;
 i = [uint64] 0;
-while ($i != 2)
-  v = ($vs[$i])
-  test1 $v
-  r += $v
+n = $size($values);
+while ($i != $n)
+  test1 ($values[$i])
   i += 1
 end;
-test2 $r
+test2
+\
+
+Another example:
+
+\
+while test -f $file
+  test1 $file
+end
 \
 
 
