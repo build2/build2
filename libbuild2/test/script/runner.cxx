@@ -166,18 +166,24 @@ namespace build2
           text << ": " << c << expr;
         }
 
-        // Print test id once per test expression.
+        // Print test id once per test expression and only for the topmost
+        // one.
         //
         auto df = make_diag_frame (
-          [&sp](const diag_record& dr)
+          [&sp, print = (sp.exec_level == 0)](const diag_record& dr)
           {
-            // Let's not depend on how the path representation can be improved
-            // for readability on printing.
-            //
-            dr << info << "test id: " << sp.id_path.posix_string ();
+            if (print)
+            {
+              // Let's not depend on how the path representation can be
+              // improved for readability on printing.
+              //
+              dr << info << "test id: " << sp.id_path.posix_string ();
+            }
           });
 
+        ++sp.exec_level;
         build2::script::run (sp, expr, ii, li, ll, cf);
+        --sp.exec_level;
       }
 
       bool default_runner::
@@ -189,18 +195,26 @@ namespace build2
         if (verb >= 3)
           text << ": ?" << expr;
 
-        // Print test id once per test expression.
+        // Print test id once per test expression and only for the topmost
+        // one.
         //
         auto df = make_diag_frame (
-          [&sp](const diag_record& dr)
+          [&sp, print = (sp.exec_level == 0)](const diag_record& dr)
           {
-            // Let's not depend on how the path representation can be improved
-            // for readability on printing.
-            //
-            dr << info << "test id: " << sp.id_path.posix_string ();
+            if (print)
+            {
+              // Let's not depend on how the path representation can be
+              // improved for readability on printing.
+              //
+              dr << info << "test id: " << sp.id_path.posix_string ();
+            }
           });
 
-        return build2::script::run_cond (sp, expr, ii, li, ll);
+        ++sp.exec_level;
+        bool r (build2::script::run_cond (sp, expr, ii, li, ll));
+        --sp.exec_level;
+
+        return r;
       }
     }
   }

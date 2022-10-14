@@ -148,6 +148,19 @@
     %.+
     EOE
 
+  : nested-diag-test-id
+  :
+  $c <<EOI && $b 2>>EOE != 0
+    echo "a b" | for -w x
+      echo "x y" | for -w y
+        test -f $x$y
+      end
+    end
+    EOI
+    testscript:3:5: error: test exited with code 1
+      info: test id: 1
+    EOE
+
   : var-value
   :
   $c <<EOI && $b >>EOO
@@ -344,6 +357,19 @@
       info: expected stdout: test/1/stdout-i1-i2-n3.orig
       info: stdout diff: test/1/stdout-i1-i2-n3.diff
     %.+
+    EOE
+
+  : nested-diag-test-id
+  :
+  $c <<EOI && $b 2>>EOE != 0
+    for -w x <"a b"
+      for -w y <"x y"
+        test -f $x$y
+      end
+    end
+    EOI
+    testscript:3:5: error: test exited with code 1
+      info: test id: 1
     EOE
 
   : var-value

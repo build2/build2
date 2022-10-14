@@ -96,6 +96,22 @@ namespace build2
 
         scope_state state = scope_state::unknown;
 
+        // The command expression execution nesting level. Can be maintained
+        // by the runner to, for example, only perform some housekeeping on
+        // the topmost level (add the test id to the diagnostics, etc).
+        //
+        // Note that the command expression execution can be nested, so that
+        // the outer expression execution is not completed before all the
+        // inner expressions are executed. As for example in:
+        //
+        // echo 'a b' | for x
+        //   echo 'c d' | for y
+        //     test $x $y
+        //   end
+        // end
+        //
+        size_t exec_level = 0;
+
         // Test program paths.
         //
         // Currently always contains a single element (see test_program() for
@@ -105,7 +121,7 @@ namespace build2
         //
         small_vector<const path*, 1> test_programs;
 
-        void
+        virtual void
         set_variable (string name,
                       names&&,
                       const string& attrs,
