@@ -967,6 +967,9 @@ the teardown commands are executed sequentially and in the order specified.
 Again, if any of them fail, the group execution is terminated and the group is
 considered to have failed.
 
+\N|Currently, the only way to run several executables serially is to place
+them into a single compound test. See \l{#syntax-test Test} for details.|
+
 As an example, consider the following version of \c{basics.testscript}:
 
 \
@@ -1748,6 +1751,10 @@ conf = test.conf;
 cat <'verbose = true' >=$conf;
 test1 $conf
 \
+
+\N|As discussed in \l{#model Model and Execution}, tests are executed in
+parallel. Currently, the only way to run several executables serially is to
+place them into a single compound test.|
 
 
 \h#syntax-variable|Variable|
