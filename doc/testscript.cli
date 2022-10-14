@@ -622,15 +622,27 @@ By convention, the testscript file should be called either \c{testscript} if
 you only have one or have the \c{.testscript} extension, for example,
 \c{basics.testscript}. The \c{test} module registers the \c{testscript{\}}
 target type to be used for testscript files. We don't have to use explicit
-target type for the \c{testscript} file.
+target type for the \c{testscript} file. For example:
+
+\
+exe{hello}: testscript{basics advanced}
+\
 
 A testscript prerequisite can be specified for any target. For example, if
-our directory contains a bunch of shell scripts that we want to test together,
+our directory contains a bunch of executables that we want to test together,
 then it makes sense to specify the testscript prerequisite for the directory
 target:
 
 \
-./: testscript{basics}
+./: testscript
+\
+
+Similarly, the same testscript can be used to test multiple targets. For
+example:
+
+\
+exe{hello}:      testscript{basics advanced}
+exe{hello-lite}: testscript{basics}
 \
 
 During variable lookup if a variable is not found in one of the testscript
@@ -743,6 +755,65 @@ as expected.
 
 \N|The \c{test.redirects}, \c{test.cleanups}, and \c{$*} variables are of the
 special \c{cmdline} type, see \l{#lexical Lexical Structure} for details.|
+
+The special \c{test.*} variables make it fairly easy to arrange the testing of
+a single executable. What if we need to run multiple executables from a single
+testscript file? For example, we may have a pair of executables, such as
+\c{reader} and \c{writer}, that must be tested together. Or we may have a
+number of test executables that all require a common setup, for example,
+cryptographic key generation, which we would like not to repeating for each
+test. While it is possible to achieve this with target-specific variables
+similar to \c{test}, things will be less automatics. In particular, there
+will be no automatic translation of target names to paths and we will have
+to do it manually. For example:
+
+\
+# buildfile
+
+./: exe{reader}: cxx{reader} ...
+./: exe{writer}: cxx{writer} ...
+
+./: testscript
+{
+  reader = exe{reader}
+  writer = exe{writer}
+}
+\
+
+\
+# testscript
+
+# Translate targets to paths.
+#
+reader = $path($reader)
+writer = $path($writer)
+
+: pipe
+:
+$writer | $reader
+
+: file
+:
+$writer output;
+$reader output
+\
+
+\N|Strictly speaking, for local executables, there is no need to pass the
+target names from \c{buildfile} to \c{testscript} and instead we could just
+list them literally in \c{testscript}. In particular, this could be an
+attractive approach if we have a large number of such executables. For
+example:
+
+\
+# testscript
+
+$path(exe{test1}) : test1
+$path(exe{test2}) : test2
+$path(exe{test3}) : test3
+...
+\
+
+|
 
 Another pre-defined variable is \c{test.target}. It is used to specify the
 test target platform when cross-testing (for example, when running Windows
