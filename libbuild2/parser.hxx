@@ -304,18 +304,6 @@ namespace build2
                             value&& rhs,
                             token_type assign_kind);
 
-    void
-    apply_value (const variable*, // Optional.
-                 value& lhs,
-                 value&& rhs,
-                 token_type assign_kind,
-                 const location&,
-                 //
-                 // Attributes:
-                 //
-                 const value_type* = nullptr,
-                 bool null = false);
-
     // Return the value pack (values can be NULL/typed). Note that for an
     // empty eval context ('()' potentially with whitespaces in between) the
     // result is an empty pack, not a pack of one empty.

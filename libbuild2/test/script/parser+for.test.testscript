@@ -58,7 +58,7 @@
     cmd b
     EOO
 
-    : typed-value
+    : typed-values
     :
     $* <<EOI >>~%EOO%
     for x: [dir_paths] a b
@@ -69,7 +69,7 @@
     %cmd (b/|'b\\')%
     EOO
 
-    : typed-var
+    : typed-var-value
     :
     $* <<EOI >>~%EOO%
     for [dir_path] x: a b
@@ -80,15 +80,16 @@
     %cmd (b/|'b\\')%
     EOO
 
-    : type-mismatch
+    : typed-values-var-value
     :
-    $* <<EOI 2>>EOE != 0
-    for [string] x: [dir_paths] a b
+    $* <<EOI >>~%EOO%
+    for [dir_path] x: [strings] a b
       cmd $x
     end
     EOI
-    testscript:1:1: error: conflicting variable x type string and value type dir_path
-    EOE
+    %cmd (a/|'a\\')%
+    %cmd (b/|'b\\')%
+    EOO
 
     : scope-var
     :
@@ -471,7 +472,7 @@
     echo a b | for x
     EOO
 
-    : typed-var
+    : typed-var-value
     :
     $* <<EOI >>EOO
     echo 'a b' | for -w [dir_path] x
@@ -821,7 +822,7 @@
     for x b <a
     EOO
 
-    : typed-var
+    : typed-var-value
     :
     $* <<EOI >>EOO
     for -w [dir_path] x <'a b'

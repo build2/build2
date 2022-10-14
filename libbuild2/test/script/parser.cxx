@@ -1666,15 +1666,14 @@ namespace build2
 
         auto exec_for = [this] (const variable& var,
                                 value&& val,
-                                const location& l)
+                                const attributes& val_attrs,
+                                const location&)
         {
           value& lhs (scope_->assign (var));
 
-          // To match the function semantics also pass the value's type
-          // attribute, restoring it from RHS. Note that the value can't be
-          // NULL.
-          //
-          apply_value (&var, lhs, move (val), type::assign, l, val.type);
+          attributes_.push_back (val_attrs);
+
+          apply_value_attributes (&var, lhs, move (val), type::assign);
 
           if (script_->test_command_var (var.name))
             scope_->reset_special ();

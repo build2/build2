@@ -1455,15 +1455,14 @@ namespace build2
 
         auto exec_for = [this] (const variable& var,
                                 value&& val,
-                                const location& l)
+                                const attributes& val_attrs,
+                                const location&)
         {
           value& lhs (environment_->assign (var));
 
-          // To match the function semantics also pass the value's type
-          // attribute, restoring it from RHS. Note that the value can't be
-          // NULL.
-          //
-          apply_value (&var, lhs, move (val), type::assign, l, val.type);
+          attributes_.push_back (move (val_attrs));
+
+          apply_value_attributes (&var, lhs, move (val), type::assign);
         };
 
         build2::script::parser::exec_lines (

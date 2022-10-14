@@ -2587,6 +2587,11 @@ namespace build2
               next_with_attributes (t, tt);
               attributes_push (t, tt);
 
+              // @@ TMP Currently we assume that these are the value (rather
+              //        than the variable) attributes.
+              //
+              attributes val_attrs (attributes_pop ());
+
               assert (tt == type::word && t.qtype == quote_type::unquoted);
 
               string vn (move (t.value));
@@ -2603,8 +2608,6 @@ namespace build2
 
                 var = &var_pool->insert (move (vn));
               }
-
-              apply_variable_attributes (*var);
 
               next (t, tt); // Skip the colon.
               assert (tt == type::colon);
@@ -2664,7 +2667,7 @@ namespace build2
                   if (etype != nullptr)
                     typify (v, *etype, var);
 
-                  exec_for (*var, move (v), ll);
+                  exec_for (*var, move (v), val_attrs, ll);
 
                   // Find the construct end, if it is not found yet.
                   //

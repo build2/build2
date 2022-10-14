@@ -202,6 +202,7 @@ namespace build2
 
       using exec_for_function = void (const variable&,
                                       value&&,
+                                      const attributes& value_attrs,
                                       const location&);
 
       // If a parser implementation doesn't pre-enter variables into a pool
