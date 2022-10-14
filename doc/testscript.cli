@@ -763,7 +763,7 @@ testscript file? For example, we may have a pair of executables, such as
 number of test executables that all require a common setup, for example,
 cryptographic key generation, which we would like not to repeating for each
 test. While it is possible to achieve this with target-specific variables
-similar to \c{test}, things will be less automatics. In particular, there
+similar to \c{test}, things will be less automatic. In particular, there
 will be no automatic translation of target names to paths and we will have
 to do it manually. For example:
 
