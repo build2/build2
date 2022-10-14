@@ -172,6 +172,17 @@
     b
     EOO
 
+  : both-sep-options
+  :
+  $c <<EOI && $b 2>>/~%EOE% != 0
+    echo "a b" | for -n -w x
+      echo $x >|
+    end
+    EOI
+    testscript:1:1: error: for: both -n|--newline and -w|--whitespace specified
+    %.+
+    EOE
+
   : invalid-option
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
@@ -182,7 +193,6 @@
     testscript:1:1: error: for: unknown option '-a'
     %.+
     EOE
-
 
   : no-variable
   :
@@ -219,7 +229,7 @@
   : exit
   :
   $c <<EOI && $b >>EOO
-    for x: a b
+    echo "a b" | for x
       echo "$x" >|
       exit
     end
@@ -230,7 +240,7 @@
   : error
   :
   $c <<EOI && $b >>EOO 2>>EOE != 0
-    for x: a b
+    echo "a b" | for x
       echo "$x" >|
       exit 'fed up'
     end
@@ -325,7 +335,8 @@
       echo $x >|
     end
     EOI
-    a b/
+    a/
+    b/
     EOO
 
   : nested
@@ -419,7 +430,7 @@
   : exit
   :
   $c <<EOI && $b >>EOO
-    for x: a b
+    for x <"a b"
       echo "$x" >|
       exit
     end
@@ -430,7 +441,7 @@
   : error
   :
   $c <<EOI && $b >>EOO 2>>EOE != 0
-    for x: a b
+    for x <"a b"
       echo "$x" >|
       exit 'fed up'
     end

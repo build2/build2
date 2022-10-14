@@ -2521,7 +2521,7 @@ namespace build2
 
                     stream_reader sr (
                       move (in), pipe,
-                      ops.whitespace (), ops.newline (), ops.exact (),
+                      !ops.newline (), ops.newline (), ops.exact (),
                       dl, deadline_cmd,
                       ll);
 
