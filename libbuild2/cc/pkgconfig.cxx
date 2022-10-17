@@ -161,6 +161,8 @@ namespace build2
                       const string& stem,
                       bool common) const
     {
+      tracer trace (x, "pkgconfig_search");
+
       // When it comes to looking for .pc files we have to decide where to
       // search (which directory(ies)) as well as what to search for (which
       // names). Suffix is our ".shared" or ".static" extension.
@@ -251,6 +253,9 @@ namespace build2
 
       if (pkgconfig_derive (libd, check))
       {
+        l6 ([&]{trace << "found " << libd << stem << " in "
+                      << (d.a.empty () ? d.a : d.s).directory ();});
+
         r.first  = move (d.a);
         r.second = move (d.s);
       }
@@ -1068,9 +1073,16 @@ namespace build2
 
       // Note that we rely on the "small function object" optimization here.
       //
-      auto add_pc_dir = [&pc_dirs] (dir_path&& d) -> bool
+      auto add_pc_dir = [&trace, &pc_dirs] (dir_path&& d) -> bool
       {
-        pc_dirs.emplace_back (move (d));
+        // Suppress duplicated.
+        //
+        if (find (pc_dirs.begin (), pc_dirs.end (), d) == pc_dirs.end ())
+        {
+          l6 ([&]{trace << "search path " << d;});
+          pc_dirs.emplace_back (move (d));
+        }
+
         return false;
       };
 
