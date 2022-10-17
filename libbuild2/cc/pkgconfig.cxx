@@ -182,28 +182,36 @@ namespace build2
         // then you get something like zlib which calls it zlib.pc. So let's
         // just do it.
         //
-        f = dir;
-        f /= "lib";
-        f += stem;
-        f += sfx;
-        f += ".pc";
-        if (exists (f))
+        // And as you think you've covered all the bases, someone decides to
+        // play with the case (libXau.* vs xau.pc). So let's also try the
+        // lower-case versions of the stem unless we are on a case-insensitive
+        // filesystem.
+        //
+        auto check = [&dir, & sfx, &f] (const string& n)
+        {
+          f = dir;
+          f /= n;
+          f += sfx;
+          f += ".pc";
+          return exists (f);
+        };
+
+        if (check ("lib" + stem) || check (stem))
           return f;
 
-        f = dir;
-        f /= stem;
-        f += sfx;
-        f += ".pc";
-        if (exists (f))
-          return f;
+#ifndef _WIN32
+        string lstem (lcase (stem));
+
+        if (lstem != stem)
+        {
+          if (check ("lib" + lstem) || check (lstem))
+            return f;
+        }
+#endif
 
         if (proj)
         {
-          f = dir;
-          f /= proj->string ();
-          f += sfx;
-          f += ".pc";
-          if (exists (f))
+          if (check (proj->string ()))
             return f;
         }
 
@@ -248,7 +256,7 @@ namespace build2
       }
 
       return r;
-    };
+    }
 
     bool common::
     pkgconfig_load (optional<action> act,
