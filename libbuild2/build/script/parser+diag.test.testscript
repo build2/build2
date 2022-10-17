@@ -45,6 +45,17 @@ $* <<EOI >>EOO
     diag: copy foo
     EOO
 
+  # @@ TMP Enable when the unexpected 'unterminated double-quoted sequence'
+  #        error is fixed.
+  #\
+  : quoted
+  :
+  $* <<EOI >false
+    f = foo
+    diag "$f"
+    EOI
+  #\
+
   : temp_dir
   :
   {
