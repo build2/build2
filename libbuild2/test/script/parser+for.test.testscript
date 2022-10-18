@@ -801,6 +801,21 @@
     testscript:1:1: error: for: missing variable name
     EOE
 
+    : quoted-opt
+    :
+    $* <<EOI >>EOO
+    o = -w
+    for "$o" x <'a b'
+      cmd $x
+    end;
+    for "($o)" x <'a b'
+      cmd $x
+    end
+    EOI
+    for -w x <'a b'
+    for -w x <'a b'
+    EOO
+
     : untyped
     :
     $* <<EOI >>EOO

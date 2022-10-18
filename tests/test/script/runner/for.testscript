@@ -268,6 +268,29 @@
     'b'
     EOO
 
+  : quoted-opt
+  :
+  $c <<EOI && $b >>EOO
+    o = -n
+    for "$o" x <<EOF
+      a
+      b
+      EOF
+      echo "'$x'" >|
+    end;
+    for "($o)" x <<EOF
+      c
+      d
+      EOF
+      echo "'$x'" >|
+    end
+    EOI
+    'a'
+    'b'
+    'c'
+    'd'
+    EOO
+
   : newline-split
   :
   $c <<EOI && $b >>EOO

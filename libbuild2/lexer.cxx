@@ -160,13 +160,15 @@ namespace build2
         break;
       }
     case lexer_mode::foreign:
-      assert (data > 1);
-      // Fall through.
+      {
+        assert (ps == '\0' && data > 1);
+        s = false;
+        break;
+      }
     case lexer_mode::single_quoted:
     case lexer_mode::double_quoted:
       {
-        assert (ps == '\0');
-        s = false;
+        assert (false); // Can only be set manually in word().
         break;
       }
     case lexer_mode::variable:
@@ -178,8 +180,49 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (
-      state {m, data, nullopt, lsb, false, ps, s, n, q, *esc, s1, s2});
+    mode_impl (state {m, data, nullopt, lsb, false, ps, s, n, q, *esc, s1, s2});
+  }
+
+  void lexer::
+  mode_impl (state&& s)
+  {
+    // If we are in the double-quoted mode then, unless the new mode is eval
+    // or variable, delay the state switch until the current mode is expired.
+    // Note that we delay by injecting the new state beneath the current
+    // state.
+    //
+    if (!state_.empty ()                                &&
+        state_.top ().mode == lexer_mode::double_quoted &&
+        s.mode != lexer_mode::eval                      &&
+        s.mode != lexer_mode::variable)
+    {
+      state qs (move (state_.top ())); // Save quoted state.
+      state_.top () = move (s);        // Overwrite quoted state with new state.
+      state_.push (move (qs));         // Restore quoted state.
+    }
+    else
+      state_.push (move (s));
+  }
+
+  void lexer::
+  expire_mode ()
+  {
+    // If we are in the double-quoted mode, then delay the state expiration
+    // until the current mode is expired. Note that we delay by overwriting
+    // the being expired state with the current state.
+    //
+    assert (!state_.empty () &&
+            (state_.top ().mode != lexer_mode::double_quoted ||
+             state_.size () > 1));
+
+    if (state_.top ().mode == lexer_mode::double_quoted)
+    {
+      state qs (move (state_.top ())); // Save quoted state.
+      state_.pop ();                   // Pop quoted state.
+      state_.top () = move (qs);       // Expire state, restoring quoted state.
+    }
+    else
+      state_.pop ();
   }
 
   token lexer::
@@ -835,6 +878,13 @@ namespace build2
         //
         if (st.quotes && !done)
         {
+          auto quoted_mode = [this] (lexer_mode m)
+          {
+            state_.push (state {
+              m, 0, nullopt, false, false, '\0', false, true, true,
+              state_.top ().escapes, nullptr, nullptr});
+          };
+
           switch (c)
           {
           case '\'':
@@ -842,7 +892,7 @@ namespace build2
               // Enter the single-quoted mode in case the derived lexer needs
               // to notice this.
               //
-              mode (lexer_mode::single_quoted);
+              quoted_mode (lexer_mode::single_quoted);
 
               switch (qtype)
               {
@@ -881,7 +931,8 @@ namespace build2
             {
               get ();
 
-              mode (lexer_mode::double_quoted);
+              quoted_mode (lexer_mode::double_quoted);
+
               st = state_.top ();
               m = st.mode;
 

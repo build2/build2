@@ -133,10 +133,23 @@ namespace build2
     const path_name&
     name () const {return name_;}
 
-    // Note: sets mode for the next token. The second argument can be used to
-    // specify the pair separator character (if the mode supports pairs). If
-    // escapes is not specified, then inherit the current mode's (though a
-    // mode can also override it).
+    // Set the lexer mode for the next token or delay this until the end of a
+    // double-quoted token sequence is encountered. The second argument can be
+    // used to specify the pair separator character (if the mode supports
+    // pairs). If escapes is not specified, then inherit the current mode's
+    // (though a mode can also override it).
+    //
+    // Note that there is a common parsing pattern of sensing the language
+    // construct kind we are about to parse by reading its first token,
+    // switching to an appropriate lexing mode, and then parsing the rest. The
+    // problem here is that the first token may start the double-quoted token
+    // sequence, turning the lexer into the double-quoted mode. In this case
+    // switching the lexer mode right away would not be a good idea. Thus,
+    // this function delays the mode switch until the end of the double-quoted
+    // sequence is encountered. Note, however, that such a delay only works
+    // properly if the function is called right after the first quoted token
+    // is read (because any subsequent tokens may end up being parsed in a
+    // nested mode such as variable or eval; see mode_impl() for details).
     //
     virtual void
     mode (lexer_mode,
@@ -153,10 +166,12 @@ namespace build2
       state_.top ().lsbrace_unsep = unsep;
     }
 
-    // Expire the current mode early.
+    // Expire the current mode early or delay this until the end of a
+    // double-quoted token sequence is encountered (see mode() for details on
+    // the delay condition and reasoning).
     //
     void
-    expire_mode () {state_.pop ();}
+    expire_mode ();
 
     lexer_mode
     mode () const {return state_.top ().mode;}
@@ -258,6 +273,20 @@ namespace build2
     pair<bool, bool>
     skip_spaces ();
 
+    // Set state for the next token or delay until the end of a double-quoted
+    // token sequence is encountered (see mode() for details on the delay
+    // condition and reasoning).
+    //
+    void
+    mode_impl (state&&);
+
+    state&
+    current_state ()
+    {
+      assert (!state_.empty ());
+      return state_.top ();
+    }
+
     // Diagnostics.
     //
   protected:
@@ -286,11 +315,14 @@ namespace build2
     }
 
     const path_name& name_;
-    std::stack<state> state_;
 
     bool sep_; // True if we skipped spaces in peek().
 
   private:
+    // Use current_state(), mode_impl(), and expire_mode().
+    //
+    std::stack<state> state_;
+
     using base = char_scanner<butl::utf8_validator, 2>;
 
     // Buffer for a get()/peek() potential error.

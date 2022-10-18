@@ -68,6 +68,8 @@ namespace build2
         static redirect_aliases_type redirect_aliases;
 
       private:
+        using build2::script::lexer::mode; // Getter.
+
         token
         next_line ();
 

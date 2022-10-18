@@ -1550,6 +1550,48 @@ if $posix
         $* clean 2>-
       }
 
+      : quoting
+      :
+      {
+        echo 'bar' >=bar;
+        echo 'baz' >=baz;
+
+        cat <<EOI >=buildfile;
+          foo: bar baz
+          {{
+            n = 'gen'
+            diag "($n)" ($>)
+
+            p = $path($>)
+            rm -f $p
+
+            o = -w
+            for "$o" f <<"EOF"
+            $path($<)
+            EOF
+              cat $f >>$p
+            end
+
+            o = -n
+            for "($o)" f <<"EOF"
+            $path($<)
+            EOF
+              echo $f >>$p
+            end
+          }}
+          EOI
+
+        $* 2>'gen file{foo.}';
+
+        cat <<<foo >>~%EOO%;
+          bar
+          baz
+          %.+bar .+baz%
+          EOO
+
+        $* clean 2>-
+      }
+
       : special-var
       :
       {

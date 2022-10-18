@@ -543,20 +543,20 @@
     buildfile:11:1: error: for: missing variable name
     EOE
 
-    # @@ TMP Enable when the unexpected 'unterminated double-quoted sequence'
-    #    error is fixed.
-    #\
-    : quoted-ops
+    : quoted-opt
     :
     $* <<EOI >>EOO
-    o=-w
+    o = -w
     for "$o" x <'a b'
+      cmd $x
+    end
+    for "($o)" x <'a b'
       cmd $x
     end
     EOI
     for -w x <'a b'
+    for -w x <'a b'
     EOO
-    #\
 
     : untyped
     :

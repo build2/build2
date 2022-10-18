@@ -112,6 +112,8 @@ namespace build2
       const redirect_aliases_type& redirect_aliases;
 
     protected:
+      using build2::lexer::mode; // Getter.
+
       lexer (istream& is, const path_name& name, uint64_t line,
              const char* escapes,
              bool set_mode,

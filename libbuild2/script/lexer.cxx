@@ -24,10 +24,7 @@ namespace build2
       bool q (true); // quotes
 
       if (!esc)
-      {
-        assert (!state_.empty ());
-        esc = state_.top ().escapes;
-      }
+        esc = current_state ().escapes;
 
       switch (m)
       {
@@ -84,7 +81,7 @@ namespace build2
       }
 
       assert (ps == '\0');
-      state_.push (
+      mode_impl (
         state {m, data, nullopt, false, false, ps, s, n, q, *esc, s1, s2});
     }
 
@@ -93,7 +90,7 @@ namespace build2
     {
       token r;
 
-      switch (state_.top ().mode)
+      switch (mode ())
       {
       case lexer_mode::command_expansion:
       case lexer_mode::here_line_single:
@@ -119,7 +116,7 @@ namespace build2
       xchar c (get ());
       uint64_t ln (c.line), cn (c.column);
 
-      const state& st (state_.top ());
+      const state& st (current_state ());
       lexer_mode m (st.mode);
 
       auto make_token = [&sep, &m, ln, cn] (type t)

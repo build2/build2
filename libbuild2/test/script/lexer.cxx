@@ -34,10 +34,7 @@ namespace build2
         bool q (true); // quotes
 
         if (!esc)
-        {
-          assert (!state_.empty ());
-          esc = state_.top ().escapes;
-        }
+          esc = current_state ().escapes;
 
         switch (m)
         {
@@ -113,7 +110,7 @@ namespace build2
         }
 
         assert (ps == '\0');
-        state_.push (
+        mode_impl (
           state {m, data, nullopt, false, false, ps, s, n, q, *esc, s1, s2});
       }
 
@@ -122,7 +119,7 @@ namespace build2
       {
         token r;
 
-        switch (state_.top ().mode)
+        switch (mode ())
         {
         case lexer_mode::command_line:
         case lexer_mode::first_token:
@@ -151,7 +148,7 @@ namespace build2
         xchar c (get ());
         uint64_t ln (c.line), cn (c.column);
 
-        state st (state_.top ()); // Make copy (see first/second_token).
+        state st (current_state ()); // Make copy (see first/second_token).
         lexer_mode m (st.mode);
 
         auto make_token = [&sep, ln, cn] (type t)
@@ -167,7 +164,7 @@ namespace build2
           assert (m == lexer_mode::variable_line ||
                   m == lexer_mode::for_loop);
 
-          state_.top ().lsbrace = false; // Note: st is a copy.
+          current_state ().lsbrace = false; // Note: st is a copy.
 
           if (c == '[' && (!st.lsbrace_unsep || !sep))
             return make_token (type::lsbrace);
@@ -180,7 +177,7 @@ namespace build2
         // we push any new mode (e.g., double quote).
         //
         if (m == lexer_mode::first_token || m == lexer_mode::second_token)
-          state_.pop ();
+          expire_mode ();
 
         // NOTE: remember to update mode() if adding new special characters.
 
@@ -191,7 +188,7 @@ namespace build2
             // Expire variable value mode at the end of the line.
             //
             if (m == lexer_mode::variable_line)
-              state_.pop ();
+              expire_mode ();
 
             sep = true; // Treat newline as always separated.
             return make_token (type::newline);
@@ -322,7 +319,7 @@ namespace build2
         if (c == '\n')
         {
           get ();
-          state_.pop (); // Expire the description mode.
+          expire_mode (); // Expire the description mode.
           return token (type::newline, true, ln, cn, token_printer);
         }
 
