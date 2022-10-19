@@ -38,16 +38,19 @@ namespace build2
 
   // Prerequisite inclusion/exclusion (see include() function below).
   //
+  // Note that posthoc is handled internally and should normally be treated by
+  // the rules the same as excluded.
+  //
   class include_type
   {
   public:
-    enum value {excluded, adhoc, normal};
+    enum value {excluded, posthoc, adhoc, normal};
 
     include_type (value v): v_ (v) {}
     include_type (bool  v): v_ (v ? normal : excluded) {}
 
     operator         value () const {return v_;}
-    explicit operator bool () const {return v_ != excluded;}
+    explicit operator bool () const {return v_ == normal || v_ == adhoc;}
 
   private:
     value v_;
@@ -712,6 +715,12 @@ namespace build2
     static const size_t offset_applied  = 4; // Rule has been applied.
     static const size_t offset_executed = 5; // Recipe has been executed.
     static const size_t offset_busy     = 6; // Match/execute in progress.
+
+    // @@ PERF There is a lot of data below that is only needed for "output"
+    //    as opposed to "source" targets (data pads, prerequisite_targets,
+    //    etc). Maybe we should move this stuff to an optional extra (like we
+    //    have for the root scope). Maybe we could even allocate it as part of
+    //    the target's memory block or some such?
 
     // Inner/outer operation state. See <libbuild2/action.hxx> for details.
     //

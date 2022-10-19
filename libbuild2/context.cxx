@@ -737,6 +737,10 @@ namespace build2
     dependency_count.store (0, memory_order_relaxed);
     target_count.store (0, memory_order_relaxed);
     skip_count.store (0, memory_order_relaxed);
+
+    // Clear accumulated targets with post hoc prerequisites.
+    //
+    current_posthoc_targets.clear ();
   }
 
   bool run_phase_mutex::

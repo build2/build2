@@ -874,7 +874,9 @@ namespace build2
           fail (l) << "forwarding to source directory " << rs.src_path ();
       }
       else
-        load (params, rs, buildfile, out_base, src_base, l); // Normal load.
+        // Normal load.
+        //
+        perform_load (params, rs, buildfile, out_base, src_base, l);
     }
 
     static void
@@ -894,7 +896,7 @@ namespace build2
         ts.push_back (&rs);
       }
       else
-        search (params, rs, bs, bf, tk, l, ts); // Normal search.
+        perform_search (params, rs, bs, bf, tk, l, ts); // Normal search.
     }
 
     static void

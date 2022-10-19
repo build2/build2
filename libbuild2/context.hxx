@@ -388,12 +388,22 @@ namespace build2
     const variable_overrides& var_overrides; // Project and relative scope.
     function_map& functions;
 
-    // Enter project-wide (as opposed to global) variable overrides.
+    // Current targets with post hoc prerequisites.
     //
-    void
-    enter_project_overrides (scope& rs,
-                             const dir_path& out_base,
-                             const variable_overrides&);
+    // Note that we don't expect many of these so a simple mutex should be
+    // sufficient. Note also that we may end up adding more entries as we
+    // match existing so use list for node and iterator stability. See
+    // match_poshoc() for details.
+    //
+    struct posthoc_target
+    {
+      build2::action                          action;
+      reference_wrapper<const build2::target> target;
+      vector<const build2::target*>           prerequisite_targets;
+    };
+
+    list<posthoc_target> current_posthoc_targets;
+    mutex                current_posthoc_targets_mutex;
 
     // Global scope.
     //
@@ -638,6 +648,13 @@ namespace build2
              const strings& cmd_vars = {},
              optional<context*> module_context = nullptr,
              const loaded_modules_lock* inherited_mudules_lock = nullptr);
+
+    // Enter project-wide (as opposed to global) variable overrides.
+    //
+    void
+    enter_project_overrides (scope& rs,
+                             const dir_path& out_base,
+                             const variable_overrides&);
 
     // Set current meta-operation and operation.
     //

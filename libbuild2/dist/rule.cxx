@@ -79,6 +79,10 @@ namespace build2
                   !p.dir.sub (out_root))
                 continue;
 
+              // @@ TODO: this can actually be order-dependent: for example
+              //    libs{} prerequisite may be unknown because we haven't
+              //    matched the lib{} group yet.
+              //
               fail << "prerequisite " << k << " is not existing source file "
                    << "nor known output target" << endf;
             }

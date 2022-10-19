@@ -147,36 +147,36 @@ namespace build2
   // scope.
   //
   LIBBUILD2_SYMEXPORT void
-  load (const values&,
-        scope&,
-        const path&,
-        const dir_path&,
-        const dir_path&,
-        const location&);
+  perform_load (const values&,
+                scope&,
+                const path&,
+                const dir_path&,
+                const dir_path&,
+                const location&);
 
   // Search and match the target. This is the default implementation
   // that does just that and adds a pointer to the target to the list.
   //
   LIBBUILD2_SYMEXPORT void
-  search (const values&,
-          const scope&,
-          const scope&,
-          const path&,
-          const target_key&,
-          const location&,
-          action_targets&);
+  perform_search (const values&,
+                  const scope&,
+                  const scope&,
+                  const path&,
+                  const target_key&,
+                  const location&,
+                  action_targets&);
 
   LIBBUILD2_SYMEXPORT void
-  match (const values&, action, action_targets&,
-         uint16_t diag, bool prog);
+  perform_match (const values&, action, action_targets&,
+                 uint16_t diag, bool prog);
 
   // Execute the action on the list of targets. This is the default
   // implementation that does just that while issuing appropriate
   // diagnostics (unless quiet).
   //
   LIBBUILD2_SYMEXPORT void
-  execute (const values&, action, const action_targets&,
-           uint16_t diag, bool prog);
+  perform_execute (const values&, action, const action_targets&,
+                   uint16_t diag, bool prog);
 
   LIBBUILD2_SYMEXPORT extern const meta_operation_info mo_noop;
   LIBBUILD2_SYMEXPORT extern const meta_operation_info mo_perform;

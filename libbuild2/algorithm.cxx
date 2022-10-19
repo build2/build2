@@ -812,6 +812,69 @@ namespace build2
     return re;
   }
 
+  // If anything goes wrong, set target state to failed and return false.
+  //
+  // Note: must be called while holding target_lock.
+  //
+  static bool
+  match_posthoc (action a, target& t)
+  {
+    // The plan is to, while holding the lock, search and collect all the post
+    // hoc prerequisited and add an entry to context::current_posthoc_targets.
+    // The actual matching happens as post-pass in the meta-operation's match
+    // function.
+    //
+    // While it may seem like we could do matching here by unlocking (or
+    // unstacking) the lock for this target, that will only work for simple
+    // cases. In particular, consider:
+    //
+    // lib{foo}: ...
+    // lib{plug}: ... lib{foo}
+    // libs{foo}: libs{plug}: include = posthoc
+    //
+    // The chain we will end up with:
+    //
+    // lib{foo}->libs{foo}=>libs{plug}->lib{foo}
+    //
+    // This will trip up the cycle detection for group lib{foo}, not for
+    // libs{foo}.
+    //
+    // In the end, matching (and execution) "inline" (i.e., as we match/
+    // execute the corresponding target) appears to be unworkable in the
+    // face of cycles.
+
+    // @@ Anything we need to do for group members (see through)? Feels quite
+    //    far-fetched.
+    //
+    vector<const target*> pts;
+    try
+    {
+      for (const prerequisite& p: group_prerequisites (t))
+      {
+        if (include (a, t, p) == include_type::posthoc)
+        {
+          pts.push_back (&search (t, p)); // May fail.
+        }
+      }
+    }
+    catch (const failed&)
+    {
+      t.state[a].state = target_state::failed;
+      return false;
+    }
+
+    if (!pts.empty ())
+    {
+      context& ctx (t.ctx);
+
+      mlock l (ctx.current_posthoc_targets_mutex);
+      ctx.current_posthoc_targets.push_back (
+        context::posthoc_target {a, t, move (pts)});
+    }
+
+    return true;
+  }
+
   // If step is true then perform only one step of the match/apply sequence.
   //
   // If try_match is true, then indicate whether there is a rule match with
@@ -977,7 +1040,20 @@ namespace build2
         return make_pair (false, target_state::unknown);
 
       if (task_count == nullptr)
-        return match_impl (l, false /* step */, try_match);
+      {
+        pair<bool, target_state> r (match_impl (l, false /*step*/, try_match));
+
+        if (r.first                            &&
+            r.second != target_state::failed   &&
+            l.offset == target::offset_applied &&
+            ct.has_group_prerequisites ()) // Already matched.
+        {
+          if (!match_posthoc (a, *l.target))
+            r.second = target_state::failed;
+        }
+
+        return r;
+      }
 
       // Pass "disassembled" lock since the scheduler queue doesn't support
       // task destruction.
@@ -1003,9 +1079,18 @@ namespace build2
               {
                 phase_lock pl (t.ctx, run_phase::match); // Throws.
                 {
+                  // Note: target_lock must be unlocked within the match phase.
+                  //
                   target_lock l {a, &t, offset, first}; // Reassemble.
-                  match_impl (l, false /* step */, try_match);
-                  // Unlock within the match phase.
+
+                  pair<bool, target_state> r (
+                    match_impl (l, false /* step */, try_match));
+
+                  if (r.first                            &&
+                      r.second != target_state::failed   &&
+                      l.offset == target::offset_applied &&
+                      t.has_group_prerequisites ()) // Already matched.
+                    match_posthoc (a, t);
                 }
               }
               catch (const failed&) {} // Phase lock failure.
@@ -1033,7 +1118,7 @@ namespace build2
   }
 
   static group_view
-  resolve_members_impl (action a, const target& g, target_lock&& l)
+  resolve_members_impl (action a, const target& g, target_lock l)
   {
     // Note that we will be unlocked if the target is already applied.
     //
@@ -1048,8 +1133,10 @@ namespace build2
       {
         // Match (locked).
         //
-        if (match_impl (l, true).second == target_state::failed)
+        if (match_impl (l, true /* step */).second == target_state::failed)
           throw failed ();
+
+        // Note: only matched so no call to match_posthoc().
 
         if ((r = g.group_members (a)).members != nullptr)
           break;
@@ -1082,7 +1169,16 @@ namespace build2
 
         // Apply (locked).
         //
-        if (match_impl (l, true).second == target_state::failed)
+        pair<bool, target_state> s (match_impl (l, true /* step */));
+
+        if (s.second != target_state::failed &&
+            g.has_group_prerequisites ()) // Already matched.
+        {
+          if (!match_posthoc (a, *l.target))
+            s.second = target_state::failed;
+        }
+
+        if (s.second == target_state::failed)
           throw failed ();
 
         if ((r = g.group_members (a)).members != nullptr)
@@ -1152,9 +1248,22 @@ namespace build2
   }
 
   void
-  resolve_group_impl (action, const target&, target_lock l)
+  resolve_group_impl (action a, const target& t, target_lock l)
   {
-    match_impl (l, true /* step */, true /* try_match */);
+    pair<bool, target_state> r (
+      match_impl (l, true /* step */, true /* try_match */));
+
+    if (r.first                            &&
+        r.second != target_state::failed   &&
+        l.offset == target::offset_applied &&
+        t.has_group_prerequisites ()) // Already matched.
+    {
+      if (!match_posthoc (a, *l.target))
+        r.second = target_state::failed;
+    }
+
+    if (r.first && r.second == target_state::failed)
+      throw failed ();
   }
 
   template <typename R, typename S>
@@ -1220,7 +1329,7 @@ namespace build2
   }
 
   void
-  match_members (action a, target& t, const target* const* ts, size_t n)
+  match_members (action a, const target& t, const target* const* ts, size_t n)
   {
     // Pretty much identical to match_prerequisite_range() except we don't
     // search.
@@ -1254,7 +1363,7 @@ namespace build2
 
   void
   match_members (action a,
-                 target& t,
+                 const target& t,
                  prerequisite_targets& ts,
                  size_t s,
                  pair<uintptr_t, uintptr_t> imv)
@@ -2118,6 +2227,7 @@ namespace build2
     size_t exec (ctx.count_executed ());
     size_t busy (ctx.count_busy ());
 
+    optional<target_state> r;
     if (s.task_count.compare_exchange_strong (
           tc,
           busy,
@@ -2130,8 +2240,9 @@ namespace build2
       {
         // There could still be scope operations.
         //
-        if (t.is_a<dir> ())
-          execute_recipe (a, t, nullptr /* recipe */);
+        r = t.is_a<dir> ()
+          ? execute_recipe (a, t, nullptr /* recipe */)
+          : s.state;
 
         s.task_count.store (exec, memory_order_release);
         ctx.sched.resume (s.task_count);
@@ -2139,23 +2250,25 @@ namespace build2
       else
       {
         if (task_count == nullptr)
-          return execute_impl (a, t);
+          r = execute_impl (a, t);
+        else
+        {
+          // Pass our diagnostics stack (this is safe since we expect the
+          // caller to wait for completion before unwinding its diag stack).
+          //
+          if (ctx.sched.async (start_count,
+                               *task_count,
+                               [a] (const diag_frame* ds, target& t)
+                               {
+                                 diag_frame::stack_guard dsg (ds);
+                                 execute_impl (a, t);
+                               },
+                               diag_frame::stack (),
+                               ref (t)))
+            return target_state::unknown; // Queued.
 
-        // Pass our diagnostics stack (this is safe since we expect the
-        // caller to wait for completion before unwinding its diag stack).
-        //
-        if (ctx.sched.async (start_count,
-                             *task_count,
-                             [a] (const diag_frame* ds, target& t)
-                             {
-                               diag_frame::stack_guard dsg (ds);
-                               execute_impl (a, t);
-                             },
-                             diag_frame::stack (),
-                             ref (t)))
-          return target_state::unknown; // Queued.
-
-        // Executed synchronously, fall through.
+          // Executed synchronously, fall through.
+        }
       }
     }
     else
@@ -2166,7 +2279,7 @@ namespace build2
       else            assert (tc == exec);
     }
 
-    return t.executed_state (a, false);
+    return r ? *r : t.executed_state (a, false /* fail */);
   }
 
   target_state
@@ -2187,6 +2300,7 @@ namespace build2
     size_t exec (ctx.count_executed ());
     size_t busy (ctx.count_busy ());
 
+    optional<target_state> r;
     if (s.task_count.compare_exchange_strong (
           tc,
           busy,
@@ -2196,31 +2310,31 @@ namespace build2
       if (s.state == target_state::unknown)
       {
         if (task_count == nullptr)
-          return execute_impl (a, t);
+          r = execute_impl (a, t);
+        else
+        {
+          if (ctx.sched.async (start_count,
+                               *task_count,
+                               [a] (const diag_frame* ds, target& t)
+                               {
+                                 diag_frame::stack_guard dsg (ds);
+                                 execute_impl (a, t);
+                               },
+                               diag_frame::stack (),
+                               ref (t)))
+            return target_state::unknown; // Queued.
 
-        if (ctx.sched.async (start_count,
-                             *task_count,
-                             [a] (const diag_frame* ds, target& t)
-                             {
-                               diag_frame::stack_guard dsg (ds);
-                               execute_impl (a, t);
-                             },
-                             diag_frame::stack (),
-                             ref (t)))
-          return target_state::unknown; // Queued.
-
-        // Executed synchronously, fall through.
+          // Executed synchronously, fall through.
+        }
       }
       else
       {
         assert (s.state == target_state::unchanged ||
                 s.state == target_state::failed);
 
-        if (s.state == target_state::unchanged)
-        {
-          if (t.is_a<dir> ())
-            execute_recipe (a, t, nullptr /* recipe */);
-        }
+        r = s.state == target_state::unchanged && t.is_a<dir> ()
+          ? execute_recipe (a, t, nullptr /* recipe */)
+          : s.state;
 
         s.task_count.store (exec, memory_order_release);
         ctx.sched.resume (s.task_count);
@@ -2234,7 +2348,7 @@ namespace build2
       else            assert (tc == exec);
     }
 
-    return t.executed_state (a, false);
+    return r ? *r : t.executed_state (a, false /* fail */);
   }
 
   bool

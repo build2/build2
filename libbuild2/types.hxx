@@ -15,6 +15,7 @@
 
 #include <map>
 #include <set>
+#include <list>
 #include <array>
 #include <tuple>
 #include <regex>
@@ -114,6 +115,7 @@ namespace build2
   using std::multiset;
   using std::array;
   using std::vector;
+  using std::list;
   using butl::vector_view;  // <libbutl/vector-view.hxx>
   using butl::small_vector; // <libbutl/small-vector.hxx>
 

@@ -60,7 +60,7 @@ namespace build2
     true,    // bootstrap_outer
     nullptr, // meta-operation pre
     nullptr, // operation pre
-    &load,
+    &perform_load,
     nullptr, // search
     nullptr, // match
     nullptr, // execute
@@ -72,12 +72,12 @@ namespace build2
   // perform
   //
   void
-  load (const values&,
-        scope& root,
-        const path& bf,
-        const dir_path& out_base,
-        const dir_path& src_base,
-        const location&)
+  perform_load (const values&,
+                scope& root,
+                const path& bf,
+                const dir_path& out_base,
+                const dir_path& src_base,
+                const location&)
   {
     // Load project's root.build.
     //
@@ -96,15 +96,15 @@ namespace build2
   }
 
   void
-  search (const values&,
-          const scope&,
-          const scope& bs,
-          const path& bf,
-          const target_key& tk,
-          const location& l,
-          action_targets& ts)
+  perform_search (const values&,
+                  const scope&,
+                  const scope& bs,
+                  const path& bf,
+                  const target_key& tk,
+                  const location& l,
+                  action_targets& ts)
   {
-    tracer trace ("search");
+    tracer trace ("perform_search");
 
     context& ctx (bs.ctx);
     phase_lock pl (ctx, run_phase::match);
@@ -248,9 +248,10 @@ namespace build2
   }
 
   void
-  match (const values&, action a, action_targets& ts, uint16_t diag, bool prog)
+  perform_match (const values&, action a, action_targets& ts,
+                 uint16_t diag, bool prog)
   {
-    tracer trace ("match");
+    tracer trace ("perform_match");
 
     if (ts.empty ())
       return;
@@ -311,6 +312,7 @@ namespace build2
       // many we have started. Wait with unlocked phase to allow phase
       // switching.
       //
+      bool fail (false);
       size_t i (0), n (ts.size ());
       {
         atomic_count task_count (0);
@@ -326,14 +328,67 @@ namespace build2
           // Bail out if the target has failed and we weren't instructed to
           // keep going.
           //
-          if (s == target_state::failed && !ctx.keep_going)
+          if (s == target_state::failed)
           {
-            ++i;
-            break;
+            fail = true;
+
+            if (!ctx.keep_going)
+            {
+              ++i;
+              break;
+            }
           }
         }
 
         wg.wait ();
+      }
+
+      // If we have any targets with post hoc prerequisites, match those.
+      //
+      // See match_posthoc() for the overall approach description.
+      //
+      bool posthoc_fail (false);
+      if (!ctx.current_posthoc_targets.empty () && (!fail || ctx.keep_going))
+      {
+        // Note that on each iteration we may end up with new entries at the
+        // back. Since we start and end each iteration in serial execution, we
+        // don't need to mess with the mutex.
+        //
+        for (const context::posthoc_target& p: ctx.current_posthoc_targets)
+        {
+          action a (p.action); // May not be the same as argument action.
+          const target& t (p.target);
+
+          auto df = make_diag_frame (
+            [a, &t](const diag_record& dr)
+            {
+              if (verb != 0)
+                dr << info << "while matching to " << diag_do (t.ctx, a)
+                   << " post hoc prerequisites of " << t;
+            });
+
+          // Cannot use normal match because incrementing dependency counts in
+          // the face of cycles does not work well (we will deadlock for the
+          // reverse execution mode).
+          //
+          // @@ TODO: match in parallel.
+          //
+          for (const target* pt: p.prerequisite_targets)
+          {
+            target_state s (match_direct_sync (a, *pt, false /* fail */));
+
+            if (s == target_state::failed)
+            {
+              posthoc_fail = true;
+
+              if (!ctx.keep_going)
+                break;
+            }
+          }
+
+          if (posthoc_fail && !ctx.keep_going)
+            break;
+        }
       }
 
       // Clear the progress if present.
@@ -346,15 +401,25 @@ namespace build2
 
       // We are now running serially. Re-examine targets that we have matched.
       //
-      bool fail (false);
       for (size_t j (0); j != n; ++j)
       {
         action_target& at (ts[j]);
         const target& t (at.as<target> ());
 
-        target_state s (j < i
-                        ? match_complete (a, t, false)
-                        : target_state::postponed);
+        // We cannot attribute post hoc failures to specific targets so it
+        // seems the best we can do is just fail them all.
+        //
+        target_state s;
+        if (j < i)
+        {
+          s = match_complete (a, t, false);
+
+          if (posthoc_fail)
+            s = /*t.state[a].state =*/ target_state::failed;
+        }
+        else
+          s = target_state::postponed;
+
         switch (s)
         {
         case target_state::postponed:
@@ -405,15 +470,51 @@ namespace build2
   }
 
   void
-  execute (const values&, action a, action_targets& ts,
-           uint16_t diag, bool prog)
+  perform_execute (const values&, action a, action_targets& ts,
+                   uint16_t diag, bool prog)
   {
-    tracer trace ("execute");
+    tracer trace ("perform_execute");
 
     if (ts.empty ())
       return;
 
     context& ctx (ts[0].as<target> ().ctx);
+
+    bool posthoc_fail (false);
+    auto execute_posthoc = [&ctx, &posthoc_fail] ()
+    {
+      for (const context::posthoc_target& p: ctx.current_posthoc_targets)
+      {
+        action a (p.action); // May not be the same as argument action.
+        const target& t (p.target);
+
+        auto df = make_diag_frame (
+          [a, &t](const diag_record& dr)
+          {
+            if (verb != 0)
+              dr << info << "while " << diag_doing (t.ctx, a)
+                 << " post hoc prerequisites of " << t;
+          });
+
+        // @@ TODO: execute in parallel.
+        //
+        for (const target* pt: p.prerequisite_targets)
+        {
+          target_state s (execute_direct_sync (a, *pt, false /* fail */));
+
+          if (s == target_state::failed)
+          {
+            posthoc_fail = true;
+
+            if (!ctx.keep_going)
+              break;
+          }
+        }
+
+        if (posthoc_fail && !ctx.keep_going)
+          break;
+      }
+    };
 
     // Reverse the order of targets if the execution mode is 'last'.
     //
@@ -422,6 +523,7 @@ namespace build2
 
     phase_lock pl (ctx, run_phase::execute); // Never switched.
 
+    bool fail (false);
     {
       // Tune the scheduler.
       //
@@ -478,9 +580,18 @@ namespace build2
         }
       }
 
+      // In the 'last' execution mode run post hoc first.
+      //
+      if (ctx.current_mode == execution_mode::last)
+      {
+        if (!ctx.current_posthoc_targets.empty ())
+          execute_posthoc ();
+      }
+
       // Similar logic to execute_members(): first start asynchronous
       // execution of all the top-level targets.
       //
+      if (!posthoc_fail || ctx.keep_going)
       {
         atomic_count task_count (0);
         wait_guard wg (ctx, task_count);
@@ -496,11 +607,22 @@ namespace build2
           // Bail out if the target has failed and we weren't instructed to
           // keep going.
           //
-          if (s == target_state::failed && !ctx.keep_going)
-            break;
+          if (s == target_state::failed)
+          {
+            fail = true;
+
+            if (!ctx.keep_going)
+              break;
+          }
         }
 
         wg.wait ();
+      }
+
+      if (ctx.current_mode == execution_mode::first)
+      {
+        if (!ctx.current_posthoc_targets.empty () && (!fail || ctx.keep_going))
+          execute_posthoc ();
       }
 
       // We are now running serially.
@@ -538,15 +660,22 @@ namespace build2
 
     // Re-examine all the targets and print diagnostics.
     //
-    bool fail (false);
     for (action_target& at: ts)
     {
       const target& t (at.as<target> ());
 
+      // Similar to match we cannot attribute post hoc failures to specific
+      // targets so it seems the best we can do is just fail them all.
+      //
+      if (!posthoc_fail)
+        at.state = t.executed_state (a, false);
+      else
+        at.state = /*t.state[a].state =*/ target_state::failed;
+
       // Note that here we call executed_state() directly instead of
       // execute_complete() since we know there is no need to wait.
       //
-      switch ((at.state = t.executed_state (a, false)))
+      switch (at.state)
       {
       case target_state::unknown:
         {
@@ -623,10 +752,10 @@ namespace build2
     true,    // bootstrap_outer
     nullptr, // meta-operation pre
     nullptr, // operation pre
-    &load,
-    &search,
-    &match,
-    &execute,
+    &perform_load,
+    &perform_search,
+    &perform_match,
+    &perform_execute,
     nullptr, // operation post
     nullptr, // meta-operation post
     nullptr  // include

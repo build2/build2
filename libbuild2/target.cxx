@@ -566,9 +566,10 @@ namespace build2
 
     if (const string* v = cast_null<string> (p.vars[ctx.var_include]))
     {
-      if      (*v == "false") r = include_type::excluded;
-      else if (*v == "adhoc") r = include_type::adhoc;
-      else if (*v == "true")  r = include_type::normal;
+      if      (*v == "false")   r = include_type::excluded;
+      else if (*v == "true")    r = include_type::normal;
+      else if (*v == "adhoc")   r = include_type::adhoc;
+      else if (*v == "posthoc") r = include_type::posthoc;
       else
         fail << "invalid " << *ctx.var_include << " variable value "
              << "'" << *v << "' specified for prerequisite " << p;

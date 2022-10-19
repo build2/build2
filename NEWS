@@ -1,8 +1,40 @@
-Version 0.15.0
+Version 0.16.0
 
   * The in.substitution variable has been renamed to in.mode.
 
     The original name is still recognized for backwards compatibility.
+
+  * Support for post hoc prerequisites.
+
+    Unlike normal and ad hoc prerequisites, a post hoc prerequisite is built
+    after the target, not before. It may also form a dependency cycle together
+    with normal/ad hoc prerequisites. In other words, all this form of
+    dependency guarantees is that a post hoc prerequisite will be built if its
+    dependent target is built.
+
+    A canonical example where this can be useful is a library with a plugin:
+    the plugin depends on the library while the library would like to make
+    sure the plugin is built whenever the library is built so that programs
+    that link the library can be executed without having to specify explicit
+    dependency on the plugin (at least for the dynamic linking case):
+
+    lib{hello}: ...
+    lib{hello-plugin}: ... lib{hello}
+    libs{hello}: libs{hello-plugin}: include = posthoc
+
+    Note that there is no guarantee that post hoc prerequisites will be built
+    before the dependents of the target "see" it as built. Rather, it is
+    guaranteed that post hoc prerequisites will be built before the end of the
+    overall build (more precisely, before the current operation completes).
+    As a result, post hoc prerequisites should not be relied upon if the
+    result (for example, a source code generator) is expected to be used
+    during build (more precisely, within the same operation).
+
+    Note also that the post hoc semantics is not the same as order-only in
+    GNU make. In fact, it is an even more "relaxed" form of dependency.
+    Specifically, while order-only prerequisite is guaranteed to be built
+    before the target, post hoc prerequisite is only guaranteed to be built
+    before the end of the overall build.
 
 Version 0.15.0
 

@@ -85,7 +85,7 @@ namespace build2
       if (auto* m = rs.find_module<module> (module::name))
         m->distributed = true;
 
-      load (vs, rs, bf, out_base, src_base, l);
+      perform_load (vs, rs, bf, out_base, src_base, l);
     }
 
     // Enter the specified source file as a target of type T. The path is
@@ -301,17 +301,17 @@ namespace build2
                   const operation_info* poif (ops[pid]);
                   ctx.current_operation (*poif, oif, false /* diag_noise */);
                   action a (dist_id, poif->id, oif->id);
-                  match (params, a, ts,
-                         1     /* diag (failures only) */,
-                         false /* progress */);
+                  perform_match (params, a, ts,
+                                 1     /* diag (failures only) */,
+                                 false /* progress */);
                 }
               }
 
               ctx.current_operation (*oif, nullptr, false /* diag_noise */);
               action a (dist_id, oif->id);
-              match (params, a, ts,
-                     1     /* diag (failures only) */,
-                     false /* progress */);
+              perform_match (params, a, ts,
+                             1     /* diag (failures only) */,
+                             false /* progress */);
 
               if (auto po = oif->post_operation)
               {
@@ -320,9 +320,9 @@ namespace build2
                   const operation_info* poif (ops[pid]);
                   ctx.current_operation (*poif, oif, false /* diag_noise */);
                   action a (dist_id, poif->id, oif->id);
-                  match (params, a, ts,
-                         1     /* diag (failures only) */,
-                         false /* progress */);
+                  perform_match (params, a, ts,
+                                 1     /* diag (failures only) */,
+                                 false /* progress */);
                 }
               }
             }
@@ -1092,6 +1092,8 @@ namespace build2
       // given the prescribed semantics of adhoc (match/execute but otherwise
       // ignore) is followed.
       //
+      // Note that we don't need to do anything for posthoc.
+      //
       if (i == include_type::excluded)
       {
         l5 ([&]{trace << "overriding exclusion of " << p;});
@@ -1116,11 +1118,11 @@ namespace build2
       nullptr, // meta-operation pre
       &dist_operation_pre,
       &dist_load_load,
-      &search, // normal search
-      nullptr, // no match (see dist_execute()).
+      &perform_search,    // normal search
+      nullptr,            // no match (see dist_execute()).
       &dist_load_execute,
-      nullptr, // operation post
-      nullptr, // meta-operation post
+      nullptr,            // operation post
+      nullptr,            // meta-operation post
       &dist_include
     };
 
