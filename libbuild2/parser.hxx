@@ -696,15 +696,24 @@ namespace build2
                 replay_data_[replay_i_].mode == m);
     }
 
+    // In the replay mode return the lexing mode of the token returned by the
+    // subsequent next() or peek() call.
+    //
     lexer_mode
     mode () const
     {
       if (replay_ != replay::play)
+      {
         return lexer_->mode ();
+      }
       else
       {
-        assert (replay_i_ != replay_data_.size ());
-        return replay_data_[replay_i_].mode;
+        assert (!peeked_ || replay_i_ != 0);
+
+        size_t i (!peeked_ ? replay_i_ : replay_i_ - 1);
+        assert (i != replay_data_.size ());
+
+        return replay_data_[i].mode;
       }
     }
 
