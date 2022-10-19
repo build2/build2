@@ -851,8 +851,26 @@ namespace build2
     {
       for (const prerequisite& p: group_prerequisites (t))
       {
-        if (include (a, t, p) == include_type::posthoc)
+        // Note that we have to ignore any operation-specific values for
+        // non-posthoc prerequisites. See include_impl() for details.
+        //
+        lookup l;
+        if (include (a, t, p, &l) == include_type::posthoc)
         {
+          if (l)
+          {
+            const string& v (cast<string> (l));
+
+            // The only valid values are true and false and the latter would
+            // have been translated to include_type::exclude.
+            //
+            if (v != "true")
+            {
+              fail << "unrecognized " << *l.var << " variable value "
+                   << "'" << v << "' specified for prerequisite " << p;
+            }
+          }
+
           pts.push_back (&search (t, p)); // May fail.
         }
       }
