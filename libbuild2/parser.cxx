@@ -4393,13 +4393,12 @@ namespace build2
     next_with_attributes (t, tt);
     attributes_push (t, tt);
 
-    // @@ PAT: currently we pattern-expand for var.
+    // Enable list element attributes.
     //
-    const location vloc (get_location (t));
-    names vns (parse_names (t, tt, pattern_mode::expand));
+    enable_attributes ();
 
-    if (tt != type::colon)
-      fail (t) << "expected ':' instead of " << t << " after variable name";
+    const location vloc (get_location (t));
+    names vns (parse_names (t, tt, pattern_mode::preserve));
 
     const variable& var (parse_variable_name (move (vns), vloc));
     apply_variable_attributes (var);
@@ -4409,6 +4408,17 @@ namespace build2
       fail (vloc) << "variable " << var << " has " << var.visibility
                   << " visibility but is assigned in for-loop";
     }
+
+    // Parse the list element attributes, if present.
+    //
+    attributes_push (t, tt);
+
+    if (tt != type::colon)
+      fail (t) << "expected ':' instead of " << t << " after variable name";
+
+    // Save element attributes so that we can inject them on each iteration.
+    //
+    attributes val_attrs (attributes_pop ());
 
     // Now the value (list of names) to iterate over. Parse it similar to a
     // value on the RHS of an assignment (expansion, attributes).
@@ -4474,7 +4484,7 @@ namespace build2
 
     // Iterate.
     //
-    value& v (scope_->assign (var)); // Assign even if no iterations.
+    value& lhs (scope_->assign (var)); // Assign even if no iterations.
 
     if (!val)
       return;
@@ -4494,10 +4504,16 @@ namespace build2
       names n;
       n.push_back (move (*i));
       if (pair) n.push_back (move (*++i));
-      v = value (move (n));
+      value v (move (n));
 
       if (etype != nullptr)
         typify (v, *etype, &var);
+
+      // Inject element attributes.
+      //
+      attributes_.push_back (val_attrs);
+
+      apply_value_attributes (&var, lhs, move (v), type::assign);
 
       lexer l (is, *path_, line);
       lexer* ol (lexer_);
@@ -7479,7 +7495,7 @@ namespace build2
 
         // Handle value subscript.
         //
-        if (tt == type::lsbrace)
+        if (tt == type::lsbrace && mode () == lexer_mode::eval)
         {
           location bl (get_location (t));
           next (t, tt); // `[`

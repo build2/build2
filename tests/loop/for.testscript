@@ -116,3 +116,17 @@ a@1
 b@2
 c@3
 EOO
+
+: elem-attribute
+:
+$* <<EOI >>EOO
+for i [uint64]: 0 1 2
+{
+  i += 1
+  print $i
+}
+EOI
+1
+2
+3
+EOO

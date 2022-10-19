@@ -1562,7 +1562,7 @@ namespace build2
         {
           value& lhs (environment_->assign (var));
 
-          attributes_.push_back (move (val_attrs));
+          attributes_.push_back (val_attrs);
 
           apply_value_attributes (&var, lhs, move (val), type::assign);
         };
