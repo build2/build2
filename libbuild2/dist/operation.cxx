@@ -1092,6 +1092,8 @@ namespace build2
       // given the prescribed semantics of adhoc (match/execute but otherwise
       // ignore) is followed.
       //
+      // Note that we don't need to do anything for posthoc.
+      //
       if (i == include_type::excluded)
       {
         l5 ([&]{trace << "overriding exclusion of " << p;});

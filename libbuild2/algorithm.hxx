@@ -195,6 +195,8 @@ namespace build2
 
     explicit operator bool () const {return target != nullptr;}
 
+    // Note: achieved offset is preserved.
+    //
     void
     unlock ();
 
@@ -374,6 +376,12 @@ namespace build2
   pair<bool, target_state>
   match_sync (action, const target&, unmatch);
 
+  // As above but without incrementing the target's dependents count. Should
+  // be executed with execute_direct_*().
+  //
+  target_state
+  match_direct_sync (action, const target&, bool fail = true);
+
   // Start asynchronous match. Return target_state::postponed if the
   // asynchronous operation has been started and target_state::busy if the
   // target has already been busy. Regardless of the result, match_complete()
@@ -486,11 +494,11 @@ namespace build2
   // target pointers are skipped.
   //
   LIBBUILD2_SYMEXPORT void
-  match_members (action, target&, const target* const*, size_t);
+  match_members (action, const target&, const target* const*, size_t);
 
   template <size_t N>
   inline void
-  match_members (action a, target& t, const target* (&ts)[N])
+  match_members (action a, const target& t, const target* (&ts)[N])
   {
     match_members (a, t, ts, N);
   }
@@ -501,7 +509,7 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT void
   match_members (action a,
-                 target& t,
+                 const target& t,
                  prerequisite_targets& ts,
                  size_t start = 0,
                  pair<uintptr_t, uintptr_t> include = {0, 0});
@@ -795,8 +803,9 @@ namespace build2
 
   // Call straight or reverse depending on the current mode.
   //
+  template <typename T>
   target_state
-  execute_members (action, const target&, const target*[], size_t);
+  execute_members (action, const target&, T[], size_t);
 
   template <size_t N>
   inline target_state

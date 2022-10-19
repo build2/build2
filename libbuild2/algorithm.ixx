@@ -424,6 +424,19 @@ namespace build2
     return r;
   }
 
+  inline target_state
+  match_direct_sync (action a, const target& t, bool fail)
+  {
+    assert (t.ctx.phase == run_phase::match);
+
+    target_state r (match_impl (a, t, 0, nullptr).second);
+
+    if (fail && r == target_state::failed)
+      throw failed ();
+
+    return r;
+  }
+
   inline pair<bool, target_state>
   try_match_sync (action a, const target& t, bool fail)
   {
@@ -521,6 +534,7 @@ namespace build2
   {
     t[a].vars.clear ();
     t.prerequisite_targets[a].clear ();
+    t.posthoc_targets[a].clear ();
     t.clear_data (a);
   }
 
@@ -960,8 +974,9 @@ namespace build2
       p.first, static_cast<const T&> (p.second));
   }
 
+  template <typename T>
   inline target_state
-  execute_members (action a, const target& t, const target* ts[], size_t n)
+  execute_members (action a, const target& t, T ts[], size_t n)
   {
     return t.ctx.current_mode == execution_mode::first
       ? straight_execute_members (a, t, ts, n, 0)
