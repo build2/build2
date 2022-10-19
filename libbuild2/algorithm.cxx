@@ -1117,8 +1117,10 @@ namespace build2
     return ct.try_matched_state (a, false);
   }
 
+  // Note: lock is a reference to avoid the stacking overhead.
+  //
   static group_view
-  resolve_members_impl (action a, const target& g, target_lock l)
+  resolve_members_impl (action a, const target& g, target_lock&& l)
   {
     // Note that we will be unlocked if the target is already applied.
     //
@@ -1247,8 +1249,10 @@ namespace build2
     return r;
   }
 
+  // Note: lock is a reference to avoid the stacking overhead.
+  //
   void
-  resolve_group_impl (action a, const target& t, target_lock l)
+  resolve_group_impl (action a, const target& t, target_lock&& l)
   {
     pair<bool, target_state> r (
       match_impl (l, true /* step */, true /* try_match */));
@@ -1261,6 +1265,8 @@ namespace build2
       if (!match_posthoc (a, *l.target))
         r.second = target_state::failed;
     }
+
+    l.unlock ();
 
     if (r.first && r.second == target_state::failed)
       throw failed ();

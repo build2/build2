@@ -646,7 +646,7 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT void
-  resolve_group_impl (action, const target&, target_lock);
+  resolve_group_impl (action, const target&, target_lock&&);
 
   inline const target*
   resolve_group (action a, const target& t)
