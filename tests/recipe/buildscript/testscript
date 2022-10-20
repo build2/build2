@@ -1101,6 +1101,40 @@ if $posix
         $* clean 2>-
       }
 
+      : pair
+      :
+      {
+        mkdir -p src/build;
+        echo 'bar' >=src/bar;
+        echo 'baz' >=src/baz;
+
+        echo 'project =' >=src/build/bootstrap.build;
+
+        cat <<EOI >=src/buildfile;
+          foo: file{bar}@./ file{baz}@./
+          {{
+            p = $path($>)
+            rm -f $p
+
+            for f: $<
+              cat $path($f) >>$p
+            end
+          }}
+          EOI
+
+        $* src/@out/ 2>>/EOE;
+          mkdir fsdir{out/}
+          cat out/file{foo}
+          EOE
+
+        cat <<<out/foo >>EOO;
+          bar
+          baz
+          EOO
+
+        $* 'clean:' src/@out/ 2>-
+      }
+
       : special-var
       :
       {

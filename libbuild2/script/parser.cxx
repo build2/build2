@@ -2660,20 +2660,19 @@ namespace build2
 
                 size_t fli (li);
                 iteration_index fi {1, ii};
+                names& ns (val.as<names> ());
 
-                // @@ Handle pairs.
-                //
-                //    Do we need to always lex the variable values (for-loop
-                //    and var lines) pair-character aware?
-                //
-                //    Can there be any harm if a value with pairs is
-                //    substituted into the command line?
-                //
-                for (name& n: val.as<names> ())
+                for (auto ni (ns.begin ()), ne (ns.end ()); ni != ne; ++ni)
                 {
                   li = fli;
 
-                  value v (names {move (n)}); // Untyped.
+                  // Set the variable value.
+                  //
+                  bool pair (ni->pair);
+                  names n;
+                  n.push_back (move (*ni));
+                  if (pair) n.push_back (move (*++ni));
+                  value v (move (n)); // Untyped.
 
                   if (etype != nullptr)
                     typify (v, *etype, var);
