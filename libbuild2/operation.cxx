@@ -371,7 +371,7 @@ namespace build2
           // the face of cycles does not work well (we will deadlock for the
           // reverse execution mode).
           //
-          // @@ TODO: match in parallel.
+          // @@ PERF: match in parallel (need match_direct_async(), etc).
           //
           for (const target* pt: p.prerequisite_targets)
           {
@@ -496,8 +496,7 @@ namespace build2
                  << " post hoc prerequisites of " << t;
           });
 
-        // @@ TODO: execute in parallel.
-        //
+#if 0
         for (const target* pt: p.prerequisite_targets)
         {
           target_state s (execute_direct_sync (a, *pt, false /* fail */));
@@ -510,7 +509,45 @@ namespace build2
               break;
           }
         }
+#else
+        // Note: similar logic/reasoning to below except we use direct
+        // execution.
+        //
+        atomic_count tc (0);
+        wait_guard wg (ctx, tc);
 
+        for (const target* pt: p.prerequisite_targets)
+        {
+          target_state s (execute_direct_async (a, *pt, 0, tc, false /*fail*/));
+
+          if (s == target_state::failed)
+          {
+            posthoc_fail = true;
+
+            if (!ctx.keep_going)
+              break;
+          }
+        }
+
+        wg.wait ();
+
+        // Process the result.
+        //
+        for (const target* pt: p.prerequisite_targets)
+        {
+          // Similar to below, no need to wait.
+          //
+          target_state s (pt->executed_state (a, false /* fail */));
+
+          if (s == target_state::failed)
+          {
+            // Note: no need to keep going.
+            //
+            posthoc_fail = true;
+            break;
+          }
+        }
+#endif
         if (posthoc_fail && !ctx.keep_going)
           break;
       }
@@ -668,13 +705,15 @@ namespace build2
       // targets so it seems the best we can do is just fail them all.
       //
       if (!posthoc_fail)
-        at.state = t.executed_state (a, false);
+      {
+        // Note that here we call executed_state() directly instead of
+        // execute_complete() since we know there is no need to wait.
+        //
+        at.state = t.executed_state (a, false /* fail */);
+      }
       else
         at.state = /*t.state[a].state =*/ target_state::failed;
 
-      // Note that here we call executed_state() directly instead of
-      // execute_complete() since we know there is no need to wait.
-      //
       switch (at.state)
       {
       case target_state::unknown:

@@ -431,7 +431,7 @@ namespace build2
 
     target_state r (match_impl (a, t, 0, nullptr).second);
 
-    if (fail && r == target_state::failed)
+    if (r == target_state::failed && fail)
       throw failed ();
 
     return r;
@@ -509,7 +509,7 @@ namespace build2
     assert (ctx.phase == run_phase::match);
     target_state r (match_impl (a, t, sc, &tc).second);
 
-    if (fail && !ctx.keep_going && r == target_state::failed)
+    if (r == target_state::failed && fail && !ctx.keep_going)
       throw failed ();
 
     return r;
