@@ -33,7 +33,13 @@ namespace build2
              group_prerequisite_members (a, t, members_mode::maybe))
       {
         // Note: no exclusion tests, we want all of them (and see also the
-        // dist_include() override).
+        // dist_include() override). But if we don't ignore post hoc ones
+        // here, we will end up with a cycle (they will still be handled
+        // by the post-pass).
+        //
+        lookup l; // Ignore any operation-specific values.
+        if (include (a, t, pm, &l) == include_type::posthoc)
+          continue;
 
         // Skip prerequisites imported from other projects.
         //
