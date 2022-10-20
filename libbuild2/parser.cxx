@@ -4379,10 +4379,10 @@ namespace build2
   void parser::
   parse_for (token& t, type& tt)
   {
-    // for <varname>: <value>
+    // for [<var-attrs>] <varname> [<elem-attrs>]: [<val-attrs>] <value>
     //   <line>
     //
-    // for <varname>: <value>
+    // for [<var-attrs>] <varname> [<elem-attrs>]: [<val-attrs>] <value>
     // {
     //   <block>
     // }
