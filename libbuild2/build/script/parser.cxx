@@ -213,8 +213,7 @@ namespace build2
 
         // Determine the line type/start token.
         //
-        line_type lt (
-          pre_parse_line_start (t, tt, lexer_mode::second_token));
+        line_type lt (pre_parse_line_start (t, tt, lexer_mode::second_token));
 
         line ln;
 
@@ -258,17 +257,16 @@ namespace build2
             // or the third (x <...) one. Note that the second form (... | for
             // x) is handled separately.
             //
-            // @@ Do we diagnose `... | for x: ...`?
-            //
-            // If the next token doesn't introduce a variable (doesn't start
-            // attributes and doesn't look like a variable name), then this is
-            // the third form. Otherwise, if colon follows the variable name,
-            // then this is the first form and the third form otherwise.
+            // If the next token doesn't look like a variable name, then this
+            // is the third form. Otherwise, if colon follows the variable
+            // name, potentially after the attributes, then this is the first
+            // form and the third form otherwise.
             //
             // Note that for the third form we will need to pass the 'for'
             // token as a program name to the command expression parsing
             // function since it will be gone from the token stream by that
-            // time. Thus, we save it.
+            // time. Thus, we save it. We also need to make sure the sensing
+            // always leaves the variable name token in t/tt.
             //
             // Note also that in this model it won't be possible to support
             // options in the first form.
@@ -277,7 +275,7 @@ namespace build2
             assert (pt.type == type::word && pt.value == "for");
 
             mode (lexer_mode::for_loop);
-            next_with_attributes (t, tt);
+            next (t, tt);
 
             // Note that we also consider special variable names (those that
             // don't clash with the command line elements like redirects, etc)
@@ -285,18 +283,37 @@ namespace build2
             //
             string& n (t.value);
 
-            if (tt == type::lsbrace ||                       // Attributes.
-                (tt == type::word                &&          // Variable name.
-                 t.qtype == quote_type::unquoted &&
-                 (n[0] == '_' || alpha (n[0]) || n == "~")))
+            if (tt == type::word && t.qtype == quote_type::unquoted &&
+                (n[0] == '_' || alpha (n[0]) || // Variable.
+                 n == "~"))                     // Special variable.
             {
-              attributes_push (t, tt);
-
-              if (tt != type::word || t.qtype != quote_type::unquoted)
-                fail (t) << "expected variable name instead of " << t;
+              // Detect patterns analogous to parse_variable_name() (so we
+              // diagnose `for x[string]: ...`).
+              //
+              if (n.find_first_of ("[*?") != string::npos)
+                fail (t) << "expected variable name instead of " << n;
 
               if (special_variable (n))
                 fail (t) << "attempt to set '" << n << "' special variable";
+
+              // Parse out the element attributes, if present.
+              //
+              if (lexer_->peek_char ().first == '[')
+              {
+                // Save the variable name token before the attributes parsing
+                // and restore it afterwards. Also make sure that the token
+                // which follows the attributes stays in the stream.
+                //
+                token vt (move (t));
+                next_with_attributes (t, tt);
+
+                attributes_push (t, tt,
+                                 true /* standalone */,
+                                 false /* next_token */);
+
+                t = move (vt);
+                tt = t.type;
+              }
 
               if (lexer_->peek_char ().first == ':')
                 lt = line_type::cmd_for_args;
@@ -304,11 +321,10 @@ namespace build2
 
             if (lt == line_type::cmd_for_stream) // for x <...
             {
-              // At this point `t` contains the token that follows the `for`
-              // token and, potentially, the attributes. Now pre-parse the
-              // command expression in the command_line lexer mode starting
-              // from this position and also passing the 'for' token as a
-              // program name.
+              // At this point t/tt contains the variable name token. Now
+              // pre-parse the command expression in the command_line lexer
+              // mode starting from this position and also passing the 'for'
+              // token as a program name.
               //
               // Note that the fact that the potential attributes are already
               // parsed doesn't affect the command expression pre-parsing.

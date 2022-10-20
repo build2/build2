@@ -69,10 +69,10 @@
     %cmd (b/|'b\\')%
     EOO
 
-    : typed-var-value
+    : typed-elem
     :
     $* <<EOI >>~%EOO%
-    for [dir_path] x: a b
+    for x [dir_path]: a b
       cmd $x
     end
     EOI
@@ -80,10 +80,10 @@
     %cmd (b/|'b\\')%
     EOO
 
-    : typed-values-var-value
+    : typed-elem-value
     :
     $* <<EOI >>~%EOO%
-    for [dir_path] x: [strings] a b
+    for x [dir_path]: [strings] a b
       cmd $x
     end
     EOI
@@ -341,14 +341,14 @@
     echo a b | for x
     EOO
 
-    : typed-var-value
+    : typed-elem
     :
     $* <<EOI >>EOO
-    echo 'a b' | for -w [dir_paths] x
+    echo 'a b' | for -w x [dir_path]
       cmd $x
     end
     EOI
-    echo 'a b' | for -w [dir_paths] x
+    echo 'a b' | for -w x [dir_path]
     EOO
   }
 
@@ -579,14 +579,14 @@
     for x b <a
     EOO
 
-    : typed-var-value
+    : typed-elem
     :
     $* <<EOI >>EOO
-    for -w [dir_path] x <'a b'
+    for -w x [dir_path] <'a b'
       cmd $x
     end
     EOI
-    for -w [dir_path] x <'a b'
+    for -w x [dir_path] <'a b'
     EOO
   }
 

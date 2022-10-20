@@ -1332,30 +1332,63 @@ if $posix
       : misuse
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        : after-var
+        {
+          echo 'bar' >=bar;
+          echo 'baz' >=baz;
 
-        cat <<EOI >=buildfile;
-          foo: bar
-          {{
-            diag gen ($>)
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              diag gen ($>)
 
-            p = $path($>)
-            rm -f $p
+              p = $path($>)
+              rm -f $p
 
-            echo $path($<) | for x:
-              cat $f >>$p
-            end
-          }}
-          EOI
+              echo $path($<) | for x:
+                cat $f >>$p
+              end
+            }}
+            EOI
 
-        $* 2>>~%EOE% != 0;
-          gen file{foo.}
-          buildfile:8:3: error: for: ':' after variable name
-          %.+
-          EOE
+          $* 2>>~%EOE% != 0;
+            gen file{foo.}
+            buildfile:8:3: error: for: ':' after variable name
+            %.+
+            EOE
 
-        $* clean 2>-
+          $* clean 2>-
+        }
+
+        : after-attrs
+        {
+          echo 'bar' >=bar;
+          echo 'baz' >=baz;
+
+          cat <<EOI >=buildfile;
+            foo: bar
+            {{
+              diag gen ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              echo $path($<) | for x [path]:
+                cat $f >>$p
+              end
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0;
+            gen file{foo.}
+            <attributes>:1:7: error: whitespace required after attributes
+              <attributes>:1:1: info: use the '\[' escape sequence if this is a wildcard pattern
+              buildfile:8:3: info: while parsing attributes '[path]:'
+            %.+
+            EOE
+
+          $* clean 2>-
+        }
       }
 
       : exit

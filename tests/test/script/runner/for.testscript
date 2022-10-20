@@ -33,11 +33,11 @@
   : special-var
   :
   $c <<EOI && $b 2>>EOE != 0
-    for *: -a -b
-      echo $* >|
+    for ~: -a -b
+      echo $~ >|
     end
     EOI
-    testscript:1:5: error: attempt to set '*' variable directly
+    testscript:1:5: error: attempt to set '~' variable directly
     EOE
 
   : exit
@@ -109,7 +109,7 @@
   : typed
   :
   $c <<EOI && $b >>/EOO
-    echo "a b" | for -w [dir_path] x
+    echo "a b" | for -w x [dir_path]
       echo $x >|
     end
     EOI
@@ -208,23 +208,48 @@
   : special-var
   :
   $c <<EOI && $b 2>>EOE != 0
-    echo "a b" | for -w *
+    echo "a b" | for -w ~
       echo $* >|
     end
     EOI
-    testscript:1:1: error: attempt to set '*' variable directly
+    testscript:1:1: error: attempt to set '~' variable directly
+      info: test id: 1
+    EOE
+
+  : unsep-attrs
+  :
+  $c <<EOI && $b 2>>EOE != 0
+    echo "a b" | for -w x[string]
+      echo $x >|
+    end
+    EOI
+    testscript:1:1: error: for: expected variable name instead of x[string]
       info: test id: 1
     EOE
 
   : misuse
   :
-  $c <<EOI && $b 2>>EOE != 0
-    echo "a b" | for v:
-      echo $v >|
-    end
-    EOI
-    testscript:1:19: error: expected newline instead of ':'
-    EOE
+  {
+    : after-var
+    :
+    $c <<EOI && $b 2>>EOE != 0
+      echo "a b" | for v:
+        echo $v >|
+      end
+      EOI
+      testscript:1:19: error: expected newline instead of ':'
+      EOE
+
+    : after-attrs
+    :
+    $c <<EOI && $b 2>>EOE != 0
+      echo "a b" | for v [string]:
+        echo $v >|
+      end
+      EOI
+      testscript:1:28: error: expected newline instead of ':'
+      EOE
+  }
 
   : exit
   :
@@ -343,7 +368,7 @@
   : typed
   :
   $c <<EOI && $b >>/EOO
-    for -w [dir_path] x <"a b"
+    for -w x [dir_path] <"a b"
       echo $x >|
     end
     EOI
@@ -354,7 +379,7 @@
   : typed-no-ops
   :
   $c <<EOI && $b >>/EOO
-    for [dir_path] x <"a b"
+    for x [dir_path] <"a b"
       echo $x >|
     end
     EOI
@@ -443,11 +468,11 @@
   : special-var
   :
   $c <<EOI && $b 2>>EOE != 0
-    for * <"a b"
-      echo $* >|
+    for ~ <"a b"
+      echo $~ >|
     end
     EOI
-    testscript:1:5: error: attempt to set '*' variable directly
+    testscript:1:5: error: attempt to set '~' variable directly
     EOE
 
   : exit

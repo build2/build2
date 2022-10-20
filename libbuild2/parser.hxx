@@ -344,15 +344,25 @@ namespace build2
 
     // Push a new entry into the attributes_ stack. If the next token is `[`
     // then parse the attribute sequence until ']' storing the result in the
-    // new stack entry. Then get the next token and, if standalone is false,
-    // verify it is not newline/eos (i.e., there is something after it).
-    // Return the indication of whether we have seen any attributes (note
-    // that the `[]` empty list does not count) and the location of `[`.
+    // new stack entry. Then, if next_token is true, get the next token and,
+    // if standalone is false, verify it is not newline/eos (i.e., there is
+    // something after it). If the next token is read and it is a word or a
+    // "word-producing" token (`$` for variable expansions/function calls, `(`
+    // for eval contexts, and `{` for name generation), then verify that it is
+    // separated to reduce the possibility of confusing it with a wildcard
+    // pattern. Consider:
+    //
+    // ./: [abc]-foo.txt
+    //
+    // Return the indication of whether we have seen any attributes (note that
+    // the `[]` empty list does not count) and the location of `[`.
     //
     // Note that during pre-parsing nothing is pushed into the stack.
     //
     pair<bool, location>
-    attributes_push (token&, token_type&, bool standalone = false);
+    attributes_push (token&, token_type&,
+                     bool standalone = false,
+                     bool next_token = true);
 
     attributes
     attributes_pop ()

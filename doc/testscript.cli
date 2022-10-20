@@ -1581,16 +1581,16 @@ variable-for:
   variable-for-args|variable-for-stream
 
 variable-for-args:
-  'for' variable-attributes? <variable-name> ':' \
+  'for' <variable-name> element-attributes? ':' \
   value-attributes? <value>
   variable-flow-body
   'end' ';'?
 
-variable-attributes: '[' <key-value-pairs> ']'
+element-attributes: value-attributes
 
 variable-for-stream:
   (command-pipe '|')? \
-  'for' (<opt>|stdin)* variable-attributes? <variable-name> (stdin)*
+  'for' (<opt>|stdin)* <variable-name> element-attributes? (stdin)*
   variable-flow-body
   'end' ';'?
 
@@ -1638,14 +1638,14 @@ command-for:
   command-for-args|command-for-stream
 
 command-for-args:
-  'for' variable-attributes? <variable-name> ':' \
+  'for' <variable-name> element-attributes? ':' \
   value-attributes? <value>
   command-flow-body
   'end' (';'|(':' <text>))?
 
 command-for-stream:
   (command-pipe '|')? \
-  'for' (<opt>|stdin)* variable-attributes? <variable-name> (stdin)*
+  'for' (<opt>|stdin)* <variable-name> element-attributes? (stdin)*
   command-flow-body
   'end' (';'|(':' <text>))?
 
@@ -1902,14 +1902,14 @@ variable-for:
   variable-for-args|variable-for-stream
 
 variable-for-args:
-  'for' variable-attributes? <variable-name> ':' \
+  'for' <variable-name> element-attributes? ':' \
   value-attributes? <value>
   variable-flow-body
   'end' ';'?
 
 variable-for-stream:
   (command-pipe '|')? \
-  'for' (<opt>|stdin)* variable-attributes? <variable-name> (stdin)*
+  'for' (<opt>|stdin)* <variable-name> element-attributes? (stdin)*
   variable-flow-body
   'end' ';'?
 
@@ -2064,14 +2064,14 @@ command-for:
   command-for-args|command-for-stream
 
 command-for-args:
-  'for' variable-attributes? <variable-name> ':' \
+  'for' <variable-name> element-attributes? ':' \
   value-attributes? <value>
   command-flow-body
   'end' (';'|(':' <text>))?
 
 command-for-stream:
   (command-pipe '|')? \
-  'for' (<opt>|stdin)* variable-attributes? <variable-name> (stdin)*
+  'for' (<opt>|stdin)* <variable-name> element-attributes? (stdin)*
   command-flow-body
   'end' (';'|(':' <text>))?
 
@@ -2082,7 +2082,7 @@ command-flow-body:
 A group of commands can be executed in a loop while iterating over elements of
 a list and setting the specified variable (called \i{loop variable}) to the
 corresponding element on each iteration. At the end of the iteration the loop
-variable contains the value of the last element, if any.  Note that in a
+variable contains the value of the last element, if any. Note that in a
 compound test, commands inside \c{command-for} must not end with
 \c{;}. Rather, \c{;} may follow \c{end}.
 
@@ -3096,7 +3096,7 @@ are supported.
 \h#builtins-set|\c{set}|
 
 \
-set [-e] [-n|-w] [<attr>] <var>
+set [-e] [-n|-w] <var> [<attr>]
 \
 
 Set variable from the \c{stdin} input.
@@ -3133,7 +3133,7 @@ If the \i{attr} argument is specified, then it must contain a list of value
 attributes enclosed in \c{[]}, for example:
 
 \
-sed -e 's/foo/bar/' input | set [string] x
+sed -e 's/foo/bar/' input | set x [string]
 \
 
 Note that this is also the only way to set a variable with a computed name,
@@ -3141,7 +3141,7 @@ for example:
 
 \
 foo = FOO
-set [null] $foo <-
+set $foo [null] <-
 \
 
 \dl|

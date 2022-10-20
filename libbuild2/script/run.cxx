@@ -1171,7 +1171,7 @@ namespace build2
 
     // The set pseudo-builtin: set variable from the stdin input.
     //
-    // set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
+    // set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] <var> [<attr>]
     //
     static void
     set_builtin (environment& env,
@@ -1195,18 +1195,27 @@ namespace build2
         if (!scan.more ())
           fail (ll) << "set: missing variable name";
 
-        string a (scan.next ()); // Either attributes or variable name.
-        const string* ats (!scan.more () ? nullptr : &a);
-        string vname (!scan.more () ? move (a) : scan.next ());
-
-        if (scan.more ())
-          fail (ll) << "set: unexpected argument '" << scan.next () << "'";
-
-        if (ats != nullptr && ats->empty ())
-          fail (ll) << "set: empty variable attributes";
-
+        string vname (scan.next ());
         if (vname.empty ())
           fail (ll) << "set: empty variable name";
+
+        // Detect patterns analogous to parser::parse_variable_name() (so we
+        // diagnose `set x[string]`).
+        //
+        if (vname.find_first_of ("[*?") != string::npos)
+          fail (ll) << "set: expected variable name instead of " << vname;
+
+        string attrs;
+        if (scan.more ())
+        {
+          attrs = scan.next ();
+
+          if (attrs.empty ())
+            fail (ll) << "set: empty variable attributes";
+
+          if (scan.more ())
+            fail (ll) << "set: unexpected argument '" << scan.next () << "'";
+        }
 
         stream_reader sr (move (in), pipe,
                           ops.whitespace (), ops.newline (), ops.exact (),
@@ -1220,10 +1229,7 @@ namespace build2
         for (optional<string> s; (s = sr.next ()); )
           ns.emplace_back (move (*s));
 
-        env.set_variable (move (vname),
-                          move (ns),
-                          ats != nullptr ? *ats : empty_string,
-                          ll);
+        env.set_variable (move (vname), move (ns), attrs, ll);
       }
       catch (const io_error& e)
       {

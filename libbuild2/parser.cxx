@@ -5635,8 +5635,13 @@ namespace build2
   }
 
   pair<bool, location> parser::
-  attributes_push (token& t, type& tt, bool standalone)
+  attributes_push (token& t, type& tt, bool standalone, bool next_token)
   {
+    // To make sure that the attributes are not standalone we need to read the
+    // token which follows ']'.
+    //
+    assert (standalone || next_token);
+
     location l (get_location (t));
     bool has (tt == type::lsbrace);
 
@@ -5710,28 +5715,27 @@ namespace build2
     if (tt != type::rsbrace)
       fail (t) << "expected ']' instead of " << t;
 
-    next (t, tt);
-
-    if (tt == type::newline || tt == type::eos)
+    if (next_token)
     {
-      if (!standalone)
-        fail (t) << "standalone attributes";
+      next (t, tt);
+
+      if (tt == type::newline || tt == type::eos)
+      {
+        if (!standalone)
+          fail (t) << "standalone attributes";
+      }
+      //
+      // Verify that the attributes are separated from the following word or
+      // "word-producing" token.
+      //
+      else if (!t.separated && (tt == type::word   ||
+                                tt == type::dollar ||
+                                tt == type::lparen ||
+                                tt == type::lcbrace))
+        fail (t)   << "whitespace required after attributes" <<
+          info (l) << "use the '\\[' escape sequence if this is a wildcard "
+                   << "pattern";
     }
-    //
-    // We require attributes to be separated from the following word or
-    // "word-producing" tokens (`$` for variable expansions/function calls,
-    // `(` for eval contexts, and `{` for name generation) to reduce the
-    // possibility of confusing them with wildcard patterns. Consider:
-    //
-    // ./: [abc]-foo.txt
-    //
-    else if (!t.separated && (tt == type::word   ||
-                              tt == type::dollar ||
-                              tt == type::lparen ||
-                              tt == type::lcbrace))
-      fail (t)   << "whitespace required after attributes" <<
-        info (l) << "use the '\\[' escape sequence if this is a wildcard "
-                 << "pattern";
 
     return make_pair (has, l);
   }

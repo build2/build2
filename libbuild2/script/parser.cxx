@@ -2497,27 +2497,35 @@ namespace build2
                     if (!scan.more ())
                       fail (ll) << "for: missing variable name";
 
-                    // Either attributes or variable name.
-                    //
-                    string a (scan.next ());
-                    const string* ats (!scan.more () ? nullptr : &a);
-                    string vname (!scan.more () ? move (a) : scan.next ());
-
-                    if (scan.more ())
-                      fail (ll) << "for: unexpected argument '"
-                                << scan.next () << "'";
-
-                    if (ats != nullptr && ats->empty ())
-                      fail (ll) << "for: empty variable attributes";
-
+                    string vname (scan.next ());
                     if (vname.empty ())
                       fail (ll) << "for: empty variable name";
+
+                    // Detect patterns analogous to parse_variable_name() (so
+                    // we diagnose `for x[string]`).
+                    //
+                    if (vname.find_first_of ("[*?") != string::npos)
+                      fail (ll) << "for: expected variable name instead of "
+                                << vname;
 
                     // Let's also diagnose the `... | for x:...` misuse which
                     // can probably be quite common.
                     //
                     if (vname.find (':') != string::npos)
                       fail (ll) << "for: ':' after variable name";
+
+                    string attrs;
+                    if (scan.more ())
+                    {
+                      attrs = scan.next ();
+
+                      if (attrs.empty ())
+                        fail (ll) << "for: empty variable attributes";
+
+                      if (scan.more ())
+                        fail (ll) << "for: unexpected argument '"
+                                  << scan.next () << "'";
+                    }
 
                     stream_reader sr (
                       move (in), pipe,
@@ -2544,7 +2552,7 @@ namespace build2
                       //
                       env.set_variable (vname,
                                         names {name (move (*s))},
-                                        ats != nullptr ? *ats : empty_string,
+                                        attrs,
                                         ll);
 
                       // Find the construct end, if it is not found yet.
@@ -2582,15 +2590,9 @@ namespace build2
             }
           case line_type::cmd_for_args:
             {
-              // Parse the variable name with the potential attributes.
+              // Parse the variable name.
               //
-              next_with_attributes (t, tt);
-              attributes_push (t, tt);
-
-              // @@ TMP Currently we assume that these are the value (rather
-              //        than the variable) attributes.
-              //
-              attributes val_attrs (attributes_pop ());
+              next (t, tt);
 
               assert (tt == type::word && t.qtype == quote_type::unquoted);
 
@@ -2609,8 +2611,17 @@ namespace build2
                 var = &var_pool->insert (move (vn));
               }
 
-              next (t, tt); // Skip the colon.
+              // Parse the potential element attributes and skip the colon.
+              //
+              next_with_attributes (t, tt);
+              attributes_push (t, tt);
+
               assert (tt == type::colon);
+
+              // Save element attributes so that we can inject them on each
+              // iteration.
+              //
+              attributes val_attrs (attributes_pop ());
 
               // Parse the value with the potential attributes.
               //

@@ -497,26 +497,35 @@ namespace build2
             assert (pt.type == type::word && pt.value == "for");
 
             mode (lexer_mode::for_loop);
-            next_with_attributes (t, tt);
+            next (t, tt);
 
             string& n (t.value);
 
-            if (tt == type::lsbrace ||                       // Attributes.
-                (tt == type::word                &&          // Variable name.
-                 t.qtype == quote_type::unquoted &&
-                 (n[0] == '_'  ||
-                  alpha (n[0]) ||
-                  n == "*"     ||
-                  n == "~"     ||
-                  n == "@")))
+            if (tt == type::word && t.qtype == quote_type::unquoted &&
+                (n[0] == '_' || alpha (n[0]) ||     // Variable.
+                 n == "*" || n == "~" || n == "@")) // Special variable.
             {
-              attributes_push (t, tt);
-
-              if (tt != type::word || t.qtype != quote_type::unquoted)
-                fail (t) << "expected variable name instead of " << t;
+              // Detect patterns analogous to parse_variable_name() (so we
+              // diagnose `for x[string]: ...`).
+              //
+              if (n.find_first_of ("[*?") != string::npos)
+                fail (t) << "expected variable name instead of " << n;
 
               if (special_variable (n))
                 fail (t) << "attempt to set '" << n << "' variable directly";
+
+              if (lexer_->peek_char ().first == '[')
+              {
+                token vt (move (t));
+                next_with_attributes (t, tt);
+
+                attributes_push (t, tt,
+                                 true /* standalone */,
+                                 false /* next_token */);
+
+                t = move (vt);
+                tt = t.type;
+              }
 
               if (lexer_->peek_char ().first == ':')
                 lt = line_type::cmd_for_args;

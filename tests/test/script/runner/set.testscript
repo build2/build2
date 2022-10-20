@@ -76,7 +76,7 @@
 
   : empty-attrs
   :
-  $c <"set '' baz" && $b 2>>EOE != 0
+  $c <"set baz ''" && $b 2>>EOE != 0
   testscript:1:1: error: set: empty variable attributes
     info: test id: 1
   EOE
@@ -546,14 +546,14 @@
   : dir_path
   :
   $c <<EOI && $b
-  set [dir_path] bar <'foo';
+  set bar [dir_path] <'foo';
   echo $bar >/'foo/'
   EOI
 
   : null
   :
   $c <<EOI && $b
-  set [null] foo <-;
+  set foo [null] <-;
   echo $foo >''
   EOI
 
@@ -571,7 +571,7 @@
   : empty-brackets
   :
   $c <<EOI && $b 2>>EOE != 0
-  set -w '[]' baz <'foo bar';
+  set -w baz '[]' <'foo bar';
   echo "$baz"
   EOI
   testscript:2:8: error: concatenating variable expansion contains multiple values
@@ -580,7 +580,7 @@
   : no-left-bracket
   :
   $c <<EOI && $b 2>>EOE != 0
-  set -w x baz
+  set -w baz x
   EOI
   <attributes>:1:1: error: expected '[' instead of 'x'
     testscript:1:1: info: while parsing attributes 'x'
@@ -590,7 +590,7 @@
   : unknown
   :
   $c <<EOI && $b 2>>EOE != 0
-  set -w [x] baz
+  set -w baz [x]
   EOI
   <attributes>:1:1: error: unknown value attribute x
     testscript:1:1: info: while parsing attributes '[x]'
@@ -600,7 +600,7 @@
   : junk
   :
   $c <<EOI && $b 2>>EOE != 0
-  set -w '[string] x' baz
+  set -w baz '[string] x'
   EOI
   <attributes>:1:10: error: trailing junk after ']'
     testscript:1:1: info: while parsing attributes '[string] x'
