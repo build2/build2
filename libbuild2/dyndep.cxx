@@ -445,7 +445,7 @@ namespace build2
     // The directory is only moved from if insert is true. Note that it must
     // be normalized.
     //
-    auto find = [&trace, what, &t,
+    auto find = [&trace, what, &bs, &t,
                  &map_extension,
                  &fallback] (dir_path&& d,
                              path&& f,
@@ -603,7 +603,7 @@ namespace build2
       // @@ OPT: move d, out, n
       //
       if (r == nullptr && insert)
-        r = &search (t, *tts[0], d, out, n, &e);
+        r = &search (t, *tts[0], d, out, n, &e, &bs);
 
       return static_cast<const file*> (r);
     };

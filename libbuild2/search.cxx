@@ -231,6 +231,12 @@ namespace build2
 
     const target_key& tk (pk.tk);
 
+    // If out is present, then it means the target is in src and we shouldn't
+    // be creating new targets in src, should we? Feels like this should not
+    // even be called if out is not empty.
+    //
+    assert (tk.out->empty ());
+
     // We default to the target in this directory scope.
     //
     dir_path d;
@@ -251,13 +257,6 @@ namespace build2
     //
     // More often insert than find, so skip find in insert().
     //
-    // @@ OUT: same story as in search_existing_target() re out. Maybe not:
-    //         if out is present, then it means the target is in src and we
-    //         shouldn't be creating new targets in src, should we? Feels
-    //         like this should not even be called in out is not empty.
-    //
-    //assert (tk.out->empty ()); @@ TMP
-
     auto r (ctx.targets.insert (*tk.type,
                                 move (d),
                                 *tk.out,
@@ -280,6 +279,12 @@ namespace build2
 
     const target_key& tk (pk.tk);
 
+    // If out is present, then it means the target is in src and we shouldn't
+    // be creating new targets in src, should we? Feels like this should not
+    // even be called if out is not empty.
+    //
+    assert (tk.out->empty ());
+
     // We default to the target in this directory scope.
     //
     dir_path d;
@@ -300,13 +305,6 @@ namespace build2
     //
     // More often insert than find, so skip find in insert_locked().
     //
-    // @@ OUT: same story as in search_existing_target() re out. Maybe not:
-    //         if out is present, then it means the target is in src and we
-    //         shouldn't be creating new targets in src, should we? Feels
-    //         like this should not even be called in out is not empty.
-    //
-    //assert (tk.out->empty ()); @@ TMP
-
     auto r (ctx.targets.insert_locked (*tk.type,
                                        move (d),
                                        *tk.out,

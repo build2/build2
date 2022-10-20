@@ -65,7 +65,13 @@ namespace build2
     if (const target* pt = pk.tk.type->search (t, pk))
       return *pt;
 
-    return create_new_target (t.ctx, pk);
+    if (pk.tk.out->empty ())
+      return create_new_target (t.ctx, pk);
+
+    // If this is triggered, then you are probably not passing scope to
+    // search() (which leads to search_existing_file() being skipped).
+    //
+    fail << "no existing source file for prerequisite " << pk << endf;
   }
 
   pair<target&, ulock>
@@ -76,7 +82,13 @@ namespace build2
     if (const target* pt = pk.tk.type->search (t, pk))
       return {const_cast<target&> (*pt), ulock ()};
 
-    return create_new_target_locked (t.ctx, pk);
+    if (pk.tk.out->empty ())
+      return create_new_target_locked (t.ctx, pk);
+
+    // If this is triggered, then you are probably not passing scope to
+    // search() (which leads to search_existing_file() being skipped).
+    //
+    fail << "no existing source file for prerequisite " << pk << endf;
   }
 
   const target*
