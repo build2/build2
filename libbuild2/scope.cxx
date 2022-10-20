@@ -806,26 +806,45 @@ namespace build2
         fail (loc) << "expected directory after '@'";
     }
 
-    dir_path& d (n.dir);
+    dir_path& dir (n.dir);
 
     const dir_path& sd (src_path ());
     const dir_path& od (out_path ());
 
-    if (d.empty ())
-      d = src ? sd : od; // Already dormalized.
+    if (dir.empty ())
+      dir = src ? sd : od; // Already dormalized.
     else
     {
-      if (d.relative ())
-        d = (src ? sd : od) / d;
+      if (dir.relative ())
+        dir = (src ? sd : od) / dir;
 
-      d.normalize ();
+      dir.normalize ();
     }
 
     dir_path out;
-    if (src && sd != od) // If in source build, then out must be empty.
+    if (src)
     {
       out = o.dir.relative () ? od / o.dir : move (o.dir);
       out.normalize ();
+
+      // Make sure out and src are parallel.
+      //
+      // See similar code for prerequisites in parser::parse_dependency().
+      //
+      if (out.sub (root_->out_path ()) &&
+          dir.sub (root_->src_path ()) &&
+          out.leaf (root_->out_path ()) == dir.leaf (root_->src_path ()))
+        ;
+      else
+        // @@ TMP change warn to fail after 0.16.0 release.
+        //
+        warn (loc) << "target output directory " << out
+                   << " must be parallel to source directory " << dir;
+
+      // If in source build, then out must be empty.
+      //
+      if (sd == od)
+        out.clear ();
     }
     o.dir = move (out); // Result.
 

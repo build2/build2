@@ -58,8 +58,11 @@ namespace build2
       else
       {
         o = pk.scope->out_path ();
-        o /= *tk.out;
-        o.normalize ();
+        if (!tk.out->current ())
+        {
+          o /= *tk.out;
+          o.normalize ();
+        }
       }
 
       // Drop out if it is the same as src (in-src build).
@@ -169,11 +172,7 @@ namespace build2
     // will be from the src tree.
     //
     // In the other two cases we use the prerequisite's out (in case it is
-    // relative, we need to complete it, which is @@ OUT TODO). Note that we
-    // blindly trust the user's value which can be used for some interesting
-    // tricks, for example:
-    //
-    // ../cxx{foo}@./
+    // relative, we need to complete it).
     //
     dir_path out;
 
@@ -183,7 +182,24 @@ namespace build2
         out = out_src (d, *s->root_scope ());
     }
     else
-      out = *tk.out;
+    {
+      if (tk.out->absolute ())
+        out = *tk.out; // Already normalized.
+      else
+      {
+        out = pk.scope->out_path ();
+        if (!tk.out->current ())
+        {
+          out /= *tk.out;
+          out.normalize ();
+        }
+      }
+
+      // Drop out if it is the same as src (in-src build).
+      //
+      if (out == d)
+        out.clear ();
+    }
 
     // Find or insert. Note that we are using our updated extension.
     //
@@ -235,8 +251,13 @@ namespace build2
     //
     // More often insert than find, so skip find in insert().
     //
-    // @@ OUT: same story as in search_existing_target() re out.
+    // @@ OUT: same story as in search_existing_target() re out. Maybe not:
+    //         if out is present, then it means the target is in src and we
+    //         shouldn't be creating new targets in src, should we? Feels
+    //         like this should not even be called in out is not empty.
     //
+    //assert (tk.out->empty ()); @@ TMP
+
     auto r (ctx.targets.insert (*tk.type,
                                 move (d),
                                 *tk.out,
@@ -279,8 +300,13 @@ namespace build2
     //
     // More often insert than find, so skip find in insert_locked().
     //
-    // @@ OUT: same story as in search_existing_target() re out.
+    // @@ OUT: same story as in search_existing_target() re out. Maybe not:
+    //         if out is present, then it means the target is in src and we
+    //         shouldn't be creating new targets in src, should we? Feels
+    //         like this should not even be called in out is not empty.
     //
+    //assert (tk.out->empty ()); @@ TMP
+
     auto r (ctx.targets.insert_locked (*tk.type,
                                        move (d),
                                        *tk.out,

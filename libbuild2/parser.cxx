@@ -2491,7 +2491,7 @@ namespace build2
       // Current dir collapses to an empty one.
       //
       if (!n.dir.empty ())
-        n.dir.normalize (false, true);
+        n.dir.normalize (false /* actual */, true);
 
       // @@ OUT: for now we assume the prerequisite's out is undetermined. The
       // only way to specify an src prerequisite will be with the explicit
@@ -2514,6 +2514,29 @@ namespace build2
           fail (ploc) << "expected directory after '@'";
 
         o.dir.normalize (); // Note: don't collapse current to empty.
+
+        // Make sure out and src are parallel.
+        //
+        // See similar code for targets in scope::find_target_type().
+        //
+        // For now we require that both are either relative or absolute.
+        //
+        if (n.dir.empty () && o.dir.current ())
+          ;
+        else if (o.dir.relative () &&
+                 n.dir.relative () &&
+                 o.dir == n.dir)
+          ;
+        else if (o.dir.absolute () &&
+                 n.dir.absolute () &&
+                 o.dir.sub (root_->out_path ()) &&
+                 n.dir.sub (root_->src_path ()) &&
+                 o.dir.leaf (root_->out_path ()) ==
+                 n.dir.leaf (root_->src_path ()))
+          ;
+        else
+          fail (ploc) << "prerequisite output directory " << o.dir
+                      << " must be parallel to source directory " << n.dir;
       }
 
       prerequisite p (move (n.proj),

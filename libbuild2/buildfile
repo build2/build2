@@ -304,11 +304,11 @@ else
 {
   # No install for the pre-generated case.
   #
-  script/hxx{builtin-options}@./ \
-  script/ixx{builtin-options}@./: install = false
+  script/hxx{builtin-options}@script/ \
+  script/ixx{builtin-options}@script/: install = false
 
-  build/script/hxx{builtin-options}@./ \
-  build/script/ixx{builtin-options}@./: install = false
+  build/script/hxx{builtin-options}@build/script/ \
+  build/script/ixx{builtin-options}@build/script/: install = false
 }
 
 # Install into the libbuild2/ subdirectory of, say, /usr/include/
