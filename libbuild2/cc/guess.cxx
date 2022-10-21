@@ -3424,6 +3424,7 @@ namespace build2
     // In the future we will probably have to maintain per-standard additions.
     //
     static const char* std_importable[] = {
+      "<initializer_list>", // Note: keep first (present in freestanding).
       "<algorithm>",
       "<any>",
       "<array>",
@@ -3448,7 +3449,6 @@ namespace build2
       "<fstream>",
       "<functional>",
       "<future>",
-      "<initializer_list>",
       "<iomanip>",
       "<ios>",
       "<iosfwd>",
@@ -3547,6 +3547,9 @@ namespace build2
       // is currently not provided by GCC. Though entering missing headers
       // should be harmless.
       //
+      // Plus, a freestanding implementation may only have a subset of such
+      // headers (see [compliance]).
+      //
       pair<const path, importable_headers::groups>* p;
       auto add_groups = [&p] (bool imp)
       {
@@ -3568,29 +3571,39 @@ namespace build2
       }
       else
       {
+        // While according to [compliance] a freestanding implementation
+        // should provide a subset of headers, including <initializer_list>,
+        // there seem to be cases where no headers are provided at all (see GH
+        // issue #219). So if we cannot find <initializer_list>, we just skip
+        // the whole thing.
+        //
         p = hs.insert_angle (sys_hdr_dirs, std_importable[0]);
-        assert (p != nullptr);
 
-        add_groups (true);
-
-        dir_path d (p->first.directory ());
-
-        auto add_header = [&hs, &d, &p, add_groups] (const char* f, bool imp)
+        if (p != nullptr)
         {
-          path fp (d);
-          fp.combine (f + 1, strlen (f) - 2, '\0'); // Assuming simple.
+          assert (p != nullptr);
 
-          p = &hs.insert_angle (move (fp), f);
-          add_groups (imp);
-        };
+          add_groups (true);
 
-        for (size_t i (1);
-             i != sizeof (std_importable) / sizeof (std_importable[0]);
-             ++i)
-          add_header (std_importable[i], true);
+          dir_path d (p->first.directory ());
 
-        for (const char* f: std_non_importable)
-          add_header (f, false);
+          auto add_header = [&hs, &d, &p, add_groups] (const char* f, bool imp)
+          {
+            path fp (d);
+            fp.combine (f + 1, strlen (f) - 2, '\0'); // Assuming simple.
+
+            p = &hs.insert_angle (move (fp), f);
+            add_groups (imp);
+          };
+
+          for (size_t i (1);
+               i != sizeof (std_importable) / sizeof (std_importable[0]);
+               ++i)
+            add_header (std_importable[i], true);
+
+          for (const char* f: std_non_importable)
+            add_header (f, false);
+        }
       }
     }
   }
