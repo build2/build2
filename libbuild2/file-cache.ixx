@@ -72,6 +72,7 @@ namespace build2
         comp_path_ (move (e.comp_path_)),
         pin_ (e.pin_)
   {
+    e.state_ = null;
   }
 
   inline file_cache::entry& file_cache::entry::
@@ -80,11 +81,14 @@ namespace build2
     if (this != &e)
     {
       assert (state_ == null);
+
       temporary = e.temporary;
       state_ = e.state_;
       path_ = move (e.path_);
       comp_path_ = move (e.comp_path_);
       pin_ = e.pin_;
+
+      e.state_ = null;
     }
     return *this;
   }
