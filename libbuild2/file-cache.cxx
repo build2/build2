@@ -28,6 +28,8 @@ namespace build2
     if (!comp_path_.empty ())
       try_rmfile_ignore_error (comp_path_);
 
+    // Note: state remains uninit until write::close().
+
     pin ();
     return write (*this);
   }

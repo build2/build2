@@ -995,11 +995,13 @@ namespace build2
             // By default update ad hoc headers/sources during match (see
             // above).
             //
+#if 1
             if (!um)
               um = (p.is_a (x_src) ||
                     p.is_a<c> ()   ||
                     (x_mod != nullptr && p.is_a (*x_mod)) ||
                     x_header (p, true));
+#endif
 
             if (*um)
             {
@@ -1217,8 +1219,10 @@ namespace build2
         {
           // By default update headers during match (see above).
           //
+#if 1
           if (!um)
             um = hdr;
+#endif
 
           if (*um)
           {
