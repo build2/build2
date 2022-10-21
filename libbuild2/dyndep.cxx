@@ -474,7 +474,7 @@ namespace build2
       dir_path out;
 
       // It's possible the extension-to-target type mapping is ambiguous (for
-      // example, because both C and X-language headers use the same .h
+      // example, because both C and C++-language headers use the same .h
       // extension). In this case we will first try to find one that matches
       // an explicit target (similar logic to when insert is false).
       //
@@ -487,15 +487,40 @@ namespace build2
       // pick the first one (it's highly unlikely the source file extension
       // mapping will differ based on the configuration).
       //
+      // Note that we also need to remember the base scope for search() below
+      // (failed that, search_existing_file() will refuse to look).
+      //
+      const scope* s (nullptr);
       {
-        const scope& bs (**t.ctx.scopes.find (d).first);
-        if (const scope* rs = bs.root_scope ())
+        // While we cannot accurately associate in the general case, we can do
+        // so if the path belongs to this project.
+        //
+        const scope& rs (*bs.root_scope ());
+        bool src (false);
+        if (d.sub (rs.out_path ()) ||
+            (src = (!rs.out_eq_src () && d.sub (rs.src_path ()))))
         {
           if (map_extension != nullptr)
             tts = map_extension (bs, n, e);
 
-          if (!bs.out_eq_src () && d.sub (bs.src_path ()))
-            out = out_src (d, *rs);
+          if (src)
+            out = out_src (d, rs);
+
+          s = &bs;
+        }
+        else
+        {
+          const scope& bs (**t.ctx.scopes.find (d).first);
+          if (const scope* rs = bs.root_scope ())
+          {
+            if (map_extension != nullptr)
+              tts = map_extension (bs, n, e);
+
+            if (!rs->out_eq_src () && d.sub (rs->src_path ()))
+              out = out_src (d, *rs);
+
+            s = &bs;
+          }
         }
       }
 
@@ -603,7 +628,7 @@ namespace build2
       // @@ OPT: move d, out, n
       //
       if (r == nullptr && insert)
-        r = &search (t, *tts[0], d, out, n, &e, &bs);
+        r = &search (t, *tts[0], d, out, n, &e, s);
 
       return static_cast<const file*> (r);
     };
