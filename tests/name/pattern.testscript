@@ -18,6 +18,35 @@ pat = '*'
 print "$(pat).txt"
 EOI
 
+: typed-concat
+:
+{
+  : dir-path
+  :
+  touch foo.txt;
+  $* <'print {$src_base/*.txt}' >/~'%.+/foo\.txt%'
+
+  : path
+  :
+  touch foo.txt;
+  $* <<EOI >/~'%.+/foo\.txt%'
+    p = [path] $src_base
+    print {$p/*.txt}
+    EOI
+
+  : string
+  :
+  touch foo.txt;
+  $* <<EOI >~'%.+/\*\.txt%'
+    p = [string] "$src_base"
+    print {$p/*.txt}
+    EOI
+
+  : not-pattern
+  :
+  $* <'print {$src_base/foo.txt}' >/~'%.+/foo\.txt%'
+}
+
 : detect
 :
 : Test pattern_mode parsing logic.

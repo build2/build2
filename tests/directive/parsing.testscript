@@ -1,4 +1,4 @@
-# file      : tests/directive/assert.testscript
+# file      : tests/directive/parsing.testscript
 # license   : MIT; see accompanying LICENSE file
 
 # Test overall directive parsing.

@@ -6656,6 +6656,8 @@ namespace build2
       // continue accumulating or inject. We inject if the next token is not a
       // word, var expansion, or eval context or if it is separated.
       //
+      optional<pair<const value_type*, name>> path_concat; // Backup.
+
       if (concat && last_concat ())
       {
         // Concatenation does not affect the tokens we get, only what we do
@@ -6695,6 +6697,13 @@ namespace build2
         //   dir/{$str}
         //   file{$str}
         //
+        // And yet another exception: if the type is path or dir_path and the
+        // pattern mode is not ignore, then we will inject to try our luck in
+        // interpreting the concatenation result as a path pattern. This makes
+        // sure patterns like `$src_base/*.txt` work, naturally. Failed that,
+        // we will handle this concatenation as we do for other types (via the
+        // path_concat backup).
+        //
 
         // A concatenation cannot produce value/NULL.
         //
@@ -6706,12 +6715,14 @@ namespace build2
           bool e1 (tt == type::lcbrace && !peeked ().separated);
           bool e2 (pp || dp != nullptr || tp != nullptr);
 
+          const value_type* pt (&value_traits<path>::value_type);
+          const value_type* dt (&value_traits<dir_path>::value_type);
+
           if (e1 || e2)
           {
-            if (vtype == &value_traits<path>::value_type ||
-                vtype == &value_traits<string>::value_type)
+            if (vtype == pt || vtype == &value_traits<string>::value_type)
               ; // Representation is already in concat_data.value.
-            else if (vtype == &value_traits<dir_path>::value_type)
+            else if (vtype == dt)
               concat_data.value = move (concat_data.dir).representation ();
             else
             {
@@ -6722,6 +6733,20 @@ namespace build2
 
               dr << " instead of " << vtype->name << endf;
             }
+
+            vtype = nullptr;
+            // Fall through to injection.
+          }
+          else if (pmode != pattern_mode::ignore &&
+                   (vtype == pt || vtype == dt))
+          {
+            path_concat = make_pair (vtype, concat_data);
+
+            // Note: for path the representation is already in
+            // concat_data.value.
+            //
+            if (vtype == dt)
+              concat_data.value = move (concat_data.dir).representation ();
 
             vtype = nullptr;
             // Fall through to injection.
@@ -6986,7 +7011,7 @@ namespace build2
         // See if this is a pattern, path or regex.
         //
         // A path pattern either contains an unquoted wildcard character or,
-        // in the curly context, start with unquoted/unescaped `+`.
+        // in the curly context, starts with unquoted/unescaped `+`.
         //
         // A regex pattern starts with unquoted/unescaped `~` followed by a
         // non-alphanumeric delimiter and has the following form:
@@ -7064,7 +7089,7 @@ namespace build2
               // Note that we have to check for regex patterns first since
               // they may also be detected as path patterns.
               //
-              if (!quoted_first && regex_pattern ())
+              if (!quoted_first && !path_concat && regex_pattern ())
               {
                 // Note: we may decide to support regex-based name generation
                 // some day (though a substitution won't make sense here).
@@ -7132,7 +7157,7 @@ namespace build2
             // there isn't any good reason to; see also to_stream(name) for
             // the corresponding serialization logic).
             //
-            if (!quoted_first && regex_pattern ())
+            if (!quoted_first && !path_concat && regex_pattern ())
             {
               const char* w;
               if (val[0] == '~')
@@ -7188,6 +7213,24 @@ namespace build2
             else if (!quoted && path_pattern ())
               pat = pattern_type::path;
           }
+        }
+
+        // If this is a concatenation of the path or dir_path type and it is
+        // not a pattern, then handle it in the same way as concatenations of
+        // other types (see above).
+        //
+        if (path_concat && !pat)
+        {
+          ns.push_back (move (path_concat->second));
+
+          // Restore the type information if that's the only name.
+          //
+          if (start == ns.size () && last_token ())
+            vtype = path_concat->first;
+
+          // Restart the loop.
+          //
+          continue;
         }
 
         // If we are a second half of a pair, add another first half
