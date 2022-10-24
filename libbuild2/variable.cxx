@@ -630,28 +630,31 @@ namespace build2
     // the common cases (unqualified, unpaired simple name or directory).
     //
 
-    // We can only convert project-qualified simple and directory names.
+    // We can only convert project-qualified untyped names.
     //
-    if (n.pattern ||
-        !(n.simple (true) || n.directory (true)))
+    if (n.pattern || n.typed ())
       throw_invalid_argument (n, nullptr, "string");
 
     if (r != nullptr)
     {
-      if (r->pattern ||
-          !(r->simple (true) || r->directory (true)))
+      if (r->pattern || r->typed ())
         throw_invalid_argument (*r, nullptr, "string");
     }
 
     string s;
 
-    if (n.directory (true))
+    if (n.simple (true))
+      s.swap (n.value);
+    else
+    {
       // Note that here we cannot assume what's in dir is really a
       // path (think s/foo/bar/) so we have to reverse it exactly.
       //
       s = move (n.dir).representation (); // Move out of path.
-    else
-      s.swap (n.value);
+
+      if (!n.value.empty ())
+        s += n.value; // Separator is already there.
+    }
 
     // Convert project qualification to its string representation.
     //
@@ -675,10 +678,15 @@ namespace build2
         s += '%';
       }
 
-      if (r->directory (true))
-        s += move (r->dir).representation ();
-      else
+      if (r->simple (true))
         s += r->value;
+      else
+      {
+        s += move (r->dir).representation ();
+
+        if (!r->value.empty ())
+          s += r->value;
+      }
     }
 
     return s;
