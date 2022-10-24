@@ -811,12 +811,16 @@ namespace build2
     const dir_path& sd (src_path ());
     const dir_path& od (out_path ());
 
+    bool nabs (false);
+
     if (dir.empty ())
-      dir = src ? sd : od; // Already dormalized.
+      dir = src ? sd : od; // Already normalized.
     else
     {
       if (dir.relative ())
         dir = (src ? sd : od) / dir;
+      else if (src)
+        nabs = true;
 
       dir.normalize ();
     }
@@ -824,16 +828,30 @@ namespace build2
     dir_path out;
     if (src)
     {
-      out = o.dir.relative () ? od / o.dir : move (o.dir);
+      bool oabs (o.dir.absolute ());
+
+      out = oabs ? move (o.dir) : od / o.dir;
       out.normalize ();
 
-      // Make sure out and src are parallel.
+      // Make sure out and src are parallel unless both were specified as
+      // absolute. We make an exception for this case because out may be used
+      // to "tag" imported targets (see cc::search_library()). So it's sort of
+      // the "I know what I am doing" escape hatch (it would have been even
+      // better to verify such a target is outside any project but that won't
+      // be cheap).
       //
       // See similar code for prerequisites in parser::parse_dependency().
       //
-      if (out.sub (root_->out_path ()) &&
-          dir.sub (root_->src_path ()) &&
-          out.leaf (root_->out_path ()) == dir.leaf (root_->src_path ()))
+      if (nabs && oabs)
+        ;
+      else if (root_->out_eq_src ()
+               ? out == dir
+               //
+               // @@ PERF: could just compare leafs in place.
+               //
+               : (out.sub (root_->out_path ()) &&
+                  dir.sub (root_->src_path ()) &&
+                  out.leaf (root_->out_path ()) == dir.leaf (root_->src_path ())))
         ;
       else
         // @@ TMP change warn to fail after 0.16.0 release.
@@ -841,10 +859,15 @@ namespace build2
         warn (loc) << "target output directory " << out
                    << " must be parallel to source directory " << dir;
 
-      // If in source build, then out must be empty.
+      // If this target is in this project, then out must be empty if this is
+      // in source build. We assume that if either src or out are relative,
+      // then it belongs to this project.
       //
-      if (sd == od)
-        out.clear ();
+      if (root_->out_eq_src ())
+      {
+        if (!nabs || !oabs || out.sub (root_->out_path ()))
+          out.clear ();
+      }
     }
     o.dir = move (out); // Result.
 

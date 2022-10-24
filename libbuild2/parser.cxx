@@ -2515,24 +2515,24 @@ namespace build2
 
         o.dir.normalize (); // Note: don't collapse current to empty.
 
-        // Make sure out and src are parallel.
-        //
-        // See similar code for targets in scope::find_target_type().
+        // Make sure out and src are parallel unless both were specified as
+        // absolute. We make an exception for this case because out may be
+        // used to "tag" imported targets (see cc::search_library()). So it's
+        // sort of the "I know what I am doing" escape hatch (it would have
+        // been even better to verify such a target is outside any project
+        // but that won't be cheap).
         //
         // For now we require that both are either relative or absolute.
         //
-        if (n.dir.empty () && o.dir.current ())
+        // See similar code for targets in scope::find_target_type().
+        //
+        if (n.dir.absolute () && o.dir.absolute ())
+          ;
+        else if (n.dir.empty () && o.dir.current ())
           ;
         else if (o.dir.relative () &&
                  n.dir.relative () &&
                  o.dir == n.dir)
-          ;
-        else if (o.dir.absolute () &&
-                 n.dir.absolute () &&
-                 o.dir.sub (root_->out_path ()) &&
-                 n.dir.sub (root_->src_path ()) &&
-                 o.dir.leaf (root_->out_path ()) ==
-                 n.dir.leaf (root_->src_path ()))
           ;
         else
           fail (ploc) << "prerequisite output directory " << o.dir
