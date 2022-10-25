@@ -34,9 +34,12 @@ namespace build2
     // Return 0-version if the version is invalid.
     //
     static inline semantic_version
-    parse_version (const string& s, size_t p = 0, const char* bs = ".-+~ ")
+    parse_version (const string& s, size_t p = 0,
+                   semantic_version::flags f = semantic_version::allow_omit_patch |
+                                               semantic_version::allow_build,
+                   const char* bs = ".-+~ ")
     {
-      optional<semantic_version> v (parse_semantic_version (s, p, bs));
+      optional<semantic_version> v (parse_semantic_version (s, p, f, bs));
       return v ? *v : semantic_version ();
     }
 

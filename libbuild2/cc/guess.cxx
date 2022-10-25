@@ -1066,7 +1066,7 @@ namespace build2
 
           // The gcc -v output will have a last line in the form:
           //
-          // "gcc version X.Y[.Z][...] ..."
+          // "gcc version X[.Y[.Z]][...] ..."
           //
           // The "version" word can probably be translated. For example:
           //
@@ -1078,6 +1078,7 @@ namespace build2
           // gcc version 5.1.0 (Ubuntu 5.1.0-0ubuntu11~14.04.1)
           // gcc version 6.0.0 20160131 (experimental) (GCC)
           // gcc version 9.3-win32 20200320 (GCC)
+          // gcc version 10-win32 20220324 (GCC)
           //
           if (cache.empty ())
           {
@@ -1923,7 +1924,7 @@ namespace build2
       // though language words can be translated and even rearranged (see
       // examples above).
       //
-      // "gcc version X.Y[.Z][...]"
+      // "gcc version X[.Y[.Z]][...]"
       //
       compiler_version ver;
       {
@@ -1962,7 +1963,10 @@ namespace build2
         //
         try
         {
-          semantic_version v (string (s, b, e - b), ".-+");
+          semantic_version v (string (s, b, e - b),
+                              semantic_version::allow_omit_minor |
+                              semantic_version::allow_build,
+                              ".-+");
           ver.major = v.major;
           ver.minor = v.minor;
           ver.patch = v.patch;
