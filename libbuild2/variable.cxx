@@ -451,11 +451,11 @@ namespace build2
       m = "invalid " + t + " value ";
 
       if (n.simple ())
-        m += "'" + n.value + "'";
+        m += '\'' + n.value + '\'';
       else if (n.directory ())
-        m += "'" + n.dir.representation () + "'";
+        m += '\'' + n.dir.representation () + '\'';
       else
-        m += "name '" + to_string (n) + "'";
+        m += "name '" + to_string (n) + '\'';
     }
 
     throw invalid_argument (m);

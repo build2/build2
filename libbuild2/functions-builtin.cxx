@@ -26,7 +26,7 @@ namespace build2
         if (s == "dedup")
           r = true;
         else
-          throw invalid_argument ("invalid flag '" + s + "'");
+          throw invalid_argument ("invalid flag '" + s + '\'');
       }
     }
     return r;

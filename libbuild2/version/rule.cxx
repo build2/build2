@@ -241,13 +241,13 @@ namespace build2
 
             if (mav->snapshot ())
             {
-              r += (p ? "(" : "");
+              if (p) r += '(';
 
               r += cmp (vm, " < ", mav->version) + " || (";
               r += cmp (vm, " == ", mav->version) + " && ";
-              r += cmp (sm, (mao ? " < " : " <= "), mav->snapshot_sn) + ")";
+              r += cmp (sm, (mao ? " < " : " <= "), mav->snapshot_sn) + ')';
 
-              r += (p ? ")" : "");
+              if (p) r += ')';
             }
             else
               r = cmp (vm, (mao ? " < " : " <= "), mav->version);
@@ -261,13 +261,13 @@ namespace build2
 
             if (miv->snapshot ())
             {
-              r += (p ? "(" : "");
+              if (p) r += '(';
 
               r += cmp (vm, " > ", miv->version) + " || (";
               r += cmp (vm, " == ", miv->version) + " && ";
-              r += cmp (sm, (mio ? " > " : " >= "), miv->snapshot_sn) + ")";
+              r += cmp (sm, (mio ? " > " : " >= "), miv->snapshot_sn) + ')';
 
-              r += (p ? ")" : "");
+              if (p) r += ')';
             }
             else
               r = cmp (vm, (mio ? " > " : " >= "), miv->version);

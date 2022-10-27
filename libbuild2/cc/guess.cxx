@@ -106,7 +106,7 @@ namespace build2
       else if (id.compare (0, p, "icc"  ) == 0) type = compiler_type::icc;
       else
         throw invalid_argument (
-          "invalid compiler type '" + string (id, 0, p) + "'");
+          "invalid compiler type '" + string (id, 0, p) + '\'');
 
       if (p != string::npos)
       {

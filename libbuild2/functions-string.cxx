@@ -21,7 +21,7 @@ namespace build2
         if (s == "icase")
           ic = true;
         else
-          throw invalid_argument ("invalid flag '" + s + "'");
+          throw invalid_argument ("invalid flag '" + s + '\'');
       }
     }
 
@@ -140,7 +140,7 @@ namespace build2
           else if (s == "dedup")
             dd = true;
           else
-            throw invalid_argument ("invalid flag '" + s + "'");
+            throw invalid_argument ("invalid flag '" + s + '\'');
         }
       }
 

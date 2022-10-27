@@ -492,7 +492,7 @@ namespace build2
 
         if (n.pair != '@')
           throw invalid_argument (
-            string ("invalid pair character: '") + n.pair + "'");
+            string ("invalid pair character: '") + n.pair + '\'');
       }
 
       v.push_back (value_traits<T>::convert (move (n), r));

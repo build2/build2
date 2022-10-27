@@ -3260,7 +3260,7 @@ namespace build2
             report = move (v);
           else
             throw invalid_argument (
-              "expected 'false' or format name instead of '" + v + "'");
+              "expected 'false' or format name instead of '" + v + '\'');
         }
         catch (const invalid_argument& e)
         {

@@ -69,7 +69,7 @@ namespace build2
         else if (s == "return_subs")
           subs = true;
         else
-          throw invalid_argument ("invalid flag '" + s + "'");
+          throw invalid_argument ("invalid flag '" + s + '\'');
       }
     }
 
@@ -129,7 +129,7 @@ namespace build2
         else if (s == "return_subs")
           subs = true;
         else
-          throw invalid_argument ("invalid flag '" + s + "'");
+          throw invalid_argument ("invalid flag '" + s + '\'');
       }
     }
 
@@ -192,7 +192,7 @@ namespace build2
         else if (s == "format_no_copy")
           mf |= regex_constants::format_no_copy;
         else
-          throw invalid_argument ("invalid flag '" + s + "'");
+          throw invalid_argument ("invalid flag '" + s + '\'');
       }
     }
 
@@ -411,7 +411,7 @@ namespace build2
         if (s == "icase")
           r |= regex::icase;
         else
-          throw invalid_argument ("invalid flag '" + s + "'");
+          throw invalid_argument ("invalid flag '" + s + '\'');
       }
     }
 

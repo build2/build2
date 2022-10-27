@@ -175,7 +175,7 @@ namespace build2
       if (s == "includes") return preprocessed::includes;
       if (s == "modules")  return preprocessed::modules;
       if (s == "all")      return preprocessed::all;
-      throw invalid_argument ("invalid preprocessed value '" + s + "'");
+      throw invalid_argument ("invalid preprocessed value '" + s + '\'');
     }
 
     // Return true if the compiler supports -isystem (GCC class) or
@@ -2659,7 +2659,7 @@ namespace build2
               rs = !exists
                 ? string ("INCLUDE")
                 : ("ERROR unable to update header '" +
-                   (ht != nullptr ? ht->path () : f).string () + "'");
+                   (ht != nullptr ? ht->path () : f).string () + '\'');
 
               bad_error = true;
               break;
@@ -2737,7 +2737,7 @@ namespace build2
             }
             catch (const failed&)
             {
-              rs = "ERROR unable to update header unit '" + hp + "'";
+              rs = "ERROR unable to update header unit '" + hp + '\'';
               bad_error = true;
               break;
             }

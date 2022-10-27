@@ -502,7 +502,7 @@ namespace build2
 
           if (p == string::npos)
           {
-            v = "'" + v + "'";
+            v = '\'' + v + '\'';
             continue;
           }
 

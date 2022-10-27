@@ -406,7 +406,7 @@ namespace build2
             "source \"$(dirname"
             " \"$(readlink -f"
             " \"${BASH_SOURCE[0]}\")\")/"
-            + iip.string () + "\"";
+            + iip.string () + '"';
         }
         else
         {
@@ -427,7 +427,7 @@ namespace build2
           return
             "source \"$(dirname"
             " \"${BASH_SOURCE[0]}\")/"
-            + o + iip.string () + "\"";
+            + o + iip.string () + '"';
         }
       }
       else
