@@ -373,8 +373,10 @@ namespace build2
   using butl::sha256;
 
   // <libbutl/process.hxx>
+  //
   using butl::process;
   using butl::process_env;
+  using butl::process_exit;
   using butl::process_path;
   using butl::process_error;
 

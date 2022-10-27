@@ -1329,7 +1329,7 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            fail (ll) << "unable to read from " << cmd_path (c) << " output: "
+            fail (ll) << "unable to read from " << cmd_path (c) << " stdout: "
                       << e;
           }
         }

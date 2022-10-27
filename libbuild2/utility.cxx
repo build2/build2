@@ -281,6 +281,8 @@ namespace build2
     if (pr.wait ())
       return true;
 
+    // Note: see similar code in diag_buffer::close/finish().
+    //
     const process_exit& e (*pr.exit);
 
     if (!e.normal ())

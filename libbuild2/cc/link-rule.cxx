@@ -254,6 +254,10 @@ namespace build2
     link_rule::
     link_rule (data&& d)
         : common (move (d)),
+          //
+          // @@ TODO: split into rule_name (string) and rule_version (integer)
+          //    on next increment.
+          //
           rule_id (string (x) += ".link 3")
     {
     }
@@ -2671,7 +2675,7 @@ namespace build2
     // Filter link.exe noise (msvc.cxx).
     //
     void
-    msvc_filter_link (ifdstream&, const file&, otype);
+    msvc_filter_link (diag_buffer&, const file&, otype);
 
     // Translate target CPU to the link.exe/lib.exe /MACHINE option.
     //
@@ -2879,6 +2883,8 @@ namespace build2
         env_ptrs.push_back (nullptr);
       }
 
+      diag_buffer dbuf (ctx);
+
       // If targeting Windows, take care of the manifest.
       //
       path manifest; // Manifest itself (msvc) or compiled object file.
@@ -2929,12 +2935,15 @@ namespace build2
 
               try
               {
+                // We assume that what we write to stdin is small enough to
+                // fit into the pipe's buffer without blocking.
+                //
                 process pr (rc,
                             args,
-                            -1      /* stdin  */,
-                            1       /* stdout */,
-                            2       /* stderr */,
-                            nullptr /* cwd    */,
+                            -1                  /* stdin  */,
+                            1                   /* stdout */,
+                            dbuf.open (args[0]) /* stderr */,
+                            nullptr             /* cwd    */,
                             env_ptrs.empty () ? nullptr : env_ptrs.data ());
 
                 try
@@ -2960,7 +2969,8 @@ namespace build2
                   // was caused by that and let run_finish() deal with it.
                 }
 
-                run_finish (args, pr);
+                dbuf.read ();
+                dbuf.finish (args, pr, 2 /* verbosity */);
               }
               catch (const process_error& e)
               {
@@ -3823,7 +3833,20 @@ namespace build2
       else if (verb == 2)
         print_process (args);
 
+      // Do any necessary fixups to the command line to make it runnable.
+      //
+      // Notice the split in the diagnostics: at verbosity level 1 we print
+      // the "logical" command line while at level 2 and above -- what we are
+      // actually executing.
+      //
+      // We also need to save the original for the diag_buffer::close() call
+      // below if at verbosity level 1.
+      //
+      cstrings oargs;
+
       // Adjust linker parallelism.
+      //
+      // Note that we are not going to bother with oargs for this.
       //
       string jobs_arg;
       scheduler::alloc_guard jobs_extra;
@@ -3875,12 +3898,6 @@ namespace build2
         }
       }
 
-      // Do any necessary fixups to the command line to make it runnable.
-      //
-      // Notice the split in the diagnostics: at verbosity level 1 we print
-      // the "logical" command line while at level 2 and above -- what we are
-      // actually executing.
-      //
       // On Windows we need to deal with the command line length limit. The
       // best workaround seems to be passing (part of) the command line in an
       // "options file" ("response file" in Microsoft's terminology). Both
@@ -3966,14 +3983,15 @@ namespace build2
             fail << "unable to write to " << f << ": " << e;
           }
 
+          if (verb == 1)
+            oargs = args;
+
           // Replace input arguments with @file.
           //
           targ = '@' + f.string ();
           args.resize (args_input);
           args.push_back (targ.c_str());
           args.push_back (nullptr);
-
-          //@@ TODO: leave .t file if linker failed and verb > 2?
         }
       }
 #endif
@@ -3996,51 +4014,48 @@ namespace build2
         {
           // VC tools (both lib.exe and link.exe) send diagnostics to stdout.
           // Also, link.exe likes to print various gratuitous messages. So for
-          // link.exe we redirect stdout to a pipe, filter that noise out, and
-          // send the rest to stderr.
+          // link.exe we filter that noise out.
           //
           // For lib.exe (and any other insane linker that may try to pull off
           // something like this) we are going to redirect stdout to stderr.
           // For sane compilers this should be harmless.
           //
           // Note that we don't need this for LLD's link.exe replacement which
-          // is quiet.
+          // is thankfully quiet.
           //
           bool filter (tsys == "win32-msvc"  &&
                        !lt.static_library () &&
                        cast<string> (rs["bin.ld.id"]) != "msvc-lld");
 
           process pr (*ld,
-                      args.data (),
-                      0                  /* stdin  */,
-                      (filter ? -1 : 2)  /* stdout */,
-                      2                  /* stderr */,
-                      nullptr            /* cwd    */,
+                      args,
+                      0                           /* stdin  */,
+                      2                           /* stdout */,
+                      dbuf.open (args[0], filter) /* stderr */,
+                      nullptr                     /* cwd    */,
                       env_ptrs.empty () ? nullptr : env_ptrs.data ());
 
           if (filter)
+            msvc_filter_link (dbuf, t, ot);
+
+          dbuf.read ();
+
           {
-            try
-            {
-              ifdstream is (
-                move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
+            bool e (pr.wait ());
 
-              msvc_filter_link (is, t, ot);
+#ifdef _WIN32
+            // Keep the options file if we have shown it.
+            //
+            if (!e && verb > 2)
+              trm.cancel ();
+#endif
 
-              // If anything remains in the stream, send it all to stderr.
-              // Note that the eof check is important: if the stream is at
-              // eof, this and all subsequent writes to the diagnostics stream
-              // will fail (and you won't see a thing).
-              //
-              if (is.peek () != ifdstream::traits_type::eof ())
-                diag_stream_lock () << is.rdbuf ();
+            dbuf.close (oargs.empty () ? args : oargs, *pr.exit);
 
-              is.close ();
-            }
-            catch (const io_error&) {} // Assume exits with error.
+            if (!e)
+              throw failed ();
           }
 
-          run_finish (args, pr);
           jobs_extra.deallocate ();
         }
         catch (const process_error& e)
@@ -4100,10 +4115,25 @@ namespace build2
           print_process (args);
 
         if (!ctx.dry_run)
+        {
+#if 0
           run (rl,
                args,
                dir_path () /* cwd */,
                env_ptrs.empty () ? nullptr : env_ptrs.data ());
+#else
+          process pr (rl,
+                      args,
+                      0                   /* stdin  */,
+                      1                   /* stdout */,
+                      dbuf.open (args[0]) /* stderr */,
+                      nullptr             /* cwd    */,
+                      env_ptrs.empty () ? nullptr : env_ptrs.data ());
+
+          dbuf.read ();
+          dbuf.finish (args, pr);
+#endif
+        }
       }
 
       // For Windows generate (or clean up) rpath-emulating assembly.

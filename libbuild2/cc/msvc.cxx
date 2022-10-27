@@ -164,18 +164,21 @@ namespace build2
 
     // Filter cl.exe and link.exe noise.
     //
+    // Note: must be followed with the dbuf.read() call.
+    //
     void
-    msvc_filter_cl (ifdstream& is, const path& src)
+    msvc_filter_cl (diag_buffer& dbuf, const path& src)
+    try
     {
       // While it appears VC always prints the source name (event if the
       // file does not exist), let's do a sanity check. Also handle the
       // command line errors/warnings which come before the file name.
       //
-      for (string l; !eof (getline (is, l)); )
+      for (string l; !eof (getline (dbuf.is, l)); )
       {
         if (l != src.leaf ().string ())
         {
-          diag_stream_lock () << l << endl;
+          dbuf.write (l, true /* newline */);
 
           if (msvc_sense_diag (l, 'D').first != string::npos)
             continue;
@@ -184,14 +187,19 @@ namespace build2
         break;
       }
     }
+    catch (const io_error&)
+    {
+      // Let the following diag_buffer::read() call deal with this.
+    }
 
     void
-    msvc_filter_link (ifdstream& is, const file& t, otype lt)
+    msvc_filter_link (diag_buffer& dbuf, const file& t, otype lt)
+    try
     {
       // Filter lines until we encounter something we don't recognize. We also
       // have to assume the messages can be translated.
       //
-      for (string l; getline (is, l); )
+      for (string l; getline (dbuf.is, l); )
       {
         // "   Creating library foo\foo.dll.lib and object foo\foo.dll.exp"
         //
@@ -216,11 +224,14 @@ namespace build2
 
         // /INCREMENTAL causes linker to sometimes issue messages but now I
         // can't quite reproduce it.
-        //
 
-        diag_stream_lock () << l << endl;
+        dbuf.write (l, true /* newline */);
         break;
       }
+    }
+    catch (const io_error&)
+    {
+      // Let the following diag_buffer::read() call deal with this.
     }
 
     void

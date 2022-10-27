@@ -264,6 +264,10 @@ namespace build2
     compile_rule::
     compile_rule (data&& d, const scope& rs)
         : common (move (d)),
+          //
+          // @@ TODO: split into rule_name (string) and rule_version (integer)
+          //    on next increment.
+          //
           rule_id (string (x) += ".compile 6")
     {
       // Locate the header cache (see enter_header() for details).
@@ -3961,6 +3965,8 @@ namespace build2
               // diagnostics (if things go badly we will restart with this
               // support).
               //
+              // @@ TODO: diag_buffer
+              //
               if (drmp == nullptr) // Dependency info goes to stdout.
               {
                 assert (!sense_diag); // Note: could support with fdselect().
@@ -3970,7 +3976,7 @@ namespace build2
                 //
                 pr = process (
                   cpath,
-                  args.data (),
+                  args,
                   0,
                   -1,
                   cclass == compiler_class::msvc ? 1 : gen ? 2 : -2,
@@ -3980,7 +3986,7 @@ namespace build2
               else // Dependency info goes to a temporary file.
               {
                 pr = process (cpath,
-                              args.data (),
+                              args,
                               mod_mapper ? -1 : 0,
                               mod_mapper ? -1 : 2, // Send stdout to stderr.
                               gen ? 2 : sense_diag ? -1 : -2,
@@ -4890,10 +4896,10 @@ namespace build2
               print_process (args);
 
             // We don't want to see warnings multiple times so ignore all
-            // diagnostics.
+            // diagnostics (thus no need for diag_buffer).
             //
             pr = process (cpath,
-                          args.data (),
+                          args,
                           0, -1, -2,
                           nullptr, // CWD
                           env.empty () ? nullptr : env.data ());
@@ -6327,7 +6333,7 @@ namespace build2
     // Filter cl.exe noise (msvc.cxx).
     //
     void
-    msvc_filter_cl (ifdstream&, const path& src);
+    msvc_filter_cl (diag_buffer&, const path& src);
 
     // Append header unit-related options.
     //
@@ -6674,7 +6680,7 @@ namespace build2
       small_vector<string, 2> module_args; // Module options storage.
 
       size_t out_i (0);  // Index of the -o option.
-      size_t lang_n (0); // Number of lang options.
+      //size_t lang_n (0); // Number of lang options. @@ TMP
 
       switch (cclass)
       {
@@ -7025,7 +7031,7 @@ namespace build2
             args.push_back ("-c");
           }
 
-          lang_n = append_lang_options (args, md);
+          /*lang_n = */append_lang_options (args, md); // @@ TMP
 
           if (md.pp == preprocessed::all)
           {
@@ -7074,6 +7080,8 @@ namespace build2
       // the source file, not its preprocessed version (so that it's easy to
       // copy and re-run, etc). Only at level 3 and above print the real deal.
       //
+      // @@ TODO: why don't we print env (here and/or below)? Also link rule.
+      //
       if (verb == 1)
         text << x_name << ' ' << s;
       else if (verb == 2)
@@ -7081,12 +7089,17 @@ namespace build2
 
       // If we have the (partially) preprocessed output, switch to that.
       //
+      // But we remember the original source/position to restore later.
+      //
       bool psrc (md.psrc);
       bool ptmp (psrc && md.psrc.temporary);
+      pair<size_t, const char*> osrc;
       if (psrc)
       {
         args.pop_back (); // nullptr
+        osrc.second = args.back ();
         args.pop_back (); // sp
+        osrc.first = args.size ();
 
         sp = &md.psrc.path ();
 
@@ -7096,6 +7109,8 @@ namespace build2
         {
         case compiler_type::gcc:
           {
+            // @@ TMP
+#if 0
             // The -fpreprocessed is implied by .i/.ii. But not when compiling
             // a header unit (there is no .hi/.hii).
             //
@@ -7109,6 +7124,15 @@ namespace build2
               //
               for (; lang_n != 0; --lang_n)
                 args.pop_back ();
+#else
+            // -fpreprocessed is implied by .i/.ii unless compiling a header
+            // unit (there is no .hi/.hii). Also, we would need to pop -x
+            // since it takes precedence over the extension, which would mess
+            // up our osrc logic. So in the end it feels like always passing
+            // explicit -fpreprocessed is the way to go.
+            //
+            args.push_back ("-fpreprocessed");
+#endif
 
             args.push_back ("-fdirectives-only");
             break;
@@ -7145,6 +7169,8 @@ namespace build2
       if (verb >= 3)
         print_process (args);
 
+      diag_buffer dbuf (ctx);
+
       // @@ DRYRUN: Currently we discard the (partially) preprocessed file on
       // dry-run which is a waste. Even if we keep the file around (like we do
       // for the error case; see above), we currently have no support for
@@ -7163,45 +7189,36 @@ namespace build2
           file_cache::read psrcr (psrc ? md.psrc.open () : file_cache::read ());
 
           // VC cl.exe sends diagnostics to stdout. It also prints the file
-          // name being compiled as the first line. So for cl.exe we redirect
-          // stdout to a pipe, filter that noise out, and send the rest to
-          // stderr.
+          // name being compiled as the first line. So for cl.exe we filter
+          // that noise out.
           //
-          // For other compilers redirect stdout to stderr, in case any of
-          // them tries to pull off something similar. For sane compilers this
-          // should be harmless.
+          // For other compilers also redirect stdout to stderr, in case any
+          // of them tries to pull off something similar. For sane compilers
+          // this should be harmless.
           //
           bool filter (ctype == compiler_type::msvc);
 
           process pr (cpath,
-                      args.data (),
-                      0, (filter ? -1 : 2), 2,
+                      args,
+                      0, 2, dbuf.open (args[0], filter),
                       nullptr, // CWD
                       env.empty () ? nullptr : env.data ());
 
           if (filter)
+            msvc_filter_cl (dbuf, *sp);
+
+          dbuf.read ();
+
+          // Restore the original source if we switched to preprocessed.
+          //
+          if (psrc)
           {
-            try
-            {
-              ifdstream is (
-                move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
-
-              msvc_filter_cl (is, *sp);
-
-              // If anything remains in the stream, send it all to stderr.
-              // Note that the eof check is important: if the stream is at
-              // eof, this and all subsequent writes to the diagnostics stream
-              // will fail (and you won't see a thing).
-              //
-              if (is.peek () != ifdstream::traits_type::eof ())
-                diag_stream_lock () << is.rdbuf ();
-
-              is.close ();
-            }
-            catch (const io_error&) {} // Assume exits with error.
+            args.resize (osrc.first);
+            args.push_back (osrc.second);
+            args.push_back (nullptr);
           }
 
-          run_finish (args, pr);
+          dbuf.finish (args, pr);
         }
         catch (const process_error& e)
         {
@@ -7252,12 +7269,14 @@ namespace build2
           try
           {
             process pr (cpath,
-                        args.data (),
-                        0, 2, 2,
+                        args,
+                        0, 2, dbuf.open (args[0]),
                         nullptr, // CWD
                         env.empty () ? nullptr : env.data ());
 
-            run_finish (args, pr);
+            dbuf.read ();
+
+            dbuf.finish (args, pr);
           }
           catch (const process_error& e)
           {

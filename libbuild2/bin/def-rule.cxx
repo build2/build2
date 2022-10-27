@@ -751,6 +751,9 @@ namespace build2
       return target_state::changed;
     }
 
+    // @@ TODO: split into rule_name (string) and rule_version (integer)
+    //    on next increment.
+    //
     const string def_rule::rule_id_ {"bin.def 2"};
   }
 }

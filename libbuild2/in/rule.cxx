@@ -147,6 +147,9 @@ namespace build2
 
       // First should come the rule name/version.
       //
+      // @@ TODO: split into rule_name (string) and rule_version (integer)
+      //    on next increment.
+      //
       if (dd.expect (rule_id_ + " 1") != nullptr)
         l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
