@@ -84,6 +84,7 @@ namespace build2
                    false,                    /* match_only */
                    false,                    /* no_external_modules */
                    false,                    /* dry_run */
+                   ctx.no_diag_buffer,
                    ctx.keep_going,
                    ctx.global_var_overrides, /* cmd_vars */
                    nullopt));                /* module_context */

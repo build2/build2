@@ -258,6 +258,10 @@ namespace build2
     bool dry_run = false;
     bool dry_run_option;
 
+    // Diagnostics buffering flag (--no-diag-buffer).
+    //
+    bool no_diag_buffer;
+
     // Keep going flag.
     //
     // Note that setting it to false is not of much help unless we are running
@@ -644,6 +648,7 @@ namespace build2
              bool match_only = false,
              bool no_external_modules = false,
              bool dry_run = false,
+             bool no_diag_buffer = false,
              bool keep_going = true,
              const strings& cmd_vars = {},
              optional<context*> module_context = nullptr,

@@ -290,6 +290,7 @@ namespace build2
     max_stack_specified_ (false),
     serial_stop_ (),
     dry_run_ (),
+    no_diag_buffer_ (),
     match_only_ (),
     no_external_modules_ (),
     structured_result_ (),
@@ -493,6 +494,12 @@ namespace build2
     {
       ::build2::build::cli::parser< bool>::merge (
         this->dry_run_, a.dry_run_);
+    }
+
+    if (a.no_diag_buffer_)
+    {
+      ::build2::build::cli::parser< bool>::merge (
+        this->no_diag_buffer_, a.no_diag_buffer_);
     }
 
     if (a.match_only_)
@@ -734,7 +741,10 @@ namespace build2
        << "                        build system errors rather than compilation errors." << ::std::endl
        << "                        Note that if you don't want to keep going but still" << ::std::endl
        << "                        want parallel execution, add \033[1m--jobs|-j\033[0m (for example \033[1m-j" << ::std::endl
-       << "                        0\033[0m for default concurrency)." << ::std::endl;
+       << "                        0\033[0m for default concurrency). Note also that during" << ::std::endl
+       << "                        serial execution there is no diagnostics buffering and" << ::std::endl
+       << "                        child process' \033[1mstderr\033[0m is a terminal (unless redirected;" << ::std::endl
+       << "                        see \033[1m--no-diag-buffer\033[0m for details)." << ::std::endl;
 
     os << std::endl
        << "\033[1m--dry-run\033[0m|\033[1m-n\033[0m            Print commands without actually executing them. Note" << ::std::endl
@@ -745,6 +755,18 @@ namespace build2
        << "                        rather \033[4m\"do minimum amount of work to show what needs to" << ::std::endl
        << "                        be done\"\033[0m. Note also that only the \033[1mperform\033[0m" << ::std::endl
        << "                        meta-operation supports this mode." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--no-diag-buffer\033[0m        Do not buffer diagnostics from child processes. By" << ::std::endl
+       << "                        default, unless running serially, such diagnostics is" << ::std::endl
+       << "                        buffered and printed all at once after each child exits" << ::std::endl
+       << "                        in order to prevent interleaving. However, this can" << ::std::endl
+       << "                        have side-effects since the child process' \033[1mstderr\033[0m is no" << ::std::endl
+       << "                        longer a terminal. Most notably, the use of color in" << ::std::endl
+       << "                        diagnostics will be disabled by most programs. On the" << ::std::endl
+       << "                        other hand, depending on the platform and programs" << ::std::endl
+       << "                        invoked, the interleaving diagnostics may not break" << ::std::endl
+       << "                        lines and thus could be tolerable." << ::std::endl;
 
     os << std::endl
        << "\033[1m--match-only\033[0m            Match the rules but do not execute the operation. This" << ::std::endl
@@ -1008,6 +1030,8 @@ namespace build2
       &::build2::build::cli::thunk< b_options, &b_options::dry_run_ >;
       _cli_b_options_map_["-n"] =
       &::build2::build::cli::thunk< b_options, &b_options::dry_run_ >;
+      _cli_b_options_map_["--no-diag-buffer"] =
+      &::build2::build::cli::thunk< b_options, &b_options::no_diag_buffer_ >;
       _cli_b_options_map_["--match-only"] =
       &::build2::build::cli::thunk< b_options, &b_options::match_only_ >;
       _cli_b_options_map_["--no-external-modules"] =

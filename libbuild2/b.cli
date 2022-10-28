@@ -608,7 +608,10 @@ namespace build2
        investigate build failures that are caused by build system errors
        rather than compilation errors. Note that if you don't want to keep
        going but still want parallel execution, add \cb{--jobs|-j} (for
-       example \cb{-j\ 0} for default concurrency)."
+       example \cb{-j\ 0} for default concurrency). Note also that during
+       serial execution there is no diagnostics buffering and child
+       process' \cb{stderr} is a terminal (unless redirected; see
+       \cb{--no-diag-buffer} for details)."
     }
 
     bool --dry-run|-n
@@ -620,6 +623,19 @@ namespace build2
        but rather \i{\"do minimum amount of work to show what needs to be
        done\"}. Note also that only the \cb{perform} meta-operation supports
        this mode."
+    }
+
+    bool --no-diag-buffer
+    {
+      "Do not buffer diagnostics from child processes. By default, unless
+       running serially, such diagnostics is buffered and printed all at
+       once after each child exits in order to prevent interleaving.
+       However, this can have side-effects since the child process'
+       \cb{stderr} is no longer a terminal. Most notably, the use of
+       color in diagnostics will be disabled by most programs. On the
+       other hand, depending on the platform and programs invoked, the
+       interleaving diagnostics may not break lines and thus could be
+       tolerable."
     }
 
     bool --match-only

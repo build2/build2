@@ -57,9 +57,10 @@ namespace build2
     assert (blocking); // @@ TODO (also in read() and close () below).
 
     serial = ctx_.sched.serial ();
+    nobuf = !serial && ctx_.no_diag_buffer;
 
     process::pipe r;
-    if (!serial || force)
+    if (!(serial || nobuf) || force)
     {
       try
       {
@@ -70,11 +71,11 @@ namespace build2
         //
         r = process::pipe (p.in.get (), move (p.out));
 
-        is.open (move (p.in), fdstream_mode::text, ifdstream::badbit);
+        is.open (move (p.in), fdstream_mode::text);
       }
       catch (const io_error& e)
       {
-        fail << "unable to read from " << args0 << " stderr:" << e;
+        fail << "unable to read from " << args0 << " stderr: " << e;
       }
     }
     else
@@ -97,7 +98,7 @@ namespace build2
       {
         if (is.blocking ())
         {
-          if (serial)
+          if (serial || nobuf)
           {
             // This is the case where we are called after custom processing.
             //
@@ -109,12 +110,28 @@ namespace build2
             //
             if (is.peek () != ifdstream::traits_type::eof ())
             {
-              // Holding the diag lock while waiting for diagnostics from the
-              // child process would be a bad idea in the parallel build. But
-              // it should be harmless in serial.
-              //
-              diag_stream_lock l;
-              *diag_stream << is.rdbuf ();
+              if (serial)
+              {
+                // Holding the diag lock while waiting for diagnostics from
+                // the child process would be a bad idea in the parallel
+                // build. But it should be harmless in serial.
+                //
+                // @@ TODO: do direct buffer copy.
+                //
+                diag_stream_lock dl;
+                *diag_stream << is.rdbuf ();
+              }
+              else
+              {
+                // Read/write one line at a time not to hold the lock for too
+                // long.
+                //
+                for (string l; !eof (std::getline (is, l)); )
+                {
+                  diag_stream_lock dl;
+                  *diag_stream << l << '\n';
+                }
+              }
             }
           }
           else
@@ -156,7 +173,7 @@ namespace build2
         // For now we assume (here and pretty much everywhere else) that the
         // output can't fail.
         //
-        fail << "unable to read from " << args0 << " stderr:" << e;
+        fail << "unable to read from " << args0 << " stderr: " << e;
       }
     }
     else
@@ -173,11 +190,11 @@ namespace build2
   {
     // Similar logic to read() above.
     //
-    if (serial)
+    if (serial || nobuf)
     {
       assert (buf.empty ());
 
-      diag_stream_lock l;
+      diag_stream_lock dl;
       *diag_stream << s;
       if (nl)
         *diag_stream << '\n';
@@ -221,7 +238,7 @@ namespace build2
         }
         catch (const io_error& e)
         {
-          fail << "unable to read from " << args0 << " stderr:" << e;
+          fail << "unable to read from " << args0 << " stderr: " << e;
         }
       }
 

@@ -141,6 +141,9 @@ namespace build2
     dry_run () const;
 
     const bool&
+    no_diag_buffer () const;
+
+    const bool&
     match_only () const;
 
     const bool&
@@ -275,6 +278,7 @@ namespace build2
     bool max_stack_specified_;
     bool serial_stop_;
     bool dry_run_;
+    bool no_diag_buffer_;
     bool match_only_;
     bool no_external_modules_;
     structured_result_format structured_result_;

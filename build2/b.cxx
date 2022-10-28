@@ -434,6 +434,7 @@ main (int argc, char* argv[])
                                ops.match_only (),
                                ops.no_external_modules (),
                                ops.dry_run (),
+                               ops.no_diag_buffer (),
                                !ops.serial_stop () /* keep_going */,
                                cmdl.cmd_vars));
 

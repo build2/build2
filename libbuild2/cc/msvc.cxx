@@ -187,9 +187,9 @@ namespace build2
         break;
       }
     }
-    catch (const io_error&)
+    catch (const io_error& e)
     {
-      // Let the following diag_buffer::read() call deal with this.
+      fail << "unable to read from " << dbuf.args0 << " stderr: " << e;
     }
 
     void
@@ -229,9 +229,9 @@ namespace build2
         break;
       }
     }
-    catch (const io_error&)
+    catch (const io_error& e)
     {
-      // Let the following diag_buffer::read() call deal with this.
+      fail << "unable to read from " << dbuf.args0 << " stderr: " << e;
     }
 
     void

@@ -153,6 +153,12 @@ namespace build2
   }
 
   inline const bool& b_options::
+  no_diag_buffer () const
+  {
+    return this->no_diag_buffer_;
+  }
+
+  inline const bool& b_options::
   match_only () const
   {
     return this->match_only_;

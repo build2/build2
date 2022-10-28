@@ -30,7 +30,7 @@ namespace build2
   //
   // - Stream it (if the input can be split into diagnostic records).
   //
-  // - Do nothing (in serial builds).
+  // - Do nothing (in serial builds or if requested not to buffer).
   //
   // This class is also responsible for converting the diagnostics into the
   // structured form (which means it may need to buffer even in serial
@@ -40,7 +40,7 @@ namespace build2
   {
   public:
     explicit
-    diag_buffer (context& c): ctx_ (c) {}
+    diag_buffer (context& c): is (ifdstream::badbit), ctx_ (c) {}
 
   public:
     // If buffering is necessary or force is true, open a pipe and return the
@@ -161,17 +161,28 @@ namespace build2
     // Direct access to the underlying stream and buffer for custom processing
     // (see read() above for details).
     //
+    // If serial is true, then we are running serially. If nobuf is true,
+    // then we are running in parallel but diagnostics buffering has been
+    // disabled (--no-diag-buffer). Note that there is a difference: during
+    // the serial execution we are free to hold the diag_stream_lock for as
+    // long as convenient, for example, for the whole duration of child
+    // process execution. Doing the same during parallel execution is very
+    // bad idea and we should read/write the diagnostics in chunks, normally
+    // one line at a time.
+    //
   public:
     ifdstream    is;
     vector<char> buf;
     const char*  args0;
     bool         serial;
+    bool         nobuf;
 
     // Buffer or stream a fragment of diagnostics as necessary. If newline
     // is true, also add a trailing newline.
     //
     // This function is normally called from a custom diagnostics processing
-    // implementation (see read() above for details).
+    // implementation (see read() above for details). If nobuf is true, then
+    // the fragment should end on the line boundary to avoid interleaving.
     //
     void
     write (const string&, bool newline);
