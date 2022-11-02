@@ -33,8 +33,10 @@ namespace build2
     };
 
     static void
-    read_dumpbin (istream& is, symbols& syms)
+    read_dumpbin (diag_buffer& dbuf, ifdstream& is, symbols& syms)
     {
+      // Note: io_error is handled by the caller.
+
       // Lines that describe symbols look like:
       //
       // 0   1        2      3          4            5 6
@@ -72,29 +74,27 @@ namespace build2
       //
       // Note that an UNDEF data symbol with non-zero OFFSET is a "common
       // symbol", equivalent to the nm `C` type.
-
-      // Map of read-only (.rdata, .xdata) and uninitialized (.bss) sections
-      // to their types (R and B, respectively). If a section is not found in
-      // this map, then it's assumed to be normal data (.data).
       //
-      map<string, char> sections;
-
-      string l;
-      while (!eof (getline (is, l)))
+      // We keep a map of read-only (.rdata, .xdata) and uninitialized (.bss)
+      // sections to their types (R and B, respectively). If a section is not
+      // found in this map, then it's assumed to be normal data (.data).
+      //
+      auto parse_line = [&syms,
+                         secs = map<string, char> ()] (const string& l) mutable
       {
         size_t b (0), e (0), n;
 
         // IDX (note that it can be more than 3 characters).
         //
         if (next_word (l, b, e) == 0)
-          continue;
+          return;
 
         // OFFSET (always 8 characters).
         //
         n = next_word (l, b, e);
 
         if (n != 8)
-          continue;
+          return;
 
         string off (l, b, n);
 
@@ -103,7 +103,7 @@ namespace build2
         n = next_word (l, b, e);
 
         if (n == 0)
-          continue;
+          return;
 
         string sec (l, b, n);
 
@@ -112,7 +112,7 @@ namespace build2
         n = next_word (l, b, e);
 
         if (l.compare (b, n, "notype") != 0)
-          continue;
+          return;
 
         bool dat;
         if (l[e] == ' ' && l[e + 1] == '(' && l[e + 2] == ')')
@@ -128,7 +128,7 @@ namespace build2
         n = next_word (l, b, e);
 
         if (n == 0)
-          continue;
+          return;
 
         string vis (l, b, n);
 
@@ -137,14 +137,14 @@ namespace build2
         n = next_word (l, b, e);
 
         if (n != 1 || l[b] != '|')
-          continue;
+          return;
 
         // SYMNAME
         //
         n = next_word (l, b, e);
 
         if (n == 0)
-          continue;
+          return;
 
         string s (l, b, n);
 
@@ -162,23 +162,23 @@ namespace build2
           };
 
           if      (cmp (".rdata", 6) ||
-                   cmp (".xdata", 6))    sections.emplace (move (sec), 'R');
-          else if (cmp (".bss",   4))    sections.emplace (move (sec), 'B');
+                   cmp (".xdata", 6))    secs.emplace (move (sec), 'R');
+          else if (cmp (".bss",   4))    secs.emplace (move (sec), 'B');
 
-          continue;
+          return;
         }
 
         // We can only export extern symbols.
         //
         if (vis != "External")
-          continue;
+          return;
 
         if (dat)
         {
           if (sec != "UNDEF")
           {
-            auto i (sections.find (sec));
-            switch (i == sections.end () ? 'D' : i->second)
+            auto i (secs.find (sec));
+            switch (i == secs.end () ? 'D' : i->second)
             {
             case 'D': syms.d.insert (move (s)); break;
             case 'R': syms.r.insert (move (s)); break;
@@ -196,20 +196,54 @@ namespace build2
           if (sec != "UNDEF")
             syms.t.insert (move (s));
         }
+      };
+
+      // Read until we reach EOF on all streams.
+      //
+      // Note that if dbuf is not opened, then we automatically get inactive
+      // nullfd entry.
+      //
+      fdselect_set fds {is.fd (), dbuf.is.fd ()};
+      fdselect_state& ist (fds[0]);
+      fdselect_state& dst (fds[1]);
+
+      for (string l; ist.fd != nullfd || dst.fd != nullfd; )
+      {
+        if (ist.fd != nullfd && getline_non_blocking (is, l))
+        {
+          if (eof (is))
+            ist.fd = nullfd;
+          else
+          {
+            parse_line (l);
+            l.clear ();
+          }
+
+          continue;
+        }
+
+        ifdselect (fds);
+
+        if (dst.ready)
+        {
+          if (!dbuf.read ())
+            dst.fd = nullfd;
+        }
       }
     }
 
     static void
-    read_posix_nm (istream& is, symbols& syms)
+    read_posix_nm (diag_buffer& dbuf, ifdstream& is, symbols& syms)
     {
+      // Note: io_error is handled by the caller.
+
       // Lines that describe symbols look like:
       //
       // <NAME> <TYPE> <VALUE> <SIZE>
       //
       // The types that we are interested in are T, D, R, and B.
       //
-      string l;
-      while (!eof (getline (is, l)))
+      auto parse_line = [&syms] (const string& l)
       {
         size_t b (0), e (0), n;
 
@@ -218,7 +252,7 @@ namespace build2
         n = next_word (l, b, e);
 
         if (n == 0)
-          continue;
+          return;
 
         string s (l, b, n);
 
@@ -227,7 +261,7 @@ namespace build2
         n = next_word (l, b, e);
 
         if (n != 1)
-          continue;
+          return;
 
         switch (l[b])
         {
@@ -237,6 +271,39 @@ namespace build2
         case 'c':
         case 'C': syms.c.insert (move (s)); break;
         case 'T': syms.t.insert (move (s)); break;
+        }
+      };
+
+      // Read until we reach EOF on all streams.
+      //
+      // Note that if dbuf is not opened, then we automatically get inactive
+      // nullfd entry.
+      //
+      fdselect_set fds {is.fd (), dbuf.is.fd ()};
+      fdselect_state& ist (fds[0]);
+      fdselect_state& dst (fds[1]);
+
+      for (string l; ist.fd != nullfd || dst.fd != nullfd; )
+      {
+        if (ist.fd != nullfd && getline_non_blocking (is, l))
+        {
+          if (eof (is))
+            ist.fd = nullfd;
+          else
+          {
+            parse_line (l);
+            l.clear ();
+          }
+
+          continue;
+        }
+
+        ifdselect (fds);
+
+        if (dst.ready)
+        {
+          if (!dbuf.read ())
+            dst.fd = nullfd;
         }
       }
     }
@@ -656,6 +723,8 @@ namespace build2
       if (verb == 1)
         text << "def " << t;
 
+      diag_buffer dbuf (ctx);
+
       // Extract symbols from each object file.
       //
       symbols syms;
@@ -674,22 +743,37 @@ namespace build2
 
         // Both dumpbin.exe and nm send their output to stdout. While nm sends
         // diagnostics to stderr, dumpbin sends it to stdout together with the
-        // output.
+        // output. To keep things uniform we will buffer stderr in both cases.
         //
-        process pr (run_start (nm,
-                               args,
-                               0     /* stdin */,
-                               -1    /* stdout */));
+        process pr (
+          run_start (nm,
+                     args,
+                     0                                /* stdin */,
+                     -1                               /* stdout */,
+                     dbuf.open (args[0],
+                                false /* force */,
+                                fdstream_mode::non_blocking |
+                                fdstream_mode::skip)  /* stderr */));
+
         bool io (false);
         try
         {
-          ifdstream is (
-            move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
+          // Note that while we read both streams until eof in the normal
+          // circumstances, we cannot use fdstream_mode::skip for the
+          // exception case on both of them: we may end up being blocked
+          // trying to read one stream while the process may be blocked
+          // writing to the other. So in case of an exception we only skip the
+          // diagnostics and close stdout hard. The latter should happen first
+          // so the order of the dbuf/is variables is important.
+          //
+          ifdstream is (move (pr.in_ofd),
+                        fdstream_mode::non_blocking,
+                        ifdstream::badbit);
 
           if (lid == "msvc" || nid == "msvc")
-            read_dumpbin (is, syms);
+            read_dumpbin (dbuf, is, syms);
           else
-            read_posix_nm (is, syms);
+            read_posix_nm (dbuf, is, syms);
 
           is.close ();
         }
@@ -701,7 +785,7 @@ namespace build2
           io = true;
         }
 
-        if (!run_finish_code (args.data (), pr) || io)
+        if (!run_finish_code (dbuf, args, pr) || io)
           fail << "unable to extract symbols from " << arg;
       }
 

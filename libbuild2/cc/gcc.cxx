@@ -132,113 +132,94 @@ namespace build2
       if (verb >= 3)
         print_process (env, args);
 
+      // Open pipe to stderr, redirect stdin and stdout to /dev/null.
+      //
+      process pr (run_start (
+                    env,
+                    args,
+                    -2,      /* stdin */
+                    -2,      /* stdout */
+                    {-1, -1} /* stderr */));
       try
       {
-        //@@ TODO: why don't we use run_start() here? Because it's unable to
-        //   open pipe for stderr and we need to change it first, for example,
-        //   making the err parameter a file descriptor rather than a flag.
-        //
+        ifdstream is (
+          move (pr.in_efd), fdstream_mode::skip, ifdstream::badbit);
 
-        // Open pipe to stderr, redirect stdin and stdout to /dev/null.
+        // Normally the system header paths appear between the following
+        // lines:
         //
-        process pr (xc,
-                    args.data (),
-                    -2,     /* stdin */
-                    -2,     /* stdout */
-                    -1,     /* stderr */
-                    nullptr /* cwd */,
-                    env.vars);
-
-        try
+        // #include <...> search starts here:
+        // End of search list.
+        //
+        // The exact text depends on the current locale. What we can rely on
+        // is the presence of the "#include <...>" substring in the "opening"
+        // line and the fact that the paths are indented with a single space
+        // character, unlike the "closing" line.
+        //
+        // Note that on Mac OS we will also see some framework paths among
+        // system header paths, followed with a comment. For example:
+        //
+        //  /Library/Frameworks (framework directory)
+        //
+        // For now we ignore framework paths and to filter them out we will
+        // only consider valid paths to existing directories, skipping those
+        // which we fail to normalize or stat. @@ Maybe this is a bit too
+        // loose, especially compared to gcc_library_search_dirs()?
+        //
+        string s;
+        for (bool found (false); getline (is, s); )
         {
-          ifdstream is (
-            move (pr.in_efd), fdstream_mode::skip, ifdstream::badbit);
-
-          // Normally the system header paths appear between the following
-          // lines:
-          //
-          // #include <...> search starts here:
-          // End of search list.
-          //
-          // The exact text depends on the current locale. What we can rely on
-          // is the presence of the "#include <...>" substring in the
-          // "opening" line and the fact that the paths are indented with a
-          // single space character, unlike the "closing" line.
-          //
-          // Note that on Mac OS we will also see some framework paths among
-          // system header paths, followed with a comment. For example:
-          //
-          //  /Library/Frameworks (framework directory)
-          //
-          // For now we ignore framework paths and to filter them out we will
-          // only consider valid paths to existing directories, skipping those
-          // which we fail to normalize or stat. @@ Maybe this is a bit too
-          // loose, especially compared to gcc_library_search_dirs()?
-          //
-          string s;
-          for (bool found (false); getline (is, s); )
+          if (!found)
+            found = s.find ("#include <...>") != string::npos;
+          else
           {
-            if (!found)
-              found = s.find ("#include <...>") != string::npos;
-            else
-            {
-              if (s[0] != ' ')
-                break;
+            if (s[0] != ' ')
+              break;
 
-              dir_path d;
-              try
-              {
-                string ds (s, 1, s.size () - 1);
+            dir_path d;
+            try
+            {
+              string ds (s, 1, s.size () - 1);
 
 #ifdef _WIN32
-                if (path_traits::is_separator (ds[0]))
-                  add_current_drive (ds);
+              if (path_traits::is_separator (ds[0]))
+                add_current_drive (ds);
 #endif
-                d = dir_path (move (ds));
+              d = dir_path (move (ds));
 
-                if (d.relative () || !exists (d, true))
-                  continue;
-
-                d.normalize ();
-              }
-              catch (const invalid_path&)
-              {
+              if (d.relative () || !exists (d, true))
                 continue;
-              }
 
-              if (find (r.begin (), r.end (), d) == r.end ())
-                r.emplace_back (move (d));
+              d.normalize ();
             }
-          }
+            catch (const invalid_path&)
+            {
+              continue;
+            }
 
-          is.close (); // Don't block.
-
-          if (!pr.wait ())
-          {
-            // We have read stderr so better print some diagnostics.
-            //
-            diag_record dr (fail);
-
-            dr << "failed to extract " << x_lang << " header search paths" <<
-              info << "command line: ";
-
-            print_process (dr, args);
+            if (find (r.begin (), r.end (), d) == r.end ())
+              r.emplace_back (move (d));
           }
         }
-        catch (const io_error&)
+
+        is.close (); // Don't block.
+
+        if (!run_wait (args, pr))
         {
-          pr.wait ();
-          fail << "error reading " << x_lang << " compiler -v -E output";
+          // We have read stderr so better print some diagnostics.
+          //
+          diag_record dr (fail);
+
+          dr << "failed to extract " << x_lang << " header search paths" <<
+            info << "command line: ";
+
+          print_process (dr, args);
         }
       }
-      catch (const process_error& e)
+      catch (const io_error&)
       {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
+        run_wait (args, pr);
+        fail << "error reading " << x_lang << " compiler -v -E output";
       }
 
       // It's highly unlikely not to have any system directories. More likely
@@ -301,6 +282,9 @@ namespace build2
         print_process (env, args);
 
       // Open pipe to stdout.
+      //
+      // Note: this function is called in the serial load phase and so no
+      // diagnostics buffering is needed.
       //
       process pr (run_start (env,
                              args,

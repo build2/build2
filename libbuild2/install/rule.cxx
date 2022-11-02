@@ -848,7 +848,7 @@ namespace build2
           text << "install " << chd;
       }
 
-      run (pp, args);
+      run (ctx, pp, args);
     }
 
     void file_rule::
@@ -903,7 +903,7 @@ namespace build2
       }
 
       if (!ctx.dry_run)
-        run (pp, args);
+        run (ctx, pp, args);
     }
 
     void file_rule::
@@ -946,7 +946,7 @@ namespace build2
       }
 
       if (!ctx.dry_run)
-        run (pp, args);
+        run (ctx, pp, args);
 #else
       // The -f part.
       //
@@ -1179,8 +1179,13 @@ namespace build2
               text << "uninstall " << reld;
           }
 
-          process pr (run_start (pp, args));
-          r = run_finish_code (args, pr);
+          diag_buffer dbuf (rs.ctx);
+          process pr (run_start (pp, args,
+                                 0                   /* stdin */,
+                                 1                   /* stdout */,
+                                 dbuf.open (args[0]) /* stderr */));
+          dbuf.read ();
+          r = run_finish_code (dbuf, args, pr);
         }
 
         if (!r)
@@ -1279,7 +1284,7 @@ namespace build2
           print_process (args);
 
         if (!ctx.dry_run)
-          run (pp, args);
+          run (ctx, pp, args);
       }
 
       return true;

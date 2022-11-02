@@ -1015,6 +1015,8 @@ namespace build2
       //
       // Set the empty_ flag to false after the first character is read.
       //
+      // @@ PERF: reading one character at a time is not ideal.
+      //
       auto get = [this] () -> optional<char>
       {
         char r;

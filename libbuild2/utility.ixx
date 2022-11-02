@@ -6,42 +6,152 @@
 namespace build2
 {
   inline bool
-  run_wait (cstrings& args, process& pr, const location& loc)
+  run_wait (const cstrings& args, process& pr, const location& loc)
   {
     return run_wait (args.data (), pr, loc);
   }
 
-  // Note: currently this function is also used in a run() implementations.
+  // Note: currently this function is also used in run() implementations.
   //
   LIBBUILD2_SYMEXPORT bool
-  run_finish_impl (const char*[],
+  run_finish_impl (const char* const*,
                    process&,
-                   bool error,
+                   bool fail,
                    const string&,
                    const location& = location ());
 
+  LIBBUILD2_SYMEXPORT bool
+  run_finish_impl (diag_buffer&,
+                   const char* const*,
+                   process&,
+                   bool fail,
+                   uint16_t,
+                   const location&);
+
   inline void
-  run_finish (const char* args[],
+  run_finish (const char* const* args,
               process& pr,
               const string& l,
               const location& loc)
   {
-    run_finish_impl (args, pr, true /* error */, l, loc);
+    run_finish_impl (args, pr, true /* fail */, l, loc);
   }
 
   inline void
-  run_finish (cstrings& args, process& pr, const location& loc)
+  run_finish (const cstrings& args, process& pr, const location& loc)
   {
     run_finish (args.data (), pr, string (), loc);
   }
 
   inline bool
-  run_finish_code (const char* args[],
+  run_finish_code (const char* const* args,
                    process& pr,
                    const string& l,
                    const location& loc)
   {
-    return run_finish_impl (args, pr, false /* error */, l, loc);
+    return run_finish_impl (args, pr, false /* fail */, l, loc);
+  }
+
+  inline bool
+  run_finish_code (const cstrings& args, process& pr, const location& loc)
+  {
+    return run_finish_code (args.data (), pr, string (), loc);
+  }
+
+  inline void
+  run_finish (diag_buffer& dbuf,
+              const char* const* args,
+              process& pr,
+              uint16_t v,
+              const location& loc)
+  {
+    run_finish_impl (dbuf, args, pr, true /* fail */, v, loc);
+  }
+
+  inline void
+  run_finish (diag_buffer& dbuf,
+              const cstrings& args,
+              process& pr,
+              uint16_t v,
+              const location& loc)
+  {
+    run_finish_impl (dbuf, args.data (), pr, true /* fail */, v, loc);
+  }
+
+  inline bool
+  run_finish_code (diag_buffer& dbuf,
+                   const char* const* args,
+                   process& pr,
+                   uint16_t v,
+                   const location& loc)
+  {
+    return run_finish_impl (dbuf, args, pr, false /* fail */, v, loc);
+  }
+
+  inline bool
+  run_finish_code (diag_buffer& dbuf,
+                   const cstrings& args,
+                   process& pr,
+                   uint16_t v,
+                   const location& loc)
+  {
+    return run_finish_impl (dbuf, args.data (), pr, false /* fail */, v, loc);
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (context& ctx,
+       uint16_t verbosity,
+       const process_env& pe,
+       const char* args[],
+       F&& f,
+       bool err,
+       bool ignore_exit,
+       sha256* checksum)
+  {
+    T r;
+    if (!run (ctx,
+              verbosity,
+              pe, args,
+              [&r, &f] (string& l, bool last) // Small function optimmization.
+              {
+                r = f (l, last);
+                return r.empty ();
+              },
+              true /* trim */,
+              err,
+              ignore_exit,
+              checksum))
+      r = T ();
+
+    return r;
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (diag_buffer& dbuf,
+       uint16_t verbosity,
+       const process_env& pe,
+       const char* args[],
+       F&& f,
+       bool ignore_exit,
+       sha256* checksum)
+  {
+    T r;
+    if (!run (dbuf,
+              verbosity,
+              pe, args,
+              [&r, &f] (string& l, bool last) // Small function optimmization.
+              {
+                r = f (l, last);
+                return r.empty ();
+              },
+              true /* trim */,
+              ignore_exit,
+              checksum))
+      r = T ();
+
+    return r;
   }
 
   inline void

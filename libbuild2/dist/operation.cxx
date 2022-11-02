@@ -27,7 +27,7 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const process_path&, const dir_path&);
+    install (const process_path&, context&, const dir_path&);
 
     // install <file> <dir>[/<name>]
     //
@@ -504,7 +504,7 @@ namespace build2
         fail << "unable to clean target directory " << td;
 
       auto_rmdir rm_td (td); // Clean it up if things go bad.
-      install (dist_cmd, td);
+      install (dist_cmd, ctx, td);
 
       // Copy over all the files. Apply post-processing callbacks.
       //
@@ -571,7 +571,7 @@ namespace build2
 
         dir_path d (td / dl);
         if (!exists (d))
-          install (dist_cmd, d);
+          install (dist_cmd, ctx, d);
 
         path r (install (dist_cmd, t, d, rn));
 
@@ -727,7 +727,7 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const process_path& cmd, const dir_path& d)
+    install (const process_path& cmd, context& ctx, const dir_path& d)
     {
       path reld (relative (d));
 
@@ -741,7 +741,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
 
-      run (cmd, args);
+      run (ctx, cmd, args);
     }
 
     // install <file> <dir>[/<name>]
@@ -784,7 +784,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
 
-      run (cmd, args);
+      run (t.ctx, cmd, args);
 
       return d / (n.empty () ? relf.leaf () : n);
     }
@@ -939,12 +939,13 @@ namespace build2
 
       // Change the archiver's working directory to dist_root.
       //
-      apr = run_start (app,
+      // Note: this function is called during serial execution and so no
+      // diagnostics buffering is needed (here and below).
+      //
+      apr = run_start (process_env (app, root),
                        args,
                        0                 /* stdin  */,
-                       (i != 0 ? -1 : 1) /* stdout */,
-                       true              /* error */,
-                       root);
+                       (i != 0 ? -1 : 1) /* stdout */);
 
       // Start the compressor if required.
       //
@@ -1022,12 +1023,13 @@ namespace build2
         // Note that to only get the archive name (without the directory) in
         // the output we have to run from the archive's directory.
         //
-        process pr (run_start (pp,
+        // Note: this function is called during serial execution and so no
+        // diagnostics buffering is needed.
+        //
+        process pr (run_start (process_env (pp, ad /* cwd */),
                                args,
-                               0             /* stdin */,
-                               c_fd.get ()   /* stdout */,
-                               true          /* error */,
-                               ad            /* cwd */));
+                               0             /* stdin  */,
+                               c_fd.get ()   /* stdout */));
         run_finish (args, pr);
       }
       else

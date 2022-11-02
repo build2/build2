@@ -181,12 +181,12 @@ namespace build2
       // could also be because there is something wrong with the compiler or
       // options but that we simply leave to blow up later).
       //
-      process pr (run_start (3     /* verbosity */,
+      process pr (run_start (3       /* verbosity */,
                              xp,
                              args,
-                             -1    /* stdin */,
-                             -1    /* stdout */,
-                             false /* error  */));
+                             -1      /* stdin */,
+                             -1      /* stdout */,
+                             {-1, 1} /* stderr (to stdout) */));
       string l, r;
       try
       {
@@ -817,7 +817,8 @@ namespace build2
     // Note: allowed to change pre if succeeds.
     //
     static guess_result
-    guess (const char* xm,
+    guess (context& ctx,
+           const char* xm,
            lang xl,
            const path& xc,
            const strings& x_mo,
@@ -1009,7 +1010,7 @@ namespace build2
 #endif
 
       string cache;
-      auto run = [&cs, &env, &args, &cache] (
+      auto run = [&ctx, &cs, &env, &args, &cache] (
         const char* o,
         auto&& f,
         bool checksum = false) -> guess_result
@@ -1017,9 +1018,10 @@ namespace build2
         args[args.size () - 2] = o;
         cache.clear ();
         return build2::run<guess_result> (
+          ctx,
           3                          /* verbosity */,
           env,
-          args.data (),
+          args,
           forward<decltype (f)> (f),
           false                      /* error */,
           false                      /* ignore_exit */,
@@ -1318,7 +1320,11 @@ namespace build2
         //
         const char* evars[] = {"CL=", "_CL_=", nullptr};
 
-        r = build2::run<guess_result> (3, process_env (xp, evars), f, false);
+        r = build2::run<guess_result> (ctx,
+                                       3,
+                                       process_env (xp, evars),
+                                       f,
+                                       false);
 
         if (r.empty ())
         {
@@ -1634,7 +1640,8 @@ namespace build2
                                      "LIB", "LINK", "_LINK_", nullptr};
 
     static compiler_info
-    guess_msvc (const char* xm,
+    guess_msvc (context&,
+                const char* xm,
                 lang xl,
                 const path& xc,
                 const string* xv,
@@ -1905,7 +1912,8 @@ namespace build2
       "SDKROOT", "MACOSX_DEPLOYMENT_TARGET", nullptr};
 
     static compiler_info
-    guess_gcc (const char* xm,
+    guess_gcc (context& ctx,
+               const char* xm,
                lang xl,
                const path& xc,
                const string* xv,
@@ -2018,7 +2026,7 @@ namespace build2
         //
         auto f = [] (string& l, bool) {return move (l);};
 
-        t = run<string> (3, xp, args.data (), f, false);
+        t = run<string> (ctx, 3, xp, args, f, false);
 
         if (t.empty ())
         {
@@ -2026,7 +2034,7 @@ namespace build2
                         << "falling back to -dumpmachine";});
 
           args[args.size () - 2] = "-dumpmachine";
-          t = run<string> (3, xp, args.data (), f, false);
+          t = run<string> (ctx, 3, xp, args, f, false);
         }
 
         if (t.empty ())
@@ -2169,9 +2177,9 @@ namespace build2
       process pr (run_start (3     /* verbosity */,
                              xp,
                              args,
-                             -2    /* stdin  (/dev/null) */,
-                             -1    /* stdout             */,
-                             false /* error  (2>&1)      */));
+                             -2      /* stdin  (to /dev/null) */,
+                             -1      /* stdout                */,
+                             {-1, 1} /* stderr (to stdout)    */));
 
       clang_msvc_info r;
 
@@ -2357,7 +2365,8 @@ namespace build2
       nullptr};
 
     static compiler_info
-    guess_clang (const char* xm,
+    guess_clang (context& ctx,
+                 const char* xm,
                  lang xl,
                  const path& xc,
                  const string* xv,
@@ -2604,7 +2613,7 @@ namespace build2
         // for LC_ALL.
         //
         auto f = [] (string& l, bool) {return move (l);};
-        t = run<string> (3, xp, args.data (), f, false);
+        t = run<string> (ctx, 3, xp, args, f, false);
 
         if (t.empty ())
           fail << "unable to extract target architecture from " << xc
@@ -2832,7 +2841,8 @@ namespace build2
     }
 
     static compiler_info
-    guess_icc (const char* xm,
+    guess_icc (context& ctx,
+               const char* xm,
                lang xl,
                const path& xc,
                const string* xv,
@@ -2896,7 +2906,7 @@ namespace build2
         //
         // @@ TODO: running without the mode options.
         //
-        s = run<string> (3, env, "-V", f, false);
+        s = run<string> (ctx, 3, env, "-V", f, false);
 
         if (s.empty ())
           fail << "unable to extract signature from " << xc << " -V output";
@@ -3022,7 +3032,7 @@ namespace build2
 
         // The -V output is sent to STDERR.
         //
-        t = run<string> (3, env, args.data (), f, false);
+        t = run<string> (ctx, 3, env, args, f, false);
 
         if (t.empty ())
           fail << "unable to extract target architecture from " << xc
@@ -3073,7 +3083,7 @@ namespace build2
         //
         {
           auto f = [] (string& l, bool) {return move (l);};
-          t = run<string> (3, xp, "-dumpmachine", f);
+          t = run<string> (ctx, 3, xp, "-dumpmachine", f);
         }
 
         if (t.empty ())
@@ -3154,7 +3164,8 @@ namespace build2
     static global_cache<compiler_info> cache;
 
     const compiler_info&
-    guess (const char* xm,
+    guess (context& ctx,
+           const char* xm,
            lang xl,
            const string& ec,
            const path& xc,
@@ -3228,7 +3239,7 @@ namespace build2
 
       if (pre.type != invalid_compiler_type)
       {
-        gr = guess (xm, xl, xc, x_mo, xi, pre, cs);
+        gr = guess (ctx, xm, xl, xc, x_mo, xi, pre, cs);
 
         if (gr.empty ())
         {
@@ -3244,13 +3255,14 @@ namespace build2
       }
 
       if (gr.empty ())
-        gr = guess (xm, xl, xc, x_mo, xi, pre, cs);
+        gr = guess (ctx, xm, xl, xc, x_mo, xi, pre, cs);
 
       if (gr.empty ())
         fail << "unable to guess " << xl << " compiler type of " << xc <<
           info << "use config." << xm << ".id to specify explicitly";
 
       compiler_info (*gf) (
+        context&,
         const char*, lang, const path&, const string*, const string*,
         const strings&,
         const strings*, const strings*,
@@ -3270,7 +3282,8 @@ namespace build2
       case compiler_type::icc: gf = &guess_icc;     break;
       }
 
-      compiler_info r (gf (xm, xl, xc, xv, xt,
+      compiler_info r (gf (ctx,
+                           xm, xl, xc, xv, xt,
                            x_mo, c_po, x_po, c_co, x_co, c_lo, x_lo,
                            move (gr), cs));
 

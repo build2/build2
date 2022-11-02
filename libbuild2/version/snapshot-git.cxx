@@ -21,7 +21,7 @@ namespace build2
     static global_cache<snapshot, dir_path> cache;
 
     snapshot
-    extract_snapshot_git (dir_path rep_root)
+    extract_snapshot_git (context& ctx, dir_path rep_root)
     {
       if (const snapshot* r = cache.find (rep_root))
         return *r;
@@ -82,7 +82,11 @@ namespace build2
       args[args_i + 1] = "--porcelain";
       args[args_i + 2] = nullptr;
 
+      // @@ PERF: redo with custom stream reading code (then could also
+      //    get rid of context).
+      //
       r.committed = run<string> (
+        ctx,
         3 /* verbosity */,
         pp,
         args,
@@ -108,7 +112,8 @@ namespace build2
       // (reluctantly) assume that the only reason git cat-file fails is if
       // there is no HEAD (that we equal with the "new repository" condition
       // which is, strictly speaking, might not be the case either). So we
-      // suppress any diagnostics, and handle non-zero exit code.
+      // suppress any diagnostics, and handle non-zero exit code (and so no
+      // diagnostics buffering is needed, plus we are in the load phase).
       //
       string data;
 
@@ -117,12 +122,12 @@ namespace build2
       args[args_i + 2] = "HEAD";
       args[args_i + 3] = nullptr;
 
-      process pr (run_start (3     /* verbosity */,
+      process pr (run_start (3       /* verbosity */,
                              pp,
                              args,
-                             0     /* stdin  */,
-                             -1    /* stdout */,
-                             false /* error  */));
+                             0       /* stdin  */,
+                             -1      /* stdout */,
+                             {-1, 1} /* stderr (to stdout) */));
 
       string l;
       try

@@ -2970,7 +2970,7 @@ namespace build2
                 }
 
                 dbuf.read ();
-                dbuf.finish (args, pr, 2 /* verbosity */);
+                run_finish (dbuf, args, pr, 2 /* verbosity */);
               }
               catch (const process_error& e)
               {
@@ -4116,23 +4116,10 @@ namespace build2
 
         if (!ctx.dry_run)
         {
-#if 0
-          run (rl,
+          run (dbuf,
+               rl,
                args,
-               dir_path () /* cwd */,
                env_ptrs.empty () ? nullptr : env_ptrs.data ());
-#else
-          process pr (rl,
-                      args,
-                      0                   /* stdin  */,
-                      1                   /* stdout */,
-                      dbuf.open (args[0]) /* stderr */,
-                      nullptr             /* cwd    */,
-                      env_ptrs.empty () ? nullptr : env_ptrs.data ());
-
-          dbuf.read ();
-          dbuf.finish (args, pr);
-#endif
         }
       }
 

@@ -50,11 +50,9 @@ namespace build2
   // diag_buffer
   //
   process::pipe diag_buffer::
-  open (const char* args0, bool force, bool blocking)
+  open (const char* args0, bool force, fdstream_mode m)
   {
     assert (state_ == state::closed && args0 != nullptr);
-
-    assert (blocking); // @@ TODO (also in read() and close () below).
 
     serial = ctx_.sched.serial ();
     nobuf = !serial && ctx_.no_diag_buffer;
@@ -71,7 +69,9 @@ namespace build2
         //
         r = process::pipe (p.in.get (), move (p.out));
 
-        is.open (move (p.in), fdstream_mode::text);
+        m |= fdstream_mode::text;
+
+        is.open (move (p.in), m);
       }
       catch (const io_error& e)
       {
@@ -96,6 +96,26 @@ namespace build2
     {
       try
       {
+        // Copy buffers directly.
+        //
+        auto copy = [this] (fdstreambuf& sb)
+        {
+          const char* p (sb.gptr ());
+          size_t n (sb.egptr () - p);
+
+          // Allocate at least fdstreambuf::buffer_size to reduce
+          // reallocations and memory fragmentation.
+          //
+          size_t i (buf.size ());
+          if (i == 0 && n < fdstreambuf::buffer_size)
+            buf.reserve (fdstreambuf::buffer_size);
+
+          buf.resize (i + n);
+          memcpy (buf.data () + i, p, n);
+
+          sb.gbump (static_cast<int> (n));
+        };
+
         if (is.blocking ())
         {
           if (serial || nobuf)
@@ -139,30 +159,30 @@ namespace build2
             fdstreambuf& sb (*static_cast<fdstreambuf*> (is.rdbuf ()));
 
             while (is.peek () != istream::traits_type::eof ())
-            {
-              const char* p (sb.gptr ());
-              size_t n (sb.egptr () - p);
-
-              // Allocate at least fdstreambuf::buffer_size to reduce
-              // reallocations and memory fragmentation.
-              //
-              size_t i (buf.size ());
-              if (i == 0 && n < fdstreambuf::buffer_size)
-                buf.reserve (fdstreambuf::buffer_size);
-
-              buf.resize (i + n);
-              memcpy (buf.data () + i, p, n);
-
-              sb.gbump (static_cast<int> (n));
-            }
+              copy (sb);
           }
 
           r = false;
         }
         else
         {
-          // @@ TODO (maybe we can unify the two?)
-          r = true;
+          // We do not support finishing off after the custom processing in
+          // the non-blocking mode (but could probably do if necessary).
+          //
+          assert (!(serial || nobuf));
+
+          fdstreambuf& sb (*static_cast<fdstreambuf*> (is.rdbuf ()));
+
+          // Try not to allocate the buffer if there is no diagnostics (the
+          // common case).
+          //
+          // Note that we must read until blocked (0) or EOF (-1).
+          //
+          streamsize n;
+          while ((n = sb.in_avail ()) > 0)
+            copy (sb);
+
+          r = (n != -1);
         }
 
         if (!r)
@@ -216,10 +236,53 @@ namespace build2
   }
 
   void diag_buffer::
-  close (const char* const* args, size_t args_size,
+  close (const char* const* args,
          const process_exit& pe,
          uint16_t v,
-         const location& loc)
+         const location& loc,
+         bool omit_normall)
+  {
+    tracer trace ("diag_buffer::close");
+
+    assert (state_ != state::closed);
+
+    // We need to make sure the command line we print on the unsuccessful exit
+    // is inseparable from any buffered diagnostics. So we prepare the record
+    // first and then write both while holding the diagnostics stream lock.
+    //
+    diag_record dr;
+    if (!pe)
+    {
+      // Note: see similar code in run_finish_impl().
+      //
+      if (omit_normall && pe.normal ())
+      {
+        l4 ([&]{trace << "process " << args[0] << " " << pe;});
+      }
+      else
+      {
+        // It's unclear whether we should print this only if printing the
+        // command line (we could also do things differently for
+        // normal/abnormal exit). Let's print this always and see how it
+        // wears.
+        //
+        // Note: make sure keep the above trace is not printing.
+        //
+        dr << error (loc) << "process " << args[0] << " " << pe;
+
+        if (verb >= 1 && verb <= v)
+        {
+          dr << info << "command line: ";
+          print_process (dr, args);
+        }
+      }
+    }
+
+    close (move (dr));
+  }
+
+  void diag_buffer::
+  close (diag_record&& dr)
   {
     assert (state_ != state::closed);
 
@@ -231,9 +294,18 @@ namespace build2
       {
         try
         {
-          // @@ TODO: is it ok to call peek() in non-blocking?
-          //
-          assert (is.peek () == ifdstream::traits_type::eof ());
+          if (is.good ())
+          {
+            if (is.blocking ())
+            {
+              assert (is.peek () == ifdstream::traits_type::eof ());
+            }
+            else
+            {
+              assert (is.rdbuf ()->in_avail () == -1);
+            }
+          }
+
           is.close ();
         }
         catch (const io_error& e)
@@ -243,28 +315,6 @@ namespace build2
       }
 
       state_ = state::eof;
-    }
-
-    // We need to make sure the command line we print on the unsuccessful exit
-    // is inseparable from any buffered diagnostics. So we prepare the record
-    // first and then write both while holding the diagnostics stream lock.
-    //
-    diag_record dr;
-    if (!pe)
-    {
-      // Note: see similar code in run_finish_impl().
-
-      // It's unclear whether we should print this only if printing the
-      // command line (we could also do things differently for normal/abnormal
-      // exit). Let's print this always and see how it wears.
-      //
-      dr << error (loc) << "process " << args[0] << " " << pe;
-
-      if (verb >= 1 && verb <= v)
-      {
-        dr << info << "command line: ";
-        print_process (dr, args, args_size);
-      }
     }
 
     if (!buf.empty () || !dr.empty ())
@@ -288,31 +338,6 @@ namespace build2
     buf.clear ();
     args0 = nullptr;
     state_ = state::closed;
-  }
-
-  void diag_buffer::
-  finish (const char* const* args, size_t args_size,
-          process& pr,
-          uint16_t v,
-          const location& loc)
-  {
-    // Note: see similar code in run_finish_impl().
-    //
-    try
-    {
-      pr.wait ();
-    }
-    catch (const process_error& e)
-    {
-      fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
-    }
-
-    const process_exit& pe (*pr.exit);
-
-    close (args, args_size, pe, v, loc);
-
-    if (!pe)
-      throw failed ();
   }
 
   // print_process()

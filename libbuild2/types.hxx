@@ -429,6 +429,7 @@ namespace build2
 
   // <libbutl/fdstream.hxx>
   //
+  using butl::nullfd;
   using butl::auto_fd;
   using butl::fdpipe;
   using butl::ifdstream;

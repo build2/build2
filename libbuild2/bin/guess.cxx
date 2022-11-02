@@ -92,7 +92,7 @@ namespace build2
     static global_cache<ar_info> ar_cache;
 
     const ar_info&
-    guess_ar (const path& ar, const path* rl, const char* paths)
+    guess_ar (context& ctx, const path& ar, const path* rl, const char* paths)
     {
       tracer trace ("bin::guess_ar");
 
@@ -234,7 +234,11 @@ namespace build2
         // (yes, it goes to stdout) but that seems harmless.
         //
         sha256 cs;
-        arr = run<guess_result> (3, are, "--version", f, false, false, &cs);
+        arr = run<guess_result> (ctx,
+                                 3,
+                                 are, "--version",
+                                 f,
+                                 false , false, &cs);
 
         if (!arr.empty ())
           arr.checksum = cs.string ();
@@ -254,10 +258,10 @@ namespace build2
             : guess_result ();
         };
 
-        // Redirect STDERR to STDOUT and ignore exit status.
+        // Redirect stderr to stdout and ignore exit status.
         //
         sha256 cs;
-        arr = run<guess_result> (3, are, f, false, true, &cs);
+        arr = run<guess_result> (ctx, 3, are, f, false, true, &cs);
 
         if (!arr.empty ())
         {
@@ -300,7 +304,11 @@ namespace build2
           };
 
           sha256 cs;
-          rlr = run<guess_result> (3, rle, "--version", f, false, false, &cs);
+          rlr = run<guess_result> (ctx,
+                                   3,
+                                   rle, "--version",
+                                   f,
+                                   false, false, &cs);
 
           if (!rlr.empty ())
             rlr.checksum = cs.string ();
@@ -317,10 +325,10 @@ namespace build2
               : guess_result ();
           };
 
-          // Redirect STDERR to STDOUT and ignore exit status.
+          // Redirect stderr to stdout and ignore exit status.
           //
           sha256 cs;
-          rlr = run<guess_result> (3, rle, f, false, true, &cs);
+          rlr = run<guess_result> (ctx, 3, rle, f, false, true, &cs);
 
           if (!rlr.empty ())
           {
@@ -385,7 +393,7 @@ namespace build2
     static global_cache<ld_info> ld_cache;
 
     const ld_info&
-    guess_ld (const path& ld, const char* paths)
+    guess_ld (context& ctx, const path& ld, const char* paths)
     {
       tracer trace ("bin::guess_ld");
 
@@ -497,12 +505,12 @@ namespace build2
                   : guess_result (move (id), move (l), move (ver)));
         };
 
-        // Redirect STDERR to STDOUT and ignore exit status. Note that in case
+        // Redirect stderr to stdout and ignore exit status. Note that in case
         // of link.exe we will hash the diagnostics (yes, it goes to stdout)
         // but that seems harmless.
         //
         sha256 cs;
-        r = run<guess_result> (3, env, "--version", f, false, true, &cs);
+        r = run<guess_result> (ctx, 3, env, "--version", f, false, true, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -533,7 +541,7 @@ namespace build2
         };
 
         sha256 cs;
-        r = run<guess_result> (3, env, "-v", f, false, false, &cs);
+        r = run<guess_result> (ctx, 3, env, "-v", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -560,7 +568,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (3, env, "-version", f, false, false, &cs);
+        r = run<guess_result> (ctx, 3, env, "-version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -598,7 +606,7 @@ namespace build2
     static global_cache<rc_info> rc_cache;
 
     const rc_info&
-    guess_rc (const path& rc, const char* paths)
+    guess_rc (context& ctx, const path& rc, const char* paths)
     {
       tracer trace ("bin::guess_rc");
 
@@ -654,7 +662,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (3, env, "--version", f, false, false, &cs);
+        r = run<guess_result> (ctx, 3, env, "--version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -687,7 +695,7 @@ namespace build2
         };
 
         sha256 cs;
-        r = run<guess_result> (3, env, "/?", f, false, false, &cs);
+        r = run<guess_result> (ctx, 3, env, "/?", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -715,7 +723,7 @@ namespace build2
     static global_cache<nm_info> nm_cache;
 
     const nm_info&
-    guess_nm (const path& nm, const char* paths)
+    guess_nm (context& ctx, const path& nm, const char* paths)
     {
       tracer trace ("bin::guess_nm");
 
@@ -799,7 +807,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (3, env, "--version", f, false, false, &cs);
+        r = run<guess_result> (ctx, 3, env, "--version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();

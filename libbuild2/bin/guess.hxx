@@ -54,7 +54,7 @@ namespace build2
     // attemplated and the returned ranlib_* members will be left empty.
     //
     const ar_info&
-    guess_ar (const path& ar, const path* ranlib, const char* paths);
+    guess_ar (context&, const path& ar, const path* ranlib, const char* paths);
 
     // ld information.
     //
@@ -100,7 +100,7 @@ namespace build2
     };
 
     const ld_info&
-    guess_ld (const path& ld, const char* paths);
+    guess_ld (context&, const path& ld, const char* paths);
 
     // rc information.
     //
@@ -132,7 +132,7 @@ namespace build2
     };
 
     const rc_info&
-    guess_rc (const path& rc, const char* paths);
+    guess_rc (context&, const path& rc, const char* paths);
 
     // nm information.
     //
@@ -166,7 +166,7 @@ namespace build2
     };
 
     const nm_info&
-    guess_nm (const path& nm, const char* paths);
+    guess_nm (context&, const path& nm, const char* paths);
   }
 }
 

@@ -261,46 +261,13 @@ namespace build2
   [[noreturn]] LIBBUILD2_SYMEXPORT void
   run_search_fail (const path&, const location& = location ());
 
-  // Wait for process termination returning true if the process exited
-  // normally with a zero code and false otherwise. The latter case is
-  // normally followed up with a call to run_finish().
-  //
-  LIBBUILD2_SYMEXPORT bool
-  run_wait (const char* args[], process&, const location& = location ());
-
-  bool
-  run_wait (cstrings& args, process&, const location& = location ());
-
-  // Wait for process termination. Issue diagnostics and throw failed in case
-  // of abnormal termination. If the process has terminated normally but with
-  // a non-zero exit status, then assume the diagnostics has already been
-  // issued and just throw failed. The last argument is used in cooperation
-  // with run_start() in case STDERR is redirected to STDOUT.
-  //
-  void
-  run_finish (const char* args[],
-              process&,
-              const string& = string (),
-              const location& = location ());
-
-  void
-  run_finish (cstrings& args, process& pr, const location& l = location ());
-
-  // As above but if the process has exited normally with a non-zero code,
-  // then return false rather than throwing.
-  //
-  bool
-  run_finish_code (const char* args[],
-                   process&,
-                   const string& = string (),
-                   const location& = location ());
-
-  // Start a process with the specified arguments. If in is -1, then redirect
-  // STDIN to a pipe (can also be -2 to redirect to /dev/null or equivalent).
-  // If out is -1, redirect STDOUT to a pipe. If error is false, then
-  // redirecting STDERR to STDOUT (this can be used to suppress diagnostics
-  // from the child process). Issue diagnostics and throw failed in case of an
-  // error.
+  // Start a process with the specified arguments. Issue diagnostics and throw
+  // failed in case of an error. If in is -1, then redirect stdin to a pipe
+  // (can also be -2 to redirect it to /dev/null or equivalent). If out is -1,
+  // then redirect stdout to a pipe. If stderr is redirected to stdout (can
+  // be used to analyze diagnostics from the child process), then, in case of
+  // an error, the last line read from stdout must be passed to run_finish()
+  // below.
   //
   LIBBUILD2_SYMEXPORT process
   run_start (uint16_t verbosity,
@@ -308,9 +275,8 @@ namespace build2
              const char* args[],
              int in = 0,
              int out = 1,
-             bool error = true,
-             const dir_path& cwd = dir_path (),
-             const location& = location ());
+             process::pipe = {-1, 2},
+             const location& = {});
 
   inline process
   run_start (uint16_t verbosity,
@@ -318,11 +284,10 @@ namespace build2
              cstrings& args,
              int in = 0,
              int out = 1,
-             bool error = true,
-             const dir_path& cwd = dir_path (),
-             const location& l = location ())
+             process::pipe err = {-1, 2},
+             const location& l = {})
   {
-    return run_start (verbosity, pe, args.data (), in, out, error, cwd, l);
+    return run_start (verbosity, pe, args.data (), in, out, move (err), l);
   }
 
   inline process
@@ -330,11 +295,10 @@ namespace build2
              const char* args[],
              int in = 0,
              int out = 1,
-             bool error = true,
-             const dir_path& cwd = dir_path (),
-             const location& l = location ())
+             process::pipe err = {-1, 2},
+             const location& l = {})
   {
-    return run_start (verb_never, pe, args, in, out, error, cwd, l);
+    return run_start (verb_never, pe, args, in, out, move (err), l);
   }
 
   inline process
@@ -342,45 +306,10 @@ namespace build2
              cstrings& args,
              int in = 0,
              int out = 1,
-             bool error = true,
-             const dir_path& cwd = dir_path (),
-             const location& l = location ())
+             process::pipe err = {-1, 2},
+             const location& l = {})
   {
-    return run_start (pe, args.data (), in, out, error, cwd, l);
-  }
-
-  inline void
-  run (const process_env& pe, // Implicit-constructible from process_path.
-       const char* args[])
-  {
-    process pr (run_start (pe, args));
-    run_finish (args, pr);
-  }
-
-  inline void
-  run (const process_env& pe,  // Implicit-constructible from process_path.
-       cstrings& args)
-  {
-    run (pe, args.data ());
-  }
-
-  inline void
-  run (const process_path& p,
-       const char* args[],
-       const dir_path& cwd,
-       const char* const* env = nullptr)
-  {
-    process pr (run_start (process_env (p, env), args, 0, 1, true, cwd));
-    run_finish (args, pr);
-  }
-
-  inline void
-  run (const process_path& p,
-       cstrings& args,
-       const dir_path& cwd,
-       const char* const* env = nullptr)
-  {
-    run (p, args.data (), cwd, env);
+    return run_start (pe, args.data (), in, out, move (err), l);
   }
 
   // As above, but search for the process (including updating args[0]) and
@@ -391,16 +320,16 @@ namespace build2
              const char* args[],
              int in = 0,
              int out = 1,
-             bool error = true,
-             const dir_path& cwd = dir_path (),
+             process::pipe err = {-1, 2},
              const char* const* env = nullptr,
-             const location& l = location ())
+             const dir_path& cwd = {},
+             const location& l = {})
   {
     process_path pp (run_search (args[0], l));
     return run_start (verbosity,
-                      process_env (pp, env), args,
-                      in, out, error,
-                      cwd, l);
+                      process_env (pp, cwd, env), args,
+                      in, out, move (err),
+                      l);
   }
 
   inline process
@@ -408,36 +337,183 @@ namespace build2
              cstrings& args,
              int in = 0,
              int out = 1,
-             bool error = true,
-             const dir_path& cwd = dir_path (),
+             process::pipe err = {-1, 2},
              const char* const* env = nullptr,
-             const location& l = location ())
+             const dir_path& cwd = {},
+             const location& l = {})
   {
-    return run_start (verbosity, args.data (), in, out, error, cwd, env, l);
+    return run_start (verbosity,
+                      args.data (),
+                      in, out, move (err),
+                      env, cwd, l);
+  }
+
+  // Wait for process termination returning true if the process exited
+  // normally with a zero code and false otherwise. The latter case is
+  // normally followed up with a call to run_finish().
+  //
+  LIBBUILD2_SYMEXPORT bool
+  run_wait (const char* const* args, process&, const location& = location ());
+
+  bool
+  run_wait (const cstrings& args, process&, const location& = location ());
+
+  // Wait for process termination. Issue diagnostics and throw failed in case
+  // of abnormal termination. If the process has terminated normally but with
+  // a non-zero exit status, then assume the diagnostics has already been
+  // issued and just throw failed. The line argument is used in cooperation
+  // with run_start() in case stderr is redirected to stdout (see the
+  // implementation for details).
+  //
+  void
+  run_finish (const char* const* args,
+              process&,
+              const string& line = string (),
+              const location& = location ());
+
+  void
+  run_finish (const cstrings& args,
+              process&,
+              const location& = location ());
+
+  // As above but if the process has exited normally with a non-zero code,
+  // then return false rather than throwing.
+  //
+  bool
+  run_finish_code (const char* const* args,
+                   process&,
+                   const string& = string (),
+                   const location& = location ());
+
+  bool
+  run_finish_code (const cstrings& args,
+                   process&,
+                   const location& = location ());
+
+  // As above but with diagnostics buffering.
+  //
+  // Specifically, this version first waits for the process termination, then
+  // calls diag_buffer::close(verbosity), and finally throws failed if the
+  // process didn't exit with 0 code. Note that what gets printed in case of
+  // normal termination with non-0 code is different compared to the above
+  // versions (see diag_buffer::close() for details).
+  //
+  class diag_buffer;
+
+  void
+  run_finish (diag_buffer&,
+              const char* const* args,
+              process&,
+              uint16_t verbosity = 1,
+              const location& = location ());
+
+  void
+  run_finish (diag_buffer&,
+              const cstrings& args,
+              process&,
+              uint16_t verbosity = 1,
+              const location& = location ());
+
+  // As above but if the process has exited normally with a non-zero code,
+  // then return false rather than throwing. Note: diag_buffer::close() is
+  // called with omit_normall=true assuming appropriate custom diagnostics
+  // will be issued, if required.
+  //
+  bool
+  run_finish_code (diag_buffer&,
+                   const char* const* args,
+                   process&,
+                   uint16_t verbosity = 1,
+                   const location& = location ());
+
+  bool
+  run_finish_code (diag_buffer&,
+                   const cstrings& args,
+                   process&,
+                   uint16_t verbosity = 1,
+                   const location& = location ());
+
+  // Run the process with the specified arguments by calling the above start
+  // and finish functions. Buffer diagnostics unless in the load phase.
+  //
+  LIBBUILD2_SYMEXPORT void
+  run (context&,
+       const process_env& pe, // Implicit-constructible from process_path.
+       const char* args[]);
+
+  LIBBUILD2_SYMEXPORT void
+  run (diag_buffer&,
+       const process_env& pe,
+       const char* args[]);
+
+  inline void
+  run (context& ctx,
+       const process_env& pe,
+       cstrings& args)
+  {
+    run (ctx, pe, args.data ());
   }
 
   inline void
-  run (uint16_t verbosity,
+  run (diag_buffer& dbuf,
+       const process_env& pe,
+       cstrings& args)
+  {
+    run (dbuf, pe, args.data ());
+  }
+
+  // As above but pass cwd/env vars as arguments rather than as part of
+  // process_env.
+  //
+  inline void
+  run (context& ctx,
+       const process_path& p,
        const char* args[],
-       const dir_path& cwd = dir_path (),
-       const char* const* env = nullptr)
+       const char* const* env,
+       const dir_path& cwd = {})
   {
-    process pr (run_start (verbosity, args, 0, 1, true, cwd, env));
-    run_finish (args, pr);
+    run (ctx, process_env (p, cwd, env), args);
   }
 
   inline void
-  run (uint16_t verbosity,
-       cstrings& args,
-       const dir_path& cwd = dir_path (),
-       const char* const* env = nullptr)
+  run (diag_buffer& dbuf,
+       const process_path& p,
+       const char* args[],
+       const char* const* env,
+       const dir_path& cwd = {})
   {
-    run (verbosity, args.data (), cwd, env);
+    run (dbuf, process_env (p, cwd, env), args);
+  }
+
+  inline void
+  run (context& ctx,
+       const process_path& p,
+       cstrings& args,
+       const char* const* env,
+       const dir_path& cwd = {})
+  {
+    run (ctx, p, args.data (), env, cwd);
+  }
+
+  inline void
+  run (diag_buffer& dbuf,
+       const process_path& p,
+       cstrings& args,
+       const char* const* env,
+       const dir_path& cwd = {})
+  {
+    run (dbuf, p, args.data (), env, cwd);
   }
 
   // Start the process as above and then call the specified function on each
   // trimmed line of the output until it returns a non-empty object T (tested
   // with T::empty()) which is then returned to the caller.
+  //
+  // If verbosity is specified, print the process commands line at that level.
+  //
+  // If error is false, then redirecting stderr to stdout (can be used to
+  // suppress and/or analyze diagnostics from the child process). Otherwise,
+  // buffer diagnostics unless in the load phase.
   //
   // The predicate can move the value out of the passed string but, if error
   // is false, only in case of a "content match" (so that any diagnostics
@@ -454,7 +530,8 @@ namespace build2
   //
   template <typename T, typename F>
   T
-  run (uint16_t verbosity,
+  run (context&,
+       uint16_t verbosity,
        const process_env&, // Implicit-constructible from process_path.
        const char* args[],
        F&&,
@@ -464,20 +541,117 @@ namespace build2
 
   template <typename T, typename F>
   inline T
-  run (const process_env& pe, // Implicit-constructible from process_path.
+  run (context& ctx,
+       uint16_t verbosity,
+       const process_env& pe,
+       cstrings& args,
+       F&& f,
+       bool error = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (ctx,
+                   verbosity,
+                   pe, args.data (),
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
+  }
+
+  template <typename T, typename F>
+  T
+  run (diag_buffer&,
+       uint16_t verbosity,
+       const process_env&,
+       const char* args[],
+       F&&,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr);
+
+  template <typename T, typename F>
+  inline T
+  run (diag_buffer& dbuf,
+       uint16_t verbosity,
+       const process_env& pe,
+       cstrings& args,
+       F&& f,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (dbuf,
+                   verbosity,
+                   pe, args.data (),
+                   forward<F> (f),
+                   ignore_exit, checksum);
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (context& ctx,
+       const process_env& pe,
        const char* args[],
        F&& f,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
-    return run<T> (
-      verb_never, pe, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (ctx,
+                   verb_never,
+                   pe, args,
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
   }
 
   template <typename T, typename F>
   inline T
-  run (uint16_t verbosity,
+  run (context& ctx,
+       const process_env& pe,
+       cstrings& args,
+       F&& f,
+       bool error = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (ctx,
+                   pe, args.data (),
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (diag_buffer& dbuf,
+       const process_env& pe,
+       const char* args[],
+       F&& f,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (dbuf,
+                   verb_never,
+                   pe, args,
+                   forward<F> (f),
+                   ignore_exit, checksum);
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (diag_buffer& dbuf,
+       const process_env& pe,
+       cstrings& args,
+       F&& f,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (dbuf,
+                   pe, args.data (),
+                   forward<F> (f),
+                   ignore_exit, checksum);
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (context& ctx,
+       uint16_t verbosity,
        const char* args[],
        F&& f,
        bool error = true,
@@ -485,15 +659,71 @@ namespace build2
        sha256* checksum = nullptr)
   {
     process_path pp (run_search (args[0]));
-    return run<T> (
-      verbosity, pp, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (ctx,
+                   verbosity,
+                   pp, args,
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
   }
 
+  template <typename T, typename F>
+  inline T
+  run (context& ctx,
+       uint16_t verbosity,
+       cstrings& args,
+       F&& f,
+       bool error = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (ctx,
+                   verbosity,
+                   args.data (),
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (diag_buffer& dbuf,
+       uint16_t verbosity,
+       const char* args[],
+       F&& f,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    process_path pp (run_search (args[0]));
+    return run<T> (dbuf,
+                   verbosity,
+                   pp, args,
+                   forward<F> (f),
+                   ignore_exit, checksum);
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (diag_buffer& dbuf,
+       uint16_t verbosity,
+       cstrings& args,
+       F&& f,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (dbuf,
+                   verbosity,
+                   args.data (),
+                   forward<F> (f),
+                   ignore_exit, checksum);
+  }
+
+  // As above but run a program without any arguments or with one argument.
+  //
   // run <prog>
   //
   template <typename T, typename F>
   inline T
-  run (uint16_t verbosity,
+  run (context& ctx,
+       uint16_t verbosity,
        const path& prog,
        F&& f,
        bool error = true,
@@ -501,13 +731,17 @@ namespace build2
        sha256* checksum = nullptr)
   {
     const char* args[] = {prog.string ().c_str (), nullptr};
-    return run<T> (
-      verbosity, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (ctx,
+                   verbosity,
+                   args,
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
   }
 
   template <typename T, typename F>
   inline T
-  run (uint16_t verbosity,
+  run (context& ctx,
+       uint16_t verbosity,
        const process_env& pe, // Implicit-constructible from process_path.
        F&& f,
        bool error = true,
@@ -515,15 +749,19 @@ namespace build2
        sha256* checksum = nullptr)
   {
     const char* args[] = {pe.path->recall_string (), nullptr};
-    return run<T> (
-      verbosity, pe, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (ctx,
+                   verbosity,
+                   pe, args,
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
   }
 
   // run <prog> <arg>
   //
   template <typename T, typename F>
   inline T
-  run (uint16_t verbosity,
+  run (context& ctx,
+       uint16_t verbosity,
        const path& prog,
        const char* arg,
        F&& f,
@@ -532,13 +770,17 @@ namespace build2
        sha256* checksum = nullptr)
   {
     const char* args[] = {prog.string ().c_str (), arg, nullptr};
-    return run<T> (
-      verbosity, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (ctx,
+                   verbosity,
+                   args,
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
   }
 
   template <typename T, typename F>
   inline T
-  run (uint16_t verbosity,
+  run (context& ctx,
+       uint16_t verbosity,
        const process_env& pe, // Implicit-constructible from process_path.
        const char* arg,
        F&& f,
@@ -547,9 +789,44 @@ namespace build2
        sha256* checksum = nullptr)
   {
     const char* args[] = {pe.path->recall_string (), arg, nullptr};
-    return run<T> (
-      verbosity, pe, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (ctx,
+                   verbosity,
+                   pe, args,
+                   forward<F> (f),
+                   error, ignore_exit, checksum);
   }
+
+  // As above but a lower-level interface that erases T and F and can also be
+  // used to suppress trimming.
+  //
+  // The passed function should return true if it should be called again
+  // (i.e., the object is still empty in the T & F interface) and false
+  // otherwise.
+  //
+  // Ruturn true on success and false on failure (only if ignore_exit is
+  // true). (In the latter case, the T & F interface makes the resulting
+  // object empty).
+  //
+  LIBBUILD2_SYMEXPORT bool
+  run (context&,
+       uint16_t verbosity,
+       const process_env&,
+       const char* args[],
+       const function<bool (string& line, bool last)>&,
+       bool trim = true,
+       bool err = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr);
+
+  LIBBUILD2_SYMEXPORT bool
+  run (diag_buffer& dbuf,
+       uint16_t verbosity,
+       const process_env&,
+       const char* args[],
+       const function<bool (string& line, bool last)>&,
+       bool trim = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr);
 
   // File descriptor streams.
   //

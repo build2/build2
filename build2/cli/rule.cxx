@@ -222,6 +222,8 @@ namespace build2
       const cli_cxx& t (xt.as<cli_cxx> ());
       const path& tp (t.h->path ());
 
+      context& ctx (t.ctx);
+
       // Update prerequisites and determine if any relevant ones render us
       // out-of-date. Note that currently we treat all the prerequisites as
       // potentially affecting the result (think prologues/epilogues, CLI
@@ -325,9 +327,9 @@ namespace build2
       else if (verb)
         text << "cli " << s;
 
-      if (!t.ctx.dry_run)
+      if (!ctx.dry_run)
       {
-        run (pp, args);
+        run (ctx, pp, args);
         dd.check_mtime (tp);
       }
 

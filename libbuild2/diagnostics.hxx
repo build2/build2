@@ -44,8 +44,9 @@ namespace build2
 
   public:
     // If buffering is necessary or force is true, open a pipe and return the
-    // child process end of it. Otherwise, return stderr. If blocking is
-    // false, then make reading from the parent end of the pipe non-blocking.
+    // child process end of it. Otherwise, return stderr. If mode is
+    // non_blocking, then make reading from the parent end of the pipe
+    // non-blocking.
     //
     // The args0 argument is the child process program name for diagnostics.
     // It is expected to remain valid until the call to close() and should
@@ -61,8 +62,14 @@ namespace build2
     // and throw failed. If an exception is thrown from any of them, then the
     // instance should not be used any further.
     //
+    // Note that when reading from multiple streams in the non-blocking mode,
+    // only the last stream to be destroyed can normally have the skip mode
+    // since in case of an exception, skipping will be blocking.
+    //
     process::pipe
-    open (const char* args0, bool force = false, bool blocking = true);
+    open (const char* args0,
+          bool force = false,
+          fdstream_mode mode = fdstream_mode::skip);
 
     // Read the diagnostics from the parent end of the pipe if one was opened
     // and buffer/stream it as necessary. Return true if there could be more
@@ -82,10 +89,10 @@ namespace build2
     // with the stream mode (blocking or non). If buffering is performed, then
     // depending on the expected diagnostics the custom processing may want to
     // reserve an appropriate initial buffer size to avoid unnecessary
-    // reallocation. As a convenience, in the blocking mode, if the stream
-    // still contains some diagnostics, then it can be handled by calling
-    // read(). This is helpful when needing to process only the inital part of
-    // the diagnostics.
+    // reallocation. As a convenience, in the blocking mode only, if the
+    // stream still contains some diagnostics, then it can be handled by
+    // calling read(). This is useful when needing to process only the inital
+    // part of the diagnostics.
     //
     bool
     read ();
@@ -93,15 +100,22 @@ namespace build2
     // Close the parent end of the pipe if one was opened and write out any
     // buffered diagnostics.
     //
-    // If the verbosity level is between 1 and the specified value and the
-    // child process exited with non-0 code, then print the command line after
-    // the diagnostics. Normally the specified verbosity will be 1 and the
-    // command line args represent the verbosity level 2 (logical) command
-    // line. The semantics os the args/args_size arguments is the same as
-    // in print_process() below.
+    // If the child process exited abnormally or normally with non-0 code,
+    // then print the error diagnostics to this effect. Additionally, if the
+    // verbosity level is between 1 and the specified value, then print the
+    // command line as info after the error. If omit_normall is true, then
+    // don't print either for the normal exit (usually used when process
+    // failure can be tolerated).
+    //
+    // Normally the specified verbosity will be 1 and the command line args
+    // represent the verbosity level 2 (logical) command line. Note that args
+    // should only represent a single command in a pipe (see print_process()
+    // below for details).
     //
     // If the diag_buffer instance is destroyed before calling close(), then
     // any buffered diagnostics is discarded.
+    //
+    // Note: see also run_finish(diag_buffer&).
     //
     // @@ TODO: need overload with process_env (see print_process).
     //
@@ -109,54 +123,24 @@ namespace build2
     close (const cstrings& args,
            const process_exit& pe,
            uint16_t verbosity = 1,
-           const location& loc = {})
+           const location& loc = {},
+           bool omit_normall = false)
     {
-      close (args.data (), args.size (), pe, verbosity, loc);
+      close (args.data (), pe, verbosity, loc, omit_normall);
     }
 
     void
     close (const char* const* args,
            const process_exit& pe,
            uint16_t verbosity = 1,
-           const location& loc = {})
-    {
-      close (args, 0, pe, verbosity, loc);
-    }
+           const location& loc = {},
+           bool omit_normall = false);
 
-    void
-    close (const char* const* args, size_t args_size,
-           const process_exit& pe,
-           uint16_t verbosity = 1,
-           const location& loc = {});
-
-
-    // This version calls close() plus it first waits for the process to
-    // finish and later throws failed if it didn't exit with 0 code (so
-    // similar to run_finish ()).
+    // As above but with a custom diag record for the child exit diagnostics,
+    // if any.
     //
     void
-    finish (const cstrings& args,
-            process& pr,
-            uint16_t verbosity = 1,
-            const location& loc = {})
-    {
-      finish (args.data (), args.size (), pr, verbosity, loc);
-    }
-
-    void
-    finish (const char* const* args,
-            process& pr,
-            uint16_t verbosity = 1,
-            const location& loc = {})
-    {
-      finish (args, 0, pr, verbosity, loc);
-    }
-
-    void
-    finish (const char* const* args, size_t args_size,
-            process&,
-            uint16_t verbosity = 1,
-            const location& = {});
+    close (diag_record&&);
 
     // Direct access to the underlying stream and buffer for custom processing
     // (see read() above for details).

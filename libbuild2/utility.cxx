@@ -218,8 +218,7 @@ namespace build2
              const char* args[],
              int in,
              int out,
-             bool err,
-             const dir_path& cwd,
+             process::pipe err,
              const location& l)
   try
   {
@@ -233,10 +232,8 @@ namespace build2
       args,
       in,
       out,
-      (err ? 2 : 1),
-      (!cwd.empty ()
-       ? cwd.string ().c_str ()
-       : pe.cwd != nullptr ? pe.cwd->string ().c_str () : nullptr),
+      move (err),
+      pe.cwd != nullptr ? pe.cwd->string ().c_str () : nullptr,
       pe.vars);
   }
   catch (const process_error& e)
@@ -258,7 +255,7 @@ namespace build2
   }
 
   bool
-  run_wait (const char* args[], process& pr, const location& loc)
+  run_wait (const char* const* args, process& pr, const location& loc)
   try
   {
     return pr.wait ();
@@ -269,17 +266,23 @@ namespace build2
   }
 
   bool
-  run_finish_impl (const char* args[],
+  run_finish_impl (const char* const* args,
                    process& pr,
-                   bool err,
+                   bool f,
                    const string& l,
                    const location& loc)
-  try
   {
     tracer trace ("run_finish");
 
-    if (pr.wait ())
-      return true;
+    try
+    {
+      if (pr.wait ())
+        return true;
+    }
+    catch (const process_error& e)
+    {
+      fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
+    }
 
     // Note: see similar code in diag_buffer::close/finish().
     //
@@ -290,16 +293,6 @@ namespace build2
 
     // Normall but non-zero exit status.
     //
-    if (err)
-    {
-      // While we assuming diagnostics has already been issued (to STDERR), if
-      // that's not the case, it's a real pain to debug. So trace it.
-      //
-      l4 ([&]{trace << "process " << args[0] << " " << e;});
-
-      throw failed ();
-    }
-
     // Even if the user asked to suppress diagnostiscs, one error that we
     // want to let through is the inability to execute the program itself.
     // We cannot reserve a special exit status to signal this so we will
@@ -307,19 +300,281 @@ namespace build2
     // result in a single error line printed by run_start() above.
     //
     if (l.compare (0, 18, "unable to execute ") == 0)
-      fail (loc) << l;
+      error (loc) << l;
+
+    if (f)
+    {
+      // While we assume diagnostics has already been issued (to stderr), if
+      // that's not the case, it's a real pain to debug. So trace it. (And
+      // if you think that doesn't happen in sensible programs, check GCC
+      // bug #107448).
+      //
+      l4 ([&]{trace << "process " << args[0] << " " << e;});
+
+      throw failed ();
+    }
 
     return false;
   }
-  catch (const process_error& e)
+
+  bool
+  run_finish_impl (diag_buffer& dbuf,
+                   const char* const* args,
+                   process& pr,
+                   bool f,
+                   uint16_t v,
+                   const location& loc)
   {
-    fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
+    try
+    {
+      pr.wait ();
+    }
+    catch (const process_error& e)
+    {
+      fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
+    }
+
+    const process_exit& pe (*pr.exit);
+
+    dbuf.close (args, pe, v, loc, !f /* omit_normall */);
+
+    if (pe)
+      return true;
+
+    if (f)
+      throw failed ();
+
+    return false;
   }
 
   void
-  run_io_error (const char* args[], const io_error& e)
+  run (context& ctx, const process_env& pe, const char* args[])
   {
-    fail << "io error reading " << args[0] << " output: " << e << endf;
+    if (ctx.phase == run_phase::load)
+    {
+      process pr (run_start (pe, args));
+      run_finish (args, pr);
+    }
+    else
+    {
+      diag_buffer dbuf (ctx);
+      run (dbuf, pe, args);
+    }
+  }
+
+  void
+  run (diag_buffer& dbuf, const process_env& pe, const char* args[])
+  {
+    process pr (run_start (pe,
+                           args,
+                           0                   /* stdin  */,
+                           1                   /* stdout */,
+                           dbuf.open (args[0]) /* stderr */));
+    dbuf.read ();
+    run_finish (dbuf, args, pr);
+  }
+
+  bool
+  run (context& ctx,
+       uint16_t verbosity,
+       const process_env& pe,
+       const char* args[],
+       const function<bool (string&, bool)>& f,
+       bool tr,
+       bool err,
+       bool ignore_exit,
+       sha256* checksum)
+  {
+    if (err && ctx.phase != run_phase::load)
+    {
+      diag_buffer dbuf (ctx);
+      return run (dbuf, verbosity, pe, args, f, tr, ignore_exit, checksum);
+    }
+
+    process pr (run_start (verbosity,
+                           pe,
+                           args,
+                           0  /* stdin */,
+                           -1 /* stdout */,
+                           {-1, err ? 2 : 1}));
+
+    string l; // Last line of output.
+    try
+    {
+      ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
+
+      bool empty (true);
+
+      // Make sure we keep the last line.
+      //
+      for (bool last (is.peek () == ifdstream::traits_type::eof ());
+           !last && getline (is, l); )
+      {
+        last = (is.peek () == ifdstream::traits_type::eof ());
+
+        if (tr)
+          trim (l);
+
+        if (checksum != nullptr)
+          checksum->append (l);
+
+        if (empty)
+        {
+          empty = f (l, last);
+
+          if (!empty && checksum == nullptr)
+            break;
+        }
+      }
+
+      is.close ();
+    }
+    catch (const io_error& e)
+    {
+      if (run_wait (args, pr))
+        fail << "io error reading " << args[0] << " output: " << e << endf;
+
+      // If the child process has failed then assume the io error was
+      // caused by that and let run_finish() deal with it.
+    }
+
+    if (!(run_finish_impl (args, pr, err, l) || ignore_exit))
+      return false;
+
+    return true;
+  }
+
+  bool
+  run (diag_buffer& dbuf,
+       uint16_t verbosity,
+       const process_env& pe,
+       const char* args[],
+       const function<bool (string&, bool)>& f,
+       bool tr,
+       bool ignore_exit,
+       sha256* checksum)
+  {
+    // We have to use the non-blocking setup since we have to read from stdout
+    // and stderr simultaneously.
+    //
+    process pr (
+      run_start (verbosity,
+                 pe,
+                 args,
+                 0                                /* stdin */,
+                 -1                               /* stdout */,
+                 dbuf.open (args[0],
+                            false /* force */,
+                            fdstream_mode::non_blocking |
+                            fdstream_mode::skip)  /* stderr */));
+
+    try
+    {
+      // Note that while we read both streams until eof in the normal
+      // circumstances, we cannot use fdstream_mode::skip for the exception
+      // case on both of them: we may end up being blocked trying to read one
+      // stream while the process may be blocked writing to the other. So in
+      // case of an exception we only skip the diagnostics and close stdout
+      // hard. The latter should happen first so the order of the dbuf/is
+      // variables is important.
+      //
+      ifdstream is (move (pr.in_ofd),
+                    fdstream_mode::non_blocking,
+                    ifdstream::badbit);
+
+      bool empty (true);
+
+      // Read until we reach EOF on all streams.
+      //
+      // Note that if dbuf is not opened, then we automatically get inactive
+      // nullfd entry.
+      //
+      fdselect_set fds {is.fd (), dbuf.is.fd ()};
+      fdselect_state& ist (fds[0]);
+      fdselect_state& dst (fds[1]);
+
+      // To detect the last line we are going keep the previous line and
+      // only call the function once we've read the next.
+      //
+      optional<string> pl;
+
+      for (string l; ist.fd != nullfd || dst.fd != nullfd; )
+      {
+        if (ist.fd != nullfd && getline_non_blocking (is, l))
+        {
+          if (eof (is))
+          {
+            if (pl && empty)
+              f (*pl, true /* last */);
+
+            ist.fd = nullfd;
+          }
+          else
+          {
+            if (checksum != nullptr || empty)
+            {
+              if (tr)
+                trim (l);
+
+              if (checksum != nullptr)
+                checksum->append (l);
+
+              if (empty)
+              {
+                if (pl)
+                {
+                  if ((empty = f (*pl, false /* last */)))
+                      swap (l, *pl);
+
+                  // Note that we cannot bail out like in the other version
+                  // since we don't have the skip mode on is. Plus, we might
+                  // still have the diagnostics.
+                }
+                else
+                  pl = move (l);
+              }
+            }
+
+            l.clear ();
+          }
+
+          continue;
+        }
+
+        ifdselect (fds);
+
+        if (dst.ready)
+        {
+          if (!dbuf.read ())
+            dst.fd = nullfd;
+        }
+      }
+
+      is.close ();
+    }
+    catch (const io_error& e)
+    {
+      if (run_wait (args, pr))
+      {
+        // Note that we will drop the diagnostics in this case since reading
+        // it could have been the cause of this error.
+        //
+        fail << "io error reading " << args[0] << " output: " << e << endf;
+      }
+
+      // If the child process has failed then assume the io error was
+      // caused by that and let run_finish() deal with it.
+    }
+
+    if (ignore_exit)
+    {
+      if (!run_finish_code (dbuf, args, pr, verbosity - 1))
+        return false;
+    }
+    else
+      run_finish (dbuf, args, pr, verbosity - 1);
+
+    return true;
   }
 
   fdpipe

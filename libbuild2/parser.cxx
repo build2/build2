@@ -3126,13 +3126,16 @@ namespace build2
                [] (const string& s) {return s.c_str ();});
     cargs.push_back (nullptr);
 
+    // Note: we are in the serial load phase and so no diagnostics buffering
+    // is needed.
+    //
     process pr (run_start (3            /* verbosity */,
                            cargs,
                            0            /* stdin  */,
                            -1           /* stdout */,
-                           true         /* error  */,
-                           dir_path ()  /* cwd    */,
+                           {-1, 2}      /* stderr */,
                            nullptr      /* env    */,
+                           dir_path ()  /* cwd    */,
                            l));
     try
     {

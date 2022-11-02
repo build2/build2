@@ -253,7 +253,8 @@ namespace build2
     // that most of it will be the same, at least for C and C++.
     //
     const compiler_info&
-    guess (const char* xm,        // Module (for var names in diagnostics).
+    guess (context&,
+           const char* xm,        // Module (for var names in diagnostics).
            lang xl,               // Language.
            const string& ec,      // Environment checksum.
            const path& xc,        // Compiler path.

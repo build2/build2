@@ -4608,7 +4608,7 @@ namespace build2
               continue;
             }
             else
-              run_finish (args, pr); // Throws.
+              run_finish (args, pr); // Throws. @@ DBUF
           }
           catch (const process_error& e)
           {
@@ -5008,7 +5008,7 @@ namespace build2
             info << "then run failing command to display compiler diagnostics";
         }
         else
-          run_finish (args, pr); // Throws.
+          run_finish (args, pr); // Throws. @@ DBUF
       }
       catch (const process_error& e)
       {
@@ -7218,7 +7218,7 @@ namespace build2
             args.push_back (nullptr);
           }
 
-          dbuf.finish (args, pr);
+          run_finish (dbuf, args, pr);
         }
         catch (const process_error& e)
         {
@@ -7275,8 +7275,7 @@ namespace build2
                         env.empty () ? nullptr : env.data ());
 
             dbuf.read ();
-
-            dbuf.finish (args, pr);
+            run_finish (dbuf, args, pr);
           }
           catch (const process_error& e)
           {

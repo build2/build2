@@ -433,9 +433,9 @@ namespace build2
       //
       process pr (run_start (ld,
                              args,
-                             0     /* stdin */,
-                             -1    /* stdout */,
-                             false /* error */));
+                             0       /* stdin */,
+                             -1      /* stdout */,
+                             {-1, 1} /* stderr (to stdout) */));
 
       bool obj (false), dll (false);
       string s;

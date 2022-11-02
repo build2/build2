@@ -12,7 +12,7 @@ namespace build2
   namespace version
   {
     snapshot
-    extract_snapshot_git (dir_path);
+    extract_snapshot_git (context&, dir_path);
 
     static const path git (".git");
 
@@ -46,7 +46,7 @@ namespace build2
         if (butl::entry_exists (d / git,
                                 true /* follow_symlinks */,
                                 true /* ignore_errors */))
-          return extract_snapshot_git (move (d));
+          return extract_snapshot_git (rs.ctx, move (d));
       }
 
       return snapshot ();

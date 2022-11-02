@@ -236,9 +236,9 @@ namespace build2
         //
         if (!hint && config_sub)
         {
-          s = run<string> (3,
-                           *config_sub,
-                           s.c_str (),
+          s = run<string> (ctx,
+                           3,
+                           *config_sub, s.c_str (),
                            [] (string& l, bool) {return move (l);});
           l5 ([&]{trace << "config.sub target: '" << s << "'";});
         }
@@ -692,7 +692,7 @@ namespace build2
                            nullptr,
                            config::save_default_commented)));
 
-        const ar_info& ari (guess_ar (ar, ranlib, pat.paths));
+        const ar_info& ari (guess_ar (rs.ctx, ar, ranlib, pat.paths));
 
         // If this is a configuration with new values, then print the report
         // at verbosity level 2 and up (-v).
@@ -843,7 +843,7 @@ namespace build2
                            path (apply_pattern (ld_d, pat.pattern)),
                            config::save_default_commented)));
 
-        const ld_info& ldi (guess_ld (ld, pat.paths));
+        const ld_info& ldi (guess_ld (rs.ctx, ld, pat.paths));
 
         // If this is a configuration with new values, then print the report
         // at verbosity level 2 and up (-v).
@@ -1004,7 +1004,7 @@ namespace build2
                            path (apply_pattern (rc_d, pat.pattern)),
                            config::save_default_commented)));
 
-        const rc_info& rci (guess_rc (rc, pat.paths));
+        const rc_info& rci (guess_rc (rs.ctx, rc, pat.paths));
 
         // If this is a configuration with new values, then print the report
         // at verbosity level 2 and up (-v).
@@ -1116,7 +1116,7 @@ namespace build2
                            path (apply_pattern (nm_d, pat.pattern)),
                            config::save_default_commented)));
 
-        const nm_info& nmi (guess_nm (nm, pat.paths));
+        const nm_info& nmi (guess_nm (rs.ctx, nm, pat.paths));
 
         // If this is a configuration with new values, then print the report
         // at verbosity level 2 and up (-v).

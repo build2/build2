@@ -4,6 +4,8 @@
 #include <libbutl/regex.hxx>
 #include <libbutl/builtin.hxx>
 
+#include <libbuild2/scope.hxx>
+#include <libbuild2/context.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
 
@@ -181,18 +183,32 @@ namespace build2
   }
 
   static inline value
-  run_builtin (builtin_function* bf, const strings& args, const string& bn)
+  run_builtin (const scope* s,
+               builtin_function* bf,
+               const strings& args,
+               const string& bn)
   {
+    // See below.
+    //
+    if (s != nullptr && s->ctx.phase != run_phase::load)
+      fail << "process.run() called during " << s->ctx.phase << " phase";
+
     return run_builtin_impl (bf, args, bn, read);
   }
 
   static inline value
-  run_builtin_regex (builtin_function* bf,
+  run_builtin_regex (const scope* s,
+                     builtin_function* bf,
                      const strings& args,
                      const string& bn,
                      const string& pat,
                      const optional<string>& fmt)
   {
+    // See below.
+    //
+    if (s != nullptr && s->ctx.phase != run_phase::load)
+      fail << "process.run_regex() called during " << s->ctx.phase << " phase";
+
     // Note that we rely on the "small function object" optimization here.
     //
     return run_builtin_impl (bf, args, bn,
@@ -293,6 +309,9 @@ namespace build2
                [] (const string& s) {return s.c_str ();});
     cargs.push_back (nullptr);
 
+    // Note that for now these functions can only be called during the load
+    // phase (see below) and so no diagnostics buffering is needed.
+    //
     return run_start (3               /* verbosity */,
                       pp,
                       cargs,
@@ -352,6 +371,15 @@ namespace build2
   static inline value
   run_process (const scope* s, const process_path& pp, const strings& args)
   {
+    // The only plausible place where these functions can be called outside
+    // the load phase are scripts and there it doesn't make much sense to use
+    // them (the same can be achieved with commands in a uniform manner). Note
+    // that if there is no scope, then this is most likely (certainly?) the
+    // load phase (for example, command line).
+    //
+    if (s != nullptr && s->ctx.phase != run_phase::load)
+      fail << "process.run() called during " << s->ctx.phase << " phase";
+
     return run_process_impl (s, pp, args, read);
   }
 
@@ -362,6 +390,11 @@ namespace build2
                      const string& pat,
                      const optional<string>& fmt)
   {
+    // See above.
+    //
+    if (s != nullptr && s->ctx.phase != run_phase::load)
+      fail << "process.run_regex() called during " << s->ctx.phase << " phase";
+
     // Note that we rely on the "small function object" optimization here.
     //
     return run_process_impl (s, pp, args,
@@ -377,7 +410,7 @@ namespace build2
     if (builtin_function* bf = builtin (args))
     {
       pair<string, strings> ba (builtin_args (bf, move (args), "run"));
-      return run_builtin (bf, ba.second, ba.first);
+      return run_builtin (s, bf, ba.second, ba.first);
     }
     else
     {
@@ -395,7 +428,7 @@ namespace build2
     if (builtin_function* bf = builtin (args))
     {
       pair<string, strings> ba (builtin_args (bf, move (args), "run_regex"));
-      return run_builtin_regex (bf, ba.second, ba.first, pat, fmt);
+      return run_builtin_regex (s, bf, ba.second, ba.first, pat, fmt);
     }
     else
     {
@@ -420,7 +453,8 @@ namespace build2
     // result, then such variables should be reported with the
     // config.environment directive.
     //
-    // Note that this function is not pure.
+    // Note that this function is not pure and can only be called during the
+    // load phase.
     //
     f.insert (".run", false) += [](const scope* s, names args)
     {
@@ -446,7 +480,8 @@ namespace build2
     // result, then such variables should be reported with the
     // config.environment directive.
     //
-    // Note that this function is not pure.
+    // Note that this function is not pure and can only be called during the
+    // load phase.
     //
     {
       auto e (f.insert (".run_regex", false));

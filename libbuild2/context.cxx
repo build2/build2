@@ -255,7 +255,8 @@ namespace build2
       // Did the user ask us to use config.guess?
       //
       string orig (config_guess
-                   ? run<string> (3,
+                   ? run<string> (*this,
+                                  3,
                                   *config_guess,
                                   [](string& l, bool) {return move (l);})
                    : BUILD2_HOST_TRIPLET);

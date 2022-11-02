@@ -30,6 +30,8 @@ namespace build2
     {
       tracer trace (x, "guess_init");
 
+      context& ctx (rs.ctx);
+
       bool cc_loaded (cast_false<bool> (rs["cc.core.guess.loaded"]));
 
       // Adjust module priority (compiler). Also order cc module before us
@@ -157,6 +159,7 @@ namespace build2
         // we are now folding *.std options into mode options.
         //
         x_info = &build2::cc::guess (
+          ctx,
           x, x_lang,
           rs.root_extra->environment_checksum,
           move (xc),
@@ -183,7 +186,8 @@ namespace build2
 
         if (config_sub)
         {
-          ct = run<string> (3,
+          ct = run<string> (ctx,
+                            3,
                             *config_sub,
                             xi.target.c_str (),
                             [] (string& l, bool) {return move (l);});
