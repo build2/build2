@@ -71,6 +71,18 @@ namespace build2
           bool force = false,
           fdstream_mode mode = fdstream_mode::skip);
 
+    // Check whether the buffer has been opened with the open() call and
+    // hasn't yet been closed.
+    //
+    // Note that this function returning true does not mean that the pipe was
+    // opened (to check that, call is_open() on the `is` member below).
+    //
+    bool
+    is_open () const
+    {
+      return state_ != state::closed;
+    }
+
     // Read the diagnostics from the parent end of the pipe if one was opened
     // and buffer/stream it as necessary. Return true if there could be more
     // diagnostics to read (only possible in the non-blocking mode).
