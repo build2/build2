@@ -6,7 +6,6 @@
 $c <'cat <foo | $* -i 1 >foo' && $b  : builtin-to-process
 $c <'$* -o foo | cat >foo' && $b     : process-to-builtin
 
-
 : failure
 :
 : Note that while both commands for the pipe are faulty the diagnostics for
@@ -15,10 +14,19 @@ $c <'$* -o foo | cat >foo' && $b     : process-to-builtin
 {
   : exit-code
   :
-  $c <'$* -o foo -s 1 | $* -i 1 >foo -s 2' && $b 2>>/~%EOE% != 0
-  %testscript:1:1: error: .+ exited with code 2%
+  : Also verify that the command line is printed.
+  :
+  $c <'$* -o foo -s 1 | $* -i 1 -s 2 >foo' && $b --verbose 1 2>>/~%EOE% != 0
+  %.
+  %testscript:1:1: error: process .+ exited with code 1%
+  %  info: command line: .+driver.* -o foo -s 1%
+    info: test id: 1
+  %.
+  %testscript:1:1: error: process .+ exited with code 2%
+  %  info: command line: .+driver.* -i 1 -s 2%
     info: stdout: test/1/stdout-c2
     info: test id: 1
+  %.{2}
   EOE
 
   : stderr

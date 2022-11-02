@@ -1108,11 +1108,12 @@ namespace build2
                   hd.push_back (
                     here_doc {
                       {rd},
-                        move (end),
-                          (t.qtype == quote_type::unquoted ||
-                           t.qtype == quote_type::single),
-                          move (mod),
-                          r.intro, move (r.flags)});
+                      move (end),
+                      (t.qtype == quote_type::unquoted ||
+                       t.qtype == quote_type::single),
+                      move (mod),
+                      r.intro,
+                      move (r.flags)});
 
                 p = pending::none;
                 mod.clear ();
@@ -2449,7 +2450,7 @@ namespace build2
               // Let's "wrap up" all the required data into the single object
               // to rely on the "small function object" optimization.
               //
-              struct
+              struct loop_data
               {
                 lines::const_iterator i;
                 lines::const_iterator e;
@@ -2462,7 +2463,7 @@ namespace build2
                 variable_pool* var_pool;
                 decltype (fcend)& fce;
                 lines::const_iterator& fe;
-              } d {i, e,
+              } ld {i, e,
                     exec_set, exec_cmd, exec_cond, exec_for,
                     ii, li,
                     var_pool,
@@ -2470,13 +2471,12 @@ namespace build2
                     fe};
 
               function<command_function> cf (
-                [&d, this]
+                [&ld, this]
                 (environment& env,
                  const strings& args,
                  auto_fd in,
-                 bool pipe,
+                 pipe_command* pipe,
                  const optional<deadline>& dl,
-                 const command& deadline_cmd,
                  const location& ll)
                 {
                   namespace cli = build2::build::cli;
@@ -2527,12 +2527,6 @@ namespace build2
                                   << scan.next () << "'";
                     }
 
-                    stream_reader sr (
-                      move (in), pipe,
-                      !ops.newline (), ops.newline (), ops.exact (),
-                      dl, deadline_cmd,
-                      ll);
-
                     // Since the command pipe is parsed, we can stop
                     // replaying. Note that we should do this before calling
                     // exec_lines() for the loop body. Also note that we
@@ -2540,39 +2534,66 @@ namespace build2
                     //
                     replay_stop ();
 
-                    size_t fli (++d.li);
-                    iteration_index fi {1, d.ii};
+                    size_t fli (++ld.li);
+                    iteration_index fi {1, ld.ii};
 
-                    for (optional<string> s; (s = sr.next ()); )
+                    // Let's "wrap up" all the required data into the single
+                    // object to rely on the "small function object"
+                    // optimization.
+                    //
+                    struct
                     {
-                      d.li = fli;
+                      loop_data& ld;
+                      environment& env;
+                      const string& vname;
+                      const string& attrs;
+                      const location& ll;
+                      size_t fli;
+                      iteration_index& fi;
 
-                      // Don't move from the variable name since it is used on
-                      // each iteration.
-                      //
-                      env.set_variable (vname,
-                                        names {name (move (*s))},
-                                        attrs,
-                                        ll);
+                    } d {ld, env, vname, attrs, ll, fli, fi};
 
-                      // Find the construct end, if it is not found yet.
-                      //
-                      if (d.fe == d.e)
-                        d.fe = d.fce (d.i, true, false);
-
-                      if (!exec_lines (d.i + 1, d.fe,
-                                       d.exec_set,
-                                       d.exec_cmd,
-                                       d.exec_cond,
-                                       d.exec_for,
-                                       &fi, d.li,
-                                       d.var_pool))
+                    function<void (string&&)> f (
+                      [&d, this] (string&& s)
                       {
-                        throw exit (true);
-                      }
+                        loop_data& ld (d.ld);
 
-                      fi.index++;
-                    }
+                        ld.li = d.fli;
+
+                        // Don't move from the variable name since it is used
+                        // on each iteration.
+                        //
+                        d.env.set_variable (d.vname,
+                                            names {name (move (s))},
+                                            d.attrs,
+                                            d.ll);
+
+                        // Find the construct end, if it is not found yet.
+                        //
+                        if (ld.fe == ld.e)
+                          ld.fe = ld.fce (ld.i, true, false);
+
+                        if (!exec_lines (ld.i + 1, ld.fe,
+                                         ld.exec_set,
+                                         ld.exec_cmd,
+                                         ld.exec_cond,
+                                         ld.exec_for,
+                                         &d.fi, ld.li,
+                                         ld.var_pool))
+                        {
+                          throw exit (true);
+                        }
+
+                        d.fi.index++;
+                      });
+
+                    read (move (in),
+                          !ops.newline (), ops.newline (), ops.exact (),
+                          f,
+                          pipe,
+                          dl,
+                          ll,
+                          "for");
                   }
                   catch (const cli::exception& e)
                   {

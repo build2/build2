@@ -67,7 +67,7 @@ posix = ($cxx.target.class != 'windows')
     $* 2>>~%EOE% != 0;
       concat file{bar.}
       %cat: unable to print '.+bar.baz': .+%
-      buildfile:10:3: error: cat exited with code 1
+      buildfile:10:3: error: builtin cat exited with code 1
       %.+
       EOE
 
@@ -789,7 +789,8 @@ if $posix
 
       $* 2>>~%EOE% != 0;
         update file{foo}
-        buildfile:6:3: error: ^sleep terminated: execution timeout expired
+        buildfile:6:3: error: process ^sleep terminated: execution timeout expired
+          info: command line: sleep 5
           info: while updating file{foo}
         %.+
         EOE
@@ -842,14 +843,16 @@ if $posix
       $* test config.test.timeout=1 2>>~%EOE% != 0;
         cp file{foo}
         test file{foo}
-        buildfile:7:3: error: ^sleep terminated: execution timeout expired
+        buildfile:7:3: error: process ^sleep terminated: execution timeout expired
+          info: command line: sleep 5
           info: while testing file{foo}
         %.+
         EOE
 
       $* test config.test.timeout=/1 2>>~%EOE% != 0;
         test file{foo}
-        buildfile:7:3: error: ^sleep terminated: execution timeout expired
+        buildfile:7:3: error: process ^sleep terminated: execution timeout expired
+          info: command line: sleep 5
           info: while testing file{foo}
         %.+
         EOE

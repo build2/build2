@@ -2514,16 +2514,19 @@ namespace build2
                   (build2::script::environment&,
                    const strings&,
                    auto_fd in,
-                   bool pipe,
+                   pipe_command* pipe,
                    const optional<deadline>& dl,
-                   const command& deadline_cmd,
                    const location& ll)
                   {
-                    iss.str (stream_read (move (in),
-                                          pipe,
-                                          dl,
-                                          deadline_cmd,
-                                          ll));
+                    read (move (in),
+                          false /* whitespace */,
+                          false /* newline */,
+                          true /* exact */,
+                          [&iss] (string&& s) {iss.str (move (s));},
+                          pipe,
+                          dl,
+                          ll,
+                          "depdb-dyndep");
                   });
 
                 build2::script::run (*environment_,

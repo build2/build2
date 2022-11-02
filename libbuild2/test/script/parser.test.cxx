@@ -121,8 +121,8 @@ namespace build2
             assert (!c.out && !c.err && !c.exit);
 
             cf (env, c.arguments,
-                fdopen_null (), false /* pipe */,
-                nullopt /* deadline */, c,
+                fdopen_null (), nullptr /* pipe */,
+                nullopt /* deadline */,
                 ll);
           }
 

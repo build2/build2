@@ -32,6 +32,7 @@ namespace build2
       using build2::script::environment_vars;
       using build2::script::deadline;
       using build2::script::timeout;
+      using build2::script::pipe_command;
       using build2::script::command_function;
 
       class parser; // Required by VC for 'friend class parser' declaration.

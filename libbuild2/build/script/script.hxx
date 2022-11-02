@@ -30,6 +30,7 @@ namespace build2
       using build2::script::iteration_index;
       using build2::script::deadline;
       using build2::script::timeout;
+      using build2::script::pipe_command;
       using build2::script::command_function;
 
       // Forward declarations.

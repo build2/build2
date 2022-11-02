@@ -265,7 +265,7 @@ namespace build2
       cleanup_type type;
       build2::path path;
     };
-    using cleanups = vector<cleanup>;
+    using cleanups = vector<cleanup>; // @@ Make it small_vector<..., 1>?
 
     // command_exit
     //
@@ -318,6 +318,10 @@ namespace build2
       add (string);
     };
 
+    // @@ For better diagnostics we may want to store an individual location
+    //    of each command in the pipeline (maybe we can share the file part
+    //    somehow since a pipline cannot span multiple files).
+    //
     struct command
     {
       // We use NULL initial as an indication that the path stored in recall
@@ -357,7 +361,7 @@ namespace build2
 
     // command_pipe
     //
-    using command_pipe = vector<command>;
+    using command_pipe = vector<command>; // @@ Make it small_vector<..., 1>?
 
     void
     to_stream (ostream&, const command_pipe&, command_to_stream);
@@ -375,7 +379,7 @@ namespace build2
       command_pipe pipe;
     };
 
-    using command_expr = vector<expr_term>;
+    using command_expr = vector<expr_term>; // @@ Make it small_vector<..., 1>?
 
     void
     to_stream (ostream&, const command_expr&, command_to_stream);
@@ -581,15 +585,18 @@ namespace build2
       ~environment () = default;
     };
 
-    // Custom command function that can be executed at the end of the pipe.
-    // Should throw io_error on the underlying OS error.
+    // Custom command function that can be executed at the end of the
+    // pipeline. Should throw io_error on the underlying OS error.
     //
+    // Note: the pipeline can be NULL (think of `for x <<<='foo'`).
+    //
+    struct pipe_command;
+
     using command_function = void (environment&,
                                    const strings& args,
                                    auto_fd in,
-                                   bool pipe,
+                                   pipe_command* pipeline,
                                    const optional<deadline>&,
-                                   const command& deadline_cmd,
                                    const location&);
 
     // Helpers.

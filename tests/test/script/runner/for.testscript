@@ -157,7 +157,7 @@
       end
     end
     EOI
-    testscript:3:5: error: test exited with code 1
+    testscript:3:5: error: builtin test exited with code 1
       info: test id: 1
     EOE
 
@@ -427,7 +427,7 @@
       end
     end
     EOI
-    testscript:3:5: error: test exited with code 1
+    testscript:3:5: error: builtin test exited with code 1
       info: test id: 1
     EOE
 

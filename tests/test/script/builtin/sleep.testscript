@@ -13,7 +13,7 @@ $c <'sleep 1' && $b
   : failure
   :
   $c <'env -t 1 -- sleep 86400' && $b 2>>~%EOE% != 0
-    %testscript:.*: error: sleep terminated: execution timeout expired%
+    %testscript:.*: error: builtin sleep terminated: execution timeout expired%
     %.
     EOE
 

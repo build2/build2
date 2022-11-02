@@ -15,7 +15,7 @@ b += --no-column
   : false
   :
   $c <'$* -s 1 == 0' && $b 2>>/~%EOE%d != 0
-  %testscript:1: error: ../../../../driver(.exe)? exit code 1 != 0%
+  %testscript:1: error: process ../../../../driver(.exe)? exit code 1 != 0%
     info: test id: 1
   EOE
 }
@@ -30,7 +30,7 @@ b += --no-column
   : false
   :
   $c <'$* -s 1 != 1' && $b 2>>/~%EOE% != 0
-  %testscript:1: error: ../../../../driver(.exe)? exit code 1 == 1%
+  %testscript:1: error: process ../../../../driver(.exe)? exit code 1 == 1%
     info: test id: 1
   EOE
 }
@@ -38,7 +38,7 @@ b += --no-column
 : error
 :
 $c <'$* -s 1 -e "Error"' && $b 2>>/~%EOE% != 0
-%testscript:1: error: ../../../driver(.exe)? exited with code 1%
+%testscript:1: error: process ../../../driver(.exe)? exited with code 1%
   info: stderr: test/1/stderr
 Error
   info: test id: 1
@@ -47,7 +47,7 @@ EOE
 : error-check
 :
 $c <'$* -s 1 -e "Error" == 0' && $b 2>>/~%EOE% != 0
-%testscript:1: error: ../../../driver(.exe)? exit code 1 != 0%
+%testscript:1: error: process ../../../driver(.exe)? exit code 1 != 0%
   info: stderr: test/1/stderr
 Error
   info: test id: 1

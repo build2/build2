@@ -83,61 +83,39 @@ namespace build2
     string
     diag_path (const dir_name_view&);
 
-    // Read out the stream content into a string, optionally splitting the
-    // input data at whitespaces or newlines in which case return one
-    // sub-string at a time (see the set builtin options for the splitting
-    // semantics). Throw io_error on the underlying OS error.
+    // Read the stream content, optionally splitting the input data at
+    // whitespaces or newlines and calling the specified callback function for
+    // each substring (see the set builtin options for the splitting
+    // semantics). Throw failed on io_error.
     //
-    // If the execution deadline is specified, then turn the stream into the
-    // non-blocking mode. If the specified deadline is reached while reading
-    // the stream, then bail out for the successful deadline and fail
-    // otherwise. Note that in the former case the result will be incomplete,
-    // but we leave it to the caller to handle that.
+    // If the stream is a pipeline's output, then the pipeline argument must
+    // also be specified. Normally called from a custom command function (see
+    // command_function for details) which is provided with the pipeline
+    // information.
     //
-    // Note that on Windows we can only turn pipe file descriptors into the
-    // non-blocking mode. Thus, we have no choice but to read from descriptors
-    // of other types synchronously there. That implies that we can
-    // potentially block indefinitely reading a file and missing the deadline
-    // on Windows. Note though, that the user can normally rewrite the
-    // command, for example, `set foo <<<file` with `cat file | set foo` to
-    // avoid this problem.
+    // Turn the stream into the non-blocking mode and, if the pipeline is
+    // specified, read out its buffered stderr streams while waiting for the
+    // input stream data. If a deadline is specified and is reached, then
+    // terminate the whole pipeline, if specified, and bail out. Otherwise
+    // issue diagnostics and fail. The thinking here is that in the former
+    // case the caller first needs to dump the buffered stderr streams, issue
+    // the appropriate diagnostics for the pipeline processes/builtins, and
+    // only throw failed afterwards.
     //
-    class stream_reader
-    {
-    public:
-      stream_reader (auto_fd&&,
-                     bool pipe,
-                     bool whitespace, bool newline, bool exact,
-                     const optional<deadline>&,
-                     const command& deadline_cmd,
-                     const location&);
-
-      // Return nullopt if eos is reached.
-      //
-      optional<string>
-      next ();
-
-    private:
-      ifdstream is_;
-      bool whitespace_;
-      bool newline_;
-      bool exact_;
-      optional<deadline> deadline_;
-      const command& deadline_cmd_;
-      const location& location_;
-
-      bool empty_ = true; // Set to false after the first character is read.
-    };
-
-    // Read the stream content using the stream reader in the no-split exact
-    // mode.
+    // Note that on Windows we can only turn file descriptors of the pipe type
+    // into the non-blocking mode. Thus, a non-pipe descriptor is read in the
+    // blocking manner (and the deadline is checked less accurately). This is
+    // fine since there are no pipeline stderr streams to read out in this
+    // case.
     //
-    string
-    stream_read (auto_fd&&,
-                 bool pipe,
-                 const optional<deadline>&,
-                 const command& deadline_cmd,
-                 const location&);
+    void
+    read (auto_fd&&,
+          bool whitespace, bool newline, bool exact,
+          const function<void (string&&)>&,
+          pipe_command* pipeline,
+          const optional<deadline>&,
+          const location&,
+          const char* what);
   }
 }
 

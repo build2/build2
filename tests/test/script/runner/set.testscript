@@ -300,7 +300,7 @@
   $c <<EOI && $b 2>>~%EOE% != 0
   $* -o 'foo' -l 10 | env -t 1 -- set bar
   EOI
-  %testscript:.*: error: set terminated: execution timeout expired%
+  %testscript:.*: error: .+driver.* terminated: execution timeout expired%
   %.
   EOE
 
@@ -326,21 +326,18 @@
     echo "$s" >=f;
     $* -o 'foo' -l 10 | cat f - | env -t 2 -- set bar
     EOI
-    %testscript:.*: error: set terminated: execution timeout expired%
+    %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+    %.
+    %testscript:.*: error: builtin cat terminated: execution timeout expired%
     %.
     EOE
 
     : success
     :
-    : Note that the cat builtin ends up with the 'broken pipe' diagnostics or
-    : similar.
-    :
     $c <<EOI && $b
     echo "$s" >=f;
     timeout --success 2;
-    $* -o 'foo' -l 10 | cat f - 2>>~%EOE% | set bar
-      %cat: .+%
-      EOE
+    $* -o 'foo' -l 10 | cat f - | set bar
     EOI
   }
 
