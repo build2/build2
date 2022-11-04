@@ -47,7 +47,101 @@ namespace build2
   //
   const int stream_verb_index = ostream::xalloc ();
 
-  // diag_buffer
+  // print_process()
+  //
+  void
+  print_process (const char* const* args, size_t n)
+  {
+    diag_record dr (text);
+    print_process (dr, args, n);
+  }
+
+  void
+  print_process (diag_record& dr,
+                 const char* const* args, size_t n)
+  {
+    dr << butl::process_args {args, n};
+  }
+
+  void
+  print_process (const process_env& pe, const char* const* args, size_t n)
+  {
+    diag_record dr (text);
+    print_process (dr, pe, args, n);
+  }
+
+  void
+  print_process (diag_record& dr,
+                 const process_env& pe, const char* const* args, size_t n)
+  {
+    if (pe.env ())
+      dr << pe << ' ';
+
+    dr << butl::process_args {args, n};
+  }
+
+  // Diagnostic facility, project specifics.
+  //
+
+  void simple_prologue_base::
+  operator() (const diag_record& r) const
+  {
+    stream_verb (r.os, sverb_);
+
+    if (type_ != nullptr)
+      r << type_ << ": ";
+
+    if (mod_ != nullptr)
+      r << mod_ << "::";
+
+    if (name_ != nullptr)
+      r << name_ << ": ";
+  }
+
+  void location_prologue_base::
+  operator() (const diag_record& r) const
+  {
+    stream_verb (r.os, sverb_);
+
+    if (!loc_.empty ())
+    {
+      r << loc_.file << ':';
+
+      if (!diag_no_line)
+      {
+        if (loc_.line != 0)
+        {
+          r << loc_.line << ':';
+
+          if (!diag_no_column)
+          {
+            if (loc_.column != 0)
+              r << loc_.column << ':';
+          }
+        }
+      }
+
+      r << ' ';
+    }
+
+    if (type_ != nullptr)
+      r << type_ << ": ";
+
+    if (mod_ != nullptr)
+      r << mod_ << "::";
+
+    if (name_ != nullptr)
+      r << name_ << ": ";
+  }
+
+  const basic_mark error ("error");
+  const basic_mark warn  ("warning");
+  const basic_mark info  ("info");
+  const basic_mark text  (nullptr, nullptr, nullptr); // No type/data/frame.
+  const fail_mark  fail  ("error");
+  const fail_end   endf;
+
+    // diag_buffer
   //
   process::pipe diag_buffer::
   open (const char* args0, bool force, fdstream_mode m)
@@ -87,7 +181,7 @@ namespace build2
   }
 
   bool diag_buffer::
-  read ()
+  read (bool force)
   {
     assert (state_ == state::opened);
 
@@ -118,7 +212,7 @@ namespace build2
 
         if (is.blocking ())
         {
-          if (serial || nobuf)
+          if ((serial || nobuf) && !force)
           {
             // This is the case where we are called after custom processing.
             //
@@ -167,9 +261,10 @@ namespace build2
         else
         {
           // We do not support finishing off after the custom processing in
-          // the non-blocking mode (but could probably do if necessary).
+          // the non-blocking mode unless forced to buffer (but could probably
+          // do if necessary).
           //
-          assert (!(serial || nobuf));
+          assert (!(serial || nobuf) || force);
 
           fdstreambuf& sb (*static_cast<fdstreambuf*> (is.rdbuf ()));
 
@@ -206,11 +301,11 @@ namespace build2
   }
 
   void diag_buffer::
-  write (const string& s, bool nl)
+  write (const string& s, bool nl, bool force)
   {
     // Similar logic to read() above.
     //
-    if (serial || nobuf)
+    if ((serial || nobuf) && !force)
     {
       assert (buf.empty ());
 
@@ -339,100 +434,6 @@ namespace build2
     args0 = nullptr;
     state_ = state::closed;
   }
-
-  // print_process()
-  //
-  void
-  print_process (const char* const* args, size_t n)
-  {
-    diag_record dr (text);
-    print_process (dr, args, n);
-  }
-
-  void
-  print_process (diag_record& dr,
-                 const char* const* args, size_t n)
-  {
-    dr << butl::process_args {args, n};
-  }
-
-  void
-  print_process (const process_env& pe, const char* const* args, size_t n)
-  {
-    diag_record dr (text);
-    print_process (dr, pe, args, n);
-  }
-
-  void
-  print_process (diag_record& dr,
-                 const process_env& pe, const char* const* args, size_t n)
-  {
-    if (pe.env ())
-      dr << pe << ' ';
-
-    dr << butl::process_args {args, n};
-  }
-
-  // Diagnostic facility, project specifics.
-  //
-
-  void simple_prologue_base::
-  operator() (const diag_record& r) const
-  {
-    stream_verb (r.os, sverb_);
-
-    if (type_ != nullptr)
-      r << type_ << ": ";
-
-    if (mod_ != nullptr)
-      r << mod_ << "::";
-
-    if (name_ != nullptr)
-      r << name_ << ": ";
-  }
-
-  void location_prologue_base::
-  operator() (const diag_record& r) const
-  {
-    stream_verb (r.os, sverb_);
-
-    if (!loc_.empty ())
-    {
-      r << loc_.file << ':';
-
-      if (!diag_no_line)
-      {
-        if (loc_.line != 0)
-        {
-          r << loc_.line << ':';
-
-          if (!diag_no_column)
-          {
-            if (loc_.column != 0)
-              r << loc_.column << ':';
-          }
-        }
-      }
-
-      r << ' ';
-    }
-
-    if (type_ != nullptr)
-      r << type_ << ": ";
-
-    if (mod_ != nullptr)
-      r << mod_ << "::";
-
-    if (name_ != nullptr)
-      r << name_ << ": ";
-  }
-
-  const basic_mark error ("error");
-  const basic_mark warn  ("warning");
-  const basic_mark info  ("info");
-  const basic_mark text  (nullptr, nullptr, nullptr); // No type/data/frame.
-  const fail_mark  fail  ("error");
-  const fail_end   endf;
 
   // diag_do(), etc.
   //

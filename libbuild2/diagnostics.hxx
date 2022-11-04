@@ -21,180 +21,6 @@ namespace build2
   //
   class failed: public std::exception {};
 
-  // Diagnostics buffer.
-  //
-  // The purpose of this class is to handle diagnostics from child processes,
-  // where handle can mean:
-  //
-  // - Buffer it (to avoid interleaving in parallel builds).
-  //
-  // - Stream it (if the input can be split into diagnostic records).
-  //
-  // - Do nothing (in serial builds or if requested not to buffer).
-  //
-  // This class is also responsible for converting the diagnostics into the
-  // structured form (which means it may need to buffer even in serial
-  // builds).
-  //
-  class LIBBUILD2_SYMEXPORT diag_buffer
-  {
-  public:
-    explicit
-    diag_buffer (context& c): is (ifdstream::badbit), ctx_ (c) {}
-
-  public:
-    // If buffering is necessary or force is true, open a pipe and return the
-    // child process end of it. Otherwise, return stderr. If mode is
-    // non_blocking, then make reading from the parent end of the pipe
-    // non-blocking.
-    //
-    // The args0 argument is the child process program name for diagnostics.
-    // It is expected to remain valid until the call to close() and should
-    // normally be the same as args[0] passed to close().
-    //
-    // The force flag is used if custom diagnostics processing is required
-    // (filter, split, etc; see read() below).
-    //
-    // Note that the same buffer can go through multiple open-read-close
-    // sequences, for example, to execute multiple commands.
-    //
-    // All the below functions handle io errors, issue suitable diagnostics,
-    // and throw failed. If an exception is thrown from any of them, then the
-    // instance should not be used any further.
-    //
-    // Note that when reading from multiple streams in the non-blocking mode,
-    // only the last stream to be destroyed can normally have the skip mode
-    // since in case of an exception, skipping will be blocking.
-    //
-    process::pipe
-    open (const char* args0,
-          bool force = false,
-          fdstream_mode mode = fdstream_mode::skip);
-
-    // Check whether the buffer has been opened with the open() call and
-    // hasn't yet been closed.
-    //
-    // Note that this function returning true does not mean that the pipe was
-    // opened (to check that, call is_open() on the `is` member below).
-    //
-    bool
-    is_open () const
-    {
-      return state_ != state::closed;
-    }
-
-    // Read the diagnostics from the parent end of the pipe if one was opened
-    // and buffer/stream it as necessary. Return true if there could be more
-    // diagnostics to read (only possible in the non-blocking mode).
-    //
-    // Instead of calling this function you can perform custom reading and, if
-    // necessary, buffering of the diagnostics by accessing the input stream
-    // (is) and underlying buffer (buf) directly. This can be used to filter,
-    // split the diagnostics into records according to a certain format, etc.
-    // Note that such custom processing implementation should maintain the
-    // overall semantics of diagnostics buffering in that it may only omit
-    // buffering in the serial case or if the diagnostics can be streamed in
-    // atomic records. See also write() below.
-    //
-    // The input stream is opened in the text mode and has the badbit but not
-    // failbit exception mask. The custom processing should also be compatible
-    // with the stream mode (blocking or non). If buffering is performed, then
-    // depending on the expected diagnostics the custom processing may want to
-    // reserve an appropriate initial buffer size to avoid unnecessary
-    // reallocation. As a convenience, in the blocking mode only, if the
-    // stream still contains some diagnostics, then it can be handled by
-    // calling read(). This is useful when needing to process only the inital
-    // part of the diagnostics.
-    //
-    bool
-    read ();
-
-    // Close the parent end of the pipe if one was opened and write out any
-    // buffered diagnostics.
-    //
-    // If the child process exited abnormally or normally with non-0 code,
-    // then print the error diagnostics to this effect. Additionally, if the
-    // verbosity level is between 1 and the specified value, then print the
-    // command line as info after the error. If omit_normall is true, then
-    // don't print either for the normal exit (usually used when process
-    // failure can be tolerated).
-    //
-    // Normally the specified verbosity will be 1 and the command line args
-    // represent the verbosity level 2 (logical) command line. Note that args
-    // should only represent a single command in a pipe (see print_process()
-    // below for details).
-    //
-    // If the diag_buffer instance is destroyed before calling close(), then
-    // any buffered diagnostics is discarded.
-    //
-    // Note: see also run_finish(diag_buffer&).
-    //
-    // @@ TODO: need overload with process_env (see print_process).
-    //
-    void
-    close (const cstrings& args,
-           const process_exit& pe,
-           uint16_t verbosity = 1,
-           const location& loc = {},
-           bool omit_normall = false)
-    {
-      close (args.data (), pe, verbosity, loc, omit_normall);
-    }
-
-    void
-    close (const char* const* args,
-           const process_exit& pe,
-           uint16_t verbosity = 1,
-           const location& loc = {},
-           bool omit_normall = false);
-
-    // As above but with a custom diag record for the child exit diagnostics,
-    // if any.
-    //
-    void
-    close (diag_record&&);
-
-    // Direct access to the underlying stream and buffer for custom processing
-    // (see read() above for details).
-    //
-    // If serial is true, then we are running serially. If nobuf is true,
-    // then we are running in parallel but diagnostics buffering has been
-    // disabled (--no-diag-buffer). Note that there is a difference: during
-    // the serial execution we are free to hold the diag_stream_lock for as
-    // long as convenient, for example, for the whole duration of child
-    // process execution. Doing the same during parallel execution is very
-    // bad idea and we should read/write the diagnostics in chunks, normally
-    // one line at a time.
-    //
-  public:
-    ifdstream    is;
-    vector<char> buf;
-    const char*  args0;
-    bool         serial;
-    bool         nobuf;
-
-    // Buffer or stream a fragment of diagnostics as necessary. If newline
-    // is true, also add a trailing newline.
-    //
-    // This function is normally called from a custom diagnostics processing
-    // implementation (see read() above for details). If nobuf is true, then
-    // the fragment should end on the line boundary to avoid interleaving.
-    //
-    void
-    write (const string&, bool newline);
-
-  private:
-    // Note that we don't seem to need a custom destructor to achieve the
-    // desired semantics: we can assume the process has exited before we are
-    // destroyed (because we supply stderr to its constructor) which means
-    // closing fdstream without reading any futher should be ok.
-    //
-    enum class state {closed, opened, eof};
-
-    context& ctx_;
-    state    state_ = state::closed;
-  };
-
   // Print process commmand line. If the number of elements is specified (or
   // the const cstrings& version is used), then it will print the piped multi-
   // process command line, if present. In this case, the expected format is as
@@ -685,6 +511,184 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT extern const fail_mark fail;
   LIBBUILD2_SYMEXPORT extern const fail_end  endf;
+
+  // Diagnostics buffer.
+  //
+  // The purpose of this class is to handle diagnostics from child processes,
+  // where handle can mean:
+  //
+  // - Buffer it (to avoid interleaving in parallel builds).
+  //
+  // - Stream it (if the input can be split into diagnostic records).
+  //
+  // - Do nothing (in serial builds or if requested not to buffer).
+  //
+  // In the future this class will also be responsible for converting the
+  // diagnostics into the structured form (which means it may need to buffer
+  // even in serial builds).
+  //
+  class LIBBUILD2_SYMEXPORT diag_buffer
+  {
+  public:
+    explicit
+    diag_buffer (context& c): is (ifdstream::badbit), ctx_ (c) {}
+
+  public:
+    // If buffering is necessary or force is true, open a pipe and return the
+    // child process end of it. Otherwise, return stderr. If mode is
+    // non_blocking, then make reading from the parent end of the pipe
+    // non-blocking.
+    //
+    // The args0 argument is the child process program name for diagnostics.
+    // It is expected to remain valid until the call to close() and should
+    // normally be the same as args[0] passed to close().
+    //
+    // The force flag is normally used if custom diagnostics processing is
+    // required (filter, split, etc; see read() below).
+    //
+    // Note that the same buffer can go through multiple open-read-close
+    // sequences, for example, to execute multiple commands.
+    //
+    // All the below functions handle io errors, issue suitable diagnostics,
+    // and throw failed. If an exception is thrown from any of them, then the
+    // instance should not be used any further.
+    //
+    // Note that when reading from multiple streams in the non-blocking mode,
+    // only the last stream to be destroyed can normally have the skip mode
+    // since in case of an exception, skipping will be blocking.
+    //
+    process::pipe
+    open (const char* args0,
+          bool force = false,
+          fdstream_mode mode = fdstream_mode::skip);
+
+    // Check whether the buffer has been opened with the open() call and
+    // hasn't yet been closed.
+    //
+    // Note that this function returning true does not mean that the pipe was
+    // opened (to check that, call is_open() on the stream member; see below).
+    //
+    bool
+    is_open () const
+    {
+      return state_ != state::closed;
+    }
+
+    // Read the diagnostics from the parent end of the pipe if one was opened
+    // and buffer/stream it as necessary or forced. Return true if there could
+    // be more diagnostics to read (only possible in the non-blocking mode)
+    // and false otherwise, in which case also close the stream.
+    //
+    // Instead of calling this function you can perform custom reading and, if
+    // necessary, buffering of the diagnostics by accessing the input stream
+    // (is) and underlying buffer (buf) directly. This can be used to filter,
+    // split the diagnostics into records according to a certain format, etc.
+    // Note that such custom processing implementation should maintain the
+    // overall semantics of diagnostics buffering in that it may only omit
+    // buffering in the serial case or if the diagnostics can be streamed in
+    // atomic records. See also write() below.
+    //
+    // The input stream is opened in the text mode and has the badbit but not
+    // failbit exception mask. The custom processing should also be compatible
+    // with the stream mode (blocking or non). If buffering is performed, then
+    // depending on the expected diagnostics the custom processing may want to
+    // reserve an appropriate initial buffer size to avoid unnecessary
+    // reallocation. As a convenience, in the blocking mode only, if the
+    // stream still contains some diagnostics, then it can be handled by
+    // calling read(). This is useful when needing to process only the inital
+    // part of the diagnostics. The custom processing may also close the
+    // stream manually before calling close().
+    //
+    bool
+    read (bool force = false);
+
+    // Close the parent end of the pipe if one was opened and write out any
+    // buffered diagnostics.
+    //
+    // If the child process exited abnormally or normally with non-0 code,
+    // then print the error diagnostics to this effect. Additionally, if the
+    // verbosity level is between 1 and the specified value, then print the
+    // command line as info after the error. If omit_normall is true, then
+    // don't print either for the normal exit (usually used when process
+    // failure can be tolerated).
+    //
+    // Normally the specified verbosity will be 1 and the command line args
+    // represent the verbosity level 2 (logical) command line. Note that args
+    // should only represent a single command in a pipe (see print_process()
+    // below for details).
+    //
+    // If the diag_buffer instance is destroyed before calling close(), then
+    // any buffered diagnostics is discarded.
+    //
+    // Note: see also run_finish(diag_buffer&).
+    //
+    // @@ TODO: need overload with process_env (see print_process).
+    //
+    void
+    close (const cstrings& args,
+           const process_exit& pe,
+           uint16_t verbosity = 1,
+           const location& loc = {},
+           bool omit_normall = false)
+    {
+      close (args.data (), pe, verbosity, loc, omit_normall);
+    }
+
+    void
+    close (const char* const* args,
+           const process_exit& pe,
+           uint16_t verbosity = 1,
+           const location& loc = {},
+           bool omit_normall = false);
+
+    // As above but with a custom diag record for the child exit diagnostics,
+    // if any.
+    //
+    // @@ TODO: currently cannot be used with the fail epilogue.
+    //
+    void
+    close (diag_record&& = {});
+
+    // Direct access to the underlying stream and buffer for custom processing
+    // (see read() above for details).
+    //
+    // If serial is true, then we are running serially. If nobuf is true,
+    // then we are running in parallel but diagnostics buffering has been
+    // disabled (--no-diag-buffer). Note that there is a difference: during
+    // the serial execution we are free to hold the diag_stream_lock for as
+    // long as convenient, for example, for the whole duration of child
+    // process execution. Doing the same during parallel execution is very
+    // bad idea and we should read/write the diagnostics in chunks, normally
+    // one line at a time.
+    //
+  public:
+    ifdstream    is;
+    vector<char> buf;
+    const char*  args0;
+    bool         serial;
+    bool         nobuf;
+
+    // Buffer or stream a fragment of diagnostics as necessary or forced. If
+    // newline is true, also add a trailing newline.
+    //
+    // This function is normally called from a custom diagnostics processing
+    // implementation (see read() above for details). If nobuf is true, then
+    // the fragment should end on the line boundary to avoid interleaving.
+    //
+    void
+    write (const string&, bool newline, bool force = false);
+
+  private:
+    // Note that we don't seem to need a custom destructor to achieve the
+    // desired semantics: we can assume the process has exited before we are
+    // destroyed (because we supply stderr to its constructor) which means
+    // closing fdstream without reading any futher should be ok.
+    //
+    enum class state {closed, opened, eof};
+
+    context& ctx_;
+    state    state_ = state::closed;
+  };
 
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
   // and "updating exe{foo} is configured". Use like this:
