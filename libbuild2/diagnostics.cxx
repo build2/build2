@@ -425,12 +425,20 @@ namespace build2
       state_ = state::eof;
     }
 
+    // Note: flushing of the diag record may throw.
+    //
+    args0 = nullptr;
+    state_ = state::closed;
+
     if (!buf.empty () || !dr.empty ())
     {
       diag_stream_lock l;
 
       if (!buf.empty ())
+      {
         diag_stream->write (buf.data (), static_cast<streamsize> (buf.size ()));
+        buf.clear ();
+      }
 
       if (!dr.empty ())
         dr.flush ([] (const butl::diag_record& r)
@@ -438,14 +446,11 @@ namespace build2
                     // Similar to default_writer().
                     //
                     *diag_stream << r.os.str () << '\n';
+                    diag_stream->flush ();
                   });
-
-      diag_stream->flush ();
+      else
+        diag_stream->flush ();
     }
-
-    buf.clear ();
-    args0 = nullptr;
-    state_ = state::closed;
   }
 
   // diag_do(), etc.

@@ -657,9 +657,8 @@ namespace build2
            bool omit_normall = false);
 
     // As above but with a custom diag record for the child exit diagnostics,
-    // if any.
-    //
-    // @@ TODO: currently cannot be used with the fail epilogue.
+    // if any. Note that if the diag record has the fail epilogue, then this
+    // function will throw.
     //
     void
     close (diag_record&& = {});

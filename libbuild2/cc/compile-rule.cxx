@@ -4624,15 +4624,12 @@ namespace build2
                   diag_record dr;
 
                   if (bad_error)
-                    dr << error << "expected error exit status from "
+                    dr << fail << "expected error exit status from "
                        << x_lang << " compiler";
 
                   if (dbuf.is_open ())
-                    dbuf.close (move (dr));
+                    dbuf.close (move (dr)); // Throws if error.
                 }
-
-                if (bad_error)
-                  throw failed ();
 
                 // Ignore expected successes (we are done).
                 //
@@ -4731,10 +4728,9 @@ namespace build2
                 // example, because we have removed all the partially
                 // preprocessed source files).
                 //
-                bool f (force_gen_skip && *force_gen_skip == skip_count);
                 {
                   diag_record dr;
-                  if (f)
+                  if (force_gen_skip && *force_gen_skip == skip_count)
                   {
                     dr <<
                       fail << "inconsistent " << x_lang << " compiler behavior" <<
@@ -4749,11 +4745,8 @@ namespace build2
                   }
 
                   if (dbuf.is_open ())
-                    dbuf.close (move (dr));
+                    dbuf.close (move (dr)); // Throws if error.
                 }
-
-                if (f)
-                  throw failed ();
 
                 restart = true;
                 force_gen = true;
