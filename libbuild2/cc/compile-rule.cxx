@@ -1293,7 +1293,7 @@ namespace build2
           //
           l5 ([&]{trace << "extracting headers from " << src;});
           auto& is (tu.module_info.imports);
-          psrc = extract_headers (a, bs, t, li, src, md, dd, u, mt, is);
+          extract_headers (a, bs, t, li, src, md, dd, u, mt, is, psrc);
           is.clear (); // No longer needed.
         }
 
@@ -2977,16 +2977,18 @@ namespace build2
       return inject_file (trace, "header", a, t, pt, mt, fail);
     }
 
-    // Extract and inject header dependencies. Return the preprocessed source
-    // file as well as an indication if it is usable for compilation (see
-    // below for details).
+    // Extract and inject header dependencies. Return (in result) the
+    // preprocessed source file as well as an indication if it is usable for
+    // compilation (see below for details). Note that result is expected to
+    // be initialized to {entry (), false}. Not using return type due to
+    // GCC bug #107555.
     //
     // This is also the place where we handle header units which are a lot
     // more like auto-generated headers than modules. In particular, if a
     // header unit BMI is out-of-date, then we have to re-preprocess this
     // translation unit.
     //
-    pair<file_cache::entry, bool> compile_rule::
+    void compile_rule::
     extract_headers (action a,
                      const scope& bs,
                      file& t,
@@ -2996,7 +2998,8 @@ namespace build2
                      depdb& dd,
                      bool& update,
                      timestamp mt,
-                     module_imports& imports) const
+                     module_imports& imports,
+                     pair<file_cache::entry, bool>& result) const
     {
       tracer trace (x, "compile_rule::extract_headers");
 
@@ -3872,11 +3875,14 @@ namespace build2
               //
               // See apply() for details on the extra MSVC check.
               //
-              return modules && (ctype != compiler_type::msvc ||
-                                 md.type != unit_type::module_intf)
-                ? make_pair (ctx.fcache.create_existing (t.path () + x_pext),
-                             true)
-                : make_pair (file_cache::entry (), false);
+              if (modules && (ctype != compiler_type::msvc ||
+                              md.type != unit_type::module_intf))
+              {
+                result.first = ctx.fcache.create_existing (t.path () + x_pext);
+                result.second = true;
+              }
+
+              return;
             }
 
             // This can be a header or a header unit (mapping).
@@ -3929,7 +3935,7 @@ namespace build2
 
               // Bail out early if we have deferred a failure.
               //
-              return make_pair (file_cache::entry (), false);
+              return;
             }
           }
         }
@@ -4576,7 +4582,7 @@ namespace build2
                 if (md.deferred_failure)
                 {
                   is.close ();
-                  return make_pair (file_cache::entry (), false);
+                  return;
                 }
 
                 // In case of VC, we are parsing redirected stderr and if
@@ -4790,7 +4796,9 @@ namespace build2
       dd.expect ("");
 
       puse = puse && !reprocess && psrc;
-      return make_pair (move (psrc), puse);
+
+      result.first = move (psrc);
+      result.second = puse;
     }
 
     // Return the translation unit information (last argument) and its

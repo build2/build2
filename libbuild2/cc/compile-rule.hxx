@@ -130,10 +130,11 @@ namespace build2
       optional<bool>
       inject_header (action, file&, const file&, timestamp, bool) const;
 
-      pair<file_cache::entry, bool>
+      void
       extract_headers (action, const scope&, file&, linfo,
                        const file&, match_data&,
-                       depdb&, bool&, timestamp, module_imports&) const;
+                       depdb&, bool&, timestamp, module_imports&,
+                       pair<file_cache::entry, bool>&) const;
 
       string
       parse_unit (action, file&, linfo,
