@@ -4,14 +4,15 @@
 #ifndef LIBBUILD2_UTILITY_HXX
 #define LIBBUILD2_UTILITY_HXX
 
-#include <tuple>      // make_tuple()
-#include <memory>     // make_shared()
-#include <string>     // to_string()
-#include <utility>    // move(), forward(), declval(), make_pair(), swap()
-#include <cassert>    // assert()
-#include <iterator>   // make_move_iterator()
-#include <algorithm>  // *
-#include <functional> // ref(), cref()
+#include <tuple>       // make_tuple()
+#include <memory>      // make_shared()
+#include <string>      // to_string()
+#include <utility>     // move(), forward(), declval(), make_pair(), swap()
+#include <cassert>     // assert()
+#include <iterator>    // make_move_iterator()
+#include <algorithm>   // *
+#include <functional>  // ref(), cref()
+#include <type_traits>
 
 #include <libbutl/ft/lang.hxx>
 
@@ -272,7 +273,7 @@ namespace build2
   LIBBUILD2_SYMEXPORT process
   run_start (uint16_t verbosity,
              const process_env&, // Implicit-constructible from process_path.
-             const char* args[],
+             const char* const* args,
              int in = 0,
              int out = 1,
              process::pipe = {-1, 2},
@@ -281,7 +282,7 @@ namespace build2
   inline process
   run_start (uint16_t verbosity,
              const process_env& pe,
-             cstrings& args,
+             const cstrings& args,
              int in = 0,
              int out = 1,
              process::pipe err = {-1, 2},
@@ -292,7 +293,7 @@ namespace build2
 
   inline process
   run_start (const process_env& pe,
-             const char* args[],
+             const char* const* args,
              int in = 0,
              int out = 1,
              process::pipe err = {-1, 2},
@@ -303,7 +304,7 @@ namespace build2
 
   inline process
   run_start (const process_env& pe,
-             cstrings& args,
+             const cstrings& args,
              int in = 0,
              int out = 1,
              process::pipe err = {-1, 2},
@@ -439,17 +440,17 @@ namespace build2
   LIBBUILD2_SYMEXPORT void
   run (context&,
        const process_env& pe, // Implicit-constructible from process_path.
-       const char* args[]);
+       const char* const* args);
 
   LIBBUILD2_SYMEXPORT void
   run (diag_buffer&,
        const process_env& pe,
-       const char* args[]);
+       const char* const* args);
 
   inline void
   run (context& ctx,
        const process_env& pe,
-       cstrings& args)
+       const cstrings& args)
   {
     run (ctx, pe, args.data ());
   }
@@ -457,7 +458,7 @@ namespace build2
   inline void
   run (diag_buffer& dbuf,
        const process_env& pe,
-       cstrings& args)
+       const cstrings& args)
   {
     run (dbuf, pe, args.data ());
   }
@@ -468,7 +469,7 @@ namespace build2
   inline void
   run (context& ctx,
        const process_path& p,
-       const char* args[],
+       const char* const* args,
        const char* const* env,
        const dir_path& cwd = {})
   {
@@ -478,7 +479,7 @@ namespace build2
   inline void
   run (diag_buffer& dbuf,
        const process_path& p,
-       const char* args[],
+       const char* const* args,
        const char* const* env,
        const dir_path& cwd = {})
   {
@@ -488,7 +489,7 @@ namespace build2
   inline void
   run (context& ctx,
        const process_path& p,
-       cstrings& args,
+       const cstrings& args,
        const char* const* env,
        const dir_path& cwd = {})
   {
@@ -498,7 +499,7 @@ namespace build2
   inline void
   run (diag_buffer& dbuf,
        const process_path& p,
-       cstrings& args,
+       const cstrings& args,
        const char* const* env,
        const dir_path& cwd = {})
   {
@@ -533,7 +534,7 @@ namespace build2
   run (context&,
        uint16_t verbosity,
        const process_env&, // Implicit-constructible from process_path.
-       const char* args[],
+       const char* const* args,
        F&&,
        bool error = true,
        bool ignore_exit = false,
@@ -544,7 +545,7 @@ namespace build2
   run (context& ctx,
        uint16_t verbosity,
        const process_env& pe,
-       cstrings& args,
+       const cstrings& args,
        F&& f,
        bool error = true,
        bool ignore_exit = false,
@@ -562,7 +563,7 @@ namespace build2
   run (diag_buffer&,
        uint16_t verbosity,
        const process_env&,
-       const char* args[],
+       const char* const* args,
        F&&,
        bool ignore_exit = false,
        sha256* checksum = nullptr);
@@ -572,7 +573,7 @@ namespace build2
   run (diag_buffer& dbuf,
        uint16_t verbosity,
        const process_env& pe,
-       cstrings& args,
+       const cstrings& args,
        F&& f,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
@@ -588,7 +589,7 @@ namespace build2
   inline T
   run (context& ctx,
        const process_env& pe,
-       const char* args[],
+       const char* const* args,
        F&& f,
        bool error = true,
        bool ignore_exit = false,
@@ -605,7 +606,7 @@ namespace build2
   inline T
   run (context& ctx,
        const process_env& pe,
-       cstrings& args,
+       const cstrings& args,
        F&& f,
        bool error = true,
        bool ignore_exit = false,
@@ -621,7 +622,7 @@ namespace build2
   inline T
   run (diag_buffer& dbuf,
        const process_env& pe,
-       const char* args[],
+       const char* const* args,
        F&& f,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
@@ -637,7 +638,7 @@ namespace build2
   inline T
   run (diag_buffer& dbuf,
        const process_env& pe,
-       cstrings& args,
+       const cstrings& args,
        F&& f,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
@@ -739,7 +740,10 @@ namespace build2
   }
 
   template <typename T, typename F>
-  inline T
+  inline typename std::enable_if<
+    (!std::is_same<typename std::decay<F>::type, const char**>::value &&
+     !std::is_same<typename std::remove_reference<F>::type, cstrings>::value),
+    T>::type
   run (context& ctx,
        uint16_t verbosity,
        const process_env& pe, // Implicit-constructible from process_path.
@@ -811,7 +815,7 @@ namespace build2
   run (context&,
        uint16_t verbosity,
        const process_env&,
-       const char* args[],
+       const char* const* args,
        const function<bool (string& line, bool last)>&,
        bool trim = true,
        bool err = true,
@@ -822,7 +826,7 @@ namespace build2
   run (diag_buffer& dbuf,
        uint16_t verbosity,
        const process_env&,
-       const char* args[],
+       const char* const* args,
        const function<bool (string& line, bool last)>&,
        bool trim = true,
        bool ignore_exit = false,

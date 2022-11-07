@@ -265,10 +265,6 @@ namespace build2
     compile_rule::
     compile_rule (data&& d, const scope& rs)
         : common (move (d)),
-          //
-          // @@ TODO: split into rule_name (string) and rule_version (integer)
-          //    on next increment.
-          //
           rule_id (string (x) += ".compile 6")
     {
       // Locate the header cache (see enter_header() for details).

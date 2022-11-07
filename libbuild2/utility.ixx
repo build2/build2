@@ -103,7 +103,7 @@ namespace build2
   run (context& ctx,
        uint16_t verbosity,
        const process_env& pe,
-       const char* args[],
+       const char* const* args,
        F&& f,
        bool err,
        bool ignore_exit,
@@ -132,7 +132,7 @@ namespace build2
   run (diag_buffer& dbuf,
        uint16_t verbosity,
        const process_env& pe,
-       const char* args[],
+       const char* const* args,
        F&& f,
        bool ignore_exit,
        sha256* checksum)

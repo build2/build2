@@ -215,7 +215,7 @@ namespace build2
   process
   run_start (uint16_t verbosity,
              const process_env& pe,
-             const char* args[],
+             const char* const* args,
              int in,
              int out,
              process::pipe err,
@@ -348,7 +348,7 @@ namespace build2
   }
 
   void
-  run (context& ctx, const process_env& pe, const char* args[])
+  run (context& ctx, const process_env& pe, const char* const* args)
   {
     if (ctx.phase == run_phase::load)
     {
@@ -363,7 +363,7 @@ namespace build2
   }
 
   void
-  run (diag_buffer& dbuf, const process_env& pe, const char* args[])
+  run (diag_buffer& dbuf, const process_env& pe, const char* const* args)
   {
     process pr (run_start (pe,
                            args,
@@ -378,7 +378,7 @@ namespace build2
   run (context& ctx,
        uint16_t verbosity,
        const process_env& pe,
-       const char* args[],
+       const char* const* args,
        const function<bool (string&, bool)>& f,
        bool tr,
        bool err,
@@ -448,7 +448,7 @@ namespace build2
   run (diag_buffer& dbuf,
        uint16_t verbosity,
        const process_env& pe,
-       const char* args[],
+       const char* const* args,
        const function<bool (string&, bool)>& f,
        bool tr,
        bool ignore_exit,

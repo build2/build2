@@ -254,10 +254,6 @@ namespace build2
     link_rule::
     link_rule (data&& d)
         : common (move (d)),
-          //
-          // @@ TODO: split into rule_name (string) and rule_version (integer)
-          //    on next increment.
-          //
           rule_id (string (x) += ".link 3")
     {
     }
