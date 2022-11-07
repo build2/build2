@@ -661,10 +661,10 @@ namespace build2
                     const void* data = nullptr)
         : basic_mark_base (type,
                            data,
-                           [](const butl::diag_record& r)
+                           [](const butl::diag_record& r, butl::diag_writer* w)
                            {
                              diag_frame::apply (r);
-                             r.flush ();
+                             r.flush (w);
                              throw failed ();
                            },
                            &stream_verb_map,
