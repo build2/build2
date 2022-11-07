@@ -208,9 +208,9 @@ namespace build2
 
       // Move-to-NULL-only type.
       //
-      entry (entry&&);
+      entry (entry&&) noexcept;
       entry (const entry&) = delete;
-      entry& operator= (entry&&);
+      entry& operator= (entry&&) noexcept;
       entry& operator= (const entry&) = delete;
 
       ~entry ();

@@ -65,7 +65,7 @@ namespace build2
   }
 
   inline file_cache::entry::
-  entry (entry&& e)
+  entry (entry&& e) noexcept
       : temporary (e.temporary),
         state_ (e.state_),
         path_ (move (e.path_)),
@@ -76,7 +76,7 @@ namespace build2
   }
 
   inline file_cache::entry& file_cache::entry::
-  operator= (entry&& e)
+  operator= (entry&& e) noexcept
   {
     if (this != &e)
     {
