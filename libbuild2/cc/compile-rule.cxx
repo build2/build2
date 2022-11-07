@@ -3,6 +3,7 @@
 
 #include <libbuild2/cc/compile-rule.hxx>
 
+#include <cerrno>
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen(), strchr(), strncmp()
 
@@ -1828,7 +1829,7 @@ namespace build2
     // Any unhandled io_error is handled by the caller as a generic module
     // mapper io error. Returning false terminates the communication.
     //
-    struct compile_rule::module_mapper_state //@@ gcc_module_mapper_state
+    struct compile_rule::gcc_module_mapper_state
     {
       size_t skip;              // Number of depdb entries to skip.
       size_t header_units = 0;  // Number of header units imported.
@@ -1839,15 +1840,20 @@ namespace build2
       optional<const build2::cc::translatable_headers*> translatable_headers;
 
       small_vector<string, 2> batch; // Reuse buffers.
+      size_t                  batch_n = 0;
 
-      module_mapper_state (size_t s, module_imports& i)
+      gcc_module_mapper_state (size_t s, module_imports& i)
           : skip (s), imports (i) {}
     };
 
-    bool compile_rule::
-    gcc_module_mapper (module_mapper_state& st,
+    // The module mapper is called on one line of input at a time. It should
+    // return nullopt if another line is expected (batch), false if the mapper
+    // interaction should be terminated, and true if it should be continued.
+    //
+    optional<bool> compile_rule::
+    gcc_module_mapper (gcc_module_mapper_state& st,
                        action a, const scope& bs, file& t, linfo li,
-                       ifdstream& is,
+                       const string& l,
                        ofdstream& os,
                        depdb& dd, bool& update, bool& bad_error,
                        optional<prefix_map>& pfx_map, srcout_map& so_map) const
@@ -1863,35 +1869,40 @@ namespace build2
 
       // Read in the entire batch trying hard to reuse the buffers.
       //
-      auto& batch (st.batch);
-      size_t batch_n (0);
+      small_vector<string, 2>& batch (st.batch);
+      size_t& batch_n (st.batch_n);
 
-      for (;;)
+      // Add the next line.
+      //
       {
         if (batch.size () == batch_n)
-          batch.push_back (string ());
-
-        string& r (batch[batch_n]);
-
-        if (eof (getline (is, r)))
-          break;
+          batch.push_back (l);
+        else
+          batch[batch_n] = l;
 
         batch_n++;
-
-        if (r.back () != ';')
-          break;
-
-        // Strip the trailing `;` word.
-        //
-        r.pop_back ();
-        r.pop_back ();
       }
 
-      if (batch_n == 0) // EOF
-        return false;
+      // Check if more is expected in this batch.
+      //
+      {
+        string& r (batch[batch_n - 1]);
+
+        if (r.back () == ';')
+        {
+          // Strip the trailing `;` word.
+          //
+          r.pop_back ();
+          r.pop_back ();
+
+          return nullopt;
+        }
+      }
 
       if (verb >= 3)
       {
+        // It doesn't feel like buffering this would be useful.
+        //
         // Note that we show `;` in requests/responses so that the result
         // could be replayed.
         //
@@ -1990,7 +2001,7 @@ namespace build2
             if (exists && f.relative ())
             {
               tmp.assign (r, b, n);
-              r = "ERROR relative header path '"; r += tmp; r += '\'';
+              r = "ERROR 'relative header path "; r += tmp; r += '\'';
               continue;
             }
 
@@ -2037,7 +2048,7 @@ namespace build2
 
               if (remapped)
               {
-                r = "ERROR remapping of headers not supported";
+                r = "ERROR 'remapping of headers not supported'";
                 continue;
               }
 
@@ -2097,7 +2108,7 @@ namespace build2
               //
               // Note: if ht is NULL, f is still valid.
               //
-              r = "ERROR unable to update header '";
+              r = "ERROR 'unable to update header ";
               r += (ht != nullptr ? ht->path () : f).string ();
               r += '\'';
               continue;
@@ -2285,6 +2296,9 @@ namespace build2
 
       // Write the response batch.
       //
+      // @@ It's theoretically possible that we get blocked writing the
+      //    response while the compiler gets blocked writing the diagnostics.
+      //
       for (size_t i (0);; )
       {
         string& r (batch[i]);
@@ -2304,6 +2318,8 @@ namespace build2
       }
 
       os.flush ();
+
+      batch_n = 0; // Start a new batch.
 
       return !term;
     }
@@ -3100,7 +3116,7 @@ namespace build2
       //
       // GCC's -fdirective-only, on the other hand, processes all the
       // directives so they are gone from the preprocessed source. Here is
-      // what we are going to do to work around this: we will detect if any
+      // what we are going to do to work around this: we will sense if any
       // diagnostics has been written to stderr on the -E run. If that's the
       // case (but the compiler indicated success) then we assume they are
       // warnings and disable the use of the preprocessed output for
@@ -3138,7 +3154,9 @@ namespace build2
       // not found, and there is no problem with outdated generated headers
       // since we update/remap them before the compiler has a chance to read
       // them. Overall, this "dependency mapper" approach is how it should
-      // have been done from the beginning.
+      // have been done from the beginning. Note: that's the ideal world,
+      // the reality is that the required mapper extensions are not (yet)
+      // in libcody/GCC.
 
       // Note: diagnostics sensing is currently only supported if dependency
       // info is written to a file (see above).
@@ -3941,6 +3959,12 @@ namespace build2
 
             process pr;
 
+            // We use the fdstream_mode::skip mode on stdout (cannot be used
+            // on both) and so dbuf must be destroyed (closed) first.
+            //
+            ifdstream is (ifdstream::badbit);
+            diag_buffer dbuf (ctx);
+
             try
             {
               // Assume the preprocessed output (if produced) is usable
@@ -3961,219 +3985,221 @@ namespace build2
               //
               bool good_error (false), bad_error (false);
 
-              // If we have no generated header support, then suppress all
-              // diagnostics (if things go badly we will restart with this
-              // support).
-              //
-              // @@ TODO: diag_buffer
-              //
-              if (drmp == nullptr) // Dependency info goes to stdout.
+              if (mod_mapper) // Dependency info is implied by mapper requests.
               {
-                assert (!sense_diag); // Note: could support with fdselect().
+                assert (gen && !sense_diag); // Not used in this mode.
 
-                // For VC with /P the dependency info and diagnostics all go
-                // to stderr so redirect it to stdout.
+                // Note that here we use the skip mode on the diagnostics
+                // stream which means we have to use own instance of stdout
+                // stream for the correct destruction order (see below).
                 //
-                pr = process (
-                  cpath,
-                  args,
-                  0,
-                  -1,
-                  cclass == compiler_class::msvc ? 1 : gen ? 2 : -2,
-                  nullptr, // CWD
-                  env.empty () ? nullptr : env.data ());
-              }
-              else // Dependency info goes to a temporary file.
-              {
                 pr = process (cpath,
                               args,
-                              mod_mapper ? -1 : 0,
-                              mod_mapper ? -1 : 2, // Send stdout to stderr.
-                              gen ? 2 : sense_diag ? -1 : -2,
+                              -1,
+                              -1,
+                              dbuf.open (args[0],
+                                         false /* force */,
+                                         fdstream_mode::non_blocking |
+                                         fdstream_mode::skip),
                               nullptr, // CWD
                               env.empty () ? nullptr : env.data ());
 
-                // Monitor for module mapper requests and/or diagnostics. If
-                // diagnostics is detected, mark the preprocessed output as
-                // unusable for compilation.
-                //
-                if (mod_mapper || sense_diag)
+                try
                 {
-                  module_mapper_state mm_state (skip_count, imports);
+                  gcc_module_mapper_state mm_state (skip_count, imports);
 
-                  const char* w (nullptr);
-                  try
+                  // Note that while we read both streams until eof in normal
+                  // circumstances, we cannot use fdstream_mode::skip for the
+                  // exception case on both of them: we may end up being
+                  // blocked trying to read one stream while the process may
+                  // be blocked writing to the other. So in case of an
+                  // exception we only skip the diagnostics and close the
+                  // mapper stream hard. The latter (together with closing of
+                  // the stdin stream) should happen first so the order of
+                  // the following variable is important.
+                  //
+                  // Note also that we open the stdin stream in the blocking
+                  // mode.
+                  //
+                  ifdstream is (move (pr.in_ofd),
+                                fdstream_mode::non_blocking,
+                                ifdstream::badbit); // stdout
+                  ofdstream os (move (pr.out_fd));  // stdin (badbit|failbit)
+
+                  // Read until we reach EOF on all streams.
+                  //
+                  // Note that if dbuf is not opened, then we automatically
+                  // get an inactive nullfd entry.
+                  //
+                  fdselect_set fds {is.fd (), dbuf.is.fd ()};
+                  fdselect_state& ist (fds[0]);
+                  fdselect_state& dst (fds[1]);
+
+                  bool more (false);
+                  for (string l; ist.fd != nullfd || dst.fd != nullfd; )
                   {
-                    // For now we don't need to do both so let's use a simpler
-                    // blocking implementation. Note that the module mapper
-                    // also needs to be adjusted when switching to the
-                    // non-blocking version.
+                    // @@ Currently we will accept a (potentially truncated)
+                    //    line that ends with EOF rather than newline.
                     //
-#if 1
-                    assert (mod_mapper != sense_diag);
-
-                    if (mod_mapper)
+                    if (ist.fd != nullfd && getline_non_blocking (is, l))
                     {
-                      w = "module mapper request";
-
-                      // Note: the order is important (see the non-blocking
-                      // verison for details).
-                      //
-                      ifdstream is (move (pr.in_ofd),
-                                    fdstream_mode::skip,
-                                    ifdstream::badbit);
-                      ofdstream os (move (pr.out_fd));
-
-                      do
+                      if (eof (is))
                       {
-                        if (!gcc_module_mapper (mm_state,
-                                                a, bs, t, li,
-                                                is, os,
-                                                dd, update, bad_error,
-                                                pfx_map, so_map))
-                          break;
+                        os.close ();
+                        is.close ();
 
-                      } while (!is.eof ());
+                        if (more)
+                          throw_generic_ios_failure (EIO, "unexpected EOF");
 
-                      os.close ();
-                      is.close ();
-                    }
-
-                    if (sense_diag)
-                    {
-                      w = "diagnostics";
-                      ifdstream is (move (pr.in_efd), fdstream_mode::skip);
-                      puse = puse && (is.peek () == ifdstream::traits_type::eof ());
-                      is.close ();
-                    }
-#else
-                    fdselect_set fds;
-                    auto add = [&fds] (const auto_fd& afd) -> fdselect_state*
-                    {
-                      int fd (afd.get ());
-                      fdmode (fd, fdstream_mode::non_blocking);
-                      fds.push_back (fd);
-                      return &fds.back ();
-                    };
-
-                    // Note that while we read both streams until eof in
-                    // normal circumstances, we cannot use fdstream_mode::skip
-                    // for the exception case on both of them: we may end up
-                    // being blocked trying to read one stream while the
-                    // process may be blocked writing to the other. So in case
-                    // of an exception we only skip the diagnostics and close
-                    // the mapper stream hard. The latter should happen first
-                    // so the order of the following variable is important.
-                    //
-                    ifdstream es;
-                    ofdstream os;
-                    ifdstream is;
-
-                    fdselect_state* ds (nullptr);
-                    if (sense_diag)
-                    {
-                      w = "diagnostics";
-                      ds = add (pr.in_efd);
-                      es.open (move (pr.in_efd), fdstream_mode::skip);
-                    }
-
-                    fdselect_state* ms (nullptr);
-                    if (mod_mapper)
-                    {
-                      w = "module mapper request";
-                      ms = add (pr.in_ofd);
-                      is.open (move (pr.in_ofd));
-                      os.open (move (pr.out_fd)); // Note: blocking.
-                    }
-
-                    // Set each state pointer to NULL when the respective
-                    // stream reaches eof.
-                    //
-                    while (ds != nullptr || ms != nullptr)
-                    {
-                      w = "output";
-                      ifdselect (fds);
-
-                      // First read out the diagnostics in case the mapper
-                      // interaction produces more. To make sure we don't get
-                      // blocked by full stderr, the mapper should only handle
-                      // one request at a time.
-                      //
-                      if (ds != nullptr && ds->ready)
-                      {
-                        w = "diagnostics";
-
-                        for (char buf[4096];;)
-                        {
-                          streamsize c (sizeof (buf));
-                          streamsize n (es.readsome (buf, c));
-
-                          if (puse && n > 0)
-                            puse = false;
-
-                          if (n < c)
-                            break;
-                        }
-
-                        if (es.eof ())
-                        {
-                          es.close ();
-                          ds->fd = nullfd;
-                          ds = nullptr;
-                        }
+                        ist.fd = nullfd;
                       }
-
-                      if (ms != nullptr && ms->ready)
+                      else
                       {
-                        w = "module mapper request";
+                        optional<bool> r (
+                          gcc_module_mapper (mm_state,
+                                             a, bs, t, li,
+                                             l, os,
+                                             dd, update, bad_error,
+                                             pfx_map, so_map));
 
-                        gcc_module_mapper (mm_state,
-                                           a, bs, t, li,
-                                           is, os,
-                                           dd, update, bad_error,
-                                           pfx_map, so_map);
-                        if (is.eof ())
+                        more = !r.has_value ();
+
+                        if (more || *r)
+                          l.clear ();
+                        else
                         {
                           os.close ();
                           is.close ();
-                          ms->fd = nullfd;
-                          ms = nullptr;
+                          ist.fd = nullfd;
                         }
                       }
+
+                      continue;
                     }
-#endif
-                  }
-                  catch (const io_error& e)
-                  {
-                    if (pr.wait ())
-                      fail << "io error handling " << x_lang << " compiler "
-                           << w << ": " << e;
 
-                    // Fall through.
+                    ifdselect (fds);
+
+                    if (dst.ready)
+                    {
+                      if (!dbuf.read ())
+                        dst.fd = nullfd;
+                    }
                   }
 
-                  if (mod_mapper)
-                    md.header_units += mm_state.header_units;
+                  md.header_units += mm_state.header_units;
+                }
+                catch (const io_error& e)
+                {
+                  // Note that diag_buffer handles its own io errors so this
+                  // is about mapper stdin/stdout.
+                  //
+                  if (pr.wait ())
+                    fail << "io error handling " << x_lang << " compiler "
+                         << "module mapper request: " << e;
+
+                  // Fall through.
                 }
 
                 // The idea is to reduce this to the stdout case.
                 //
-                pr.wait ();
-
-                // With -MG we want to read dependency info even if there is
-                // an error (in case an outdated header file caused it). But
-                // with the GCC module mapper an error is non-negotiable, so
-                // to speak, and so we want to skip all of that. In fact, we
-                // now write directly to depdb without generating and then
+                // We now write directly to depdb without generating and then
                 // parsing an intermadiate dependency makefile.
                 //
-                pr.in_ofd = (ctype == compiler_type::gcc && mod_mapper)
-                  ? auto_fd (nullfd)
-                  : fdopen (*drmp, fdopen_mode::in);
+                pr.wait ();
+                pr.in_ofd = nullfd;
+              }
+              else
+              {
+                // If we have no generated header support, then suppress all
+                // diagnostics (if things go badly we will restart with this
+                // support).
+                //
+                using pipe = process::pipe;
+
+                if (drmp == nullptr) // Dependency info goes to stdout.
+                {
+                  assert (!sense_diag); // Note: could support if necessary.
+
+                  // For VC with /P the dependency info and diagnostics all go
+                  // to stderr so redirect it to stdout.
+                  //
+                  pipe err (
+                    cclass == compiler_class::msvc ? pipe {-1,  1} : // stdout
+                    !gen                           ? pipe {-1, -2} : // null
+                    dbuf.open (args[0],
+                               sense_diag /* force */,
+                               fdstream_mode::non_blocking));
+
+                  pr = process (
+                    cpath,
+                    args,
+                    0,
+                    -1,
+                    move (err),
+                    nullptr, // CWD
+                    env.empty () ? nullptr : env.data ());
+                }
+                else // Dependency info goes to temporary file.
+                {
+                  // Since we only need to read from one stream (dbuf) let's
+                  // use the simpler blocking setup.
+                  //
+                  pipe err (
+                    !gen && !sense_diag ? pipe {-1, -2} : // null
+                    dbuf.open (args[0], sense_diag /* force */));
+
+                  pr = process (cpath,
+                                args,
+                                0,
+                                2, // Send stdout to stderr.
+                                move (err),
+                                nullptr, // CWD
+                                env.empty () ? nullptr : env.data ());
+
+                  dbuf.read (sense_diag /* force */);
+
+                  if (sense_diag)
+                  {
+                    if (!dbuf.buf.empty ())
+                    {
+                      puse = false;
+                      dbuf.buf.clear (); // Discard.
+                    }
+                  }
+
+                  // The idea is to reduce this to the stdout case.
+                  //
+                  // Note that with -MG we want to read dependency info even
+                  // if there is an error (in case an outdated header file
+                  // caused it).
+                  //
+                  pr.wait ();
+                  pr.in_ofd = fdopen (*drmp, fdopen_mode::in);
+                }
               }
 
+              // Read and process dependency information, if any.
+              //
               if (pr.in_ofd != nullfd)
               {
+                // We have two cases here: reading from stdout and potentially
+                // stderr (dbuf) or reading from file (see the process startup
+                // code above for details). If we have to read from two
+                // streams, then we have to use the non-blocking setup. But we
+                // cannot use the non-blocking setup uniformly because on
+                // Windows it's only suppored for pipes. So things are going
+                // to get a bit hairy.
+                //
+                // And there is another twist to this: for MSVC we redirect
+                // stderr to stdout since the header dependency information is
+                // part of the diagnostics. If, however, there is some real
+                // diagnostics, we need to pass it through, potentially with
+                // buffering. The way we achieve this is by later opening dbuf
+                // in the EOF state and using it to buffer or stream the
+                // diagnostics.
+                //
+                bool nb (dbuf.is.is_open ());
+
                 // We may not read all the output (e.g., due to a restart).
                 // Before we used to just close the file descriptor to signal
                 // to the other end that we are not interested in the rest.
@@ -4181,20 +4207,69 @@ namespace build2
                 // impolite and complains, loudly (broken pipe). So now we are
                 // going to skip until the end.
                 //
-                ifdstream is (move (pr.in_ofd),
-                              fdstream_mode::text | fdstream_mode::skip,
-                              ifdstream::badbit);
+                // Note that this means we are not using skip on dbuf (see
+                // above for the destruction order details).
+                //
+                {
+                  fdstream_mode m (fdstream_mode::text |
+                                   fdstream_mode::skip);
+
+                  if (nb)
+                    m |= fdstream_mode::non_blocking;
+
+                  is.open (move (pr.in_ofd), m);
+                }
+
+                fdselect_set fds;
+                if (nb)
+                  fds = {is.fd (), dbuf.is.fd ()};
 
                 size_t skip (skip_count);
                 string l, l2; // Reuse.
                 for (bool first (true), second (false); !restart; )
                 {
-                  if (eof (getline (is, l)))
+                  if (nb)
                   {
-                    if (bad_error && !l2.empty ())
-                      text << l2;
+                    fdselect_state& ist (fds[0]);
+                    fdselect_state& dst (fds[1]);
 
-                    break;
+                    // We read until we reach EOF on both streams.
+                    //
+                    if (ist.fd == nullfd && dst.fd == nullfd)
+                      break;
+
+                    if (ist.fd != nullfd && getline_non_blocking (is, l))
+                    {
+                      if (eof (is))
+                      {
+                        ist.fd = nullfd;
+                        continue;
+                      }
+
+                      // Fall through to parse (and clear) the line.
+                    }
+                    else
+                    {
+                      ifdselect (fds);
+
+                      if (dst.ready)
+                      {
+                        if (!dbuf.read ())
+                          dst.fd = nullfd;
+                      }
+
+                      continue;
+                    }
+                  }
+                  else
+                  {
+                    if (eof (getline (is, l)))
+                    {
+                      if (bad_error && !l2.empty ()) // MSVC only (see below).
+                        dbuf.write (l2, true /* newline */);
+
+                      break;
+                    }
                   }
 
                   l6 ([&]{trace << "header dependency line '" << l << "'";});
@@ -4245,9 +4320,15 @@ namespace build2
                             else
                             {
                               l2 = l;
-                              bad_error = true;
+
+                              if (!bad_error)
+                              {
+                                dbuf.open_eof (args[0]);
+                                bad_error = true;
+                              }
                             }
 
+                            l.clear ();
                             continue;
                           }
 
@@ -4257,6 +4338,7 @@ namespace build2
                         }
 
                         first = false;
+                        l.clear ();
                         continue;
                       }
 
@@ -4264,8 +4346,13 @@ namespace build2
 
                       if (f.empty ()) // Some other diagnostics.
                       {
-                        text << l;
-                        bad_error = true;
+                        if (!bad_error)
+                        {
+                          dbuf.open_eof (args[0]);
+                          bad_error = true;
+                        }
+
+                        dbuf.write (l, true /* newline */);
                         break;
                       }
 
@@ -4359,12 +4446,9 @@ namespace build2
                         if (l.empty ()  ||
                             l[0] != '^' || l[1] != ':' || l[2] != ' ')
                         {
-                          // @@ Hm, we don't seem to redirect stderr to stdout
-                          //    for this class of compilers so I wonder why
-                          //    we are doing this?
-                          //
                           if (!l.empty ())
-                            text << l;
+                            l5 ([&]{trace << "invalid header dependency line '"
+                                          << l << "'";});
 
                           bad_error = true;
                           break;
@@ -4379,7 +4463,10 @@ namespace build2
                         // "^: \".
                         //
                         if (l.size () == 4 && l[3] == '\\')
+                        {
+                          l.clear ();
                           continue;
+                        }
                         else
                           pos = 3; // Skip "^: ".
 
@@ -4394,10 +4481,8 @@ namespace build2
 
                         if (pos != l.size () && l[pos] == ':')
                         {
-                          // @@ Hm, the same as above.
-                          //
-                          text << l;
-
+                          l5 ([&]{trace << "invalid header dependency line '"
+                                        << l << "'";});
                           bad_error = true;
                           break;
                         }
@@ -4452,10 +4537,45 @@ namespace build2
                   }
 
                   if (bad_error || md.deferred_failure)
+                  {
+                    // Note that it may be tempting to finish reading out the
+                    // diagnostics before bailing out. But that may end up in
+                    // a deadlock if the process gets blocked trying to write
+                    // to stdout.
+                    //
                     break;
+                  }
+
+                  l.clear ();
+                }
+
+                // We may bail out early from the above loop in case of a
+                // restart or error. Which means the stderr stream (dbuf) may
+                // still be open and we need to close it before closing the
+                // stdout stream (which may try to skip).
+                //
+                // In this case we may also end up with incomplete diagnostics
+                // so discard it.
+                //
+                // Generally, it may be tempting to start thinking if we
+                // should discard buffered diagnostics in other cases, such as
+                // restart. But remember that during serial execution it will
+                // go straight to stderr so for consistency (and simplicity)
+                // we should just print it unless there are good reasons not
+                // to (also remember that in the restartable modes we normally
+                // redirect stderr to /dev/null; see the process startup code
+                // for details).
+                //
+                if (dbuf.is.is_open ())
+                {
+                  dbuf.is.close ();
+                  dbuf.buf.clear ();
                 }
 
                 // Bail out early if we have deferred a failure.
+                //
+                // Let's ignore any buffered diagnostics in this case since
+                // it would appear after the deferred failure note.
                 //
                 if (md.deferred_failure)
                 {
@@ -4463,8 +4583,10 @@ namespace build2
                   return make_pair (file_cache::entry (), false);
                 }
 
-                // In case of VC, we are parsing stderr and if things go
-                // south, we need to copy the diagnostics for the user to see.
+                // In case of VC, we are parsing redirected stderr and if
+                // things go south, we need to copy the diagnostics for the
+                // user to see. Note that we should have already opened dbuf
+                // at EOF above.
                 //
                 if (bad_error && cclass == compiler_class::msvc)
                 {
@@ -4479,7 +4601,7 @@ namespace build2
                         l.compare (p.first, 4, "1083") != 0 &&
                         msvc_header_c1083 (l, p))
                     {
-                      diag_stream_lock () << l << endl;
+                      dbuf.write (l, true /* newline */);
                     }
                   }
                 }
@@ -4502,27 +4624,45 @@ namespace build2
 
               if (pr.wait ())
               {
-                if (!bad_error) // Ignore expected successes (we are done).
                 {
-                  if (!restart && psrc)
-                    psrcw.close ();
+                  diag_record dr;
 
-                  continue;
+                  if (bad_error)
+                    dr << error << "expected error exit status from "
+                       << x_lang << " compiler";
+
+                  if (dbuf.is_open ())
+                    dbuf.close (move (dr));
                 }
 
-                fail << "expected error exit status from " << x_lang
-                     << " compiler";
+                if (bad_error)
+                  throw failed ();
+
+                // Ignore expected successes (we are done).
+                //
+                if (!restart && psrc)
+                  psrcw.close ();
+
+                continue;
               }
               else if (pr.exit->normal ())
               {
                 if (good_error) // Ignore expected errors (restart).
+                {
+                  if (dbuf.is_open ())
+                    dbuf.close ();
+
                   continue;
+                }
               }
 
               // Fall through.
             }
             catch (const io_error& e)
             {
+              // Ignore buffered diagnostics (since reading it could be the
+              // cause of this failure).
+              //
               if (pr.wait ())
                 fail << "unable to read " << x_lang << " compiler header "
                      << "dependency output: " << e;
@@ -4531,18 +4671,23 @@ namespace build2
             }
 
             assert (pr.exit && !*pr.exit);
-            const process_exit& e (*pr.exit);
+            const process_exit& pe (*pr.exit);
 
             // For normal exit we assume the child process issued some
             // diagnostics.
             //
-            if (e.normal ())
+            if (pe.normal ())
             {
-              // If this run was with the generated header support then we
-              // have issued diagnostics and it's time to give up.
+              // If this run was with the generated header support then it's
+              // time to give up.
               //
               if (gen)
+              {
+                if (dbuf.is_open ())
+                  dbuf.close (args, pe, 2 /* verbosity */);
+
                 throw failed ();
+              }
 
               // Just to recap, being here means something is wrong with the
               // source: it can be a missing generated header, it can be an
@@ -4560,7 +4705,12 @@ namespace build2
               // or will issue diagnostics.
               //
               if (restart)
+              {
+                if (dbuf.is_open ())
+                  dbuf.close ();
+
                 l6 ([&]{trace << "trying again without generated headers";});
+              }
               else
               {
                 // In some pathological situations we may end up switching
@@ -4585,20 +4735,29 @@ namespace build2
                 // example, because we have removed all the partially
                 // preprocessed source files).
                 //
-                if (force_gen_skip && *force_gen_skip == skip_count)
+                bool f (force_gen_skip && *force_gen_skip == skip_count);
                 {
-                  diag_record dr (fail);
+                  diag_record dr;
+                  if (f)
+                  {
+                    dr <<
+                      fail << "inconsistent " << x_lang << " compiler behavior" <<
+                      info << "run the following two commands to investigate";
 
-                  dr << "inconsistent " << x_lang << " compiler behavior" <<
-                    info << "run the following two commands to investigate";
+                    dr << info;
+                    print_process (dr, args.data ()); // No pipes.
 
-                  dr << info;
-                  print_process (dr, args.data ()); // No pipes.
+                    init_args ((gen = true));
+                    dr << info << "";
+                    print_process (dr, args.data ()); // No pipes.
+                  }
 
-                  init_args ((gen = true));
-                  dr << info << "";
-                  print_process (dr, args.data ()); // No pipes.
+                  if (dbuf.is_open ())
+                    dbuf.close (move (dr));
                 }
+
+                if (f)
+                  throw failed ();
 
                 restart = true;
                 force_gen = true;
@@ -4608,7 +4767,15 @@ namespace build2
               continue;
             }
             else
-              run_finish (args, pr); // Throws. @@ DBUF
+            {
+              if (dbuf.is_open ())
+              {
+                dbuf.close (args, pe, 2 /* verbosity */);
+                throw failed ();
+              }
+              else
+                run_finish (args, pr);
+            }
           }
           catch (const process_error& e)
           {
@@ -5008,7 +5175,7 @@ namespace build2
             info << "then run failing command to display compiler diagnostics";
         }
         else
-          run_finish (args, pr); // Throws. @@ DBUF
+          run_finish (args, pr); // Throws.
       }
       catch (const process_error& e)
       {

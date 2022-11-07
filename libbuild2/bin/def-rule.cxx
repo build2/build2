@@ -200,8 +200,8 @@ namespace build2
 
       // Read until we reach EOF on all streams.
       //
-      // Note that if dbuf is not opened, then we automatically get inactive
-      // nullfd entry.
+      // Note that if dbuf is not opened, then we automatically get an
+      // inactive nullfd entry.
       //
       fdselect_set fds {is.fd (), dbuf.is.fd ()};
       fdselect_state& ist (fds[0]);
@@ -276,8 +276,8 @@ namespace build2
 
       // Read until we reach EOF on all streams.
       //
-      // Note that if dbuf is not opened, then we automatically get inactive
-      // nullfd entry.
+      // Note that if dbuf is not opened, then we automatically get an
+      // inactive nullfd entry.
       //
       fdselect_set fds {is.fd (), dbuf.is.fd ()};
       fdselect_state& ist (fds[0]);

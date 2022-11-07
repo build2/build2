@@ -113,12 +113,12 @@ namespace build2
       prefix_map
       build_prefix_map (const scope&, action, const target&, linfo) const;
 
-      struct module_mapper_state;
+      struct gcc_module_mapper_state;
 
-      bool
-      gcc_module_mapper (module_mapper_state&,
+      optional<bool>
+      gcc_module_mapper (gcc_module_mapper_state&,
                          action, const scope&, file&, linfo,
-                         ifdstream&, ofdstream&,
+                         const string&, ofdstream&,
                          depdb&, bool&, bool&,
                          optional<prefix_map>&, srcout_map&) const;
 
