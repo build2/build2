@@ -562,6 +562,15 @@ namespace build2
           bool force = false,
           fdstream_mode mode = fdstream_mode::skip);
 
+    // Open the buffer in the state as if after read() returned false, that
+    // is, the stream corresponding to the parent's end of the pipe reached
+    // EOF and has been closed. This is primarily useful when the diagnostics
+    // is being read in a custom way (for example, it has been merged to
+    // stdout) and all we want is to be able to call write() and close().
+    //
+    void
+    open_eof (const char* args0);
+
     // Check whether the buffer has been opened with the open() call and
     // hasn't yet been closed.
     //
@@ -574,10 +583,16 @@ namespace build2
       return state_ != state::closed;
     }
 
-    // Read the diagnostics from the parent end of the pipe if one was opened
-    // and buffer/stream it as necessary or forced. Return true if there could
-    // be more diagnostics to read (only possible in the non-blocking mode)
-    // and false otherwise, in which case also close the stream.
+    // Read the diagnostics from the parent's end of the pipe if one was
+    // opened and buffer/stream it as necessary or forced. Return true if
+    // there could be more diagnostics to read (only possible in the non-
+    // blocking mode) and false otherwise, in which case also close the
+    // stream.
+    //
+    // Note that the force argument here (as well as in write() below) and
+    // in open() above are independent. Specifically, force in open() forces
+    // the opening of the pipe while force in read() and write() forces
+    // the buffering of the diagnostics.
     //
     // Instead of calling this function you can perform custom reading and, if
     // necessary, buffering of the diagnostics by accessing the input stream

@@ -141,7 +141,7 @@ namespace build2
   const fail_mark  fail  ("error");
   const fail_end   endf;
 
-    // diag_buffer
+  // diag_buffer
   //
   process::pipe diag_buffer::
   open (const char* args0, bool force, fdstream_mode m)
@@ -178,6 +178,17 @@ namespace build2
     this->args0 = args0;
     state_ = state::opened;
     return r;
+  }
+
+  void diag_buffer::
+  open_eof (const char* args0)
+  {
+    assert (state_ == state::closed && args0 != nullptr);
+
+    serial = ctx_.sched.serial ();
+    nobuf = !serial && ctx_.no_diag_buffer;
+    this->args0 = args0;
+    state_ = state::eof;
   }
 
   bool diag_buffer::
@@ -303,6 +314,8 @@ namespace build2
   void diag_buffer::
   write (const string& s, bool nl, bool force)
   {
+    assert (state_ != state::closed);
+
     // Similar logic to read() above.
     //
     if ((serial || nobuf) && !force)
