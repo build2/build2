@@ -277,7 +277,9 @@ namespace build2
         // the up-to-date check on some projects (e.g., Boost). So we jump
         // through a few hoops to make sure we don't overindulge.
         //
-        md.incr = stderr_term ? 5 : 100; // Scale depending on output type.
+        md.incr = stderr_term // Scale depending on output type.
+          ? (ctx.sched.serial () ? 1 : 5)
+          : 100;
         md.what = " targets to " + diag_do (ctx, a);
 
         mg = ctx.sched.monitor (
