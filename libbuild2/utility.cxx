@@ -240,7 +240,7 @@ namespace build2
   {
     if (e.child)
     {
-      // Note: run_finish() expects this exact message.
+      // Note: run_finish_impl() below expects this exact message.
       //
       cerr << "unable to execute " << args[0] << ": " << e << endl;
 
@@ -270,6 +270,8 @@ namespace build2
                    process& pr,
                    bool f,
                    const string& l,
+                   uint16_t v,
+                   bool omit_normal,
                    const location& loc)
   {
     tracer trace ("run_finish");
@@ -284,35 +286,54 @@ namespace build2
       fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
     }
 
-    // Note: see similar code in diag_buffer::close/finish().
+    // Note: see similar code in diag_buffer::close().
     //
-    const process_exit& e (*pr.exit);
+    const process_exit& pe (*pr.exit);
+    bool ne (pe.normal ());
 
-    if (!e.normal ())
-      fail (loc) << "process " << args[0] << " " << e;
-
-    // Normall but non-zero exit status.
-    //
-    // Even if the user asked to suppress diagnostiscs, one error that we
-    // want to let through is the inability to execute the program itself.
-    // We cannot reserve a special exit status to signal this so we will
-    // just have to compare the output. This particular situation will
-    // result in a single error line printed by run_start() above.
-    //
-    if (l.compare (0, 18, "unable to execute ") == 0)
-      error (loc) << l;
-
-    if (f)
+    if (omit_normal && ne)
     {
       // While we assume diagnostics has already been issued (to stderr), if
       // that's not the case, it's a real pain to debug. So trace it. (And
       // if you think that doesn't happen in sensible programs, check GCC
       // bug #107448).
       //
-      l4 ([&]{trace << "process " << args[0] << " " << e;});
-
-      throw failed ();
+      l4 ([&]{trace << "process " << args[0] << " " << pe;});
     }
+    else
+    {
+      // Even if the user redirected the diagnostiscs, one error that we want
+      // to let through is the inability to execute the program itself. We
+      // cannot reserve a special exit status to signal this so we will just
+      // have to compare the output. This particular situation will result in
+      // a single error line printed by run_start() above.
+      //
+      // Shouldn't we treat this as abnormal termination? But if we didn't
+      // redirect stderr to stdout, then this will be handled as normal exit.
+      // So let's be consistent even if wrong.
+      //
+      if (ne && l.compare (0, 18, "unable to execute ") == 0)
+        error (loc) << l;
+
+      // It's unclear whether we should print this only if printing the
+      // command line (we could also do things differently for normal/abnormal
+      // exit). Let's print this always and see how it wears. Note that we
+      // now rely on this in, for example, process_finish().
+      //
+      // Note: make sure keep the above trace if decide not to print.
+      //
+      diag_record dr;
+      dr << error (loc) << "process " << args[0] << " " << pe;
+
+      if (verb >= 1 && verb <= v)
+      {
+        dr << info << "command line: ";
+        print_process (dr, args);
+      }
+    }
+
+    if (f || !ne)
+      throw failed ();
 
     return false;
   }
@@ -323,6 +344,7 @@ namespace build2
                    process& pr,
                    bool f,
                    uint16_t v,
+                   bool on,
                    const location& loc)
   {
     try
@@ -336,34 +358,40 @@ namespace build2
 
     const process_exit& pe (*pr.exit);
 
-    dbuf.close (args, pe, v, loc, !f /* omit_normall */);
+    dbuf.close (args, pe, v, on, loc);
 
     if (pe)
       return true;
 
-    if (f)
+    if (f || !pe.normal ())
       throw failed ();
 
     return false;
   }
 
   void
-  run (context& ctx, const process_env& pe, const char* const* args)
+  run (context& ctx,
+       const process_env& pe,
+       const char* const* args,
+       uint16_t v)
   {
     if (ctx.phase == run_phase::load)
     {
       process pr (run_start (pe, args));
-      run_finish (args, pr);
+      run_finish (args, pr, v);
     }
     else
     {
       diag_buffer dbuf (ctx);
-      run (dbuf, pe, args);
+      run (dbuf, pe, args, v);
     }
   }
 
   void
-  run (diag_buffer& dbuf, const process_env& pe, const char* const* args)
+  run (diag_buffer& dbuf,
+       const process_env& pe,
+       const char* const* args,
+       uint16_t v)
   {
     process pr (run_start (pe,
                            args,
@@ -371,7 +399,7 @@ namespace build2
                            1                   /* stdout */,
                            dbuf.open (args[0]) /* stderr */));
     dbuf.read ();
-    run_finish (dbuf, args, pr);
+    run_finish (dbuf, args, pr, v);
   }
 
   bool
@@ -379,6 +407,7 @@ namespace build2
        uint16_t verbosity,
        const process_env& pe,
        const char* const* args,
+       uint16_t finish_verbosity,
        const function<bool (string&, bool)>& f,
        bool tr,
        bool err,
@@ -388,7 +417,12 @@ namespace build2
     if (err && ctx.phase != run_phase::load)
     {
       diag_buffer dbuf (ctx);
-      return run (dbuf, verbosity, pe, args, f, tr, ignore_exit, checksum);
+      return run (dbuf,
+                  verbosity,
+                  pe, args,
+                  finish_verbosity,
+                  f,
+                  tr, ignore_exit, checksum);
     }
 
     process pr (run_start (verbosity,
@@ -438,7 +472,7 @@ namespace build2
       // caused by that and let run_finish() deal with it.
     }
 
-    if (!(run_finish_impl (args, pr, err, l) || ignore_exit))
+    if (!(run_finish_impl (args, pr, err, l, finish_verbosity) || ignore_exit))
       return false;
 
     return true;
@@ -449,6 +483,7 @@ namespace build2
        uint16_t verbosity,
        const process_env& pe,
        const char* const* args,
+       uint16_t finish_verbosity,
        const function<bool (string&, bool)>& f,
        bool tr,
        bool ignore_exit,
@@ -566,15 +601,7 @@ namespace build2
       // caused by that and let run_finish() deal with it.
     }
 
-    if (ignore_exit)
-    {
-      if (!run_finish_code (dbuf, args, pr, verbosity - 1))
-        return false;
-    }
-    else
-      run_finish (dbuf, args, pr, verbosity - 1);
-
-    return true;
+    return run_finish_impl (dbuf, args, pr, !ignore_exit, finish_verbosity);
   }
 
   fdpipe

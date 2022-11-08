@@ -11,14 +11,16 @@ namespace build2
     return run_wait (args.data (), pr, loc);
   }
 
-  // Note: currently this function is also used in run() implementations.
+  // Note: these functions are also used in the run() implementations.
   //
   LIBBUILD2_SYMEXPORT bool
   run_finish_impl (const char* const*,
                    process&,
                    bool fail,
                    const string&,
-                   const location& = location ());
+                   uint16_t,
+                   bool = false,
+                   const location& = {});
 
   LIBBUILD2_SYMEXPORT bool
   run_finish_impl (diag_buffer&,
@@ -26,36 +28,69 @@ namespace build2
                    process&,
                    bool fail,
                    uint16_t,
-                   const location&);
+                   bool = false,
+                   const location& = {});
+
+  inline void
+  run_finish (const char* const* args,
+              process& pr,
+              uint16_t v,
+              bool on,
+              const location& loc)
+  {
+    run_finish_impl (args, pr, true /* fail */, string (), v, on, loc);
+  }
+
+  inline void
+  run_finish (const cstrings& args,
+              process& pr,
+              uint16_t v,
+              bool on,
+              const location& loc)
+  {
+    run_finish (args.data (), pr, v, on, loc);
+  }
 
   inline void
   run_finish (const char* const* args,
               process& pr,
               const string& l,
+              uint16_t v,
+              bool on,
               const location& loc)
   {
-    run_finish_impl (args, pr, true /* fail */, l, loc);
+    run_finish_impl (args, pr, true, l, v, on, loc);
   }
 
-  inline void
-  run_finish (const cstrings& args, process& pr, const location& loc)
+  inline bool
+  run_finish_code (const char* const* args,
+                   process& pr,
+                   uint16_t v,
+                   bool on,
+                   const location& loc)
   {
-    run_finish (args.data (), pr, string (), loc);
+    return run_finish_impl (args, pr, false, string (), v, on, loc);
+  }
+
+  inline bool
+  run_finish_code (const cstrings& args,
+                   process& pr,
+                   uint16_t v,
+                   bool on,
+                   const location& loc)
+  {
+    return run_finish_code (args.data (), pr, v, on, loc);
   }
 
   inline bool
   run_finish_code (const char* const* args,
                    process& pr,
                    const string& l,
+                   uint16_t v,
+                   bool on,
                    const location& loc)
   {
-    return run_finish_impl (args, pr, false /* fail */, l, loc);
-  }
-
-  inline bool
-  run_finish_code (const cstrings& args, process& pr, const location& loc)
-  {
-    return run_finish_code (args.data (), pr, string (), loc);
+    return run_finish_impl (args, pr, false, l, v, on, loc);
   }
 
   inline void
@@ -63,9 +98,10 @@ namespace build2
               const char* const* args,
               process& pr,
               uint16_t v,
+              bool on,
               const location& loc)
   {
-    run_finish_impl (dbuf, args, pr, true /* fail */, v, loc);
+    run_finish_impl (dbuf, args, pr, true /* fail */, v, on, loc);
   }
 
   inline void
@@ -73,9 +109,10 @@ namespace build2
               const cstrings& args,
               process& pr,
               uint16_t v,
+              bool on,
               const location& loc)
   {
-    run_finish_impl (dbuf, args.data (), pr, true /* fail */, v, loc);
+    run_finish_impl (dbuf, args.data (), pr, true, v, on, loc);
   }
 
   inline bool
@@ -83,9 +120,10 @@ namespace build2
                    const char* const* args,
                    process& pr,
                    uint16_t v,
+                   bool on,
                    const location& loc)
   {
-    return run_finish_impl (dbuf, args, pr, false /* fail */, v, loc);
+    return run_finish_impl (dbuf, args, pr, false, v, on, loc);
   }
 
   inline bool
@@ -93,9 +131,10 @@ namespace build2
                    const cstrings& args,
                    process& pr,
                    uint16_t v,
+                   bool on,
                    const location& loc)
   {
-    return run_finish_impl (dbuf, args.data (), pr, false /* fail */, v, loc);
+    return run_finish_impl (dbuf, args.data (), pr, false, v, on, loc);
   }
 
   template <typename T, typename F>
@@ -113,6 +152,7 @@ namespace build2
     if (!run (ctx,
               verbosity,
               pe, args,
+              verbosity - 1,
               [&r, &f] (string& l, bool last) // Small function optimmization.
               {
                 r = f (l, last);
@@ -141,7 +181,66 @@ namespace build2
     if (!run (dbuf,
               verbosity,
               pe, args,
+              verbosity - 1,
               [&r, &f] (string& l, bool last) // Small function optimmization.
+              {
+                r = f (l, last);
+                return r.empty ();
+              },
+              true /* trim */,
+              ignore_exit,
+              checksum))
+      r = T ();
+
+    return r;
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (context& ctx,
+       const process_env& pe,
+       const char* const* args,
+       uint16_t finish_verbosity,
+       F&& f,
+       bool err,
+       bool ignore_exit,
+       sha256* checksum)
+  {
+    T r;
+    if (!run (ctx,
+              verb_never,
+              pe, args,
+              finish_verbosity,
+              [&r, &f] (string& l, bool last)
+              {
+                r = f (l, last);
+                return r.empty ();
+              },
+              true /* trim */,
+              err,
+              ignore_exit,
+              checksum))
+      r = T ();
+
+    return r;
+  }
+
+  template <typename T, typename F>
+  inline T
+  run (diag_buffer& dbuf,
+       const process_env& pe,
+       const char* const* args,
+       uint16_t finish_verbosity,
+       F&& f,
+       bool ignore_exit,
+       sha256* checksum)
+  {
+    T r;
+    if (!run (dbuf,
+              verb_never,
+              pe, args,
+              finish_verbosity,
+              [&r, &f] (string& l, bool last)
               {
                 r = f (l, last);
                 return r.empty ();

@@ -623,9 +623,9 @@ namespace build2
     // If the child process exited abnormally or normally with non-0 code,
     // then print the error diagnostics to this effect. Additionally, if the
     // verbosity level is between 1 and the specified value, then print the
-    // command line as info after the error. If omit_normall is true, then
-    // don't print either for the normal exit (usually used when process
-    // failure can be tolerated).
+    // command line as info after the error. If omit_normal is true, then
+    // don't print either for the normal exit (usually used for custom
+    // diagnostics or when process failure can be tolerated).
     //
     // Normally the specified verbosity will be 1 and the command line args
     // represent the verbosity level 2 (logical) command line. Note that args
@@ -637,24 +637,25 @@ namespace build2
     //
     // Note: see also run_finish(diag_buffer&).
     //
-    // @@ TODO: need overload with process_env (see print_process).
+    // @@ TODO: need overload with process_env (see print_process). Also in
+    //          run_finish_impl().
     //
     void
     close (const cstrings& args,
            const process_exit& pe,
-           uint16_t verbosity = 1,
-           const location& loc = {},
-           bool omit_normall = false)
+           uint16_t verbosity,
+           bool omit_normal = false,
+           const location& loc = {})
     {
-      close (args.data (), pe, verbosity, loc, omit_normall);
+      close (args.data (), pe, verbosity, omit_normal, loc);
     }
 
     void
     close (const char* const* args,
            const process_exit& pe,
-           uint16_t verbosity = 1,
-           const location& loc = {},
-           bool omit_normall = false);
+           uint16_t verbosity,
+           bool omit_normal = false,
+           const location& loc = {});
 
     // As above but with a custom diag record for the child exit diagnostics,
     // if any. Note that if the diag record has the fail epilogue, then this

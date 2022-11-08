@@ -1867,6 +1867,8 @@ namespace build2
       if (verb >= 3)
         print_process (args);
 
+      // @@ DBUF: diag
+
       process pr (pp,
                   args,
                   -2           /* stdin  to /dev/null                 */,

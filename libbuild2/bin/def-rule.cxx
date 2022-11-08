@@ -785,7 +785,7 @@ namespace build2
           io = true;
         }
 
-        if (!run_finish_code (dbuf, args, pr) || io)
+        if (!run_finish_code (dbuf, args, pr, 1 /* verbosity */) || io)
           fail << "unable to extract symbols from " << arg;
       }
 

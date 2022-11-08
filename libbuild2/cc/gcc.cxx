@@ -320,7 +320,7 @@ namespace build2
         // by that and let run_finish() deal with it.
       }
 
-      run_finish (args, pr);
+      run_finish (args, pr, 2 /* verbosity */);
 
       if (l.empty ())
         fail << "unable to extract " << x_lang << " compiler system library "

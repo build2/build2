@@ -347,8 +347,8 @@ namespace build2
   close (const char* const* args,
          const process_exit& pe,
          uint16_t v,
-         const location& loc,
-         bool omit_normall)
+         bool omit_normal,
+         const location& loc)
   {
     tracer trace ("diag_buffer::close");
 
@@ -363,19 +363,12 @@ namespace build2
     {
       // Note: see similar code in run_finish_impl().
       //
-      if (omit_normall && pe.normal ())
+      if (omit_normal && pe.normal ())
       {
         l4 ([&]{trace << "process " << args[0] << " " << pe;});
       }
       else
       {
-        // It's unclear whether we should print this only if printing the
-        // command line (we could also do things differently for
-        // normal/abnormal exit). Let's print this always and see how it
-        // wears.
-        //
-        // Note: make sure keep the above trace is not printing.
-        //
         dr << error (loc) << "process " << args[0] << " " << pe;
 
         if (verb >= 1 && verb <= v)

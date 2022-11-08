@@ -491,7 +491,7 @@ namespace build2
         io = true;
       }
 
-      if (!run_finish_code (args, pr, s) || io)
+      if (!run_finish_code (args, pr, s, 2 /* verbosity */) || io)
       {
         diag_record dr;
         dr << warn << "unable to detect " << l << " library type, ignoring" <<

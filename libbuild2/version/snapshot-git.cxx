@@ -206,7 +206,7 @@ namespace build2
         // that.
       }
 
-      if (run_finish_code (args, pr, l))
+      if (run_finish_code (args, pr, l, 2 /* verbosity */))
       {
         if (r.sn == 0)
           fail << "unable to extract git commit id/date for " << rep_root;

@@ -174,7 +174,21 @@ namespace build2
       // While assuming that the builtin has issued the diagnostics on failure
       // we still print the error message (see process_finish() for details).
       //
-      fail << bn << " builtin " << process_exit (rs) << endf;
+      diag_record dr;
+      dr << fail << "builtin " << bn << " " << process_exit (rs);
+
+      // @@ TMP TODO: this and need to print command line at verbosite >= 3
+      //    line for the process case.
+      //
+#if 0
+      if (verb >= 1 && verb <= 2)
+      {
+        dr << info << "command line: ";
+        print_process (dr, args);
+      }
+#endif
+
+      dr << endf;
     }
     catch (const system_error& e)
     {
@@ -328,15 +342,7 @@ namespace build2
   void
   process_finish (const scope*, const cstrings& args, process& pr)
   {
-    try
-    {
-      if (!pr.wait ())
-        fail << "process " << args[0] << " " << *pr.exit;
-    }
-    catch (const process_error& e)
-    {
-      fail << "unable to execute " << args[0] << ": " << e;
-    }
+    run_finish (args, pr, 2 /* verbosity */);
   }
 
   // Run a process.

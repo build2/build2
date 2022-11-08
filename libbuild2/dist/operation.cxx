@@ -741,7 +741,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
 
-      run (ctx, cmd, args);
+      run (ctx, cmd, args, 1 /* finish_verbosity */);
     }
 
     // install <file> <dir>[/<name>]
@@ -784,7 +784,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
 
-      run (t.ctx, cmd, args);
+      run (t.ctx, cmd, args, 1 /* finish_verbosity */);
 
       return d / (n.empty () ? relf.leaf () : n);
     }
@@ -957,10 +957,17 @@ namespace build2
                          out_fd.get ()     /* stdout */);
 
         cpr.in_ofd.reset (); // Close the archiver's stdout on our side.
-        run_finish (args.data () + i, cpr);
       }
 
-      run_finish (args.data (), apr);
+      // Delay throwing until we diagnose both ends of the pipe.
+      //
+      if (!run_finish_code (args.data (),
+                            apr,
+                            1     /* verbosity */,
+                            false /* omit_normal */) ||
+          !(i == 0 || run_finish_code (args.data () + i, cpr, 1, false)))
+        throw failed ();
+
 
       out_rm.cancel ();
       return ap;
@@ -1030,7 +1037,8 @@ namespace build2
                                args,
                                0             /* stdin  */,
                                c_fd.get ()   /* stdout */));
-        run_finish (args, pr);
+
+        run_finish (args, pr, 1 /* verbosity */);
       }
       else
       {

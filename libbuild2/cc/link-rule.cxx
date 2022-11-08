@@ -3992,7 +3992,7 @@ namespace build2
       }
 #endif
 
-      if (verb > 2)
+      if (verb >= 3)
         print_process (args);
 
       // Remove the target file if any of the subsequent (after the linker)
@@ -4042,11 +4042,13 @@ namespace build2
 #ifdef _WIN32
             // Keep the options file if we have shown it.
             //
-            if (!e && verb > 2)
+            if (!e && verb >= 3)
               trm.cancel ();
 #endif
 
-            dbuf.close (oargs.empty () ? args : oargs, *pr.exit);
+            dbuf.close (oargs.empty () ? args : oargs,
+                        *pr.exit,
+                        1 /* verbosity */);
 
             if (!e)
               throw failed ();
@@ -4115,6 +4117,7 @@ namespace build2
           run (dbuf,
                rl,
                args,
+               1 /* finish_verbosity */,
                env_ptrs.empty () ? nullptr : env_ptrs.data ());
         }
       }

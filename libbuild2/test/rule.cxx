@@ -70,7 +70,7 @@ namespace build2
       {
         // Remember that we are called twice: first during update for test
         // (pre-operation) and then during test. During the former, we rely on
-        // the normall update rule to resolve the group members. During the
+        // the normal update rule to resolve the group members. During the
         // latter, there will be no rule to do this but the group will already
         // have been resolved by the pre-operation.
         //
@@ -677,6 +677,8 @@ namespace build2
       // Absent if the process misses the deadline.
       //
       optional<process_exit> pe;
+
+      // @@ DBUF
 
       try
       {

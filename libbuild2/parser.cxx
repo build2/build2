@@ -3174,7 +3174,7 @@ namespace build2
       // caused by that and let run_finish() deal with it.
     }
 
-    run_finish (cargs, pr, l);
+    run_finish (cargs, pr, 2 /* verbosity */, false /* omit_normal */, l);
 
     next_after_newline (t, tt);
   }

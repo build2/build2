@@ -329,7 +329,7 @@ namespace build2
 
       if (!ctx.dry_run)
       {
-        run (ctx, pp, args);
+        run (ctx, pp, args, 1 /* finish_verbosity */);
         dd.check_mtime (tp);
       }
 

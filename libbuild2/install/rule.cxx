@@ -246,7 +246,7 @@ namespace build2
       //
       // Remember that we are called twice: first during update for install
       // (pre-operation) and then during install. During the former, we rely
-      // on the normall update rule to resolve the group members. During the
+      // on the normal update rule to resolve the group members. During the
       // latter, there will be no rule to do this but the group will already
       // have been resolved by the pre-operation.
       //
@@ -848,7 +848,9 @@ namespace build2
           text << "install " << chd;
       }
 
-      run (ctx, pp, args);
+      run (ctx,
+           pp, args,
+           verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
     }
 
     void file_rule::
@@ -903,7 +905,9 @@ namespace build2
       }
 
       if (!ctx.dry_run)
-        run (ctx, pp, args);
+        run (ctx,
+             pp, args,
+             verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
     }
 
     void file_rule::
@@ -946,7 +950,9 @@ namespace build2
       }
 
       if (!ctx.dry_run)
-        run (ctx, pp, args);
+        run (ctx,
+             pp, args,
+             verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
 #else
       // The -f part.
       //
@@ -1185,7 +1191,10 @@ namespace build2
                                  1                   /* stdout */,
                                  dbuf.open (args[0]) /* stderr */));
           dbuf.read ();
-          r = run_finish_code (dbuf, args, pr);
+          r = run_finish_code (
+            dbuf,
+            args, pr,
+            verb >= verbosity ? 1 : verb_never /* verbosity */);
         }
 
         if (!r)
@@ -1280,11 +1289,16 @@ namespace build2
 
         process_path pp (run_search (args[0]));
 
-        if (verb >= verbosity && verb >= 2)
-          print_process (args);
+        if (verb >= verbosity)
+        {
+          if (verb >= 2)
+            print_process (args);
+        }
 
         if (!ctx.dry_run)
-          run (ctx, pp, args);
+          run (ctx,
+               pp, args,
+               verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
       }
 
       return true;

@@ -25,8 +25,9 @@ EOI
 : bad-exit
 :
 cat <'assert false' >=buildfile;
-$* <"$run" 2>>EOE != 0
+$* <"$run" 2>>~/EOE/ != 0
 buildfile:1:1: error: assertion failed
+/<stdin>:1:5: error: process .+ exited with code 1/
 EOE
 
 : bad-output
