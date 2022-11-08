@@ -563,9 +563,10 @@ namespace build2
   // If verbosity is specified, print the process commands line at that level
   // (with the verbosite-1 value passed run_finish()).
   //
-  // If error is false, then redirecting stderr to stdout (can be used to
-  // suppress and/or analyze diagnostics from the child process). Otherwise,
-  // buffer diagnostics unless in the load phase.
+  // If error is false, then redirecting stderr to stdout and don't fail if
+  // the process exits normally but with non-0 code (can be used to suppress
+  // and/or analyze diagnostics from the child process). Otherwise, buffer
+  // diagnostics unless in the load phase.
   //
   // The predicate can move the value out of the passed string but, if error
   // is false, only in case of a "content match" (so that any diagnostics
@@ -573,9 +574,9 @@ namespace build2
   //
   // T (string& line, bool last)
   //
-  // If ignore_exit is true, then the program's normal exit status is ignored
-  // (if it is false and the program exits with the non-zero status, then an
-  // empty T instance is returned).
+  // If, in addition to error being false, ignore_exit is true, then the
+  // program's normal exit status is ignored (if it is false and the program
+  // exits with the non-zero status, then an empty T instance is returned).
   //
   // If checksum is not NULL, then feed it the content of each trimmed line
   // (including those that come after the callback returns non-empty object).
@@ -616,7 +617,6 @@ namespace build2
        const process_env&,
        const char* const* args,
        F&&,
-       bool ignore_exit = false,
        sha256* checksum = nullptr);
 
   template <typename T, typename F>
@@ -626,14 +626,13 @@ namespace build2
        const process_env& pe,
        const cstrings& args,
        F&& f,
-       bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
     return run<T> (dbuf,
                    verbosity,
                    pe, args.data (),
                    forward<F> (f),
-                   ignore_exit, checksum);
+                   checksum);
   }
 
   template <typename T, typename F>
@@ -672,7 +671,6 @@ namespace build2
        const char* const* args,
        uint16_t finish_verbosity,
        F&&,
-       bool ignore_exit = false,
        sha256* checksum = nullptr);
 
   template <typename T, typename F>
@@ -682,14 +680,13 @@ namespace build2
        const cstrings& args,
        uint16_t finish_verbosity,
        F&& f,
-       bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
     return run<T> (dbuf,
                    pe, args.data (),
                    finish_verbosity,
                    forward<F> (f),
-                   ignore_exit, checksum);
+                   checksum);
   }
 
   template <typename T, typename F>
@@ -733,7 +730,6 @@ namespace build2
        uint16_t verbosity,
        const char* args[],
        F&& f,
-       bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
     process_path pp (run_search (args[0]));
@@ -741,7 +737,7 @@ namespace build2
                    verbosity,
                    pp, args,
                    forward<F> (f),
-                   ignore_exit, checksum);
+                   checksum);
   }
 
   template <typename T, typename F>
@@ -750,14 +746,13 @@ namespace build2
        uint16_t verbosity,
        cstrings& args,
        F&& f,
-       bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
     return run<T> (dbuf,
                    verbosity,
                    args.data (),
                    forward<F> (f),
-                   ignore_exit, checksum);
+                   checksum);
   }
 
   // As above but run a program without any arguments or with one argument.
@@ -850,8 +845,9 @@ namespace build2
   // (i.e., the object is still empty in the T & F interface) and false
   // otherwise.
   //
-  // Ruturn true on success and false on failure (only if ignore_exit is
-  // true). (In the latter case, the T & F interface makes the resulting
+  // The first version ruturn true if the result is usable and false
+  // otherwise, depending on the process exit code and error/ignore_exit
+  // values. (In the latter case, the T & F interface makes the resulting
   // object empty).
   //
   LIBBUILD2_SYMEXPORT bool
@@ -862,11 +858,11 @@ namespace build2
        uint16_t finish_verbosity,
        const function<bool (string& line, bool last)>&,
        bool trim = true,
-       bool err = true,
+       bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr);
 
-  LIBBUILD2_SYMEXPORT bool
+  LIBBUILD2_SYMEXPORT void
   run (diag_buffer& dbuf,
        uint16_t verbosity,
        const process_env&,
@@ -874,7 +870,6 @@ namespace build2
        uint16_t finish_verbosity,
        const function<bool (string& line, bool last)>&,
        bool trim = true,
-       bool ignore_exit = false,
        sha256* checksum = nullptr);
 
   // File descriptor streams.

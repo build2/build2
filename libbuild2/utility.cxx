@@ -291,6 +291,16 @@ namespace build2
     const process_exit& pe (*pr.exit);
     bool ne (pe.normal ());
 
+    // Even if the user redirected the diagnostics, one error that we want to
+    // let through is the inability to execute the program itself. We cannot
+    // reserve a special exit status to signal this so we will just have to
+    // compare the output. In a sense, we treat this as a special case of
+    // abnormal termination. This particular situation will result in a single
+    // error line printed by run_start() above.
+    //
+    if (ne && l.compare (0, 18, "unable to execute ") == 0)
+      fail (loc) << l;
+
     if (omit_normal && ne)
     {
       // While we assume diagnostics has already been issued (to stderr), if
@@ -302,19 +312,6 @@ namespace build2
     }
     else
     {
-      // Even if the user redirected the diagnostiscs, one error that we want
-      // to let through is the inability to execute the program itself. We
-      // cannot reserve a special exit status to signal this so we will just
-      // have to compare the output. This particular situation will result in
-      // a single error line printed by run_start() above.
-      //
-      // Shouldn't we treat this as abnormal termination? But if we didn't
-      // redirect stderr to stdout, then this will be handled as normal exit.
-      // So let's be consistent even if wrong.
-      //
-      if (ne && l.compare (0, 18, "unable to execute ") == 0)
-        error (loc) << l;
-
       // It's unclear whether we should print this only if printing the
       // command line (we could also do things differently for normal/abnormal
       // exit). Let's print this always and see how it wears. Note that we
@@ -414,15 +411,19 @@ namespace build2
        bool ignore_exit,
        sha256* checksum)
   {
+    assert (!err || !ignore_exit);
+
     if (err && ctx.phase != run_phase::load)
     {
       diag_buffer dbuf (ctx);
-      return run (dbuf,
-                  verbosity,
-                  pe, args,
-                  finish_verbosity,
-                  f,
-                  tr, ignore_exit, checksum);
+      run (dbuf,
+           verbosity,
+           pe, args,
+           finish_verbosity,
+           f,
+           tr,
+           checksum);
+      return true;
     }
 
     process pr (run_start (verbosity,
@@ -472,13 +473,16 @@ namespace build2
       // caused by that and let run_finish() deal with it.
     }
 
-    if (!(run_finish_impl (args, pr, err, l, finish_verbosity) || ignore_exit))
+    // Omit normal exit code diagnostics if err is false.
+    //
+    if (!(run_finish_impl (args, pr, err, l, finish_verbosity, !err) ||
+          ignore_exit))
       return false;
 
     return true;
   }
 
-  bool
+  void
   run (diag_buffer& dbuf,
        uint16_t verbosity,
        const process_env& pe,
@@ -486,7 +490,6 @@ namespace build2
        uint16_t finish_verbosity,
        const function<bool (string&, bool)>& f,
        bool tr,
-       bool ignore_exit,
        sha256* checksum)
   {
     // We have to use the non-blocking setup since we have to read from stdout
@@ -601,7 +604,7 @@ namespace build2
       // caused by that and let run_finish() deal with it.
     }
 
-    return run_finish_impl (dbuf, args, pr, !ignore_exit, finish_verbosity);
+    run_finish_impl (dbuf, args, pr, true /* fail */, finish_verbosity);
   }
 
   fdpipe

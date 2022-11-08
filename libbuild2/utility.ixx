@@ -174,24 +174,20 @@ namespace build2
        const process_env& pe,
        const char* const* args,
        F&& f,
-       bool ignore_exit,
        sha256* checksum)
   {
     T r;
-    if (!run (dbuf,
-              verbosity,
-              pe, args,
-              verbosity - 1,
-              [&r, &f] (string& l, bool last) // Small function optimmization.
-              {
-                r = f (l, last);
-                return r.empty ();
-              },
-              true /* trim */,
-              ignore_exit,
-              checksum))
-      r = T ();
-
+    run (dbuf,
+         verbosity,
+         pe, args,
+         verbosity - 1,
+         [&r, &f] (string& l, bool last) // Small function optimmization.
+         {
+           r = f (l, last);
+           return r.empty ();
+         },
+         true /* trim */,
+         checksum);
     return r;
   }
 
@@ -232,24 +228,20 @@ namespace build2
        const char* const* args,
        uint16_t finish_verbosity,
        F&& f,
-       bool ignore_exit,
        sha256* checksum)
   {
     T r;
-    if (!run (dbuf,
-              verb_never,
-              pe, args,
-              finish_verbosity,
-              [&r, &f] (string& l, bool last)
-              {
-                r = f (l, last);
-                return r.empty ();
-              },
-              true /* trim */,
-              ignore_exit,
-              checksum))
-      r = T ();
-
+    run (dbuf,
+         verb_never,
+         pe, args,
+         finish_verbosity,
+         [&r, &f] (string& l, bool last)
+         {
+           r = f (l, last);
+           return r.empty ();
+         },
+         true /* trim */,
+         checksum);
     return r;
   }
 
