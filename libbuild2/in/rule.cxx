@@ -299,7 +299,35 @@ namespace build2
       if (verb >= 2)
         text << program_ << ' ' << ip << " >" << tp;
       else if (verb)
-        text << program_ << ' ' << ip;
+      {
+        // If we straight print the target, in most cases we will end up with
+        // something ugly like in{version...h.in} (due to the in{} target
+        // type search semantics). There is the `...h` part but also the
+        // `.in` part that is redundant given in{}. So let's tidy this up
+        // a bit if the extension could have been derived by in_search().
+        //
+        target_key ik (i.key ());
+
+        if (ik.ext)
+        {
+          string& ie (*ik.ext);
+          const string* te (t.ext ());
+
+          size_t in (ie.size ());
+          size_t tn (te != nullptr ? te->size () : 0);
+
+          if (in == tn + (tn != 0 ? 1 : 0) + 2) // [<te>.]in
+          {
+            if (ie.compare (in - 2, 2, "in") == 0)
+            {
+              if (tn == 0 || (ie.compare (0, tn, *te) == 0 && ie[tn] == '.'))
+                ie.clear ();
+            }
+          }
+        }
+
+        text << program_ << ' ' << ik;
+      }
 
       // Read and process the file, one line at a time, while updating depdb.
       //

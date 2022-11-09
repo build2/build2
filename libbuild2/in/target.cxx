@@ -20,6 +20,14 @@ namespace build2
 
       if (!e)
       {
+        // Why is the extension, say, .h.in and not .in (with .h being in the
+        // name)? While this is mostly academic (in this case things will work
+        // the same either way), conceptually, it is a header template rather
+        // than some file template. In other words, we are adding the second
+        // level classification.
+        //
+        // See also the low verbosity tidying up code in the rule.
+        //
         if (const file* t = xt.is_a<file> ())
         {
           const string& te (t->derive_extension ());
@@ -51,7 +59,7 @@ namespace build2
       &target_extension_none,
       nullptr, /* default_extension */   // Taken care of by search.
       &in_pattern,
-      &target_print_1_ext_verb,          // Same as file.
+      &target_print_1_ext_verb,          // Same as file (but see rule).
       &in_search,
       target_type::flag::none
     };
