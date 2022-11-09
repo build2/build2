@@ -314,8 +314,8 @@ namespace build2
     {
       // It's unclear whether we should print this only if printing the
       // command line (we could also do things differently for normal/abnormal
-      // exit). Let's print this always and see how it wears. Note that we
-      // now rely on this in, for example, process_finish().
+      // exit). Let's print this always and see how it wears. Note that we now
+      // rely on this in, for example, process_finish(), extract_metadata().
       //
       // Note: make sure keep the above trace if decide not to print.
       //

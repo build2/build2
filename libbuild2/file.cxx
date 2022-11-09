@@ -1862,12 +1862,12 @@ namespace build2
     try
     {
       // Note: not using run_*() functions since need to be able to suppress
-      // all errors, including inability to exec.
+      // all errors, including abnormal, inability to exec, etc., in case of
+      // optional import. Also, no need to buffer diagnostics since in the
+      // serial load.
       //
       if (verb >= 3)
         print_process (args);
-
-      // @@ DBUF: diag
 
       process pr (pp,
                   args,
@@ -1924,9 +1924,18 @@ namespace build2
             return r;
 
           if (!opt)
-            error (loc) << "invalid metadata signature in " << args[0]
-                        << " output" <<
+          {
+            diag_record dr;
+            dr << error (loc) << "invalid metadata signature in " << args[0]
+               << " output" <<
               info << "expected '" << s << "'";
+
+            if (verb >= 1 && verb <= 2)
+            {
+              dr << info << "command line: ";
+              print_process (dr, args);
+            }
+          }
 
           goto fail;
         }
@@ -1943,16 +1952,27 @@ namespace build2
       if (pr.wait ())
       {
         if (!opt)
-          error (loc) << "unable to read metadata from " << args[0];
+          error (loc) << "io error reading metadata from " << args[0];
       }
       else
       {
         // The child process presumably issued diagnostics but if it didn't,
-        // the result will be very confusing. So let's issue something
-        // generic for good measure.
+        // the result will be very confusing. So let's issue something generic
+        // for good measure. But also make it consistent with diagnostics
+        // issued by run_finish().
         //
         if (!opt)
-          error (loc) << "unable to extract metadata from " << args[0];
+        {
+          diag_record dr;
+          dr << error (loc) << "unable to extract metadata from " << args[0] <<
+            info << "process " << args[0] << " " << *pr.exit;
+
+          if (verb >= 1 && verb <= 2)
+          {
+            dr << info << "command line: ";
+            print_process (dr, args);
+          }
+        }
       }
 
       goto fail;
@@ -1968,8 +1988,7 @@ namespace build2
       goto fail;
     }
 
-    fail:
-
+  fail:
     if (opt)
     {
       metadata_cache.insert (pp.effect_string (), true);

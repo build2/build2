@@ -678,7 +678,7 @@ namespace build2
       //
       optional<process_exit> pe;
 
-      // @@ DBUF
+      // @@ DBUF: buffering and run_finish_impl()-like non-0 exit diagnostics.
 
       try
       {

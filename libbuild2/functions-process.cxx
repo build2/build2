@@ -177,7 +177,8 @@ namespace build2
       diag_record dr;
       dr << fail << "builtin " << bn << " " << process_exit (rs);
 
-      // @@ TMP TODO: this and need to print command line at verbosite >= 3
+      // @@ DBUF
+      // @@ TMP: this and need to print command line at verbosite >= 3
       //    line for the process case.
       //
 #if 0
