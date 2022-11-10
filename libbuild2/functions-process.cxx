@@ -143,6 +143,9 @@ namespace build2
       builtin_callbacks cb;
       fdpipe ofd (open_pipe ());
 
+      if (verb >= 3)
+        print_process (process_args (bn, args));
+
       uint8_t rs; // Storage.
       butl::builtin b (bf (rs,
                            args,
@@ -177,17 +180,11 @@ namespace build2
       diag_record dr;
       dr << fail << "builtin " << bn << " " << process_exit (rs);
 
-      // @@ DBUF
-      // @@ TMP: this and need to print command line at verbosite >= 3
-      //    line for the process case.
-      //
-#if 0
       if (verb >= 1 && verb <= 2)
       {
         dr << info << "command line: ";
-        print_process (dr, args);
+        print_process (dr, process_args (bn, args));
       }
-#endif
 
       dr << endf;
     }

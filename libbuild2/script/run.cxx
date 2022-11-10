@@ -1715,13 +1715,7 @@ namespace build2
 
       auto process_args = [&c] () -> cstrings
       {
-        cstrings args {c.program.recall_string ()};
-
-        for (const auto& a: c.arguments)
-          args.push_back (a.c_str ());
-
-        args.push_back (nullptr);
-        return args;
+        return build2::process_args (c.program.recall_string (), c.arguments);
       };
 
       // Prior to opening file descriptors for command input/output redirects
@@ -2450,30 +2444,27 @@ namespace build2
 
             if (!valid || (!success && diag))
             {
-              dr << error (ll) << w << ' ';
+              dr << error (ll) << w << ' ' << pr << ' ';
 
               if (!exit->normal ())
-                dr << pr << ' ' << *exit;
+                dr << *exit;
               else
               {
                 uint16_t ec (exit->code ()); // Make sure printed as integer.
 
                 if (!valid)
-                  dr << pr << " exit code " << ec << " out of 0-255 range";
-                else if (!success)
-                {
-                  if (diag)
-                  {
-                    if (cmd.exit)
-                      dr << pr << " exit code " << ec
-                         << (cmp == exit_comparison::eq ? " != " : " == ")
-                         << exc;
-                    else
-                      dr << pr << " exited with code " << ec;
-                  }
-                }
+                  dr << "exit code " << ec << " out of 0-255 range";
                 else
-                  assert (false);
+                {
+                  assert (!success && diag);
+
+                  if (cmd.exit)
+                    dr << "exit code " << ec
+                       << (cmp == exit_comparison::eq ? " != " : " == ")
+                       << exc;
+                  else
+                    dr << "exited with code " << ec;
+                }
               }
 
               if (verb == 1)

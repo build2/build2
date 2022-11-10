@@ -607,6 +607,21 @@ namespace build2
     run_finish_impl (dbuf, args, pr, true /* fail */, finish_verbosity);
   }
 
+  cstrings
+  process_args (const char* program, const strings& args)
+  {
+    cstrings r;
+    r.reserve (args.size () + 2);
+
+    r.push_back (program);
+
+    for (const string& a: args)
+      r.push_back (a.c_str ());
+
+    r.push_back (nullptr);
+    return r;
+  }
+
   fdpipe
   open_pipe ()
   {

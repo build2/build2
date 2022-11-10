@@ -872,6 +872,18 @@ namespace build2
        bool trim = true,
        sha256* checksum = nullptr);
 
+  // Concatenate the program path and arguments into a shallow NULL-terminated
+  // vector of C-strings.
+  //
+  LIBBUILD2_SYMEXPORT cstrings
+  process_args (const char* program, const strings& args);
+
+  inline cstrings
+  process_args (const string& program, const strings& args)
+  {
+    return process_args (program.c_str (), args);
+  }
+
   // File descriptor streams.
   //
   fdpipe
