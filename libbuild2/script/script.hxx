@@ -265,7 +265,7 @@ namespace build2
       cleanup_type type;
       build2::path path;
     };
-    using cleanups = vector<cleanup>; // @@ Make it small_vector<..., 1>?
+    using cleanups = small_vector<cleanup, 1>;
 
     // command_exit
     //
@@ -361,7 +361,11 @@ namespace build2
 
     // command_pipe
     //
-    using command_pipe = vector<command>; // @@ Make it small_vector<..., 1>?
+    // Note that we cannot use small_vector here, since moving from objects of
+    // the command_pipe type would invalidate the command redirects of the
+    // reference type in this case.
+    //
+    using command_pipe = vector<command>;
 
     void
     to_stream (ostream&, const command_pipe&, command_to_stream);
@@ -379,7 +383,7 @@ namespace build2
       command_pipe pipe;
     };
 
-    using command_expr = vector<expr_term>; // @@ Make it small_vector<..., 1>?
+    using command_expr = small_vector<expr_term, 1>;
 
     void
     to_stream (ostream&, const command_expr&, command_to_stream);
