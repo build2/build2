@@ -49,13 +49,23 @@ main (int argc, char* argv[])
   }
   else
   {
-    ifstream ifs (argv[i]);
+    istream* is;
+    ifstream ifs;
 
-    if (!ifs.is_open ())
-      cerr << "unable to open " << argv[1] << endl;
+    if (argv[i] != string ("-"))
+    {
+      ifs.open (argv[i]);
+
+      if (!ifs.is_open ())
+        cerr << "unable to open " << argv[1] << endl;
+
+      is = &ifs;
+    }
+    else
+      is = &cin;
 
     string s;
-    r = getline (ifs, s) && s == "1.2.3" ? 0 : 1;
+    r = getline (*is, s) && s == "1.2.3" ? 0 : 1;
   }
 
   return r;

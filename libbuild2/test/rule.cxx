@@ -641,25 +641,40 @@ namespace build2
     // Stack-allocated linked list of information about the running pipeline
     // processes.
     //
+    // Note: constructed incrementally.
+    //
     struct pipe_process
     {
-      process&    proc;
-      const char* prog; // Only for diagnostics.
+      // Initially NULL. Set to the address of the process object when it is
+      // created. Reset back to NULL when the process is executed and its exit
+      // status is collected (see complete_pipe() for details).
+      //
+      process* proc = nullptr;
+
+      char const** args; // Only for diagnostics.
+
+      diag_buffer dbuf;
+      bool force_dbuf;
 
       // True if this process has been terminated.
       //
       bool terminated = false;
 
       pipe_process* prev; // NULL for the left-most program.
+      pipe_process* next; // Left-most program for the right-most program.
 
-      pipe_process (process& p, const char* g, pipe_process* r)
-          : proc (p), prog (g), prev (r) {}
+      pipe_process (context& x,
+                    char const** as,
+                    bool fb,
+                    pipe_process* p,
+                    pipe_process* f)
+          : args (as), dbuf (x), force_dbuf (fb), prev (p), next (f) {}
     };
 
-    static bool
+    static void
     run_test (const target& t,
-              diag_record& dr,
               char const** args,
+              int ofd,
               const optional<timestamp>& deadline,
               pipe_process* prev = nullptr)
     {
@@ -671,14 +686,24 @@ namespace build2
 
       // Redirect stdout to a pipe unless we are last.
       //
-      int out (*next != nullptr ? -1 : 1);
-      bool pr;
+      int out (*next != nullptr ? -1 : ofd);
 
-      // Absent if the process misses the deadline.
+      // Propagate the pointer to the left-most program.
       //
-      optional<process_exit> pe;
+      // Also force diag buffering for the trailing diff process, so it's
+      // stderr is never printed if the test program fails (see
+      // complete_pipe() for details).
+      //
+      pipe_process pp (t.ctx,
+                       args,
+                       next == nullptr && ofd == 2,
+                       prev,
+                       prev != nullptr ? prev->next : nullptr);
 
-      // @@ DBUF: buffering and run_finish_impl()-like non-0 exit diagnostics.
+      if (prev != nullptr)
+        prev->next = &pp;
+      else
+        pp.next = &pp; // Points to itself.
 
       try
       {
@@ -709,11 +734,11 @@ namespace build2
           {
             try
             {
-              p->proc.term ();
+              p->proc->term ();
             }
             catch (const process_error& e)
             {
-              dr << fail << "unable to terminate " << p->prog << ": " << e;
+              dr << fail << "unable to terminate " << p->args[0] << ": " << e;
             }
 
             p->terminated = true;
@@ -726,7 +751,7 @@ namespace build2
 
           for (pipe_process* p (pp); p != nullptr; p = p->prev)
           {
-            process& pr (p->proc);
+            process& pr (*p->proc);
 
             try
             {
@@ -738,26 +763,226 @@ namespace build2
             }
             catch (const process_error& e)
             {
-              dr << fail << "unable to wait/kill " << p->prog << ": " << e;
+              dr << fail << "unable to wait/kill " << p->args[0] << ": " << e;
             }
           }
         };
 
-        process p (prev == nullptr
-                   ? process (args, 0, out)            // First process.
-                   : process (args, prev->proc, out)); // Next process.
-
-        pipe_process pp (p, args[0], prev);
-
-        // If the deadline is specified, then make sure we don't miss it
-        // waiting indefinitely in the process destructor on the right-hand
-        // part of the pipe failure.
+        // Read out all the pipeline's buffered strerr streams watching for
+        // the deadline, if specified. If the deadline is reached, then
+        // terminate the whole pipeline, reset the deadline to nullopt, and
+        // continue reading. Note that the further reading will be performed
+        // without timeout. This, however, is fine since all the processes are
+        // terminated and we only need to read out the buffered data.
         //
-        auto g (make_exception_guard ([&deadline, &pp, &term_pipe] ()
+        // Also note that this implementation is inspired by the
+        // script::run_pipe::read_pipe() lambda.
+        //
+        auto read_pipe = [&pp, &deadline, &term_pipe] ()
         {
-          if (deadline)
+          fdselect_set fds;
+          for (pipe_process* p (&pp); p != nullptr; p = p->prev)
+          {
+            diag_buffer& b (p->dbuf);
+
+            if (b.is.is_open ())
+              fds.emplace_back (b.is.fd (), p);
+          }
+
+          optional<timestamp> dl (deadline);
+
+          for (size_t unread (fds.size ()); unread != 0;)
+          {
+            try
+            {
+              // If a deadline is specified, then pass the timeout to
+              // fdselect().
+              //
+              if (dl)
+              {
+                timestamp now (system_clock::now ());
+
+                if (*dl <= now || ifdselect (fds, *dl - now) == 0)
+                {
+                  term_pipe (&pp);
+                  dl = nullopt;
+                  continue;
+                }
+              }
+              else
+                ifdselect (fds);
+
+              for (fdselect_state& s: fds)
+              {
+                if (s.ready)
+                {
+                  pipe_process* p (static_cast<pipe_process*> (s.data));
+
+                  if (!p->dbuf.read (p->force_dbuf))
+                  {
+                    s.fd = nullfd;
+                    --unread;
+                  }
+                }
+              }
+            }
+            catch (const io_error& e)
+            {
+              fail << "io error reading pipeline streams: " << e;
+            }
+          }
+        };
+
+        // Wait for the pipeline processes to complete, watching for the
+        // deadline, if specified. If the deadline is reached, then terminate
+        // the whole pipeline.
+        //
+        // Note: must be called after read_pipe().
+        //
+        auto wait_pipe = [&pp, &deadline, &timed_wait, &term_pipe] ()
+        {
+          for (pipe_process* p (&pp); p != nullptr; p = p->prev)
+          {
+            try
+            {
+              if (!deadline)
+                p->proc->wait ();
+              else if (!timed_wait (*p->proc, *deadline))
+                term_pipe (p);
+            }
+            catch (const process_error& e)
+            {
+              fail << "unable to wait " << p->args[0] << ": " << e;
+            }
+          }
+        };
+
+        // Iterate over the pipeline processes left to right, printing their
+        // stderr if buffered and issuing the diagnostics if the exit code is
+        // not available (terminated abnormally or due to a deadline) or is
+        // non-zero. Afterwards, fail if any of the processes didn't terminate
+        // normally with zero code.
+        //
+        // Note that we only issue diagnostics for the first failure.
+        //
+        // Note: must be called after wait_pipe() and only once.
+        //
+        auto complete_pipe = [&pp, &t] ()
+        {
+          pipe_process* b (pp.next); // Left-most program.
+          assert (b != nullptr);     // The lambda can only be called once.
+          pp.next = nullptr;
+
+          bool fail (false);
+          for (pipe_process* p (b); p != nullptr; p = p->next)
+          {
+            assert (p->proc != nullptr); // The lambda can only be called once.
+
+            // Collect the exit status, if present.
+            //
+            // Absent if the process misses the deadline.
+            //
+            optional<process_exit> pe;
+
+            const process& pr (*p->proc);
+
+#ifndef _WIN32
+            if (!(p->terminated       &&
+                  !pr.exit->normal () &&
+                  pr.exit->signal () == SIGTERM))
+#else
+            if (!(p->terminated       &&
+                  !pr.exit->normal () &&
+                  pr.exit->status == DBG_TERMINATE_PROCESS))
+#endif
+              pe = pr.exit;
+
+            p->proc = nullptr;
+
+            // Verify the exit status and issue the diagnostics on failure.
+            //
+            // Note that we only issue diagnostics for the first failure but
+            // continue iterating to reset process pointers to NULL. Also note
+            // that if the test program fails, then the potential diff's
+            // diagnostics is suppressed since it is always buffered.
+            //
+            if (!fail)
+            {
+              diag_record dr;
+
+              if (!pe || !pe->normal () || pe->code () != 0)
+              {
+                fail = true;
+
+                dr << error << "test " << t << " failed" // Multi test: test 1.
+                   << error << "process " << p->args[0] << ' ';
+
+                if (pe)
+                  dr << *pe;
+                else
+                  dr << "terminated: execution timeout expired";
+
+                if (verb == 1)
+                {
+                  dr << info << "test command line: ";
+
+                  for (pipe_process* p (b); p != nullptr; p = p->next)
+                  {
+                    if (p != b)
+                      dr << " | ";
+
+                    print_process (dr, p->args);
+                  }
+                }
+              }
+
+              // Now print the buffered stderr, if present, and/or flush the
+              // diagnostics, if issued.
+              //
+              if (p->dbuf.is_open ())
+                p->dbuf.close (move (dr));
+            }
+          }
+
+          if (fail)
+            throw failed ();
+        };
+
+        process p;
+        {
+          process::pipe ep (pp.dbuf.open (args[0],
+                                          pp.force_dbuf,
+                                          fdstream_mode::non_blocking));
+
+          p = (prev == nullptr
+               ? process (args, 0, out, ep.out)             // First process.
+               : process (args, *prev->proc, out, ep.out)); // Next process.
+        }
+
+        pp.proc = &p;
+
+        // If the right-hand part of the pipe fails, then make sure we don't
+        // wait indefinitely in the process destructor if the deadline is
+        // specified or just because a process is blocked on stderr.
+        //
+        auto g (make_exception_guard ([&pp, &term_pipe] ()
+        {
+          if (pp.proc != nullptr)
           try
           {
+            // Close all buffered pipeline stderr streams ignoring io_error
+            // exceptions.
+            //
+            for (pipe_process* p (&pp); p != nullptr; p = p->prev)
+            {
+              if (p->dbuf.is.is_open ())
+              try
+              {
+                p->dbuf.is.close();
+              }
+              catch (const io_error&) {}
+            }
+
             term_pipe (&pp);
           }
           catch (const failed&)
@@ -766,25 +991,17 @@ namespace build2
           }
         }));
 
-        pr = *next == nullptr || run_test (t, dr, next, deadline, &pp);
+        if (*next != nullptr)
+          run_test (t, next, ofd, deadline, &pp);
 
-        if (!deadline)
-          p.wait ();
-        else if (!timed_wait (p, *deadline))
-          term_pipe (&pp);
-
-        assert (p.exit);
-
-#ifndef _WIN32
-        if (!(pp.terminated      &&
-              !p.exit->normal () &&
-              p.exit->signal () == SIGTERM))
-#else
-        if (!(pp.terminated &&
-              !p.exit->normal () &&
-              p.exit->status == DBG_TERMINATE_PROCESS))
-#endif
-          pe = *p.exit;
+        // Complete the pipeline execution, if not done yet.
+        //
+        if (pp.proc != nullptr)
+        {
+          read_pipe ();
+          wait_pipe ();
+          complete_pipe ();
+        }
       }
       catch (const process_error& e)
       {
@@ -795,24 +1012,6 @@ namespace build2
 
         throw failed ();
       }
-
-      bool wr (pe && pe->normal () && pe->code () == 0);
-
-      if (!wr)
-      {
-        if (pr) // First failure?
-          dr << fail << "test " << t << " failed"; // Multi test: test 1.
-
-        dr << error;
-        print_process (dr, args);
-
-        if (pe)
-          dr << " " << *pe;
-        else
-          dr << " terminated: execution timeout expired";
-      }
-
-      return pr && wr;
     }
 
     target_state rule::
@@ -988,10 +1187,19 @@ namespace build2
 
       // Do we have stdout?
       //
+      // If we do, then match it using diff. Also redirect the diff's stdout
+      // to stderr, similar to how we do that for the script (see
+      // script::check_output() for the reasoning). That will also prevent the
+      // diff's output from interleaving with any other output.
+      //
       path dp ("diff");
       process_path dpp;
+      int ofd (1);
+
       if (pass_n != pts_n && pts[pass_n + 1] != nullptr)
       {
+        ofd = 2;
+
         const file& ot (pts[pass_n + 1]->as<file> ());
         const path& op (ot.path ());
         assert (!op.empty ()); // Should have been assigned by update.
@@ -1037,25 +1245,29 @@ namespace build2
       args.push_back (nullptr); // Second.
 
       if (verb >= 2)
-        print_process (args);
+        print_process (args); // Note: prints the whole pipeline.
       else if (verb)
         text << "test " << tt;
 
       if (!ctx.dry_run)
       {
-        diag_record dr;
-        pipe_process pp (cat, "cat", nullptr);
+        pipe_process pp (tt.ctx,
+                         args.data (), // Note: only cat's args are considered.
+                         false /* force_dbuf */,
+                         nullptr /* prev */,
+                         nullptr /* next */);
 
-        if (!run_test (tt,
-                       dr,
-                       args.data () + (sin ? 3 : 0), // Skip cat.
-                       test_deadline (tt),
-                       sin ? &pp : nullptr))
+        if (sin)
         {
-          dr << info << "test command line: ";
-          print_process (dr, args);
-          dr << endf; // return
+          pp.next = &pp;  // Points to itself.
+          pp.proc = &cat;
         }
+
+        run_test (tt,
+                  args.data () + (sin ? 3 : 0), // Skip cat.
+                  ofd,
+                  test_deadline (tt),
+                  sin ? &pp : nullptr);
       }
 
       return target_state::changed;
