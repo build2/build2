@@ -1496,7 +1496,7 @@ namespace build2
     {
       if (verb == 1)
       {
-        // @@ TODO (and in default_action() below):
+        // @@ DIAG (and in default_action() below):
         //
         // - we are printing target, not source (like in most other places)
         //
@@ -1521,7 +1521,7 @@ namespace build2
                                  false       /* leave */));
 
       if (verb == 1)
-        text << diag;
+        text << diag; // @@ DIAG
     }
 
     if (exec_body)
@@ -1625,7 +1625,7 @@ namespace build2
       {
         if (verb == 1)
         {
-          // @@ TODO: as above (execute_update_file()).
+          // @@ DIAG: as above (execute_update_file()).
           //
           text << *script.diag_name << ' ' << t;
         }
@@ -1643,7 +1643,7 @@ namespace build2
                                    !exec_body /* leave */));
 
         if (verb == 1)
-          text << diag;
+          text << diag; // @@ DIAG
       }
 
       if (exec_body)

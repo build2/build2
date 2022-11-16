@@ -720,8 +720,12 @@ namespace build2
 
       const char*& arg (*(args.end () - 2));
 
+      // We could print the prerequisite if it's a single obj{}/libu{} (with
+      // the latter being the common case). But it doesn't feel like that's
+      // worth the variability and the associated possibility of confusion.
+      //
       if (verb == 1)
-        text << "def " << t;
+        print_diag ("def", t);
 
       diag_buffer dbuf (ctx);
 

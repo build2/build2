@@ -326,7 +326,7 @@ namespace build2
           }
         }
 
-        text << program_ << ' ' << ik;
+        print_diag (program_.c_str (), move (ik), t);
       }
 
       // Read and process the file, one line at a time, while updating depdb.

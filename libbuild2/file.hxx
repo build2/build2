@@ -493,7 +493,7 @@ namespace build2
     const optional<string>& config_file,   // Ad hoc config.build contents.
     bool buildfile,                        // Create root buildfile.
     const char* who,                       // Who is creating it.
-    uint16_t verbosity = 1);               // Diagnostic verbosity.
+    uint16_t verbosity);                   // Diagnostic verbosity.
 }
 
 #include <libbuild2/file.ixx>

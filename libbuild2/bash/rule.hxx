@@ -29,7 +29,7 @@ namespace build2
     class LIBBUILD2_BASH_SYMEXPORT in_rule: public in::rule
     {
     public:
-      in_rule (): rule ("bash.in 1", "bash.in", '@', false /* strict */) {}
+      in_rule (): rule ("bash.in 1", "bash", '@', false /* strict */) {}
 
       virtual bool
       match (action, target&, const string&, match_extra&) const override;

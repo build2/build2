@@ -73,10 +73,10 @@ namespace build2
   using mkdir_status = butl::mkdir_status;
 
   LIBBUILD2_SYMEXPORT fs_status<mkdir_status>
-  mkdir (const dir_path&, uint16_t verbosity = 1);
+  mkdir (const dir_path&, uint16_t verbosity);
 
   LIBBUILD2_SYMEXPORT fs_status<mkdir_status>
-  mkdir_p (const dir_path&, uint16_t verbosity = 1);
+  mkdir_p (const dir_path&, uint16_t verbosity);
 
   // Rename a file (or file symlink) overwriting the destination if exists.
   //
@@ -166,7 +166,7 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT fs_status<mkdir_status>
   mkdir_buildignore (context&,
-                     const dir_path&, const path&, uint16_t verbosity = 1);
+                     const dir_path&, const path&, uint16_t verbosity);
 
   // Return true if the directory is empty or only contains the .buildignore
   // file. Fail if the directory doesn't exist.

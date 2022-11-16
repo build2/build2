@@ -1637,12 +1637,12 @@ namespace build2
         case mode::overwrite: c = l.to_directory () ? "cp -r" : "cp"; break;
         }
 
-        // Note: 'ln foo/ bar/' means a different thing.
+        // Note: 'ln foo/ bar/' means a different thing (and below).
         //
         if (verb >= 2)
           text << c << ' ' << p.string () << ' ' << l.string ();
         else
-          text << c << ' ' << f << " -> " << d;
+          print_diag (c, f, d);
       }
     }
 
@@ -1682,10 +1682,15 @@ namespace build2
         case mode::overwrite: c = l.to_directory () ? "cp -r" : "cp"; break;
         }
 
+        // Note: 'ln foo/ bar/' means a different thing (and above) so strip
+        // trailing directory separator (but keep as path for relative).
+        //
         if (verb >= 2)
           text << c << ' ' << p.string () << ' ' << l.string ();
         else
-          text << c << ' ' << p.string () << " -> " << d;
+          print_diag (c,
+                      p.to_directory () ? path (p.string ()) : p,
+                      d);
       }
     }
 
@@ -1737,6 +1742,8 @@ namespace build2
                    const path& p, const path& l, backlink_mode om,
                    uint16_t verbosity)
   {
+    assert (verbosity >= 2);
+
     using mode = backlink_mode;
 
     bool d (l.to_directory ());
@@ -1871,6 +1878,11 @@ namespace build2
     // Like try_rmbacklink() but with diagnostics and error handling.
     //
     // Note that here the dry-run mode is handled by the filesystem functions.
+
+    // Note that if we ever need to support level 1 for some reason, maybe
+    // consider showing the target, for example, `unlink exe{hello} <- dir/`?
+    //
+    assert (v >= 2);
 
     using mode = backlink_mode;
 
@@ -2898,7 +2910,7 @@ namespace build2
   target_state
   noop_action (action a, const target& t)
   {
-    text << "noop action triggered for " << diag_doing (a, t);
+    error << "noop action triggered for " << diag_doing (a, t);
     assert (false); // We shouldn't be called (see set_recipe()).
     return target_state::unchanged;
   }
@@ -2998,7 +3010,7 @@ namespace build2
         case rmdir_status::not_empty:
           {
             if (verb >= 3)
-              text << dp << " is current working directory, not removing";
+              info << dp << " is current working directory, not removing";
             break;
           }
         case rmdir_status::not_exist:
@@ -3108,6 +3120,9 @@ namespace build2
     // Now clean the primary target and its prerequisited in the reverse order
     // of update: first remove the file, then clean the prerequisites.
     //
+    // @@ DIAG: we print removal of individual ad hoc members above instead
+    //          of as group at once ({hxx, cxx}{...}).
+    //
     if (clean && !fp.empty () && rmfile (fp, ft))
       tr = target_state::changed;
 
@@ -3129,10 +3144,20 @@ namespace build2
     {
       if (verb > (ctx.current_diag_noise ? 0 : 1) && verb < 3)
       {
-        if (ed)
-          text << "rm -r " << path_cast<dir_path> (ep);
-        else
-          text << "rm " << ep;
+        if (verb >= 2)
+        {
+          if (ed)
+            text << "rm -r " << path_cast<dir_path> (ep);
+          else
+            text << "rm " << ep;
+        }
+        else if (verb)
+        {
+          if (ed)
+            print_diag ("rm -r", path_cast<dir_path> (ep));
+          else
+            print_diag ("rm", ep);
+        }
       }
     }
 
@@ -3165,6 +3190,8 @@ namespace build2
       {
         if (const target* m = gv.members[gv.count - 1])
         {
+          // @@ DIAG: do we want to show removal of group or each member?
+          //
           if (rmfile (m->as<file> ().path (), *m))
             tr |= target_state::changed;
         }
@@ -3177,10 +3204,20 @@ namespace build2
     {
       if (verb > (ctx.current_diag_noise ? 0 : 1) && verb < 3)
       {
-        if (ed)
-          text << "rm -r " << path_cast<dir_path> (ep);
-        else
-          text << "rm " << ep;
+        if (verb >= 2)
+        {
+          if (ed)
+            text << "rm -r " << path_cast<dir_path> (ep);
+          else
+            text << "rm " << ep;
+        }
+        else if (verb)
+        {
+          if (ed)
+            print_diag ("rm -r", path_cast<dir_path> (ep));
+          else
+            print_diag ("rm", ep);
+        }
       }
     }
 

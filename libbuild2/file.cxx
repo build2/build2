@@ -3299,13 +3299,23 @@ namespace build2
     //
     mkdir (d / std_build_dir, verbosity);
 
+    auto diag = [verbosity] (const path& f)
+    {
+      if (verb >= verbosity)
+      {
+        if (verb >= 2)
+          text << "cat >" << f;
+        else if (verb)
+          print_diag ("save", f);
+      }
+    };
+
     // Write build/bootstrap.build.
     //
     {
       path f (d / std_bootstrap_file);
 
-      if (verb >= verbosity)
-        text << (verb >= 2 ? "cat >" : "save ") << f;
+      diag (f);
 
       try
       {
@@ -3351,8 +3361,7 @@ namespace build2
     {
       path f (d / std_root_file);
 
-      if (verb >= verbosity)
-        text << (verb >= 2 ? "cat >" : "save ") << f;
+      diag (f);
 
       try
       {
@@ -3400,8 +3409,7 @@ namespace build2
     {
       path f (d / std_build_dir / "config.build"); // std_config_file
 
-      if (verb >= verbosity)
-        text << (verb >= 2 ? "cat >" : "save ") << f;
+      diag (f);
 
       try
       {
@@ -3426,8 +3434,7 @@ namespace build2
     {
       path f (d / std_buildfile_file);
 
-      if (verb >= verbosity)
-        text << (verb >= 2 ? "cat >" : "save ") << f;
+      diag (f);
 
       try
       {

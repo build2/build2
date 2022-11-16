@@ -1399,10 +1399,10 @@ namespace build2
       // Note that generation can take some time if we have a large number of
       // prerequisite libraries.
       //
-      if (verb)
-        text << "pc " << *t;
-      else if (verb >= 2)
+      if (verb >= 2)
         text << "cat >" << p;
+      else if (verb)
+        print_diag ("pc", g, *t);
 
       if (ctx.dry_run)
         return;

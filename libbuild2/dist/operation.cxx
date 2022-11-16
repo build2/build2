@@ -239,6 +239,8 @@ namespace build2
       const string& dist_package (cast<string> (l));
       const process_path& dist_cmd (cast<process_path> (rs.vars["dist.cmd"]));
 
+      dir_path td (dist_root / dir_path (dist_package));
+
       // We used to print 'dist <target>' at verbosity level 1 but that has
       // proven to be just noise. Though we still want to print something
       // since otherwise, once the progress line is cleared, we may end up
@@ -248,7 +250,7 @@ namespace build2
       // (e.g., output directory creation) in all the operations below.
       //
       if (verb == 1)
-        text << "dist " << dist_package;
+        print_diag ("dist", src_root, td);
 
       // Get the list of files to distribute.
       //
@@ -495,8 +497,6 @@ namespace build2
       // Apply project environment.
       //
       auto_project_env penv (rs);
-
-      dir_path td (dist_root / dir_path (dist_package));
 
       // Clean up the target directory.
       //
@@ -802,7 +802,7 @@ namespace build2
       //
       path ap (dir / an);
       if (exists (ap, false))
-        rmfile (ctx, ap);
+        rmfile (ctx, ap, 3 /* verbosity */);
 
       // Use zip for .zip archives. Also recognize and handle a few well-known
       // tar.xx cases (in case tar doesn't support -a or has other issues like
@@ -932,7 +932,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
       else if (verb)
-        text << args[0] << ' ' << ap;
+        print_diag (args[0], dir / dir_path (pkg), ap);
 
       process apr;
       process cpr;
@@ -986,7 +986,7 @@ namespace build2
       //
       path cp (dir / cn);
       if (exists (cp, false))
-        rmfile (ctx, cp);
+        rmfile (ctx, cp, 3 /* verbosity */);
 
       auto_rmfile c_rm; // Note: must come first.
       auto_fd c_fd;
@@ -1025,7 +1025,7 @@ namespace build2
         if (verb >= 2)
           print_process (args);
         else if (verb)
-          text << args[0] << ' ' << cp;
+          print_diag (args[0], ap, cp);
 
         // Note that to only get the archive name (without the directory) in
         // the output we have to run from the archive's directory.
@@ -1058,7 +1058,7 @@ namespace build2
         if (verb >= 2)
           text << "cat >" << cp;
         else if (verb)
-          text << e << "sum " << cp;
+          print_diag ((e + "sum").c_str (), ap, cp);
 
         string c;
         try

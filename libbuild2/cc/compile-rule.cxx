@@ -7247,7 +7247,7 @@ namespace build2
       // @@ TODO: why don't we print env (here and/or below)? Also link rule.
       //
       if (verb == 1)
-        text << x_name << ' ' << s;
+        print_diag (x_name, s, t);
       else if (verb == 2)
         print_process (args);
 

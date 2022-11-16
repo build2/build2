@@ -930,6 +930,8 @@ namespace build2
   // Update/clean a backlink issuing appropriate diagnostics at appropriate
   // levels depending on the overload and the changed argument.
   //
+  // Note that these functions assume (target.leaf() == link.leaf ()).
+  //
   enum class backlink_mode
   {
     link,      // Make a symbolic link if possible, hard otherwise.
@@ -952,6 +954,8 @@ namespace build2
                    bool changed,
                    backlink_mode = backlink_mode::link);
 
+  // Note: verbosite should be 2 or greater.
+  //
   LIBBUILD2_SYMEXPORT void
   update_backlink (context&,
                    const path& target,
@@ -959,6 +963,8 @@ namespace build2
                    backlink_mode = backlink_mode::link,
                    uint16_t verbosity = 3);
 
+  // Note: verbosite should be 2 or greater.
+  //
   LIBBUILD2_SYMEXPORT void
   clean_backlink (context&,
                   const path& link,

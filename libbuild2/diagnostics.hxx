@@ -21,6 +21,171 @@ namespace build2
   //
   class failed: public std::exception {};
 
+  // Print low-verbosity recipe diagnostics in the forms:
+  //
+  // <prog> <l-target> <comb> <r-target>
+  // <prog> <r-target>
+  //
+  // Where <prog> is an abbreviated/generalized program name, such as c++
+  // (rather than g++ or clang++) or yacc (rather than bison or byacc),
+  // <l-target> is typically the "main" prerequisite target, such as the C++
+  // source file to compile, <r-target> is typically the target being
+  // produced, and <comb> is the combiner, typically "->".
+  //
+  // The second form (without <l-target> and <comb>) should be used when there
+  // is no natural "main" prerequisite, for example, for linking as well as
+  // for programs that act upon the target, such as mkdir, rm, test, etc.
+  //
+  // Note also that these functions omit the @.../ qualification in either
+  // <l-target> or <r-target> if it's implied by the other.
+  //
+  // For example:
+  //
+  // mkdir fsdir{details/}
+  // c++ cxx{hello} -> obje{hello}
+  // ld exe{hello}
+  //
+  // test exe{hello} + testscript
+  //
+  // install exe{hello} -> /usr/bin/
+  // uninstall exe{hello} <- /usr/bin/
+  //
+  // rm exe{hello}
+  // rm obje{hello}
+  // rmdir fsdir{details/}
+  //
+  // Examples of target groups:
+  //
+  // cli cli{foo} -> {hxx cxx}{foo}
+  //
+  // thrift thrift{foo} -> {hxx cxx}{foo-types}
+  //                    -> {hxx cxx}{foo-stubs}
+  //
+  // Potentially we could also support target groups for <l-target>:
+  //
+  // tool {hxx cxx}{foo} -> {hxx cxx}{foo-types}
+  //
+  // tool {hxx cxx}{foo-types}
+  //      {hxx cxx}{foo-stubs} -> {hxx cxx}{foo-insts}
+  //                              {hxx cxx}{foo-impls}
+  //
+  // Note: see GH issue #40 for additional background and rationale.
+  //
+  // If <comb> is not specified, then "->" is used by default.
+
+  // prog target -> target
+  //
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const target& l, const target& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              target_key&& l, const target& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const target& l, target_key&& r,
+              const char* comb = nullptr);
+
+  void
+  print_diag (const char* prog,
+              target_key&& l, target_key&& r,
+              const char* comb = nullptr);
+
+  // prog string -> target
+  //
+  // Use these versions if, for example, input information is passed as an
+  // argument.
+  //
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const string& l, const target& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const string& l, target_key&& r,
+              const char* comb = nullptr);
+
+  // prog target
+  //
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog, const target&);
+
+  void
+  print_diag (const char* prog, target_key&&);
+
+  // prog path
+  //
+  // Special versions for cases like mkdir/rmdir, save, etc.
+  //
+  // Note: use path_name("-") if the result is written to stdout.
+  //
+  void
+  print_diag (const char* prog, const path&);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog, const dir_path&);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog, const path_name_view&);
+
+  // Special versions for ln, cp, rm, install/unistall, dist, etc.
+  //
+  // Note: use path_name ("-") if the result is written to stdout.
+
+  // target -> path
+  //
+  void
+  print_diag (const char* prog,
+              const target& l, const path& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const target& l, const dir_path& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const target& l, const path_name_view& r,
+              const char* comb = nullptr);
+
+  // path -> path
+  //
+  void
+  print_diag (const char* prog,
+              const path& l, const path& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const path& l, const dir_path& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const path& l, const path_name_view& r,
+              const char* comb = nullptr);
+
+  // string -> path
+  //
+  // Use this version if, for example, input information is passed as an
+  // argument.
+  //
+  void
+  print_diag (const char* prog,
+              const string& l, const path& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const string& l, const path_name_view& r,
+              const char* comb = nullptr);
+
   // Print process commmand line. If the number of elements is specified (or
   // the const cstrings& version is used), then it will print the piped multi-
   // process command line, if present. In this case, the expected format is as
@@ -769,5 +934,7 @@ namespace build2
     return diag_phrase {a, t, &diag_done};
   }
 }
+
+#include <libbuild2/diagnostics.ixx>
 
 #endif // LIBBUILD2_DIAGNOSTICS_HXX

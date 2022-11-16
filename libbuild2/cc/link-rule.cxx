@@ -3825,7 +3825,7 @@ namespace build2
       }
 
       if (verb == 1)
-        text << (lt.static_library () ? "ar " : "ld ") << t;
+        print_diag (lt.static_library () ? "ar" : "ld", t);
       else if (verb == 2)
         print_process (args);
 

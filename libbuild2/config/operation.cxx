@@ -61,8 +61,10 @@ namespace build2
 
       path f (src_root / rs.root_extra->out_root_file);
 
-      if (verb)
-        text << (verb >= 2 ? "cat >" : "save ") << f;
+      if (verb >= 2)
+        text << "cat >" << f;
+      else if (verb)
+        print_diag ("save", f);
 
       try
       {
@@ -566,8 +568,10 @@ namespace build2
       if (f.string () == "-")
         fn.name = "<stdout>";
 
-      if (verb)
-        text << (verb >= 2 ? "cat >" : "save ") << fn;
+      if (verb >= 2)
+        text << "cat >" << fn;
+      else if (verb)
+        print_diag ("save", fn);
 
       try
       {
@@ -678,7 +682,7 @@ namespace build2
       //
       if (out_root != src_root)
       {
-        mkdir_p (out_root / rs.root_extra->build_dir);
+        mkdir_p (out_root / rs.root_extra->build_dir, 1);
         mkdir (out_root / rs.root_extra->bootstrap_dir, 2);
       }
 
@@ -1402,7 +1406,8 @@ namespace build2
                           string ("config"),  /* config_module */
                           nullopt,            /* config_file */
                           true,               /* buildfile */
-                          "the create meta-operation");
+                          "the create meta-operation",
+                          1 /* verbosity */);
 
           save_config (ctx, d);
         }

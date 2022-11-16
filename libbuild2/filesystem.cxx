@@ -15,7 +15,12 @@ namespace build2
   touch (context& ctx, const path& p, bool create, uint16_t v)
   {
     if (verb >= v)
-      text << "touch " << p;
+    {
+      if (verb >= 2)
+        text << "touch " << p;
+      else if (verb)
+        print_diag ("touch", p);
+    }
 
     if (ctx.dry_run)
       return;
@@ -59,7 +64,12 @@ namespace build2
     catch (const system_error& e)
     {
       if (verb >= v)
-        text << "mkdir " << d;
+      {
+        if (verb >= 2)
+          text << "mkdir " << d;
+        else if (verb)
+          print_diag ("mkdir", d);
+      }
 
       fail << "unable to create directory " << d << ": " << e << endf;
     }
@@ -67,7 +77,12 @@ namespace build2
     if (ms == mkdir_status::success)
     {
       if (verb >= v)
-        text << "mkdir " << d;
+      {
+        if (verb >= 2)
+          text << "mkdir " << d;
+        else if (verb)
+          print_diag ("mkdir", d);
+      }
     }
 
     return ms;
@@ -88,7 +103,12 @@ namespace build2
     catch (const system_error& e)
     {
       if (verb >= v)
-        text << "mkdir -p " << d;
+      {
+        if (verb >= 2)
+          text << "mkdir -p " << d;
+        else if (verb)
+          print_diag ("mkdir -p", d);
+      }
 
       fail << "unable to create directory " << d << ": " << e << endf;
     }
@@ -96,7 +116,12 @@ namespace build2
     if (ms == mkdir_status::success)
     {
       if (verb >= v)
-        text << "mkdir -p " << d;
+      {
+        if (verb >= 2)
+          text << "mkdir -p " << d;
+        else if (verb)
+          print_diag ("mkdir -p", d);
+      }
     }
 
     return ms;
@@ -106,7 +131,12 @@ namespace build2
   mvfile (const path& f, const path& t, uint16_t v)
   {
     if (verb >= v)
-      text << "mv " << f << ' ' << t;
+    {
+      if (verb >= 2)
+        text << "mv " << f << ' ' << t;
+      else if (verb)
+        print_diag ("mv", f, t);
+    }
 
     try
     {
@@ -129,7 +159,15 @@ namespace build2
     auto print = [&p, v] ()
     {
       if (verb >= v)
-        text << "rm " << p.string ();
+      {
+        // Note: strip trailing directory separator (but keep as path for
+        // relative).
+        //
+        if (verb >= 2)
+          text << "rm " << p.string ();
+        else if (verb)
+          print_diag ("rm", p.to_directory () ? path (p.string ()) : p);
+      }
     };
 
     rmfile_status rs;
@@ -166,7 +204,12 @@ namespace build2
       return rmdir_status::not_exist;
 
     if (verb >= v)
-      text << "rmdir -r " << d;
+    {
+      if (verb >= 2)
+        text << "rmdir -r " << d;
+      else if (verb)
+        print_diag ("rmdir -r", d);
+    }
 
     if (!ctx.dry_run)
     {

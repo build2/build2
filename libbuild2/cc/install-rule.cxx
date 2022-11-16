@@ -271,9 +271,9 @@ namespace build2
         const scope& rs (t.root_scope ());
         auto& lp (t.data<install_match_data> (perform_uninstall_id).libs_paths);
 
-        auto rm = [&rs, &id] (const path& l)
+        auto rm = [&rs, &id] (const path& f, const path& l)
         {
-          return uninstall_f (rs, id, nullptr, l.leaf (), 2 /* verbosity */);
+          return uninstall_l (rs, id, f.leaf (), l.leaf (), 2 /* verbosity */);
         };
 
         const path& lk (lp.link);
@@ -281,10 +281,12 @@ namespace build2
         const path& so (lp.soname);
         const path& in (lp.interm);
 
-        if (!lk.empty ()) r = rm (lk) || r;
-        if (!ld.empty ()) r = rm (ld) || r;
-        if (!so.empty ()) r = rm (so) || r;
-        if (!in.empty ()) r = rm (in) || r;
+        const path* f (lp.real);
+
+        if (!in.empty ()) {r = rm (*f, in) || r; f = &in;}
+        if (!so.empty ()) {r = rm (*f, so) || r; f = &so;}
+        if (!ld.empty ()) {r = rm (*f, ld) || r; f = &ld;}
+        if (!lk.empty ()) {r = rm (*f, lk) || r;         }
       }
 
       return r;

@@ -240,7 +240,7 @@ namespace build2
       if (verb >= 2)
         text << "mkdir " << d;
       else if (verb && t.ctx.current_diag_noise)
-        text << "mkdir " << t;
+        print_diag ("mkdir", t);
     };
 
     // Note: ignoring the dry_run flag.

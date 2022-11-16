@@ -845,7 +845,7 @@ namespace build2
         if (verb >= 2)
           print_process (args);
         else if (verb)
-          text << "install " << chd;
+          print_diag ("install -d", chd); // See also `install -l` below.
       }
 
       run (ctx,
@@ -901,7 +901,12 @@ namespace build2
         if (verb >= 2)
           print_process (args);
         else if (verb)
-          text << "install " << t;
+        {
+          if (name.empty ())
+            print_diag ("install", t, chd);
+          else
+            print_diag ("install", t, chd / name);
+        }
       }
 
       if (!ctx.dry_run)
@@ -919,7 +924,9 @@ namespace build2
     {
       context& ctx (rs.ctx);
 
-      path rell (relative (chroot_path (rs, base.dir)));
+      dir_path chd (chroot_path (rs, base.dir));
+
+      path rell (relative (chd));
       rell /= link;
 
       // We can create a symlink directly without calling ln. This, however,
@@ -946,7 +953,13 @@ namespace build2
         if (verb >= 2)
           print_process (args);
         else if (verb)
-          text << "install " << rell << " -> " << target;
+        {
+          // Without a flag it's unclear (unlike with ln) that we are creating
+          // a link. FreeBSD install(1) has the -l flag with the appropriate
+          // semantics. For consistency, we also pass -d above.
+          //
+          print_diag ("install -l", target, chd / link);
+        }
       }
 
       if (!ctx.dry_run)
@@ -966,7 +979,7 @@ namespace build2
         if (verb >= 2)
           text << "ln -sf " << target.string () << ' ' << rell.string ();
         else if (verb)
-          text << "install " << rell << " -> " << target;
+          print_diag ("install -l", target, chd / link);
       }
 
       if (!ctx.dry_run)
@@ -1152,7 +1165,7 @@ namespace build2
             if (verb >= 2)
               text << "rmdir " << reld;
             else if (verb)
-              text << "uninstall " << reld;
+              print_diag ("uninstall -d", chd);
           }
 
           try
@@ -1182,7 +1195,7 @@ namespace build2
             if (verb >= 2)
               print_process (args);
             else if (verb)
-              text << "uninstall " << reld;
+              print_diag ("uninstall -d", chd);
           }
 
           diag_buffer dbuf (rs.ctx);
@@ -1218,41 +1231,15 @@ namespace build2
       return r;
     }
 
-    bool file_rule::
-    uninstall_f (const scope& rs,
-                 const install_dir& base,
-                 const file* t,
-                 const path& name,
-                 uint16_t verbosity)
+    static void
+    uninstall_f_impl (const scope& rs,
+                      const install_dir& base,
+                      const path& f,
+                      uint16_t verbosity)
     {
       context& ctx (rs.ctx);
 
-      assert (t != nullptr || !name.empty ());
-      path f (chroot_path (rs, base.dir) /
-              (name.empty () ? t->path ().leaf () : name));
-
-      try
-      {
-        // Note: don't follow symlinks so if the target is a dangling symlinks
-        // we will proceed to removing it.
-        //
-        if (!file_exists (f, false)) // May throw (e.g., EACCES).
-          return false;
-      }
-      catch (const system_error& e)
-      {
-        fail << "invalid installation path " << f << ": " << e;
-      }
-
       path relf (relative (f));
-
-      if (verb >= verbosity && verb == 1)
-      {
-        if (t != nullptr)
-          text << "uninstall " << *t;
-        else
-          text << "uninstall " << relf;
-      }
 
       // The same story as with uninstall -d (on Windows rm is also from
       // MSYS2/Cygwin).
@@ -1300,7 +1287,86 @@ namespace build2
                pp, args,
                verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
       }
+    }
 
+    bool file_rule::
+    uninstall_f (const scope& rs,
+                 const install_dir& base,
+                 const file* t,
+                 const path& name,
+                 uint16_t verbosity)
+    {
+      assert (t != nullptr || !name.empty ());
+
+      dir_path chd (chroot_path (rs, base.dir));
+      path f (chd / (name.empty () ? t->path ().leaf () : name));
+
+      try
+      {
+        // Note: don't follow symlinks so if the target is a dangling symlinks
+        // we will proceed to removing it.
+        //
+        if (!file_exists (f, false)) // May throw (e.g., EACCES).
+          return false;
+      }
+      catch (const system_error& e)
+      {
+        fail << "invalid installation path " << f << ": " << e;
+      }
+
+      if (verb >= verbosity && verb == 1)
+      {
+        if (t != nullptr)
+        {
+          if (name.empty ())
+            print_diag ("uninstall ", *t, chd, "<-");
+          else
+            print_diag ("uninstall ", *t, f, "<-");
+        }
+        else
+          print_diag ("uninstall ", f);
+      }
+
+      uninstall_f_impl (rs, base, f, verbosity);
+      return true;
+    }
+
+    bool file_rule::
+    uninstall_l (const scope& rs,
+                 const install_dir& base,
+                 const path& /*target*/,
+                 const path& link,
+                 uint16_t verbosity)
+    {
+      dir_path chd (chroot_path (rs, base.dir));
+      path f (chd / link);
+
+      try
+      {
+        // Note: don't follow symlinks so if the target is a dangling symlinks
+        // we will proceed to removing it.
+        //
+        if (!file_exists (f, false)) // May throw (e.g., EACCES).
+          return false;
+      }
+      catch (const system_error& e)
+      {
+        fail << "invalid installation path " << f << ": " << e;
+      }
+
+      if (verb >= verbosity && verb == 1)
+      {
+        // It's dubious showing the link target path adds anything useful
+        // here.
+        //
+#if 0
+        print_diag ("uninstall -l", target, f, "<-");
+#else
+        print_diag ("uninstall -l", f);
+#endif
+      }
+
+      uninstall_f_impl (rs, base, f, verbosity);
       return true;
     }
 

@@ -540,11 +540,19 @@ namespace build2
 
           if (verb)
           {
-            diag_record dr (text);
-            dr << "test " << ts;
-
-            if (!t.is_a<alias> ())
-              dr << ' ' << t;
+            // If the target is an alias, then testscript itself is the
+            // target.
+            //
+            if (t.is_a<alias> ())
+              print_diag ("test", ts);
+            else
+            {
+              // In this case the test is really a combination of the target
+              // and testscript and using "->" feels off. Also, let's list the
+              // testscript after the target even though its a source.
+              //
+              print_diag ("test", t, ts, "+");
+            }
           }
 
           res.push_back (ctx.dry_run
@@ -1247,7 +1255,7 @@ namespace build2
       if (verb >= 2)
         print_process (args); // Note: prints the whole pipeline.
       else if (verb)
-        text << "test " << tt;
+        print_diag ("test", tt);
 
       if (!ctx.dry_run)
       {

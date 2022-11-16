@@ -193,7 +193,7 @@ EOI
     file{input}: in{input} $src_root/manifest #@@ in module
     file{output}: in{output} $src_root/manifest #@@ in module
     EOI
-    %version\.in in\{.+\}%{2}
+    %version in\{.+\} -> .+%{2}
     test dir{./}
     error: test dir{./} failed
     %  error: process .+driver.* terminated: execution timeout expired%

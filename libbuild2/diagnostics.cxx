@@ -47,6 +47,138 @@ namespace build2
   //
   const int stream_verb_index = ostream::xalloc ();
 
+  // print_{do,undo}()
+  //
+  void
+  print_diag_impl (const char* p, target_key* l, target_key&& r, const char* c)
+  {
+    // @@ Print directly to diag_stream (and below)? Won't we be holding
+    //    the lock longer?
+
+    diag_record dr (text);
+
+    dr << p << ' ';
+
+    if (l != nullptr)
+    {
+      // Omit the @.../ qualification in either lhs or rhs if it's implied by
+      // the other.
+      //
+      // @@ Shouldn't we, strictly speaking, also check that they belong to
+      //    the same project? Though it would be far-fetched to use another
+      //    project's target from src. Or maybe not.
+      //
+      if (!l->out->empty ())
+      {
+        if (r.out->empty ())
+          l->out = &empty_dir_path;
+      }
+      else if (!r.out->empty ())
+        r.out = &empty_dir_path;
+
+      dr << *l << ' ' << (c == nullptr ? "->" : c) << ' ';
+    }
+
+    dr << r;
+  }
+
+  // Note: these can't be inline since need the target class definition.
+  //
+  void
+  print_diag (const char* p, const target& l, const target& r, const char* c)
+  {
+    target_key lk (l.key ());
+    print_diag_impl (p, &lk, r.key (), c);
+  }
+
+  void
+  print_diag (const char* p, target_key&& l, const target& r, const char* c)
+  {
+    print_diag_impl (p, &l, r.key (), c);
+  }
+
+  void
+  print_diag (const char* p, const target& l, target_key&& r, const char* c)
+  {
+    target_key lk (l.key ());
+    print_diag_impl (p, &lk, move (r), c);
+  }
+
+  void
+  print_diag (const char* p, const string& l, const target& r, const char* c)
+  {
+    return print_diag (p, l, r.key (), c);
+  }
+
+  void
+  print_diag (const char* p, const string& l, target_key&& r, const char* c)
+  {
+    text << p << ' '
+         << l << (l.empty () ? "" : " ")
+         << (c == nullptr ? "->" : c) << ' '
+         << r;
+  }
+
+  void
+  print_diag (const char* p, const target& r)
+  {
+    print_diag_impl (p, nullptr, r.key (), nullptr);
+  }
+
+  void
+  print_diag (const char* p, const dir_path& r)
+  {
+    text << p << ' ' << r;
+  }
+
+  void
+  print_diag (const char* p, const path_name_view& r)
+  {
+    text << p << ' ' << r;
+  }
+
+  void
+  print_diag (const char* p, const target& l, const dir_path& r, const char* c)
+  {
+    // @@ TODO: out qualification stripping: only do if p.out is subdir of t
+    //          (also below)?
+
+    text << p << ' ' << l << ' ' << (c == nullptr ? "->" : c) << ' ' << r;
+  }
+
+  void
+  print_diag (const char* p,
+              const target& l, const path_name_view& r,
+              const char* c)
+  {
+    text << p << ' ' << l << ' ' << (c == nullptr ? "->" : c) << ' ' << r;
+  }
+
+  void
+  print_diag (const char* p, const path& l, const dir_path& r, const char* c)
+  {
+    text << p << ' ' << l << ' ' << (c == nullptr ? "->" : c) << ' ' << r;
+  }
+
+  void
+  print_diag (const char* p,
+              const path& l, const path_name_view& r,
+              const char* c)
+  {
+    text << p << ' ' << l << ' ' << (c == nullptr ? "->" : c) << ' ' << r;
+  }
+
+  void
+  print_diag (const char* p,
+              const string& l, const path_name_view& r,
+              const char* c)
+  {
+    text << p << ' '
+         << l << (l.empty () ? "" : " ")
+         << (c == nullptr ? "->" : c) << ' '
+         << r;
+  }
+
   // print_process()
   //
   void

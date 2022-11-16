@@ -1,8 +1,6 @@
 // file      : libbuild2/filesystem.txx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <type_traits> // is_base_of
-
 #include <libbuild2/diagnostics.hxx>
 
 namespace build2
@@ -24,7 +22,7 @@ namespace build2
         if (verb >= 2)
           text << "rm " << f;
         else if (verb)
-          text << "rm " << t;
+          print_diag ("rm", t); // T can be target or path.
       }
     };
 
@@ -65,7 +63,7 @@ namespace build2
         if (verb >= 2)
           text << "rmdir " << d;
         else if (verb)
-          text << (std::is_base_of<dir_path, T>::value ? "rmdir " : "rm ") << t;
+          print_diag ("rmdir", t); // T can be target or dir_path.
       }
     };
 
@@ -94,7 +92,7 @@ namespace build2
       {
         if (verb >= v && verb >= 2)
         {
-          text << d << " is "
+          info << d << " is "
                << (w ? "current working directory" : "not empty")
                << ", not removing";
         }

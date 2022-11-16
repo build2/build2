@@ -233,6 +233,19 @@ namespace build2
                    const path& name,
                    uint16_t verbosity = 1);
 
+      // Uninstall (remove) a symlink.
+      //
+      // This is essentially unistall_f() but with better low-verbosity
+      // diagnostics.
+      //
+      static bool
+      uninstall_l (const scope& rs,
+                   const install_dir& base,
+                   const path& target,
+                   const path& link,
+                   uint16_t verbosity = 1);
+
+
       // Uninstall (remove) an empty directory.
       //
       // uninstall -d <dir>

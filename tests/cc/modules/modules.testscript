@@ -354,7 +354,7 @@ $* test --verbose 1 <<EOI 2>>EOE;
   exe{test}: cxx{driver} {mxx}{foo-core}
   exe{test}: test.arguments = two
   EOI
-  c++ cxx{driver}
+  c++ cxx{driver} -> obje{driver}
   ld exe{test}
   test exe{test}
   EOE

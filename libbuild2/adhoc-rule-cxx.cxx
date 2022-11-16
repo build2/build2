@@ -326,6 +326,17 @@ namespace build2
       if (!create && (create = !check_sig (bf, psig)))
         rmdir_r (ctx, pd, false, verbosity); // Never dry-run.
 
+      auto diag = [verbosity] (const path& f)
+      {
+        if (verb >= verbosity)
+        {
+          if (verb >= 2)
+            text << "cat >" << f;
+          else if (verb)
+            print_diag ("save", f);
+        }
+      };
+
       path of;
       ofdstream ofs;
 
@@ -356,8 +367,7 @@ namespace build2
         //
         of = path (pd / "rule.cxx");
 
-        if (verb >= verbosity)
-          text << (verb >= 2 ? "cat >" : "save ") << of;
+        diag (of);
 
         ofs.open (of);
 
@@ -487,8 +497,7 @@ namespace build2
         //
         of = bf;
 
-        if (verb >= verbosity)
-          text << (verb >= 2 ? "cat >" : "save ") << of;
+        diag (of);
 
         ofs.open (of);
 
@@ -560,8 +569,7 @@ namespace build2
 
           entry_time et (file_time (of));
 
-          if (verb >= verbosity)
-            text << (verb >= 2 ? "cat >" : "save ") << of;
+          diag (of);
 
           ofs.open (of);
 
