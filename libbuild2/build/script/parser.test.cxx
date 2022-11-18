@@ -323,7 +323,7 @@ namespace build2
                                                        e, s, r,
                                                        true /* diag */,
                                                        true /* enter */,
-                                                       true /* leave */));
+                                                       true /* leave */).first);
 
                   cout << "diag: " << diag << endl;
                 }

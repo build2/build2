@@ -55,35 +55,30 @@ namespace build2
     // We don't want to print the command if the directory already exists.
     // This makes the below code a bit ugly.
     //
-    mkdir_status ms;
+    auto print = [v, &d] (bool ovr)
+    {
+      if (verb >= v || ovr)
+      {
+        if (verb >= 2)
+          text << "mkdir " << d;
+        else if (verb)
+          print_diag ("mkdir", d);
+      }
+    };
 
+    mkdir_status ms;
     try
     {
       ms = try_mkdir (d);
     }
     catch (const system_error& e)
     {
-      if (verb >= v)
-      {
-        if (verb >= 2)
-          text << "mkdir " << d;
-        else if (verb)
-          print_diag ("mkdir", d);
-      }
-
+      print (true);
       fail << "unable to create directory " << d << ": " << e << endf;
     }
 
     if (ms == mkdir_status::success)
-    {
-      if (verb >= v)
-      {
-        if (verb >= 2)
-          text << "mkdir " << d;
-        else if (verb)
-          print_diag ("mkdir", d);
-      }
-    }
+      print (false);
 
     return ms;
   }
@@ -94,35 +89,30 @@ namespace build2
     // We don't want to print the command if the directory already exists.
     // This makes the below code a bit ugly.
     //
-    mkdir_status ms;
+    auto print = [v, &d] (bool ovr)
+    {
+      if (verb >= v || ovr)
+      {
+        if (verb >= 2)
+          text << "mkdir -p " << d;
+        else if (verb)
+          print_diag ("mkdir -p", d);
+      }
+    };
 
+    mkdir_status ms;
     try
     {
       ms = try_mkdir_p (d);
     }
     catch (const system_error& e)
     {
-      if (verb >= v)
-      {
-        if (verb >= 2)
-          text << "mkdir -p " << d;
-        else if (verb)
-          print_diag ("mkdir -p", d);
-      }
-
+      print (true);
       fail << "unable to create directory " << d << ": " << e << endf;
     }
 
     if (ms == mkdir_status::success)
-    {
-      if (verb >= v)
-      {
-        if (verb >= 2)
-          text << "mkdir -p " << d;
-        else if (verb)
-          print_diag ("mkdir -p", d);
-      }
-    }
+      print (false);
 
     return ms;
   }
@@ -156,9 +146,9 @@ namespace build2
   fs_status<rmfile_status>
   rmsymlink (context& ctx, const path& p, bool d, uint16_t v)
   {
-    auto print = [&p, v] ()
+    auto print = [&p, v] (bool ovr)
     {
-      if (verb >= v)
+      if (verb >= v || ovr)
       {
         // Note: strip trailing directory separator (but keep as path for
         // relative).
@@ -182,12 +172,12 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      print ();
+      print (true);
       fail << "unable to remove symlink " << p.string () << ": " << e << endf;
     }
 
     if (rs == rmfile_status::success)
-      print ();
+      print (false);
 
     return rs;
   }

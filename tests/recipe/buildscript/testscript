@@ -31,7 +31,7 @@ posix = ($cxx.target.class != 'windows')
       }}
       EOI
 
-    $* 2>'cp file{foo}';
+    $* 2>'cp file{bar} -> file{foo}';
 
     cat <<<foo >'bar';
 
@@ -65,7 +65,7 @@ posix = ($cxx.target.class != 'windows')
       EOI
 
     $* 2>>~%EOE% != 0;
-      concat file{bar.}
+      concat file{bar}
       %cat: unable to print '.+bar.baz': .+%
       buildfile:10:3: error: builtin cat exited with code 1
       %.+
@@ -75,7 +75,7 @@ posix = ($cxx.target.class != 'windows')
 
     echo 'baz' >=bar.baz;
 
-    $* 2>'concat file{bar.}';
+    $* 2>'concat file{bar}';
 
     cat <<<foo >>EOO;
       bar
@@ -100,7 +100,7 @@ posix = ($cxx.target.class != 'windows')
       EOI
 
     $* 2>>~%EOE% != 0;
-      cp file{foo}
+      cp file{bar} -> file{foo}
       buildfile:4:3: error: stdout and stderr redirected to each other
       %.+
       EOE
@@ -175,8 +175,8 @@ posix = ($cxx.target.class != 'windows')
       EOI
 
     $* test 2>>EOE;
-      cp exe{foo}
-      test exe{foo.}
+      cp file{bar} -> exe{foo}
+      test exe{foo}
       EOE
 
     $* clean 2>-
@@ -190,12 +190,12 @@ posix = ($cxx.target.class != 'windows')
       {{
         v1 = foo
         echo bar | set v2
-        diag $v1 $v2 $>
+        diag echo "$v1 $v2" -> $>
         echo "$v1 $v2" >$path($>)
       }}
       EOI
 
-      $* 2>'foo bar file{foo.}';
+      $* 2>'echo foo bar -> file{foo}';
       cat <<<foo >'foo bar';
 
       $* clean 2>-
@@ -252,7 +252,7 @@ posix = ($cxx.target.class != 'windows')
         }}
         EOI
 
-      $* 2>'compose file{foo.}';
+      $* 2>'compose file{foo}';
 
       cat <<<foo >>EOO;
         bar
@@ -268,7 +268,7 @@ posix = ($cxx.target.class != 'windows')
 
       echo 'BAR' >=bar;
 
-      $* 2>'compose file{foo.}';
+      $* 2>'compose file{foo}';
 
       cat <<<foo >>EOO;
         BAR
@@ -279,7 +279,7 @@ posix = ($cxx.target.class != 'windows')
 
       echo 'BAZ' >=baz;
 
-      $* 2>'compose file{foo.}';
+      $* 2>'compose file{foo}';
 
       cat <<<foo >>EOO;
         BAR
@@ -376,7 +376,7 @@ posix = ($cxx.target.class != 'windows')
           }}
           EOI
 
-        $* 2>'echo file{foo.}';
+        $* 2>'echo file{foo}';
 
         $* clean 2>-
       }
@@ -539,8 +539,8 @@ posix = ($cxx.target.class != 'windows')
           EOI
 
         $* 2>>EOE;
-          gen h{baz.h}
-          gen h{foo.h}
+          gen h{baz}
+          gen h{foo}
           EOE
 
         cat foo.h >>EOO;
@@ -582,8 +582,8 @@ posix = ($cxx.target.class != 'windows')
           EOI
 
         $* 2>>EOE;
-          gen h{baz.h}
-          gen h{foo.h}
+          gen h{baz}
+          gen h{foo}
           EOE
 
         cat foo.h >>EOO;
@@ -642,7 +642,7 @@ posix = ($cxx.target.class != 'windows')
       EOI
 
     $* test 2>>EOE;
-      cp file{foo}
+      cp file{bar} -> file{foo}
       test file{foo}
       EOE
 
@@ -704,7 +704,7 @@ posix = ($cxx.target.class != 'windows')
       EOI
 
     $* test 2>>EOE;
-      cp file{foo}
+      cp file{bar} -> file{foo}
       test file{foo}
       bar
       EOE
@@ -749,7 +749,7 @@ posix = ($cxx.target.class != 'windows')
     {{
       x = echo >|
       y = [cmdline] echo >|
-      diag update
+      diag update $>
       $x foo
       $y bar
       ([cmdline] $x) baz
@@ -760,7 +760,7 @@ posix = ($cxx.target.class != 'windows')
     bar
     baz
     EOO
-    update
+    update dir{./}
     >| foo
     EOE
 }
@@ -788,7 +788,7 @@ if $posix
         EOI
 
       $* 2>>~%EOE% != 0;
-        update file{foo}
+        update file{bar} -> file{foo}
         buildfile:6:3: error: process ^sleep terminated: execution timeout expired
           info: command line: sleep 5
           info: while updating file{foo}
@@ -814,7 +814,7 @@ if $posix
         EOI
 
       $* 2>>EOE;
-        update file{foo}
+        update file{bar} -> file{foo}
         EOE
 
       $* clean 2>-
@@ -841,7 +841,7 @@ if $posix
         EOI
 
       $* test config.test.timeout=1 2>>~%EOE% != 0;
-        cp file{foo}
+        cp file{bar} -> file{foo}
         test file{foo}
         buildfile:7:3: error: process ^sleep terminated: execution timeout expired
           info: command line: sleep 5
@@ -879,7 +879,7 @@ if $posix
         EOI
 
       $* test config.test.timeout=3 2>>EOE;
-        cp file{foo}
+        cp file{bar} -> file{foo}
         test file{foo}
         EOE
 
@@ -899,12 +899,12 @@ if $posix
 
     alias{~'/f(.+)/'}: alias{~'/b\1/'}
     {{
-      diag $< $>
+      diag frob $< -> $>
     }}
     EOI
 
   $* 2>>EOE
-    alias{bar} alias{far}
+    frob alias{bar} -> alias{far}
     EOE
 }
 
@@ -929,7 +929,7 @@ if $posix
         }}
         EOI
 
-      $* 2>'cp file{foo}';
+      $* 2>'cp file{bar} -> file{foo}';
 
       cat <<<foo >'bar';
 
@@ -955,7 +955,7 @@ if $posix
         }}
         EOI
 
-      $* 2>'gen file{foo.}';
+      $* 2>'gen file{foo}';
 
       cat <<<foo >:'';
 
@@ -982,7 +982,7 @@ if $posix
         EOI
 
       $* 2>>~%EOE% != 0;
-        gen file{foo.}
+        gen file{foo}
         buildfile:8:5: error: fed up
         %.{3}
         EOE
@@ -1062,7 +1062,7 @@ if $posix
           }}
           EOI
 
-        $* 2>'cat file{foo}';
+        $* 2>'cat file{bar} -> file{foo}';
         $* clean 2>-
       }
     }
@@ -1094,7 +1094,7 @@ if $posix
           }}
           EOI
 
-        $* 2>'cat file{foo}';
+        $* 2>'cat file{bar} -> file{foo}';
 
         cat <<<foo >>EOO;
           bar
@@ -1127,7 +1127,7 @@ if $posix
 
         $* src/@out/ 2>>/EOE;
           mkdir fsdir{out/}
-          cat out/file{foo}
+          cat src/file{bar} -> out/file{foo}
           EOE
 
         cat <<<out/foo >>EOO;
@@ -1180,7 +1180,7 @@ if $posix
           }}
           EOI
 
-        $* 2>'cat file{foo}';
+        $* 2>'cat file{bar} -> file{foo}';
 
         cat <<<foo >>EOO;
           bar
@@ -1209,7 +1209,7 @@ if $posix
           EOI
 
         $* 2>>~%EOE% != 0;
-          cat file{foo}
+          cat file{bar} -> file{foo}
           buildfile:8:5: error: fed up
           %.{3}
           EOE
@@ -1296,7 +1296,7 @@ if $posix
             }}
             EOI
 
-          $* 2>'cat file{foo}';
+          $* 2>'cat file{bar} -> file{foo}';
           $* clean 2>-
         }
       }
@@ -1327,7 +1327,7 @@ if $posix
           }}
           EOI
 
-        $* 2>'gen file{foo.}';
+        $* 2>'gen file{foo}';
 
         cat <<<foo >>EOO;
           bar
@@ -1358,7 +1358,7 @@ if $posix
           EOI
 
         $* 2>>~%EOE% != 0;
-          gen file{foo.}
+          gen file{foo}
           buildfile:8:3: error: attempt to set '~' special variable
           %.{3}
           EOE
@@ -1389,7 +1389,7 @@ if $posix
             EOI
 
           $* 2>>~%EOE% != 0;
-            gen file{foo.}
+            gen file{foo}
             buildfile:8:3: error: for: ':' after variable name
             %.+
             EOE
@@ -1417,7 +1417,7 @@ if $posix
             EOI
 
           $* 2>>~%EOE% != 0;
-            gen file{foo.}
+            gen file{foo}
             <attributes>:1:7: error: whitespace required after attributes
               <attributes>:1:1: info: use the '\[' escape sequence if this is a wildcard pattern
               buildfile:8:3: info: while parsing attributes '[path]:'
@@ -1449,7 +1449,7 @@ if $posix
           }}
           EOI
 
-        $* 2>'gen file{foo.}';
+        $* 2>'gen file{foo}';
 
         cat <<<foo >>EOO;
           bar
@@ -1480,7 +1480,7 @@ if $posix
           EOI
 
         $* 2>>~%EOE% != 0;
-          gen file{foo.}
+          gen file{foo}
           buildfile:10:5: error: fed up
           %.{3}
           EOE
@@ -1569,7 +1569,7 @@ if $posix
             }}
             EOI
 
-          $* 2>'gen file{foo.}';
+          $* 2>'gen file{foo}';
           $* clean 2>-
         }
       }
@@ -1608,7 +1608,7 @@ if $posix
           }}
           EOI
 
-        $* 2>'gen file{foo.}';
+        $* 2>'gen file{foo}';
 
         cat <<<foo >>EOO;
           bar
@@ -1651,7 +1651,7 @@ if $posix
           }}
           EOI
 
-        $* 2>'gen file{foo.}';
+        $* 2>'gen file{foo}';
 
         cat <<<foo >>~%EOO%;
           bar
@@ -1704,7 +1704,7 @@ if $posix
           }}
           EOI
 
-        $* 2>'cat file{foo}';
+        $* 2>'cat file{bar} -> file{foo}';
 
         cat <<<foo >>EOO;
           bar
@@ -1733,7 +1733,7 @@ if $posix
           EOI
 
         $* 2>>~%EOE% != 0;
-          cat file{foo}
+          cat file{bar} -> file{foo}
           buildfile:8:5: error: fed up
           %.{3}
           EOE
@@ -1822,7 +1822,7 @@ if $posix
             }}
             EOI
 
-          $* 2>'gen file{foo.}';
+          $* 2>'gen file{foo}';
           $* clean 2>-
         }
       }

@@ -174,17 +174,18 @@ namespace build2
         }
 
         // If the diag argument is true, then execute the preamble including
-        // the (trailing) diagnostics line and return the resulting names (see
-        // exec_special() for the diagnostics line execution semantics).
-        // Otherwise, execute the preamble excluding the diagnostics line and
-        // return an empty names list. If requested, call the runner's enter()
-        // and leave() functions that initialize/clean up the environment
-        // before/after the preamble execution.
+        // the (trailing) diagnostics line and return the resulting names and
+        // its location (see exec_special() for the diagnostics line execution
+        // semantics). Otherwise, execute the preamble excluding the
+        // diagnostics line and return an empty names list and location. If
+        // requested, call the runner's enter() and leave() functions that
+        // initialize/clean up the environment before/after the preamble
+        // execution.
         //
         // Note: having both root and base scopes for testing (where we pass
         // global scope for both).
         //
-        names
+        pair<names, location>
         execute_diag_preamble (const scope& root, const scope& base,
                                environment&, const script&, runner&,
                                bool diag, bool enter, bool leave);

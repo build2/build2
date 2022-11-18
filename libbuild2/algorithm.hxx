@@ -845,8 +845,8 @@ namespace build2
   LIBBUILD2_SYMEXPORT target_state
   group_action (action, const target&);
 
-  // Standard perform(clean) action implementation for the file target
-  // (or derived).
+  // Standard perform(clean) action implementation for the file target (or
+  // derived). Note: also cleans ad hoc group members, if any.
   //
   LIBBUILD2_SYMEXPORT target_state
   perform_clean (action, const target&);
@@ -856,8 +856,8 @@ namespace build2
   LIBBUILD2_SYMEXPORT target_state
   perform_clean_depdb (action, const target&);
 
-  // As above but clean the target group. The group should be an mtime_target
-  // and members should be files.
+  // As above but clean the (non-ad hoc) target group. The group should be an
+  // mtime_target and members should be files.
   //
   LIBBUILD2_SYMEXPORT target_state
   perform_clean_group (action, const target&);
@@ -868,21 +868,22 @@ namespace build2
   LIBBUILD2_SYMEXPORT target_state
   perform_clean_group_depdb (action, const target&);
 
-  // Helper for custom perform(clean) implementations that cleans extra files
-  // and directories (recursively) specified as a list of either absolute
-  // paths or "path derivation directives". The directive string can be NULL,
-  // or empty in which case it is ignored. If the last character in a
-  // directive is '/', then the resulting path is treated as a directory
-  // rather than a file. The directive can start with zero or more '-'
-  // characters which indicate the number of extensions that should be
-  // stripped before the new extension (if any) is added (so if you want to
-  // strip the extension, specify just "-"). For example:
+  // Helpers for custom perform(clean) implementations that, besides the
+  // target and group members, can also clean extra files and directories
+  // (recursively) specified as a list of either absolute paths or "path
+  // derivation directives". The directive string can be NULL, or empty in
+  // which case it is ignored. If the last character in a directive is '/',
+  // then the resulting path is treated as a directory rather than a file. The
+  // directive can start with zero or more '-' characters which indicate the
+  // number of extensions that should be stripped before the new extension (if
+  // any) is added (so if you want to strip the extension, specify just
+  // "-"). For example:
   //
   // perform_clean_extra (a, t, {".d", ".dlls/", "-.dll"});
   //
   // The extra files/directories are removed first in the specified order
-  // followed by the ad hoc group member, then target itself, and, finally,
-  // the prerequisites in the reverse order.
+  // followed by the group member, then target itself, and, finally, the
+  // prerequisites in the reverse order.
   //
   // You can also clean extra files derived from ad hoc group members that are
   // "indexed" using their target types (see add/find_adhoc_member() for
@@ -901,16 +902,25 @@ namespace build2
 
   using clean_adhoc_extras = small_vector<clean_adhoc_extra, 2>;
 
+  // If show_adhoc_members is true, then print the entire ad hoc group instead
+  // of just the primary member at verbosity level 1 (see print_diag() for
+  // details). Note that the default is false because normally a rule
+  // implemented in C++ would only use an ad hoc group for subordiate members
+  // (.pdb, etc) and would use a dedicate target group type if the members
+  // are equal.
+  //
   LIBBUILD2_SYMEXPORT target_state
   perform_clean_extra (action, const file&,
                        const clean_extras&,
-                       const clean_adhoc_extras& = {});
+                       const clean_adhoc_extras& = {},
+                       bool show_adhoc_members = false);
 
   inline target_state
   perform_clean_extra (action a, const file& f,
-                       initializer_list<const char*> e)
+                       initializer_list<const char*> e,
+                       bool show_adhoc_members = false)
   {
-    return perform_clean_extra (a, f, clean_extras (e));
+    return perform_clean_extra (a, f, clean_extras (e), {}, show_adhoc_members);
   }
 
   // Similar to perform_clean_group() but with extras similar to

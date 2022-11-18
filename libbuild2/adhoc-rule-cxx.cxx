@@ -304,7 +304,7 @@ namespace build2
       context& ctx (*t.ctx.module_context);
       scheduler::phase_guard pg (ctx.sched);
 
-      const uint16_t verbosity (3); // Project creation command verbosity.
+      uint16_t verbosity (3); // Project creation command verbosity.
 
       // Project and location signatures.
       //

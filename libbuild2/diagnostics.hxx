@@ -59,7 +59,7 @@ namespace build2
   // cli cli{foo} -> {hxx cxx}{foo}
   //
   // thrift thrift{foo} -> {hxx cxx}{foo-types}
-  //                    -> {hxx cxx}{foo-stubs}
+  //                       {hxx cxx}{foo-stubs}
   //
   // Potentially we could also support target groups for <l-target>:
   //
@@ -69,11 +69,17 @@ namespace build2
   //      {hxx cxx}{foo-stubs} -> {hxx cxx}{foo-insts}
   //                              {hxx cxx}{foo-impls}
   //
+  // See also the `diag` Buildscript pseudo-builtin which is reduced to one of
+  // the print_diag() calls (adhoc_buildscript_rule::print_custom_diag()). In
+  // particular, if you are adding a new overload, also consider if/how it
+  // should handled there.
+  //
   // Note: see GH issue #40 for additional background and rationale.
   //
   // If <comb> is not specified, then "->" is used by default.
 
   // prog target -> target
+  // prog target -> group
   //
   LIBBUILD2_SYMEXPORT void
   print_diag (const char* prog,
@@ -95,7 +101,33 @@ namespace build2
               target_key&& l, target_key&& r,
               const char* comb = nullptr);
 
+  // Note: using small_vector would require target_key definition.
+  //
+  void
+  print_diag (const char* prog,
+              target_key&& l, vector<target_key>&& r,
+              const char* comb = nullptr);
+
+  // prog path -> target
+  // prog path -> group
+  //
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const path& l, const target& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const path& l, target_key&& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const path& l, vector<target_key>&& r,
+              const char* comb = nullptr);
+
   // prog string -> target
+  // prog string -> group
   //
   // Use these versions if, for example, input information is passed as an
   // argument.
@@ -110,6 +142,11 @@ namespace build2
               const string& l, target_key&& r,
               const char* comb = nullptr);
 
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              const string& l, vector<target_key>&& r,
+              const char* comb = nullptr);
+
   // prog target
   //
   LIBBUILD2_SYMEXPORT void
@@ -117,6 +154,11 @@ namespace build2
 
   void
   print_diag (const char* prog, target_key&&);
+
+  // prog group
+  //
+  void
+  print_diag (const char* prog, vector<target_key>&&);
 
   // prog path
   //
@@ -137,7 +179,7 @@ namespace build2
   //
   // Note: use path_name ("-") if the result is written to stdout.
 
-  // target -> path
+  // prog target -> path
   //
   void
   print_diag (const char* prog,
@@ -154,7 +196,7 @@ namespace build2
               const target& l, const path_name_view& r,
               const char* comb = nullptr);
 
-  // path -> path
+  // prog path -> path
   //
   void
   print_diag (const char* prog,
@@ -171,7 +213,7 @@ namespace build2
               const path& l, const path_name_view& r,
               const char* comb = nullptr);
 
-  // string -> path
+  // prog string -> path
   //
   // Use this version if, for example, input information is passed as an
   // argument.

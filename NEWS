@@ -1,5 +1,29 @@
 Version 0.16.0
 
+  * Low verbosity diagnostics rework.
+
+    The low verbosity (level 1) rule diagnostics format has been adjusted to
+    include the output target where appropriate. The implementation has also
+    been redesigned to go through the uniform print_diag() API, including for
+    the `diag` pseudo-builtin in ad hoc recipes. Specifically, the `diag`
+    builtin now expects its arguments to be in one of the following two forms
+    (which correspond to the two forms of print_diag()):
+
+    diag <prog> <l-target> <comb> <r-target>...
+    diag <prog> <r-target>...
+
+    If the `diag` builtin is not specified, the default diagnostics is now
+    equivalent to, for update:
+
+    diag <prog> ($>[0]) -> $<
+
+    And for other operations:
+
+    diag <prog> $<
+
+    For details, see the print_diag() API description in diagnostics.hxx. See
+    also GH issue #40 for additional background/details.
+
   * The in.substitution variable has been renamed to in.mode.
 
     The original name is still recognized for backwards compatibility.

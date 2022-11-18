@@ -6,6 +6,11 @@ namespace build2
   LIBBUILD2_SYMEXPORT void
   print_diag_impl (const char*, target_key*, target_key&&, const char*);
 
+  LIBBUILD2_SYMEXPORT void
+  print_diag_impl (const char*,
+                   target_key*, vector<target_key>&& r,
+                   const char*);
+
   inline void
   print_diag (const char* p, target_key&& l, target_key&& r, const char* c)
   {
@@ -13,7 +18,21 @@ namespace build2
   }
 
   inline void
+  print_diag (const char* p,
+              target_key&& l, vector<target_key>&& r,
+              const char* c)
+  {
+    print_diag_impl (p, &l, move (r), c);
+  }
+
+  inline void
   print_diag (const char* p, target_key& r)
+  {
+    print_diag_impl (p, nullptr, move (r), nullptr);
+  }
+
+  inline void
+  print_diag (const char* p, vector<target_key>&& r)
   {
     print_diag_impl (p, nullptr, move (r), nullptr);
   }

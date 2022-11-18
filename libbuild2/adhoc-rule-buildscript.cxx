@@ -1473,7 +1473,7 @@ namespace build2
   //
   bool adhoc_buildscript_rule::
   execute_update_file (const scope& bs,
-                       action, const file& t,
+                       action a, const file& t,
                        build::script::environment& env,
                        build::script::default_runner& run,
                        bool deferred_failure) const
@@ -1496,16 +1496,46 @@ namespace build2
     {
       if (verb == 1)
       {
-        // @@ DIAG (and in default_action() below):
+        // By default we print the first non-ad hoc prerequisite target as the
+        // "main" prerequisite, unless there isn't any or it's not file-based,
+        // in which case we fallback to the second form without the
+        // prerequisite. Potential future improvements:
         //
-        // - we are printing target, not source (like in most other places)
+        // - Somehow detect that the first prerequisite target is a tool being
+        //   executed and fallback to the second form. It's tempting to just
+        //   exclude all exe{} targets, but this could be a rule for something
+        //   like strip.
         //
-        // - printing of ad hoc target group (the {hxx cxx}{foo} idea)
-        //
-        // - if we are printing prerequisites, should we print all of them
-        //   (including tools)?
-        //
-        text << *script.diag_name << ' ' << t;
+        const file* pt (nullptr);
+        for (const prerequisite_target& p: t.prerequisite_targets[a])
+        {
+          // See execute_update_prerequisites().
+          //
+          if (p.target != nullptr && !p.adhoc ())
+          {
+            pt = p.target->is_a<file> ();
+            break;
+          }
+        }
+
+        if (t.adhoc_member == nullptr)
+        {
+          if (pt != nullptr)
+            print_diag (script.diag_name->c_str (), *pt, t);
+          else
+            print_diag (script.diag_name->c_str (), t);
+        }
+        else
+        {
+          vector<target_key> ts;
+          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+            ts.push_back (m->key ());
+
+          if (pt != nullptr)
+            print_diag (script.diag_name->c_str (), pt->key (), move (ts));
+          else
+            print_diag (script.diag_name->c_str (), move (ts));
+        }
       }
     }
     else if (exec_diag)
@@ -1513,7 +1543,7 @@ namespace build2
       if (script.diag_preamble_temp_dir && !script.depdb_preamble_temp_dir)
         env.set_temp_dir_variable ();
 
-      names diag (
+      pair<names, location> diag (
         p.execute_diag_preamble (rs, bs,
                                  env, script, run,
                                  verb == 1   /* diag */,
@@ -1521,7 +1551,7 @@ namespace build2
                                  false       /* leave */));
 
       if (verb == 1)
-        text << diag; // @@ DIAG
+        print_custom_diag (bs, move (diag.first), diag.second);
     }
 
     if (exec_body)
@@ -1594,7 +1624,14 @@ namespace build2
     // temporary directory ($~) is that it's next to other output which makes
     // it easier to examine during recipe troubleshooting.
     //
-    return perform_clean_extra (a, t.as<file> (), {".d", ".t"});
+    // Finally, we print the entire ad hoc group at verbosity level 1, similar
+    // to the default update diagnostics.
+    //
+    return perform_clean_extra (a,
+                                t.as<file> (),
+                                {".d", ".t"},
+                                {},
+                                true /* show_adhoc_members */);
   }
 
   target_state adhoc_buildscript_rule::
@@ -1625,9 +1662,20 @@ namespace build2
       {
         if (verb == 1)
         {
-          // @@ DIAG: as above (execute_update_file()).
+          // For operations other than update (as well as for non-file
+          // targets), we default to the second form (without the
+          // prerequisite). Think test.
           //
-          text << *script.diag_name << ' ' << t;
+          if (t.adhoc_member == nullptr)
+            print_diag (script.diag_name->c_str (), t);
+          else
+          {
+            vector<target_key> ts;
+            for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+              ts.push_back (m->key ());
+
+            print_diag (script.diag_name->c_str (), move (ts));
+          }
         }
       }
       else if (exec_diag)
@@ -1635,7 +1683,7 @@ namespace build2
         if (script.diag_preamble_temp_dir)
           e.set_temp_dir_variable ();
 
-        names diag (
+        pair<names, location> diag (
           p.execute_diag_preamble (rs, bs,
                                    e, script, r,
                                    verb == 1  /* diag */,
@@ -1643,7 +1691,7 @@ namespace build2
                                    !exec_body /* leave */));
 
         if (verb == 1)
-          text << diag; // @@ DIAG
+          print_custom_diag (bs, move (diag.first), diag.second);
       }
 
       if (exec_body)
@@ -1656,5 +1704,249 @@ namespace build2
     }
 
     return target_state::changed;
+  }
+
+  void adhoc_buildscript_rule::
+  print_custom_diag (const scope& bs, names&& ns, const location& l) const
+  {
+    // The straightforward thing to do would be to just print the diagnostics
+    // as specified by the user. But that will make some of the tidying up
+    // done by print_diag() unavailable to custom diagnostics. Things like
+    // omitting the out-qualification as well as compact printing of the
+    // groups. Also, in the future we may want to support colorization of the
+    // diagnostics, which will be difficult to achive with such a "just print"
+    // approach.
+    //
+    // So instead we are going to parse the custom diagnostics, translate
+    // names back to targets (where appropriate), and call one of the
+    // print_diag() functions. Specifically, we expect the custom diagnostics
+    // to be in one of the following two forms (which correspond to the two
+    // forms of pring_diag()):
+    //
+    // diag <prog> <l-target> <comb> <r-target>...
+    // diag <prog> <r-target>...
+    //
+    // And the way we are going to disambiguate this is by analyzing name
+    // types. Specifically, we expect <comb> to be a simple name that also
+    // does not contain any directory separators (so we can distinguish it
+    // from both target names as well as paths, which can be specified on
+    // either side).  We will also recognize `-` as the special stdout path
+    // name (so <comb> cannot be `-`). Finally, <l-target> (but not
+    // <r-target>) can be a string (e.g., an argument) but that should not
+    // pose an ambiguity.
+    //
+    // With this approach, the way to re-create the default diagnostics would
+    // be:
+    //
+    // diag <prog> ($>[0]) -> $<
+    // diag <prog> $<
+    //
+    auto i (ns.begin ()), e (ns.end ());
+
+    // <prog>
+    //
+    if (i == e)
+      fail (l) << "missing program name in diag builtin";
+
+    if (!i->simple () || i->empty ())
+      fail (l) << "expected simple name as program name in diag builtin";
+
+    const char* prog (i->value.c_str ());
+    ++i;
+
+    // <l-target>
+    //
+    const target* l_t (nullptr);
+    path l_p;
+    string l_s;
+
+    auto parse_target = [&bs, &l, &i, &e] () -> const target&
+    {
+      name& n (*i++);
+      name  o;
+
+      if (n.pair)
+      {
+        if (i == e)
+          fail (l) << "invalid target name pair in diag builtin";
+
+        o = move (*i++);
+      }
+
+      // Similar to to_target() in $target.*().
+      //
+      if (const target* r = search_existing (n, bs, o.dir))
+        return *r;
+
+      fail (l) << "target "
+               << (n.pair ? names {move (n), move (o)} : names {move (n)})
+               << " not found in diag builtin" << endf;
+    };
+
+    auto parse_first = [&l, &i, &e,
+                        &parse_target] (const target*& t, path& p, string& s,
+                                        const char* after)
+    {
+      if (i == e)
+        fail (l) << "missing target after " << after << " in diag builtin";
+
+      try
+      {
+        if (i->typed ())
+        {
+          t = &parse_target ();
+          return; // i is already incremented.
+        }
+        else if (!i->dir.empty ())
+        {
+          p = move (i->dir);
+          p /= i->value;
+        }
+        else if (path_traits::find_separator (i->value) != string::npos)
+        {
+          p = path (move (i->value));
+        }
+        else if (!i->value.empty ())
+        {
+          s = move (i->value);
+        }
+        else
+          fail (l) << "expected target, path, or argument after "
+                   << after << " in diag builtin";
+      }
+      catch (const invalid_path& e)
+      {
+        fail (l) << "invalid path '" << e.path <<  "' after "
+                 << after << " in diag builtin";
+      }
+
+      ++i;
+    };
+
+    parse_first (l_t, l_p, l_s, "program name");
+
+    // Now detect which form it is.
+    //
+    if (i != e &&
+        i->simple () &&
+        !i->empty () &&
+        path_traits::find_separator (i->value) == string::npos)
+    {
+      // The first form.
+
+      // <comb>
+      //
+      const char* comb (i->value.c_str ());
+      ++i;
+
+      // <r-target>
+      //
+      const target* r_t (nullptr);
+      path r_p;
+      string r_s;
+
+      parse_first (r_t, r_p, r_s, "combiner");
+
+      path_name r_pn;
+
+      if (r_t != nullptr)
+        ;
+      else if (!r_p.empty ())
+        r_pn = path_name (&r_p);
+      else
+      {
+        if (r_s != "-")
+          fail (l) << "expected target or path instead of '" << r_s
+                   << "' after combiner in diag builtin";
+
+        r_pn = path_name (move (r_s));
+      }
+
+      if (i == e)
+      {
+        if (r_t != nullptr)
+        {
+          if      (l_t != nullptr) print_diag (prog, *l_t, *r_t, comb);
+          else if (!l_p.empty ())  print_diag (prog,  l_p, *r_t, comb);
+          else                     print_diag (prog,  l_s, *r_t, comb);
+        }
+        else
+        {
+          if      (l_t != nullptr) print_diag (prog, *l_t, r_pn, comb);
+          else if (!l_p.empty ())  print_diag (prog,  l_p, r_pn, comb);
+          else                     print_diag (prog,  l_s, r_pn, comb);
+        }
+
+        return;
+      }
+
+      // We can only have multiple targets, not paths.
+      //
+      if (r_t == nullptr)
+        fail (l) << "unexpected name after path in diag builtin";
+
+      // <r-target>...
+      //
+      vector<target_key> r_ts {r_t->key ()};
+
+      do r_ts.push_back (parse_target ().key ()); while (i != e);
+
+      if      (l_t != nullptr) print_diag (prog,  l_t->key (), move (r_ts), comb);
+      else if (!l_p.empty ())  print_diag (prog,  l_p,         move (r_ts), comb);
+      else                     print_diag (prog,  l_s,         move (r_ts), comb);
+    }
+    else
+    {
+      // The second form.
+
+      // First "absorb" the l_* values as the first <r-target>.
+      //
+      const target* r_t (nullptr);
+      path_name r_pn;
+
+      if (l_t != nullptr)
+        r_t = l_t;
+      else if (!l_p.empty ())
+        r_pn = path_name (&l_p);
+      else
+      {
+        if (l_s != "-")
+        {
+          diag_record dr (fail (l));
+
+          dr << "expected target or path instead of '" << l_s
+             << "' after program name in diag builtin";
+
+          if (i != e)
+            dr << info << "alternatively, missing combiner after '"
+               << l_s << "'";
+        }
+
+        r_pn = path_name (move (l_s));
+      }
+
+      if (i == e)
+      {
+        if (r_t != nullptr)
+          print_diag (prog, *r_t);
+        else
+          print_diag (prog, r_pn);
+
+        return;
+      }
+
+      // We can only have multiple targets, not paths.
+      //
+      if (r_t == nullptr)
+        fail (l) << "unexpected name after path in diag builtin";
+
+      // <r-target>...
+      //
+      vector<target_key> r_ts {r_t->key ()};
+
+      do r_ts.push_back (parse_target ().key ()); while (i != e);
+
+      print_diag (prog, move (r_ts));
+    }
   }
 }

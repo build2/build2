@@ -3,7 +3,7 @@
 
 #include <libbuild2/diagnostics.hxx>
 
-#include <cstring>  // strchr(), memcpy()
+#include <cstring> // strchr(), memcpy()
 
 #include <libbutl/process-io.hxx>
 
@@ -47,7 +47,7 @@ namespace build2
   //
   const int stream_verb_index = ostream::xalloc ();
 
-  // print_{do,undo}()
+  // print_diag()
   //
   void
   print_diag_impl (const char* p, target_key* l, target_key&& r, const char* c)
@@ -82,6 +82,191 @@ namespace build2
     dr << r;
   }
 
+  template <typename L> // L can be target_key, path, or string.
+  static void
+  print_diag_impl (const char* p,
+                   const L* l, bool lempty,
+                   vector<target_key>&& rs,
+                   const char* c)
+  {
+    assert (rs.size () > 1);
+
+    // The overall plan is as follows:
+    //
+    // 1. Collect the printed names for all the group members.
+    //
+    //    Note if the printed representation is irregular (see
+    //    to_stream(target_key) for details). We will print such members each
+    //    on a separate line.
+    //
+    // 2. Move the names so that we end up with contiguous partitions of
+    //    targets with the same name.
+    //
+    // 3. Print the partitions, one per line.
+    //
+    vector<pair<optional<string>, const target_key*>> ns;
+    ns.reserve (rs.size ());
+
+    // Use the diag_record's ostringstream so that we get the appropriate
+    // stream verbosity, etc.
+    //
+    diag_record dr (text);
+    ostringstream& os (dr.os);
+    stream_verbosity sv (stream_verb (os));
+
+    for (const target_key& k: rs)
+    {
+      bool r;
+      if (auto p = k.type->print)
+        r = p (os, k, true /* name_only */);
+      else
+        r = to_stream (os, k, sv, true /* name_only */);
+
+      ns.push_back (make_pair (r ? optional<string> (os.str ()) : nullopt, &k));
+
+      os.clear ();
+      os.str (string ()); // Note: just seekp(0) is not enough.
+    }
+
+    // Partition.
+    //
+    auto cmp = [] (const pair<optional<string>, const target_key*>& x,
+                   const pair<optional<string>, const target_key*>& y)
+    {
+      return (x.second->dir->compare (*y.second->dir) == 0 &&
+              x.first->compare (*y.first) == 0);
+    };
+
+    // While at it also determine whether we have multiple partitions.
+    //
+    optional<string> ml;
+    for (auto b (ns.begin ()), e (ns.end ()); b != e; )
+    {
+      const pair<optional<string>, const target_key*>& x (*b++);
+
+      // Move all the elements that are equal to x to the front, preserving
+      // order.
+      //
+      b = stable_partition (
+        b, e,
+        [&cmp, &x] (const pair<optional<string>, const target_key*>& y)
+        {
+          return (x.first && y.first && cmp (x, y));
+        });
+
+      if (!ml && b != e)
+        ml = string ();
+    }
+
+    // Print.
+    //
+    os << p << ' ';
+
+    if (l != nullptr)
+      os << *l << (lempty ? "" : " ") << (c == nullptr ? "->" : c) << ' ';
+
+    if (ml)
+      ml = string (os.str ().size (), ' '); // Indentation.
+
+    for (auto b (ns.begin ()), i (b), e (ns.end ()); i != e; )
+    {
+      if (i != b)
+        os << '\n' << *ml;
+
+      const pair<optional<string>, const target_key*>& p (*i);
+
+      if (!p.first) // Irregular.
+      {
+        os << *p.second;
+        ++i;
+        continue;
+      }
+
+      // Calculate the number of members in this partition.
+      //
+      size_t n (1);
+      for (auto j (i + 1); j != e && j->first && cmp (*i, *j); ++j)
+        ++n;
+
+      // Similar code to to_stream(target_key).
+      //
+
+      // Print the directory.
+      //
+      {
+        const target_key& k (*p.second);
+
+        uint16_t dv (sv.path);
+
+        // Note: relative() returns empty for './'.
+        //
+        const dir_path& rd (dv < 1 ? relative (*k.dir) : *k.dir);
+
+        if (!rd.empty ())
+        {
+          if (dv < 1)
+            os << diag_relative (rd);
+          else
+            to_stream (os, rd, true /* representation */);
+        }
+      }
+
+      // Print target types.
+      //
+      {
+        if (n != 1)
+          os << '{';
+
+        for (auto j (i), e (i + n); j != e; ++j)
+          os << (j != i ? " " : "") << j->second->type->name;
+
+        if (n != 1)
+          os << '}';
+      }
+
+      // Print the target name (the same for all members of this partition).
+      //
+      os << '{' << *i->first << '}';
+
+      i += n;
+    }
+  }
+
+  void
+  print_diag_impl (const char* p,
+                   target_key* l, vector<target_key>&& rs,
+                   const char* c)
+  {
+    // Note: keep this implementation separate from the above for performance.
+    //
+    assert (!rs.empty ());
+
+    if (rs.size () == 1)
+    {
+      print_diag_impl (p, l, move (rs.front ()), c);
+      return;
+    }
+
+    // At the outset handle out-qualification as above. Here we assume that
+    // all the targets in the group have the same out.
+    //
+    if (l != nullptr)
+    {
+      if (!l->out->empty ())
+      {
+        if (rs.front ().out->empty ())
+          l->out = &empty_dir_path;
+      }
+      else if (!rs.front ().out->empty ())
+      {
+        for (target_key& r: rs)
+          r.out = &empty_dir_path;
+      }
+    }
+
+    print_diag_impl<target_key> (p, l, false /* empty */, move (rs), c);
+  }
+
   // Note: these can't be inline since need the target class definition.
   //
   void
@@ -105,6 +290,31 @@ namespace build2
   }
 
   void
+  print_diag (const char* p, const path& l, const target& r, const char* c)
+  {
+    return print_diag (p, l, r.key (), c);
+  }
+
+  void
+  print_diag (const char* p, const path& l, target_key&& r, const char* c)
+  {
+    text << p << ' ' << l << ' ' << (c == nullptr ? "->" : c) << ' ' << r;
+  }
+
+  void
+  print_diag (const char* p,
+              const path& l, vector<target_key>&& rs,
+              const char* c)
+  {
+    assert (!rs.empty ());
+
+    if (rs.size () == 1)
+      print_diag (p, l, move (rs.front ()), c);
+    else
+      print_diag_impl<path> (p, &l, false /* empty */, move (rs), c);
+  }
+
+  void
   print_diag (const char* p, const string& l, const target& r, const char* c)
   {
     return print_diag (p, l, r.key (), c);
@@ -117,6 +327,19 @@ namespace build2
          << l << (l.empty () ? "" : " ")
          << (c == nullptr ? "->" : c) << ' '
          << r;
+  }
+
+  void
+  print_diag (const char* p,
+              const string& l, vector<target_key>&& rs,
+              const char* c)
+  {
+    assert (!rs.empty ());
+
+    if (rs.size () == 1)
+      print_diag (p, l, move (rs.front ()), c);
+    else
+      print_diag_impl<string> (p, &l, l.empty (), move (rs), c);
   }
 
   void

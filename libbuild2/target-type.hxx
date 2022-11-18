@@ -89,7 +89,9 @@ namespace build2
                      const location&,
                      bool reverse);
 
-    void (*print) (ostream&, const target_key&);
+    // See to_stream(ostream,target_key) for details.
+    //
+    bool (*print) (ostream&, const target_key&, bool name_only);
 
     const target* (*search) (const target&, const prerequisite_key&);
 

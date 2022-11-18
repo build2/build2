@@ -13,11 +13,12 @@ namespace build2
 
     // We don't want to print the command if we couldn't remove the file
     // because it does not exist (just like we don't print the update command
-    // if the file is up to date). This makes the below code a bit ugly.
+    // if the file is up to date). But we always want to print some command
+    // before we issue diagnostics. This makes the below code a bit ugly.
     //
-    auto print = [&f, &t, v] ()
+    auto print = [&f, &t, v] (bool ovr)
     {
-      if (verb >= v)
+      if (verb >= v || ovr)
       {
         if (verb >= 2)
           text << "rm " << f;
@@ -36,12 +37,12 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      print ();
+      print (true);
       fail << "unable to remove file " << f << ": " << e << endf;
     }
 
     if (rs == rmfile_status::success)
-      print ();
+      print (false);
 
     return rs;
   }
@@ -54,11 +55,12 @@ namespace build2
 
     // We don't want to print the command if we couldn't remove the directory
     // because it does not exist (just like we don't print mkdir if it already
-    // exists) or if it is not empty. This makes the below code a bit ugly.
+    // exists) or if it is not empty. But we always want to print some command
+    // before we issue diagnostics. This makes the below code a bit ugly.
     //
-    auto print = [&d, &t, v] ()
+    auto print = [&d, &t, v] (bool ovr)
     {
-      if (verb >= v)
+      if (verb >= v || ovr)
       {
         if (verb >= 2)
           text << "rmdir " << d;
@@ -77,7 +79,7 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      print ();
+      print (true);
       fail << "unable to remove directory " << d << ": " << e << endf;
     }
 
@@ -85,7 +87,7 @@ namespace build2
     {
     case rmdir_status::success:
       {
-        print ();
+        print (false);
         break;
       }
     case rmdir_status::not_empty:

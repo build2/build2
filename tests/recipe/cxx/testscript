@@ -81,7 +81,7 @@ if (!$static && $test.target == $build.host)
             return r;
 
           if (verb == 1)
-            text << "cp " << t;
+            print_diag ("cp", s, t);
           else if (verb >= 2)
             text << "cp " << sp << ' ' << tp;
 
@@ -93,7 +93,7 @@ if (!$static && $test.target == $build.host)
 
     $* 2>>~%EOE%;
       %^(c\+\+|ld).*%+
-      cp file{foo}
+      cp file{bar} -> file{foo}
       EOE
 
     cat <<<foo >'bar';
@@ -141,7 +141,7 @@ if (!$static && $test.target == $build.host)
           const path& tp (t.path ());
 
           if (verb == 1)
-            text << "test " << t;
+            print_diag ("test", t);
           else if (verb >= 2)
             text << "cat " << tp;
 
@@ -157,7 +157,7 @@ if (!$static && $test.target == $build.host)
 
     $* test 2>>~%EOE%;
       %^(c\+\+|ld).*%+
-      cp file{foo}
+      cp file{bar} -> file{foo}
       test file{foo}
       bar
       EOE

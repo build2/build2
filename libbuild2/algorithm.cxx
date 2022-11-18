@@ -3038,7 +3038,8 @@ namespace build2
   target_state
   perform_clean_extra (action a, const file& ft,
                        const clean_extras& extras,
-                       const clean_adhoc_extras& adhoc_extras)
+                       const clean_adhoc_extras& adhoc_extras,
+                       bool show_adhoc)
   {
     context& ctx (ft.ctx);
 
@@ -3070,6 +3071,12 @@ namespace build2
 
     // Now clean the ad hoc group file members, if any.
     //
+    // While at it, also collect the group target keys if we are showing
+    // the members. But only those that exist (since we don't want to
+    // print any diagnostics if none of them exist).
+    //
+    vector<target_key> tks;
+
     for (const target* m (ft.adhoc_member);
          m != nullptr;
          m = m->adhoc_member)
@@ -3110,21 +3117,38 @@ namespace build2
                         ? target_state::changed
                         : target_state::unchanged);
 
-        if (r == target_state::changed && ep.empty ())
-          ep = *mp;
-
-        er |= r;
+        if (r == target_state::changed)
+        {
+          if (show_adhoc && verb == 1)
+            tks.push_back (mf->key ());
+          else if (ep.empty ())
+          {
+            ep = *mp;
+            er |= r;
+          }
+        }
       }
     }
 
     // Now clean the primary target and its prerequisited in the reverse order
     // of update: first remove the file, then clean the prerequisites.
     //
-    // @@ DIAG: we print removal of individual ad hoc members above instead
-    //          of as group at once ({hxx, cxx}{...}).
-    //
-    if (clean && !fp.empty () && rmfile (fp, ft))
-      tr = target_state::changed;
+    if (clean && !fp.empty ())
+    {
+      if (show_adhoc && verb == 1 && !tks.empty ())
+      {
+        if (rmfile (fp, ft, 2 /* verbosity */))
+          tks.insert (tks.begin (), ft.key ());
+
+        print_diag ("rm", move (tks));
+        tr = target_state::changed;
+      }
+      else
+      {
+        if (rmfile (fp, ft))
+          tr = target_state::changed;
+      }
+    }
 
     // Update timestamp in case there are operations after us that could use
     // the information.
@@ -3190,12 +3214,17 @@ namespace build2
       {
         if (const target* m = gv.members[gv.count - 1])
         {
-          // @@ DIAG: do we want to show removal of group or each member?
+          // Note that at the verbosity level 1 we don't show the removal of
+          // each group member. This is consistent with what is normally shown
+          // during update.
           //
-          if (rmfile (m->as<file> ().path (), *m))
+          if (rmfile (m->as<file> ().path (), *m, 2 /* verbosity */))
             tr |= target_state::changed;
         }
       }
+
+      if (tr == target_state::changed && verb == 1)
+        print_diag ("rm", g);
     }
 
     g.mtime (timestamp_nonexistent);

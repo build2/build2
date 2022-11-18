@@ -2422,14 +2422,14 @@ namespace build2
   // Target type uses the extension but it is fixed and there is no use
   // printing it (e.g., man1{}).
   //
-  LIBBUILD2_SYMEXPORT void
-  target_print_0_ext_verb (ostream&, const target_key&);
+  LIBBUILD2_SYMEXPORT bool
+  target_print_0_ext_verb (ostream&, const target_key&, bool);
 
   // Target type uses the extension and there is normally no default so it
   // should be printed (e.g., file{}).
   //
-  LIBBUILD2_SYMEXPORT void
-  target_print_1_ext_verb (ostream&, const target_key&);
+  LIBBUILD2_SYMEXPORT bool
+  target_print_1_ext_verb (ostream&, const target_key&, bool);
 
   // The default behavior, that is, look for an existing target in the
   // prerequisite's directory scope.

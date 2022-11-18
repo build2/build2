@@ -820,9 +820,14 @@ namespace build2
 
   static const optional<string> unknown_ext ("?");
 
-  ostream&
-  to_stream (ostream& os, const target_key& k, optional<stream_verbosity> osv)
+  bool
+  to_stream (ostream& os,
+             const target_key& k,
+             optional<stream_verbosity> osv,
+             bool name_only)
   {
+    // Note: similar code in print_diag_impl(vector<target_key>).
+
     stream_verbosity sv (osv ? *osv : stream_verb (os));
     uint16_t dv (sv.path);
     uint16_t ev (sv.extension);
@@ -832,22 +837,29 @@ namespace build2
     //
     bool n (!k.name->empty ());
 
-    // Note: relative() returns empty for './'.
-    //
-    const dir_path& rd (dv < 1 ? relative (*k.dir) : *k.dir); // Relative.
-    const dir_path& pd (n ? rd : rd.directory ());            // Parent.
-
-    if (!pd.empty ())
-    {
-      if (dv < 1)
-        os << diag_relative (pd);
-      else
-        to_stream (os, pd, true /* representation */);
-    }
-
     const target_type& tt (*k.type);
 
-    os << tt.name << '{';
+    dir_path rds; // Storage.
+    if (!name_only)
+    {
+      // Note: relative() returns empty for './'.
+      //
+      if (dv < 1)
+        rds = relative (*k.dir);
+
+      const dir_path& rd (dv < 1 ? rds : *k.dir);    // Relative.
+      const dir_path& pd (n ? rd : rd.directory ()); // Parent.
+
+      if (!pd.empty ())
+      {
+        if (dv < 1)
+          os << diag_relative (pd);
+        else
+          to_stream (os, pd, true /* representation */);
+      }
+
+      os << tt.name << '{';
+    }
 
     if (n)
     {
@@ -890,37 +902,47 @@ namespace build2
       }
     }
     else
+    {
+      if (name_only && dv < 1) // Already done if !name_only.
+        rds = relative (*k.dir);
+
+      const dir_path& rd (dv < 1 ? rds : *k.dir);
+
       to_stream (os,
                  rd.empty () ? dir_path (".") : rd.leaf (),
                  true /* representation */);
-
-    os << '}';
-
-    // If this target is from src, print its out.
-    //
-    if (!k.out->empty ())
-    {
-      if (dv < 1)
-      {
-        // Don't print '@./'.
-        //
-        const string& o (diag_relative (*k.out, false));
-
-        if (!o.empty ())
-          os << '@' << o;
-      }
-      else
-        os << '@' << *k.out;
     }
 
-    return os;
+    if (!name_only)
+    {
+      os << '}';
+
+      // If this target is from src, print its out.
+      //
+      if (!k.out->empty ())
+      {
+        if (dv < 1)
+        {
+          // Don't print '@./'.
+          //
+          const string& o (diag_relative (*k.out, false));
+
+          if (!o.empty ())
+            os << '@' << o;
+        }
+        else
+          os << '@' << *k.out;
+      }
+    }
+
+    return n; // Regular if we had the name.
   }
 
   ostream&
   operator<< (ostream& os, const target_key& k)
   {
     if (auto p = k.type->print)
-      p (os, k);
+      p (os, k, false /* name_only */);
     else
       to_stream (os, k, stream_verb (os));
 
@@ -1109,20 +1131,20 @@ namespace build2
     return tk.ext->c_str ();
   }
 
-  void
-  target_print_0_ext_verb (ostream& os, const target_key& k)
+  bool
+  target_print_0_ext_verb (ostream& os, const target_key& k, bool no)
   {
     stream_verbosity sv (stream_verb (os));
     if (sv.extension == 1) sv.extension = 0; // Remap 1 to 0.
-    to_stream (os, k, sv);
+    return to_stream (os, k, sv, no);
   }
 
-  void
-  target_print_1_ext_verb (ostream& os, const target_key& k)
+  bool
+  target_print_1_ext_verb (ostream& os, const target_key& k, bool no)
   {
     stream_verbosity sv (stream_verb (os));
     if (sv.extension == 0) sv.extension = 1; // Remap 0 to 1.
-    to_stream (os, k, sv);
+    return to_stream (os, k, sv, no);
   }
 
   // type info

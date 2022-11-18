@@ -79,6 +79,9 @@ namespace build2
     virtual void
     dump_text (ostream&, string&) const override;
 
+    void
+    print_custom_diag (const scope&, names&&, const location&) const;
+
   public:
     using script_type = build::script::script;
 

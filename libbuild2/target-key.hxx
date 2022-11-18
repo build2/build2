@@ -94,8 +94,21 @@ namespace build2
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, const target_key&);
 
-  LIBBUILD2_SYMEXPORT ostream&
-  to_stream (ostream&, const target_key&, optional<stream_verbosity> = nullopt);
+  // If name_only is true, then only print the target name (and extension, if
+  // necessary), without the directory or type.
+  //
+  // Return true if the result is regular, that is, in the
+  // <dir>/<type>{<name>}@<out>/ form with the individual components
+  // corresponding directly to the target_key members (that is, without moving
+  // parts around as would be the case for directories). This information is
+  // used when trying to print several targets in a combined form (for
+  // example, {hxx cxx}{foo}) in print_diag().
+  //
+  LIBBUILD2_SYMEXPORT bool
+  to_stream (ostream&,
+             const target_key&,
+             optional<stream_verbosity> = nullopt,
+             bool name_only = false);
 }
 
 namespace std

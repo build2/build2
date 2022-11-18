@@ -1429,12 +1429,12 @@ namespace build2
         exec_lines (begin, end, exec_cmd);
       }
 
-      names parser::
+      pair<names, location> parser::
       execute_diag_preamble (const scope& rs, const scope& bs,
                              environment& e, const script& s, runner& r,
                              bool diag, bool enter, bool leave)
       {
-        tracer trace ("exec_diag_preamble");
+        tracer trace ("execute_diag_preamble");
 
         assert (!s.diag_preamble.empty ());
 
@@ -1499,7 +1499,7 @@ namespace build2
         if (leave)
           runner_->leave (e, s.end_loc);
 
-        return ns;
+        return make_pair (ns, dl.tokens.front ().location ());
       }
 
       void parser::

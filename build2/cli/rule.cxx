@@ -325,7 +325,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
       else if (verb)
-        text << "cli " << s;
+        print_diag ("cli", s, t);
 
       if (!ctx.dry_run)
       {
