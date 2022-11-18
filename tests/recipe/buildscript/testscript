@@ -756,7 +756,7 @@ posix = ($cxx.target.class != 'windows')
     }}
     EOI
 
-  $* >> EOO 2>>EOE
+  $* >> EOO 2>>/EOE
     bar
     baz
     EOO
