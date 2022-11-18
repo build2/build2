@@ -15,11 +15,11 @@ Version 0.16.0
     If the `diag` builtin is not specified, the default diagnostics is now
     equivalent to, for update:
 
-    diag <prog> ($>[0]) -> $<
+    diag <prog> ($<[0]) -> $>
 
     And for other operations:
 
-    diag <prog> $<
+    diag <prog> $>
 
     For details, see the print_diag() API description in diagnostics.hxx. See
     also GH issue #40 for additional background/details.

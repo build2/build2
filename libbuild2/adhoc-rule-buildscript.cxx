@@ -1738,8 +1738,8 @@ namespace build2
     // With this approach, the way to re-create the default diagnostics would
     // be:
     //
-    // diag <prog> ($>[0]) -> $<
-    // diag <prog> $<
+    // diag <prog> ($<[0]) -> $>
+    // diag <prog> $>
     //
     auto i (ns.begin ()), e (ns.end ());
 
