@@ -479,8 +479,10 @@ namespace build2
 
         "cxx",
         "c++",
+        "obj-c++",
         BUILD2_DEFAULT_CXX,
         ".ii",
+        ".mii",
 
         hinters,
 
@@ -790,6 +792,8 @@ namespace build2
       &mxx::static_type,
       &cxx::static_type,
       &c::static_type,
+      &mm::static_type,
+      &m::static_type,
       nullptr
     };
 
@@ -877,6 +881,48 @@ namespace build2
       return true;
     }
 
+    bool
+    objcxx_init (scope& rs,
+                 scope& bs,
+                 const location& loc,
+                 bool,
+                 bool,
+               module_init_extra&)
+    {
+      tracer trace ("cxx::objcxx_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "cxx.objcxx module must be loaded in project root";
+
+      module* mod (rs.find_module<module> ("cxx"));
+
+      if (mod == nullptr)
+        fail (loc) << "cxx.objcxx module must be loaded after cxx module";
+
+      // Register the target type and "enable" it in the module.
+      //
+      // Note that we must register the target type regardless of whether the
+      // C++ compiler is capable of compiling Objective-C++. But we enable
+      // only if it is.
+      //
+      // Note: see similar code in the c module.
+      //
+      rs.insert_target_type<mm> ();
+
+      // Note that while Objective-C++ is supported by MinGW GCC, it's
+      // unlikely Clang supports it when targeting MSVC or Emscripten. But
+      // let's keep the check simple for now.
+      //
+      if (mod->ctype == compiler_type::gcc ||
+          mod->ctype == compiler_type::clang)
+        mod->x_obj = &mm::static_type;
+
+      return true;
+    }
+
     static const module_functions mod_functions[] =
     {
       // NOTE: don't forget to also update the documentation in init.hxx if
@@ -885,6 +931,7 @@ namespace build2
       {"cxx.guess",  nullptr, guess_init},
       {"cxx.config", nullptr, config_init},
       {"cxx",        nullptr, init},
+      {"cxx.objcxx", nullptr, objcxx_init},
       {nullptr,      nullptr, nullptr}
     };
 

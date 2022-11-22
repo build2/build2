@@ -3,10 +3,6 @@
 
 #include <libbuild2/cxx/target.hxx>
 
-#include <libbuild2/context.hxx>
-
-using namespace std;
-
 namespace build2
 {
   namespace cxx
@@ -76,6 +72,20 @@ namespace build2
       nullptr, /* fixed_extension */
       &target_extension_var<mxx_ext_def>,
       &target_pattern_var<mxx_ext_def>,
+      nullptr,
+      &file_search,
+      target_type::flag::none
+    };
+
+    extern const char mm_ext_def[] = "mm";
+    const target_type mm::static_type
+    {
+      "mm",
+      &cc::static_type,
+      &target_factory<mm>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<mm_ext_def>,
+      &target_pattern_var<mm_ext_def>,
       nullptr,
       &file_search,
       target_type::flag::none

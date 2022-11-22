@@ -15,6 +15,7 @@ namespace build2
   {
     using cc::h;
     using cc::c;
+    using cc::m;
   }
 }
 

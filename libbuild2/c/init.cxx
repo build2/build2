@@ -27,6 +27,7 @@ namespace build2
   namespace c
   {
     using cc::compiler_id;
+    using cc::compiler_type;
     using cc::compiler_class;
     using cc::compiler_info;
 
@@ -164,8 +165,10 @@ namespace build2
 
         "c",
         "c",
+        "obj-c",
         BUILD2_DEFAULT_C,
         ".i",
+        ".mi",
 
         hinters,
 
@@ -325,6 +328,7 @@ namespace build2
     {
       &h::static_type,
       &c::static_type,
+      &m::static_type,
       nullptr
     };
 
@@ -400,6 +404,48 @@ namespace build2
       return true;
     }
 
+    bool
+    objc_init (scope& rs,
+               scope& bs,
+               const location& loc,
+               bool,
+               bool,
+               module_init_extra&)
+    {
+      tracer trace ("c::objc_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "c.objc module must be loaded in project root";
+
+      module* mod (rs.find_module<module> ("c"));
+
+      if (mod == nullptr)
+        fail (loc) << "c.objc module must be loaded after c module";
+
+      // Register the target type and "enable" it in the module.
+      //
+      // Note that we must register the target type regardless of whether the
+      // C compiler is capable of compiling Objective-C. But we enable only
+      // if it is.
+      //
+      // Note: see similar code in the cxx module.
+      //
+      rs.insert_target_type<m> ();
+
+      // Note that while Objective-C is supported by MinGW GCC, it's unlikely
+      // Clang supports it when targeting MSVC or Emscripten. But let's keep
+      // the check simple for now.
+      //
+      if (mod->ctype == compiler_type::gcc ||
+          mod->ctype == compiler_type::clang)
+        mod->x_obj = &m::static_type;
+
+      return true;
+    }
+
     static const module_functions mod_functions[] =
     {
       // NOTE: don't forget to also update the documentation in init.hxx if
@@ -408,6 +454,7 @@ namespace build2
       {"c.guess",  nullptr, guess_init},
       {"c.config", nullptr, config_init},
       {"c",        nullptr, init},
+      {"c.objc",   nullptr, objc_init},
       {nullptr,    nullptr, nullptr}
     };
 

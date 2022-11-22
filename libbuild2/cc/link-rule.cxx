@@ -290,12 +290,14 @@ namespace build2
 
         if (p.is_a (x_src)                        ||
             (x_mod != nullptr && p.is_a (*x_mod)) ||
+            (x_obj != nullptr && p.is_a (*x_obj)) ||
             // Header-only X library (or library with C source and X header).
             (library          && x_header (p, false /* c_hdr */)))
         {
           r.seen_x = true;
         }
-        else if (p.is_a<c> ()            ||
+        else if (p.is_a<c> ()                       ||
+                 (x_obj != nullptr && p.is_a<m> ()) ||
                  // Header-only C library.
                  (library && p.is_a<h> ()))
         {
@@ -997,9 +999,9 @@ namespace build2
             //
 #if 1
             if (!um)
-              um = (p.is_a (x_src) ||
-                    p.is_a<c> ()   ||
-                    (x_mod != nullptr && p.is_a (*x_mod)) ||
+              um = (p.is_a (x_src) || p.is_a<c> ()                          ||
+                    (x_mod != nullptr && p.is_a (*x_mod))                   ||
+                    (x_obj != nullptr && (p.is_a (*x_obj) || p.is_a<m> ())) ||
                     x_header (p, true));
 #endif
 
@@ -1023,12 +1025,14 @@ namespace build2
         //   2 - mod
         //   3 - obj/bmi and also lib not to be cleaned (and other stuff)
         //
-        uint8_t m (0);
+        uint8_t mk (0);
 
         bool mod (x_mod != nullptr && p.is_a (*x_mod));
         bool hdr (false);
 
-        if (mod || p.is_a (x_src) || p.is_a<c> ())
+        if (mod                            ||
+            p.is_a (x_src) || p.is_a<c> () ||
+            (x_obj != nullptr && (p.is_a (*x_obj) || p.is_a<m> ())))
         {
           binless = binless && (mod ? user_binless : false);
 
@@ -1116,7 +1120,7 @@ namespace build2
           }
 
           pt = &r.first;
-          m = mod ? 2 : 1;
+          mk = mod ? 2 : 1;
         }
         else if (p.is_a<libx> () ||
                  p.is_a<liba> () ||
@@ -1134,7 +1138,7 @@ namespace build2
             pt = &p.search (t);
 
           if (skip (*pt))
-            m = 3; // Mark so it is not matched.
+            mk = 3; // Mark so it is not matched.
 
           // If this is the lib{}/libul{} group, then pick the appropriate
           // member. Also note this in prerequisite_target::include (used
@@ -1206,7 +1210,7 @@ namespace build2
              !pt->is_a<hbmix> () &&
              cast_false<bool> ((*pt)[b_binless])));
 
-          m = 3;
+          mk = 3;
         }
 
         if (user_binless && !binless)
@@ -1226,18 +1230,18 @@ namespace build2
 
           if (*um)
           {
-            if (m != 3)
+            if (mk != 3)
               fail << "unable to update during match prerequisite " << p <<
                 info << "updating this type of prerequisites during match is "
                    << "not supported by this rule";
 
-            m = 0;
+            mk = 0;
             pto.include |= prerequisite_target::include_udm;
             update_match = true;
           }
         }
 
-        mark (pt, m);
+        mark (pt, mk);
       }
 
       // Match lib{} first and then update during match (the only unmarked) in
@@ -1711,20 +1715,20 @@ namespace build2
         //  1 - completion
         //  2 - verification
         //
-        uint8_t m (unmark (pt));
+        uint8_t mk (unmark (pt));
 
-        if (m == 3)                // obj/bmi or lib not to be cleaned
+        if (mk == 3)                 // obj/bmi or lib not to be cleaned
         {
-          m = 1; // Just completion.
+          mk = 1; // Just completion.
 
           // Note that if this is a library not to be cleaned, we keep it
           // marked for completion (see the next phase).
         }
-        else if (m == 1 || m == 2) // Source/module chain.
+        else if (mk == 1 || mk == 2) // Source/module chain.
         {
-          bool mod (m == 2);
+          bool mod (mk == 2); // p is_a x_mod
 
-          m = 1;
+          mk = 1;
 
           const target& rt (*pt);
           bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
@@ -1875,7 +1879,10 @@ namespace build2
               // Most of the time we will have just a single source so fast-
               // path that case.
               //
-              if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
+              if (mod
+                  ? p1.is_a (*x_mod)
+                  : (p1.is_a (x_src) || p1.is_a<c> () ||
+                     (x_obj != nullptr && (p1.is_a (*x_obj) || p1.is_a<m> ()))))
               {
                 src = true;
                 continue; // Check the rest of the prerequisites.
@@ -1888,8 +1895,11 @@ namespace build2
                   p1.is_a<libx>  ()                                         ||
                   p1.is_a<liba> () || p1.is_a<libs> () || p1.is_a<libux> () ||
                   p1.is_a<bmi>  () || p1.is_a<bmix> ()                      ||
-                  (p.is_a (mod ? *x_mod : x_src) && x_header (p1))          ||
-                  (p.is_a<c> () && p1.is_a<h> ()))
+                  ((mod            ||
+                    p.is_a (x_src) ||
+                    (x_obj != nullptr && p.is_a (*x_obj))) && x_header (p1)) ||
+                  ((p.is_a<c> () ||
+                    (x_obj != nullptr && p.is_a<m> ())) && p1.is_a<h> ()))
                 continue;
 
               fail << "synthesized dependency for prerequisite " << p
@@ -1902,11 +1912,11 @@ namespace build2
             if (!src)
               fail << "synthesized dependency for prerequisite " << p
                    << " would be incompatible with existing target " << *pt <<
-                info << "no existing c/" << x_name << " source prerequisite" <<
+                info << "no existing c/" << x_lang << " source prerequisite" <<
                 info << "specify corresponding " << rtt.name << "{} "
                    << "dependency explicitly";
 
-            m = 2; // Needs verification.
+            mk = 2; // Needs verification.
           }
         }
         else // lib*{} or update during match
@@ -1948,7 +1958,7 @@ namespace build2
           }
         }
 
-        mark (pt, m);
+        mark (pt, mk);
       }
 
       // Process prerequisites, pass 3: match everything and verify chains.
@@ -1964,7 +1974,7 @@ namespace build2
         bool adhoc (pts[i].adhoc ());
         const target*& pt (pts[i++]);
 
-        uint8_t m;
+        uint8_t mk;
 
         if (pt == nullptr)
         {
@@ -1974,13 +1984,13 @@ namespace build2
             continue;
 
           pt = &p.search (t);
-          m = 1; // Mark for completion.
+          mk = 1; // Mark for completion.
         }
         else
         {
-          m = unmark (pt);
+          mk = unmark (pt);
 
-          if (m == 0)
+          if (mk == 0)
             continue; // Already matched.
 
           // If this is a library not to be cleaned, we can finally blank it
@@ -1994,7 +2004,7 @@ namespace build2
         }
 
         match_async (a, *pt, ctx.count_busy (), t[a].task_count);
-        mark (pt, m);
+        mark (pt, mk);
       }
 
       wg.wait ();
@@ -2009,15 +2019,15 @@ namespace build2
 
         // Skipped or not marked for completion.
         //
-        uint8_t m;
-        if (pt == nullptr || (m = unmark (pt)) == 0)
+        uint8_t mk;
+        if (pt == nullptr || (mk = unmark (pt)) == 0)
           continue;
 
         match_complete (a, *pt);
 
         // Nothing else to do if not marked for verification.
         //
-        if (m == 1)
+        if (mk == 1)
           continue;
 
         // Finish verifying the existing dependency (which is now matched)
@@ -2029,7 +2039,10 @@ namespace build2
 
         for (prerequisite_member p1: group_prerequisite_members (a, *pt))
         {
-          if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
+          if (mod
+              ? p1.is_a (*x_mod)
+              : (p1.is_a (x_src) || p1.is_a<c> () ||
+                 (x_obj != nullptr && (p1.is_a (*x_obj) || p1.is_a<m> ()))))
           {
             // Searching our own prerequisite is ok, p1 must already be
             // resolved.

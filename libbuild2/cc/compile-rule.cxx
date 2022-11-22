@@ -232,7 +232,8 @@ namespace build2
 
     // Note that we don't really need this for clean (where we only need
     // unrefined unit type) so we could make this update-only. But let's keep
-    // it simple for now.
+    // it simple for now. Note that now we do need the source prerequisite
+    // type in clean to deal with Objective-X.
     //
     struct compile_rule::match_data
     {
@@ -369,11 +370,13 @@ namespace build2
           case unit_type::non_modular:
           case unit_type::module_impl:
             {
+              bool obj (x_objective (md.src));
+
               o1 = "-x";
               switch (x_lang)
               {
-              case lang::c:   o2 = "c";   break;
-              case lang::cxx: o2 = "c++"; break;
+              case lang::c:   o2 = obj ? "objective-c"   : "c";   break;
+              case lang::cxx: o2 = obj ? "objective-c++" : "c++"; break;
               }
               break;
             }
@@ -475,7 +478,7 @@ namespace build2
         //
         if (ut == unit_type::module_header ? p.is_a (**x_hdr) || p.is_a<h> () :
             ut == unit_type::module_intf   ? p.is_a (*x_mod)                  :
-            p.is_a (x_src))
+            p.is_a (x_src) || (x_obj != nullptr && p.is_a (*x_obj)))
         {
           // Save in the target's auxiliary storage.
           //
@@ -1530,10 +1533,13 @@ namespace build2
       switch (a)
       {
       case perform_update_id: return move (md);
-      case perform_clean_id: return [this] (action a, const target& t)
+      case perform_clean_id:
         {
-          return perform_clean (a, t);
-        };
+          return [this, srct = &md.src.type ()] (action a, const target& t)
+          {
+            return perform_clean (a, t, *srct);
+          };
+        }
       default: return noop_recipe; // Configure update.
       }
     }
@@ -3012,6 +3018,10 @@ namespace build2
       file_cache::entry psrc;
       bool puse (true);
 
+      // Preprocessed file extension.
+      //
+      const char* pext (x_objective (src) ? x_obj_pext : x_pext);
+
       // Preprocesor mode that preserves as much information as possible while
       // still performing inclusions. Also serves as a flag indicating whether
       // this compiler uses the separate preprocess and compile setup.
@@ -3210,7 +3220,7 @@ namespace build2
       // Return NULL if the dependency information goes to stdout and a
       // pointer to the temporary file path otherwise.
       //
-      auto init_args = [a, &t, ot, li, reprocess,
+      auto init_args = [a, &t, ot, li, reprocess, pext,
                         &src, &md, &psrc, &sense_diag, &mod_mapper, &bs,
                         pp, &env, &args, &args_gen, &args_i, &out, &drm,
                         &so_map, this]
@@ -3436,7 +3446,7 @@ namespace build2
 
               msvc_sanitize_cl (args);
 
-              psrc = ctx.fcache.create (t.path () + x_pext, !modules);
+              psrc = ctx.fcache.create (t.path () + pext, !modules);
 
               if (fc)
               {
@@ -3583,7 +3593,7 @@ namespace build2
 
                 // Preprocessor output.
                 //
-                psrc = ctx.fcache.create (t.path () + x_pext, !modules);
+                psrc = ctx.fcache.create (t.path () + pext, !modules);
                 args.push_back ("-o");
                 args.push_back (psrc.path ().string ().c_str ());
               }
@@ -3878,7 +3888,7 @@ namespace build2
               if (modules && (ctype != compiler_type::msvc ||
                               md.type != unit_type::module_intf))
               {
-                result.first = ctx.fcache.create_existing (t.path () + x_pext);
+                result.first = ctx.fcache.create_existing (t.path () + pext);
                 result.second = true;
               }
 
@@ -7247,7 +7257,7 @@ namespace build2
       // @@ TODO: why don't we print env (here and/or below)? Also link rule.
       //
       if (verb == 1)
-        print_diag (x_name, s, t);
+        print_diag (x_objective (s) ? x_obj_name : x_name, s, t);
       else if (verb == 2)
         print_process (args);
 
@@ -7470,25 +7480,25 @@ namespace build2
     }
 
     target_state compile_rule::
-    perform_clean (action a, const target& xt) const
+    perform_clean (action a, const target& xt, const target_type& srct) const
     {
       const file& t (xt.as<file> ());
 
+      // Preprocessed file extension.
+      //
+      const char* pext (x_objective (srct) ? x_obj_pext : x_pext);
+
       // Compressed preprocessed file extension.
       //
-      auto cpext = [this, &t, s = string ()] () mutable -> const char*
-      {
-        return (s = t.ctx.fcache.compressed_extension (x_pext)).c_str ();
-      };
+      string cpext (t.ctx.fcache.compressed_extension (pext));
 
       clean_extras extras;
-
       switch (ctype)
       {
-      case compiler_type::gcc:   extras = {".d", x_pext, cpext (), ".t"};          break;
-      case compiler_type::clang: extras = {".d", x_pext, cpext ()};                break;
-      case compiler_type::msvc:  extras = {".d", x_pext, cpext (), ".idb", ".pdb"};break;
-      case compiler_type::icc:   extras = {".d"};                                  break;
+      case compiler_type::gcc:   extras = {".d", pext, cpext.c_str (), ".t"};           break;
+      case compiler_type::clang: extras = {".d", pext, cpext.c_str ()};                 break;
+      case compiler_type::msvc:  extras = {".d", pext, cpext.c_str (), ".idb", ".pdb"}; break;
+      case compiler_type::icc:   extras = {".d"};                                       break;
       }
 
       return perform_clean_extra (a, t, extras);

@@ -22,6 +22,8 @@ namespace build2
     // `c.guess`  -- registers and sets some variables.
     // `c.config` -- loads c.guess and sets more variables.
     // `c`        -- loads c.config and registers target types and rules.
+    // `c.objc`   -- registers m{} target type and enables Objective-C
+    //               compilation.
     //
     extern "C" LIBBUILD2_C_SYMEXPORT const module_functions*
     build2_c_load ();

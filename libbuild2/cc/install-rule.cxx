@@ -90,7 +90,8 @@ namespace build2
       {
         return (x_header (p)   ||
                 p.is_a (x_src) ||
-                (x_mod != nullptr && p.is_a (*x_mod)));
+                (x_mod != nullptr && p.is_a (*x_mod)) ||
+                (x_obj != nullptr && p.is_a (*x_obj)));
       };
 
       if (t.is_a<exe> ())
@@ -338,7 +339,8 @@ namespace build2
       {
         return (x_header (p)   ||
                 p.is_a (x_src) ||
-                (x_mod != nullptr && p.is_a (*x_mod)));
+                (x_mod != nullptr && p.is_a (*x_mod)) ||
+                (x_obj != nullptr && p.is_a (*x_obj)));
       };
 
       if (t.is_a<libue> ())

@@ -18,6 +18,7 @@ namespace build2
   {
     using cc::h;
     using cc::c;
+    using cc::m;
 
     class LIBBUILD2_CXX_SYMEXPORT hxx: public cc::cc
     {
@@ -80,6 +81,21 @@ namespace build2
     {
     public:
       mxx (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
+
+    public:
+      static const target_type static_type;
+    };
+
+    // Objective-C++ source file.
+    //
+    class LIBBUILD2_CXX_SYMEXPORT mm: public cc::cc
+    {
+    public:
+      mm (context& c, dir_path d, dir_path o, string n)
         : cc (c, move (d), move (o), move (n))
       {
         dynamic_type = &static_type;

@@ -22,6 +22,8 @@ namespace build2
     // `cxx.guess`  -- registers and sets some variables.
     // `cxx.config` -- loads cxx.guess and sets more variables.
     // `cxx`        -- loads cxx.config and registers target types and rules.
+    // `cxx.objcxx` -- registers mm{} target type and enables Objective-C++
+    //                 compilation.
     //
     extern "C" LIBBUILD2_CXX_SYMEXPORT const module_functions*
     build2_cxx_load ();

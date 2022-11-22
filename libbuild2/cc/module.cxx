@@ -962,6 +962,9 @@ namespace build2
       {
         using namespace install;
 
+        // Note: not registering x_obj (it's registered seperately by the
+        // x.objx module).
+        //
         rs.insert_target_type (x_src);
 
         auto insert_hdr = [&rs, install_loaded] (const target_type& tt)

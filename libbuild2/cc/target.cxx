@@ -25,7 +25,6 @@ namespace build2
     };
 
     extern const char h_ext_def[] = "h";
-
     const target_type h::static_type
     {
       "h",
@@ -40,7 +39,6 @@ namespace build2
     };
 
     extern const char c_ext_def[] = "c";
-
     const target_type c::static_type
     {
       "c",
@@ -54,8 +52,21 @@ namespace build2
       target_type::flag::none
     };
 
-    extern const char pc_ext[] = "pc"; // VC14 rejects constexpr.
+    extern const char m_ext_def[] = "m";
+    const target_type m::static_type
+    {
+      "m",
+      &cc::static_type,
+      &target_factory<m>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<m_ext_def>,
+      &target_pattern_var<m_ext_def>,
+      nullptr,
+      &file_search,
+      target_type::flag::none
+    };
 
+    extern const char pc_ext[] = "pc"; // VC14 rejects constexpr.
     const target_type pc::static_type
     {
       "pc",
@@ -70,7 +81,6 @@ namespace build2
     };
 
     extern const char pca_ext[] = "static.pc"; // VC14 rejects constexpr.
-
     const target_type pca::static_type
     {
       "pca",
@@ -85,7 +95,6 @@ namespace build2
     };
 
     extern const char pcs_ext[] = "shared.pc"; // VC14 rejects constexpr.
-
     const target_type pcs::static_type
     {
       "pcs",

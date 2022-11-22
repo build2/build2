@@ -32,10 +32,12 @@ namespace build2
     {
       lang x_lang;
 
-      const char* x;         // Module name ("c", "cxx").
-      const char* x_name;    // Compiler name ("c", "c++").
-      const char* x_default; // Compiler default ("gcc", "g++").
-      const char* x_pext;    // Preprocessed source extension (".i", ".ii").
+      const char* x;          // Module name ("c", "cxx").
+      const char* x_name;     // Compiler name ("c", "c++").
+      const char* x_obj_name; // Same for Objective-X ("obj-c", "obj-c++").
+      const char* x_default;  // Compiler default ("gcc", "g++").
+      const char* x_pext;     // Preprocessed source extension (".i", ".ii").
+      const char* x_obj_pext; // Same for Objective-X (".mi", ".mii").
 
       // Array of modules that can hint us the toolchain, terminate with
       // NULL.
@@ -210,8 +212,22 @@ namespace build2
       size_t sys_lib_dirs_extra; // First trailing extra entry (size if none).
       size_t sys_hdr_dirs_extra;
 
+      // Note that x_obj is patched in by the x.objx module. So it stays NULL
+      // if Objective-X compilation is not enabled.
+      //
       const target_type& x_src; // Source target type (c{}, cxx{}).
       const target_type* x_mod; // Module target type (mxx{}), if any.
+      const target_type* x_obj; // Objective-X target type (m{}, mm{}).
+
+      // Check if an object (target, prerequisite, etc) is an Objective-X
+      // source.
+      //
+      template <typename T>
+      bool
+      x_objective (const T& t) const
+      {
+        return x_obj != nullptr && t.is_a (*x_obj);
+      }
 
       // Array of target types that are considered the X-language headers
       // (excluding h{} except for C). Keep them in the most likely to appear
@@ -219,6 +235,8 @@ namespace build2
       //
       const target_type* const* x_hdr;
 
+      // Check if an object (target, prerequisite, etc) is a header.
+      //
       template <typename T>
       bool
       x_header (const T& t, bool c_hdr = true) const
@@ -283,7 +301,8 @@ namespace build2
             sys_lib_dirs_mode (slm), sys_hdr_dirs_mode (shm),
             sys_mod_dirs_mode (smm),
             sys_lib_dirs_extra (sle), sys_hdr_dirs_extra (she),
-            x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
+            x_src (src), x_mod (mod), x_obj (nullptr),
+            x_hdr (hdr), x_inc (inc) {}
     };
 
     class LIBBUILD2_CC_SYMEXPORT common: public data

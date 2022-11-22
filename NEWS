@@ -1,5 +1,30 @@
 Version 0.16.0
 
+  * Support for Objective-C/C++ compilation.
+
+    Specifically, the c and cxx modules now provide the c.objc and cxx.objcxx
+    submodules which can be loaded in order to register the m{}/mm{} target
+    types and enable Objective-C/C++ compilation in the c and cxx compile
+    rules. Note that c.objc and cxx.objcxx must be loaded after the c and cxx
+    modules, respectively, and while the m{}/mm{} target types are registered
+    unconditionally, compilation is only enabled if the C/C++ compiler
+    supports Objective-C/C++ for this target platform. Typical usage:
+
+    # root.build
+    #
+    using cxx
+    using cxx.objcxx
+
+    # buildfile
+    #
+    lib{hello}: {hxx cxx}{*}
+    lib{hello}: mm{*}: include = ($cxx.target.class  == 'macos')
+
+    Note also that while there is support for linking Objective-C/C++
+    executables and libraries, this is done using the C/C++ compiler driver
+    and no attempt to automatically link any necessary Objective-C runtime
+    (such as -lobjc) is made.
+
   * Low verbosity diagnostics rework.
 
     The low verbosity (level 1) rule diagnostics format has been adjusted to

@@ -58,7 +58,7 @@ namespace build2
       perform_update (action, const target&, match_data&) const;
 
       target_state
-      perform_clean (action, const target&) const;
+      perform_clean (action, const target&, const target_type&) const;
 
     public:
       using appended_libraries = small_vector<const target*, 256>;
