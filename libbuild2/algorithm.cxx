@@ -434,6 +434,73 @@ namespace build2
     t[a].rule = rm;
   }
 
+  // Note: not static since also called by rule::sub_match().
+  //
+  const rule_match*
+  match_adhoc_recipe (action a, target& t, match_extra& me)
+  {
+    auto df = make_diag_frame (
+      [a, &t](const diag_record& dr)
+      {
+        if (verb != 0)
+          dr << info << "while matching ad hoc recipe to " << diag_do (a, t);
+      });
+
+    auto match = [a, &t, &me] (const adhoc_rule& r, bool fallback) -> bool
+    {
+      me.init (fallback);
+
+      if (auto* f = (a.outer ()
+                     ? t.ctx.current_outer_oif
+                     : t.ctx.current_inner_oif)->adhoc_match)
+        return f (r, a, t, string () /* hint */, me);
+      else
+        return r.match (a, t, string () /* hint */, me);
+    };
+
+    // The action could be Y-for-X while the ad hoc recipes are always for
+    // X. So strip the Y-for part for comparison (but not for the match()
+    // calls; see below for the hairy inner/outer semantics details).
+    //
+    action ca (a.inner ()
+               ? a
+               : action (a.meta_operation (), a.outer_operation ()));
+
+    auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
+    auto i (find_if (
+              b, e,
+              [&match, ca] (const shared_ptr<adhoc_rule>& r)
+              {
+                auto& as (r->actions);
+                return (find (as.begin (), as.end (), ca) != as.end () &&
+                        match (*r, false));
+              }));
+
+    if (i == e)
+    {
+      // See if we have a fallback implementation.
+      //
+      // See the adhoc_rule::reverse_fallback() documentation for details on
+      // what's going on here.
+      //
+      i = find_if (
+        b, e,
+        [&match, ca, &t] (const shared_ptr<adhoc_rule>& r)
+        {
+          auto& as (r->actions);
+
+          // Note that the rule could be there but not match (see above),
+          // thus this extra check.
+          //
+          return (find (as.begin (), as.end (), ca) == as.end () &&
+                  r->reverse_fallback (ca, t.type ())            &&
+                  match (*r, true));
+        });
+    }
+
+    return i != e ? &(*i)->rule_match : nullptr;
+  }
+
   // Return the matching rule or NULL if no match and try_match is true.
   //
   const rule_match*
@@ -455,67 +522,8 @@ namespace build2
     //
     if (!t.adhoc_recipes.empty ())
     {
-      auto df = make_diag_frame (
-        [a, &t](const diag_record& dr)
-        {
-          if (verb != 0)
-            dr << info << "while matching ad hoc recipe to " << diag_do (a, t);
-        });
-
-      auto match = [a, &t, &me] (const adhoc_rule& r, bool fallback) -> bool
-      {
-        me.init (fallback);
-
-        if (auto* f = (a.outer ()
-                       ? t.ctx.current_outer_oif
-                       : t.ctx.current_inner_oif)->adhoc_match)
-          return f (r, a, t, string () /* hint */, me);
-        else
-          return r.match (a, t, string () /* hint */, me);
-      };
-
-      // The action could be Y-for-X while the ad hoc recipes are always for
-      // X. So strip the Y-for part for comparison (but not for the match()
-      // calls; see below for the hairy inner/outer semantics details).
-      //
-      action ca (a.inner ()
-                 ? a
-                 : action (a.meta_operation (), a.outer_operation ()));
-
-      auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
-      auto i (find_if (
-                b, e,
-                [&match, ca] (const shared_ptr<adhoc_rule>& r)
-                {
-                  auto& as (r->actions);
-                  return (find (as.begin (), as.end (), ca) != as.end () &&
-                          match (*r, false));
-                }));
-
-      if (i == e)
-      {
-        // See if we have a fallback implementation.
-        //
-        // See the adhoc_rule::reverse_fallback() documentation for details on
-        // what's going on here.
-        //
-        i = find_if (
-          b, e,
-          [&match, ca, &t] (const shared_ptr<adhoc_rule>& r)
-          {
-            auto& as (r->actions);
-
-            // Note that the rule could be there but not match (see above),
-            // thus this extra check.
-            //
-            return (find (as.begin (), as.end (), ca) == as.end () &&
-                    r->reverse_fallback (ca, t.type ())            &&
-                    match (*r, true));
-          });
-      }
-
-      if (i != e)
-        return &(*i)->rule_match;
+      if (const rule_match* r = match_adhoc_recipe (a, t, me))
+        return r;
     }
 
     // If this is an outer operation (Y-for-X), then we look for rules

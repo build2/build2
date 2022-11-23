@@ -22,7 +22,8 @@ namespace build2
   // you need to modify some state (e.g., counters or some such), then make
   // sure things are MT-safe.
   //
-  // Note: match() is only called once but may not be followed by apply().
+  // Note: match() could be called multiple times (so should be idempotent)
+  // and it may not be followed by apply().
   //
   // The hint argument is the rule hint, if any, that was used to select this
   // rule. While normally not factored into the match decision, a rule may
@@ -72,10 +73,11 @@ namespace build2
     // only if our update rule also matches.
     //
     // Arranging this, however, is not a simple matter of calling the other
-    // rule's match(): we also have to take into account the rule hints for
-    // that operation. This helper performs all the necessary steps. Note:
-    // should only be called from match() (see target::find_hint() for
-    // details).
+    // rule's match(): we also have to take into account ad hoc recipes and
+    // rule hints for that operation. This helper performs all the necessary
+    // checks. Note: should only be called from match() (see
+    // target::find_hint() for details). Note also that ad hoc recipes are
+    // checked for hint_op, not action's operation.
     //
     bool
     sub_match (const string& rule_name, operation_id hint_op,

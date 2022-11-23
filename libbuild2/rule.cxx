@@ -30,10 +30,25 @@ namespace build2
     return nullptr;
   }
 
+  const rule_match*
+  match_adhoc_recipe (action, target&, match_extra&); // algorithm.cxx
+
   bool rule::
   sub_match (const string& n, operation_id o,
              action a, target& t, match_extra& me) const
   {
+    // First check for an ad hoc recipe (see match_rule() for details).
+    //
+    if (!t.adhoc_recipes.empty ())
+    {
+      // Use scratch match_extra since if there is no recipe, then we don't
+      // want to keep any changes and if there is, then we want it discarded.
+      //
+      match_extra s;
+      if (match_adhoc_recipe (action (a.meta_operation (), o), t, s) != nullptr)
+        return false;
+    }
+
     const string& h (t.find_hint (o));
     return name_rule_map::sub (h, n) && match (a, t, h, me);
   }
@@ -56,6 +71,13 @@ namespace build2
   sub_match (const string& n, operation_id o,
              action a, target& t) const
   {
+    if (!t.adhoc_recipes.empty ())
+    {
+      match_extra s;
+      if (match_adhoc_recipe (action (a.meta_operation (), o), t, s) != nullptr)
+        return false;
+    }
+
     return name_rule_map::sub (t.find_hint (o), n) && match (a, t);
   }
 
