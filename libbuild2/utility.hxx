@@ -276,7 +276,7 @@ namespace build2
              const char* const* args,
              int in = 0,
              int out = 1,
-             process::pipe = {-1, 2},
+             int err = 2,
              const location& = {});
 
   inline process
@@ -285,10 +285,10 @@ namespace build2
              const cstrings& args,
              int in = 0,
              int out = 1,
-             process::pipe err = {-1, 2},
+             int err = 2,
              const location& l = {})
   {
-    return run_start (verbosity, pe, args.data (), in, out, move (err), l);
+    return run_start (verbosity, pe, args.data (), in, out, err, l);
   }
 
   inline process
@@ -296,10 +296,10 @@ namespace build2
              const char* const* args,
              int in = 0,
              int out = 1,
-             process::pipe err = {-1, 2},
+             int err = 2,
              const location& l = {})
   {
-    return run_start (verb_never, pe, args, in, out, move (err), l);
+    return run_start (verb_never, pe, args, in, out, err, l);
   }
 
   inline process
@@ -307,10 +307,10 @@ namespace build2
              const cstrings& args,
              int in = 0,
              int out = 1,
-             process::pipe err = {-1, 2},
+             int err = 2,
              const location& l = {})
   {
-    return run_start (pe, args.data (), in, out, move (err), l);
+    return run_start (pe, args.data (), in, out, err, l);
   }
 
   // As above, but search for the process (including updating args[0]) and
@@ -321,7 +321,7 @@ namespace build2
              const char* args[],
              int in = 0,
              int out = 1,
-             process::pipe err = {-1, 2},
+             int err = 2,
              const char* const* env = nullptr,
              const dir_path& cwd = {},
              const location& l = {})
@@ -329,7 +329,7 @@ namespace build2
     process_path pp (run_search (args[0], l));
     return run_start (verbosity,
                       process_env (pp, cwd, env), args,
-                      in, out, move (err),
+                      in, out, err,
                       l);
   }
 
@@ -338,15 +338,12 @@ namespace build2
              cstrings& args,
              int in = 0,
              int out = 1,
-             process::pipe err = {-1, 2},
+             int err = 2,
              const char* const* env = nullptr,
              const dir_path& cwd = {},
              const location& l = {})
   {
-    return run_start (verbosity,
-                      args.data (),
-                      in, out, move (err),
-                      env, cwd, l);
+    return run_start (verbosity, args.data (), in, out, err, env, cwd, l);
   }
 
   // Wait for process termination returning true if the process exited
@@ -485,12 +482,6 @@ namespace build2
        const char* const* args,
        uint16_t finish_verbosity);
 
-  LIBBUILD2_SYMEXPORT void
-  run (diag_buffer&,
-       const process_env& pe,
-       const char* const* args,
-       uint16_t finish_verbosity);
-
   inline void
   run (context& ctx,
        const process_env& pe,
@@ -498,15 +489,6 @@ namespace build2
        uint16_t finish_verbosity)
   {
     run (ctx, pe, args.data (), finish_verbosity);
-  }
-
-  inline void
-  run (diag_buffer& dbuf,
-       const process_env& pe,
-       const cstrings& args,
-       uint16_t finish_verbosity)
-  {
-    run (dbuf, pe, args.data (), finish_verbosity);
   }
 
   // As above but pass cwd/env vars as arguments rather than as part of
@@ -524,17 +506,6 @@ namespace build2
   }
 
   inline void
-  run (diag_buffer& dbuf,
-       const process_path& p,
-       const char* const* args,
-       uint16_t finish_verbosity,
-       const char* const* env,
-       const dir_path& cwd = {})
-  {
-    run (dbuf, process_env (p, cwd, env), args, finish_verbosity);
-  }
-
-  inline void
   run (context& ctx,
        const process_path& p,
        const cstrings& args,
@@ -543,17 +514,6 @@ namespace build2
        const dir_path& cwd = {})
   {
     run (ctx, p, args.data (), finish_verbosity, env, cwd);
-  }
-
-  inline void
-  run (diag_buffer& dbuf,
-       const process_path& p,
-       const cstrings& args,
-       uint16_t finish_verbosity,
-       const char* const* env,
-       const dir_path& cwd = {})
-  {
-    run (dbuf, p, args.data (), finish_verbosity, env, cwd);
   }
 
   // Start the process as above and then call the specified function on each
@@ -611,31 +571,6 @@ namespace build2
   }
 
   template <typename T, typename F>
-  T
-  run (diag_buffer&,
-       uint16_t verbosity,
-       const process_env&,
-       const char* const* args,
-       F&&,
-       sha256* checksum = nullptr);
-
-  template <typename T, typename F>
-  inline T
-  run (diag_buffer& dbuf,
-       uint16_t verbosity,
-       const process_env& pe,
-       const cstrings& args,
-       F&& f,
-       sha256* checksum = nullptr)
-  {
-    return run<T> (dbuf,
-                   verbosity,
-                   pe, args.data (),
-                   forward<F> (f),
-                   checksum);
-  }
-
-  template <typename T, typename F>
   inline T
   run (context&,
        const process_env&,
@@ -666,31 +601,6 @@ namespace build2
 
   template <typename T, typename F>
   inline T
-  run (diag_buffer&,
-       const process_env&,
-       const char* const* args,
-       uint16_t finish_verbosity,
-       F&&,
-       sha256* checksum = nullptr);
-
-  template <typename T, typename F>
-  inline T
-  run (diag_buffer& dbuf,
-       const process_env& pe,
-       const cstrings& args,
-       uint16_t finish_verbosity,
-       F&& f,
-       sha256* checksum = nullptr)
-  {
-    return run<T> (dbuf,
-                   pe, args.data (),
-                   finish_verbosity,
-                   forward<F> (f),
-                   checksum);
-  }
-
-  template <typename T, typename F>
-  inline T
   run (context& ctx,
        uint16_t verbosity,
        const char* args[],
@@ -722,37 +632,6 @@ namespace build2
                    args.data (),
                    forward<F> (f),
                    error, ignore_exit, checksum);
-  }
-
-  template <typename T, typename F>
-  inline T
-  run (diag_buffer& dbuf,
-       uint16_t verbosity,
-       const char* args[],
-       F&& f,
-       sha256* checksum = nullptr)
-  {
-    process_path pp (run_search (args[0]));
-    return run<T> (dbuf,
-                   verbosity,
-                   pp, args,
-                   forward<F> (f),
-                   checksum);
-  }
-
-  template <typename T, typename F>
-  inline T
-  run (diag_buffer& dbuf,
-       uint16_t verbosity,
-       cstrings& args,
-       F&& f,
-       sha256* checksum = nullptr)
-  {
-    return run<T> (dbuf,
-                   verbosity,
-                   args.data (),
-                   forward<F> (f),
-                   checksum);
   }
 
   // As above but run a program without any arguments or with one argument.
@@ -860,16 +739,6 @@ namespace build2
        bool trim = true,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr);
-
-  LIBBUILD2_SYMEXPORT void
-  run (diag_buffer& dbuf,
-       uint16_t verbosity,
-       const process_env&,
-       const char* const* args,
-       uint16_t finish_verbosity,
-       const function<bool (string& line, bool last)>&,
-       bool trim = true,
        sha256* checksum = nullptr);
 
   // Concatenate the program path and arguments into a shallow NULL-terminated

@@ -218,7 +218,7 @@ namespace build2
              const char* const* args,
              int in,
              int out,
-             process::pipe err,
+             int err,
              const location& l)
   try
   {
@@ -232,7 +232,7 @@ namespace build2
       args,
       in,
       out,
-      move (err),
+      err,
       pe.cwd != nullptr ? pe.cwd->string ().c_str () : nullptr,
       pe.vars);
   }
@@ -379,24 +379,15 @@ namespace build2
     }
     else
     {
-      diag_buffer dbuf (ctx);
-      run (dbuf, pe, args, v);
+      process pr (run_start (pe,
+                             args,
+                             0                       /* stdin  */,
+                             1                       /* stdout */,
+                             diag_buffer::pipe (ctx) /* stderr */));
+      diag_buffer dbuf (ctx, args[0], pr);
+      dbuf.read ();
+      run_finish (dbuf, args, pr, v);
     }
-  }
-
-  void
-  run (diag_buffer& dbuf,
-       const process_env& pe,
-       const char* const* args,
-       uint16_t v)
-  {
-    process pr (run_start (pe,
-                           args,
-                           0                   /* stdin  */,
-                           1                   /* stdout */,
-                           dbuf.open (args[0]) /* stderr */));
-    dbuf.read ();
-    run_finish (dbuf, args, pr, v);
   }
 
   bool
@@ -413,101 +404,73 @@ namespace build2
   {
     assert (!err || !ignore_exit);
 
-    if (err && ctx.phase != run_phase::load)
+    if (!err || ctx.phase == run_phase::load)
     {
-      diag_buffer dbuf (ctx);
-      run (dbuf,
-           verbosity,
-           pe, args,
-           finish_verbosity,
-           f,
-           tr,
-           checksum);
-      return true;
-    }
+      process pr (run_start (verbosity,
+                             pe,
+                             args,
+                             0           /* stdin */,
+                             -1          /* stdout */,
+                             err ? 2 : 1 /* stderr */));
 
-    process pr (run_start (verbosity,
-                           pe,
-                           args,
-                           0  /* stdin */,
-                           -1 /* stdout */,
-                           {-1, err ? 2 : 1}));
-
-    string l; // Last line of output.
-    try
-    {
-      ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
-
-      bool empty (true);
-
-      // Make sure we keep the last line.
-      //
-      for (bool last (is.peek () == ifdstream::traits_type::eof ());
-           !last && getline (is, l); )
+      string l; // Last line of output.
+      try
       {
-        last = (is.peek () == ifdstream::traits_type::eof ());
+        ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
 
-        if (tr)
-          trim (l);
+        bool empty (true);
 
-        if (checksum != nullptr)
-          checksum->append (l);
-
-        if (empty)
+        // Make sure we keep the last line.
+        //
+        for (bool last (is.peek () == ifdstream::traits_type::eof ());
+             !last && getline (is, l); )
         {
-          empty = f (l, last);
+          last = (is.peek () == ifdstream::traits_type::eof ());
 
-          if (!empty && checksum == nullptr)
-            break;
+          if (tr)
+            trim (l);
+
+          if (checksum != nullptr)
+            checksum->append (l);
+
+          if (empty)
+          {
+            empty = f (l, last);
+
+            if (!empty && checksum == nullptr)
+              break;
+          }
         }
+
+        is.close ();
+      }
+      catch (const io_error& e)
+      {
+        if (run_wait (args, pr))
+          fail << "io error reading " << args[0] << " output: " << e << endf;
+
+        // If the child process has failed then assume the io error was
+        // caused by that and let run_finish() deal with it.
       }
 
-      is.close ();
+      // Omit normal exit code diagnostics if err is false.
+      //
+      if (!(run_finish_impl (args, pr, err, l, finish_verbosity, !err) ||
+            ignore_exit))
+        return false;
     }
-    catch (const io_error& e)
+    else
     {
-      if (run_wait (args, pr))
-        fail << "io error reading " << args[0] << " output: " << e << endf;
+      // We have to use the non-blocking setup since we have to read from stdout
+      // and stderr simultaneously.
+      //
+      process pr (run_start (verbosity,
+                             pe,
+                             args,
+                             0                       /* stdin */,
+                             -1                      /* stdout */,
+                             diag_buffer::pipe (ctx) /* stderr */));
 
-      // If the child process has failed then assume the io error was
-      // caused by that and let run_finish() deal with it.
-    }
-
-    // Omit normal exit code diagnostics if err is false.
-    //
-    if (!(run_finish_impl (args, pr, err, l, finish_verbosity, !err) ||
-          ignore_exit))
-      return false;
-
-    return true;
-  }
-
-  void
-  run (diag_buffer& dbuf,
-       uint16_t verbosity,
-       const process_env& pe,
-       const char* const* args,
-       uint16_t finish_verbosity,
-       const function<bool (string&, bool)>& f,
-       bool tr,
-       sha256* checksum)
-  {
-    // We have to use the non-blocking setup since we have to read from stdout
-    // and stderr simultaneously.
-    //
-    process pr (
-      run_start (verbosity,
-                 pe,
-                 args,
-                 0                                /* stdin */,
-                 -1                               /* stdout */,
-                 dbuf.open (args[0],
-                            false /* force */,
-                            fdstream_mode::non_blocking |
-                            fdstream_mode::skip)  /* stderr */));
-
-    try
-    {
       // Note that while we read both streams until eof in the normal
       // circumstances, we cannot use fdstream_mode::skip for the exception
       // case on both of them: we may end up being blocked trying to read one
@@ -516,95 +479,102 @@ namespace build2
       // hard. The latter should happen first so the order of the dbuf/is
       // variables is important.
       //
-      ifdstream is (move (pr.in_ofd),
-                    fdstream_mode::non_blocking,
-                    ifdstream::badbit);
-
-      bool empty (true);
-
-      // Read until we reach EOF on all streams.
-      //
-      // Note that if dbuf is not opened, then we automatically get an
-      // inactive nullfd entry.
-      //
-      fdselect_set fds {is.fd (), dbuf.is.fd ()};
-      fdselect_state& ist (fds[0]);
-      fdselect_state& dst (fds[1]);
-
-      // To detect the last line we are going keep the previous line and
-      // only call the function once we've read the next.
-      //
-      optional<string> pl;
-
-      for (string l; ist.fd != nullfd || dst.fd != nullfd; )
+      diag_buffer dbuf (ctx, args[0], pr, (fdstream_mode::non_blocking |
+                                           fdstream_mode::skip));
+      try
       {
-        if (ist.fd != nullfd && getline_non_blocking (is, l))
+        ifdstream is (move (pr.in_ofd),
+                      fdstream_mode::non_blocking,
+                      ifdstream::badbit);
+
+        bool empty (true);
+
+        // Read until we reach EOF on all streams.
+        //
+        // Note that if dbuf is not opened, then we automatically get an
+        // inactive nullfd entry.
+        //
+        fdselect_set fds {is.fd (), dbuf.is.fd ()};
+        fdselect_state& ist (fds[0]);
+        fdselect_state& dst (fds[1]);
+
+        // To detect the last line we are going keep the previous line and
+        // only call the function once we've read the next.
+        //
+        optional<string> pl;
+
+        for (string l; ist.fd != nullfd || dst.fd != nullfd; )
         {
-          if (eof (is))
+          if (ist.fd != nullfd && getline_non_blocking (is, l))
           {
-            if (pl && empty)
-              f (*pl, true /* last */);
-
-            ist.fd = nullfd;
-          }
-          else
-          {
-            if (checksum != nullptr || empty)
+            if (eof (is))
             {
-              if (tr)
-                trim (l);
+              if (pl && empty)
+                f (*pl, true /* last */);
 
-              if (checksum != nullptr)
-                checksum->append (l);
-
-              if (empty)
+              ist.fd = nullfd;
+            }
+            else
+            {
+              if (checksum != nullptr || empty)
               {
-                if (pl)
+                if (tr)
+                  trim (l);
+
+                if (checksum != nullptr)
+                  checksum->append (l);
+
+                if (empty)
                 {
-                  if ((empty = f (*pl, false /* last */)))
+                  if (pl)
+                  {
+                    if ((empty = f (*pl, false /* last */)))
                       swap (l, *pl);
 
-                  // Note that we cannot bail out like in the other version
-                  // since we don't have the skip mode on is. Plus, we might
-                  // still have the diagnostics.
+                    // Note that we cannot bail out like in the other version
+                    // since we don't have the skip mode on is. Plus, we might
+                    // still have the diagnostics.
+                  }
+                  else
+                    pl = move (l);
                 }
-                else
-                  pl = move (l);
               }
+
+              l.clear ();
             }
 
-            l.clear ();
+            continue;
           }
 
-          continue;
+          ifdselect (fds);
+
+          if (dst.ready)
+          {
+            if (!dbuf.read ())
+              dst.fd = nullfd;
+          }
         }
 
-        ifdselect (fds);
-
-        if (dst.ready)
-        {
-          if (!dbuf.read ())
-            dst.fd = nullfd;
-        }
+        is.close ();
       }
-
-      is.close ();
-    }
-    catch (const io_error& e)
-    {
-      if (run_wait (args, pr))
+      catch (const io_error& e)
       {
-        // Note that we will drop the diagnostics in this case since reading
-        // it could have been the cause of this error.
-        //
-        fail << "io error reading " << args[0] << " output: " << e << endf;
+        if (run_wait (args, pr))
+        {
+          // Note that we will drop the diagnostics in this case since reading
+          // it could have been the cause of this error.
+          //
+          fail << "io error reading " << args[0] << " output: " << e << endf;
+        }
+
+        // If the child process has failed then assume the io error was caused
+        // by that and let run_finish() deal with it.
       }
 
-      // If the child process has failed then assume the io error was
-      // caused by that and let run_finish() deal with it.
+      run_finish_impl (dbuf, args, pr, true /* fail */, finish_verbosity);
     }
 
-    run_finish_impl (dbuf, args, pr, true /* fail */, finish_verbosity);
+    return true;
   }
 
   cstrings

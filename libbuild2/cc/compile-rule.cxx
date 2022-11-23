@@ -4009,13 +4009,14 @@ namespace build2
                               args,
                               -1,
                               -1,
-                              dbuf.open (args[0],
-                                         false /* force */,
-                                         fdstream_mode::non_blocking |
-                                         fdstream_mode::skip),
+                              diag_buffer::pipe (ctx),
                               nullptr, // CWD
                               env.empty () ? nullptr : env.data ());
 
+                dbuf.open (args[0],
+                           move (pr.in_efd),
+                           fdstream_mode::non_blocking |
+                           fdstream_mode::skip);
                 try
                 {
                   gcc_module_mapper_state mm_state (skip_count, imports);
@@ -4126,8 +4127,6 @@ namespace build2
                 // diagnostics (if things go badly we will restart with this
                 // support).
                 //
-                using pipe = process::pipe;
-
                 if (drmp == nullptr) // Dependency info goes to stdout.
                 {
                   assert (!sense_diag); // Note: could support if necessary.
@@ -4135,39 +4134,42 @@ namespace build2
                   // For VC with /P the dependency info and diagnostics all go
                   // to stderr so redirect it to stdout.
                   //
-                  pipe err (
-                    cclass == compiler_class::msvc ? pipe {-1,  1} : // stdout
-                    !gen                           ? pipe {-1, -2} : // null
-                    dbuf.open (args[0],
-                               sense_diag /* force */,
-                               fdstream_mode::non_blocking));
+                  int err (
+                    cclass == compiler_class::msvc ?  1 : // stdout
+                    !gen                           ? -2 : // /dev/null
+                    diag_buffer::pipe (ctx, sense_diag /* force */));
 
                   pr = process (
                     cpath,
                     args,
                     0,
                     -1,
-                    move (err),
+                    err,
                     nullptr, // CWD
                     env.empty () ? nullptr : env.data ());
+
+                  dbuf.open (args[0],
+                             move (pr.in_efd),
+                             fdstream_mode::non_blocking); // Skip on stdout.
                 }
                 else // Dependency info goes to temporary file.
                 {
                   // Since we only need to read from one stream (dbuf) let's
                   // use the simpler blocking setup.
                   //
-                  pipe err (
-                    !gen && !sense_diag ? pipe {-1, -2} : // null
-                    dbuf.open (args[0], sense_diag /* force */));
+                  int err (
+                    !gen && !sense_diag ? -2 : // /dev/null
+                    diag_buffer::pipe (ctx, sense_diag /* force */));
 
                   pr = process (cpath,
                                 args,
                                 0,
                                 2, // Send stdout to stderr.
-                                move (err),
+                                err,
                                 nullptr, // CWD
                                 env.empty () ? nullptr : env.data ());
 
+                  dbuf.open (args[0], move (pr.in_efd));
                   dbuf.read (sense_diag /* force */);
 
                   if (sense_diag)
@@ -7343,8 +7345,6 @@ namespace build2
       if (verb >= 3)
         print_process (args);
 
-      diag_buffer dbuf (ctx);
-
       // @@ DRYRUN: Currently we discard the (partially) preprocessed file on
       // dry-run which is a waste. Even if we keep the file around (like we do
       // for the error case; see above), we currently have no support for
@@ -7374,9 +7374,11 @@ namespace build2
 
           process pr (cpath,
                       args,
-                      0, 2, dbuf.open (args[0], filter),
+                      0, 2, diag_buffer::pipe (ctx, filter /* force */),
                       nullptr, // CWD
                       env.empty () ? nullptr : env.data ());
+
+          diag_buffer dbuf (ctx, args[0], pr);
 
           if (filter)
             msvc_filter_cl (dbuf, *sp);
@@ -7444,10 +7446,11 @@ namespace build2
           {
             process pr (cpath,
                         args,
-                        0, 2, dbuf.open (args[0]),
+                        0, 2, diag_buffer::pipe (ctx),
                         nullptr, // CWD
                         env.empty () ? nullptr : env.data ());
 
+            diag_buffer dbuf (ctx, args[0], pr);
             dbuf.read ();
             run_finish (dbuf, args, pr, 1 /* verbosity */);
           }

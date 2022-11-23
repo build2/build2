@@ -186,7 +186,7 @@ namespace build2
                              args,
                              -1      /* stdin */,
                              -1      /* stdout */,
-                             {-1, 1} /* stderr (to stdout) */));
+                             1       /* stderr (to stdout) */));
       string l, r;
       try
       {
@@ -2179,7 +2179,7 @@ namespace build2
                              args,
                              -2      /* stdin  (to /dev/null) */,
                              -1      /* stdout                */,
-                             {-1, 1} /* stderr (to stdout)    */));
+                             1       /* stderr (to stdout)    */));
 
       clang_msvc_info r;
 

@@ -2059,31 +2059,45 @@ namespace build2
         {
         case redirect_type::pass:
           {
-            if (dfd == 2) // stderr?
+            try
             {
-              // Deduce the args0 argument similar to cmd_path().
-              //
-              process::pipe ep (
+              if (dfd == 2) // stderr?
+              {
+                fdpipe p;
+                if (diag_buffer::pipe (env.context) == -1) // Are we buffering?
+                  p = fdopen_pipe ();
+
+                // @@ TODO: perhaps this lambda should return process::pipe?
+                //          (see the simple test rule implementatio for an
+                //           example).
+                //
+                // Note that we must return non-owning fd to our end of the
+                // pipe (see the process class for details).
+                //
+                // process::pipe r (p.in.get (), move (p.out));
+
+                // Deduce the args0 argument similar to cmd_path().
+                //
+                // Note that we must open the diag buffer regardless of the
+                // diag_buffer::pipe() result.
+                //
                 pc.dbuf.open ((c.program.initial == nullptr
                                ? c.program.recall.string ().c_str ()
                                : c.program.recall_string ()),
-                              false /* force */,
-                              fdstream_mode::non_blocking));
+                              move (p.in),
+                              fdstream_mode::non_blocking);
 
-              if (ep.out != 2) // Are we buffering stderr?
-              {
-                ep.own_out = false;
-                return auto_fd (ep.out);
+                if (p.out != nullfd)
+                  return move (p.out);
+
+                // Fall through.
               }
-            }
 
-            try
-            {
               return fddup (dfd);
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to duplicate " << what << ": " << e;
+              fail (ll) << "unable to redirect " << what << ": " << e;
             }
           }
 

@@ -2892,8 +2892,6 @@ namespace build2
         env_ptrs.push_back (nullptr);
       }
 
-      diag_buffer dbuf (ctx);
-
       // If targeting Windows, take care of the manifest.
       //
       path manifest; // Manifest itself (msvc) or compiled object file.
@@ -2949,11 +2947,13 @@ namespace build2
                 //
                 process pr (rc,
                             args,
-                            -1                  /* stdin  */,
-                            1                   /* stdout */,
-                            dbuf.open (args[0]) /* stderr */,
-                            nullptr             /* cwd    */,
+                            -1                      /* stdin  */,
+                            1                       /* stdout */,
+                            diag_buffer::pipe (ctx) /* stderr */,
+                            nullptr                 /* cwd    */,
                             env_ptrs.empty () ? nullptr : env_ptrs.data ());
+
+                diag_buffer dbuf (ctx, args[0], pr);
 
                 try
                 {
@@ -4038,11 +4038,13 @@ namespace build2
 
           process pr (*ld,
                       args,
-                      0                           /* stdin  */,
-                      2                           /* stdout */,
-                      dbuf.open (args[0], filter) /* stderr */,
-                      nullptr                     /* cwd    */,
+                      0                                           /* stdin  */,
+                      2                                           /* stdout */,
+                      diag_buffer::pipe (ctx, filter /* force */) /* stderr */,
+                      nullptr                                     /* cwd    */,
                       env_ptrs.empty () ? nullptr : env_ptrs.data ());
+
+          diag_buffer dbuf (ctx, args[0], pr);
 
           if (filter)
             msvc_filter_link (dbuf, t, ot);
@@ -4127,7 +4129,7 @@ namespace build2
 
         if (!ctx.dry_run)
         {
-          run (dbuf,
+          run (ctx,
                rl,
                args,
                1 /* finish_verbosity */,

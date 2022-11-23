@@ -958,13 +958,37 @@ namespace build2
 
         process p;
         {
-          process::pipe ep (pp.dbuf.open (args[0],
-                                          pp.force_dbuf,
-                                          fdstream_mode::non_blocking));
+          process::pipe ep;
+          {
+            fdpipe p;
+            if (diag_buffer::pipe (t.ctx, pp.force_dbuf) == -1) // Buffering?
+            {
+              try
+              {
+                p = fdopen_pipe ();
+              }
+              catch (const io_error& e)
+              {
+                fail << "unable to redirect stderr: " << e;
+              }
+
+              // Note that we must return non-owning fd to our end of the pipe
+              // (see the process class for details).
+              //
+              ep = process::pipe (p.in.get (), move (p.out));
+            }
+            else
+              ep = process::pipe (-1, 2);
+
+            // Note that we must open the diag buffer regardless of the
+            // diag_buffer::pipe() result.
+            //
+            pp.dbuf.open (args[0], move (p.in), fdstream_mode::non_blocking);
+          }
 
           p = (prev == nullptr
-               ? process (args, 0, out, ep.out)             // First process.
-               : process (args, *prev->proc, out, ep.out)); // Next process.
+               ? process (args, 0, out, move (ep))             // First process.
+               : process (args, *prev->proc, out, move (ep))); // Next process.
         }
 
         pp.proc = &p;

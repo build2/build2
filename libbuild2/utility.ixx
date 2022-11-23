@@ -169,30 +169,6 @@ namespace build2
 
   template <typename T, typename F>
   inline T
-  run (diag_buffer& dbuf,
-       uint16_t verbosity,
-       const process_env& pe,
-       const char* const* args,
-       F&& f,
-       sha256* checksum)
-  {
-    T r;
-    run (dbuf,
-         verbosity,
-         pe, args,
-         verbosity - 1,
-         [&r, &f] (string& l, bool last) // Small function optimmization.
-         {
-           r = f (l, last);
-           return r.empty ();
-         },
-         true /* trim */,
-         checksum);
-    return r;
-  }
-
-  template <typename T, typename F>
-  inline T
   run (context& ctx,
        const process_env& pe,
        const char* const* args,
@@ -218,30 +194,6 @@ namespace build2
               checksum))
       r = T ();
 
-    return r;
-  }
-
-  template <typename T, typename F>
-  inline T
-  run (diag_buffer& dbuf,
-       const process_env& pe,
-       const char* const* args,
-       uint16_t finish_verbosity,
-       F&& f,
-       sha256* checksum)
-  {
-    T r;
-    run (dbuf,
-         verb_never,
-         pe, args,
-         finish_verbosity,
-         [&r, &f] (string& l, bool last)
-         {
-           r = f (l, last);
-           return r.empty ();
-         },
-         true /* trim */,
-         checksum);
     return r;
   }
 

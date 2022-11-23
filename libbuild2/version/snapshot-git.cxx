@@ -127,7 +127,7 @@ namespace build2
                              args,
                              0       /* stdin  */,
                              -1      /* stdout */,
-                             {-1, 1} /* stderr (to stdout) */));
+                             1       /* stderr (to stdout) */));
 
       string l;
       try

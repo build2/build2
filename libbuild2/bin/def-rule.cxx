@@ -727,8 +727,6 @@ namespace build2
       if (verb == 1)
         print_diag ("def", t);
 
-      diag_buffer dbuf (ctx);
-
       // Extract symbols from each object file.
       //
       symbols syms;
@@ -752,24 +750,24 @@ namespace build2
         process pr (
           run_start (nm,
                      args,
-                     0                                /* stdin */,
-                     -1                               /* stdout */,
-                     dbuf.open (args[0],
-                                false /* force */,
-                                fdstream_mode::non_blocking |
-                                fdstream_mode::skip)  /* stderr */));
+                     0                       /* stdin */,
+                     -1                      /* stdout */,
+                     diag_buffer::pipe (ctx) /* stderr */));
+
+        // Note that while we read both streams until eof in the normal
+        // circumstances, we cannot use fdstream_mode::skip for the exception
+        // case on both of them: we may end up being blocked trying to read
+        // one stream while the process may be blocked writing to the other.
+        // So in case of an exception we only skip the diagnostics and close
+        // stdout hard. The latter should happen first so the order of the
+        // dbuf/is variables is important.
+        //
+        diag_buffer dbuf (ctx, args[0], pr, (fdstream_mode::non_blocking |
+                                             fdstream_mode::skip));
 
         bool io (false);
         try
         {
-          // Note that while we read both streams until eof in the normal
-          // circumstances, we cannot use fdstream_mode::skip for the
-          // exception case on both of them: we may end up being blocked
-          // trying to read one stream while the process may be blocked
-          // writing to the other. So in case of an exception we only skip the
-          // diagnostics and close stdout hard. The latter should happen first
-          // so the order of the dbuf/is variables is important.
-          //
           ifdstream is (move (pr.in_ofd),
                         fdstream_mode::non_blocking,
                         ifdstream::badbit);

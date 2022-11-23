@@ -3133,7 +3133,7 @@ namespace build2
                            cargs,
                            0            /* stdin  */,
                            -1           /* stdout */,
-                           {-1, 2}      /* stderr */,
+                           2            /* stderr */,
                            nullptr      /* env    */,
                            dir_path ()  /* cwd    */,
                            l));

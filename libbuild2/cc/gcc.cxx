@@ -137,9 +137,9 @@ namespace build2
       process pr (run_start (
                     env,
                     args,
-                    -2,      /* stdin */
-                    -2,      /* stdout */
-                    {-1, -1} /* stderr */));
+                    -2, /* stdin */
+                    -2, /* stdout */
+                    -1  /* stderr */));
       try
       {
         ifdstream is (

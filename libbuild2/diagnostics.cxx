@@ -498,41 +498,35 @@ namespace build2
 
   // diag_buffer
   //
-  process::pipe diag_buffer::
-  open (const char* args0, bool force, fdstream_mode m)
+
+  int diag_buffer::
+  pipe (context& ctx, bool force)
+  {
+    return (ctx.sched.serial () || ctx.no_diag_buffer) && !force ? 2 : -1;
+  }
+
+  void diag_buffer::
+  open (const char* args0, auto_fd&& fd, fdstream_mode m)
   {
     assert (state_ == state::closed && args0 != nullptr);
 
     serial = ctx_.sched.serial ();
     nobuf = !serial && ctx_.no_diag_buffer;
 
-    process::pipe r;
-    if (!(serial || nobuf) || force)
+    if (fd != nullfd)
     {
       try
       {
-        fdpipe p (fdopen_pipe ());
-
-        // Note that we must return non-owning fd to our end of the pipe (see
-        // the process class for details).
-        //
-        r = process::pipe (p.in.get (), move (p.out));
-
-        m |= fdstream_mode::text;
-
-        is.open (move (p.in), m);
+        is.open (move (fd), m | fdstream_mode::text);
       }
       catch (const io_error& e)
       {
         fail << "unable to read from " << args0 << " stderr: " << e;
       }
     }
-    else
-      r = process::pipe (-1, 2);
 
     this->args0 = args0;
     state_ = state::opened;
-    return r;
   }
 
   void diag_buffer::

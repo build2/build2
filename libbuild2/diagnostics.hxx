@@ -730,28 +730,58 @@ namespace build2
   //
   // - Do nothing (in serial builds or if requested not to buffer).
   //
-  // In the future this class will also be responsible for converting the
+  // In the future this class may also be responsible for converting the
   // diagnostics into the structured form (which means it may need to buffer
   // even in serial builds).
+  //
+  // The typical usage is as follows:
+  //
+  // process pr (..., diag_buffer::pipe (ctx));
+  // diag_buffer dbuf (ctx, args[0], pr);  // Skip.
+  // ifdstream is (move (pr.in_ofd));      // No skip.
+  // ofdstream os (move (pr.out_fd));
+  //
+  // The reason for this somewhat roundabout setup is to make sure the
+  // diag_buffer instance is destroyed before the process instance. This is
+  // important in case an exception is thrown where we want to make sure all
+  // our pipe ends are closed before we wait for the process exit (which
+  // happens in the process destructor).
+  //
+  // And speaking of the destruction order, another thing to keep in mind is
+  // that only one stream can use the skip mode (fdstream_mode::skip; because
+  // skipping is performed in the blocking mode) and the stream that skips
+  // should come first so that all other streams are destroyed/closed before
+  // it (failed that, we may end up in a deadlock). For example:
+  //
+  // process pr (..., diag_buffer::pipe (ctx));
+  // ifdstream is (move (pr.in_ofd), fdstream_mode::skip);      // Skip.
+  // diag_buffer dbuf (ctx, args[0], pr, fdstream_mode::none);  // No skip.
+  // ofdstream os (move (pr.out_fd));
   //
   class LIBBUILD2_SYMEXPORT diag_buffer
   {
   public:
-    explicit
-    diag_buffer (context& c): is (ifdstream::badbit), ctx_ (c) {}
+    // If buffering is necessary or force is true, return an "instruction"
+    // (-1) to the process class constructor to open a pipe and redirect
+    // stderr to it. Otherwise, return an "instruction" to inherit stderr (2).
+    //
+    // The force flag is normally used if custom diagnostics processing is
+    // required (filter, split, etc; see read() below).
+    //
+    // Note that the diagnostics buffer must be opened (see below) regardless
+    // of the pipe() result.
+    //
+    static int
+    pipe (context&, bool force = false);
 
-  public:
-    // If buffering is necessary or force is true, open a pipe and return the
-    // child process end of it. Otherwise, return stderr. If mode is
-    // non_blocking, then make reading from the parent end of the pipe
-    // non-blocking.
+    // Open the diagnostics buffer given the parent end of the pipe (normally
+    // process:in_efd). If it is nullfd, then assume no buffering is
+    // necessary. If mode is non_blocking, then make reading from the parent
+    // end of the pipe non-blocking.
     //
     // The args0 argument is the child process program name for diagnostics.
     // It is expected to remain valid until the call to close() and should
     // normally be the same as args[0] passed to close().
-    //
-    // The force flag is normally used if custom diagnostics processing is
-    // required (filter, split, etc; see read() below).
     //
     // Note that the same buffer can go through multiple open-read-close
     // sequences, for example, to execute multiple commands.
@@ -764,10 +794,68 @@ namespace build2
     // only the last stream to be destroyed can normally have the skip mode
     // since in case of an exception, skipping will be blocking.
     //
-    process::pipe
+    diag_buffer (context&,
+                 const char* args0,
+                 auto_fd&&,
+                 fdstream_mode = fdstream_mode::skip);
+
+    // As above, but the parrent end of the pipe (process:in_efd) is passed
+    // via a process instance.
+    //
+    diag_buffer (context&,
+                 const char* args0,
+                 process&,
+                 fdstream_mode = fdstream_mode::skip);
+
+    // As above but with support for the underlying buffer reuse.
+    //
+    // Note that in most cases reusing the buffer is probably not worth the
+    // trouble because we normally don't expect any diagnostics in the common
+    // case. However, if needed, it can be arranged, for example:
+    //
+    // vector<char> buf;
+    //
+    // {
+    //   process pr (...);
+    //   diag_buffer dbuf (ctx, move (buf), args[0], pr);
+    //   dbuf.read ();
+    //   dbuf.close ();
+    //   buf = move (dbuf.buf);
+    // }
+    //
+    // {
+    //   ...
+    // }
+    //
+    // Note also that while there is no guarantee the underlying buffer is
+    // moved when, say, the vector is empty, all the main implementations
+    // always steal the buffer.
+    //
+    diag_buffer (context&,
+                 vector<char>&& buf,
+                 const char* args0,
+                 auto_fd&&,
+                 fdstream_mode = fdstream_mode::skip);
+
+    diag_buffer (context&,
+                 vector<char>&& buf,
+                 const char* args0,
+                 process&,
+                 fdstream_mode = fdstream_mode::skip);
+
+    // Separate construction and opening.
+    //
+    // Note: be careful with the destruction order (see above for details).
+    //
+    explicit
+    diag_buffer (context&);
+
+    diag_buffer (context&, vector<char>&& buf);
+
+    void
     open (const char* args0,
-          bool force = false,
-          fdstream_mode mode = fdstream_mode::skip);
+          auto_fd&&,
+          fdstream_mode = fdstream_mode::skip);
 
     // Open the buffer in the state as if after read() returned false, that
     // is, the stream corresponding to the parent's end of the pipe reached
@@ -849,20 +937,17 @@ namespace build2
     //
     void
     close (const cstrings& args,
-           const process_exit& pe,
+           const process_exit&,
            uint16_t verbosity,
            bool omit_normal = false,
-           const location& loc = {})
-    {
-      close (args.data (), pe, verbosity, omit_normal, loc);
-    }
+           const location& = {});
 
     void
     close (const char* const* args,
-           const process_exit& pe,
+           const process_exit&,
            uint16_t verbosity,
            bool omit_normal = false,
-           const location& loc = {});
+           const location& = {});
 
     // As above but with a custom diag record for the child exit diagnostics,
     // if any. Note that if the diag record has the fail epilogue, then this

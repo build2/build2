@@ -1198,11 +1198,11 @@ namespace build2
               print_diag ("uninstall -d", chd);
           }
 
-          diag_buffer dbuf (rs.ctx);
           process pr (run_start (pp, args,
-                                 0                   /* stdin */,
-                                 1                   /* stdout */,
-                                 dbuf.open (args[0]) /* stderr */));
+                                 0                          /* stdin */,
+                                 1                          /* stdout */,
+                                 diag_buffer::pipe (rs.ctx) /* stderr */));
+          diag_buffer dbuf (rs.ctx, args[0], pr);
           dbuf.read ();
           r = run_finish_code (
             dbuf,
