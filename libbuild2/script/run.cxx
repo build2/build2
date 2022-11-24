@@ -1738,14 +1738,29 @@ namespace build2
         // content), to make sure that the command doesn't print any unwanted
         // diagnostics about IO operation failure.
         //
-        // Note though, that doing so would be a bad idea if the deadline is
-        // specified, since we can block on read and miss the deadline.
-        //
-        if (!dl)
+        if (ifd != nullfd)
         {
-          // Note that dtor will ignore any errors (which is what we want).
+          // Note that we can't use ifdstream dtor in the skip mode here since
+          // it turns the stream into the blocking mode and we won't be able
+          // to read out the potentially buffered stderr for the
+          // pipeline. Using read() is also not ideal since it performs
+          // parsing and allocations needlessly. This, however, is probably ok
+          // for such an uncommon case.
           //
-          ifdstream (move (ifd), fdstream_mode::skip);
+          //ifdstream (move (ifd), fdstream_mode::skip);
+
+          // Let's try to minimize the allocation size splitting the input
+          // data at whitespaces.
+          //
+          read (move (ifd),
+                true /* whitespace */,
+                false /* newline */,
+                false /* exact */,
+                [] (string&&) {}, // Just drop the string.
+                prev_cmd,
+                dl,
+                ll,
+                program.c_str ());
         }
 
         if (!first || !last)
