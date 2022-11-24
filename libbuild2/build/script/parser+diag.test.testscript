@@ -19,6 +19,14 @@ $* <<EOI >>EOO
   name: echo
   EOO
 
+: name-operation
+:
+$* <<EOI >>EOO
+  a = 'b'
+  EOI
+  name: update
+  EOO
+
 : preamble
 :
 {
@@ -138,16 +146,6 @@ $* <<EOI >>EOO
     buildfile:11:1: error: low-verbosity script diagnostics name is ambiguous
       buildfile:11:1: info: could be 'cp'
       buildfile:12:1: info: could be 'cat'
-      info: consider specifying it explicitly with the 'diag' recipe attribute
-      info: or provide custom low-verbosity diagnostics with the 'diag' builtin
-    EOE
-
-  : none
-  :
-  $* <<EOI 2>>EOE != 0
-    a = 'b'
-    EOI
-    buildfile:11:1: error: unable to deduce low-verbosity script diagnostics name
       info: consider specifying it explicitly with the 'diag' recipe attribute
       info: or provide custom low-verbosity diagnostics with the 'diag' builtin
     EOE

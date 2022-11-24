@@ -611,18 +611,42 @@ EOE
   {
     : weight-0
     :
-    $* <<EOI 2>>EOE != 0
-      alias{x}:
-      {{
+    {
+      : single-operation
+      :
+      {
+        $* <<EOI 2>>~%EOE%
+          alias{x}:
+          {{
 
-        exit
-      }}
-      dump alias{x}
-      EOI
-      <stdin>:3:1: error: unable to deduce low-verbosity script diagnostics name
-        info: consider specifying it explicitly with the 'diag' recipe attribute
-        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
-      EOE
+            exit
+          }}
+          dump alias{x}
+          EOI
+          %.{2}
+            % [diag=update] perform(update)
+          %.{3}
+          EOE
+      }
+
+      : multiple-operations
+      :
+      {
+        $* <<EOI 2>>EOE != 0
+          alias{x}:
+          % update clean
+          {{
+
+            exit
+          }}
+          dump alias{x}
+          EOI
+          <stdin>:4:1: error: unable to deduce low-verbosity script diagnostics name
+            info: consider specifying it explicitly with the 'diag' recipe attribute
+            info: or provide custom low-verbosity diagnostics with the 'diag' builtin
+          EOE
+      }
+    }
 
     : weight-1
     :

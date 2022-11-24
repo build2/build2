@@ -102,15 +102,22 @@ namespace build2
             info << "consider using 'depdb' builtin to track its value "
                  << "changes";
 
-        // Diagnose absent/ambigous script name.
+        // Diagnose absent/ambiguous script name. But try to deduce an absent
+        // name from the script operation first.
         //
         {
           diag_record dr;
 
           if (!diag_name_ && diag_preamble_.empty ())
           {
-            dr << fail (s.start_loc)
-               << "unable to deduce low-verbosity script diagnostics name";
+            if (as.size () == 1)
+            {
+              diag_name_ = make_pair (ctx->operation_table[as[0].operation ()],
+                                      location ());
+            }
+            else
+              dr << fail (s.start_loc)
+                 << "unable to deduce low-verbosity script diagnostics name";
           }
           else if (diag_name2_)
           {

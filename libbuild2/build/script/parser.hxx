@@ -311,6 +311,10 @@ namespace build2
         // builtin after the script name or after another diag builtin) is
         // reported as ambiguity.
         //
+        // If no script name is deduced by the end of pre-parsing and the
+        // script is used for a single operation, then use this operation's
+        // name as a script name.
+        //
         // At the end of pre-parsing either diag_name_ is present or
         // diag_preamble_ is not empty (but not both).
         //
