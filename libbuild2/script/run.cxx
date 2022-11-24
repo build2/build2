@@ -2067,15 +2067,6 @@ namespace build2
                 if (diag_buffer::pipe (env.context) == -1) // Are we buffering?
                   p = fdopen_pipe ();
 
-                // @@ TODO: perhaps this lambda should return process::pipe?
-                //          (see the simple test rule implementatio for an
-                //           example).
-                //
-                // Note that we must return non-owning fd to our end of the
-                // pipe (see the process class for details).
-                //
-                // process::pipe r (p.in.get (), move (p.out));
-
                 // Deduce the args0 argument similar to cmd_path().
                 //
                 // Note that we must open the diag buffer regardless of the
@@ -2915,10 +2906,16 @@ namespace build2
           if (verb >= 2)
             print_process (pe, args);
 
+          // Note that stderr can only be a pipe if we are buffering the
+          // diagnostics. In this case also pass the reading end so it can be
+          // "probed" on Windows (see butl::process::pipe for details).
+          //
           process pr (
             *pe.path,
             args.data (),
-            {ifd.get (), -1}, process::pipe (ofd), {-1, efd.get ()},
+            {ifd.get (), -1},
+            process::pipe (ofd),
+            {pc.dbuf.is.fd (), efd.get ()},
             cwd.string ().c_str (),
             pe.vars);
 
