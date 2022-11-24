@@ -7128,6 +7128,35 @@ config.c.internal.scope
 \
 
 
+\h#c-objc|Objective-C Compilation|
+
+The \c{c} module provides the \c{c.objc} submodules which can be loaded in
+order to register the \c{m{\}} target type and enable Objective-C compilation
+in the \c{C} compile rule. Note that \c{c.objc} must be loaded after the \c{c}
+module and while the \c{m{\}} target type is registered unconditionally,
+compilation is only enabled if the C compiler supports Objective-C for the
+target platform. Typical usage:
+
+\
+# root.build
+#
+using c
+using c.objc
+\
+
+\
+# buildfile
+#
+lib{hello}: {h c}{*}
+lib{hello}: m{*}: include = ($c.target.class  == 'macos')
+\
+
+Note also that while there is support for linking Objective-C executables and
+libraries, this is done using the C compiler driver and no attempt is made to
+automatically link any necessary Objective-C runtime library (such as
+\c{-lobjc}).
+
+
 \h1#module-cxx|\c{cxx} Module|
 
 \N{This chapter is a work in progress and is incomplete.}
@@ -8779,6 +8808,34 @@ to explicitly import the module and include the header, especially if the
 macros may not be needed by all consumers. This way we can also keep the
 header macro-only which means it can be included freely, in or out of module
 purviews.
+
+\h#cxx-objcxx|Objective-C++ Compilation|
+
+The \c{cxx} module provides the \c{cxx.objcxx} submodules which can be loaded
+in order to register the \c{mm{\}} target type and enable Objective-C++
+compilation in the \c{C++} compile rule. Note that \c{cxx.objcxx} must be
+loaded after the \c{cxx} module and while the \c{mm{\}} target type is
+registered unconditionally, compilation is only enabled if the C++ compiler
+supports Objective-C++ for the target platform. Typical usage:
+
+\
+# root.build
+#
+using cxx
+using cxx.objcxx
+\
+
+\
+# buildfile
+#
+lib{hello}: {hxx cxx}{*}
+lib{hello}: mm{*}: include = ($cxx.target.class  == 'macos')
+\
+
+Note also that while there is support for linking Objective-C++ executables
+and libraries, this is done using the C++ compiler driver and no attempt is
+made to automatically link any necessary Objective-C runtime library (such as
+\c{-lobjc}).
 
 
 \h1#module-in|\c{in} Module|
