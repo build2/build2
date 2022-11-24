@@ -692,9 +692,11 @@ namespace build2
       for (next++; *next != nullptr; next++) ;
       next++;
 
+      bool last (*next == nullptr);
+
       // Redirect stdout to a pipe unless we are last.
       //
-      int out (*next != nullptr ? -1 : ofd);
+      int out (last ? ofd : -1);
 
       // Propagate the pointer to the left-most program.
       //
@@ -704,7 +706,7 @@ namespace build2
       //
       pipe_process pp (t.ctx,
                        args,
-                       next == nullptr && ofd == 2,
+                       last && ofd == 2,
                        prev,
                        prev != nullptr ? prev->next : nullptr);
 
@@ -1023,7 +1025,7 @@ namespace build2
           }
         }));
 
-        if (*next != nullptr)
+        if (!last)
           run_test (t, next, ofd, deadline, &pp);
 
         // Complete the pipeline execution, if not done yet.
