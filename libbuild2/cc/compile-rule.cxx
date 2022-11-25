@@ -4148,9 +4148,12 @@ namespace build2
                     nullptr, // CWD
                     env.empty () ? nullptr : env.data ());
 
-                  dbuf.open (args[0],
-                             move (pr.in_efd),
-                             fdstream_mode::non_blocking); // Skip on stdout.
+                  if (cclass != compiler_class::msvc && gen)
+                  {
+                    dbuf.open (args[0],
+                               move (pr.in_efd),
+                               fdstream_mode::non_blocking); // Skip on stdout.
+                  }
                 }
                 else // Dependency info goes to temporary file.
                 {
@@ -4169,8 +4172,11 @@ namespace build2
                                 nullptr, // CWD
                                 env.empty () ? nullptr : env.data ());
 
-                  dbuf.open (args[0], move (pr.in_efd));
-                  dbuf.read (sense_diag /* force */);
+                  if (gen || sense_diag)
+                  {
+                    dbuf.open (args[0], move (pr.in_efd));
+                    dbuf.read (sense_diag /* force */);
+                  }
 
                   if (sense_diag)
                   {
