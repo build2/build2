@@ -75,15 +75,29 @@ namespace build2
                   string::traits_type::find (ex, 4, c) != nullptr)));
       }
 
+      template <typename S>
+      static inline const char_string*
+      find_or_insert (line_pool& p, S&& s)
+      {
+        auto i (find (p.strings.begin (), p.strings.end (), s));
+        if (i == p.strings.end ())
+        {
+          p.strings.push_front (forward<S> (s));
+          i = p.strings.begin ();
+        }
+
+        return &*i;
+      }
+
       line_char::
       line_char (const char_string& s, line_pool& p)
-          : line_char (&(*p.strings.emplace (s).first))
+          : line_char (find_or_insert (p, s))
       {
       }
 
       line_char::
       line_char (char_string&& s, line_pool& p)
-          : line_char (&(*p.strings.emplace (move (s)).first))
+          : line_char (find_or_insert (p, move (s)))
       {
       }
 

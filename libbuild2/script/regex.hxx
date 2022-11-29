@@ -9,7 +9,6 @@
 #include <locale>
 #include <string>        // basic_string
 #include <type_traits>   // make_unsigned, enable_if, is_*
-#include <unordered_set>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -59,7 +58,12 @@ namespace build2
         // Note that we assume the pool can be moved without invalidating
         // pointers to any already pooled entities.
         //
-        std::unordered_set<char_string> strings;
+        // Note that we used to use unordered_set for strings but (1) there is
+        // no general expectation that we will have many identical strings and
+        // (2) the number of strings is not expected to be large. So that felt
+        // like an overkill and we now use a list with linear search.
+        //
+        std::list<char_string> strings;
         std::list<char_regex> regexes;
       };
 
