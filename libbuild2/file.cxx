@@ -307,7 +307,7 @@ namespace build2
   {
     tracer trace ("source_once");
 
-    if (!once.buildfiles.insert (bf).second)
+    if (!once.root_extra->insert_buildfile (bf))
     {
       l5 ([&]{trace << "skipping already sourced " << bf;});
       return false;
@@ -954,7 +954,7 @@ namespace build2
     // process hard to reason about. But we may try to bootstrap the same
     // root scope multiple time.
     //
-    else if (rs.buildfiles.insert (bf).second)
+    else if (rs.root_extra->insert_buildfile (bf))
     {
       // Extract the project name and amalgamation variable value so that
       // we can make them available while loading bootstrap.build.

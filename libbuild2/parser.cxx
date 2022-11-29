@@ -3050,7 +3050,9 @@ namespace build2
 
       l6 ([&]{trace (l) << "absolute path " << p;});
 
-      if (!root_->buildfiles.insert (p).second) // Note: may be "new" root.
+      // Note: may be "new" root.
+      //
+      if (!root_->root_extra->insert_buildfile (p))
       {
         l5 ([&]{trace (l) << "skipping already included " << p;});
         continue;

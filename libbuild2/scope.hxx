@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_SCOPE_HXX
 #define LIBBUILD2_SCOPE_HXX
 
-#include <unordered_set>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
@@ -302,13 +300,6 @@ namespace build2
     //
     variable_type_map target_vars;
 
-    // Set of buildfiles already loaded for this scope. The included
-    // buildfiles are checked against the project's root scope while
-    // imported -- against the global scope (global_scope).
-    //
-  public:
-    std::unordered_set<path> buildfiles;
-
     // Target types.
     //
     // Note that target types are project-wide (even if the module that
@@ -522,6 +513,25 @@ namespace build2
       // Modules loaded by this project.
       //
       module_map modules;
+
+      // Buildfiles already loaded for this project.
+      //
+      // We don't expect too many of them per project so let's use vector
+      // with linear search.
+      //
+      paths buildfiles;
+
+      bool
+      insert_buildfile (const path& f)
+      {
+        bool r (find (buildfiles.begin (),
+                      buildfiles.end (),
+                      f) == buildfiles.end ());
+        if (r)
+          buildfiles.push_back (f);
+
+        return r;
+      }
 
       // Variable override cache.
       //

@@ -116,10 +116,11 @@ namespace build2
   bool
   source_once (scope& root, scope& base, const path&);
 
-  // As above but checks against the specified scope rather than base.
+  // As above but checks against the specified root scope rather than this
+  // root scope.
   //
   LIBBUILD2_SYMEXPORT bool
-  source_once (scope& root, scope& base, const path&, scope& once);
+  source_once (scope& root, scope& base, const path&, scope& once_root);
 
   // Create project's root scope. Only set the src_root variable if the passed
   // src_root value is not empty.
