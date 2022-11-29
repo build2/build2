@@ -7759,8 +7759,27 @@ namespace build2
             // This should be a simple value or a simple directory.
             //
             if (lv.size () > 1)
-              fail (loc) << "concatenating " << what << " contains multiple "
-                         << "values";
+            {
+              diag_record dr (fail (loc));
+
+              dr << "concatenating " << what << " contains multiple values";
+
+              // See if this looks like a subscript without an evaluation
+              // context and help the user out.
+              //
+              if (mode () != lexer_mode::eval)
+              {
+                const token& t (peeked ()); // Should be peeked at.
+
+                if (t.type == type::word &&
+                    t.qtype == quote_type::unquoted &&
+                    t.value[0] == '[')
+                {
+                  dr << info << "wrap it in (...) evaluation context if this "
+                     << "is value subscript";
+                }
+              }
+            }
 
             const name& n (lv[0]);
 
