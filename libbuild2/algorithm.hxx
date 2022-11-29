@@ -964,7 +964,7 @@ namespace build2
                    bool changed,
                    backlink_mode = backlink_mode::link);
 
-  // Note: verbosite should be 2 or greater.
+  // Note: verbosity should be 2 or greater.
   //
   LIBBUILD2_SYMEXPORT void
   update_backlink (context&,
@@ -973,7 +973,7 @@ namespace build2
                    backlink_mode = backlink_mode::link,
                    uint16_t verbosity = 3);
 
-  // Note: verbosite should be 2 or greater.
+  // Note: verbosity should be 2 or greater.
   //
   LIBBUILD2_SYMEXPORT void
   clean_backlink (context&,

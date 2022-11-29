@@ -69,6 +69,9 @@ namespace build2
   //      {hxx cxx}{foo-stubs} -> {hxx cxx}{foo-insts}
   //                              {hxx cxx}{foo-impls}
   //
+  // Currently we only support this for the `group -> dir_path` form (used
+  // by the backlink machinery).
+  //
   // See also the `diag` Buildscript pseudo-builtin which is reduced to one of
   // the print_diag() calls (adhoc_buildscript_rule::print_custom_diag()). In
   // particular, if you are adding a new overload, also consider if/how it
@@ -194,6 +197,18 @@ namespace build2
   LIBBUILD2_SYMEXPORT void
   print_diag (const char* prog,
               const target& l, const path_name_view& r,
+              const char* comb = nullptr);
+
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              target_key&& l, const dir_path& r,
+              const char* comb = nullptr);
+
+  // prog group -> dir_path
+  //
+  LIBBUILD2_SYMEXPORT void
+  print_diag (const char* prog,
+              vector<target_key>&& l, const dir_path& r,
               const char* comb = nullptr);
 
   // prog path -> path

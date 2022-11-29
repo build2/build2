@@ -614,13 +614,15 @@ namespace build2
     var_extension = &vp.insert<string> ("extension", v_t);
     var_update    = &vp.insert<string> ("update",    v_q);
     var_clean     = &vp.insert<bool>   ("clean",     v_t);
-    var_backlink  = &vp.insert<string> ("backlink",  v_t);
+    var_backlink  = &vp.insert         ("backlink",  v_t); // Untyped.
     var_include   = &vp.insert<string> ("include",   v_q);
 
     // Backlink executables and (generated) documentation by default.
     //
-    gs.target_vars[exe::static_type]["*"].assign (var_backlink) = "true";
-    gs.target_vars[doc::static_type]["*"].assign (var_backlink) = "true";
+    gs.target_vars[exe::static_type]["*"].assign (var_backlink) =
+      names {name ("true")};
+    gs.target_vars[doc::static_type]["*"].assign (var_backlink) =
+      names {name ("true")};
 
     // Register builtin rules.
     //

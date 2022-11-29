@@ -1613,11 +1613,26 @@ namespace build2
     return ts;
   }
 
-  void
-  update_backlink (const file& f, const path& l, bool changed, backlink_mode m)
+  static inline const char*
+  update_backlink_name (backlink_mode m, bool to_dir)
   {
     using mode = backlink_mode;
 
+    const char* r (nullptr);
+    switch (m)
+    {
+    case mode::link:
+    case mode::symbolic:  r = verb >= 3 ? "ln -sf" : verb >= 2 ? "ln -s" : "ln"; break;
+    case mode::hard:      r = verb >= 3 ? "ln -f" : "ln"; break;
+    case mode::copy:
+    case mode::overwrite: r = to_dir ? "cp -r" : "cp"; break;
+    }
+    return r;
+  }
+
+  void
+  update_backlink (const file& f, const path& l, bool changed, backlink_mode m)
+  {
     const path& p (f.path ());
     dir_path d (l.directory ());
 
@@ -1629,25 +1644,17 @@ namespace build2
     // actually updated to signal to the user that the updated out target is
     // now available in src.
     //
-    if (verb <= 2)
+    if (verb == 1 || verb == 2)
     {
       if (changed || !butl::entry_exists (l,
                                           false /* follow_symlinks */,
                                           true  /* ignore_errors */))
       {
-        const char* c (nullptr);
-        switch (m)
-        {
-        case mode::link:
-        case mode::symbolic:  c = verb >= 2 ? "ln -s" : "ln";         break;
-        case mode::hard:      c = "ln";                               break;
-        case mode::copy:
-        case mode::overwrite: c = l.to_directory () ? "cp -r" : "cp"; break;
-        }
+        const char* c (update_backlink_name (m, l.to_directory ()));
 
         // Note: 'ln foo/ bar/' means a different thing (and below).
         //
-        if (verb >= 2)
+        if (verb == 2)
           text << c << ' ' << p.string () << ' ' << l.string ();
         else
           print_diag (c, f, d);
@@ -1670,25 +1677,15 @@ namespace build2
   {
     // As above but with a slightly different diagnostics.
 
-    using mode = backlink_mode;
-
     dir_path d (l.directory ());
 
-    if (verb <= 2)
+    if (verb == 1 || verb == 2)
     {
       if (changed || !butl::entry_exists (l,
                                           false /* follow_symlinks */,
                                           true  /* ignore_errors */))
       {
-        const char* c (nullptr);
-        switch (m)
-        {
-        case mode::link:
-        case mode::symbolic:  c = verb >= 2 ? "ln -s" : "ln";         break;
-        case mode::hard:      c = "ln";                               break;
-        case mode::copy:
-        case mode::overwrite: c = l.to_directory () ? "cp -r" : "cp"; break;
-        }
+        const char* c (update_backlink_name (m, l.to_directory ()));
 
         // Note: 'ln foo/ bar/' means a different thing (and above) so strip
         // trailing directory separator (but keep as path for relative).
@@ -1761,17 +1758,8 @@ namespace build2
     {
       if (verb >= verbosity)
       {
-        const char* c (nullptr);
-        switch (m)
-        {
-        case mode::link:
-        case mode::symbolic:  c = "ln -sf";           break;
-        case mode::hard:      c = "ln -f";            break;
-        case mode::copy:
-        case mode::overwrite: c = d ? "cp -r" : "cp"; break;
-        }
-
-        text << c << ' ' << p.string () << ' ' << l.string ();
+        text << update_backlink_name (m, d) << ' ' << p.string () << ' '
+             << l.string ();
       }
     };
 
@@ -1926,9 +1914,15 @@ namespace build2
   struct backlink: auto_rm<path>
   {
     using path_type = build2::path;
+    using target_type = build2::target;
 
     reference_wrapper<const path_type> target;
-    backlink_mode mode;
+    backlink_mode                      mode;
+
+    // Ad hoc group-specific information for diagnostics (see below).
+    //
+    const target_type*                 member = nullptr;
+    bool                               print = true;
 
     backlink (const path_type& t, path_type&& l, backlink_mode m, bool active)
         : auto_rm<path_type> (move (l), active), target (t), mode (m)
@@ -1950,33 +1944,65 @@ namespace build2
   };
 
   // Normally (i.e., on sane platforms that don't have things like PDBs, etc)
-  // there will be just one backlink so optimize for that.
+  // there will be just one or two backlinks so optimize for that.
   //
-  using backlinks = small_vector<backlink, 1>;
+  using backlinks = small_vector<backlink, 2>;
 
-  static optional<backlink_mode>
-  backlink_test (const target& t, const lookup& l)
+  static optional<pair<backlink_mode, bool>>
+  backlink_test (const target& t, const lookup& l, optional<backlink_mode> gm)
   {
     using mode = backlink_mode;
 
-    optional<mode> r;
-    const string& v (cast<string> (l));
+    const names& ns (cast<names> (l));
 
-    if      (v == "true")      r = mode::link;
-    else if (v == "symbolic")  r = mode::symbolic;
-    else if (v == "hard")      r = mode::hard;
-    else if (v == "copy")      r = mode::copy;
-    else if (v == "overwrite") r = mode::overwrite;
-    else if (v != "false")
-      fail << "invalid backlink variable value '" << v << "' "
+    if (ns.size () != 1 && ns.size () != 2)
+    {
+      fail << "invalid backlink variable value '" << ns << "' "
            << "specified for target " << t;
+    }
 
-    return r;
+    optional<mode> m;
+    for (;;) // Breakout loop.
+    {
+      const name& n (ns.front ());
+
+      if (n.simple ())
+      {
+        const string& v (n.value);
+
+        if      (v == "true")      {m = mode::link;      break;}
+        else if (v == "symbolic")  {m = mode::symbolic;  break;}
+        else if (v == "hard")      {m = mode::hard;      break;}
+        else if (v == "copy")      {m = mode::copy;      break;}
+        else if (v == "overwrite") {m = mode::overwrite; break;}
+        else if (v == "false")     {                     break;}
+        else if (v == "group")     {if ((m = gm))        break;}
+      }
+
+      fail << "invalid backlink variable value mode component '" << n << "' "
+           << "specified for target " << t << endf;
+    }
+
+    bool np (false); // "not print"
+    if (ns.size () == 2)
+    {
+      const name& n (ns.back ());
+
+      if (n.simple () && (n.value == "true" || (np = (n.value == "false"))))
+        ;
+      else
+        fail << "invalid backlink variable value print component '" << n
+             << "' specified for target " << t;
+    }
+
+    return m ? optional<pair<mode, bool>> (make_pair (*m, !np)) : nullopt;
   }
 
   static optional<backlink_mode>
   backlink_test (action a, target& t)
   {
+    using mode = backlink_mode;
+
     context& ctx (t.ctx);
 
     // Note: the order of these checks is from the least to most expensive.
@@ -1986,9 +2012,20 @@ namespace build2
     if (a.outer () || (a != perform_update_id && a != perform_clean_id))
       return nullopt;
 
-    // Only file-based targets in the out tree can be backlinked.
+    // Only targets in the out tree can be backlinked.
     //
-    if (!t.out.empty () || !t.is_a<file> ())
+    if (!t.out.empty ())
+      return nullopt;
+
+    // Only file-based targets or groups containing file-based targets can be
+    // backlinked. Note that we don't do the "file-based" check of the latter
+    // case here since they can still be execluded. So instead we are prepared
+    // to handle the empty backlinks list.
+    //
+    // @@ Potentially members could only be resolved in execute. I guess we
+    //    don't support backlink for such groups at the moment.
+    //
+    if (!t.is_a<file> () && t.group_members (a).members == nullptr)
       return nullopt;
 
     // Neither an out-of-project nor in-src configuration can be forwarded.
@@ -2012,7 +2049,13 @@ namespace build2
     if (!l.defined ())
       l = ctx.global_scope.lookup (*ctx.var_backlink, t.key ());
 
-    return l ? backlink_test (t, l) : nullopt;
+    optional<pair<mode, bool>> r (l ? backlink_test (t, l, nullopt) : nullopt);
+
+    if (r && !r->second)
+      fail << "backlink variable value print component cannot be false "
+           << "for primary target " << t;
+
+    return r ? optional<mode> (r->first) : nullopt;
   }
 
   static backlinks
@@ -2024,56 +2067,100 @@ namespace build2
     const scope& s (t.base_scope ());
 
     backlinks bls;
-    auto add = [&bls, &s] (const path& p, mode m)
+    auto add = [&bls, &s] (const path& p,
+                           mode m,
+                           const target* mt = nullptr,
+                           bool print = true)
     {
       bls.emplace_back (p,
                         s.src_path () / p.leaf (s.out_path ()),
                         m,
                         !s.ctx.dry_run /* active */);
+
+      if (mt != nullptr)
+      {
+        backlink& bl (bls.back ());
+        bl.member = mt;
+        bl.print = print;
+      }
     };
 
-    // First the target itself.
+    // Check for a custom backlink mode for this member. If none, then
+    // inherit the one from the group (so if the user asked to copy
+    // .exe, we will also copy .pdb).
     //
-    add (t.as<file> ().path (), m);
-
-    // Then ad hoc group file/fsdir members, if any.
+    // Note that we want to avoid group or tt/patter-spec lookup. And
+    // since this is an ad hoc member (which means it was either declared
+    // in the buildfile or added by the rule), we assume that the value,
+    // if any, will be set as a target or rule-specific variable.
     //
-    for (const target* mt (t.adhoc_member);
-         mt != nullptr;
-         mt = mt->adhoc_member)
+    auto member_mode = [a, m, &ctx] (const target& mt)
+      -> optional<pair<mode, bool>>
     {
-      const path* p (nullptr);
+      lookup l (mt.state[a].vars[ctx.var_backlink]);
 
-      if (const file* f = mt->is_a<file> ())
+      if (!l)
+        l = mt.vars[ctx.var_backlink];
+
+      return l ? backlink_test (mt, l, m) : make_pair (m, true);
+    };
+
+    // @@ Currently we don't handle the following cases:
+    //
+    // 1. File-based explicit groups.
+    //
+    // 2. Ad hoc subgroups in explicit groups.
+    //
+    // Note: see also the corresponding code in backlink_update_post().
+    //
+    if (file* f = t.is_a<file> ())
+    {
+      // First the target itself.
+      //
+      add (f->path (), m, f, true); // Note: always printed.
+
+      // Then ad hoc group file/fsdir members, if any.
+      //
+      for (const target* mt (t.adhoc_member);
+           mt != nullptr;
+           mt = mt->adhoc_member)
       {
-        p = &f->path ();
+        const path* p (nullptr);
 
-        if (p->empty ()) // The "trust me, it's somewhere" case.
-          p = nullptr;
+        if (const file* f = mt->is_a<file> ())
+        {
+          p = &f->path ();
+
+          if (p->empty ()) // The "trust me, it's somewhere" case.
+            p = nullptr;
+        }
+        else if (const fsdir* d = mt->is_a<fsdir> ())
+          p = &d->dir;
+
+        if (p != nullptr)
+        {
+          if (optional<pair<mode, bool>> m = member_mode (*mt))
+            add (*p, m->first, mt, m->second);
+        }
       }
-      else if (const fsdir* d = mt->is_a<fsdir> ())
-        p = &d->dir;
+    }
+    else
+    {
+      // Explicit group.
+      //
+      group_view gv (t.group_members (a));
+      assert (gv.members != nullptr);
 
-      if (p != nullptr)
+      for (size_t i (0); i != gv.count; ++i)
       {
-        // Check for a custom backlink mode for this member. If none, then
-        // inherit the one from the group (so if the user asked to copy .exe,
-        // we will also copy .pdb).
-        //
-        // Note that we want to avoid group or tt/patter-spec lookup. And
-        // since this is an ad hoc member (which means it was either declared
-        // in the buildfile or added by the rule), we assume that the value,
-        // if any, will be set as a target or rule-specific variable.
-        //
-        lookup l (mt->state[a].vars[ctx.var_backlink]);
-
-        if (!l)
-          l = mt->vars[ctx.var_backlink];
-
-        optional<mode> bm (l ? backlink_test (*mt, l) : m);
-
-        if (bm)
-          add (*p, *bm);
+        if (const target* mt = gv.members[i])
+        {
+          if (const file* f = mt->is_a<file> ())
+          {
+            if (optional<pair<mode, bool>> m = member_mode (*mt))
+              add (f->path (), m->first);
+          }
+        }
       }
     }
 
@@ -2087,29 +2174,89 @@ namespace build2
   }
 
   static void
-  backlink_update_post (target& t, target_state ts, backlinks& bls)
+  backlink_update_post (target& t, target_state ts,
+                        backlink_mode m, backlinks& bls)
   {
     if (ts == target_state::failed)
       return; // Let auto rm clean things up.
 
-    // Make backlinks.
-    //
-    for (auto b (bls.begin ()), i (b); i != bls.end (); ++i)
-    {
-      const backlink& bl (*i);
+    context& ctx (t.ctx);
 
-      if (i == b)
-        update_backlink (t.as<file> (),
-                         bl.path,
-                         ts == target_state::changed,
-                         bl.mode);
-      else
-        update_backlink (t.ctx, bl.target, bl.path, bl.mode);
+    file* ft (t.is_a<file> ());
+
+    if (ft != nullptr && bls.size () == 1)
+    {
+      // Single file-based target.
+      //
+      const backlink& bl (bls.front ());
+
+      update_backlink (*ft,
+                       bl.path,
+                       ts == target_state::changed,
+                       bl.mode);
+    }
+    else
+    {
+      // Explicit or ad hoc group.
+      //
+      // What we have below is a custom variant of update_backlink(file).
+      //
+      dir_path d (bls.front ().path.directory ());
+
+      // First print the verbosity level 1 diagnostics. Level 2 and higher are
+      // handled by the update_backlink() calls below.
+      //
+      if (verb == 1)
+      {
+        bool changed (ts == target_state::changed);
+
+        if (!changed)
+        {
+          for (const backlink& bl: bls)
+          {
+            changed = !butl::entry_exists (bl.path,
+                                           false /* follow_symlinks */,
+                                           true  /* ignore_errors */);
+            if (changed)
+              break;
+          }
+        }
+
+        if (changed)
+        {
+          const char* c (update_backlink_name (m, false /* to_dir */));
+
+          // For explicit groups we only print the group target. For ad hoc
+          // groups we print all the members except those explicitly excluded.
+          //
+          if (ft == nullptr)
+            print_diag (c, t, d);
+          else
+          {
+            vector<target_key> tks;
+            tks.reserve (bls.size ());
+
+            for (const backlink& bl: bls)
+              if (bl.print)
+                tks.push_back (bl.member->key ());
+
+            print_diag (c, move (tks), d);
+          }
+        }
+      }
+
+      if (!exists (d))
+        mkdir_p (d, 2 /* verbosity */);
+
+      // Make backlinks.
+      //
+      for (const backlink& bl: bls)
+        update_backlink (ctx, bl.target, bl.path, bl.mode, 2 /* verbosity */);
     }
 
     // Cancel removal.
     //
-    if (!t.ctx.dry_run)
+    if (!ctx.dry_run)
     {
       for (backlink& bl: bls)
         bl.cancel ();
@@ -2150,15 +2297,27 @@ namespace build2
       // which is ok since such targets are probably not interesting for
       // backlinking.
       //
+      // Note also that for group members (both ad hoc and non) backlinking
+      // is handled when updating/cleaning the group.
+      //
       backlinks bls;
-      optional<backlink_mode> blm (backlink_test (a, t));
+      optional<backlink_mode> blm;
 
-      if (blm)
+      if (t.group == nullptr) // Matched so must be already resolved.
       {
-        if (a == perform_update_id)
-          bls = backlink_update_pre (a, t, *blm);
-        else
-          backlink_clean_pre (a, t, *blm);
+        blm = backlink_test (a, t);
+
+        if (blm)
+        {
+          if (a == perform_update_id)
+          {
+            bls = backlink_update_pre (a, t, *blm);
+            if (bls.empty ())
+              blm = nullopt;
+          }
+          else
+            backlink_clean_pre (a, t, *blm);
+        }
       }
 
       // Note: see similar code in set_rule_trace() for match.
@@ -2196,7 +2355,7 @@ namespace build2
       if (blm)
       {
         if (a == perform_update_id)
-          backlink_update_post (t, ts, bls);
+          backlink_update_post (t, ts, *blm, bls);
       }
     }
     catch (const failed&)

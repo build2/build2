@@ -505,7 +505,12 @@ namespace build2
     //
     const variable* var_clean;
 
-    // Forwarded configuration backlink mode. Valid values are:
+    // Forwarded configuration backlink mode. The value has two components
+    // in the form:
+    //
+    // <mode> [<print>]
+    //
+    // Valid <mode> values are:
     //
     // false     - no link.
     // true      - make a link using appropriate mechanism.
@@ -513,8 +518,14 @@ namespace build2
     // hard      - make a hard link.
     // copy      - make a copy.
     // overwrite - copy over but don't remove on clean.
+    // group     - inherit the group mode (only valid for group members).
     //
-    // Note that it can be set by a matching rule as a rule-specific variable.
+    // While the <print> component should be either true or false and can be
+    // used to suppress printing of specific ad hoc group members at verbosity
+    // level 1. Note that it cannot be false for the primary member.
+    //
+    // Note that this value can be set by a matching rule as a rule-specific
+    // variable.
     //
     // Note also that the overwrite mode was originally meant for handling
     // pregenerated source code. But in the end this did not pan out for
@@ -538,7 +549,7 @@ namespace build2
     // just expose a mechanism to delegate to a different rule, which we
     // already have).
     //
-    // [string] target visibility
+    // [names] target visibility
     //
     const variable* var_backlink;
 

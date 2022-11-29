@@ -1537,6 +1537,11 @@ namespace build2
             if (wasm.path ().empty ())
               wasm.derive_path ();
 
+            // We don't want to print this member at level 1 diagnostics.
+            //
+            wasm.state[a].assign (ctx.var_backlink) = names {
+              name ("group"), name ("false")};
+
             // If we have -pthread then we get additional .worker.js file
             // which is used for thread startup. In a somewhat hackish way we
             // represent it as an exe{} member to make sure it gets installed
@@ -1560,6 +1565,11 @@ namespace build2
 
               if (worker.path ().empty ())
                 worker.derive_path ();
+
+              // We don't want to print this member at level 1 diagnostics.
+              //
+              worker.state[a].assign (ctx.var_backlink) = names {
+                name ("group"), name ("false")};
             }
           }
 
@@ -1587,6 +1597,11 @@ namespace build2
                 //
                 if (pdb.path ().empty ())
                   pdb.derive_path (t.path ());
+
+                // We don't want to print this member at level 1 diagnostics.
+                //
+                pdb.state[a].assign (ctx.var_backlink) = names {
+                  name ("group"), name ("false")};
               }
             }
           }
@@ -1666,14 +1681,12 @@ namespace build2
             // exists (windows_rpath_assembly() does take care to clean it up
             // if not used).
             //
-#ifdef _WIN32
-            target& dir =
-#endif
+            target& dir (
               add_adhoc_member (t,
                                 fsdir::static_type,
                                 path_cast<dir_path> (t.path () + ".dlls"),
                                 t.out,
-                                string () /* name */);
+                                string () /* name */));
 
             // By default our backlinking logic will try to symlink the
             // directory and it can even be done on Windows using junctions.
@@ -1687,9 +1700,15 @@ namespace build2
             // Wine. So we only resort to copy-link'ing if we are running on
             // Windows.
             //
+            // We also don't want to print this member at level 1 diagnostics.
+            //
+            dir.state[a].assign (ctx.var_backlink) = names {
 #ifdef _WIN32
-            dir.state[a].assign (ctx.var_backlink) = "copy";
+              name ("copy"), name ("false")
+#else
+              name ("group"), name ("false")
 #endif
+            };
           }
         }
       }

@@ -82,39 +82,26 @@ namespace build2
     dr << r;
   }
 
-  template <typename L> // L can be target_key, path, or string.
-  static void
-  print_diag_impl (const char* p,
-                   const L* l, bool lempty,
-                   vector<target_key>&& rs,
-                   const char* c)
+
+  static inline bool
+  print_diag_cmp (const pair<optional<string>, const target_key*>& x,
+                  const pair<optional<string>, const target_key*>& y)
   {
-    assert (rs.size () > 1);
+    return (x.second->dir->compare (*y.second->dir) == 0 &&
+            x.first->compare (*y.first) == 0);
+  }
 
-    // The overall plan is as follows:
-    //
-    // 1. Collect the printed names for all the group members.
-    //
-    //    Note if the printed representation is irregular (see
-    //    to_stream(target_key) for details). We will print such members each
-    //    on a separate line.
-    //
-    // 2. Move the names so that we end up with contiguous partitions of
-    //    targets with the same name.
-    //
-    // 3. Print the partitions, one per line.
-    //
-    vector<pair<optional<string>, const target_key*>> ns;
-    ns.reserve (rs.size ());
+  // Return true if we have multiple partitions (see below for details).
+  //
+  static bool
+  print_diag_collect (const vector<target_key>& tks,
+                      ostringstream& os,
+                      stream_verbosity sv,
+                      vector<pair<optional<string>, const target_key*>>& ns)
+  {
+    ns.reserve (tks.size ());
 
-    // Use the diag_record's ostringstream so that we get the appropriate
-    // stream verbosity, etc.
-    //
-    diag_record dr (text);
-    ostringstream& os (dr.os);
-    stream_verbosity sv (stream_verb (os));
-
-    for (const target_key& k: rs)
+    for (const target_key& k: tks)
     {
       bool r;
       if (auto p = k.type->print)
@@ -130,16 +117,9 @@ namespace build2
 
     // Partition.
     //
-    auto cmp = [] (const pair<optional<string>, const target_key*>& x,
-                   const pair<optional<string>, const target_key*>& y)
-    {
-      return (x.second->dir->compare (*y.second->dir) == 0 &&
-              x.first->compare (*y.first) == 0);
-    };
-
     // While at it also determine whether we have multiple partitions.
     //
-    optional<string> ml;
+    bool ml (false);
     for (auto b (ns.begin ()), e (ns.end ()); b != e; )
     {
       const pair<optional<string>, const target_key*>& x (*b++);
@@ -149,25 +129,24 @@ namespace build2
       //
       b = stable_partition (
         b, e,
-        [&cmp, &x] (const pair<optional<string>, const target_key*>& y)
+        [&x] (const pair<optional<string>, const target_key*>& y)
         {
-          return (x.first && y.first && cmp (x, y));
+          return (x.first && y.first && print_diag_cmp (x, y));
         });
 
       if (!ml && b != e)
-        ml = string ();
+        ml = true;
     }
 
-    // Print.
-    //
-    os << p << ' ';
+    return ml;
+  }
 
-    if (l != nullptr)
-      os << *l << (lempty ? "" : " ") << (c == nullptr ? "->" : c) << ' ';
-
-    if (ml)
-      ml = string (os.str ().size (), ' '); // Indentation.
-
+  static void
+  print_diag_print (const vector<pair<optional<string>, const target_key*>>& ns,
+                    ostringstream& os,
+                    stream_verbosity sv,
+                    const optional<string>& ml)
+  {
     for (auto b (ns.begin ()), i (b), e (ns.end ()); i != e; )
     {
       if (i != b)
@@ -185,7 +164,7 @@ namespace build2
       // Calculate the number of members in this partition.
       //
       size_t n (1);
-      for (auto j (i + 1); j != e && j->first && cmp (*i, *j); ++j)
+      for (auto j (i + 1); j != e && j->first && print_diag_cmp (*i, *j); ++j)
         ++n;
 
       // Similar code to to_stream(target_key).
@@ -230,6 +209,95 @@ namespace build2
 
       i += n;
     }
+  }
+
+  template <typename L> // L can be target_key, path, or string.
+  static void
+  print_diag_impl (const char* p,
+                   const L* l, bool lempty,
+                   vector<target_key>&& rs,
+                   const char* c)
+  {
+    assert (rs.size () > 1);
+
+    // The overall plan is as follows:
+    //
+    // 1. Collect the printed names for all the group members.
+    //
+    //    Note if the printed representation is irregular (see
+    //    to_stream(target_key) for details). We will print such members each
+    //    on a separate line.
+    //
+    // 2. Move the names around so that we end up with contiguous partitions
+    //    of targets with the same name.
+    //
+    // 3. Print the partitions, one per line.
+    //
+    // The steps 1-2 are performed by print_diag_impl_common() above.
+    //
+    vector<pair<optional<string>, const target_key*>> ns;
+
+    // Use the diag_record's ostringstream so that we get the appropriate
+    // stream verbosity, etc.
+    //
+    diag_record dr (text);
+    ostringstream& os (dr.os);
+    stream_verbosity sv (stream_verb (os));
+
+    optional<string> ml;
+    if (print_diag_collect (rs, os, sv, ns))
+      ml = string ();
+
+    // Print.
+    //
+    os << p << ' ';
+
+    if (l != nullptr)
+      os << *l << (lempty ? "" : " ") << (c == nullptr ? "->" : c) << ' ';
+
+    if (ml)
+      ml = string (os.str ().size (), ' '); // Indentation.
+
+    print_diag_print (ns, os, sv, ml);
+  }
+
+  template <typename R> // R can be target_key, path, or string.
+  static void
+  print_diag_impl (const char* p,
+                   vector<target_key>&& ls, const R& r,
+                   const char* c)
+  {
+    assert (ls.size () > 1);
+
+    // As above but for the group on the LHS.
+    //
+    vector<pair<optional<string>, const target_key*>> ns;
+
+    diag_record dr (text);
+    ostringstream& os (dr.os);
+    stream_verbosity sv (stream_verb (os));
+
+    optional<string> ml;
+    if (print_diag_collect (ls, os, sv, ns))
+      ml = string ();
+
+    // Print.
+    //
+    os << p << ' ';
+
+    if (ml)
+      ml = string (os.str ().size (), ' '); // Indentation.
+
+    print_diag_print (ns, os, sv, ml);
+
+    // @@ TODO: make sure `->` is aligned with longest line printed by
+    //    print_diag_print(). Currently it can look like this:
+    //
+    // ln /tmp/hello-gcc/hello/hello/{hxx cxx}{hello-types}
+    //    /tmp/hello-gcc/hello/hello/{hxx cxx}{hello-stubs}
+    //    /tmp/hello-gcc/hello/hello/cxx{hello-ext} -> ./
+    //
+    os << ' ' << (c == nullptr ? "->" : c) << ' ' << r;
   }
 
   void
@@ -361,7 +429,9 @@ namespace build2
   }
 
   void
-  print_diag (const char* p, const target& l, const dir_path& r, const char* c)
+  print_diag (const char* p,
+              const target& l, const path_name_view& r,
+              const char* c)
   {
     // @@ TODO: out qualification stripping: only do if p.out is subdir of t
     //          (also below)?
@@ -370,11 +440,28 @@ namespace build2
   }
 
   void
-  print_diag (const char* p,
-              const target& l, const path_name_view& r,
-              const char* c)
+  print_diag (const char* p, const target& l, const dir_path& r, const char* c)
+  {
+    print_diag (p, l.key (), r, c);
+  }
+
+  void
+  print_diag (const char* p, target_key&& l, const dir_path& r, const char* c)
   {
     text << p << ' ' << l << ' ' << (c == nullptr ? "->" : c) << ' ' << r;
+  }
+
+  void
+  print_diag (const char* p,
+              vector<target_key>&& ls, const dir_path& r,
+              const char* c)
+  {
+    assert (!ls.empty ());
+
+    if (ls.size () == 1)
+      print_diag (p, move (ls.front ()), r, c);
+    else
+      print_diag_impl<dir_path> (p, move (ls), r, c);
   }
 
   void
