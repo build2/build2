@@ -77,6 +77,9 @@ namespace build2
     // same global mutexes. Also disable nested module context for good
     // measure.
     //
+    // The reserve values were picked experimentally by building libbuild2 and
+    // adding a reasonable margin for future growth.
+    //
     ctx.module_context_storage->reset (
       new context (ctx.sched,
                    ctx.mutexes,
@@ -87,6 +90,10 @@ namespace build2
                    ctx.no_diag_buffer,
                    ctx.keep_going,
                    ctx.global_var_overrides, /* cmd_vars */
+                   context::reserves {
+                     2500,                    /* targets */
+                      900                     /* variables */
+                   },
                    nullopt));                /* module_context */
 
     // We use the same context for building any nested modules that might be

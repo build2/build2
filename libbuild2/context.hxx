@@ -652,6 +652,15 @@ namespace build2
     // Note: see also the trace_* data members that, if needed, must be set
     // separately, after construction.
     //
+    struct reserves
+    {
+      size_t targets;
+      size_t variables;
+
+      reserves (): targets (0), variables (0) {}
+      reserves (size_t t, size_t v): targets (t), variables (v) {}
+    };
+
     explicit
     context (scheduler&,
              global_mutexes&,
@@ -662,8 +671,16 @@ namespace build2
              bool no_diag_buffer = false,
              bool keep_going = true,
              const strings& cmd_vars = {},
+             reserves = {0, 160},
              optional<context*> module_context = nullptr,
              const loaded_modules_lock* inherited_mudules_lock = nullptr);
+
+    // Reserve elements in containers to avoid re-allocation/re-hashing. Zero
+    // values are ignored (that is, the corresponding container reserve()
+    // function is not called). Can only be called in the load phase.
+    //
+    void
+    reserve (reserves);
 
     // Enter project-wide (as opposed to global) variable overrides.
     //

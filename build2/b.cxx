@@ -468,6 +468,24 @@ main (int argc, char* argv[])
     if (bspec.empty ())
       bspec.push_back (metaopspec ()); // Default meta-operation.
 
+    // The reserve values were picked experimentally. They allow building a
+    // sample application that depends on Qt and Boost without causing a
+    // rehash.
+    //
+    // Note: omit reserving anything for the info meta-operation since it
+    // won't be loading the buildfiles and needs to be as fast as possible.
+    //
+    if (bspec.size () == 1 &&
+        bspec.front ().size () == 1 &&
+        (bspec.front ().name == "info" ||
+         (bspec.front ().name.empty () &&
+          bspec.front ().front ().name == "info")))
+      ;
+    else
+      pctx->reserve (context::reserves {
+          30000 /* targets */,
+          1100  /* variables */});
+
     const path& buildfile (ops.buildfile_specified ()
                            ? ops.buildfile ()
                            : empty_path);

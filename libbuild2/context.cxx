@@ -60,6 +60,18 @@ namespace build2
           var_patterns (&c /* shared */, &var_pool) {}
   };
 
+  void context::
+  reserve (reserves res)
+  {
+    assert (phase == run_phase::load);
+
+    if (res.targets != 0)
+      data_->targets.map_.reserve (res.targets);
+
+    if (res.variables != 0)
+      data_->var_pool.map_.reserve (res.variables);
+  }
+
   context::
   context (scheduler& s,
            global_mutexes& ms,
@@ -70,6 +82,7 @@ namespace build2
            bool ndb,
            bool kg,
            const strings& cmd_vars,
+           reserves res,
            optional<context*> mc,
            const loaded_modules_lock* ml)
       : data_ (new data (*this)),
@@ -101,6 +114,8 @@ namespace build2
     tracer trace ("context");
 
     l6 ([&]{trace << "initializing build state";});
+
+    reserve (res);
 
     scope_map& sm (data_->scopes);
     variable_pool& vp (data_->var_pool);

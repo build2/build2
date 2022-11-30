@@ -16,6 +16,7 @@
 
 #include <libbuild2/context.hxx>
 #include <libbuild2/target-type.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/export.hxx>
 
@@ -1470,7 +1471,21 @@ namespace build2
       auto r (map_.insert (map::value_type (&n, move (var))));
 
       if (r.second)
+      {
+#if 0
+        if (shared_ && outer_ == nullptr) // Global pool in context.
+        {
+          size_t n (map_.bucket_count ());
+          if (n > buckets_)
+          {
+            text << "variable_pool buckets: " << buckets_ << " -> " << n
+                 << " (" << map_.size () << ")";
+            buckets_ = n;
+          }
+        }
+#endif
         r.first->first.p = &r.first->second.name;
+      }
 
       return r;
     }
@@ -1482,6 +1497,10 @@ namespace build2
     variable_pool* outer_;
     const variable_patterns* patterns_;
     map map_;
+
+#if 0
+    size_t buckets_ = 0;
+#endif
   };
 
   // Variable patterns.

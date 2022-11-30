@@ -760,6 +760,18 @@ namespace build2
 
       if (p.second)
       {
+#if 0
+        {
+          size_t n (map_.bucket_count ());
+          if (n > buckets_)
+          {
+            text << "target_set buckets: " << buckets_ << " -> " << n
+                 << " (" << map_.size () << ")";
+            buckets_ = n;
+          }
+        }
+#endif
+
         t->ext_ = &i->first.ext;
         t->decl = decl;
         t->state.inner.target_ = t;

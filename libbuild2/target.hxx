@@ -1879,6 +1879,10 @@ namespace build2
 
     mutable shared_mutex mutex_;
     map_type map_;
+
+#if 0
+    size_t buckets_ = 0;
+#endif
   };
 
   // Modification time-based target.
