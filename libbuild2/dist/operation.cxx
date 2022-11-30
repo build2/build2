@@ -15,6 +15,7 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/dist/types.hxx>
 #include <libbuild2/dist/module.hxx>
 
 using namespace std;
@@ -236,6 +237,11 @@ namespace build2
         fail << "unknown distribution package name" <<
           info << "did you forget to set dist.package?";
 
+      // Need non-const in order to clear postponed. This is safe since only
+      // doing it when running serially.
+      //
+      module& mod (const_cast<module&> (*rs.find_module<module> (module::name)));
+
       const string& dist_package (cast<string> (l));
       const process_path& dist_cmd (cast<process_path> (rs.vars["dist.cmd"]));
 
@@ -272,60 +278,91 @@ namespace build2
         values params;
         path_name pn ("<dist>");
         const location loc (pn); // Dummy location.
+        action_targets ts {tgt};
+
+        auto process_postponed = [&ctx, &mod] ()
         {
-          action_targets ts {tgt};
-
-          auto mog = make_guard ([&ctx] () {ctx.match_only = false;});
-          ctx.match_only = true;
-
-          const operations& ops (rs.root_extra->operations);
-          for (operations::size_type id (default_id + 1); // Skip default_id.
-               id < ops.size ();
-               ++id)
+          if (!mod.postponed.list.empty ())
           {
-            if (const operation_info* oif = ops[id])
+            // Re-grab the phase lock similar to perform_match().
+            //
+            phase_lock l (ctx, run_phase::match);
+
+            // Note that we don't need to bother with the mutex since we do
+            // all of this serially. But we can end up with new elements at
+            // the end.
+            //
+            // Strictly speaking, to handle this correctly we would need to do
+            // multiple passes over this list and only give up when we cannot
+            // make any progress since earlier entries that we cannot resolve
+            // could be "fixed" by later entries. But this feels far-fetched
+            // and so let's wait for a real example before complicating this.
+            //
+            for (auto i (mod.postponed.list.begin ());
+                 i != mod.postponed.list.end ();
+                 ++i)
             {
-              // Skip aliases (e.g., update-for-install). In fact, one can
-              // argue the default update should be sufficient since it is
-              // assumed to update all prerequisites and we no longer support
-              // ad hoc stuff like test.input. Though here we are using the
-              // dist meta-operation, not perform.
-              //
-              if (oif->id != id)
-                continue;
+              rule::match_postponed (i->action, i->target, i->prereq);
+            }
+          }
+        };
 
-              // Use standard (perform) match.
-              //
-              if (auto pp = oif->pre_operation)
+        auto mog = make_guard ([&ctx] () {ctx.match_only = false;});
+        ctx.match_only = true;
+
+        const operations& ops (rs.root_extra->operations);
+        for (operations::size_type id (default_id + 1); // Skip default_id.
+             id < ops.size ();
+             ++id)
+        {
+          if (const operation_info* oif = ops[id])
+          {
+            // Skip aliases (e.g., update-for-install). In fact, one can argue
+            // the default update should be sufficient since it is assumed to
+            // update all prerequisites and we no longer support ad hoc stuff
+            // like test.input. Though here we are using the dist
+            // meta-operation, not perform.
+            //
+            if (oif->id != id)
+              continue;
+
+            // Use standard (perform) match.
+            //
+            if (auto pp = oif->pre_operation)
+            {
+              if (operation_id pid = pp (ctx, params, dist_id, loc))
               {
-                if (operation_id pid = pp (ctx, params, dist_id, loc))
-                {
-                  const operation_info* poif (ops[pid]);
-                  ctx.current_operation (*poif, oif, false /* diag_noise */);
-                  action a (dist_id, poif->id, oif->id);
-                  perform_match (params, a, ts,
-                                 1     /* diag (failures only) */,
-                                 false /* progress */);
-                }
+                const operation_info* poif (ops[pid]);
+                ctx.current_operation (*poif, oif, false /* diag_noise */);
+                action a (dist_id, poif->id, oif->id);
+                mod.postponed.list.clear ();
+                perform_match (params, a, ts,
+                               1     /* diag (failures only) */,
+                               false /* progress */);
+                process_postponed ();
               }
+            }
 
-              ctx.current_operation (*oif, nullptr, false /* diag_noise */);
-              action a (dist_id, oif->id);
-              perform_match (params, a, ts,
-                             1     /* diag (failures only) */,
-                             false /* progress */);
+            ctx.current_operation (*oif, nullptr, false /* diag_noise */);
+            action a (dist_id, oif->id);
+            mod.postponed.list.clear ();
+            perform_match (params, a, ts,
+                           1     /* diag (failures only) */,
+                           false /* progress */);
+            process_postponed ();
 
-              if (auto po = oif->post_operation)
+            if (auto po = oif->post_operation)
+            {
+              if (operation_id pid = po (ctx, params, dist_id))
               {
-                if (operation_id pid = po (ctx, params, dist_id))
-                {
-                  const operation_info* poif (ops[pid]);
-                  ctx.current_operation (*poif, oif, false /* diag_noise */);
-                  action a (dist_id, poif->id, oif->id);
-                  perform_match (params, a, ts,
-                                 1     /* diag (failures only) */,
-                                 false /* progress */);
-                }
+                const operation_info* poif (ops[pid]);
+                ctx.current_operation (*poif, oif, false /* diag_noise */);
+                action a (dist_id, poif->id, oif->id);
+                mod.postponed.list.clear ();
+                perform_match (params, a, ts,
+                               1     /* diag (failures only) */,
+                               false /* progress */);
+                process_postponed ();
               }
             }
           }
@@ -381,7 +418,7 @@ namespace build2
             dir_path out_nroot (out_root / pd);
             const scope& nrs (ctx.scopes.find_out (out_nroot));
 
-            if (nrs.out_path () != out_nroot) // This subproject not loaded.
+            if (nrs.out_path () != out_nroot) // This subproject is not loaded.
               continue;
 
             if (!nrs.src_path ().sub (src_root)) // Not a strong amalgamation.
@@ -508,8 +545,6 @@ namespace build2
 
       // Copy over all the files. Apply post-processing callbacks.
       //
-      const module& mod (*rs.find_module<module> (module::name));
-
       prog = prog && show_progress (1 /* max_verb */);
       size_t prog_percent (0);
 

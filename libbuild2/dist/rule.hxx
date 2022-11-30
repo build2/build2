@@ -11,6 +11,8 @@
 #include <libbuild2/action.hxx>
 #include <libbuild2/target.hxx>
 
+#include <libbuild2/dist/types.hxx>
+
 namespace build2
 {
   namespace dist
@@ -26,13 +28,20 @@ namespace build2
     class rule: public simple_rule
     {
     public:
-      rule () {}
+      explicit
+      rule (postponed_prerequisites& p): postponed_ (p) {}
 
       virtual bool
       match (action, target&) const override;
 
       virtual recipe
       apply (action, target&) const override;
+
+      static void
+      match_postponed (action, const target&, const prerequisite&);
+
+    private:
+      postponed_prerequisites& postponed_;
     };
   }
 }

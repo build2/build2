@@ -72,6 +72,8 @@ namespace build2
 
             // Search for an existing target or existing file in src.
             //
+            // Note: see also similar code in match_postponed() below.
+            //
             const prerequisite_key& k (p.key ());
             pt = k.tk.type->search (t, k);
 
@@ -85,12 +87,13 @@ namespace build2
                   !p.dir.sub (out_root))
                 continue;
 
-              // @@ TODO: this can actually be order-dependent: for example
-              //    libs{} prerequisite may be unknown because we haven't
-              //    matched the lib{} group yet.
+              // This can be order-dependent: for example libs{} prerequisite
+              // may be unknown because we haven't matched the lib{} group
+              // yet. So we postpone this for later (see match_postponed()).
               //
-              fail << "prerequisite " << k << " is not existing source file "
-                   << "nor known output target" << endf;
+              mlock l (postponed_.mutex);
+              postponed_.list.push_back (postponed_prerequisite {a, t, p,});
+              continue;
             }
 
             search_custom (p, *pt); // Cache.
@@ -106,6 +109,36 @@ namespace build2
       }
 
       return noop_recipe; // We will never be executed.
+    }
+
+    void rule::
+    match_postponed (action a, const target& t, const prerequisite& p)
+    {
+      const prerequisite_key& k (p.key ());
+      const target* pt (k.tk.type->search (t, k));
+
+      if (pt == nullptr)
+      {
+        // Note that we do loose the diag frame that we normally get when
+        // failing during match. So let's mention the target manually.
+        //
+        fail << "prerequisite " << k << " is not existing source file nor "
+             << "known output target" <<
+          info << "while applying rule dist to " << diag_do (a, t);
+      }
+
+      search_custom (p, *pt); // Cache.
+
+      // It's theoretically possible that the target gets entered but nobody
+      // else depends on it but us. So we need to make sure it's matched
+      // (since it, in turns, can pull in other targets). Note that this could
+      // potentially add new postponed prerequisites to the list.
+      //
+      if (!pt->matched (a))
+      {
+        if (pt->dir.sub (t.root_scope ().out_path ()))
+          match_direct_sync (a, *pt);
+      }
     }
   }
 }
