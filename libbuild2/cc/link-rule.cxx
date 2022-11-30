@@ -3515,6 +3515,10 @@ namespace build2
       //
       path relt (relative (tp));
 
+      path reli; // Import library.
+      if (lt.shared_library () && (tsys == "win32-msvc" || tsys == "mingw32"))
+        reli = relative (find_adhoc_member<libi> (t)->path ());
+
       const process_path* ld (nullptr);
       if (lt.static_library ())
       {
@@ -3646,7 +3650,7 @@ namespace build2
             // derived from the import library by changing the extension.
             // Lucky for us -- there is no option to name it.
             //
-            out2 += relative (find_adhoc_member<libi> (t)->path ()).string ();
+            out2 += reli.string ();
           }
           else
           {
@@ -3698,8 +3702,7 @@ namespace build2
                   // On Windows libs{} is the DLL and an ad hoc group member
                   // is the import library.
                   //
-                  const file& imp (*find_adhoc_member<libi> (t));
-                  out = "-Wl,--out-implib=" + relative (imp.path ()).string ();
+                  out = "-Wl,--out-implib=" + reli.string ();
                   args.push_back (out.c_str ());
                 }
               }
@@ -4110,12 +4113,24 @@ namespace build2
           throw failed ();
         }
 
-        // Clean up executable's import library (see above for details).
+        // Clean up executable's import library (see above for details). And
+        // make sure we have an import library for a shared library.
         //
-        if (lt.executable () && tsys == "win32-msvc")
+        if (tsys == "win32-msvc")
         {
-          try_rmfile (relt + ".lib", true /* ignore_errors */);
-          try_rmfile (relt + ".exp", true /* ignore_errors */);
+          if (lt.executable ())
+          {
+            try_rmfile (relt + ".lib", true /* ignore_errors */);
+            try_rmfile (relt + ".exp", true /* ignore_errors */);
+          }
+          else if (lt.shared_library ())
+          {
+            if (!file_exists (reli,
+                              false /* follow_symlinks */,
+                              true  /* ignore_error */))
+              fail << "linker did not produce import library " << reli <<
+                info << "perhaps this library does not export any symbols?";
+          }
         }
 
         // Set executable bit on the .js file so that it can be run with a
