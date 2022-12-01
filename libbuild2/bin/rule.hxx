@@ -9,6 +9,8 @@
 
 #include <libbuild2/rule.hxx>
 
+#include <libbuild2/dist/rule.hxx>
+
 #include <libbuild2/bin/export.hxx>
 
 namespace build2
@@ -18,7 +20,10 @@ namespace build2
     // "Fail rule" for obj{} and [h]bmi{} that issues diagnostics if someone
     // tries to build these groups directly.
     //
-    class obj_rule: public simple_rule
+    // Note that for dist it acts as a pass-through to all existing (declared)
+    // members.
+    //
+    class obj_rule: public dist::rule
     {
     public:
       obj_rule () {}
@@ -39,7 +44,10 @@ namespace build2
     // falling back to making our own based on bin.lib and bin.exe.lib. Note
     // that for update this rule always returns target_state::unchanged.
     //
-    class libul_rule: public simple_rule
+    // Note also that for dist it acts as a pass-through to all existing
+    // (declared) members.
+    //
+    class libul_rule: public dist::rule
     {
     public:
       explicit
@@ -53,6 +61,8 @@ namespace build2
     };
 
     // Pass-through to group members rule, similar to alias.
+    //
+    // Note that for dist it always passes to both members.
     //
     class LIBBUILD2_BIN_SYMEXPORT lib_rule: public simple_rule
     {

@@ -605,6 +605,18 @@ namespace build2
 
         if (rs.find_module ("dist"))
         {
+          // Note that without custom dist rules in setups along the follwing
+          // lines the source file will be unreachable by dist:
+          //
+          // lib{foo}: obj{foo}
+          // obja{foo}: cxx{foo}
+          // objs{foo}: cxx{foo}
+          //
+          r.insert<obj> (dist_id, 0, "bin.obj", obj_);
+          r.insert<bmi> (dist_id, 0, "bin.bmi", obj_);
+          r.insert<hbmi> (dist_id, 0, "bin.hbmi", obj_);
+          r.insert<libul> (dist_id, 0, "bin.libul", libul_);
+
           r.insert<lib> (dist_id, 0, "bin.lib", lib_);
         }
       }

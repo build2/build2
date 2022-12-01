@@ -71,6 +71,8 @@ namespace build2
       static const target_type static_type;
     };
 
+    // Note: this is a "choice" target group.
+    //
     class LIBBUILD2_BIN_SYMEXPORT obj: public target
     {
     public:
@@ -219,6 +221,8 @@ namespace build2
       static const target_type static_type;
     };
 
+    // Note: this is a "choice" target group (similar to obj{}).
+    //
     class LIBBUILD2_BIN_SYMEXPORT bmi: public target
     {
     public:
@@ -232,6 +236,8 @@ namespace build2
       static const target_type static_type;
     };
 
+    // Note: this is a "choice" target group (similar to bmi{} and obj{}).
+    //
     class LIBBUILD2_BIN_SYMEXPORT hbmi: public target
     {
     public:
@@ -340,6 +346,8 @@ namespace build2
       static const target_type static_type;
     };
 
+    // Note: this is a "choice" target group.
+    //
     // @@ Ideally this shouldn't derive from mtime_target (via libx). Maybe
     //    get rid of libx?
     //

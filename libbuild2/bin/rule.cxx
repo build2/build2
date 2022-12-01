@@ -17,11 +17,29 @@ namespace build2
 {
   namespace bin
   {
+    // Search for an existing (declared real) member and match it if found.
+    //
+    static void
+    dist_match (action a, target& t, const target_type& tt)
+    {
+      if (const target* m = search_existing (t.ctx, tt, t.dir, t.out, t.name))
+      {
+        // Only a real target declaration can have prerequisites (which is
+        // the reason we are doing this).
+        //
+        if (m->decl == target_decl::real)
+          match_sync (a, *m);
+      }
+    }
+
     // obj_rule
     //
     bool obj_rule::
     match (action a, target& t) const
     {
+      if (a.meta_operation () == dist_id)
+        return true;
+
       const char* n (t.dynamic_type->name); // Ignore derived type.
 
       fail << diag_doing (a, t) << " target group" <<
@@ -30,7 +48,43 @@ namespace build2
     }
 
     recipe obj_rule::
-    apply (action, target&) const {return empty_recipe;}
+    apply (action a, target& t) const
+    {
+      // We only get here for dist.
+      //
+      const target_type* ett (nullptr);
+      const target_type* att (nullptr);
+      const target_type* stt (nullptr);
+
+      if (t.is_a<obj> ())
+      {
+        ett = &obje::static_type;
+        att = &obja::static_type;
+        stt = &objs::static_type;
+      }
+      else if (t.is_a<bmi> ())
+      {
+        ett = &bmie::static_type;
+        att = &bmia::static_type;
+        stt = &bmis::static_type;
+      }
+      else if (t.is_a<hbmi> ())
+      {
+        ett = &hbmie::static_type;
+        att = &hbmia::static_type;
+        stt = &hbmis::static_type;
+      }
+      else
+        assert (false);
+
+      dist_match (a, t, *ett);
+      dist_match (a, t, *att);
+      dist_match (a, t, *stt);
+
+      // Delegate to the default dist rule to match prerequisites.
+      //
+      return dist::rule::apply (a, t);
+    }
 
     // libul_rule
     //
@@ -43,6 +97,16 @@ namespace build2
     recipe libul_rule::
     apply (action a, target& t) const
     {
+      if (a.meta_operation () == dist_id)
+      {
+        dist_match (a, t, libua::static_type);
+        dist_match (a, t, libus::static_type);
+
+        // Delegate to the default dist rule to match prerequisites.
+        //
+        return dist::rule::apply (a, t);
+      }
+
       // Pick one of the members. First looking for the one already matched.
       //
       const target* m (nullptr);
@@ -112,6 +176,11 @@ namespace build2
     //
     // The whole logic is pretty much as if we had our two group members as
     // our prerequisites.
+    //
+    // Note also that unlike the obj and libul rules above, we don't need to
+    // delegate to the default dist rule since any group prerequisites will be
+    // matched by one of the members (the key difference here is that unlike
+    // those rules, we insert and match members unconditionally).
     //
     bool lib_rule::
     match (action a, target& xt) const
