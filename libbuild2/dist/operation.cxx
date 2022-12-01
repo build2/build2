@@ -16,6 +16,7 @@
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/dist/types.hxx>
+#include <libbuild2/dist/rule.hxx>
 #include <libbuild2/dist/module.hxx>
 
 using namespace std;
@@ -237,10 +238,7 @@ namespace build2
         fail << "unknown distribution package name" <<
           info << "did you forget to set dist.package?";
 
-      // Need non-const in order to clear postponed. This is safe since only
-      // doing it when running serially.
-      //
-      module& mod (const_cast<module&> (*rs.find_module<module> (module::name)));
+      const module& mod (*rs.find_module<module> (module::name));
 
       const string& dist_package (cast<string> (l));
       const process_path& dist_cmd (cast<process_path> (rs.vars["dist.cmd"]));
@@ -301,9 +299,7 @@ namespace build2
             for (auto i (mod.postponed.list.begin ());
                  i != mod.postponed.list.end ();
                  ++i)
-            {
-              rule::match_postponed (i->action, i->target, i->prereq);
-            }
+              rule::match_postponed (*i);
           }
         };
 

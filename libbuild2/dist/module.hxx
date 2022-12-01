@@ -11,7 +11,6 @@
 #include <libbuild2/variable.hxx>
 
 #include <libbuild2/dist/types.hxx>
-#include <libbuild2/dist/rule.hxx>
 
 #include <libbuild2/export.hxx>
 
@@ -19,8 +18,7 @@ namespace build2
 {
   namespace dist
   {
-    class LIBBUILD2_SYMEXPORT module: public build2::module,
-                                      public rule
+    class LIBBUILD2_SYMEXPORT module: public build2::module
     {
     public:
       static const string name;
@@ -43,9 +41,9 @@ namespace build2
         adhoc.push_back (move (f));
       }
 
-      // List of postponed prerequisites.
+      // List of postponed prerequisites (see rule for details).
       //
-      postponed_prerequisites postponed;
+      mutable postponed_prerequisites postponed;
 
       // Distribution post-processing callbacks.
       //
@@ -79,8 +77,7 @@ namespace build2
       // Implementation details.
       //
     public:
-      module (const variable& v_d_p)
-        : rule (postponed), var_dist_package (v_d_p) {}
+      module (const variable& v_d_p): var_dist_package (v_d_p) {}
 
     public:
       bool distributed = false; // True if this project is being distributed.

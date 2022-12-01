@@ -21,6 +21,8 @@ namespace build2
 {
   namespace dist
   {
+    static const rule rule_;
+
     void
     boot (scope& rs, const location&, module_boot_extra& extra)
     {
@@ -194,7 +196,7 @@ namespace build2
           const location& l,
           bool first,
           bool,
-          module_init_extra& extra)
+          module_init_extra&)
     {
       tracer trace ("dist::init");
 
@@ -206,19 +208,13 @@ namespace build2
 
       l5 ([&]{trace << "for " << rs;});
 
-      module& mod (extra.module_as<module> ());
-
       auto& vp (rs.var_pool (true /* public */)); // All qualified.
 
       // Register our wildcard rule. Do it explicitly for the alias to prevent
       // something like insert<target>(dist_id, test_id) taking precedence.
       //
-      {
-        const rule& r (mod);
-
-        rs.insert_rule<target> (dist_id, 0, "dist",       r);
-        rs.insert_rule<alias>  (dist_id, 0, "dist.alias", r);
-      }
+      rs.insert_rule<target> (dist_id, 0, "dist",       rule_);
+      rs.insert_rule<alias>  (dist_id, 0, "dist.alias", rule_);
 
       // We need this rule for out-of-any-project dependencies (for example,
       // executables imported from /usr/bin, etc). We are registering it on

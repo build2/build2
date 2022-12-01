@@ -13,6 +13,8 @@
 
 #include <libbuild2/dist/types.hxx>
 
+#include <libbuild2/export.hxx>
+
 namespace build2
 {
   namespace dist
@@ -21,27 +23,28 @@ namespace build2
     //
     // A custom rule (usually the same as perform_update) may be necessary to
     // establish group links (so that we see the dist variable set on a group)
-    // or to see through non-see-through groups (like lib{}; see the
-    // bin::lib_rule for an example). Note that in the latter case the rule
-    // should "see" all its members for the dist case.
+    // or to see through non-see-through groups (like lib{}, obj{}; see rule
+    // in the bin module for an example). Note that in the latter case the
+    // rule should "see" all its members for the dist case.
     //
-    class rule: public simple_rule
+    class LIBBUILD2_SYMEXPORT rule: public simple_rule
     {
     public:
-      explicit
-      rule (postponed_prerequisites& p): postponed_ (p) {}
+      rule () {}
 
+      // Always matches (returns true).
+      //
       virtual bool
       match (action, target&) const override;
 
+      // Matches all the prerequisites (including from group) and returns
+      // noop_recipe (which will never be executed).
+      //
       virtual recipe
       apply (action, target&) const override;
 
       static void
-      match_postponed (action, const target&, const prerequisite&);
-
-    private:
-      postponed_prerequisites& postponed_;
+      match_postponed (const postponed_prerequisite&);
     };
   }
 }

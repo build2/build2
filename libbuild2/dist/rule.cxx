@@ -8,6 +8,9 @@
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/dist/types.hxx>
+#include <libbuild2/dist/module.hxx>
+
 using namespace std;
 
 namespace build2
@@ -91,8 +94,11 @@ namespace build2
               // may be unknown because we haven't matched the lib{} group
               // yet. So we postpone this for later (see match_postponed()).
               //
-              mlock l (postponed_.mutex);
-              postponed_.list.push_back (postponed_prerequisite {a, t, p,});
+              const module& mod (*rs.find_module<module> (module::name));
+
+              mlock l (mod.postponed.mutex);
+              mod.postponed.list.push_back (
+                postponed_prerequisite {a, t, p, t.state[a].rule->first});
               continue;
             }
 
@@ -112,19 +118,23 @@ namespace build2
     }
 
     void rule::
-    match_postponed (action a, const target& t, const prerequisite& p)
+    match_postponed (const postponed_prerequisite& pp)
     {
+      action a (pp.action);
+      const target& t (pp.target);
+      const prerequisite& p (pp.prereq);
+
       const prerequisite_key& k (p.key ());
       const target* pt (k.tk.type->search (t, k));
 
       if (pt == nullptr)
       {
         // Note that we do loose the diag frame that we normally get when
-        // failing during match. So let's mention the target manually.
+        // failing during match. So let's mention the target/rule manually.
         //
         fail << "prerequisite " << k << " is not existing source file nor "
              << "known output target" <<
-          info << "while applying rule dist to " << diag_do (a, t);
+          info << "while applying rule " << pp.rule << " to " << diag_do (a, t);
       }
 
       search_custom (p, *pt); // Cache.

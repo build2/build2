@@ -27,6 +27,7 @@ namespace build2
       build2::action                          action;
       reference_wrapper<const build2::target> target;
       reference_wrapper<const prerequisite>   prereq;
+      string                                  rule;
     };
 
     struct postponed_prerequisites
