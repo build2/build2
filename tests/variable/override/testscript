@@ -63,6 +63,8 @@
   p.x = 0
   file{*}: p.x += a
 
+  file{foo}:
+
   print $(file{foo}:p.x)
 
   p.x = 1                 # Should invalidate both caches.

@@ -59,27 +59,7 @@ namespace build2
     enter_scope (parser& p, dir_path&& d)
         : p_ (&p), r_ (p.root_), s_ (p.scope_), b_ (p.pbase_)
     {
-      // Try hard not to call normalize(). Most of the time we will go just
-      // one level deeper.
-      //
-      bool n (true);
-
-      if (d.relative ())
-      {
-        // Relative scopes are opened relative to out, not src.
-        //
-        if (d.simple () && !d.current () && !d.parent ())
-        {
-          d = dir_path (p.scope_->out_path ()) /= d.string ();
-          n = false;
-        }
-        else
-          d = p.scope_->out_path () / d;
-      }
-
-      if (n)
-        d.normalize ();
-
+      complete_normalize (*p.scope_, d);
       e_ = p.switch_scope (d);
     }
 
@@ -122,6 +102,31 @@ namespace build2
 
     enter_scope (const enter_scope&) = delete;
     enter_scope& operator= (const enter_scope&) = delete;
+
+    static void
+    complete_normalize (scope& s, dir_path& d)
+    {
+      // Try hard not to call normalize(). Most of the time we will go just
+      // one level deeper.
+      //
+      bool n (true);
+
+      if (d.relative ())
+      {
+        // Relative scopes are opened relative to out, not src.
+        //
+        if (d.simple () && !d.current () && !d.parent ())
+        {
+          d = dir_path (s.out_path ()) /= d.string ();
+          n = false;
+        }
+        else
+          d = s.out_path () / d;
+      }
+
+      if (n)
+        d.normalize ();
+    }
 
   private:
     parser* p_;
@@ -8318,6 +8323,9 @@ namespace build2
   lookup parser::
   lookup_variable (names&& qual, string&& name, const location& loc)
   {
+    // Note that this function can be called during execute (for example, from
+    // scripts). In particular, this means we cannot use enter_{scope,target}.
+
     if (pre_parse_)
       return lookup ();
 
@@ -8329,9 +8337,6 @@ namespace build2
 
     // If we are qualified, it can be a scope or a target.
     //
-    enter_scope sg;
-    enter_target tg;
-
     if (qual.empty ())
     {
       s = scope_;
@@ -8340,13 +8345,29 @@ namespace build2
     }
     else
     {
+      // What should we do if we cannot find the qualification (scope or
+      // target)? We can "fall through" to an outer scope (there is always the
+      // global scope backstop), we can return NULL straight away, or we can
+      // fail. It feels like in most cases unknown scope or target is a
+      // mistake and doing anything other than failing is just making things
+      // harder to debug.
+      //
       switch (qual.front ().pair)
       {
       case '/':
         {
           assert (qual.front ().directory ());
-          sg = enter_scope (*this, move (qual.front ().dir));
-          s = scope_;
+
+          dir_path& d (qual.front ().dir);
+          enter_scope::complete_normalize (*scope_, d);
+
+          s = &ctx->scopes.find_out (d);
+
+          if (s->out_path () != d)
+            fail (loc) << "unknown scope " << d << " in scope-qualified "
+                       << "variable " << name << " expansion" <<
+              info << "did you forget to include the corresponding buildfile?";
+
           break;
         }
       default:
@@ -8356,8 +8377,24 @@ namespace build2
           if (n.pair)
             o = move (qual.back ());
 
-          tg = enter_target (*this, move (n), move (o), true, loc, trace);
-          t = target_;
+          t = enter_target::find_target (*this, n, o, loc, trace);
+
+          if (t == nullptr || !operator>= (t->decl, target_decl::implied)) // VC14
+          {
+            diag_record dr (fail (loc));
+
+            dr << "unknown target " << n;
+
+            if (n.pair && !o.dir.empty ())
+              dr << '@' << o.dir;
+
+            dr << " in target-qualified variable " << name << " expansion";
+          }
+
+          // Use the target's var_pool for good measure.
+          //
+          s = &t->base_scope ();
+
           break;
         }
       }
@@ -8365,9 +8402,12 @@ namespace build2
 
     // Lookup.
     //
-    if (const variable* pvar = scope_->var_pool ().find (name))
+    if (const variable* pvar =
+          (s != nullptr ? s : scope_)->var_pool ().find (name))
     {
       auto& var (*pvar);
+
+      // Note: the order of the following blocks is important.
 
       if (p != nullptr)
       {

@@ -3,6 +3,8 @@ if ($p.t != [null])
   [$p.t] p.v = [null]
 }
 
+/:
+
 print "/     :" $(/: p.v)
 
 if ($p.a == as)
@@ -22,6 +24,8 @@ print ".     :" $p.v
 
 d/
 {
+  file{t}:
+
   if ($p.d_a == as)
   {
     p.v = x

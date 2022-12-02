@@ -523,10 +523,14 @@ namespace build2
   pair<scope&, scope*>
   switch_scope (scope& root, const dir_path& out_base, bool proj)
   {
+    context& ctx (root.ctx);
+
+    assert (ctx.phase == run_phase::load);
+
     // First, enter the scope into the map and see if it is in any project. If
     // it is not, then there is nothing else to do.
     //
-    auto i (root.ctx.scopes.rw (root).insert_out (out_base));
+    auto i (ctx.scopes.rw (root).insert_out (out_base));
     scope& base (*i->second.front ());
 
     scope* rs (nullptr);

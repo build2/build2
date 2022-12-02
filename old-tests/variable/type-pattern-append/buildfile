@@ -1,3 +1,5 @@
+./ sub/:
+
 # Typed append/prepend.
 #
 #dir{a*}: x += [bool] true

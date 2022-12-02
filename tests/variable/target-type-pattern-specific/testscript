@@ -12,6 +12,9 @@ x = x
 y = y
 dir{*}: x  = X
 dir{*}: y += Y
+
+./:
+
 print $(./: x)
 print $(./: y)
 EOI
@@ -26,6 +29,7 @@ dir{*}: x = y
 
 x = z
 dir{*-foo}: x = $x # 'z'
+bar-foo/:
 print $(bar-foo/: x)
 
 x = G
@@ -59,6 +63,7 @@ print $(file{x-foz}: x)
 *: x1 = X1
 {*}: x2 = X2
 target{*}: x3 = X3
+file{x}:
 print $(file{x}: x1)
 print $(file{x}: x2)
 print $(file{x}: x3)
@@ -89,6 +94,9 @@ dir{*}:
   y += Y
   z  = $x # Note: from scope.
 }
+
+./:
+
 print $(./: x)
 print $(./: y)
 print $(./: z)
@@ -108,6 +116,9 @@ file{f*} file{b*}:
   x  = X
   y += Y
 }
+
+file{foo bar}:
+
 print $(file{foo}: x)
 print $(file{bar}: y)
 EOI
@@ -122,6 +133,8 @@ EOO
   :
   $* <<EOI >>EOO
   file{~/'.+\.txt'/i}: x = 1
+
+  file{foo.txt foo.TXT}:
 
   print $(file{foo.txt}: x)
   print $(file{foo.TXT}: x)
@@ -140,6 +153,8 @@ EOO
   txt{~/'.+\.tx'/e}:  x = 2
   txt{~/'.+\.txt'/e}: x = 3
 
+  txt{foo.x foo.tx foo.txt foo.bar...}:
+
   print $(txt{foo.x}: x)
   print $(txt{foo.tx}: x)
   print $(txt{foo.txt}: x)
@@ -157,6 +172,8 @@ EOO
   x = 0
   file{~/'(.+)-\1'/}: x = 1
 
+  file{foo-foo foo-bar}:
+
   print $(file{foo-foo}: x)
   print $(file{foo-bar}: x)
   EOI
@@ -168,6 +185,8 @@ EOO
   :
   $* <<EOI >>EOO
   foo/dir{~/b.+/}: x = 1
+
+  foo/dir{bar}:
 
   print $(foo/dir{bar}: x)
   EOI
