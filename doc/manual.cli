@@ -4122,7 +4122,7 @@ source subdirectory \c{buildfile} of an executable created with this option:
 
 # Unit tests.
 #
-exe{*.test}
+exe{*.test}:
 {
   test = true
   install = false
