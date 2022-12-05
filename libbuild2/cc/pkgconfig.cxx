@@ -554,6 +554,7 @@ namespace build2
                      cmp ("userenv")         ||
                      cmp ("uuid")            ||
                      cmp ("version")         ||
+                     cmp ("windowscodecs")   ||
                      cmp ("winhttp")         ||
                      cmp ("winmm")           ||
                      cmp ("winspool")        ||
