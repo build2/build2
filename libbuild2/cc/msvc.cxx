@@ -516,7 +516,7 @@ namespace build2
     }
 
     template <typename T>
-    static T*
+    static pair<T*, bool>
     msvc_search_library (const process_path& ld,
                          const dir_path& d,
                          const prerequisite_key& p,
@@ -562,20 +562,26 @@ namespace build2
       //
       timestamp mt (mtime (f));
 
-      if (mt != timestamp_nonexistent && library_type (ld, f) == lt)
+      pair<T*, bool> r (nullptr, true);
+
+      if (mt != timestamp_nonexistent)
       {
-        // Enter the target.
-        //
-        T* t;
-        common::insert_library (p.scope->ctx, t, name, d, ld, e, exist, trace);
-        t->path_mtime (move (f), mt);
-        return t;
+        if (library_type (ld, f) == lt)
+        {
+          // Enter the target.
+          //
+          common::insert_library (
+            p.scope->ctx, r.first, name, d, ld, e, exist, trace);
+          r.first->path_mtime (move (f), mt);
+        }
+        else
+          r.second = false; // Don't search for binless.
       }
 
-      return nullptr;
+      return r;
     }
 
-    liba* common::
+    pair<bin::liba*, bool> common::
     msvc_search_static (const process_path& ld,
                         const dir_path& d,
                         const prerequisite_key& p,
@@ -583,14 +589,21 @@ namespace build2
     {
       tracer trace (x, "msvc_search_static");
 
-      liba* r (nullptr);
+      liba* a (nullptr);
+      bool b (true);
 
-      auto search = [&r, &ld, &d, &p, exist, &trace] (
+      auto search = [&a, &b,  &ld, &d, &p, exist, &trace] (
         const char* pf, const char* sf) -> bool
       {
-        r = msvc_search_library<liba> (
-          ld, d, p, otype::a, pf, sf, exist, trace);
-        return r != nullptr;
+        pair<liba*, bool> r (msvc_search_library<liba> (
+                               ld, d, p, otype::a, pf, sf, exist, trace));
+
+        if (r.first != nullptr)
+          a = r.first;
+        else if (!r.second)
+          b = false;
+
+        return a != nullptr;
       };
 
       // Try:
@@ -603,10 +616,10 @@ namespace build2
         search ("",    "")    ||
         search ("lib", "")    ||
         search ("",    "lib") ||
-        search ("",    "_static") ? r : nullptr;
+        search ("",    "_static") ? make_pair (a, true) : make_pair (nullptr, b);
     }
 
-    libs* common::
+    pair<bin::libs*, bool> common::
     msvc_search_shared (const process_path& ld,
                         const dir_path& d,
                         const prerequisite_key& pk,
@@ -617,12 +630,14 @@ namespace build2
       assert (pk.scope != nullptr);
 
       libs* s (nullptr);
+      bool b (true);
 
-      auto search = [&s, &ld, &d, &pk, exist, &trace] (
+      auto search = [&s, &b, &ld, &d, &pk, exist, &trace] (
         const char* pf, const char* sf) -> bool
       {
-        if (libi* i = msvc_search_library<libi> (
-              ld, d, pk, otype::s, pf, sf, exist, trace))
+        pair<libi*, bool> r (msvc_search_library<libi> (
+                               ld, d, pk, otype::s, pf, sf, exist, trace));
+        if (r.first != nullptr)
         {
           ulock l (
             insert_library (
@@ -630,6 +645,8 @@ namespace build2
 
           if (!exist)
           {
+            libi* i (r.first);
+
             if (l.owns_lock ())
             {
               s->adhoc_member = i; // We are first.
@@ -643,6 +660,8 @@ namespace build2
             s->path_mtime (path (), i->mtime ());
           }
         }
+        else if (!r.second)
+          b = false;
 
         return s != nullptr;
       };
@@ -655,7 +674,7 @@ namespace build2
       return
         search ("",    "")    ||
         search ("lib", "")    ||
-        search ("",    "dll") ? s : nullptr;
+        search ("",    "dll") ? make_pair (s, true) : make_pair (nullptr, b);
     }
   }
 }

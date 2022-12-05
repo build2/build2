@@ -1039,6 +1039,21 @@ namespace build2
       {
         context& ctx (p.scope->ctx);
 
+        // Whether to look for a binless variant using the common .pc file
+        // (see below).
+        //
+        // Normally we look for a binless version if the binful one was not
+        // found. However, sometimes we may find what looks like a binful
+        // library but on a closer examination realize that there is something
+        // wrong with it (for example, it's not a Windows import library). In
+        // such cases we want to omit looking for a binless library using the
+        // common .pc file since it most likely corresponds to the binful
+        // library (and we may end up in a infinite loop trying to resolve
+        // itself).
+        //
+        bool ba (true);
+        bool bs (true);
+
         timestamp mt;
 
         // libs
@@ -1139,10 +1154,24 @@ namespace build2
         if (tsys == "win32-msvc")
         {
           if (s == nullptr && !sn.empty ())
-            s = msvc_search_shared (ld, d, p, exist);
+          {
+            pair<libs*, bool> r (msvc_search_shared (ld, d, p, exist));
+
+            if (r.first != nullptr)
+              s = r.first;
+            else if (!r.second)
+              bs = false;
+          }
 
           if (a == nullptr && !an.empty ())
-            a = msvc_search_static (ld, d, p, exist);
+          {
+            pair<liba*, bool> r (msvc_search_static (ld, d, p, exist));
+
+            if (r.first != nullptr)
+              a = r.first;
+            else if (!r.second)
+              ba = false;
+          }
         }
 
         // Look for binary-less libraries via pkg-config .pc files. Note that
@@ -1159,7 +1188,10 @@ namespace build2
             // is no binful variant.
             //
             pair<path, path> r (
-              pkgconfig_search (d, p.proj, name, na && ns /* common */));
+              pkgconfig_search (d,
+                                p.proj,
+                                name,
+                                na && ns && ba && bs /* common */));
 
             if (na && !r.first.empty ())
             {

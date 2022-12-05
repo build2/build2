@@ -440,13 +440,16 @@ namespace build2
 
       // Alternative search logic for VC (msvc.cxx).
       //
-      bin::liba*
+      // The second half is false if we should poison the binless search via
+      // the common .pc file.
+      //
+      pair<bin::liba*, bool>
       msvc_search_static (const process_path&,
                           const dir_path&,
                           const prerequisite_key&,
                           bool existing) const;
 
-      bin::libs*
+      pair<bin::libs*, bool>
       msvc_search_shared (const process_path&,
                           const dir_path&,
                           const prerequisite_key&,
