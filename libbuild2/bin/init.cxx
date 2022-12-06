@@ -107,12 +107,12 @@ namespace build2
       // Link whole archive. Note: with target visibility.
       //
       // The lookup semantics is as follows: we first look for a prerequisite-
-      // specific value, then for a target-specific value in the library being
-      // linked, and then for target type/pattern-specific value starting from
-      // the scope of the target being linked-to. In that final lookup we do
-      // not look in the target being linked-to itself since that is used to
-      // indicate how this target should be linked to other targets. For
-      // example:
+      // specific value, then for a target-specific value in the prerequisite
+      // library, and then for target type/pattern-specific value starting
+      // from the scope of the target being linked. In that final lookup we do
+      // not look in the target being linked itself since that is used to
+      // indicate how this target should be used as a prerequisite of other
+      // targets. For example:
       //
       // exe{test}: liba{foo}
       // liba{foo}: libua{foo1 foo2}

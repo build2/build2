@@ -408,7 +408,7 @@ namespace build2
               if (!li) find_linfo ();
 
               process_libraries_impl (a, bs, *li, *sysd,
-                                      g, *f, la, pt.data,
+                                      g, *f, la, pt.data /* lflags */,
                                       proc_impl, proc_lib, proc_opt,
                                       true /* self */, proc_opt_group,
                                       cache, chain, nullptr);
@@ -647,13 +647,31 @@ namespace build2
 
                 // Process it recursively.
                 //
-                // @@ Where can we get the link flags? Should we try to find
-                //    them in the library's prerequisites? What about
-                //    installed stuff?
+                bool u;
+                bool la ((u = t->is_a<libux> ()) || t->is_a<liba> ());
+                lflags lf (0);
+
+                // If this is a static library, see if we need to link it
+                // whole.
                 //
+                if (la && proc_lib)
+                {
+                  // Note: go straight for the public variable pool.
+                  //
+                  const variable& var (t->ctx.var_pool["bin.whole"]);
+
+                  // See the link rule for the lookup semantics.
+                  //
+                  lookup l (
+                    t->lookup_original (var, true /* target_only */).first);
+
+                  if (l ? cast<bool> (*l) : u)
+                    lf |= lflag_whole;
+                }
+
                 process_libraries_impl (
                   a, bs, *li, *sysd,
-                  g, *t, t->is_a<liba> () || t->is_a<libux> (), 0,
+                  g, *t, la, lf,
                   proc_impl, proc_lib, proc_opt,
                   true /* self */, proc_opt_group,
                   cache, chain, dedup);
