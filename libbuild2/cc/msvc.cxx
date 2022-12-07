@@ -398,7 +398,7 @@ namespace build2
       string key;
       {
         sha256 cs;
-        cs.append (ld.recall_string ());
+        cs.append (ld.effect_string ());
         cs.append (l.string ());
         key = cs.string ();
 
