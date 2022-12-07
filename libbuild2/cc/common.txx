@@ -21,7 +21,7 @@ namespace build2
     {
       auto p (ctx.targets.insert_locked (T::static_type,
                                          move (dir),
-                                         path_cast<dir_path> (out.effect),
+                                         dir_path (out.effect_string ()),
                                          name,
                                          move (ext),
                                          target_decl::implied,
