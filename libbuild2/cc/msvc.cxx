@@ -471,14 +471,11 @@ namespace build2
           // libhello\hello.lib.obj
           // hello-0.1.0-a.0.19700101000000.dll
           //
-          // Archive member name at 746: [...]hello.dll[/][ ]*
-          // Archive member name at 8C70: [...]hello.lib.obj[/][ ]*
-          //
           size_t n (s.size ());
 
           for (; n != 0 && s[n - 1] == ' '; --n) ; // Skip trailing spaces.
 
-          if (n >= 7) // At least ": X.obj" or ": X.dll".
+          if (n >= 5) // At least "X.obj" or "X.dll".
           {
             n -= 4; // Beginning of extension.
 
