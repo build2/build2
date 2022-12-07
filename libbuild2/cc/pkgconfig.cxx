@@ -519,10 +519,11 @@ namespace build2
             else if (cmp ("advapi32")        ||
                      cmp ("bcrypt")          ||
                      cmp ("crypt32")         ||
-                     cmp ("dbgeng")          ||
-                     cmp ("dbghelp")         ||
                      cmp ("d2d1")            ||
                      cmp ("d3d",   3)        || // d3d*
+                     cmp ("dbgeng")          ||
+                     cmp ("dbghelp")         ||
+                     cmp ("dnsapi")          ||
                      cmp ("dwmapi")          ||
                      cmp ("dwrite")          ||
                      cmp ("dxgi")            ||
@@ -535,6 +536,7 @@ namespace build2
                      cmp ("kernel32")        ||
                      cmp ("mincore")         ||
                      cmp ("mpr")             ||
+                     cmp ("msimg32")         ||
                      cmp ("mswsock")         ||
                      cmp ("msxml", 5)        || // msxml*
                      cmp ("netapi32")        ||
