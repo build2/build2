@@ -390,9 +390,22 @@ namespace build2
     // Inspect the file and determine if it is static or import library.
     // Return otype::e if it is neither (which we quietly ignore).
     //
+    static global_cache<otype> library_type_cache;
+
     static otype
     library_type (const process_path& ld, const path& l)
     {
+      string key;
+      {
+        sha256 cs;
+        cs.append (ld.recall_string ());
+        cs.append (l.string ());
+        key = cs.string ();
+
+        if (const otype* r = library_type_cache.find (key))
+          return *r;
+      }
+
       // The are several reasonably reliable methods to tell whether it is a
       // static or import library. One is lib.exe /LIST -- if there aren't any
       // .obj members, then it is most likely an import library (it can also
@@ -500,19 +513,21 @@ namespace build2
         return otype::e;
       }
 
-      if (obj && dll)
+      otype r;
+      if (obj != dll)
+        r = obj ? otype::a : otype::s;
+      else
       {
-        warn << l << " looks like hybrid static/import library, ignoring";
-        return otype::e;
+        if (obj && dll)
+          warn << l << " looks like hybrid static/import library, ignoring";
+
+        if (!obj && !dll)
+          warn << l << " looks like empty static or import library, ignoring";
+
+        r = otype::e;
       }
 
-      if (!obj && !dll)
-      {
-        warn << l << " looks like empty static or import library, ignoring";
-        return otype::e;
-      }
-
-      return obj ? otype::a : otype::s;
+      return library_type_cache.insert (move (key), r);
     }
 
     template <typename T>
