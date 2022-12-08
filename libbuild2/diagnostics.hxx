@@ -401,15 +401,25 @@ namespace build2
   using butl::diag_progress_lock;
 
   // Return true if progress is to be shown. The max_verb argument is the
-  // maximum verbosity level that this type of progress should be shown by
-  // default.
+  // maximum verbosity level that this type of progress should be shown at by
+  // default. If it is verb_never, then both min and max verbosity checks are
+  // omitted, assuming the caller takes care of that themselves.
   //
   inline bool
   show_progress (uint16_t max_verb)
   {
     return diag_progress_option
       ? *diag_progress_option
-      : stderr_term && verb >= 1 && verb <= max_verb;
+      : stderr_term && (max_verb == verb_never ||
+                        (verb >= 1 && verb <= max_verb));
+  }
+
+  // Diagnostics color.
+  //
+  inline bool
+  show_diag_color ()
+  {
+    return diag_color_option ? *diag_color_option : stderr_term_color;
   }
 
   // Diagnostic facility.

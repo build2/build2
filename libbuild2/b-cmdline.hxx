@@ -24,6 +24,7 @@ namespace build2
     //
     uint16_t verbosity = 1;
     optional<bool> progress;
+    optional<bool> diag_color;
     optional<bool> mtime_check;
     optional<path> config_sub;
     optional<path> config_guess;

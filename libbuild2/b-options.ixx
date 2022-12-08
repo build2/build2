@@ -80,6 +80,18 @@ namespace build2
     return this->no_progress_;
   }
 
+  inline const bool& b_options::
+  diag_color () const
+  {
+    return this->diag_color_;
+  }
+
+  inline const bool& b_options::
+  no_diag_color () const
+  {
+    return this->no_diag_color_;
+  }
+
   inline const size_t& b_options::
   jobs () const
   {

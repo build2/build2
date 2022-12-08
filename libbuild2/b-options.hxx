@@ -104,6 +104,12 @@ namespace build2
     const bool&
     no_progress () const;
 
+    const bool&
+    diag_color () const;
+
+    const bool&
+    no_diag_color () const;
+
     const size_t&
     jobs () const;
 
@@ -266,6 +272,8 @@ namespace build2
     bool stat_;
     bool progress_;
     bool no_progress_;
+    bool diag_color_;
+    bool no_diag_color_;
     size_t jobs_;
     bool jobs_specified_;
     size_t max_jobs_;

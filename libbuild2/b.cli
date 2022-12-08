@@ -549,6 +549,22 @@ namespace build2
       "Don't display build progress."
     }
 
+    bool --diag-color
+    {
+      "Use color in diagnostics. If printing to a terminal the color is used
+       by default provided the terminal is not dumb. Use \cb{--no-diag-color}
+       to suppress.
+
+       This option affects the diagnostics printed by the build system itself.
+       Some rules may also choose to propagate its value to tools (such as
+       compilers) that they invoke."
+    }
+
+    bool --no-diag-color
+    {
+      "Don't use color in diagnostics."
+    }
+
     size_t --jobs|-j
     {
       "<num>",
@@ -632,7 +648,7 @@ namespace build2
        once after each child exits in order to prevent interleaving.
        However, this can have side-effects since the child process'
        \cb{stderr} is no longer a terminal. Most notably, the use of
-       color in diagnostics will be disabled by most programs. On the
+       color in diagnostics may be disabled by some programs. On the
        other hand, depending on the platform and programs invoked, the
        interleaving diagnostics may not break lines and thus could be
        tolerable."

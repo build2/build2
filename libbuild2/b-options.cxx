@@ -278,6 +278,8 @@ namespace build2
     stat_ (),
     progress_ (),
     no_progress_ (),
+    diag_color_ (),
+    no_diag_color_ (),
     jobs_ (),
     jobs_specified_ (false),
     max_jobs_ (),
@@ -447,6 +449,18 @@ namespace build2
     {
       ::build2::build::cli::parser< bool>::merge (
         this->no_progress_, a.no_progress_);
+    }
+
+    if (a.diag_color_)
+    {
+      ::build2::build::cli::parser< bool>::merge (
+        this->diag_color_, a.diag_color_);
+    }
+
+    if (a.no_diag_color_)
+    {
+      ::build2::build::cli::parser< bool>::merge (
+        this->no_diag_color_, a.no_diag_color_);
     }
 
     if (a.jobs_specified_)
@@ -690,6 +704,19 @@ namespace build2
        << "\033[1m--no-progress\033[0m           Don't display build progress." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--diag-color\033[0m            Use color in diagnostics. If printing to a terminal the" << ::std::endl
+       << "                        color is used by default provided the terminal is not" << ::std::endl
+       << "                        dumb. Use \033[1m--no-diag-color\033[0m to suppress." << ::std::endl
+       << ::std::endl
+       << "                        This option affects the diagnostics printed by the" << ::std::endl
+       << "                        build system itself. Some rules may also choose to" << ::std::endl
+       << "                        propagate its value to tools (such as compilers) that" << ::std::endl
+       << "                        they invoke." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--no-diag-color\033[0m         Don't use color in diagnostics." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m           Number of active jobs to perform in parallel. This" << ::std::endl
        << "                        includes both the number of active threads inside the" << ::std::endl
        << "                        build system as well as the number of external commands" << ::std::endl
@@ -763,7 +790,7 @@ namespace build2
        << "                        in order to prevent interleaving. However, this can" << ::std::endl
        << "                        have side-effects since the child process' \033[1mstderr\033[0m is no" << ::std::endl
        << "                        longer a terminal. Most notably, the use of color in" << ::std::endl
-       << "                        diagnostics will be disabled by most programs. On the" << ::std::endl
+       << "                        diagnostics may be disabled by some programs. On the" << ::std::endl
        << "                        other hand, depending on the platform and programs" << ::std::endl
        << "                        invoked, the interleaving diagnostics may not break" << ::std::endl
        << "                        lines and thus could be tolerable." << ::std::endl;
@@ -998,6 +1025,10 @@ namespace build2
       &::build2::build::cli::thunk< b_options, &b_options::progress_ >;
       _cli_b_options_map_["--no-progress"] =
       &::build2::build::cli::thunk< b_options, &b_options::no_progress_ >;
+      _cli_b_options_map_["--diag-color"] =
+      &::build2::build::cli::thunk< b_options, &b_options::diag_color_ >;
+      _cli_b_options_map_["--no-diag-color"] =
+      &::build2::build::cli::thunk< b_options, &b_options::no_diag_color_ >;
       _cli_b_options_map_["--jobs"] =
       &::build2::build::cli::thunk< b_options, size_t, &b_options::jobs_,
         &b_options::jobs_specified_ >;

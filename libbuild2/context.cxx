@@ -204,16 +204,28 @@ namespace build2
       //
       set ("build.verbosity", uint64_t (verb));
 
-      // Build system progress diagnostics.
+      // Build system diagnostics progress and color.
       //
-      // Note that it can be true, false, or NULL if progress was neither
-      // requested nor suppressed.
+      // Note that these can be true, false, or NULL if neither requested nor
+      // suppressed explicitly.
       //
       {
         value& v (gs.assign (vp.insert<bool> ("build.progress", v_g)));
         if (diag_progress_option)
           v = *diag_progress_option;
       }
+
+      {
+        value& v (gs.assign (vp.insert<bool> ("build.diag_color", v_g)));
+        if (diag_color_option)
+          v = *diag_color_option;
+      }
+
+      // These are the "effective" values that incorporate a suitable default
+      // if neither requested nor suppressed explicitly.
+      //
+      set ("build.show_progress",   show_progress (verb_never));
+      set ("build.show_diag_color", show_diag_color ());
 
       // Build system version (similar to what we do in the version module
       // except here we don't include package epoch/revision).

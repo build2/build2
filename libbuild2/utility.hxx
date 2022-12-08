@@ -129,6 +129,7 @@ namespace build2
   init_diag (uint16_t verbosity,
              bool silent = false,
              optional<bool> progress = nullopt,
+             optional<bool> diag_color = nullopt,
              bool no_lines = false,
              bool no_columns = false,
              bool stderr_term = false);
@@ -138,13 +139,23 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern bool silent;
 
   // --[no-]progress
+  // --[no-]diag-color
   //
   LIBBUILD2_SYMEXPORT extern optional<bool> diag_progress_option;
+  LIBBUILD2_SYMEXPORT extern optional<bool> diag_color_option;
 
   LIBBUILD2_SYMEXPORT extern bool diag_no_line;   // --no-line
   LIBBUILD2_SYMEXPORT extern bool diag_no_column; // --no-column
 
-  LIBBUILD2_SYMEXPORT extern bool stderr_term; // True if stderr is a terminal.
+  // If stderr is not a terminal, then the value is absent (so can be used as
+  // bool). Otherwise, it is the value of the TERM environment variable (which
+  // can be NULL).
+  //
+  LIBBUILD2_SYMEXPORT extern optional<const char*> stderr_term;
+
+  // True if the color can be used on the stderr terminal.
+  //
+  LIBBUILD2_SYMEXPORT extern bool stderr_term_color;
 
   // Global state (verbosity, home/work directories, etc).
 

@@ -329,6 +329,7 @@ main (int argc, char* argv[])
     init_diag (cmdl.verbosity,
                ops.silent (),
                cmdl.progress,
+               cmdl.diag_color,
                ops.no_line (),
                ops.no_column (),
                fdterm (stderr_fd ()));

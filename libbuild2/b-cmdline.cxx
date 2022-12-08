@@ -396,6 +396,9 @@ namespace build2
       if (ops.progress () && ops.no_progress ())
         fail << "both --progress and --no-progress specified";
 
+      if (ops.diag_color () && ops.no_diag_color ())
+        fail << "both --diag-color and --no-diag-color specified";
+
       if (ops.mtime_check () && ops.no_mtime_check ())
         fail << "both --mtime-check and --no-mtime-check specified";
     }
@@ -415,6 +418,9 @@ namespace build2
 
     r.progress = (ops.progress ()    ? optional<bool> (true)  :
                   ops.no_progress () ? optional<bool> (false) : nullopt);
+
+    r.diag_color = (ops.diag_color ()    ? optional<bool> (true)  :
+                    ops.no_diag_color () ? optional<bool> (false) : nullopt);
 
     r.mtime_check = (ops.mtime_check ()    ? optional<bool> (true)  :
                      ops.no_mtime_check () ? optional<bool> (false) : nullopt);

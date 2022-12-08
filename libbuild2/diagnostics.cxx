@@ -3,7 +3,8 @@
 
 #include <libbuild2/diagnostics.hxx>
 
-#include <cstring> // strchr(), memcpy()
+#include <cstring> // strcmp(), strchr(), memcpy()
+#include <cstdlib> // getenv()
 
 #include <libbutl/process-io.hxx>
 
@@ -24,23 +25,54 @@ namespace build2
   bool silent = true;
 
   optional<bool> diag_progress_option;
+  optional<bool> diag_color_option;
 
   bool diag_no_line = false;
   bool diag_no_column = false;
 
-  bool stderr_term = false;
+  optional<const char*> stderr_term = nullopt;
+  bool stderr_term_color = false;
 
   void
-  init_diag (uint16_t v, bool s, optional<bool> p, bool nl, bool nc, bool st)
+  init_diag (uint16_t v,
+             bool s,
+             optional<bool> p,
+             optional<bool> c,
+             bool nl,
+             bool nc,
+             bool st)
   {
     assert (!s || v == 0);
 
     verb = v;
     silent = s;
     diag_progress_option = p;
+    diag_color_option = c;
     diag_no_line = nl;
     diag_no_column = nc;
-    stderr_term = st;
+
+    if (st)
+    {
+      stderr_term = std::getenv ("TERM");
+
+      stderr_term_color =
+#ifdef _WIN32
+        // For now we disable color on Windows since it's unclear if/where/how
+        // it is supported. Maybe one day someone will figure this out.
+        //
+        false
+#else
+        // This test was lifted from GCC (Emacs shell sets TERM=dumb).
+        //
+        *stderr_term != nullptr && strcmp (*stderr_term, "dumb") != 0
+#endif
+        ;
+    }
+    else
+    {
+      stderr_term = nullopt;
+      stderr_term_color = false;
+    }
   }
 
   // Stream verbosity.
