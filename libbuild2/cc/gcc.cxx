@@ -45,6 +45,13 @@ namespace build2
             d = dir_path (o, 2, string::npos);
           else
             continue;
+
+          // Ignore relative paths. Or maybe we should warn?
+          //
+          if (d.relative ())
+            continue;
+
+          d.normalize ();
         }
         catch (const invalid_path& e)
         {
@@ -52,10 +59,7 @@ namespace build2
                << o << "'";
         }
 
-        // Ignore relative paths. Or maybe we should warn?
-        //
-        if (!d.relative ())
-          r.push_back (move (d));
+        r.push_back (move (d));
       }
     }
 

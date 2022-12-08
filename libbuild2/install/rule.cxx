@@ -553,7 +553,8 @@ namespace build2
           const dir_path& d (t.out_dir ().leaf (p->out_path ()));
 
           // Add it as another leading directory rather than modifying
-          // the last one directly; somehow, it feels right.
+          // the last one directly; somehow, it feels right. Note: the
+          // result is normalized.
           //
           if (!d.empty ())
             rs.emplace_back (rs.back ().dir / d, rs.back ());
@@ -564,8 +565,9 @@ namespace build2
       return rs.back ();
     }
 
-    // Resolve installation directory name to absolute directory path. Return
-    // all the super-directories leading up to the destination (last).
+    // Resolve installation directory name to absolute and normalized
+    // directory path. Return all the super-directories leading up to the
+    // destination (last).
     //
     // If target is not NULL, then also handle the subdirs logic.
     //

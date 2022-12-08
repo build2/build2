@@ -822,6 +822,8 @@ namespace build2
     // always a file. The second half of the returned pair is the group, if
     // the member was picked.
     //
+    // Note: paths in sysd/usrd are expected to be absolute and normalized.
+    //
     // Note: may throw non_existent_library.
     //
     pair<const mtime_target&, const target*> common::
@@ -928,6 +930,8 @@ namespace build2
 
     // Action should be absent if called during the load phase. Note that pk's
     // scope should not be NULL (even if dir is absolute).
+    //
+    // Note: paths in sysd/usrd are expected to be absolute and normalized.
     //
     // Note: see similar logic in find_system_library().
     //
@@ -1261,6 +1265,8 @@ namespace build2
             // Note that we prepend it to other user directories instead of
             // making it the only one to allow things to be overriden (e.g.,
             // if build2 was moved or some such).
+            //
+            // Note: build_install_lib is already normalized.
             //
             usrd->insert (usrd->begin (), build_install_lib);
           }

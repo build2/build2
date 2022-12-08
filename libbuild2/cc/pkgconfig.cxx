@@ -646,6 +646,7 @@ namespace build2
                          << lflags () << "'" <<
                       info << "while parsing pkg-config --libs " << pc.path;
 
+                  d.normalize ();
                   usrd->push_back (move (d));
                 }
                 catch (const invalid_path& e)

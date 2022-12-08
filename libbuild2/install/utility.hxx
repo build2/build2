@@ -69,9 +69,10 @@ namespace build2
     install_scope (const target&);
 
     // Resolve relative installation directory path (e.g., include/libfoo) to
-    // its absolute directory path (e.g., /usr/include/libfoo). If the
-    // resolution encountered an unknown directory, issue diagnostics and fail
-    // unless fail_unknown is false, in which case return empty directory.
+    // its absolute and normalized directory path (e.g., /usr/include/libfoo).
+    // If the resolution encountered an unknown directory, issue diagnostics
+    // and fail unless fail_unknown is false, in which case return empty
+    // directory.
     //
     // Note: implemented in rule.cxx.
     //

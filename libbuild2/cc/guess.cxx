@@ -412,6 +412,8 @@ namespace build2
     //
     // Note that Visual Studio versions prior to 15.0 are not supported.
     //
+    // Note also the directories are absolute and normalized.
+    //
     struct msvc_info
     {
       dir_path msvc_dir; // VC tools directory (...\Tools\MSVC\<ver>\).
@@ -775,6 +777,16 @@ namespace build2
 
         if (r.psdk_ver.empty ())
           return nullopt;
+      }
+
+      try
+      {
+        r.msvc_dir.normalize ();
+        r.psdk_dir.normalize ();
+      }
+      catch (const invalid_path&)
+      {
+        return nullopt;
       }
 
       return r;
@@ -1537,6 +1549,8 @@ namespace build2
       msvc_extract_header_search_dirs (mo, r);
       size_t rn (r.size ());
 
+      // Note: the resulting directories are normalized by construction.
+      //
       r.push_back (dir_path (mi.msvc_dir) /= "include");
 
       // This path structure only appeared in Platform SDK 10 (if anyone wants
@@ -1586,6 +1600,8 @@ namespace build2
       msvc_extract_library_search_dirs (mo, r);
       size_t rn (r.size ());
 
+      // Note: the resulting directories are normalized by construction.
+      //
       r.push_back ((dir_path (mi.msvc_dir) /= "lib") /= cpu);
 
       // This path structure only appeared in Platform SDK 10 (if anyone wants

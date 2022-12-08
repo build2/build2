@@ -15,8 +15,9 @@ namespace build2
     {
       function_family f (m, "install");
 
-      // Resolve potentially relative install.* value to an absolute directory
-      // based on (other) install.* values visible from the calling scope.
+      // Resolve potentially relative install.* value to an absolute and
+      // normalized directory based on (other) install.* values visible from
+      // the calling scope.
       //
       // Note that this function is not pure.
       //
