@@ -1821,8 +1821,7 @@ namespace build2
 
               try_mkdir (to);
 
-              for (const auto& de:
-                     dir_iterator (fr, false /* ignore_dangling */))
+              for (const auto& de: dir_iterator (fr, dir_iterator::no_follow))
               {
                 path f (fr / de.path ());
                 path t (to / de.path ());

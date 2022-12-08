@@ -152,7 +152,7 @@ namespace build2
 
       try
       {
-        for (const dir_entry& e: dir_iterator (d, false /* ignore_dangling */))
+        for (const dir_entry& e: dir_iterator (d, dir_iterator::no_follow))
         {
           const path& n (e.path ());
 

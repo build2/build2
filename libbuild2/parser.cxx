@@ -6042,7 +6042,20 @@ namespace build2
 
       try
       {
-        path_search (path (move (p)), process, *sp);
+        path_search (path (move (p)),
+                     process,
+                     *sp,
+                     path_match_flags::follow_symlinks,
+                     [] (const dir_entry& de)
+                     {
+                       bool sl (de.ltype () == entry_type::symlink);
+
+                       warn << "skipping "
+                            << (sl ? "dangling symlink" : "inaccessible entry")
+                            << ' ' << de.base () / de.path ();
+
+                       return true;
+                     });
       }
       catch (const system_error& e)
       {

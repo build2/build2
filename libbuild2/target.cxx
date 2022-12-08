@@ -1253,7 +1253,7 @@ namespace build2
   {
     try
     {
-      for (const dir_entry& e: dir_iterator (d, true /* ignore_dangling */))
+      for (const dir_entry& e: dir_iterator (d, dir_iterator::detect_dangling))
       {
         switch (e.type ())
         {
@@ -1268,6 +1268,16 @@ namespace build2
           {
             if (e.path () == rs.root_extra->buildfile_file)
               return true;
+
+            break;
+          }
+        case entry_type::unknown:
+          {
+            bool sl (e.ltype () == entry_type::symlink);
+
+            warn << "skipping "
+                 << (sl ? "dangling symlink" : "inaccessible entry") << ' '
+                 << d / e.path ();
 
             break;
           }
@@ -1292,9 +1302,10 @@ namespace build2
 
     try
     {
-      for (const dir_entry& e: dir_iterator (d, true /* ignore_dangling */))
+      for (const dir_entry& e: dir_iterator (d, dir_iterator::detect_dangling))
       {
         if (e.type () == entry_type::directory)
+        {
           r.push_back (
             prerequisite (nullopt,
                           dir::static_type,
@@ -1303,6 +1314,15 @@ namespace build2
                           string (),
                           nullopt,
                           bs));
+        }
+        else if (e.type () == entry_type::unknown)
+        {
+          bool sl (e.ltype () == entry_type::symlink);
+
+          warn << "skipping "
+               << (sl ? "dangling symlink" : "inaccessible entry") << ' '
+               << d / e.path ();
+        }
       }
     }
     catch (const system_error& e)

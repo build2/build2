@@ -6,6 +6,7 @@
 #include <libbuild2/cc/utility.hxx>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -123,6 +124,8 @@ namespace build2
     size_t importable_headers::
     insert_angle_pattern (const dir_paths& sys_hdr_dirs, const string& pat)
     {
+      tracer trace ("importable_headers::insert_angle_pattern");
+
       assert (pat.front () == '<' && pat.back () == '>' && path_pattern (pat));
 
       // First see if it has already been inserted.
@@ -172,7 +175,17 @@ namespace build2
 
           try
           {
-            path_search (f, process, dir);
+            path_search (
+              f,
+              process,
+              dir,
+              path_match_flags::follow_symlinks,
+              [&trace] (const dir_entry& de)
+              {
+                l5 ([&]{trace << "skipping inaccessible/dangling entry "
+                              << de.base () / de.path ();});
+                return true;
+              });
           }
           catch (const system_error& e)
           {

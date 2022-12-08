@@ -3353,8 +3353,7 @@ namespace build2
       try
       {
         size_t n (0);
-        for (const dir_entry& de: dir_iterator (p,
-                                                false /* ignore_dangling */))
+        for (const dir_entry& de: dir_iterator (p, dir_iterator::no_follow))
         {
           if (n++ < 10)
             dr << '\n' << (de.ltype () == entry_type::directory

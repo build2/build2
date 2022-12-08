@@ -358,7 +358,7 @@ namespace build2
     //
     try
     {
-      for (const dir_entry& de: dir_iterator (d, false /* ignore_dangling */))
+      for (const dir_entry& de: dir_iterator (d, dir_iterator::no_follow))
       {
         // If this is a link, then type() will try to stat() it. And if the
         // link is dangling or points to something inaccessible, it will fail.
@@ -847,10 +847,26 @@ namespace build2
 
     try
     {
-      for (const dir_entry& de: dir_iterator (d, true /* ignore_dangling */))
+      // It's probably possible that a subproject can be a symlink with the
+      // link target, for example, being in a git submodule. Considering that,
+      // it makes sense to warn about dangling symlinks.
+      //
+      for (const dir_entry& de:
+             dir_iterator (d, dir_iterator::detect_dangling))
       {
         if (de.type () != entry_type::directory)
+        {
+          if (de.type () == entry_type::unknown)
+          {
+            bool sl (de.ltype () == entry_type::symlink);
+
+            warn << "skipping "
+                 << (sl ? "dangling symlink" : "inaccessible entry") << ' '
+                 << d / de.path ();
+          }
+
           continue;
+        }
 
         dir_path sd (d / path_cast<dir_path> (de.path ()));
 

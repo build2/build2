@@ -761,7 +761,7 @@ namespace build2
           //
           for (const dir_entry& de:
                  dir_iterator (r.psdk_dir / dir_path ("Include"),
-                               false /* ignore_dangling */))
+                               dir_iterator::no_follow))
           {
             if (de.type () == entry_type::directory)
             {

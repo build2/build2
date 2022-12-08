@@ -291,7 +291,7 @@ namespace build2
   {
     try
     {
-      for (const dir_entry& de: dir_iterator (d, false /* ignore_dangling */))
+      for (const dir_entry& de: dir_iterator (d, dir_iterator::no_follow))
       {
         // The .buildignore filesystem entry should be of the regular file
         // type.

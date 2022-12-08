@@ -7,6 +7,7 @@
 #include <libbuild2/variable.hxx>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -29,12 +30,27 @@ namespace build2
       return true;
     };
 
+    auto dangling = [] (const dir_entry& de)
+    {
+      bool sl (de.ltype () == entry_type::symlink);
+
+      warn << "skipping "
+           << (sl ? "dangling symlink" : "inaccessible entry") << ' '
+           << de.base () / de.path ();
+
+      return true;
+    };
+
     // Print paths "as is" in the diagnostics.
     //
     try
     {
       if (pattern.absolute ())
-        path_search (pattern, add);
+        path_search (pattern,
+                     add,
+                     dir_path () /* start */,
+                     path_match_flags::follow_symlinks,
+                     dangling);
       else
       {
         // An absolute start directory must be specified for the relative
@@ -54,7 +70,11 @@ namespace build2
              << "' is relative";
         }
 
-        path_search (pattern, add, *start);
+        path_search (pattern,
+                     add,
+                     *start,
+                     path_match_flags::follow_symlinks,
+                     dangling);
       }
     }
     catch (const system_error& e)
@@ -83,13 +103,16 @@ namespace build2
 
     function_family f (m, "filesystem");
 
-    // path_search
+    // $path_search(<pattern> [, <start-dir>])
     //
     // Return filesystem paths that match the pattern. If the pattern is an
     // absolute path, then the start directory is ignored (if present).
     // Otherwise, the start directory must be specified and be absolute.
     //
     // Note that this function is not pure.
+    //
+    // @@ In the future we may want to add a flag that controls the
+    //    dangling/inaccessible treatment.
     //
     {
       auto e (f.insert ("path_search", false));
@@ -115,6 +138,5 @@ namespace build2
                             convert<dir_path> (move (start)));
       };
     }
-
   }
 }
