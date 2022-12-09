@@ -429,8 +429,15 @@ namespace build2
       auto load_config_file = [&load_config] (const path& f, const location& l)
       {
         path_name fn (f);
-        ifdstream ifs;
-        load_config (open_file_or_stdin (fn, ifs), fn, l);
+        try
+        {
+          ifdstream ifs;
+          load_config (open_file_or_stdin (fn, ifs), fn, l);
+        }
+        catch (const io_error& e)
+        {
+          fail << "unable to read buildfile " << fn << ": " << e;
+        }
       };
 
       // Load config.build unless requested not to.
