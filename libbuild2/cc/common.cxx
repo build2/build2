@@ -1609,5 +1609,54 @@ namespace build2
 
       return r;
     }
+
+    void common::
+    append_diag_color_options (cstrings& args) const
+    {
+      switch (cclass)
+      {
+      case compiler_class::msvc:
+        {
+          // Note: see init_diag logic if enabling anything here (probably
+          // need an "override disable" mode or some such).
+          //
+          break;
+        }
+      case compiler_class::gcc:
+        {
+          // Enable/disable diagnostics color unless a custom option is
+          // specified.
+          //
+          // Supported from GCC 4.9 and (at least) from Clang 3.5. Clang
+          // supports -f[no]color-diagnostics in addition to the GCC's
+          // spelling.
+          //
+          if (ctype == compiler_type::gcc   ? cmaj > 4 || (cmaj == 4 && cmin >= 9) :
+              ctype == compiler_type::clang ? cmaj > 3 || (cmaj == 3 && cmin >= 5) :
+              false)
+          {
+            if (!(find_option_prefix ("-fdiagnostics-color", args)        ||
+                  find_option        ("-fno-diagnostics-color", args)     ||
+                  find_option        ("-fdiagnostics-plain-output", args) ||
+                  (ctype == compiler_type::clang &&
+                   (find_option ("-fcolor-diagnostics", args) ||
+                    find_option ("-fno-color-diagnostics", args)))))
+            {
+              // Omit -fno-diagnostics-color if stderr is not a terminal (we
+              // know there will be no color in this case and the option will
+              // just add noise, for example, in build logs).
+              //
+              if (const char* o = (
+                    show_diag_color () ? "-fdiagnostics-color"    :
+                    stderr_term        ? "-fno-diagnostics-color" :
+                    nullptr))
+                args.push_back (o);
+            }
+          }
+
+          break;
+        }
+      }
+    }
   }
 }

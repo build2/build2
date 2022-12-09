@@ -486,6 +486,11 @@ namespace build2
                       const dir_paths&,
                       const dir_paths&,
                       pair<bool, bool>) const;
+
+      // Append compiler-specific diagnostics color options as necessary.
+      //
+      void
+      append_diag_color_options (cstrings&) const;
     };
   }
 }

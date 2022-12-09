@@ -3214,8 +3214,8 @@ namespace build2
 
       // The gen argument to init_args() is in/out. The caller signals whether
       // to force the generated header support and on return it signals
-      // whether this support is enabled. The first call to init_args is
-      // expected to have gen false.
+      // whether this support is enabled. If gen is false, then stderr is
+      // expected to be either discarded or merged with sdtout.
       //
       // Return NULL if the dependency information goes to stdout and a
       // pointer to the temporary file path otherwise.
@@ -3404,6 +3404,9 @@ namespace build2
               append_options (args, cmode);
               append_sys_hdr_options (args); // Extra system header dirs (last).
 
+              // Note that for MSVC stderr is merged with stdout and is then
+              // parsed, so no append_diag_color_options() call.
+
               // See perform_update() for details on the choice of options.
               //
               {
@@ -3468,6 +3471,11 @@ namespace build2
               append_options (args, cmode,
                               cmode.size () - (modules && clang ? 1 : 0));
               append_sys_hdr_options (args); // Extra system header dirs (last).
+
+              // If not gen, then stderr is discarded.
+              //
+              if (gen)
+                append_diag_color_options (args);
 
               // See perform_update() for details on the choice of options.
               //
@@ -4929,6 +4937,9 @@ namespace build2
               append_options (args, cmode);
               append_sys_hdr_options (args);
 
+              // Note: no append_diag_color_options() call since the
+              // diagnostics is discarded.
+
               // See perform_update() for details on the choice of options.
               //
               {
@@ -4977,6 +4988,9 @@ namespace build2
               append_options (args, cmode,
                               cmode.size () - (modules && clang ? 1 : 0));
               append_sys_hdr_options (args);
+
+              // Note: no append_diag_color_options() call since the
+              // diagnostics is discarded.
 
               // See perform_update() for details on the choice of options.
               //
@@ -6883,6 +6897,10 @@ namespace build2
           if (md.pp != preprocessed::all)
             append_sys_hdr_options (args); // Extra system header dirs (last).
 
+          // Note: could be overridden in mode.
+          //
+          append_diag_color_options (args);
+
           // Set source/execution charsets to UTF-8 unless a custom charset
           // is specified.
           //
@@ -7025,6 +7043,10 @@ namespace build2
 
           if (md.pp != preprocessed::all)
             append_sys_hdr_options (args); // Extra system header dirs (last).
+
+          // Note: could be overridden in mode.
+          //
+          append_diag_color_options (args);
 
           // Set the input charset to UTF-8 unless a custom one is specified.
           //

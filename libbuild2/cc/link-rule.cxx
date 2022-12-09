@@ -3687,6 +3687,8 @@ namespace build2
             {
               ld = &cpath;
 
+              append_diag_color_options (args);
+
               // Add the option that triggers building a shared library and
               // take care of any extras (e.g., import library).
               //
