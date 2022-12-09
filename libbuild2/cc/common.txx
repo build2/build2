@@ -19,13 +19,14 @@ namespace build2
                     bool exist,
                     tracer& trace)
     {
-      auto p (ctx.targets.insert_locked (T::static_type,
-                                         move (dir),
-                                         dir_path (out.effect_string ()),
-                                         name,
-                                         move (ext),
-                                         target_decl::implied,
-                                         trace));
+      auto p (ctx.targets.insert_locked (
+                T::static_type,
+                move (dir),
+                dir_path (out.effect_string ()).normalize (),
+                name,
+                move (ext),
+                target_decl::implied,
+                trace));
 
       if (exist && p.second)
         throw non_existent_library {p.first.template as<mtime_target> ()};
