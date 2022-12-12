@@ -184,7 +184,7 @@ namespace build2
 
   // Return true if params does not contain no_subprojects.
   //
-  bool
+  LIBBUILD2_SYMEXPORT bool
   info_subprojects (const values& params);
 
   // Operation info.
