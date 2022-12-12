@@ -182,6 +182,11 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern const meta_operation_info mo_perform;
   LIBBUILD2_SYMEXPORT extern const meta_operation_info mo_info;
 
+  // Return true if params does not contain no_subprojects.
+  //
+  bool
+  info_subprojects (const values& params);
+
   // Operation info.
   //
   // NOTE: keep POD-like to ensure can be constant-initialized in order to

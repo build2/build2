@@ -807,31 +807,66 @@ namespace build2
 
   // Note: similar approach to forward() in configure.
   //
-  static bool
-  info_json (const values& params,
-             const char* mo = nullptr,
-             const location& l = location ())
+  struct info_params
   {
+    bool json = false;
+    bool subprojects = true;
+  };
+
+  // Note: should not fail if mo is NULL (see info_subprojects() below).
+  //
+  static info_params
+  info_parse_params (const values& params,
+                     const char* mo = nullptr,
+                     const location& l = location ())
+  {
+    info_params r;
+
     if (params.size () == 1)
     {
-      const names& ns (cast<names> (params[0]));
+      for (const name& n: cast<names> (params[0]))
+      {
+        if (n.simple ())
+        {
+          if (n.value == "json")
+          {
+            r.json = true;
+            continue;
+          }
 
-      if (ns.size () == 1 && ns[0].simple () && ns[0].value == "json")
-        return true;
-      else if (!ns.empty ())
-        fail (l) << "unexpected parameter '" << ns << "' for "
-                 << "meta-operation " << mo;
+          if (n.value == "no_subprojects")
+          {
+            r.subprojects = false;
+            continue;
+          }
+
+          // Fall through.
+        }
+
+        if (mo != nullptr)
+          fail (l) << "unexpected parameter '" << n << "' for "
+                   << "meta-operation " << mo;
+      }
     }
     else if (!params.empty ())
+    {
+      if (mo != nullptr)
         fail (l) << "unexpected parameters for meta-operation " << mo;
+    }
 
-    return false;
+    return r;
+  }
+
+  bool
+  info_subprojects (const values& params)
+  {
+    return info_parse_params (params).subprojects;
   }
 
   static void
   info_pre (context&, const values& params, const location& l)
   {
-    info_json (params, "info", l); // Validate.
+    info_parse_params (params, "info", l); // Validate.
   }
 
   static operation_id
@@ -884,7 +919,7 @@ namespace build2
   }
 
   static void
-  info_execute_lines (action_targets& ts)
+  info_execute_lines (action_targets& ts, bool subp)
   {
     for (size_t i (0); i != ts.size (); ++i)
     {
@@ -958,8 +993,13 @@ namespace build2
         << "url:"            ; print_empty (cast_empty<string> (rs[ctx.var_project_url])); cout << endl
         << "src_root:"       ; print_dir (cast<dir_path> (rs[ctx.var_src_root])); cout << endl
         << "out_root:"       ; print_dir (cast<dir_path> (rs[ctx.var_out_root])); cout << endl
-        << "amalgamation:"   ; print_pdir (*rs.root_extra->amalgamation); cout << endl
-        << "subprojects:"    ; print_null (*rs.root_extra->subprojects); cout << endl
+        << "amalgamation:"   ; print_pdir (*rs.root_extra->amalgamation); cout << endl;
+      if (subp)
+      {
+        cout
+          << "subprojects:"  ; print_null (*rs.root_extra->subprojects); cout << endl;
+      }
+      cout
         << "operations:"     ; print_ops (rs.root_extra->operations, ctx.operation_table); cout << endl
         << "meta-operations:"; print_ops (rs.root_extra->meta_operations, ctx.meta_operation_table); cout << endl
         << "modules:"        ; print_mods (); cout << endl;
@@ -968,7 +1008,7 @@ namespace build2
 
 #ifndef BUILD2_BOOTSTRAP
   static void
-  info_execute_json (action_targets& ts)
+  info_execute_json (action_targets& ts, bool subp)
   {
     json::stream_serializer s (cout);
     s.begin_array ();
@@ -1039,6 +1079,7 @@ namespace build2
 
       // Print subprojects.
       //
+      if (subp)
       {
         const subprojects* sps (*rs.root_extra->subprojects);
 
@@ -1101,7 +1142,7 @@ namespace build2
   }
 #else
   static void
-  info_execute_json (action_targets&)
+  info_execute_json (action_targets&, bool)
   {
   }
 #endif //BUILD2_BOOTSTRAP
@@ -1113,14 +1154,16 @@ namespace build2
                 uint16_t,
                 bool)
   {
+    info_params ip (info_parse_params (params));
+
     // Note that both outputs will not be "ideal" if the user does something
     // like `b info(foo/) info(bar/)` instead of `b info(foo/ bar/)`. Oh,
     // well.
     //
-    if (info_json (params))
-      info_execute_json (ts);
+    if (ip.json)
+      info_execute_json (ts, ip.subprojects);
     else
-      info_execute_lines (ts);
+      info_execute_lines (ts, ip.subprojects);
   }
 
   const meta_operation_info mo_info {

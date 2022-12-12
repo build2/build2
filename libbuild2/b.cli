@@ -328,11 +328,20 @@ namespace build2
          version: 1.0.0
          src_root: /tmp/libfoo
          out_root: /tmp/libfoo
+         subprojects: @tests
 
          project: libbar
          version: 2.0.0
          src_root: /tmp/libbar
          out_root: /tmp/libbar-out
+         subprojects: @tests
+         \
+
+         To omit discovering and printing subprojects information, use the
+         \cb{no_subprojects} parameter, for example:
+
+         \
+         $ b info: libfoo/,no_subprojects
          \
 
          To instead print this information in the JSON format, use the
