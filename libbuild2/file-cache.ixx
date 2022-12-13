@@ -109,14 +109,14 @@ namespace build2
   }
 
   inline file_cache::write::
-  write (write&& e)
+  write (write&& e) noexcept
       : entry_ (e.entry_)
   {
     e.entry_ = nullptr;
   }
 
   inline file_cache::write& file_cache::write::
-  operator= (write&& e)
+  operator= (write&& e) noexcept
   {
     if (this != &e)
     {
@@ -136,14 +136,14 @@ namespace build2
   }
 
   inline file_cache::read::
-  read (read&& e)
+  read (read&& e) noexcept
       : entry_ (e.entry_)
   {
     e.entry_ = nullptr;
   }
 
   inline file_cache::read& file_cache::read::
-  operator= (read&& e)
+  operator= (read&& e) noexcept
   {
     if (this != &e)
     {

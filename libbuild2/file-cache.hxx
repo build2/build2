@@ -119,9 +119,9 @@ namespace build2
 
       // Move-to-NULL-only type.
       //
-      write (write&&);
+      write (write&&) noexcept;
       write (const write&) = delete;
-      write& operator= (write&&);
+      write& operator= (write&&) noexcept;
       write& operator= (const write&) = delete;
 
       ~write ();
@@ -145,9 +145,9 @@ namespace build2
 
       // Move-to-NULL-only type.
       //
-      read (read&&);
+      read (read&&) noexcept;
       read (const read&) = delete;
-      read& operator= (read&&);
+      read& operator= (read&&) noexcept;
       read& operator= (const read&) = delete;
 
       ~read ();

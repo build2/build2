@@ -834,8 +834,8 @@ namespace build2
 
     // Note: move-assignable to empty only.
     //
-    wait_guard (wait_guard&&);
-    wait_guard& operator= (wait_guard&&);
+    wait_guard (wait_guard&&) noexcept;
+    wait_guard& operator= (wait_guard&&) noexcept;
 
     wait_guard (const wait_guard&) = delete;
     wait_guard& operator= (const wait_guard&) = delete;

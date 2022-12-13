@@ -47,7 +47,7 @@ namespace build2
   }
 
   value::
-  value (value&& v)
+  value (value&& v) noexcept
       : type (v.type), null (v.null), extra (v.extra)
   {
     if (!null)
@@ -99,6 +99,8 @@ namespace build2
           if (null)
             new (&data_) names (move (v).as<names> ());
           else
+            // Note: can throw (see small_vector for details).
+            //
             as<names> () = move (v).as<names> ();
         }
         else if (auto f = null ? type->copy_ctor : type->copy_assign)

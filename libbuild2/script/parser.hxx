@@ -140,7 +140,7 @@ namespace build2
 
         parsed_doc (string, uint64_t line, uint64_t column);
         parsed_doc (regex_lines&&, uint64_t line, uint64_t column);
-        parsed_doc (parsed_doc&&); // Note: move constuctible-only type.
+        parsed_doc (parsed_doc&&) noexcept; // Note: move constuctible-only type.
         ~parsed_doc ();
       };
 

@@ -43,7 +43,7 @@ namespace build2
   }
 
   inline location_value::
-  location_value (location_value&& l)
+  location_value (location_value&& l) noexcept
       : location (l.line, l.column),
         file (std::move (l.file))
   {
@@ -58,7 +58,7 @@ namespace build2
   }
 
   inline location_value& location_value::
-  operator= (location_value&& l)
+  operator= (location_value&& l) noexcept
   {
     if (this != &l)
     {

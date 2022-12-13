@@ -63,6 +63,8 @@ namespace build2
     // Note that the lookup is often ad hoc (see bin.whole as an example).
     // But see also parser::lookup_variable() if adding something here.
     //
+    // @@ PERF: redo as vector so can make move constructor noexcept.
+    //
   public:
     variable_map vars;
 
@@ -138,7 +140,10 @@ namespace build2
     is_a (const target_type_type& tt) const {return type.is_a (tt);}
 
   public:
-    prerequisite (prerequisite&& x)
+    // Note that we have the noexcept specification even though vars
+    // (std::map) could potentially throw.
+    //
+    prerequisite (prerequisite&& x) noexcept
         : proj (move (x.proj)),
           type (x.type),
           dir (move (x.dir)),
@@ -147,7 +152,8 @@ namespace build2
           ext (move (x.ext)),
           scope (x.scope),
           target (x.target.load (memory_order_relaxed)),
-          vars (move (x.vars), *this, false /* shared */) {}
+          vars (move (x.vars), *this, false /* shared */)
+          {}
 
     prerequisite (const prerequisite& x, memory_order o = memory_order_consume)
         : proj (x.proj),

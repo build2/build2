@@ -271,8 +271,8 @@ namespace build2
       template <typename T>
       struct line_char_cmp
         : public std::enable_if<std::is_integral<T>::value ||
-      (std::is_enum<T>::value &&
-       !std::is_same<T, char_flags>::value)> {};
+                                (std::is_enum<T>::value &&
+                                 !std::is_same<T, char_flags>::value)> {};
 
       template <typename T, typename = typename line_char_cmp<T>::type>
       bool
@@ -470,10 +470,10 @@ namespace std
     is (mask m, char_type c) const
     {
       return m ==
-        (c.type () == line_type::special && c.special () >= 0 &&
-         build2::digit (static_cast<char> (c.special ()))
-         ? digit
-         : 0);
+             (c.type () == line_type::special && c.special () >= 0 &&
+              build2::digit (static_cast<char> (c.special ()))
+              ? digit
+              : 0);
     }
 
     const char_type*

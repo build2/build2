@@ -31,7 +31,7 @@ namespace build2
   }
 
   inline wait_guard::
-  wait_guard (wait_guard&& x)
+  wait_guard (wait_guard&& x) noexcept
       : ctx (x.ctx),
         start_count (x.start_count),
         task_count (x.task_count),
@@ -41,7 +41,7 @@ namespace build2
   }
 
   inline wait_guard& wait_guard::
-  operator= (wait_guard&& x)
+  operator= (wait_guard&& x) noexcept
   {
     if (&x != this)
     {

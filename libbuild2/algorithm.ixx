@@ -284,7 +284,7 @@ namespace build2
   }
 
   inline target_lock::
-  target_lock (target_lock&& x)
+  target_lock (target_lock&& x) noexcept
       : action (x.action), target (x.target), offset (x.offset)
   {
     if (target != nullptr)
@@ -304,7 +304,7 @@ namespace build2
   }
 
   inline target_lock& target_lock::
-  operator= (target_lock&& x)
+  operator= (target_lock&& x) noexcept
   {
     if (this != &x)
     {

@@ -203,8 +203,8 @@ namespace build2
     // Movable-only type with move-assignment only to NULL lock.
     //
     target_lock () = default;
-    target_lock (target_lock&&);
-    target_lock& operator= (target_lock&&);
+    target_lock (target_lock&&) noexcept;
+    target_lock& operator= (target_lock&&) noexcept;
 
     target_lock (const target_lock&) = delete;
     target_lock& operator= (const target_lock&) = delete;

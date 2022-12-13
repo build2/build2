@@ -358,9 +358,13 @@ namespace build2
     value&
     operator= (nullptr_t) {if (!null) reset (); return *this;}
 
-    value (value&&);
+    // Note that we have the noexcept specification even though copy_ctor()
+    // could potentially throw (for example, for std::map).
+    //
+    value (value&&) noexcept;
+
     explicit value (const value&);
-    value& operator= (value&&);
+    value& operator= (value&&);      // Note: can throw for untyped RHS.
     value& operator= (const value&);
     value& operator= (reference_wrapper<value>);
     value& operator= (reference_wrapper<const value>);
@@ -1859,7 +1863,7 @@ namespace build2
     variable_map (const variable_map&, const prerequisite&, bool shared = false);
 
     variable_map&
-    operator= (variable_map&& v) {m_ = move (v.m_); return *this;}
+    operator= (variable_map&& v) noexcept {m_ = move (v.m_); return *this;}
 
     variable_map&
     operator= (const variable_map& v) {m_ = v.m_; return *this;}
@@ -1870,6 +1874,8 @@ namespace build2
     variable_map (context& c, bool shared)
       : shared_ (shared), owner_ (owner::context), ctx (&c) {}
 
+    // Note: std::map's move constructor can throw.
+    //
     variable_map (variable_map&& v)
       : shared_ (v.shared_), owner_ (v.owner_), ctx (v.ctx), m_ (move (v.m_))
     {

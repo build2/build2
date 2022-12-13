@@ -247,8 +247,12 @@ namespace build2
 
       alloc_guard (): n (0), s_ (nullptr) {}
       alloc_guard (scheduler& s, size_t m): n (s.allocate (m)), s_ (&s) {}
-      alloc_guard (alloc_guard&& x): n (x.n), s_ (x.s_) {x.s_ = nullptr;}
-      alloc_guard& operator= (alloc_guard&& x)
+
+      alloc_guard (alloc_guard&& x) noexcept
+        : n (x.n), s_ (x.s_) {x.s_ = nullptr;}
+
+      alloc_guard&
+      operator= (alloc_guard&& x) noexcept
       {
         if (&x != this)
         {
@@ -357,8 +361,12 @@ namespace build2
     {
       tune_guard (): s_ (nullptr), o_ (0) {}
       tune_guard (scheduler& s, size_t ma): s_ (&s), o_ (s_->tune (ma)) {}
-      tune_guard (tune_guard&& x): s_ (x.s_), o_ (x.o_) {x.s_ = nullptr;}
-      tune_guard& operator= (tune_guard&& x)
+
+      tune_guard (tune_guard&& x) noexcept
+        : s_ (x.s_), o_ (x.o_) {x.s_ = nullptr;}
+
+      tune_guard&
+      operator= (tune_guard&& x) noexcept
       {
         if (&x != this)
         {
@@ -426,8 +434,8 @@ namespace build2
     {
       explicit
       monitor_guard (scheduler* s = nullptr): s_ (s) {}
-      monitor_guard (monitor_guard&& x): s_ (x.s_) {x.s_ = nullptr;}
-      monitor_guard& operator= (monitor_guard&& x)
+      monitor_guard (monitor_guard&& x) noexcept: s_ (x.s_) {x.s_ = nullptr;}
+      monitor_guard& operator= (monitor_guard&& x) noexcept
       {
         if (&x != this)
         {

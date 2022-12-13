@@ -88,8 +88,8 @@ namespace build2
 
     // Note: move-assignable to empty only.
     //
-    enter_scope (enter_scope&& x) {*this = move (x);}
-    enter_scope& operator= (enter_scope&& x)
+    enter_scope (enter_scope&& x) noexcept {*this = move (x);}
+    enter_scope& operator= (enter_scope&& x) noexcept
     {
       if (this != &x)
       {
@@ -208,8 +208,8 @@ namespace build2
 
     // Note: move-assignable to empty only.
     //
-    enter_target (enter_target&& x) {*this = move (x);}
-    enter_target& operator= (enter_target&& x) {
+    enter_target (enter_target&& x) noexcept {*this = move (x);}
+    enter_target& operator= (enter_target&& x) noexcept {
       p_ = x.p_; t_ = x.t_; x.p_ = nullptr; return *this;}
 
     enter_target (const enter_target&) = delete;
@@ -240,8 +240,8 @@ namespace build2
 
     // Note: move-assignable to empty only.
     //
-    enter_prerequisite (enter_prerequisite&& x) {*this = move (x);}
-    enter_prerequisite& operator= (enter_prerequisite&& x) {
+    enter_prerequisite (enter_prerequisite&& x) noexcept {*this = move (x);}
+    enter_prerequisite& operator= (enter_prerequisite&& x) noexcept {
       p_ = x.p_; r_ = x.r_; x.p_ = nullptr; return *this;}
 
     enter_prerequisite (const enter_prerequisite&) = delete;

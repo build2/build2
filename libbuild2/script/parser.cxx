@@ -2763,7 +2763,7 @@ namespace build2
     }
 
     parser::parsed_doc::
-    parsed_doc (parsed_doc&& d)
+    parsed_doc (parsed_doc&& d) noexcept
         : re (d.re), end_line (d.end_line), end_column (d.end_column)
     {
       if (re)

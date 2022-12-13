@@ -511,9 +511,9 @@ namespace build2
 
     location_value (const location&);
 
-    location_value (location_value&&);
+    location_value (location_value&&) noexcept;
     location_value (const location_value&);
-    location_value& operator= (location_value&&);
+    location_value& operator= (location_value&&) noexcept;
     location_value& operator= (const location_value&);
   };
 

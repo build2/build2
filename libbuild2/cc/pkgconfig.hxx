@@ -56,8 +56,8 @@ namespace build2
 
       // Movable-only type.
       //
-      pkgconfig (pkgconfig&&);
-      pkgconfig& operator= (pkgconfig&&);
+      pkgconfig (pkgconfig&&) noexcept;
+      pkgconfig& operator= (pkgconfig&&) noexcept;
 
       pkgconfig (const pkgconfig&) = delete;
       pkgconfig& operator= (const pkgconfig&) = delete;
@@ -95,7 +95,7 @@ namespace build2
     }
 
     inline pkgconfig::
-    pkgconfig (pkgconfig&& p)
+    pkgconfig (pkgconfig&& p) noexcept
         : path (move (p.path)),
           client_ (p.client_),
           pkg_ (p.pkg_)
@@ -105,7 +105,7 @@ namespace build2
     }
 
     inline pkgconfig& pkgconfig::
-    operator= (pkgconfig&& p)
+    operator= (pkgconfig&& p) noexcept
     {
       if (this != &p)
       {

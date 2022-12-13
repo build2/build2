@@ -248,7 +248,7 @@ namespace build2
       target_type_ref (unique_ptr<target_type>&& p)
           : p_ (p.release ()), d_ (true) {}
 
-      target_type_ref (target_type_ref&& r)
+      target_type_ref (target_type_ref&& r) noexcept
           : p_ (r.p_), d_ (r.d_) {r.p_ = nullptr;}
 
       ~target_type_ref () {if (p_ != nullptr && d_) delete p_;}
