@@ -168,7 +168,9 @@ namespace build2
   }
 
   static pair<regex::flag_type, regex_constants::match_flag_type>
-  parse_replacement_flags (optional<names>&& flags, bool first_only = true)
+  parse_replacement_flags (optional<names>&& flags,
+                           bool first_only = true,
+                           bool* copy_empty = nullptr)
   {
     regex::flag_type rf (regex::ECMAScript);
     regex_constants::match_flag_type mf (regex_constants::match_default);
@@ -185,6 +187,8 @@ namespace build2
           mf |= regex_constants::format_first_only;
         else if (s == "format_no_copy")
           mf |= regex_constants::format_no_copy;
+        else if (copy_empty != nullptr && s == "format_copy_empty")
+          *copy_empty = true;
         else
           throw invalid_argument ("invalid flag '" + s + '\'');
       }
@@ -328,7 +332,10 @@ namespace build2
          const string& fmt,
          optional<names>&& flags)
   {
-    auto fl (parse_replacement_flags (move (flags), false));
+    bool copy_empty (false);
+    auto fl (parse_replacement_flags (move (flags),
+                                      false /* first_only */,
+                                      &copy_empty));
     regex rge (parse_regex (re, fl.first));
 
     names r;
@@ -336,10 +343,10 @@ namespace build2
     try
     {
       regex_replace_search (to_string (move (v)), rge, fmt,
-                            [&r] (string::const_iterator b,
-                                  string::const_iterator e)
+                            [copy_empty, &r] (string::const_iterator b,
+                                              string::const_iterator e)
                             {
-                              if (b != e)
+                              if (copy_empty || b != e)
                                 r.emplace_back (string (b, e));
                             },
                             fl.second);
@@ -363,7 +370,10 @@ namespace build2
          const string& fmt,
          optional<names>&& flags)
   {
-    auto fl (parse_replacement_flags (move (flags)));
+    bool copy_empty (false);
+    auto fl (parse_replacement_flags (move (flags),
+                                      true /* first_only */,
+                                      &copy_empty));
     regex rge (parse_regex (re, fl.first));
 
     names r;
@@ -377,7 +387,7 @@ namespace build2
                                         fmt,
                                         fl.second).first);
 
-        if (!s.empty ())
+        if (copy_empty || !s.empty ())
           r.emplace_back (move (s));
       }
     }
@@ -459,13 +469,17 @@ namespace build2
          optional<string>&& delim,
          optional<names>&& flags)
   {
-    auto fl (parse_replacement_flags (move (flags)));
+    bool copy_empty (false);
+    auto fl (parse_replacement_flags (move (flags),
+                                      true /* first_only */,
+                                      &copy_empty));
     regex rge (parse_regex (re, fl.first));
 
     string rs;
 
     try
     {
+      bool first (true);
       for (auto& v: s)
       {
         string s (regex_replace_search (convert<string> (move (v)),
@@ -473,10 +487,15 @@ namespace build2
                                         fmt,
                                         fl.second).first);
 
-        if (!s.empty ())
+        if (copy_empty || !s.empty ())
         {
-          if (!rs.empty () && delim)
-            rs.append (*delim);
+          if (delim)
+          {
+            if (first)
+              first = false;
+            else
+              rs.append (*delim);
+          }
 
           rs.append (s);
         }
@@ -677,8 +696,9 @@ namespace build2
     // $regex.split(<val>, <pat>, <fmt> [, <flags>])
     //
     // Split a value of an arbitrary type into a list of unmatched value parts
-    // and replacements of the matched parts, omitting empty ones. Convert the
-    // value to string prior to matching.
+    // and replacements of the matched parts, omitting empty ones (unless the
+    // format_copy_empty flag is specified). Convert the value to string prior
+    // to matching.
     //
     // Substitution escape sequences are extended with a subset of Perl
     // sequences (see libbutl/regex.hxx for details).
@@ -688,6 +708,8 @@ namespace build2
     // icase             - match ignoring case
     //
     // format_no_copy    - do not copy unmatched value parts into the result
+    //
+    // format_copy_empty - copy empty elements into the result
     //
     f[".split"] += [](value s, string re, string fmt, optional<names> flags)
     {
@@ -707,7 +729,8 @@ namespace build2
     // Replace matched parts in a list of elements using the regex format
     // string. Convert the elements to string prior to matching. The result
     // value is untyped and contains concatenation of transformed non-empty
-    // elements optionally separated with a delimiter.
+    // elements (unless the format_copy_empty flag is specified) optionally
+    // separated with a delimiter.
     //
     // Substitution escape sequences are extended with a subset of Perl
     // sequences (see libbutl/regex.hxx for details).
@@ -719,6 +742,8 @@ namespace build2
     // format_first_only - only replace the first match
     //
     // format_no_copy    - do not copy unmatched value parts into the result
+    //
+    // format_copy_empty - copy empty elements into the result
     //
     // If both format_first_only and format_no_copy flags are specified then
     // the result will be a concatenation of only the first match
@@ -727,23 +752,29 @@ namespace build2
     f[".merge"] += [](names s,
                      string re,
                      string fmt,
-                     optional<string> delim,
+                     optional<string*> delim,
                      optional<names> flags)
     {
-      return merge (move (s), re, fmt, move (delim), move (flags));
+      return merge (move (s),
+                    re,
+                    fmt,
+                    delim && *delim != nullptr
+                    ? move (**delim)
+                    : optional<string> (),
+                    move (flags));
     };
 
     f[".merge"] += [](names s,
                      names re,
                      names fmt,
-                     optional<names> delim,
+                     optional<names*> delim,
                      optional<names> flags)
     {
       return merge (move (s),
                     convert<string> (move (re)),
                     convert<string> (move (fmt)),
-                    delim
-                    ? convert<string> (move (*delim))
+                    delim && *delim != nullptr
+                    ? convert<string> (move (**delim))
                     : optional<string> (),
                     move (flags));
     };
@@ -752,7 +783,8 @@ namespace build2
     //
     // Replace matched parts of each element in a list using the regex format
     // string. Convert the elements to string prior to matching. Return a list
-    // of transformed elements, omitting the empty ones.
+    // of transformed elements, omitting the empty ones (unless the
+    // format_copy_empty flag is specified).
     //
     // Substitution escape sequences are extended with a subset of Perl
     // sequences (see libbutl/regex.hxx for details).
@@ -764,6 +796,8 @@ namespace build2
     // format_first_only - only replace the first match
     //
     // format_no_copy    - do not copy unmatched value parts into the result
+    //
+    // format_copy_empty - copy empty elements into the result
     //
     // If both format_first_only and format_no_copy flags are specified then
     // the result elements will only contain the replacement of the first
