@@ -92,10 +92,7 @@ namespace build2
 
       names r;
       for (size_t i (1); i != m.size (); ++i)
-      {
-        if (m[i].matched)
-          r.emplace_back (m.str (i));
-      }
+        r.emplace_back (m[i].matched ? m.str (i) : string ());
 
       return value (move (r));
     }
@@ -161,10 +158,7 @@ namespace build2
       if (subs)
       {
         for (size_t i (1); i != m.size (); ++i)
-        {
-          if (m[i].matched)
-            r.emplace_back (m.str (i));
-        }
+          r.emplace_back (m[i].matched ? m.str (i) : string ());
       }
 
       return value (move (r));
