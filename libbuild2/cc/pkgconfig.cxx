@@ -1927,7 +1927,7 @@ namespace build2
             const value& val (*b.val);
 
             names ns;
-            names_view nv (reverse (val, ns));
+            names_view nv (reverse (val, ns, true /* reduce */));
 
             os << *b.name << " =";
 

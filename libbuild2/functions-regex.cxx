@@ -21,7 +21,7 @@ namespace build2
     // Optimize for the string value type.
     //
     if (v.type != &value_traits<string>::value_type)
-      untypify (v);
+      untypify (v, true /* reduce */);
 
     return convert<string> (move (v));
   }

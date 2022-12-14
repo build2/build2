@@ -39,7 +39,7 @@ namespace build2
     save_environment (const value& d, const value* b, names& storage)
     {
       if (b == nullptr)
-        return make_pair (reverse (d, storage), "=");
+        return make_pair (reverse (d, storage, true /* reduce */), "=");
 
       // The plan is to iterator over environment variables adding those that
       // are not in base to storage. There is, however, a complication: we may

@@ -48,7 +48,11 @@ namespace build2
 
     template <typename T> const value_type* is_a () const;
 
-    // Element type, if this is a vector.
+    // True if the type is a container.
+    //
+    bool container;
+
+    // Element type, if this is a container and the element type is named.
     //
     const value_type* element_type;
 
@@ -75,9 +79,11 @@ namespace build2
     void (*const prepend) (value&, names&&, const variable*);
 
     // Reverse the value back to a vector of names. Storage can be used by the
-    // implementation if necessary. Cannot be NULL.
+    // implementation if necessary. If reduce is true, then for an empty
+    // simple value return an empty list rather than a list of one empty name.
+    // Note that the value cannot be NULL.
     //
-    names_view (*const reverse) (const value&, names& storage);
+    names_view (*const reverse) (const value&, names& storage, bool reduce);
 
     // Cast value::data_ storage to value type so that the result can be
     // static_cast to const T*. If it is NULL, then cast data_ directly. Note
@@ -363,8 +369,8 @@ namespace build2
     //
   public:
     // Assign/append/prepend a typed value. For assign, LHS should be either
-    // of the same type or untyped. For append, LHS should be either of the
-    // same type or untyped and NULL.
+    // of the same type or untyped. For append/prepend, LHS should be either
+    // of the same type or untyped and NULL.
     //
     template <typename T> value& operator= (T);
     template <typename T> value& operator+= (T);
@@ -497,18 +503,20 @@ namespace build2
   typify_atomic (context&, value&, const value_type&, const variable*);
 
   // Remove value type from the value reversing it to names. This is similar
-  // to reverse() below except that it modifies the value itself.
+  // to reverse() below except that it modifies the value itself. Note that
+  // the reduce semantics applies to empty but not null.
   //
-  LIBBUILD2_SYMEXPORT void untypify (value&);
+  LIBBUILD2_SYMEXPORT void untypify (value&, bool reduce);
 
   // Reverse the value back to names. The value should not be NULL and storage
-  // should be empty.
+  // should be empty. If reduce is true, then for an empty simple value return
+  // an empty list rather than a list of one empty name.
   //
   vector_view<const name>
-  reverse (const value&, names& storage);
+  reverse (const value&, names& storage, bool reduce);
 
   vector_view<name>
-  reverse (value&, names& storage);
+  reverse (value&, names& storage, bool reduce);
 
   // Variable lookup result, AKA, binding of a variable to a value.
   //

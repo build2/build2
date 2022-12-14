@@ -377,7 +377,7 @@ namespace build2
   }
 
   void
-  untypify (value& v)
+  untypify (value& v, bool reduce)
   {
     if (v.type == nullptr)
       return;
@@ -389,7 +389,7 @@ namespace build2
     }
 
     names ns;
-    names_view nv (v.type->reverse (v, ns));
+    names_view nv (v.type->reverse (v, ns, reduce));
 
     if (nv.empty () || nv.data () == ns.data ())
     {
@@ -493,6 +493,7 @@ namespace build2
     type_name,
     sizeof (bool),
     nullptr,                      // No base.
+    false,                        // Not container.
     nullptr,                      // No element.
     nullptr,                      // No dtor (POD).
     nullptr,                      // No copy_ctor (POD).
@@ -550,6 +551,7 @@ namespace build2
     type_name,
     sizeof (int64_t),
     nullptr,                          // No base.
+    false,                            // Not container.
     nullptr,                          // No element.
     nullptr,                          // No dtor (POD).
     nullptr,                          // No copy_ctor (POD).
@@ -607,6 +609,7 @@ namespace build2
     type_name,
     sizeof (uint64_t),
     nullptr,                          // No base.
+    false,                            // Not container.
     nullptr,                          // No element.
     nullptr,                          // No dtor (POD).
     nullptr,                          // No copy_ctor (POD).
@@ -701,6 +704,7 @@ namespace build2
     type_name,
     sizeof (string),
     nullptr,                      // No base.
+    false,                        // Not container.
     nullptr,                      // No element.
     &default_dtor<string>,
     &default_copy_ctor<string>,
@@ -768,6 +772,7 @@ namespace build2
     type_name,
     sizeof (path),
     nullptr,                    // No base.
+    false,                      // Not container.
     nullptr,                    // No element.
     &default_dtor<path>,
     &default_copy_ctor<path>,
@@ -835,6 +840,7 @@ namespace build2
     sizeof (dir_path),
     &value_traits<path>::value_type, // Base (assuming direct cast works for
                                      // both).
+    false,                           // Not container.
     nullptr,                         // No element.
     &default_dtor<dir_path>,
     &default_copy_ctor<dir_path>,
@@ -883,6 +889,7 @@ namespace build2
     sizeof (abs_dir_path),
     &value_traits<dir_path>::value_type, // Base (assuming direct cast works
                                          // for both).
+    false,                               // Not container.
     nullptr,                             // No element.
     &default_dtor<abs_dir_path>,
     &default_copy_ctor<abs_dir_path>,
@@ -908,10 +915,10 @@ namespace build2
   }
 
   static names_view
-  name_reverse (const value& v, names&)
+  name_reverse (const value& v, names&, bool reduce)
   {
     const name& n (v.as<name> ());
-    return n.empty () ? names_view (nullptr, 0) : names_view (&n, 1);
+    return reduce && n.empty () ? names_view (nullptr, 0) : names_view (&n, 1);
   }
 
   const char* const value_traits<name>::type_name = "name";
@@ -921,6 +928,7 @@ namespace build2
     type_name,
     sizeof (name),
     nullptr,                    // No base.
+    false,                      // Not container.
     nullptr,                    // No element.
     &default_dtor<name>,
     &default_copy_ctor<name>,
@@ -975,13 +983,13 @@ namespace build2
   }
 
   static names_view
-  name_pair_reverse (const value& v, names& ns)
+  name_pair_reverse (const value& v, names& ns, bool reduce)
   {
     const name_pair& p (v.as<name_pair> ());
     const name& f (p.first);
     const name& s (p.second);
 
-    if (f.empty () && s.empty ())
+    if (reduce && f.empty () && s.empty ())
       return names_view (nullptr, 0);
 
     if (f.empty ())
@@ -1003,6 +1011,7 @@ namespace build2
     type_name,
     sizeof (name_pair),
     nullptr,                         // No base.
+    false,                           // Not container.
     nullptr,                         // No element.
     &default_dtor<name_pair>,
     &default_copy_ctor<name_pair>,
@@ -1133,10 +1142,14 @@ namespace build2
   }
 
   static names_view
-  process_path_reverse (const value& v, names& s)
+  process_path_reverse (const value& v, names& s, bool)
   {
     const auto& x (v.as<process_path> ());
 
+    // Note that strictly speaking process_path doesn't have empty
+    // representation (see convert() above). Thus we always return reduced
+    // representation.
+    //
     if (!x.empty ())
     {
       s.reserve (x.effect.empty () ? 1 : 2);
@@ -1153,6 +1166,7 @@ namespace build2
     type_name,
     sizeof (process_path),
     nullptr,                         // No base.
+    false,                           // Not container.
     nullptr,                         // No element.
     &default_dtor<process_path>,
     &process_path_copy_ctor<process_path>,
@@ -1301,10 +1315,13 @@ namespace build2
   }
 
   static names_view
-  process_path_ex_reverse (const value& v, names& s)
+  process_path_ex_reverse (const value& v, names& s, bool)
   {
     const auto& x (v.as<process_path_ex> ());
 
+    // Note that process_path_ex only has reduced empty representation (see
+    // convert() above).
+    //
     if (!x.empty ())
     {
       s.reserve ((x.effect.empty () ? 1 : 2) +
@@ -1348,6 +1365,7 @@ namespace build2
     sizeof (process_path_ex),
     &value_traits<                   // Base (assuming direct cast works
       process_path>::value_type,     // for both).
+    false,                           // Not container.
     nullptr,                         // No element.
     &default_dtor<process_path_ex>,
     &process_path_ex_copy_ctor,
@@ -1389,6 +1407,7 @@ namespace build2
     type_name,
     sizeof (target_triplet),
     nullptr,                         // No base.
+    false,                           // Not container.
     nullptr,                         // No element.
     &default_dtor<target_triplet>,
     &default_copy_ctor<target_triplet>,
@@ -1433,6 +1452,7 @@ namespace build2
     type_name,
     sizeof (project_name),
     nullptr,                         // No base.
+    false,                           // Not container.
     nullptr,                         // No element.
     &default_dtor<project_name>,
     &default_copy_ctor<project_name>,
@@ -1544,7 +1564,7 @@ namespace build2
   }
 
   static names_view
-  cmdline_reverse (const value& v, names&)
+  cmdline_reverse (const value& v, names&, bool)
   {
     const auto& x (v.as<cmdline> ());
     return names_view (x.data (), x.size ());
@@ -1565,7 +1585,8 @@ namespace build2
     type_name,
     sizeof (cmdline),
     nullptr,                           // No base.
-    &value_traits<string>::value_type,
+    true,                              // Container.
+    &value_traits<string>::value_type, // Element type.
     &default_dtor<cmdline>,
     &default_copy_ctor<cmdline>,
     &default_copy_assign<cmdline>,

@@ -53,7 +53,7 @@ namespace build2
       if (v)
       {
         names storage;
-        os << reverse (v, storage);
+        os << reverse (v, storage, true /* reduce */);
       }
       else
         os << "[null]";
@@ -86,7 +86,7 @@ namespace build2
       if (v)
       {
         names storage;
-        os << reverse (v, storage);
+        os << reverse (v, storage, true /* reduce */);
       }
       else
         os << "[null]";

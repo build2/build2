@@ -44,7 +44,10 @@ namespace build2
     {
       o << '=';
       names storage;
-      to_stream (o, reverse (a.value, storage), quote_mode::normal, '@');
+      to_stream (o,
+                 reverse (a.value, storage, true /* reduce */),
+                 quote_mode::normal,
+                 '@');
     }
 
     return o;
@@ -3692,7 +3695,7 @@ namespace build2
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
       names storage;
-      for (name& n: reverse (v, storage))
+      for (name& n: reverse (v, storage, true /* reduce */))
       {
         // @@ Could this be an out-qualified ad hoc import?
         //
@@ -3762,7 +3765,12 @@ namespace build2
       fail (l) << "null value in export";
 
     if (val.type != nullptr)
-      untypify (val);
+    {
+      // While feels far-fetched, let's preserve empty typed values in the
+      // result.
+      //
+      untypify (val, false /* reduce */);
+    }
 
     export_value = move (val).as<names> ();
 
@@ -4446,7 +4454,11 @@ namespace build2
     if (val && val.type != nullptr)
     {
       etype = val.type->element_type;
-      untypify (val);
+
+      // Note that here we don't want to be reducing empty simple values to
+      // empty lists.
+      //
+      untypify (val, false /* reduce */);
     }
 
     if (tt != type::newline)
@@ -4627,7 +4639,7 @@ namespace build2
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
       names storage;
-      cout << reverse (v, storage) << endl;
+      cout << reverse (v, storage, true /* reduce */) << endl;
     }
     else
       cout << "[null]" << endl;
@@ -4660,7 +4672,7 @@ namespace build2
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
       names storage;
-      dr << reverse (v, storage);
+      dr << reverse (v, storage, true /* reduce */);
     }
 
     if (tt != type::eos)
@@ -4843,7 +4855,12 @@ namespace build2
     // We store prepend/append values untyped (similar to overrides).
     //
     if (rhs.type != nullptr && kind != type::assign)
-      untypify (rhs);
+    {
+      // Our heuristics for prepend/append of a typed value is to preserve
+      // empty (see apply_value_attributes() for details) so do not reduce.
+      //
+      untypify (rhs, false /* reduce */);
+    }
 
     if (p.second)
     {
@@ -5152,6 +5169,13 @@ namespace build2
     bool rhs_type (false);
     if (rhs.type != nullptr)
     {
+      // Our heuristics is to not reduce typed RHS empty simple values for
+      // prepend/append and additionally for assign provided LHS is a
+      // container.
+      //
+      bool reduce (kind == type::assign &&
+                   (type == nullptr || !type->container));
+
       // Only consider RHS type if there is no explicit or variable type.
       //
       if (type == nullptr)
@@ -5162,7 +5186,7 @@ namespace build2
 
       // Reduce this to the untyped value case for simplicity.
       //
-      untypify (rhs);
+      untypify (rhs, reduce);
     }
 
     if (kind == type::assign)
@@ -6561,14 +6585,13 @@ namespace build2
       if (!vnull)
       {
         if (vtype != nullptr)
-          untypify (rhs);
+          untypify (rhs, true /* reduce */);
 
         names& d (rhs.as<names> ());
 
-        // If the value is empty, then untypify() will (typically; no pun
-        // intended) represent it as an empty sequence of names rather than
-        // a sequence of one empty name. This is usually what we need (see
-        // simple_reverse() for details) but not in this case.
+        // If the value is empty, then we asked untypify() to reduce it to
+        // an empty sequence of names rather than a sequence of one empty
+        // name.
         //
         if (!d.empty ())
         {
@@ -7422,7 +7445,8 @@ namespace build2
                   fail (loc) << "null variable/function name";
 
                 names storage;
-                vector_view<name_type> ns (reverse (v, storage)); // Movable.
+                vector_view<name_type> ns (
+                  reverse (v, storage, true /* reduce */)); // Movable.
                 size_t n (ns.size ());
 
                 // We cannot handle scope-qualification in the eval context as
@@ -7643,7 +7667,7 @@ namespace build2
                          ? value (move (result_data))
                          : value (*result));
 
-              untypify (val);
+              untypify (val, false /* reduce */);
 
               names& ns (val.as<names> ());
 
@@ -7754,7 +7778,11 @@ namespace build2
               fail (loc) << "no string conversion for " << t;
 
             result_data = move (p.first);
-            untypify (result_data); // Convert to untyped simple name.
+
+            // Convert to untyped simple name reducing empty string to empty
+            // names as an optimization.
+            //
+            untypify (result_data, true /* reduce */);
           }
 
           if ((concat && vtype != nullptr) || // LHS typed.
@@ -7855,7 +7883,7 @@ namespace build2
           // @@ Could move if nv is result_data; see untypify().
           //
           names nv_storage;
-          names_view nv (reverse (*result, nv_storage));
+          names_view nv (reverse (*result, nv_storage, true /* reduce */));
 
           count = splice_names (
             loc, nv, move (nv_storage), ns, what, pairn, pp, dp, tp);

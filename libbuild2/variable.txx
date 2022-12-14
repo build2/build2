@@ -229,13 +229,13 @@ namespace build2
 
   template <typename T>
   names_view
-  simple_reverse (const value& v, names& s)
+  simple_reverse (const value& v, names& s, bool reduce)
   {
     const T& x (v.as<T> ());
 
-    // Represent an empty simple value as empty name sequence rather than
-    // a single empty name. This way, for example, during serialization we
-    // end up with a much saner looking:
+    // Unless requested otherwise, represent an empty simple value as empty
+    // name sequence rather than a single empty name. This way, for example,
+    // during serialization we end up with a much saner looking:
     //
     // config.import.foo =
     //
@@ -245,6 +245,8 @@ namespace build2
     //
     if (!value_traits<T>::empty (x))
       s.emplace_back (value_traits<T>::reverse (x));
+    else if (!reduce)
+      s.push_back (name ());
 
     return s;
   }
@@ -590,7 +592,7 @@ namespace build2
 
   template <typename T>
   static names_view
-  vector_reverse (const value& v, names& s)
+  vector_reverse (const value& v, names& s, bool)
   {
     auto& vv (v.as<vector<T>> ());
     s.reserve (vv.size ());
@@ -651,7 +653,8 @@ namespace build2
     nullptr,                          // Patched above.
     sizeof (vector<T>),
     nullptr,                          // No base.
-    &value_traits<T>::value_type,
+    true,                             // Container.
+    &value_traits<T>::value_type,     // Element type.
     &default_dtor<vector<T>>,
     &default_copy_ctor<vector<T>>,
     &default_copy_assign<vector<T>>,
@@ -702,7 +705,7 @@ namespace build2
 
   template <typename K, typename V>
   static names_view
-  pair_vector_reverse (const value& v, names& s)
+  pair_vector_reverse (const value& v, names& s, bool)
   {
     auto& vv (v.as<vector<pair<K, V>>> ());
     s.reserve (2 * vv.size ());
@@ -803,7 +806,8 @@ namespace build2
     nullptr,                     // Patched above.
     sizeof (vector<pair<K, V>>),
     nullptr,                     // No base.
-    nullptr,                     // No element.
+    true,                        // Container.
+    nullptr,                     // No element (not named).
     &default_dtor<vector<pair<K, V>>>,
     &default_copy_ctor<vector<pair<K, V>>>,
     &default_copy_assign<vector<pair<K, V>>>,
@@ -882,7 +886,7 @@ namespace build2
 
   template <typename K, typename V>
   static names_view
-  map_reverse (const value& v, names& s)
+  map_reverse (const value& v, names& s, bool)
   {
     auto& vm (v.as<map<K, V>> ());
     s.reserve (2 * vm.size ());
@@ -983,7 +987,8 @@ namespace build2
     nullptr,             // Patched above.
     sizeof (map<K, V>),
     nullptr,             // No base.
-    nullptr,             // No element.
+    true,                // Container.
+    nullptr,             // No element (not named).
     &default_dtor<map<K, V>>,
     &default_copy_ctor<map<K, V>>,
     &default_copy_assign<map<K, V>>,

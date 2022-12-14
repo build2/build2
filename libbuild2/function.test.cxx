@@ -115,7 +115,7 @@ namespace build2
             else if (!a.empty ())
             {
               names storage;
-              cout << reverse (a, storage);
+              cout << reverse (a, storage, true /* reduce */);
             }
             cout << endl;
           }

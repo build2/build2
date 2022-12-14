@@ -49,7 +49,7 @@ namespace build2
     if (v)
     {
       names storage;
-      os << (a ? " " : "") << reverse (v, storage);
+      os << (a ? " " : "") << reverse (v, storage, true /* reduce */);
     }
   }
 

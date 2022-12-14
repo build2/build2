@@ -47,7 +47,7 @@ namespace build2
       if (l)
       {
         storage.clear ();
-        names_view ns (reverse (*l, storage));
+        names_view ns (reverse (*l, storage, true /* reduce */));
 
         for (const name& n: ns)
           to_checksum (cs, n);

@@ -213,7 +213,7 @@ namespace build2
             if (f->arg_types[i]             &&
                 *f->arg_types[i] == nullptr &&
                 args[i].type != nullptr)
-              untypify (args[i]);
+              untypify (args[i], true /* reduce */);
           }
         }
 

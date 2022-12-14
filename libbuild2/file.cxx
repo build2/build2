@@ -1706,7 +1706,7 @@ namespace build2
         if (const value& v = *l)
         {
           storage.clear ();
-          auto ns (reverse (v, storage));
+          auto ns (reverse (v, storage, true /* reduce */));
 
           if (f == "multiline")
           {

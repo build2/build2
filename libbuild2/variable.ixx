@@ -326,18 +326,21 @@ namespace build2
   }
 
   inline vector_view<const name>
-  reverse (const value& v, names& storage)
+  reverse (const value& v, names& storage, bool reduce)
   {
     assert (v &&
             storage.empty () &&
             (v.type == nullptr || v.type->reverse != nullptr));
-    return v.type == nullptr ? v.as<names> () : v.type->reverse (v, storage);
+
+    return v.type == nullptr
+      ? v.as<names> ()
+      : v.type->reverse (v, storage, reduce);
   }
 
   inline vector_view<name>
-  reverse (value& v, names& storage)
+  reverse (value& v, names& storage, bool reduce)
   {
-    names_view cv (reverse (static_cast<const value&> (v), storage));
+    names_view cv (reverse (static_cast<const value&> (v), storage, reduce));
     return vector_view<name> (const_cast<name*> (cv.data ()), cv.size ());
   }
 

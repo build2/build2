@@ -83,7 +83,7 @@ namespace build2
       if (v->null)
         return string ();
 
-      untypify (*v); // Reverse to names.
+      untypify (*v, true /* reduce */); // Reverse to names.
 
       ostringstream os;
       to_stream (os,

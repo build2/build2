@@ -605,7 +605,7 @@ namespace build2
         // name)? But then again we don't expect many such overrides. Plus
         // will complicate the diagnostics below.
         //
-        ns = reverse (*l, storage);
+        ns = reverse (*l, storage, true /* reduce */);
 
         if (ns.size () == 1)
         {

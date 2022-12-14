@@ -89,3 +89,58 @@
     EOO
   }
 }
+
+: reduce
+:
+: Test empty simple value reduction heuristics.
+:
+{
+  : typed
+  :
+  $* <<EOI >>"EOO"
+  x = [string]
+  n = [string,null]
+  y = [strings] $x
+  y += $x
+  y += $n
+  print $size($y)
+
+  file{*}: y += $x
+  file{x}:
+  print $size($(file{x}: y))
+
+  for i: $x
+    print iteration
+
+  print $null($x[0])
+  EOI
+  2
+  3
+  iteration
+  false
+  EOO
+
+  : untyped
+  :
+  $* <<EOI >>"EOO"
+  x =
+  n = [null]
+  y = $x
+  y += $x
+  y += $n
+  print $size($y)
+
+  file{*}: y += $x
+  file{x}:
+  print $size($(file{x}: y))
+
+  for i: $x
+    print iteration
+
+  print $null($x[0])
+  EOI
+  0
+  0
+  true
+  EOO
+}

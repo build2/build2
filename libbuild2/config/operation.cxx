@@ -181,7 +181,7 @@ namespace build2
         if (v)
         {
           storage.clear ();
-          dr << "'" << reverse (v, storage) << "'";
+          dr << "'" << reverse (v, storage, true /* reduce */) << "'";
         }
         else
           dr << "[null]";
@@ -531,7 +531,7 @@ namespace build2
             pair<names_view, const char*> p (
               sv.save != nullptr
               ? sv.save (v, base, storage)
-              : make_pair (reverse (v, storage), "="));
+              : make_pair (reverse (v, storage, true /* reduce */), "="));
 
             // Might becomes empty after a custom save function had at it.
             //

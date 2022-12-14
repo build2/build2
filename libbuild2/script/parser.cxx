@@ -1028,7 +1028,7 @@ namespace build2
 
                 storage.clear ();
                 to_stream (os,
-                           reverse (a.value, storage),
+                           reverse (a.value, storage, true /* reduce */),
                            quote_mode::normal,
                            '@');
               }
@@ -2676,7 +2676,11 @@ namespace build2
                 if (val.type != nullptr)
                 {
                   etype = val.type->element_type;
-                  untypify (val);
+
+                  // Note that here we don't want to be reducing empty simple
+                  // values to empty lists.
+                  //
+                  untypify (val, false /* reduce */);
                 }
 
                 size_t fli (li);
