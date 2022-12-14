@@ -15,6 +15,9 @@ namespace build2
 
     // $string(<bool>)
     //
+    // Note that we don't handle NULL values for this type since it has no
+    // empty representation.
+    //
     f["string"] += [](bool b) {return b ? "true" : "false";};
   }
 }

@@ -142,7 +142,13 @@ namespace build2
     //
     function_family fn (m, "name");
 
-    fn["string"] += [](name n) {return to_string (n);};
+    // Note that we must handle NULL values (relied upon by the parser
+    // to provide conversion semantics consistent with untyped values).
+    //
+    fn["string"] += [](name* n)
+    {
+      return n != nullptr ? to_string (move (*n)) : string ();
+    };
 
     fn["name"] += [](const scope* s, name n)
     {
@@ -438,6 +444,11 @@ namespace build2
     //
     function_family fb (m, "builtin");
 
+    // Note that while we should normally handle NULL values (relied upon by
+    // the parser to provide concatenation semantics consistent with untyped
+    // values), the result will unlikely be what the user expected. So for now
+    // we keep it a bit tighter.
+    //
     fb[".concat"] += [](dir_path d, name n)
     {
       d /= n.dir;

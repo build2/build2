@@ -161,7 +161,13 @@ namespace build2
 
     // string
     //
-    f["string"] += [](path p) {return move (p).string ();};
+    // Note that we must handle NULL values (relied upon by the parser
+    // to provide conversion semantics consistent with untyped values).
+    //
+    f["string"] += [](path* p)
+    {
+      return p != nullptr ? move (*p).string () : string ();
+    };
 
     f["string"] += [](paths v)
     {
@@ -694,6 +700,11 @@ namespace build2
     //
     function_family b (m, "builtin", &path_thunk);
 
+    // Note that while we should normally handle NULL values (relied upon by
+    // the parser to provide concatenation semantics consistent with untyped
+    // values), the result will unlikely be what the user expected, especially
+    // if the NULL value is on the LHS. So for now we keep it a bit tighter.
+    //
     b[".concat"] += &concat_path_string;
     b[".concat"] += &concat_dir_path_string;
 

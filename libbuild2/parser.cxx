@@ -7719,7 +7719,8 @@ namespace build2
           // then it should not be overloaded for a type). In a quoted
           // context we use $string() which returns a "canonical
           // representation" (e.g., a directory path without a trailing
-          // slash).
+          // slash). Note: looks like we use typed $concat() now in the
+          // unquoted context.
           //
           if (result->type != nullptr && quoted)
           {

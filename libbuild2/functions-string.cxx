@@ -39,12 +39,13 @@ namespace build2
   {
     function_family f (m, "string");
 
-    f["string"] += [](string s)  {return s;};
-
-    // @@ Shouldn't it concatenate elements into the single string?
-    // @@ Doesn't seem to be used so far. Can consider removing.
+    // Note that we must handle NULL values (relied upon by the parser
+    // to provide conversion semantics consistent with untyped values).
     //
-    // f["string"] += [](strings v) {return v;};
+    f["string"] += [](string* s)
+    {
+      return s != nullptr ? move (*s) : string ();
+    };
 
     // Compare ASCII strings ignoring case and returning the boolean value.
     //
@@ -195,19 +196,26 @@ namespace build2
     //
     function_family b (m, "builtin");
 
-    b[".concat"] += [](string l, string r) {l += r; return l;};
-
-    b[".concat"] += [](string l, names ur)
+    // Note that we must handle NULL values (relied upon by the parser to
+    // provide concatenation semantics consistent with untyped values).
+    //
+    b[".concat"] += [](string* l, string* r)
     {
-      l += convert<string> (move (ur));
-      return l;
+      return l != nullptr
+        ? r != nullptr ? move (*l += *r) : move (*l)
+        : r != nullptr ? move (*r) : string ();
     };
 
-    b[".concat"] += [](names ul, string r)
+    b[".concat"] += [](string* l, names* ur)
     {
-      string l (convert<string> (move (ul)));
-      l += r;
-      return l;
+      string r (ur != nullptr ? convert<string> (move (*ur)) : string ());
+      return l != nullptr ? move (*l += r) : move (r);
+    };
+
+    b[".concat"] += [](names* ul, string* r)
+    {
+      string l (ul != nullptr ? convert<string> (move (*ul)) : string ());
+      return r != nullptr ? move (l += *r) : move (l);
     };
   }
 }

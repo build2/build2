@@ -69,6 +69,9 @@ namespace build2
     // $string(<int64>)
     // $string(<uint64>[, <base>[, <width>]])
     //
+    // Note that we don't handle NULL values for these type since they have no
+    // empty representation.
+    //
     f["string"] += [](int64_t i) {return to_string (i);};
 
     f["string"] += [](uint64_t i, optional<value> base, optional<value> width)

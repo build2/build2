@@ -13,7 +13,13 @@ namespace build2
   {
     function_family f (m, "project_name");
 
-    f["string"] += [](project_name p) {return move (p).string ();};
+    // Note that we must handle NULL values (relied upon by the parser
+    // to provide conversion semantics consistent with untyped values).
+    //
+    f["string"] += [](project_name* p)
+    {
+      return p != nullptr ? move (*p).string () : string ();
+    };
 
     f["base"] += [](project_name p, optional<string> ext)
     {
@@ -32,6 +38,11 @@ namespace build2
     //
     function_family b (m, "builtin");
 
+    // Note that while we should normally handle NULL values (relied upon by
+    // the parser to provide concatenation semantics consistent with untyped
+    // values), the result will unlikely be what the user expected. So for now
+    // we keep it a bit tighter.
+    //
     b[".concat"] += [](project_name n, string s)
     {
       string r (move (n).string ());

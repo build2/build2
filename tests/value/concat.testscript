@@ -3,6 +3,48 @@
 
 .include ../common.testscript
 
+: null
+:
+{
+  : untyped
+  :
+  $* <<EOI >>/EOO
+  x = [null]
+
+  print y "$x x"
+  print "x $x" y
+
+  print $x"x"
+  print "x"$x
+  print $x$x
+  EOI
+  y  x
+  x  y
+  x
+  x
+  {}
+  EOO
+
+  : string
+  :
+  $* <<EOI >>/EOO
+  x = [string,null]
+
+  print y "$x x"
+  print "x $x" y
+
+  print $x"x"
+  print "x"$x
+  print $x$x
+  EOI
+  y  x
+  x  y
+  x
+  x
+  {}
+  EOO
+}
+
 : dir_path
 :
 {

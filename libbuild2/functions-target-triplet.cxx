@@ -13,13 +13,28 @@ namespace build2
   {
     function_family f (m, "target_triplet");
 
-    f["string"] += [](target_triplet t) {return t.string ();};
-    f["representation"] += [](target_triplet t) {return t.representation ();};
+    // Note that we must handle NULL values (relied upon by the parser
+    // to provide conversion semantics consistent with untyped values).
+    //
+    f["string"] += [](target_triplet* t)
+    {
+      return t != nullptr ? t->string () : string ();
+    };
+
+    f["representation"] += [](target_triplet t)
+    {
+      return t.representation ();
+    };
 
     // Target triplet-specific overloads from builtins.
     //
     function_family b (m, "builtin");
 
+    // Note that while we should normally handle NULL values (relied upon by
+    // the parser to provide concatenation semantics consistent with untyped
+    // values), the result will unlikely be what the user expected. So for now
+    // we keep it a bit tighter.
+    //
     b[".concat"] += [](target_triplet l, string sr) {return l.string () + sr;};
     b[".concat"] += [](string sl, target_triplet r) {return sl + r.string ();};
 
