@@ -713,9 +713,9 @@ namespace build2
   }
 
   token lexer::
-  word (state st, bool sep)
+  word (const state& rst, bool sep)
   {
-    lexer_mode m (st.mode);
+    lexer_mode m (rst.mode);
 
     xchar c (peek ());
     assert (!eos (c));
@@ -746,22 +746,66 @@ namespace build2
       lexeme += c;
     };
 
-    for (; !eos (c); c = peek ())
+    const state* st (&rst);
+    for (bool first (true); !eos (c); first = false, c = peek ())
     {
       // First handle escape sequences.
       //
       if (c == '\\')
       {
-        // In the variable mode we treat the beginning of the escape sequence
-        // as a separator (think \"$foo\").
+        // In the variable mode we treat immediate `\` as the escape sequence
+        // literal and any following as a separator (think \"$foo\").
         //
         if (m == lexer_mode::variable)
-          break;
+        {
+          if (!first)
+            break;
+
+          get ();
+          c = get ();
+
+          if (eos (c))
+            fail (c) << "unterminated escape sequence";
+
+          // For now we only support all the simple C/C++ escape sequences
+          // plus \0 (which in C/C++ is an octal escape sequence).
+          //
+          // In the future we may decide to support more elaborate sequences
+          // such as \xNN, \uNNNN, etc.
+          //
+          // Note: we return it in the literal form instead of translating for
+          // easier printing.
+          //
+          switch (c)
+          {
+          case '\'':
+          case '"':
+          case '?':
+          case '\\':
+          case '0':
+          case 'a':
+          case 'b':
+          case 'f':
+          case 'n':
+          case 'r':
+          case 't':
+          case 'v': lexeme = c; break;
+          default:
+            fail (c) << "unknown escape sequence \\" << c;
+          }
+
+          state_.pop ();
+          return token (type::escape,
+                        move (lexeme),
+                        sep,
+                        qtype, qcomp, qfirst,
+                        ln, cn);
+        }
 
         get ();
         xchar p (peek ());
 
-        const char* esc (st.escapes);
+        const char* esc (st->escapes);
 
         if (esc == nullptr ||
             (*esc != '\0' && !eos (p) && strchr (esc, p) != nullptr))
@@ -777,7 +821,7 @@ namespace build2
           continue;
         }
         else
-          unget (c); // Treat as a normal character.
+          unget (c); // Fall through to treat as a normal character.
       }
 
       bool done (false);
@@ -806,8 +850,8 @@ namespace build2
             get ();
             state_.pop ();
 
-            st = state_.top ();
-            m = st.mode;
+            st = &state_.top ();
+            m = st->mode;
             continue;
           }
         }
@@ -816,19 +860,17 @@ namespace build2
       //
       else if (m == lexer_mode::variable)
       {
-        bool first (lexeme.empty ());
-
         // Handle special variable names, if any.
         //
-        if (first        &&
-            st.data != 0 &&
-            strchr (reinterpret_cast<const char*> (st.data), c) != nullptr)
+        if (first         &&
+            st->data != 0 &&
+            strchr (reinterpret_cast<const char*> (st->data), c) != nullptr)
         {
           get ();
           lexeme += c;
           done = true;
         }
-        else if (c != '_' && !(first ? alpha (c) : alnum (c)))
+        else if (c != '_' && !(lexeme.empty () ? alpha (c) : alnum (c)))
         {
           if (c != '.')
             done = true;
@@ -848,17 +890,17 @@ namespace build2
       {
         // First check if it's a pair separator.
         //
-        if (c == st.sep_pair)
+        if (c == st->sep_pair)
           done = true;
         else
         {
           // Then see if this character or character sequence is a separator.
           //
-          for (const char* p (strchr (st.sep_first, c));
+          for (const char* p (strchr (st->sep_first, c));
                p != nullptr;
                p = done ? nullptr : strchr (p + 1, c))
           {
-            char s (st.sep_second[p - st.sep_first]);
+            char s (st->sep_second[p - st->sep_first]);
 
             // See if it has a second.
             //
@@ -876,13 +918,19 @@ namespace build2
         // Handle single and double quotes if enabled for this mode and unless
         // they were considered separators.
         //
-        if (st.quotes && !done)
+        if (st->quotes && !done)
         {
           auto quoted_mode = [this] (lexer_mode m)
           {
+            // In the double-quoted mode we only do effective escaping of the
+            // special `$("\` characters plus `)` for symmetry. Nothing can be
+            // escaped in single-quoted.
+            //
+            const char* esc (m == lexer_mode::double_quoted ? "$()\"\\" : "");
+
             state_.push (state {
               m, 0, nullopt, false, false, '\0', false, true, true,
-              state_.top ().escapes, nullptr, nullptr});
+              esc, nullptr, nullptr});
           };
 
           switch (c)
@@ -933,8 +981,8 @@ namespace build2
 
               quoted_mode (lexer_mode::double_quoted);
 
-              st = state_.top ();
-              m = st.mode;
+              st = &state_.top ();
+              m = st->mode;
 
               switch (qtype)
               {
@@ -1090,6 +1138,8 @@ namespace build2
         }
       case '\\':
         {
+          // See if this is line continuation.
+          //
           get ();
 
           if (peek () == '\n')

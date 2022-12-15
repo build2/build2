@@ -339,15 +339,17 @@ namespace build2
       }
 
       token lexer::
-      word (state st, bool sep)
+      word (const state& st, bool sep)
       {
-        lexer_mode m (st.mode);
+        lexer_mode m (st.mode); // Save.
 
         token r (base_lexer::word (st, sep));
 
         if (m == lexer_mode::variable)
         {
-          if (r.value.size () == 1 && digit (r.value[0])) // $N
+          if (r.type == type::word &&
+              r.value.size () == 1 &&
+              digit (r.value[0])) // $N
           {
             xchar c (peek ());
 

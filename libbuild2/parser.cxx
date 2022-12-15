@@ -7357,11 +7357,15 @@ namespace build2
           // token is a paren or a word, we turn it on and switch to the eval
           // mode if what we get next is a paren.
           //
-          // Also sniff out the special variables string from mode data for
-          // the ad hoc $() handling below.
-          //
           mode (lexer_mode::variable);
 
+          // Sniff out the special variables string from mode data and use
+          // that to recognize special variables in the ad hoc $() handling
+          // below.
+          //
+          // Note: must be done before calling next() which may expire the
+          // mode.
+          //
           auto special = [s = reinterpret_cast<const char*> (mode_data ())]
             (const token& t) -> char
           {
@@ -7400,164 +7404,202 @@ namespace build2
           next (t, tt);
           loc = get_location (t);
 
-          names qual;
-          string name;
-
-          if (t.separated)
-            ; // Leave the name empty to fail below.
-          else if (tt == type::word)
+          if (tt == type::escape)
           {
-            name = move (t.value);
-          }
-          else if (tt == type::lparen)
-          {
-            expire_mode ();
-            mode (lexer_mode::eval, '@');
-            next_with_attributes (t, tt);
-
-            // Handle the $(x) case ad hoc. We do it this way in order to get
-            // the variable name even during pre-parse. It should also be
-            // faster.
+            // For now we only support all the simple C/C++ escape sequences
+            // plus \0 (which in C/C++ is an octal escape sequence). See the
+            // lexer part for details.
             //
-            char c;
-            if ((tt == type::word
-                 ? path_traits::rfind_separator (t.value) == string::npos
-                 : (c = special (t))) &&
-                peek () == type::rparen)
+            // Note: cannot be subscripted.
+            //
+            if (!pre_parse_)
             {
-              name = (tt == type::word ? move (t.value) : string (1, c));
-              next (t, tt); // Get `)`.
-            }
-            else
-            {
-              using name_type = build2::name;
-
-              values vs (parse_eval (t, tt, pmode));
-
-              if (!pre_parse_)
+              string s;
+              switch (char c = t.value[0])
               {
-                if (vs.size () != 1)
-                  fail (loc) << "expected single variable/function name";
-
-                value& v (vs[0]);
-
-                if (!v)
-                  fail (loc) << "null variable/function name";
-
-                names storage;
-                vector_view<name_type> ns (
-                  reverse (v, storage, true /* reduce */)); // Movable.
-                size_t n (ns.size ());
-
-                // We cannot handle scope-qualification in the eval context as
-                // we do for target-qualification (see eval-qual) since then
-                // we would be treating all paths as qualified variables. So
-                // we have to do it here.
-                //
-                if      (n >= 2 && ns[0].pair == ':')   // $(foo: x)
-                {
-                  // Note: name is first (see eval for details).
-                  //
-                  qual.push_back (move (ns[1]));
-
-                  if (qual.back ().empty ())
-                    fail (loc) << "empty variable/function qualification";
-
-                  if (n > 2)
-                    qual.push_back (move (ns[2]));
-
-                  // Move name to the last position (see below).
-                  //
-                  swap (ns[0], ns[n - 1]);
-                }
-                else if (n == 2 && ns[0].directory ())  // $(foo/ x)
-                {
-                  qual.push_back (move (ns[0]));
-                  qual.back ().pair = '/';
-                }
-                else if (n > 1)
-                  fail (loc) << "expected variable/function name instead of '"
-                             << ns << "'";
-
-                // Note: checked for empty below.
-                //
-                if (!ns[n - 1].simple ())
-                  fail (loc) << "expected variable/function name instead of '"
-                             << ns[n - 1] << "'";
-
-                size_t p;
-                if (n == 1 &&                           // $(foo/x)
-                    (p = path_traits::rfind_separator (ns[0].value)) !=
-                      string::npos)
-                {
-                  // Note that p cannot point to the last character since then
-                  // it would have been a directory, not a simple name.
-                  //
-                  string& s (ns[0].value);
-
-                  name = string (s, p + 1);
-                  s.resize (p + 1);
-                  qual.push_back (name_type (dir_path (move (s))));
-                  qual.back ().pair = '/';
-                }
-                else
-                  name = move (ns[n - 1].value);
+              case '\'':
+              case '"':
+              case '?':
+              case '\\': s = c;    break;
+              case '0':  s = '\0'; break;
+              case 'a':  s = '\a'; break;
+              case 'b':  s = '\b'; break;
+              case 'f':  s = '\f'; break;
+              case 'n':  s = '\n'; break;
+              case 'r':  s = '\r'; break;
+              case 't':  s = '\t'; break;
+              case 'v':  s = '\v'; break;
+              default:
+                assert (false);
               }
+
+              result_data = name (move (s));
+              what = "escape sequence expansion";
             }
+
+            tt = peek ();
           }
           else
-            fail (t) << "expected variable/function name instead of " << t;
-
-          if (!pre_parse_ && name.empty ())
-            fail (loc) << "empty variable/function name";
-
-          // Figure out whether this is a variable expansion with potential
-          // subscript or a function call.
-          //
-          if (sub) enable_subscript ();
-          tt = peek ();
-
-          // Note that we require function call opening paren to be
-          // unseparated; consider: $x ($x == 'foo' ? 'FOO' : 'BAR').
-          //
-          if (tt == type::lparen && !peeked ().separated)
           {
-            // Function call.
-            //
-            next (t, tt); // Get '('.
-            mode (lexer_mode::eval, '@');
-            next_with_attributes (t, tt);
+            names qual;
+            string name;
 
-            // @@ Should we use (target/scope) qualification (of name) as the
-            // context in which to call the function? Hm, interesting...
-            //
-            values args (parse_eval (t, tt, pmode));
+            if (t.separated)
+              ; // Leave the name empty to fail below.
+            else if (tt == type::word)
+            {
+              name = move (t.value);
+            }
+            else if (tt == type::lparen)
+            {
+              expire_mode ();
+              mode (lexer_mode::eval, '@');
+              next_with_attributes (t, tt);
 
+              // Handle the $(x) case ad hoc. We do it this way in order to
+              // get the variable name even during pre-parse. It should also
+              // be faster.
+              //
+              char c;
+              if ((tt == type::word
+                   ? path_traits::rfind_separator (t.value) == string::npos
+                   : (c = special (t))) &&
+                  peek () == type::rparen)
+              {
+                name = (tt == type::word ? move (t.value) : string (1, c));
+                next (t, tt); // Get `)`.
+              }
+              else
+              {
+                using name_type = build2::name;
+
+                values vs (parse_eval (t, tt, pmode));
+
+                if (!pre_parse_)
+                {
+                  if (vs.size () != 1)
+                    fail (loc) << "expected single variable/function name";
+
+                  value& v (vs[0]);
+
+                  if (!v)
+                    fail (loc) << "null variable/function name";
+
+                  names storage;
+                  vector_view<name_type> ns (
+                    reverse (v, storage, true /* reduce */)); // Movable.
+                  size_t n (ns.size ());
+
+                  // We cannot handle scope-qualification in the eval context
+                  // as we do for target-qualification (see eval-qual) since
+                  // then we would be treating all paths as qualified
+                  // variables. So we have to do it here.
+                  //
+                  if      (n >= 2 && ns[0].pair == ':')   // $(foo: x)
+                  {
+                    // Note: name is first (see eval for details).
+                    //
+                    qual.push_back (move (ns[1]));
+
+                    if (qual.back ().empty ())
+                      fail (loc) << "empty variable/function qualification";
+
+                    if (n > 2)
+                      qual.push_back (move (ns[2]));
+
+                    // Move name to the last position (see below).
+                    //
+                    swap (ns[0], ns[n - 1]);
+                  }
+                  else if (n == 2 && ns[0].directory ())  // $(foo/ x)
+                  {
+                    qual.push_back (move (ns[0]));
+                    qual.back ().pair = '/';
+                  }
+                  else if (n > 1)
+                    fail (loc) << "expected variable/function name instead of '"
+                               << ns << "'";
+
+                  // Note: checked for empty below.
+                  //
+                  if (!ns[n - 1].simple ())
+                    fail (loc) << "expected variable/function name instead of '"
+                               << ns[n - 1] << "'";
+
+                  size_t p;
+                  if (n == 1 &&                           // $(foo/x)
+                      (p = path_traits::rfind_separator (ns[0].value)) !=
+                      string::npos)
+                  {
+                    // Note that p cannot point to the last character since
+                    // then it would have been a directory, not a simple name.
+                    //
+                    string& s (ns[0].value);
+
+                    name = string (s, p + 1);
+                    s.resize (p + 1);
+                    qual.push_back (name_type (dir_path (move (s))));
+                    qual.back ().pair = '/';
+                  }
+                  else
+                    name = move (ns[n - 1].value);
+                }
+              }
+            }
+            else
+              fail (t) << "expected variable/function name instead of " << t;
+
+            if (!pre_parse_ && name.empty ())
+              fail (loc) << "empty variable/function name";
+
+            // Figure out whether this is a variable expansion with potential
+            // subscript or a function call.
+            //
             if (sub) enable_subscript ();
             tt = peek ();
 
-            // Note that we "move" args to call().
+            // Note that we require function call opening paren to be
+            // unseparated; consider: $x ($x == 'foo' ? 'FOO' : 'BAR').
             //
-            if (!pre_parse_)
+            if (tt == type::lparen && !peeked ().separated)
             {
-              result_data = ctx->functions.call (scope_, name, args, loc);
-              what = "function call";
+              // Function call.
+              //
+              next (t, tt); // Get '('.
+              mode (lexer_mode::eval, '@');
+              next_with_attributes (t, tt);
+
+              // @@ Should we use (target/scope) qualification (of name) as
+              // the context in which to call the function? Hm, interesting...
+              //
+              values args (parse_eval (t, tt, pmode));
+
+              if (sub) enable_subscript ();
+              tt = peek ();
+
+              // Note that we "move" args to call().
+              //
+              if (!pre_parse_)
+              {
+                result_data = ctx->functions.call (scope_, name, args, loc);
+                what = "function call";
+              }
+              else
+                lookup_function (move (name), loc);
             }
             else
-              lookup_function (move (name), loc);
-          }
-          else
-          {
-            // Variable expansion.
-            //
-            lookup l (lookup_variable (move (qual), move (name), loc));
-
-            if (!pre_parse_)
             {
-              if (l.defined ())
-                result = l.value; // Otherwise leave as NULL result_data.
+              // Variable expansion.
+              //
+              lookup l (lookup_variable (move (qual), move (name), loc));
 
-              what = "variable expansion";
+              if (!pre_parse_)
+              {
+                if (l.defined ())
+                  result = l.value; // Otherwise leave as NULL result_data.
+
+                what = "variable expansion";
+              }
             }
           }
         }

@@ -29,21 +29,30 @@ namespace build2
         os << (r ? "\n" : "<newline>");
         break;
       }
-    case token_type::pair_separator:
-      {
-        if (r)
-          os << t.value[0];
-        else
-          os << "<pair separator " << t.value[0] << ">";
-
-        break;
-      }
     case token_type::word:
       {
         if (r)
           os << t.value;
         else
           os << '\'' << t.value << '\'';
+
+        break;
+      }
+    case token_type::escape:
+      {
+        if (r)
+          os << '\\' << t.value;
+        else
+          os << "<escape sequence \\" << t.value << ">";
+
+        break;
+      }
+    case token_type::pair_separator:
+      {
+        if (r)
+          os << t.value[0];
+        else
+          os << "<pair separator " << t.value[0] << ">";
 
         break;
       }

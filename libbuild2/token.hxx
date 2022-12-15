@@ -30,6 +30,7 @@ namespace build2
       eos,
       newline,
       word,
+      escape,          // token::value is <...> in $\<...>
       pair_separator,  // token::value[0] is the pair separator char.
 
       colon,           // :
@@ -159,16 +160,13 @@ namespace build2
     token (string v, bool s,
            quote_type qt, bool qc, bool qf,
            uint64_t l, uint64_t c)
-        : token (token_type::word, move (v), s,
-                 qt, qc, qf,
-                 l, c,
-                 &token_printer) {}
+        : token (token_type::word, move (v), s, qt, qc, qf, l, c) {}
 
     token (token_type t,
            string v, bool s,
            quote_type qt, bool qc, bool qf,
            uint64_t l, uint64_t c,
-           printer_type* p)
+           printer_type* p = &token_printer)
         : type (t), separated (s),
           qtype (qt), qcomp (qc), qfirst (qf),
           value (move (v)),

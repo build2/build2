@@ -1,0 +1,17 @@
+# file      : tests/expansion/type.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Test escape sequence expansion.
+
+.include ../common.testscript
+
+: simple
+:
+$* <<EOI >>EOO
+print "foo$\nbar"
+print $size([string] "foo$\0bar")
+EOI
+foo
+bar
+7
+EOO

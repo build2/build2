@@ -77,7 +77,7 @@ namespace build2
         next_description ();
 
         virtual token
-        word (state, bool) override;
+        word (const state&, bool) override;
       };
     }
   }
