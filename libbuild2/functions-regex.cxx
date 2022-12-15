@@ -365,7 +365,7 @@ namespace build2
   // apply() overloads (below) for details.
   //
   static names
-  apply (names&& s,
+  apply (names&& ns,
          const string& re,
          const string& fmt,
          optional<names>&& flags)
@@ -380,9 +380,9 @@ namespace build2
 
     try
     {
-      for (auto& v: s)
+      for (auto& n: ns)
       {
-        string s (regex_replace_search (convert<string> (move (v)),
+        string s (regex_replace_search (convert<string> (move (n)),
                                         rge,
                                         fmt,
                                         fl.second).first);
@@ -426,36 +426,101 @@ namespace build2
   // See find_match() overloads (below) for details.
   //
   static bool
-  find_match (names&& s, const string& re, optional<names>&& flags)
+  find_match (names&& ns, const string& re, optional<names>&& flags)
   {
     regex::flag_type fl (parse_find_flags (move (flags)));
     regex rge (parse_regex (re, fl));
 
-    for (auto& v: s)
+    for (auto& n: ns)
     {
-      if (regex_match (convert<string> (move (v)), rge))
+      if (regex_match (convert<string> (move (n)), rge))
         return true;
     }
 
     return false;
   }
 
-  // Return true if a part of any of the list elements matches the regular
-  // expression. See find_search() overloads (below) for details.
+  // Return a list of elements that match (matching is true) or don't match
+  // (matching is false) the regular expression. See filter_match() and
+  // filter_out_match() overloads (below) for details.
   //
-  static bool
-  find_search (names&& s, const string& re, optional<names>&& flags)
+  static names
+  filter_match (names&& ns,
+                const string& re,
+                optional<names>&& flags,
+                bool matching)
   {
     regex::flag_type fl (parse_find_flags (move (flags)));
     regex rge (parse_regex (re, fl));
 
-    for (auto& v: s)
+    names r;
+
+    for (name& n: ns)
     {
-      if (regex_search (convert<string> (move (v)), rge))
+      // Note that we need to preserve the element while converting it to
+      // string since we may add it to the resulting list. But let's optimize
+      // this for the simple value case by round-tripping it through the
+      // string.
+      //
+      bool s (n.simple ());
+      string v (convert<string> (s ? move (n) : name (n)));
+
+      if (regex_match (v, rge) == matching)
+        r.emplace_back (s ? name (move (v)) : move (n));
+    }
+
+    return r;
+  }
+
+  // Return true if a part of any of the list elements matches the regular
+  // expression. See find_search() overloads (below) for details.
+  //
+  static bool
+  find_search (names&& ns, const string& re, optional<names>&& flags)
+  {
+    regex::flag_type fl (parse_find_flags (move (flags)));
+    regex rge (parse_regex (re, fl));
+
+    for (auto& n: ns)
+    {
+      if (regex_search (convert<string> (move (n)), rge))
         return true;
     }
 
     return false;
+  }
+
+  // Return those elements of a list which have a match (matching is true) or
+  // have no match (matching is false) between the regular expression and
+  // some/any part of the element. See filter_search() and filter_out_search()
+  // overloads (below) for details.
+  //
+  static names
+  filter_search (names&& ns,
+                 const string& re,
+                 optional<names>&& flags,
+                 bool matching)
+  {
+    regex::flag_type fl (parse_find_flags (move (flags)));
+    regex rge (parse_regex (re, fl));
+
+    names r;
+
+    for (auto& n: ns)
+    {
+      // Note that we need to preserve the element while converting it to
+      // string since we may add it to the resulting list. But let's optimize
+      // this for the simple value case by round-tripping it through the
+      // string.
+      //
+      bool s (n.simple ());
+      string v (convert<string> (s ? move (n) : name (n)));
+
+      if (regex_search (v, rge) == matching)
+        r.emplace_back (s ? name (move (v)) : move (n));
+    }
+
+    return r;
   }
 
   // Replace matched parts of list elements using the format string and
@@ -463,7 +528,7 @@ namespace build2
   // details.
   //
   static names
-  merge (names&& s,
+  merge (names&& ns,
          const string& re,
          const string& fmt,
          optional<string>&& delim,
@@ -480,9 +545,9 @@ namespace build2
     try
     {
       bool first (true);
-      for (auto& v: s)
+      for (auto& n: ns)
       {
-        string s (regex_replace_search (convert<string> (move (v)),
+        string s (regex_replace_search (convert<string> (move (n)),
                                         rge,
                                         fmt,
                                         fl.second).first);
@@ -534,33 +599,70 @@ namespace build2
     //               sub-strings that match the marked sub-expressions and
     //               NULL if no match
     //
-    f[".match"] += [](value s, string re, optional<names> flags)
+    f[".match"] += [](value v, string re, optional<names> flags)
     {
-      return match (move (s), re, move (flags));
+      return match (move (v), re, move (flags));
     };
 
-    f[".match"] += [](value s, names re, optional<names> flags)
+    f[".match"] += [](value v, names re, optional<names> flags)
     {
-      return match (move (s), convert<string> (move (re)), move (flags));
+      return match (move (v), convert<string> (move (re)), move (flags));
     };
 
     // $regex.find_match(<vals>, <pat> [, <flags>])
     //
     // Match list elements against the regular expression and return true if
-    // the match is found. Convert the elements to string prior to matching.
+    // the match is found. Convert the elements to strings prior to matching.
     //
     // The following flags are supported:
     //
     // icase - match ignoring case
     //
-    f[".find_match"] += [](names s, string re, optional<names> flags)
+    f[".find_match"] += [](names ns, string re, optional<names> flags)
     {
-      return find_match (move (s), re, move (flags));
+      return find_match (move (ns), re, move (flags));
     };
 
-    f[".find_match"] += [](names s, names re, optional<names> flags)
+    f[".find_match"] += [](names ns, names re, optional<names> flags)
     {
-      return find_match (move (s), convert<string> (move (re)), move (flags));
+      return find_match (move (ns), convert<string> (move (re)), move (flags));
+    };
+
+    // $regex.filter_match(<vals>, <pat> [, <flags>])
+    // $regex.filter_out_match(<vals>, <pat> [, <flags>])
+    //
+    // Return elements of a list that match (filter) or do not match
+    // (filter_out) the regular expression. Convert the elements to strings
+    // prior to matching.
+    //
+    // The following flags are supported:
+    //
+    // icase - match ignoring case
+    //
+    f[".filter_match"] += [](names ns, string re, optional<names> flags)
+    {
+      return filter_match (move (ns), re, move (flags), true /* matching */);
+    };
+
+    f[".filter_match"] += [](names ns, names re, optional<names> flags)
+    {
+      return filter_match (move (ns),
+                           convert<string> (move (re)),
+                           move (flags),
+                           true /* matching */);
+    };
+
+    f[".filter_out_match"] += [](names s, string re, optional<names> flags)
+    {
+      return filter_match (move (s), re, move (flags), false /* matching */);
+    };
+
+    f[".filter_out_match"] += [](names ns, names re, optional<names> flags)
+    {
+      return filter_match (move (ns),
+                           convert<string> (move (re)),
+                           move (flags),
+                           false /* matching */);
     };
 
     // $regex.search(<val>, <pat> [, <flags>])
@@ -586,36 +688,73 @@ namespace build2
     // If both return_match and return_subs flags are specified then the
     // sub-string that matches the whole regular expression comes first.
     //
-    f[".search"] += [](value s, string re, optional<names> flags)
+    f[".search"] += [](value v, string re, optional<names> flags)
     {
-      return search (move (s), re, move (flags));
+      return search (move (v), re, move (flags));
     };
 
-    f[".search"] += [](value s, names re, optional<names> flags)
+    f[".search"] += [](value v, names re, optional<names> flags)
     {
-      return search (move (s), convert<string> (move (re)), move (flags));
+      return search (move (v), convert<string> (move (re)), move (flags));
     };
 
     // $regex.find_search(<vals>, <pat> [, <flags>])
     //
     // Determine if there is a match between the regular expression and some
-    // part of any of the list elements. Convert the elements to string prior
+    // part of any of the list elements. Convert the elements to strings prior
     // to matching.
     //
     // The following flags are supported:
     //
     // icase - match ignoring case
     //
-    f[".find_search"] += [](names s, string re, optional<names> flags)
+    f[".find_search"] += [](names ns, string re, optional<names> flags)
     {
-      return find_search (move (s), re, move (flags));
+      return find_search (move (ns), re, move (flags));
     };
 
-    f[".find_search"] += [](names s, names re, optional<names> flags)
+    f[".find_search"] += [](names ns, names re, optional<names> flags)
     {
-      return find_search (move (s),
+      return find_search (move (ns),
                           convert<string> (move (re)),
                           move (flags));
+    };
+
+    // $regex.filter_search(<vals>, <pat> [, <flags>])
+    // $regex.filter_out_search(<vals>, <pat> [, <flags>])
+    //
+    // Return elements of a list for which there is a match (filter) or no
+    // match (filter_out) between the regular expression and some part of the
+    // element. Convert the elements to strings prior to matching.
+    //
+    // The following flags are supported:
+    //
+    // icase - match ignoring case
+    //
+    f[".filter_search"] += [](names ns, string re, optional<names> flags)
+    {
+      return filter_search (move (ns), re, move (flags), true /* matching */);
+    };
+
+    f[".filter_search"] += [](names ns, names re, optional<names> flags)
+    {
+      return filter_search (move (ns),
+                            convert<string> (move (re)),
+                            move (flags),
+                            true /* matching */);
+    };
+
+    f[".filter_out_search"] += [](names ns, string re, optional<names> flags)
+    {
+      return filter_search (move (ns), re, move (flags), false /* matching */);
+    };
+
+    f[".filter_out_search"] += [](names ns, names re, optional<names> flags)
+    {
+      return filter_search (move (ns),
+                            convert<string> (move (re)),
+                            move (flags),
+                            false /* matching */);
     };
 
     // $regex.replace(<val>, <pat>, <fmt> [, <flags>])
@@ -638,14 +777,14 @@ namespace build2
     // If both format_first_only and format_no_copy flags are specified then
     // the result will only contain the replacement of the first match.
     //
-    f[".replace"] += [](value s, string re, string fmt, optional<names> flags)
+    f[".replace"] += [](value v, string re, string fmt, optional<names> flags)
     {
-      return replace (move (s), re, fmt, move (flags));
+      return replace (move (v), re, fmt, move (flags));
     };
 
-    f[".replace"] += [](value s, names re, names fmt, optional<names> flags)
+    f[".replace"] += [](value v, names re, names fmt, optional<names> flags)
     {
-      return replace (move (s),
+      return replace (move (v),
                       convert<string> (move (re)),
                       convert<string> (move (fmt)),
                       move (flags));
@@ -671,21 +810,21 @@ namespace build2
     // Note that if format_no_copy is specified, unmatched lines are not
     // copied either.
     //
-    f[".replace_lines"] += [](value s,
-                             string re,
-                             string fmt,
-                             optional<names> flags)
+    f[".replace_lines"] += [](value v,
+                              string re,
+                              string fmt,
+                              optional<names> flags)
     {
-      return replace_lines (move (s), re, move (fmt), move (flags));
+      return replace_lines (move (v), re, move (fmt), move (flags));
     };
 
-    f[".replace_lines"] += [](value s,
-                             names re,
-                             names* fmt,
-                             optional<names> flags)
+    f[".replace_lines"] += [](value v,
+                              names re,
+                              names* fmt,
+                              optional<names> flags)
     {
       return replace_lines (
-        move (s),
+        move (v),
         convert<string> (move (re)),
         (fmt != nullptr
          ? optional<string> (convert<string> (move (*fmt)))
@@ -711,14 +850,14 @@ namespace build2
     //
     // format_copy_empty - copy empty elements into the result
     //
-    f[".split"] += [](value s, string re, string fmt, optional<names> flags)
+    f[".split"] += [](value v, string re, string fmt, optional<names> flags)
     {
-      return split (move (s), re, fmt, move (flags));
+      return split (move (v), re, fmt, move (flags));
     };
 
-    f[".split"] += [](value s, names re, names fmt, optional<names> flags)
+    f[".split"] += [](value v, names re, names fmt, optional<names> flags)
     {
-      return split (move (s),
+      return split (move (v),
                     convert<string> (move (re)),
                     convert<string> (move (fmt)),
                     move (flags));
@@ -727,7 +866,7 @@ namespace build2
     // $regex.merge(<vals>, <pat>, <fmt> [, <delim> [, <flags>]])
     //
     // Replace matched parts in a list of elements using the regex format
-    // string. Convert the elements to string prior to matching. The result
+    // string. Convert the elements to strings prior to matching. The result
     // value is untyped and contains concatenation of transformed non-empty
     // elements (unless the format_copy_empty flag is specified) optionally
     // separated with a delimiter.
@@ -749,13 +888,13 @@ namespace build2
     // the result will be a concatenation of only the first match
     // replacements.
     //
-    f[".merge"] += [](names s,
-                     string re,
-                     string fmt,
-                     optional<string*> delim,
-                     optional<names> flags)
+    f[".merge"] += [](names ns,
+                      string re,
+                      string fmt,
+                      optional<string*> delim,
+                      optional<names> flags)
     {
-      return merge (move (s),
+      return merge (move (ns),
                     re,
                     fmt,
                     delim && *delim != nullptr
@@ -764,13 +903,13 @@ namespace build2
                     move (flags));
     };
 
-    f[".merge"] += [](names s,
-                     names re,
-                     names fmt,
-                     optional<names*> delim,
-                     optional<names> flags)
+    f[".merge"] += [](names ns,
+                      names re,
+                      names fmt,
+                      optional<names*> delim,
+                      optional<names> flags)
     {
-      return merge (move (s),
+      return merge (move (ns),
                     convert<string> (move (re)),
                     convert<string> (move (fmt)),
                     delim && *delim != nullptr
@@ -782,8 +921,8 @@ namespace build2
     // $regex.apply(<vals>, <pat>, <fmt> [, <flags>])
     //
     // Replace matched parts of each element in a list using the regex format
-    // string. Convert the elements to string prior to matching. Return a list
-    // of transformed elements, omitting the empty ones (unless the
+    // string. Convert the elements to strings prior to matching. Return a
+    // list of transformed elements, omitting the empty ones (unless the
     // format_copy_empty flag is specified).
     //
     // Substitution escape sequences are extended with a subset of Perl
@@ -803,14 +942,14 @@ namespace build2
     // the result elements will only contain the replacement of the first
     // match.
     //
-    f[".apply"] += [](names s, string re, string fmt, optional<names> flags)
+    f[".apply"] += [](names ns, string re, string fmt, optional<names> flags)
     {
-      return apply (move (s), re, fmt, move (flags));
+      return apply (move (ns), re, fmt, move (flags));
     };
 
-    f[".apply"] += [](names s, names re, names fmt, optional<names> flags)
+    f[".apply"] += [](names ns, names re, names fmt, optional<names> flags)
     {
-      return apply (move (s),
+      return apply (move (ns),
                     convert<string> (move (re)),
                     convert<string> (move (fmt)),
                     move (flags));

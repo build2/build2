@@ -478,6 +478,64 @@
   }
 }
 
+: filter-match
+:
+{
+  : match
+  :
+  {
+    : string
+    :
+    $* <<EOI >'-O2 -O3'
+    print $regex.filter_match(-g -O2 -O3, [string] '-O[23]')
+    EOI
+
+    : untyped
+    :
+    $* <<EOI >'-O2 -O3'
+    print $regex.filter_match(-g -O2 -O3, '-O[23]')
+    EOI
+
+    : strings
+    :
+    $* <<EOI >'-O2 -O3'
+    print $regex.filter_match([strings] -g -O2 -O3, '-O[23]')
+    EOI
+
+    : nomatch
+    :
+    $* <<EOI >''
+    print $regex.filter_match(-g -O1, '-O[23]')
+    EOI
+  }
+
+  : filter-out
+  :
+  {
+    : untyped
+    :
+    $* <<EOI >'-g'
+    print $regex.filter_out_match(-g -O2 -O3, '-O[23]')
+    EOI
+
+    : all-match
+    :
+    $* <<EOI >''
+    print $regex.filter_out_match(-O2 -O3, '-O[23]')
+    EOI
+  }
+
+  : flags
+  :
+  {
+    : icase
+    :
+    $* <<EOI >'Foo.cxx'
+    print $regex.filter_match(Foo.cxx, 'f[^.]+.*', icase)
+    EOI
+  }
+}
+
 : find-search
 :
 {
@@ -516,6 +574,64 @@
     :
     $* <<EOI >'true'
     print $regex.find_search(Foo.cxx, 'f', icase)
+    EOI
+  }
+}
+
+: filter-search
+:
+{
+  : match
+  :
+  {
+    : string
+    :
+    $* <<EOI >'-O2 -O3'
+    print $regex.filter_search(-g -O2 -O3, [string] '-O')
+    EOI
+
+    : untyped
+    :
+    $* <<EOI >'-O2 -O3'
+    print $regex.filter_search(-g -O2 -O3, '-O')
+    EOI
+
+    : strings
+    :
+    $* <<EOI >'-O2 -O3'
+    print $regex.filter_search([strings] -g -O2 -O3, '-O')
+    EOI
+
+    : nomatch
+    :
+    $* <<EOI >''
+    print $regex.filter_search(-g, '-O')
+    EOI
+  }
+
+  : filter-out
+  :
+  {
+    : untyped
+    :
+    $* <<EOI >'-g'
+    print $regex.filter_out_search(-g -O2 -O3, '-O')
+    EOI
+
+    : all-match
+    :
+    $* <<EOI >''
+    print $regex.filter_out_search(-O2 -O3, '-O')
+    EOI
+  }
+
+  : flags
+  :
+  {
+    : icase
+    :
+    $* <<EOI >'Foo.cxx'
+    print $regex.filter_search(Foo.cxx, 'f', icase)
     EOI
   }
 }
