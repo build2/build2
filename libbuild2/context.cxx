@@ -379,13 +379,13 @@ namespace build2
       is.exceptions (istringstream::failbit | istringstream::badbit);
 
       // Similar to buildspec we do "effective escaping" of the special
-      // `'"\$(` characters plus `)` for symmetry (basically what's escapable
-      // inside a double-quoted literal plus the single quote; note, however,
-      // that we exclude line continuations since they would make directory
-      // paths on Windows unusable).
+      // `'"\$(` characters (basically what's escapable inside a double-quoted
+      // literal plus the single quote; note, however, that we exclude line
+      // continuations and `)` since they would make directory paths on
+      // Windows unusable).
       //
       path_name in ("<cmdline>");
-      lexer l (is, in, 1 /* line */, "\'\"\\$()");
+      lexer l (is, in, 1 /* line */, "\'\"\\$(");
 
       // At the buildfile level the scope-specific variable should be
       // separated from the directory with a whitespace, for example:
