@@ -476,13 +476,13 @@ main (int argc, char* argv[])
     // Note: omit reserving anything for the info meta-operation since it
     // won't be loading the buildfiles and needs to be as fast as possible.
     //
-    bool info (bspec.size () == 1 &&
-               bspec.front ().size () == 1 &&
-               (bspec.front ().name == "info" ||
-                (bspec.front ().name.empty () &&
-                 bspec.front ().front ().name == "info")));
+    bool mo_info (bspec.size () == 1 &&
+                  bspec.front ().size () == 1 &&
+                  (bspec.front ().name == "info" ||
+                   (bspec.front ().name.empty () &&
+                    bspec.front ().front ().name == "info")));
 
-    if (!info)
+    if (!mo_info)
       pctx->reserve (context::reserves {
           30000 /* targets */,
           1100  /* variables */});
@@ -901,7 +901,7 @@ main (int argc, char* argv[])
             bootstrap_pre (rs, altn);
             bootstrap_src (rs, altn,
                            nullopt /* amalgamation */,
-                           !info || info_subprojects (mparams) /*subprojects*/);
+                           !mo_info || info_subprojects (mparams) /*subprojects*/);
 
             // If this is a simple project, then implicitly load the test and
             // install modules.
