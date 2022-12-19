@@ -668,6 +668,16 @@ namespace build2
       //
       bool terminated = false;
 
+      // True if this process has been terminated but we failed to read out
+      // its stderr stream in the reasonable timeframe (2 seconds) after the
+      // termination.
+      //
+      // Note that this may happen if there is a still running child process
+      // of the terminated process which has inherited the parent's stderr
+      // file descriptor.
+      //
+      bool unread_stderr = false;
+
       pipe_process* prev; // NULL for the left-most program.
       pipe_process* next; // Left-most program for the right-most program.
 
@@ -780,10 +790,14 @@ namespace build2
 
         // Read out all the pipeline's buffered strerr streams watching for
         // the deadline, if specified. If the deadline is reached, then
-        // terminate the whole pipeline, reset the deadline to nullopt, and
-        // continue reading. Note that the further reading will be performed
-        // without timeout. This, however, is fine since all the processes are
-        // terminated and we only need to read out the buffered data.
+        // terminate the whole pipeline, move the deadline by another 2
+        // seconds, and continue reading.
+        //
+        // Note that we assume that this timeout increment is normally
+        // sufficient to read out the buffered data written by the already
+        // terminated processes. If, however, that's not the case (see
+        // pipe_process for the possible reasons), then we just set
+        // unread_stderr flag to true for such processes and bail out.
         //
         // Also note that this implementation is inspired by the
         // script::run_pipe::read_pipe() lambda.
@@ -800,6 +814,7 @@ namespace build2
           }
 
           optional<timestamp> dl (deadline);
+          bool terminated (false);
 
           for (size_t unread (fds.size ()); unread != 0;)
           {
@@ -814,9 +829,38 @@ namespace build2
 
                 if (*dl <= now || ifdselect (fds, *dl - now) == 0)
                 {
-                  term_pipe (&pp);
-                  dl = nullopt;
-                  continue;
+                  if (!terminated)
+                  {
+                    term_pipe (&pp);
+                    terminated = true;
+
+                    dl = system_clock::now () + chrono::seconds (2);
+                    continue;
+                  }
+                  else
+                  {
+                    for (fdselect_state& s: fds)
+                    {
+                      if (s.fd != nullfd)
+                      {
+                        pipe_process* p (static_cast<pipe_process*> (s.data));
+
+                        p->unread_stderr = true;
+
+                        // Let's also close the stderr stream not to confuse
+                        // diag_buffer::close() (see script::read() for
+                        // details).
+                        //
+                        try
+                        {
+                          p->dbuf.is.close ();
+                        }
+                        catch (const io_error&) {}
+                      }
+                    }
+
+                    break;
+                  }
                 }
               }
               else
@@ -869,9 +913,9 @@ namespace build2
 
         // Iterate over the pipeline processes left to right, printing their
         // stderr if buffered and issuing the diagnostics if the exit code is
-        // not available (terminated abnormally or due to a deadline) or is
-        // non-zero. Afterwards, fail if any of the processes didn't terminate
-        // normally with zero code.
+        // not available (terminated abnormally or due to a deadline), is
+        // non-zero, or stderr was not fully read. Afterwards, fail if any of
+        // such a faulty processes were encountered.
         //
         // Note that we only issue diagnostics for the first failure.
         //
@@ -920,17 +964,43 @@ namespace build2
             {
               diag_record dr;
 
-              if (!pe || !pe->normal () || pe->code () != 0)
+              // Note that there can be a race, so that the process we have
+              // terminated due to reaching the deadline has in fact exited
+              // normally. Thus, the 'unread stderr' situation can also happen
+              // to a successfully terminated process. If that's the case, we
+              // report this problem as the main error and the secondary error
+              // otherwise.
+              //
+              if (!pe              ||
+                  !pe->normal ()   ||
+                  pe->code () != 0 ||
+                  p->unread_stderr)
               {
                 fail = true;
 
                 dr << error << "test " << t << " failed" // Multi test: test 1.
                    << error << "process " << p->args[0] << ' ';
 
-                if (pe)
-                  dr << *pe;
-                else
+                if (!pe)
+                {
                   dr << "terminated: execution timeout expired";
+
+                  if (p->unread_stderr)
+                    dr << error << "stderr not closed after exit";
+                }
+                else if (!pe->normal () || pe->code () != 0)
+                {
+                   dr << *pe;
+
+                  if (p->unread_stderr)
+                    dr << error << "stderr not closed after exit";
+                }
+                else
+                {
+                  assert (p->unread_stderr);
+
+                  dr << "stderr not closed after exit";
+                }
 
                 if (verb == 1)
                 {

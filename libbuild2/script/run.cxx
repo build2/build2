@@ -1237,6 +1237,17 @@ namespace build2
 
       bool terminated = false; // True if this command has been terminated.
 
+      // True if this command has been terminated but we failed to read out
+      // its stdout and/or stderr streams in the reasonable timeframe (2
+      // seconds) after the termination.
+      //
+      // Note that this may happen if there is a still running child process
+      // of the terminated command which has inherited the parent's stdout and
+      // stderr file descriptors.
+      //
+      bool unread_stdout = false;
+      bool unread_stderr = false;
+
       // Only for diagnostics.
       //
       const location& loc;
@@ -1397,32 +1408,121 @@ namespace build2
         diag_buffer& b (c->dbuf);
 
         if (b.is.is_open ())
-          fds.emplace_back (b.is.fd (), &b);
+          fds.emplace_back (b.is.fd (), c);
       }
 
       fds.emplace_back (is.fd ());
       fdselect_state& ist (fds.back ());
+      size_t unread (fds.size ());
 
       optional<timestamp> dlt (dl ? dl->value : optional<timestamp> ());
 
       // If there are some left-hand side processes/builtins running, then
-      // terminate them and reset the deadline to nullopt. Otherwise, fail
-      // straigh away.
+      // terminate them and, if there are unread stdout/stderr file
+      // descriptors, then increase the deadline by another 2 seconds and
+      // return true. In this case the term() should be called again upon
+      // reaching the timeout. Otherwise return false. If there are no
+      // left-hand side processes/builtins running, then fail straight away.
       //
       // Note that in the former case the further reading will be performed
-      // without timeout. This, however, is fine since all the processes and
-      // builtins are terminated and we only need to read out the buffered
-      // data.
+      // with the adjusted timeout. We assume that this timeout is normally
+      // sufficient to read out the buffered data written by the already
+      // terminated processes. If, however, that's not the case (see
+      // pipe_command for the possible reasons), then term() needs to be
+      // called for the second time and the reading should be interrupted
+      // afterwards.
       //
-      auto term = [&dlt, pipeline, &trace, &ll, what] ()
+      auto term = [&dlt, pipeline, &fds, &ist, &is, &unread,
+                   &trace, &ll, what, terminated = false] () mutable -> bool
       {
-        if (pipeline != nullptr)
+        // Can only be called if the deadline is specified.
+        //
+        assert (dlt);
+
+        if (pipeline == nullptr)
+          fail (ll) << what << " terminated: execution timeout expired";
+
+        if (!terminated)
         {
+          // Terminate the pipeline and adjust the deadline.
+          //
+
+          // Note that if we are still reading the stream and it's a builtin
+          // stdout, then we need to close it before terminating the pipeline.
+          // Not doing so can result in blocking this builtin on the write
+          // operation and thus aborting the build2 process (see term_pipe()
+          // for details).
+          //
+          // Should we do the same for all the pipeline builtins' stderr
+          // streams? No we don't, since the builtin diagnostics is assumed to
+          // always fit the pipe buffer (see libbutl/builtin.cxx for details).
+          // Thus, we will leave them open to fully read out the diagnostics.
+          //
+          if (ist.fd != nullfd && pipeline->bltn != nullptr)
+          {
+            try
+            {
+              is.close ();
+            }
+            catch (const io_error&)
+            {
+              // Not much we can do here.
+            }
+
+            ist.fd = nullfd;
+            --unread;
+          }
+
           term_pipe (pipeline, trace);
-          dlt = nullopt;
+          terminated = true;
+
+          if (unread != 0)
+            dlt = system_clock::now () + chrono::seconds (2);
+
+          return unread != 0;
         }
         else
-          fail (ll) << what << " terminated: execution timeout expired";
+        {
+          // Set the unread_{stderr,stdout} flags to true for the commands
+          // whose streams are not fully read yet.
+          //
+
+          // Can only be called after the first call of term() which would
+          // throw failed if pipeline is NULL.
+          //
+          assert (pipeline != nullptr);
+
+          for (fdselect_state& s: fds)
+          {
+            if (s.fd != nullfd)
+            {
+              if (s.data != nullptr) // stderr.
+              {
+                pipe_command* c (static_cast<pipe_command*> (s.data));
+
+                c->unread_stderr = true;
+
+                // Let's also close the stderr stream not to confuse
+                // diag_buffer::close() with a not fully read stream (eof is
+                // not reached, etc).
+                //
+                try
+                {
+                  c->dbuf.is.close ();
+                }
+                catch (const io_error&)
+                {
+                  // Not much we can do here. Anyway the diagnostics will be
+                  // issued by complete_pipe().
+                }
+              }
+              else                   // stdout.
+                pipeline->unread_stdout = true;
+            }
+          }
+
+          return false;
+        }
       };
 
       // Note that on Windows if the file descriptor is not a pipe, then
@@ -1434,7 +1534,7 @@ namespace build2
       // return true and thus no ifdselect() calls will ever be made.
       //
       string s;
-      for (size_t unread (fds.size ()); unread != 0;)
+      while (unread != 0)
       {
         // Read any pending data from the input stream.
         //
@@ -1448,7 +1548,10 @@ namespace build2
           // blocking file descriptor.
           //
           if (dlt && *dlt <= system_clock::now ())
-            term ();
+          {
+            if (!term ())
+              break;
+          }
 
           if (sr.next (s))
           {
@@ -1480,8 +1583,10 @@ namespace build2
 
             if (*dlt <= now || ifdselect (fds, *dlt - now) == 0)
             {
-              term ();
-              continue;
+              if (term ())
+                continue;
+              else
+                break;
             }
           }
           else
@@ -1493,7 +1598,7 @@ namespace build2
           {
             if (s.ready           &&
                 s.data != nullptr &&
-                !static_cast<diag_buffer*> (s.data)->read ())
+                !static_cast<pipe_command*> (s.data)->dbuf.read ())
             {
               s.fd = nullfd;
               --unread;
@@ -2238,10 +2343,14 @@ namespace build2
 
       // Read out all the pipeline's buffered strerr streams watching for the
       // deadline, if specified. If the deadline is reached, then terminate
-      // the whole pipeline, reset the deadline to nullopt, and continue
-      // reading. Note that the further reading will be performed without
-      // timeout. This, however, is fine since all the processes and builtins
-      // are terminated and we only need to read out the buffered data.
+      // the whole pipeline, move the deadline by another 2 seconds, and
+      // continue reading.
+      //
+      // Note that we assume that this timeout increment is normally
+      // sufficient to read out the buffered data written by the already
+      // terminated processes. If, however, that's not the case (see
+      // pipe_command for the possible reasons), then we just set
+      // unread_stderr flag to true for such commands and bail out.
       //
       // Also note that this is a reduced version of the above read() function.
       //
@@ -2253,12 +2362,14 @@ namespace build2
           diag_buffer& b (c->dbuf);
 
           if (b.is.is_open ())
-            fds.emplace_back (b.is.fd (), &b);
+            fds.emplace_back (b.is.fd (), c);
         }
 
         // Note that the current command deadline is the earliest (see above).
         //
         optional<timestamp> dlt (pc.dl ? pc.dl->value : optional<timestamp> ());
+
+        bool terminated (false);
 
         for (size_t unread (fds.size ()); unread != 0;)
         {
@@ -2272,9 +2383,37 @@ namespace build2
 
               if (*dlt <= now || ifdselect (fds, *dlt - now) == 0)
               {
-                term_pipe (&pc, trace);
-                dlt = nullopt;
-                continue;
+                if (!terminated)
+                {
+                  term_pipe (&pc, trace);
+                  terminated = true;
+
+                  dlt = system_clock::now () + chrono::seconds (2);
+                  continue;
+                }
+                else
+                {
+                  for (fdselect_state& s: fds)
+                  {
+                    if (s.fd != nullfd)
+                    {
+                      pipe_command* c (static_cast<pipe_command*> (s.data));
+
+                      c->unread_stderr = true;
+
+                      // Let's also close the stderr stream not to confuse
+                      // diag_buffer::close() (see read() for details).
+                      //
+                      try
+                      {
+                        c->dbuf.is.close ();
+                      }
+                      catch (const io_error&) {}
+                    }
+                  }
+
+                  break;
+                }
               }
             }
             else
@@ -2282,7 +2421,8 @@ namespace build2
 
             for (fdselect_state& s: fds)
             {
-              if (s.ready && !static_cast<diag_buffer*> (s.data)->read ())
+              if (s.ready &&
+                  !static_cast<pipe_command*> (s.data)->dbuf.read ())
               {
                 s.fd = nullfd;
                 --unread;
@@ -2336,10 +2476,11 @@ namespace build2
       // Iterate over the pipeline processes and builtins left to right,
       // printing their stderr if buffered and issuing the diagnostics if the
       // exit code is not available (terminated abnormally or due to a
-      // deadline) or is unexpected. Throw failed at the end if the exit code
-      // for any of them is not available. Return false if exit code for any
-      // of them is unexpected (the return is used, for example, in the if-
-      // conditions).
+      // deadline), is unexpected, or stdout and/or stderr was not fully
+      // read. Throw failed at the end if the exit code for any of them is not
+      // available or stdout and/or stderr was not fully read. Return false if
+      // exit code for any of them is unexpected (the return is used, for
+      // example, in the if-conditions).
       //
       // Note: must be called after wait_pipe() and only once.
       //
@@ -2410,12 +2551,39 @@ namespace build2
 
           path pr (cmd_path (cmd));
 
+          // Print the diagnostics if the command stdout and/or stderr are not
+          // fully read.
+          //
+          auto unread_output_diag = [&dr, c, w, &pr] (bool main_error)
+          {
+            if (main_error)
+              dr << error (c->loc) << w << ' ' << pr << ' ';
+            else
+              dr << error;
+
+            if (c->unread_stdout)
+            {
+              dr << "stdout ";
+
+              if (c->unread_stderr)
+                dr << "and ";
+            }
+
+            if (c->unread_stderr)
+              dr << "stderr ";
+
+            dr << "not closed after exit";
+          };
+
           // Fail if the process is terminated due to reaching the deadline.
           //
           if (!exit)
           {
             dr << error (ll) << w << ' ' << pr
                << " terminated: execution timeout expired";
+
+            if (c->unread_stdout || c->unread_stderr)
+              unread_output_diag (false /* main_error */);
 
             if (verb == 1)
             {
@@ -2443,10 +2611,18 @@ namespace build2
               valid = exit->code () < 256;
 #endif
 
-            // In the presense of a valid exit code we print the diagnostics
-            // and return false rather than throw.
+            // In the presense of a valid exit code and given stdout and
+            // stderr are fully read out we print the diagnostics and return
+            // false rather than throw.
             //
-            if (!valid)
+            // Note that there can be a race, so that the process we have
+            // terminated due to reaching the deadline has in fact exited
+            // normally. Thus, the 'unread stderr' situation can also happen
+            // to a successfully terminated process. If that's the case, we
+            // report this problem as the main error and the secondary error
+            // otherwise.
+            //
+            if (!valid || c->unread_stdout || c->unread_stderr)
               fail = true;
 
             exit_comparison cmp (cmd.exit
@@ -2473,11 +2649,11 @@ namespace build2
                 uint16_t ec (exit->code ()); // Make sure printed as integer.
 
                 if (!valid)
+                {
                   dr << "exit code " << ec << " out of 0-255 range";
+                }
                 else
                 {
-                  assert (!success && diag);
-
                   if (cmd.exit)
                     dr << "exit code " << ec
                        << (cmp == exit_comparison::eq ? " != " : " == ")
@@ -2486,6 +2662,9 @@ namespace build2
                     dr << "exited with code " << ec;
                 }
               }
+
+              if (c->unread_stdout || c->unread_stderr)
+                unread_output_diag (false /* main_error */);
 
               if (verb == 1)
               {
@@ -2506,6 +2685,8 @@ namespace build2
               //
               print_file (dr, *c->esp, ll);
             }
+            else if (c->unread_stdout || c->unread_stderr)
+              unread_output_diag (true /* main_error */);
           }
 
           // Now print the buffered stderr, if present, and/or flush the

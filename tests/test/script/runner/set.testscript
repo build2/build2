@@ -337,7 +337,10 @@
     $c <<EOI && $b
     echo "$s" >=f;
     timeout --success 2;
-    $* -o 'foo' -l 10 | cat f - | set bar
+
+    # Suppress cat's 'broken pipe' diagnostics.
+    #
+    $* -o 'foo' -l 10 | cat f - 2>- | set bar
     EOI
   }
 
