@@ -923,10 +923,10 @@ namespace build2
           auto quoted_mode = [this] (lexer_mode m)
           {
             // In the double-quoted mode we only do effective escaping of the
-            // special `$("\` characters plus `)` for symmetry. Nothing can be
-            // escaped in single-quoted.
+            // special `$("\` characters, line continuations, plus `)` for
+            // symmetry. Nothing can be escaped in single-quoted.
             //
-            const char* esc (m == lexer_mode::double_quoted ? "$()\"\\" : "");
+            const char* esc (m == lexer_mode::double_quoted ? "$()\"\\\n" : "");
 
             state_.push (state {
               m, 0, nullopt, false, false, '\0', false, true, true,

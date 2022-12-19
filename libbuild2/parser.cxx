@@ -8163,11 +8163,12 @@ namespace build2
   buildspec parser::
   parse_buildspec (istream& is, const path_name& in)
   {
-    // We do "effective escaping" and only for ['"\$(] (basically what's
-    // necessary inside a double-quoted literal plus the single quote).
+    // We do "effective escaping" of the special `'"\$(` characters, line
+    // continuations, plus `)` for symmetry (basically what's escapable inside
+    // a double-quoted literal plus the single quote).
     //
     path_ = &in;
-    lexer l (is, *path_, 1 /* line */, "\'\"\\$(");
+    lexer l (is, *path_, 1 /* line */, "\'\"\\$()\n");
     lexer_ = &l;
 
     root_ = &ctx->global_scope.rw ();
