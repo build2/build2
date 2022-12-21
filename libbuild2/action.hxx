@@ -153,13 +153,13 @@ namespace build2
   // Note: currently max 15 (see above).
   // Note: update small_vector in meta_operations if adding more.
   //
-  const meta_operation_id noop_id      = 1; // nomop?
-  const meta_operation_id perform_id   = 2;
-  const meta_operation_id configure_id = 3;
-  const meta_operation_id disfigure_id = 4;
-  const meta_operation_id create_id    = 5;
-  const meta_operation_id dist_id      = 6;
-  const meta_operation_id info_id      = 7;
+  constexpr meta_operation_id noop_id      = 1; // nomop?
+  constexpr meta_operation_id perform_id   = 2;
+  constexpr meta_operation_id configure_id = 3;
+  constexpr meta_operation_id disfigure_id = 4;
+  constexpr meta_operation_id create_id    = 5;
+  constexpr meta_operation_id dist_id      = 6;
+  constexpr meta_operation_id info_id      = 7;
 
   // The default operation is a special marker that can be used to indicate
   // that no operation was explicitly specified by the user. If adding
@@ -168,26 +168,26 @@ namespace build2
   // Note: currently max 15 (see above).
   // Note: update small_vector in operations if adding more.
   //
-  const operation_id default_id            = 1; // Shall be first.
-  const operation_id update_id             = 2; // Shall be second.
-  const operation_id clean_id              = 3;
+  constexpr operation_id default_id            = 1; // Shall be first.
+  constexpr operation_id update_id             = 2; // Shall be second.
+  constexpr operation_id clean_id              = 3;
 
-  const operation_id test_id               = 4;
-  const operation_id update_for_test_id    = 5; // update(for test) alias.
+  constexpr operation_id test_id               = 4;
+  constexpr operation_id update_for_test_id    = 5; // update(for test) alias.
 
-  const operation_id install_id            = 6;
-  const operation_id uninstall_id          = 7;
-  const operation_id update_for_install_id = 8; // update(for install) alias.
+  constexpr operation_id install_id            = 6;
+  constexpr operation_id uninstall_id          = 7;
+  constexpr operation_id update_for_install_id = 8; // update(for install) alias.
 
   // Commonly-used action ids.
   //
-  const action_id perform_update_id     = (perform_id << 4) | update_id;
-  const action_id perform_clean_id      = (perform_id << 4) | clean_id;
-  const action_id perform_test_id       = (perform_id << 4) | test_id;
-  const action_id perform_install_id    = (perform_id << 4) | install_id;
-  const action_id perform_uninstall_id  = (perform_id << 4) | uninstall_id;
+  constexpr action_id perform_update_id     = (perform_id << 4) | update_id;
+  constexpr action_id perform_clean_id      = (perform_id << 4) | clean_id;
+  constexpr action_id perform_test_id       = (perform_id << 4) | test_id;
+  constexpr action_id perform_install_id    = (perform_id << 4) | install_id;
+  constexpr action_id perform_uninstall_id  = (perform_id << 4) | uninstall_id;
 
-  const action_id configure_update_id   = (configure_id << 4) | update_id;
+  constexpr action_id configure_update_id   = (configure_id << 4) | update_id;
 
   // Recipe execution mode.
   //
