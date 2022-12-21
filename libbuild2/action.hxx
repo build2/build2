@@ -85,7 +85,7 @@ namespace build2
     action
     inner_action () const
     {
-      return action (meta_operation (), operation ());
+      return {meta_operation (), operation ()};
     }
 
     // Implicit conversion operator to action_id for the switch() statement,
