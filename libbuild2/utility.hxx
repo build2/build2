@@ -9,7 +9,7 @@
 #include <string>      // to_string()
 #include <utility>     // move(), forward(), declval(), make_pair(), swap()
 #include <cassert>     // assert()
-#include <iterator>    // make_move_iterator()
+#include <iterator>    // make_move_iterator(), back_inserter()
 #include <algorithm>   // *
 #include <functional>  // ref(), cref()
 #include <type_traits>
@@ -51,6 +51,7 @@ namespace build2
   using std::make_tuple;
   using std::make_shared;
   using std::make_move_iterator;
+  using std::back_inserter;
   using std::to_string;
   using std::stoul;
   using std::stoull;
