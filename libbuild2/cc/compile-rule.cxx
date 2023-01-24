@@ -3479,8 +3479,10 @@ namespace build2
 
               // See perform_update() for details on the choice of options.
               //
-              if (!find_option_prefix ("-finput-charset=", args))
-                args.push_back ("-finput-charset=UTF-8");
+              // @@ FIXME: circle doesn't support -finput-charset.
+              //
+              // if (!find_option_prefix ("-finput-charset=", args))
+              //   args.push_back ("-finput-charset=UTF-8");
 
               if (ot == otype::s)
               {
@@ -3607,10 +3609,13 @@ namespace build2
               }
               else
               {
-                args.push_back ("-MQ");
-                args.push_back ("^");
-                args.push_back ("-M");
-                args.push_back ("-MG"); // Treat missing headers as generated.
+                if (ctype != compiler_type::circle)
+                {
+                  args.push_back ("-MQ");
+                  args.push_back ("^");
+                  args.push_back ("-M");
+                  args.push_back ("-MG"); // Treat missing headers as generated.
+                }
                 gen = args_gen = true;
               }
 
@@ -4994,8 +4999,10 @@ namespace build2
 
               // See perform_update() for details on the choice of options.
               //
-              if (!find_option_prefix ("-finput-charset=", args))
-                args.push_back ("-finput-charset=UTF-8");
+              // @@ FIXME: circle doesn't support --finput-charset=
+              //
+              // if (!find_option_prefix ("-finput-charset=", args))
+              //  args.push_back ("-finput-charset=UTF-8");
 
               if (ot == otype::s)
               {
@@ -7055,8 +7062,10 @@ namespace build2
           //
           // Note that early versions of Clang only recognize uppercase UTF-8.
           //
-          if (!find_option_prefix ("-finput-charset=", args))
-            args.push_back ("-finput-charset=UTF-8");
+          // @@ FIXME: Circle doesn't support -finput-charset.
+          //
+          // if (!find_option_prefix ("-finput-charset=", args))
+          //  args.push_back ("-finput-charset=UTF-8");
 
           if (ot == otype::s)
           {

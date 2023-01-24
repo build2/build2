@@ -84,10 +84,11 @@ namespace build2
 
       switch (t)
       {
-      case compiler_type::clang: r = "clang"; break;
-      case compiler_type::gcc:   r = "gcc";   break;
-      case compiler_type::msvc:  r = "msvc";  break;
-      case compiler_type::icc:   r = "icc";   break;
+      case compiler_type::clang:  r = "clang";  break;
+      case compiler_type::gcc:    r = "gcc";    break;
+      case compiler_type::msvc:   r = "msvc";   break;
+      case compiler_type::icc:    r = "icc";    break;
+      case compiler_type::circle: r = "circle"; break;
       }
 
       return r;
@@ -100,10 +101,11 @@ namespace build2
 
       size_t p (id.find ('-'));
 
-      if      (id.compare (0, p, "gcc"  ) == 0) type = compiler_type::gcc;
-      else if (id.compare (0, p, "clang") == 0) type = compiler_type::clang;
-      else if (id.compare (0, p, "msvc" ) == 0) type = compiler_type::msvc;
-      else if (id.compare (0, p, "icc"  ) == 0) type = compiler_type::icc;
+      if      (id.compare (0, p, "gcc"   ) == 0) type = compiler_type::gcc;
+      else if (id.compare (0, p, "clang" ) == 0) type = compiler_type::clang;
+      else if (id.compare (0, p, "msvc"  ) == 0) type = compiler_type::msvc;
+      else if (id.compare (0, p, "icc"   ) == 0) type = compiler_type::icc;
+      else if (id.compare (0, p, "circle") == 0) type = compiler_type::circle;
       else
         throw invalid_argument (
           "invalid compiler type '" + string (id, 0, p) + '\'');
@@ -225,8 +227,11 @@ namespace build2
       if (!run_finish_code (args.data (), pr, l, 2 /* verbosity */))
         r = "none";
 
+      // @@ TODO: Circle is able to determine the standard library by itself,
+      // but since "b" does not know this, we get a false positive here.
+      //
       if (r.empty ())
-        fail << "unable to determine " << xl << " standard library";
+        info << "unable to determine " << xl << " standard library";
 
       return r;
     }
@@ -1246,12 +1251,13 @@ namespace build2
         }
       }
 
-      // Next try --version to detect icc. As well as obtain signature for
-      // GCC/Clang-like compilers in case -v above didn't work.
+      // Next try --version to detect icc and circle. As well as obtain
+      // signature for GCC/Clang-like compilers in case -v above didn't work.
       //
-      if (r.empty () && (pt == invalid   ||
-                         pt == type::icc ||
-                         pt == type::gcc ||
+      if (r.empty () && (pt == invalid      ||
+                         pt == type::icc    ||
+                         pt == type::circle ||
+                         pt == type::gcc    ||
                          pt == type::clang))
       {
         auto f = [&xi] (string& l, bool) -> guess_result
@@ -1261,7 +1267,7 @@ namespace build2
           if (xi)
             return guess_result (*xi, move (l));
 
-          // The first line has the " (ICC) " in it, for example:
+          // ICC first line has the " (ICC) " in it, for example:
           //
           // icpc (ICC) 9.0 20060120
           // icpc (ICC) 11.1 20100414
@@ -1273,6 +1279,13 @@ namespace build2
           //
           if (l.find (" (ICC) ") != string::npos)
             return guess_result (compiler_id {type::icc, ""}, move (l));
+
+          // Circle first line has the "circle" in it, for example:
+          //
+          // circle version 1.0.0-171
+          //
+          if (l.find ("circle") != string::npos)
+            return guess_result (compiler_id {type::circle, ""}, move (l));
 
           return guess_result ();
         };
@@ -3174,6 +3187,229 @@ namespace build2
         nullptr};
     }
 
+    static compiler_info
+    guess_circle (context& ctx,
+                  const char* xm,
+                  lang xl,
+                  const path& xc,
+                  const string* xv,
+                  const string* xt,
+                  const strings& x_mo,
+                  const strings* c_po, const strings* x_po,
+                  const strings* c_co, const strings* x_co,
+                  const strings*, const strings*,
+                  guess_result&& gr, sha256&)
+    {
+      //@@ TODO: this should be reviewed/revised if/when we get access
+      //         to more recent CIRCLE versions.
+      //
+      const process_path& xp (gr.path);
+      process_env env (xp);
+
+      // We should probably also assume the language words can be translated
+      // and even rearranged. Thus pass LC_ALL=C.
+      //
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      env.vars = evars;
+#endif
+
+      auto f = [] (string& l, bool)
+      {
+        return l.compare (0, 6, "circle") == 0 && (l[6] == ' ')
+        ? move (l)
+        : string ();
+      };
+
+      if (xv == nullptr)
+      {
+        string& s (gr.signature);
+        s.clear ();
+
+        // The --version output is sent to STDERR.
+        //
+        // @@ TODO: running without the mode options.
+        //
+        s = run<string> (ctx, 6, env, "--version", f, false);
+
+        if (s.empty ())
+          fail << "unable to extract signature from " << xc << " --version output";
+      }
+
+      // Scan the string as words and look for the version. It consist of only
+      // digits and periods and contains at least one period.
+      //
+      // @@ FIXME: The scan is incorrect for circle.
+      //
+      compiler_version ver = {"171"};
+      /*
+      {
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".version to override";
+          });
+
+        // Treat the custom version as just a tail of the signature.
+        //
+        const string& s (xv == nullptr ? gr.signature : *xv);
+        size_t b (0), e (0);
+        while (next_word (s, b, e, ' ', ',') != 0)
+        {
+          // The third argument to find_first_not_of() is the length of the
+          // first argument, not the length of the interval to check. So to
+          // limit it to [b, e) we are also going to compare the result to the
+          // end of the word position (first space). In fact, we can just
+          // check if it is >= e. Similar logic for find_first_of() except
+          // that we add space to the list of character to make sure we don't
+          // go too far.
+          //
+          if (s.find_first_not_of ("1234567890.", b, 11) >= e &&
+              s.find_first_of (". ", b, 2) < e)
+            break;
+        }
+
+        if (b == e)
+          fail << "unable to extract circle version from '" << s << "'";
+
+        ver.string.assign (s, b, string::npos);
+
+        // Split the version into components.
+        //
+        size_t vb (b), ve (b);
+        auto next = [&s, b, e, &vb, &ve] (const char* m, bool opt) -> uint64_t
+        {
+          try
+          {
+            if (next_word (s, e, vb, ve, '.'))
+              return stoull (string (s, vb, ve - vb));
+
+            if (opt)
+              return 0;
+          }
+          catch (const invalid_argument&) {}
+          catch (const out_of_range&) {}
+
+          fail << "unable to extract circle " << m << " version from '"
+               << string (s, b, e - b) << "'" << endf;
+        };
+
+        ver.major = next ("major", false);
+        ver.minor = next ("minor", false);
+        ver.patch = next ("patch", true);
+
+        if (vb != ve && next_word (s, e, vb, ve, '.'))
+          ver.build.assign (s, vb, ve - vb);
+
+        if (e != s.size ())
+        {
+          if (!ver.build.empty ())
+            ver.build += ' ';
+
+          ver.build.append (s, e + 1, string::npos);
+        }
+      }
+      */
+
+      // Figure out the target and host CPU
+      //
+      string t, ot;
+
+      if (xt == nullptr)
+      {
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".target to override";
+          });
+
+        // @@ TODO: is it possible to determine the architecture from Circle?
+        //
+        string arch = "x86_64";
+
+        // determine the triplet.
+        //
+        // Note: no localication expected so running without LC_ALL.
+        //
+        // @@ TODO: running without the mode options.
+        //
+        {
+          auto f = [] (string& l, bool) {return move (l);};
+          t = run<string> (ctx, 3, xp, "-dumpmachine", f);
+        }
+
+        if (t.empty ())
+          fail << "unable to extract target architecture from " << xc
+               << " using -dumpmachine output";
+
+        // The first component in the triplet is always CPU.
+        //
+        size_t p (t.find ('-'));
+
+        if (p == string::npos)
+          fail << "unable to parse circle target architecture '" << t << "'";
+
+        t.swap (arch);
+        t.append (arch, p, string::npos);
+
+        ot = t;
+      }
+      else
+        ot = t = *xt;
+
+      // Parse the target into triplet (for further tests) ignoring any
+      // failures.
+      //
+      target_triplet tt;
+      try {tt = target_triplet (t);} catch (const invalid_argument&) {}
+
+      // Derive the toolchain pattern.
+      //
+      string pat (pattern (xc, "circle"));
+
+      // Runtime and standard library.
+      //
+      // For now we assume that we are targeting
+      // Linux/GCC.
+      //
+      string rt  ("libgcc");
+      string csl (
+        stdlib (xl, xp, x_mo, c_po, x_po, c_co, x_co, c_stdlib_src));
+      string xsl;
+      switch (xl)
+      {
+      case lang::c:
+        xsl = csl;
+        break;
+      case lang::cxx:
+        {
+          xsl = "libstdc++";
+          break;
+        }
+      }
+
+      return compiler_info {
+        move (gr.path),
+        move (gr.id),
+        compiler_class::gcc, //@@ TODO: msvc on Windows?
+        move (ver),
+        nullopt,
+        move (gr.signature),
+        "",
+        move (t),
+        move (ot),
+        move (pat),
+        "",
+        move (rt),
+        move (csl),
+        move (xsl),
+        nullopt,
+        nullopt,
+        nullopt,
+        nullptr, /* TODO */
+        nullptr};
+    }
+
     // Compiler checks can be expensive (we often need to run the compiler
     // several times) so we cache the result.
     //
@@ -3288,8 +3524,9 @@ namespace build2
 
       switch (gr.id.type)
       {
-      case compiler_type::gcc:   gf = &guess_gcc;   break;
-      case compiler_type::clang: gf = &guess_clang; break;
+      case compiler_type::gcc:    gf = &guess_gcc;    break;
+      case compiler_type::clang:  gf = &guess_clang;  break;
+      case compiler_type::circle: gf = &guess_circle; break;
       case compiler_type::msvc:
         {
           gf = gr.id.variant == "clang" ? &guess_clang : &guess_msvc;

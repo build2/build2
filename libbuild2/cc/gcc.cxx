@@ -229,8 +229,12 @@ namespace build2
       // It's highly unlikely not to have any system directories. More likely
       // we misinterpreted the compiler output.
       //
+      //
+      // @@ TODO: Circle is able to determine the compiler system header by
+      // itself, but since "b" does not know this, we get a false positive
+      // here.
       if (r.empty ())
-        fail << "unable to extract " << x_lang << " compiler system header "
+        info << "unable to extract " << x_lang << " compiler system header "
              << "search paths";
 
       return make_pair (move (r), size_t (0));
@@ -269,7 +273,11 @@ namespace build2
 
       cstrings args {xc.recall_string ()};
       append_options (args, rs, x_mode);
-      args.push_back ("-print-search-dirs");
+
+      // @@ FIXME: circle doesn't know about -print-search-dirs
+      //
+      args.push_back ("-print-paths");
+      args.push_back ("cxx");
       args.push_back (nullptr);
 
       process_env env (xc);
@@ -326,8 +334,12 @@ namespace build2
 
       run_finish (args, pr, 2 /* verbosity */);
 
+      // @@ TODO: Circle is able to determine the compiler system library by
+      // itself, but since "b" does not know this, we get a false positive
+      // here.
+      //
       if (l.empty ())
-        fail << "unable to extract " << x_lang << " compiler system library "
+        info << "unable to extract " << x_lang << " compiler system library "
              << "search paths";
 
       // Now the fun part: figuring out which delimiter is used. Normally it

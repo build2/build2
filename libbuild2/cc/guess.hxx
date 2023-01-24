@@ -35,7 +35,8 @@ namespace build2
       gcc = 1, // 0 value represents invalid type.
       clang,
       msvc,
-      icc
+      icc,
+      circle
       // Update compiler_id(string) and to_string() if adding a new type.
     };
 

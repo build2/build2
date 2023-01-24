@@ -308,6 +308,8 @@ namespace build2
 
                 break;
               }
+            case compiler_type::circle:
+              break;
             default:
               assert (false);
             }
