@@ -372,12 +372,7 @@ namespace build2
             {
               bool obj (x_objective (md.src));
 
-              o1 = "-x";
-              switch (x_lang)
-              {
-              case lang::c:   o2 = obj ? "objective-c"   : "c";   break;
-              case lang::cxx: o2 = obj ? "objective-c++" : "c++"; break;
-              }
+              o1 = "-c";
               break;
             }
           case unit_type::module_intf:
@@ -404,13 +399,13 @@ namespace build2
                   if (h)
                     args.push_back ("-fmodule-header");
 
-                  o1 = "-x";
-                  o2 = h ? "c++-header" : "c++";
+                  o1 = "-c";
+                  o2 = h ? "c++-header" : "";
                   break;
                 }
               case compiler_type::clang:
                 {
-                  o1 = "-x";
+                  o1 = "-c";
                   o2 =  h ? "c++-header" : "c++-module";
                   break;
                 }
@@ -7189,7 +7184,6 @@ namespace build2
           {
             switch (ctype)
             {
-            case compiler_type::circle:
             case compiler_type::gcc:
               {
                 // Output module file is specified in the mapping file, the

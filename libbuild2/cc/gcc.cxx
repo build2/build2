@@ -116,8 +116,7 @@ namespace build2
         return nullptr;
       };
 
-      args.push_back ("-x");
-      args.push_back (langopt ());
+      args.push_back ("-c");
       args.push_back ("-v");
       args.push_back ("-E");
       args.push_back ("-");

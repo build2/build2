@@ -435,6 +435,7 @@ namespace build2
 
               break;
             }
+          case compiler_type::circle:
           case compiler_type::icc:
             break; // No modules support yet.
           }

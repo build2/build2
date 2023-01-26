@@ -166,12 +166,7 @@ namespace build2
       if (c_co != nullptr) append_options (args, *c_co);
       if (x_co != nullptr) append_options (args, *x_co);
       append_options (args, x_mo);
-      args.push_back ("-x");
-      switch (xl)
-      {
-      case lang::c:   args.push_back ("c");   break;
-      case lang::cxx: args.push_back ("c++"); break;
-      }
+      args.push_back ("-c");
       args.push_back ("-E");
       args.push_back ("-");  // Read stdin.
       args.push_back (nullptr);
@@ -2187,12 +2182,7 @@ namespace build2
       }
       else
       {
-        args.push_back ("-x");
-        switch (xl)
-        {
-        case lang::c:   args.push_back ("c");   break;
-        case lang::cxx: args.push_back ("c++"); break;
-        }
+        args.push_back ("-c");
       }
 
       args.push_back ("-v");
