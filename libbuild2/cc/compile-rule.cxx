@@ -921,6 +921,7 @@ namespace build2
             e += (ut != unit_type::non_modular ? "ifc" : o);
             break;
           }
+        case compiler_type::circle:
         case compiler_type::icc:
           {
             assert (ut == unit_type::non_modular);
@@ -3056,6 +3057,7 @@ namespace build2
           //pp = "/C";
           break;
         }
+      case compiler_type::circle:
       case compiler_type::icc:
         break;
       }
@@ -6567,6 +6569,7 @@ namespace build2
 
           break;
         }
+      case compiler_type::circle:
       case compiler_type::clang:
       case compiler_type::msvc:
       case compiler_type::icc:
@@ -6735,6 +6738,7 @@ namespace build2
           }
           break;
         }
+      case compiler_type::circle:
       case compiler_type::icc:
         break;
       }
@@ -7001,7 +7005,7 @@ namespace build2
           // @@ MOD: TODO deal with absent relo.
           //
           if (find_options ({"/Zi", "/ZI", "-Zi", "-ZI"}, args))
-          {
+          { 
             if (fc)
               args.push_back ("/Fd:");
             else
@@ -7147,6 +7151,7 @@ namespace build2
 
                 break;
               }
+            case compiler_type::circle:
             case compiler_type::gcc:
             case compiler_type::msvc:
             case compiler_type::icc:
@@ -7184,6 +7189,7 @@ namespace build2
           {
             switch (ctype)
             {
+            case compiler_type::circle:
             case compiler_type::gcc:
               {
                 // Output module file is specified in the mapping file, the
@@ -7271,6 +7277,7 @@ namespace build2
                 //
                 break;
               }
+            case compiler_type::circle: // @@ TODO: ?
             case compiler_type::icc:
               break; // Compile as normal source for now.
             case compiler_type::msvc:
@@ -7363,6 +7370,7 @@ namespace build2
             //
             break;
           }
+        case compiler_type::circle: // ?
         case compiler_type::icc:
           assert (false);
         }
@@ -7538,6 +7546,7 @@ namespace build2
       case compiler_type::gcc:   extras = {".d", pext, cpext.c_str (), ".t"};           break;
       case compiler_type::clang: extras = {".d", pext, cpext.c_str ()};                 break;
       case compiler_type::msvc:  extras = {".d", pext, cpext.c_str (), ".idb", ".pdb"}; break;
+      case compiler_type::circle:
       case compiler_type::icc:   extras = {".d"};                                       break;
       }
 
