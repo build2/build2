@@ -517,6 +517,8 @@ namespace build2
     }
   };
 
+  // Note: diag frames are not applied to text/trace diagnostics.
+  //
   template <typename F>
   struct diag_frame_impl: diag_frame
   {
