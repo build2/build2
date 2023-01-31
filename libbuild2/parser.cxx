@@ -4783,9 +4783,13 @@ namespace build2
   {
     // Parse and enter a variable name for assignment (as opposed to lookup).
 
-    // The list should contain a single, simple name.
+    // The list should contain a single, simple name. Go an extra mile to
+    // issue less confusing diagnostics.
     //
-    if (ns.size () != 1 || ns[0].pattern || !ns[0].simple () || ns[0].empty ())
+    size_t n (ns.size ());
+    if (n == 0 || (n == 1 && ns[0].empty ()))
+      fail (l) << "empty variable name";
+    else if (n != 1 || ns[0].pattern || !ns[0].simple ())
       fail (l) << "expected variable name instead of " << ns;
 
     return parse_variable_name (move (ns[0].value), l);
