@@ -286,7 +286,24 @@ namespace build2
       {
         optional<dir_path> extra;
         if (ops.default_options_specified ())
+        {
           extra = ops.default_options ();
+
+          // Note that load_default_options() expects absolute and normalized
+          // directory.
+          //
+          try
+          {
+            if (extra->relative ())
+              extra->complete ();
+
+            extra->normalize ();
+          }
+          catch (const invalid_path& e)
+          {
+            fail << "invalid --default-options value " << e.path;
+          }
+        }
 
         // Load default options files.
         //
