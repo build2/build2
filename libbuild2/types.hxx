@@ -29,6 +29,7 @@
 #include <ostream>
 #include <functional>       // hash, function, reference_wrapper
 #include <initializer_list>
+#include <unordered_set>
 
 #include <atomic>
 
