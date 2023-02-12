@@ -321,6 +321,12 @@ namespace build2
       {
         strings pops;
 
+        // Dedupes pkg-config -I flags by storing unique flags in a set with an
+        // average O(1) time complexity. Note that this is non-static to avoid
+        // falsely affecting transitive dependencies as duplicates.
+        //
+        unordered_set<string> h;
+
         bool arg (false);
         for (auto& o: pc.cflags (la))
         {
@@ -328,7 +334,7 @@ namespace build2
           {
             // Can only be an argument for -I, -D, -U options.
             //
-            pops.push_back (move (o));
+            if (h.insert (o).second) pops.push_back (move (o));
             arg = false;
             continue;
           }
@@ -340,7 +346,7 @@ namespace build2
           if (n >= 2 &&
               o[0] == '-' && (o[1] == 'I' || o[1] == 'D' || o[1] == 'U'))
           {
-            pops.push_back (move (o));
+            if (h.insert (o).second) pops.push_back (move (o));
             arg = (n == 2);
             continue;
           }
