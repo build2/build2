@@ -313,23 +313,57 @@ namespace build2
 
       assert (!ap.empty () || !sp.empty ());
 
+      // Append -I<dir> or -L<dir> option suppressing duplicates.
+      //
+      auto append_dir = [] (strings& ops, string&& o)
+      {
+        char c (o[1]);
+
+        // @@ Should we normalize the path for good measure? But on the other
+        //    hand, most of the time when it's not normalized, it will likely
+        //    be "consistently-relative", e.g., something like
+        //    $prefix/lib/../include. I guess let's wait and see for some
+        //    real-world examples.
+
+        for (const string& x: ops)
+        {
+          if (x.size () > 2 && x[0] == '-' && x[1] == c)
+          {
+            if (path_traits::compare (x.c_str () + 2, x.size () - 2,
+                                      o.c_str () + 2, o.size () - 2) == 0)
+              return; // Duplicate.
+          }
+        }
+
+        ops.push_back (move (o));
+      };
+
       // Extract --cflags and set them as lib?{}:export.poptions..
       //
-      auto parse_cflags = [&trace, this] (target& t,
-                                          const pkgconfig& pc,
-                                          bool la)
+      auto parse_cflags = [&trace, this, &append_dir] (target& t,
+                                                       const pkgconfig& pc,
+                                                       bool la)
       {
+        // Note that we normalize `-[IDU] <arg>` to `-[IDU]<arg>`.
+        //
         strings pops;
 
-        bool arg (false);
+        char arg ('\0'); // Option with pending argument.
         for (auto& o: pc.cflags (la))
         {
           if (arg)
           {
             // Can only be an argument for -I, -D, -U options.
             //
-            pops.push_back (move (o));
-            arg = false;
+            o.insert (0, 1, arg);
+            o.insert (0, 1, '-');
+
+            if (arg == 'I')
+              append_dir (pops, move (o));
+            else
+              pops.push_back (move (o));
+
+            arg = '\0';
             continue;
           }
 
@@ -340,8 +374,15 @@ namespace build2
           if (n >= 2 &&
               o[0] == '-' && (o[1] == 'I' || o[1] == 'D' || o[1] == 'U'))
           {
-            pops.push_back (move (o));
-            arg = (n == 2);
+            if (n > 2)
+            {
+              if (o[1] == 'I')
+                append_dir (pops, move (o));
+              else
+                pops.push_back (move (o));
+            }
+            else
+              arg = o[1];
             continue;
           }
 
@@ -350,7 +391,7 @@ namespace build2
         }
 
         if (arg)
-          fail << "argument expected after " << pops.back () <<
+          fail << "argument expected after -" << arg <<
             info << "while parsing pkg-config --cflags " << pc.path;
 
         if (!pops.empty ())
@@ -370,12 +411,16 @@ namespace build2
       // Parse --libs into loptions/libs (interface and implementation). If
       // ps is not NULL, add each resolved library target as a prerequisite.
       //
-      auto parse_libs = [this, act, &s, top_sysd] (target& t,
-                                                   bool binless,
-                                                   const pkgconfig& pc,
-                                                   bool la,
-                                                   prerequisites* ps)
+      auto parse_libs = [this,
+                         &append_dir,
+                         act, &s, top_sysd] (target& t,
+                                             bool binless,
+                                             const pkgconfig& pc,
+                                             bool la,
+                                             prerequisites* ps)
       {
+        // Note that we normalize `-L <arg>` to `-L<arg>`.
+        //
         strings lops;
         vector<name> libs;
 
@@ -392,15 +437,19 @@ namespace build2
         // library. What we do at the moment is stop recognizing just library
         // names (without -l) after seeing an unknown option.
         //
-        bool arg (false), first (true), known (true), have_L;
+        bool first (true), known (true), have_L;
+
+        char arg ('\0'); // Option with pending argument.
         for (auto& o: pc.libs (la))
         {
           if (arg)
           {
-            // Can only be an argument for an loption.
+            // Can only be an argument for an -L option.
             //
-            lops.push_back (move (o));
-            arg = false;
+            o.insert (0, 1, arg);
+            o.insert (0, 1, '-');
+            append_dir (lops, move (o));
+            arg = '\0';
             continue;
           }
 
@@ -410,9 +459,11 @@ namespace build2
           //
           if (n >= 2 && o[0] == '-' && o[1] == 'L')
           {
+            if (n > 2)
+              append_dir (lops, move (o));
+            else
+              arg = o[1];
             have_L = true;
-            lops.push_back (move (o));
-            arg = (n == 2);
             continue;
           }
 
@@ -459,7 +510,7 @@ namespace build2
         }
 
         if (arg)
-          fail << "argument expected after " << lops.back () <<
+          fail << "argument expected after -" << arg <<
             info << "while parsing pkg-config --libs " << pc.path;
 
         // Space-separated list of escaped library flags.
@@ -624,18 +675,13 @@ namespace build2
           {
             usrd = dir_paths ();
 
-            for (auto i (lops.begin ()); i != lops.end (); ++i)
+            for (const string& o: lops)
             {
-              const string& o (*i);
-
-              if (o.size () >= 2 && o[0] == '-' && o[1] == 'L')
+              // Note: always in the -L<dir> form (see above).
+              //
+              if (o.size () > 2 && o[0] == '-' && o[1] == 'L')
               {
-                string p;
-
-                if (o.size () == 2)
-                  p = *++i; // We've verified it's there.
-                else
-                  p = string (o, 2);
+                string p (o, 2);
 
                 try
                 {
@@ -726,24 +772,16 @@ namespace build2
           {
             // Translate -L to /LIBPATH.
             //
-            for (auto i (lops.begin ()); i != lops.end (); )
+            for (string& o: lops)
             {
-              string& o (*i);
               size_t n (o.size ());
 
-              if (n >= 2 && o[0] == '-' && o[1] == 'L')
+              // Note: always in the -L<dir> form (see above).
+              //
+              if (n > 2 && o[0] == '-' && o[1] == 'L')
               {
                 o.replace (0, 2, "/LIBPATH:");
-
-                if (n == 2)
-                {
-                  o += *++i; // We've verified it's there.
-                  i = lops.erase (i);
-                  continue;
-                }
               }
-
-              ++i;
             }
           }
 
