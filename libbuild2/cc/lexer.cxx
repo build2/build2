@@ -734,8 +734,8 @@ namespace build2
       // R"<delimiter>(<raw_characters>)<delimiter>"
       //
       // Where <delimiter> is a potentially-empty character sequence made of
-      // any source character but parentheses, backslash and spaces. It can be
-      // at most 16 characters long.
+      // any source character but parentheses, backslash, and spaces (in
+      // particular, it can be `"`). It can be at most 16 characters long.
       //
       // Note that the <raw_characters> are not processed in any way, not even
       // for line continuations.
@@ -750,7 +750,7 @@ namespace build2
       {
         c = geth ();
 
-        if (eos (c) || c == '\"' || c == ')' || c == '\\' || c == ' ')
+        if (eos (c) || c == ')' || c == '\\' || c == ' ')
           fail (l) << "invalid raw string literal";
 
         if (c == '(')

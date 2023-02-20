@@ -16,7 +16,9 @@ R"X(a
     b)X"
 R"X(a\
     b)X"
+R""(a)""
 EOI
+<string literal>
 <string literal>
 <string literal>
 <string literal>
