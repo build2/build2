@@ -524,7 +524,12 @@ namespace build2
 
       // Configure "installability" for built-in target types.
       //
+      // Note that for exe{} we also set explicit 755 mode in case it gets
+      // installed somewhere else where the default is not 755 (for example to
+      // libexec/, which on Debian has the 644 mode).
+      //
       install_path<exe>   (bs, dir_path ("bin"));
+      install_mode<exe>   (bs, "755");
       install_path<doc>   (bs, dir_path ("doc"));
       install_path<legal> (bs, dir_path ("legal"));
       install_path<man>   (bs, dir_path ("man"));
