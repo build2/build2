@@ -13,6 +13,8 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/install/operation.hxx>
+
 using namespace std;
 using namespace butl;
 
@@ -775,6 +777,7 @@ namespace build2
     install_d (const scope& rs,
                const install_dir& base,
                const dir_path& d,
+               const file& t,
                uint16_t verbosity)
     {
       context& ctx (rs.ctx);
@@ -788,6 +791,9 @@ namespace build2
       // destination filesystem. Plus, not showing anything will be symmetric
       // with uninstall since the directories won't be empty (because we don't
       // actually uninstall any files).
+      //
+      // Note that this also means we won't have the directory entries in the
+      // manifest created with dry-run. Probably not a big deal.
       //
       if (ctx.dry_run)
         return;
@@ -816,7 +822,7 @@ namespace build2
         dir_path pd (d.directory ());
 
         if (pd != base.dir)
-          install_d (rs, base, pd, verbosity);
+          install_d (rs, base, pd, t, verbosity);
       }
 
       cstrings args;
@@ -853,6 +859,8 @@ namespace build2
       run (ctx,
            pp, args,
            verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
+
+      install_context_data::manifest_install_d (ctx, t, d, *base.dir_mode);
     }
 
     void file_rule::
@@ -915,13 +923,21 @@ namespace build2
         run (ctx,
              pp, args,
              verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
+
+      install_context_data::manifest_install_f (
+        ctx,
+        t,
+        base.dir,
+        name.empty () ? f.leaf () : name,
+        *base.mode);
     }
 
     void file_rule::
     install_l (const scope& rs,
                const install_dir& base,
-               const path& target,
                const path& link,
+               const file& target,
+               const path& link_target,
                uint16_t verbosity)
     {
       context& ctx (rs.ctx);
@@ -942,7 +958,7 @@ namespace build2
         base.sudo != nullptr ? base.sudo->c_str () : nullptr,
         "ln",
         "-sf",
-        target.string ().c_str (),
+        link_target.string ().c_str (),
         rell.string ().c_str (),
         nullptr};
 
@@ -960,7 +976,7 @@ namespace build2
           // a link. FreeBSD install(1) has the -l flag with the appropriate
           // semantics. For consistency, we also pass -d above.
           //
-          print_diag ("install -l", target, chd / link);
+          print_diag ("install -l", link_target, chd / link);
         }
       }
 
@@ -979,15 +995,15 @@ namespace build2
       if (verb >= verbosity)
       {
         if (verb >= 2)
-          text << "ln -sf " << target.string () << ' ' << rell.string ();
+          text << "ln -sf " << link_target.string () << ' ' << rell.string ();
         else if (verb)
-          print_diag ("install -l", target, chd / link);
+          print_diag ("install -l", link_target, chd / link);
       }
 
       if (!ctx.dry_run)
       try
       {
-        mkanylink (target, rell, true /* copy */);
+        mkanylink (link_target, rell, true /* copy */);
       }
       catch (const pair<entry_type, system_error>& e)
       {
@@ -999,6 +1015,13 @@ namespace build2
         fail << "unable to make " << w << ' ' << rell << ": " << e.second;
       }
 #endif
+
+      install_context_data::manifest_install_l (
+        ctx,
+        target,
+        link_target,
+        base.dir,
+        link);
     }
 
     target_state file_rule::
@@ -1047,7 +1070,7 @@ namespace build2
         // sudo, etc).
         //
         for (auto i (ids.begin ()), j (i); i != ids.end (); j = i++)
-          install_d (rs, *j, i->dir, verbosity); // install -d
+          install_d (rs, *j, i->dir, t, verbosity); // install -d
 
         install_dir& id (ids.back ());
 
@@ -1336,8 +1359,8 @@ namespace build2
     bool file_rule::
     uninstall_l (const scope& rs,
                  const install_dir& base,
-                 const path& /*target*/,
                  const path& link,
+                 const path& /*link_target*/,
                  uint16_t verbosity)
     {
       dir_path chd (chroot_path (rs, base.dir));

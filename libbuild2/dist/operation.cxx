@@ -273,7 +273,6 @@ namespace build2
         // Note that we are not calling operation_pre/post() callbacks here
         // since the meta operation is dist and we know what we are doing.
         //
-        values params;
         path_name pn ("<dist>");
         const location loc (pn); // Dummy location.
         action_targets ts {tgt};
@@ -326,39 +325,72 @@ namespace build2
             //
             if (auto pp = oif->pre_operation)
             {
-              if (operation_id pid = pp (ctx, params, dist_id, loc))
+              if (operation_id pid = pp (ctx, {}, dist_id, loc))
               {
                 const operation_info* poif (ops[pid]);
                 ctx.current_operation (*poif, oif, false /* diag_noise */);
+
+                if (oif->operation_pre != nullptr)
+                  oif->operation_pre (ctx, {}, false /* inner */, loc);
+
+                if (poif->operation_pre != nullptr)
+                  poif->operation_pre (ctx, {}, true /* inner */, loc);
+
                 action a (dist_id, poif->id, oif->id);
                 mod.postponed.list.clear ();
-                perform_match (params, a, ts,
+                perform_match ({}, a, ts,
                                1     /* diag (failures only) */,
                                false /* progress */);
                 process_postponed ();
+
+                if (poif->operation_post != nullptr)
+                  poif->operation_post (ctx, {}, true /* inner */);
+
+                if (oif->operation_post != nullptr)
+                  oif->operation_post (ctx, {}, false /* inner */);
               }
             }
 
             ctx.current_operation (*oif, nullptr, false /* diag_noise */);
+
+            if (oif->operation_pre != nullptr)
+              oif->operation_pre (ctx, {}, true /* inner */, loc);
+
             action a (dist_id, oif->id);
             mod.postponed.list.clear ();
-            perform_match (params, a, ts,
+            perform_match ({}, a, ts,
                            1     /* diag (failures only) */,
                            false /* progress */);
             process_postponed ();
 
+            if (oif->operation_post != nullptr)
+              oif->operation_post (ctx, {}, true /* inner */);
+
             if (auto po = oif->post_operation)
             {
-              if (operation_id pid = po (ctx, params, dist_id))
+              if (operation_id pid = po (ctx, {}, dist_id))
               {
                 const operation_info* poif (ops[pid]);
                 ctx.current_operation (*poif, oif, false /* diag_noise */);
+
+                if (oif->operation_pre != nullptr)
+                  oif->operation_pre (ctx, {}, false /* inner */, loc);
+
+                if (poif->operation_pre != nullptr)
+                  poif->operation_pre (ctx, {}, true /* inner */, loc);
+
                 action a (dist_id, poif->id, oif->id);
                 mod.postponed.list.clear ();
-                perform_match (params, a, ts,
+                perform_match ({}, a, ts,
                                1     /* diag (failures only) */,
                                false /* progress */);
                 process_postponed ();
+
+                if (poif->operation_post != nullptr)
+                  poif->operation_post (ctx, {}, true /* inner */);
+
+                if (oif->operation_post != nullptr)
+                  oif->operation_post (ctx, {}, false /* inner */);
               }
             }
           }
@@ -471,7 +503,7 @@ namespace build2
         //
         {
           if (mo_perform.meta_operation_pre != nullptr)
-            mo_perform.meta_operation_pre (ctx, params, loc);
+            mo_perform.meta_operation_pre (ctx, {}, loc);
 
           // This is a hack since according to the rules we need to completely
           // reset the state. We could have done that (i.e., saved target
@@ -487,25 +519,31 @@ namespace build2
           ctx.current_on = on + 1;
 
           if (mo_perform.operation_pre != nullptr)
-            mo_perform.operation_pre (ctx, params, update_id);
+            mo_perform.operation_pre (ctx, {}, update_id);
 
           ctx.current_operation (op_update, nullptr, false /* diag_noise */);
 
+          if (op_update.operation_pre != nullptr)
+            op_update.operation_pre (ctx, {}, true /* inner */, loc);
+
           action a (perform_update_id);
 
-          mo_perform.match   (params, a, files,
+          mo_perform.match   ({}, a, files,
                               1    /* diag (failures only) */,
                               prog /* progress */);
 
-          mo_perform.execute (params, a, files,
+          mo_perform.execute ({}, a, files,
                               1    /* diag (failures only) */,
                               prog /* progress */);
+
+          if (op_update.operation_post != nullptr)
+            op_update.operation_post (ctx, {}, true /* inner */);
 
           if (mo_perform.operation_post != nullptr)
-            mo_perform.operation_post (ctx, params, update_id);
+            mo_perform.operation_post (ctx, {}, update_id);
 
           if (mo_perform.meta_operation_post != nullptr)
-            mo_perform.meta_operation_post (ctx, params);
+            mo_perform.meta_operation_post (ctx, {});
         }
       }
       else

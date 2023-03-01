@@ -121,6 +121,8 @@ namespace build2
 
     // End of operation and meta-operation batches.
     //
+    // Note: not called in case any of the earlier callbacks failed.
+    //
     void (*operation_post) (context&, const values&, operation_id);
     void (*meta_operation_post) (context&, const values&);
 
@@ -223,20 +225,38 @@ namespace build2
     //
     const size_t concurrency;
 
-    // The first argument in all the callbacks is the operation parameters.
+    // The values argument in the callbacks is the operation parameters. If
+    // the operation expects parameters, then it should have a non-NULL
+    // operation_pre() callback. Failed that, any parameters will be diagnosed
+    // as unexpected.
     //
-    // If the operation expects parameters, then it should have a non-NULL
-    // pre(). Failed that, any parameters will be diagnosed as unexpected.
+    // Note also that if the specified operation has outer (for example,
+    // update-for-install), then parameters belong to outer (for example,
+    // install; this is done in order to be consistent with the case when
+    // update is performed as a pre-operation of install).
 
-    // If the returned operation_id's are not 0, then they are injected
-    // as pre/post operations for this operation. Can be NULL if unused.
-    // The returned operation_id shall not be default_id.
+    // Pre/post operations for this operation. Note that these callbacks are
+    // called before this operation becomes current.
+    //
+    // If the returned by pre/post_*() operation_id's are not 0, then they are
+    // injected as pre/post operations for this operation. Can be NULL if
+    // unused. The returned operation_id shall not be default_id.
     //
     operation_id (*pre_operation) (
       context&, const values&, meta_operation_id, const location&);
 
     operation_id (*post_operation) (
       context&, const values&, meta_operation_id);
+
+    // Called immediately after/before this operation becomes/ceases to be
+    // current operation for the specified context. Can be used to
+    // initialize/finalize operation-specific data (context::current_*_odata).
+    // Can be NULL if unused.
+    //
+    void (*operation_pre) (
+      context&, const values&, bool inner, const location&);
+    void (*operation_post) (
+      context&, const values&, bool inner);
 
     // Operation-specific ad hoc rule callbacks. Essentially, if not NULL,
     // then every ad hoc rule match and apply call for this operation is

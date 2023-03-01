@@ -128,6 +128,9 @@ namespace build2
   {
     // New update operation.
     //
+    assert (op_update.operation_pre == nullptr &&
+            op_update.operation_post == nullptr);
+
     ctx.module_context->current_operation (op_update);
 
     // Un-tune the scheduler.

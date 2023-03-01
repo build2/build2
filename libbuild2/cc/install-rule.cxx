@@ -238,9 +238,9 @@ namespace build2
         const scope& rs (t.root_scope ());
         auto& lp (t.data<install_match_data> (perform_install_id).libs_paths);
 
-        auto ln = [&rs, &id] (const path& f, const path& l)
+        auto ln = [&t, &rs, &id] (const path& f, const path& l)
         {
-          install_l (rs, id, f.leaf (), l.leaf (), 2 /* verbosity */);
+          install_l (rs, id, l.leaf (), t, f.leaf (), 2 /* verbosity */);
           return true;
         };
 
@@ -274,7 +274,7 @@ namespace build2
 
         auto rm = [&rs, &id] (const path& f, const path& l)
         {
-          return uninstall_l (rs, id, f.leaf (), l.leaf (), 2 /* verbosity */);
+          return uninstall_l (rs, id, l.leaf (), f.leaf (), 2 /* verbosity */);
         };
 
         const path& lk (lp.link);

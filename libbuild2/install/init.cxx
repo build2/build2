@@ -459,6 +459,91 @@ namespace build2
           config::unsave_variable (rs, v);
         }
 
+        // config.install.manifest
+        //
+        // Installation manifest. Valid values are a file path or `-` to dump
+        // the manifest to stdout.
+        //
+        // If specified during the install operation, then write the
+        // information about all the filesystem entries being installed into
+        // the manifest. If specified during uninstall, then remove the
+        // filesystem entries according to the manifest as opposed to the
+        // current build state. In particular, this functionality can be used
+        // to avoid surprising (and potentially lengthy) updates during
+        // uninstall that may happen because of changes to system-installed
+        // dependencies (for example, the compiler or standard library).
+        //
+        // @@ TODO: manifest uninstall is still TODO.
+        //
+        // Note: there is a single manifest per operation and thus this
+        // variable can only be specified as a global override. (While it
+        // could be handy to save this varible in config.build in some
+        // situations, supporting this will complicate the global override
+        // case).
+        //
+        // Note also that the manifest is produced even in the dry-run mode.
+        // However, in this case no directory creation is tracked.
+        //
+        // The format of the installation manifest is "JSON lines", that is,
+        // each line is a JSON text (this makes it possible to reverse the
+        // order of lines without loading the entire file into memory). For
+        // example (indented lines indicate line continuations):
+        //
+        // {"type":"directory","path":"/tmp/install","mode":"755"}
+        // {"type":"target","name":"/tmp/libhello/libs{hello}",
+        //   "entries":[
+        //     {"type":"file","path":"/tmp/install/lib/libhello-1.0.so","mode":"755"},
+        //     {"type":"symlink","path":"/tmp/install/lib/libhello.so","target":"libhello-1.0.so"}]}
+        //
+        // Each line is a serialization of one of the following non-abstract
+        // C++ structs:
+        //
+        // struct entry // abstract
+        // {
+        //   enum {directory, file, symlink, target} type;
+        // };
+        //
+        // struct filesystem_entry: entry // abstract
+        // {
+        //   path path;
+        // };
+        //
+        // struct directory_entry: filesystem_entry
+        // {
+        //   string mode;
+        // };
+        //
+        // struct file_entry: filesystem_entry
+        // {
+        //   string mode;
+        // };
+        //
+        // struct symlink_entry: filesystem_entry
+        // {
+        //   path target;
+        // };
+        //
+        // struct target_entry: entry
+        // {
+        //   string name;
+        //   vector<filesystem_entry*> entries;
+        // };
+        //
+        {
+          auto& v (vp.insert<path> ("config.install.manifest"));
+
+          // If specified, verify it is a global override.
+          //
+          if (lookup l = rs[v])
+          {
+            if (!l.belongs (rs.global_scope ()))
+              fail << "config.install.manifest must be a global override" <<
+                info << "specify !config.install.manifest=...";
+          }
+
+          config::unsave_variable (rs, v);
+        }
+
         // Support for private install (aka poor man's Flatpack).
         //
         const dir_path* p;

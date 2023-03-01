@@ -749,6 +749,7 @@ namespace build2
     }
 
     current_mif = &mif;
+    current_mdata = current_data_ptr (nullptr, null_current_data_deleter);
     current_on = 0; // Reset.
   }
 
@@ -762,6 +763,8 @@ namespace build2
     current_oname = oif.name;
     current_inner_oif = &inner_oif;
     current_outer_oif = outer_oif;
+    current_inner_odata = current_data_ptr (nullptr, null_current_data_deleter);
+    current_outer_odata = current_data_ptr (nullptr, null_current_data_deleter);
     current_on++;
     current_mode = inner_oif.mode;
     current_diag_noise = diag_noise;

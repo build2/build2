@@ -188,10 +188,16 @@ namespace build2
       //
       // install -d <dir>
       //
+      // Note: <dir> is expected to be absolute.
+      //
+      // Note that the target argument only specifies which target caused
+      // this directory to be created.
+      //
       static void
       install_d (const scope& rs,
                  const install_dir& base,
                  const dir_path& dir,
+                 const file& target,
                  uint16_t verbosity = 1);
 
       // Install a file:
@@ -209,13 +215,21 @@ namespace build2
 
       // Install (make) a symlink:
       //
-      // ln -s <target> <base>/<link>
+      // install -l <link_target> <base>/<link>
+      //
+      // Which is essentially:
+      //
+      // ln -s <link_target> <base>/<link>
+      //
+      // Note that the target argument only specifies which target this
+      // symlink "belongs" to.
       //
       static void
       install_l (const scope& rs,
                  const install_dir& base,
-                 const path& target,
                  const path& link,
+                 const file& target,
+                 const path& link_target,
                  uint16_t verbosity = 1);
 
       // Uninstall (remove) a file or symlink:
@@ -241,8 +255,8 @@ namespace build2
       static bool
       uninstall_l (const scope& rs,
                    const install_dir& base,
-                   const path& target,
                    const path& link,
+                   const path& link_target,
                    uint16_t verbosity = 1);
 
 

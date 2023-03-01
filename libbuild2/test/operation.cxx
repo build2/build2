@@ -17,14 +17,8 @@ namespace build2
   namespace test
   {
     static operation_id
-    test_pre (context&,
-              const values& params,
-              meta_operation_id mo,
-              const location& l)
+    pre_test (context&, const values&, meta_operation_id mo, const location&)
     {
-      if (!params.empty ())
-        fail (l) << "unexpected parameters for operation test";
-
       // Run update as a pre-operation, unless we are disfiguring.
       //
       return mo != disfigure_id ? update_id : 0;
@@ -70,7 +64,9 @@ namespace build2
       "has nothing to test", // We cannot "be tested".
       execution_mode::first,
       1 /* concurrency */,
-      &test_pre,
+      &pre_test,
+      nullptr,
+      nullptr,
       nullptr,
       nullptr,
       &adhoc_apply
@@ -90,6 +86,8 @@ namespace build2
       op_update.concurrency,
       op_update.pre_operation,
       op_update.post_operation,
+      op_update.operation_pre,
+      op_update.operation_post,
       op_update.adhoc_match,
       op_update.adhoc_apply
     };

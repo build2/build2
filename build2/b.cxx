@@ -1118,23 +1118,38 @@ main (int argc, char* argv[])
               if (oif->outer_id != 0)
                 outer_oif = lookup (oif->outer_id);
 
+              if (!oparams.empty ())
+              {
+                // Operation parameters belong to outer operation, if any.
+                //
+                auto* i (outer_oif != nullptr ? outer_oif : oif);
+
+                if (i->operation_pre == nullptr)
+                  fail (l) << "unexpected parameters for operation " << i->name;
+              }
+
               // Handle pre/post operations.
               //
               if (auto po = oif->pre_operation)
               {
-                if ((orig_pre_oid = po (ctx, oparams, mid, l)) != 0)
+                if ((orig_pre_oid = po (
+                       ctx,
+                       outer_oif == nullptr ? oparams : values {},
+                       mid,
+                       l)) != 0)
                 {
                   assert (orig_pre_oid != default_id);
                   pre_oif = lookup (orig_pre_oid);
                   pre_oid = pre_oif->id; // De-alias.
                 }
               }
-              else if (!oparams.empty ())
-                fail (l) << "unexpected parameters for operation " << oif->name;
 
               if (auto po = oif->post_operation)
               {
-                if ((orig_post_oid = po (ctx, oparams, mid)) != 0)
+                if ((orig_post_oid = po (
+                       ctx,
+                       outer_oif == nullptr ? oparams : values {},
+                       mid)) != 0)
                 {
                   assert (orig_post_oid != default_id);
                   post_oif = lookup (orig_post_oid);
@@ -1321,6 +1336,12 @@ main (int argc, char* argv[])
 
           ctx.current_operation (*pre_oif, oif);
 
+          if (oif->operation_pre != nullptr)
+            oif->operation_pre (ctx, oparams, false /* inner */, l);
+
+          if (pre_oif->operation_pre != nullptr)
+            pre_oif->operation_pre (ctx, {}, true /* inner */, l);
+
           action a (mid, pre_oid, oid);
 
           {
@@ -1339,6 +1360,12 @@ main (int argc, char* argv[])
               mif->execute (mparams, a, tgs, diag, true /* progress */);
           }
 
+          if (pre_oif->operation_post != nullptr)
+            pre_oif->operation_post (ctx, {}, true /* inner */);
+
+          if (oif->operation_post != nullptr)
+            oif->operation_post (ctx, oparams, false /* inner */);
+
           if (mif->operation_post != nullptr)
             mif->operation_post (ctx, mparams, pre_oid);
 
@@ -1349,6 +1376,15 @@ main (int argc, char* argv[])
         }
 
         ctx.current_operation (*oif, outer_oif);
+
+        if (outer_oif != nullptr && outer_oif->operation_pre != nullptr)
+          outer_oif->operation_pre (ctx, oparams, false /* inner */, l);
+
+        if (oif->operation_pre != nullptr)
+          oif->operation_pre (ctx,
+                              outer_oif == nullptr ? oparams : values {},
+                              true /* inner */,
+                              l);
 
         action a (mid, oid, oif->outer_id);
 
@@ -1368,6 +1404,14 @@ main (int argc, char* argv[])
             mif->execute (mparams, a, tgs, diag, true /* progress */);
         }
 
+        if (oif->operation_post != nullptr)
+          oif->operation_post (ctx,
+                               outer_oif == nullptr ? oparams : values {},
+                               true /* inner */);
+
+        if (outer_oif != nullptr && outer_oif->operation_post != nullptr)
+          outer_oif->operation_post (ctx, oparams, false /* inner */);
+
         if (post_oid != 0)
         {
           tgs.reset ();
@@ -1379,6 +1423,12 @@ main (int argc, char* argv[])
             mif->operation_pre (ctx, mparams, post_oid); // Can't be translated.
 
           ctx.current_operation (*post_oif, oif);
+
+          if (oif->operation_pre != nullptr)
+            oif->operation_pre (ctx, oparams, false /* inner */, l);
+
+          if (post_oif->operation_pre != nullptr)
+            post_oif->operation_pre (ctx, {}, true /* inner */, l);
 
           action a (mid, post_oid, oid);
 
@@ -1397,6 +1447,12 @@ main (int argc, char* argv[])
             if (mif->execute != nullptr && !ctx.match_only)
               mif->execute (mparams, a, tgs, diag, true /* progress */);
           }
+
+          if (post_oif->operation_post != nullptr)
+            post_oif->operation_post (ctx, {}, true /* inner */);
+
+          if (oif->operation_post != nullptr)
+            oif->operation_post (ctx, oparams, false /* inner */);
 
           if (mif->operation_post != nullptr)
             mif->operation_post (ctx, mparams, post_oid);

@@ -1200,6 +1200,8 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
+    nullptr,
+    nullptr,
     nullptr
   };
 
@@ -1226,6 +1228,8 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
+    nullptr,
+    nullptr,
     nullptr
   };
 
@@ -1239,6 +1243,8 @@ namespace build2
     "is clean",
     execution_mode::last,
     1 /* concurrency */,
+    nullptr,
+    nullptr,
     nullptr,
     nullptr,
     nullptr,

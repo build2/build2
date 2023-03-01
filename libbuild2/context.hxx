@@ -339,6 +339,22 @@ namespace build2
               (current_mname.empty () && current_oname == mo));
     };
 
+    // Meta/operation-specific context-global auxiliary data storage.
+    //
+    // Note: cleared by current_[meta_]operation() below. Normally set by
+    // meta/operation-specific callbacks from [mate_]operation_info.
+    //
+    // Note also: watch out for MT-safety in the data itself.
+    //
+    static void
+    null_current_data_deleter (void* p) { assert (p == nullptr); }
+
+    using current_data_ptr = unique_ptr<void, void (*) (void*)>;
+
+    current_data_ptr current_mdata        = {nullptr, null_current_data_deleter};
+    current_data_ptr current_inner_odata  = {nullptr, null_current_data_deleter};
+    current_data_ptr current_outer_odata  = {nullptr, null_current_data_deleter};
+
     // Current operation number (1-based) in the meta-operation batch.
     //
     size_t current_on;

@@ -976,8 +976,14 @@ namespace build2
 
               ctx.current_operation (*oif);
 
+              if (oif->operation_pre != nullptr)
+                oif->operation_pre (ctx, {}, true /* inner */, location ());
+
               phase_lock pl (ctx, run_phase::match);
               match_sync (action (configure_id, id), t);
+
+              if (oif->operation_post != nullptr)
+                oif->operation_post (ctx, {}, true /* inner */);
             }
           }
 
