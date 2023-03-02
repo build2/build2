@@ -4,8 +4,9 @@
 #ifndef LIBBUILD2_FUNCTION_HXX
 #define LIBBUILD2_FUNCTION_HXX
 
-#include <utility>       // index_sequence
-#include <type_traits>   // aligned_storage
+#include <cstddef>      // max_align_t
+#include <utility>      // index_sequence
+#include <type_traits>  // is_*
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
@@ -133,8 +134,8 @@ namespace build2
     // Auxiliary data storage. Note that it is expected to be trivially
     // copyable and destructible.
     //
-    std::aligned_storage<sizeof (void*) * 3>::type data;
-    static const size_t data_size = sizeof (decltype (data));
+    static const size_t data_size = sizeof (void*) * 3;
+    alignas (std::max_align_t) unsigned char data[data_size];
 
     function_overload (const char* an,
                        size_t mi, size_t ma, types ts,

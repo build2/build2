@@ -4,7 +4,8 @@
 #ifndef LIBBUILD2_VARIABLE_HXX
 #define LIBBUILD2_VARIABLE_HXX
 
-#include <type_traits>   // aligned_storage
+#include <cstddef>       // max_align_t
+#include <type_traits>   // is_*
 #include <unordered_map>
 
 #include <libbutl/prefix-map.hxx>
@@ -423,8 +424,8 @@ namespace build2
     // specialization below). Types that don't fit will have to be handled
     // with an extra dynamic allocation.
     //
-    static constexpr size_t           size_ = sizeof (name_pair);
-    std::aligned_storage<size_>::type data_;
+    static constexpr size_t size_ = sizeof (name_pair);
+    alignas (std::max_align_t) unsigned char data_[size_];
 
     // Make sure we have sufficient storage for untyped values.
     //

@@ -4,8 +4,9 @@
 #ifndef LIBBUILD2_TARGET_HXX
 #define LIBBUILD2_TARGET_HXX
 
+#include <cstddef>      // max_align_t
 #include <iterator>     // tags, etc.
-#include <type_traits>  // aligned_storage
+#include <type_traits>  // is_*
 #include <unordered_map>
 
 #include <libbutl/multi-index.hxx> // map_iterator_adapter
@@ -189,7 +190,7 @@ namespace build2
                                          ? sizeof (string)
                                          : sizeof (void*) * 4);
 
-    std::aligned_storage<data_size>::type data_;
+    alignas (std::max_align_t) unsigned char data_[data_size];
     void (*data_dtor_) (void*) = nullptr;
 
     template <typename R,
@@ -1624,8 +1625,7 @@ namespace build2
       group_view g_;
       size_t j_;        // 1-based index, to support enter_group().
       const target* k_; // Current member of ad hoc group or NULL.
-      mutable typename std::aligned_storage<sizeof (value_type),
-                                            alignof (value_type)>::type m_;
+      alignas (value_type) mutable unsigned char m_[sizeof (value_type)];
     };
 
     iterator

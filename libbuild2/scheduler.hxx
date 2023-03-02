@@ -7,7 +7,8 @@
 #include <list>
 #include <tuple>
 #include <atomic>
-#include <type_traits>        // aligned_storage, etc
+#include <cstddef>     // max_align_t
+#include <type_traits> // decay, etc
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -681,7 +682,7 @@ namespace build2
     //
     struct task_data
     {
-      std::aligned_storage<sizeof (void*) * 8>::type data;
+      alignas (std::max_align_t) unsigned char data[sizeof (void*) * 8];
       void (*thunk) (scheduler&, lock&, void*);
     };
 

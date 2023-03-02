@@ -3,7 +3,7 @@
 
 #include <libbuild2/variable.hxx>
 
-#include <cstring> // memcmp()
+#include <cstring> // memcmp(), memcpy()
 
 #include <libbutl/path-pattern.hxx>
 
@@ -57,7 +57,7 @@ namespace build2
       else if (type->copy_ctor != nullptr)
         type->copy_ctor (*this, v, true);
       else
-        data_ = v.data_; // Copy as POD.
+        memcpy (data_, v.data_, size_); // Copy as POD.
     }
   }
 
@@ -72,7 +72,7 @@ namespace build2
       else if (type->copy_ctor != nullptr)
         type->copy_ctor (*this, v, false);
       else
-        data_ = v.data_; // Copy as POD.
+        memcpy (data_, v.data_, size_); // Copy as POD.
     }
   }
 
@@ -106,7 +106,7 @@ namespace build2
         else if (auto f = null ? type->copy_ctor : type->copy_assign)
           f (*this, v, true);
         else
-          data_ = v.data_; // Assign as POD.
+          memcpy (data_, v.data_, size_); // Assign as POD.
 
         null = v.null;
       }
@@ -145,7 +145,7 @@ namespace build2
         else if (auto f = null ? type->copy_ctor : type->copy_assign)
           f (*this, v, false);
         else
-          data_ = v.data_; // Assign as POD.
+          memcpy (data_, v.data_, size_); // Assign as POD.
 
         null = v.null;
       }
