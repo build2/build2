@@ -81,10 +81,17 @@ namespace build2
 #endif
       ;
 
+#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 10900
+    static bool
+    pkgconf_error_handler (const char* msg,
+                           const pkgconf_client_t*,
+                           void*)
+#else
     static bool
     pkgconf_error_handler (const char* msg,
                            const pkgconf_client_t*,
                            const void*)
+#endif
     {
       error << runtime_error (msg); // Sanitize the message (trailing dot).
       return true;
