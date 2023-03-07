@@ -2312,36 +2312,39 @@ If the value of the \c{install} variable is not \c{false}, then it is normally
 a relative path with the first path component being one of these names:
 
 \
-name        default                         override
-----        -------                         --------
+name          default                       override
+----          -------                       --------
 root                                        config.install.root
 
-data_root   root/                           config.install.data_root
-exec_root   root/                           config.install.exec_root
+data_root     root/                         config.install.data_root
+exec_root     root/                         config.install.exec_root
 
-bin         exec_root/bin/                  config.install.bin
-sbin        exec_root/sbin/                 config.install.sbin
-lib         exec_root/lib/                  config.install.lib
-libexec     exec_root/libexec/<project>/    config.install.libexec
-pkgconfig   lib/pkgconfig/                  config.install.pkgconfig
+bin           exec_root/bin/                config.install.bin
+sbin          exec_root/sbin/               config.install.sbin
+lib           exec_root/lib/                config.install.lib
+libexec       exec_root/libexec/<project>/  config.install.libexec
+pkgconfig     lib/pkgconfig/                config.install.pkgconfig
 
-etc         data_root/etc/                  config.install.etc
-include     data_root/include/              config.install.include
-share       data_root/share/                config.install.share
-data        share/<project>/                config.install.data
+etc           data_root/etc/                config.install.etc
+include       data_root/include/            config.install.include
+include_arch  include/                      config.install.include_arch
+share         data_root/share/              config.install.share
+data          share/<project>/              config.install.data
 
-doc         share/doc/<project>/            config.install.doc
-legal       doc/                            config.install.legal
-man         share/man/                      config.install.man
-man<N>      man/man<N>/                     config.install.man<N>
+doc           share/doc/<project>/          config.install.doc
+legal         doc/                          config.install.legal
+man           share/man/                    config.install.man
+man<N>        man/man<N>/                   config.install.man<N>
 \
 
 Let's see what's going on here: The default install directory tree is derived
 from the \c{config.install.root} value but the location of each node in this
 tree can be overridden by the user that installs our project using the
-corresponding \c{config.install.*} variables. In our \c{buildfiles}, in turn,
-we use the node names instead of actual directories. As an example, here is a
-\c{buildfile} fragment from the source directory of our \c{libhello} project:
+corresponding \c{config.install.*} variables (see the \l{#module-install
+\c{install}} module documentation for details on their meaning). In our
+\c{buildfiles}, in turn, we use the node names instead of actual
+directories. As an example, here is a \c{buildfile} fragment from the source
+directory of our \c{libhello} project:
 
 \
 hxx{*}:
@@ -6133,28 +6136,45 @@ of the Introduction, the \c{install} module defines the following standard
 installation locations:
 
 \
-name        default                                 config.* override
-----        -------                                 -----------------
-root                                                install.root
+name          default                                 config.install.*
+                                                      (c.i.*) override
+----          -------                                 ----------------
+root                                                  c.i.root
 
-data_root   root/                                   install.data_root
-exec_root   root/                                   install.exec_root
+data_root     root/                                   c.i.data_root
+exec_root     root/                                   c.i.exec_root
 
-bin         exec_root/bin/                          install.bin
-sbin        exec_root/sbin/                         install.sbin
-lib         exec_root/lib/<private>/                install.lib
-libexec     exec_root/libexec/<private>/<project>/  install.libexec
-pkgconfig   lib/pkgconfig/                          install.pkgconfig
+bin           exec_root/bin/                          c.i.bin
+sbin          exec_root/sbin/                         c.i.sbin
+lib           exec_root/lib/<private>/                c.i.lib
+libexec       exec_root/libexec/<private>/<project>/  c.i.libexec
+pkgconfig     lib/pkgconfig/                          c.i.pkgconfig
 
-etc         data_root/etc/                          install.etc
-include     data_root/include/<private>/            install.include
-share       data_root/share/                        install.share
-data        share/<private>/<project>/              install.data
+etc           data_root/etc/                          c.i.etc
+include       data_root/include/<private>/            c.i.include
+include_arch  include/                                c.i.include_arch
+share         data_root/share/                        c.i.share
+data          share/<private>/<project>/              c.i.data
 
-doc         share/doc/<private>/<project>/          install.doc
-legal       doc/                                    install.legal
-man         share/man/                              install.man
-man<N>      man/man<N>/                             install.man<N>
+doc           share/doc/<private>/<project>/          c.i.doc
+legal         doc/                                    c.i.legal
+man           share/man/                              c.i.man
+man<N>        man/man<N>/                             c.i.man<N>
+\
+
+The \c{include_arch} location is meant for architecture-specific files, such
+as configuration headers. By default it's the same as \c{include} but can be
+configured by the user to a different value (for example,
+\c{/usr/include/x86_64-linux-gnu/}) for platforms that support multiple
+architectures from the same installation location. This is how one would
+normally use it from a \c{buildfile}:
+
+\
+# The configuration header may contain target architecture-specific
+# information so install it into include_arch/ instead of include/.
+#
+h{*}:      install = include/libhello/
+h{config}: install = include_arch/libhello/
 \
 
 The \c{<project>}, \c{<version>}, and \c{<private>} substitutions in these
@@ -6175,7 +6195,9 @@ The private installation subdirectory is specified with the
 directory and may include multiple components. For example:
 
 \
-$ b install config.install.root=/usr/local/ config.install.private=hello/
+$ b install                         \
+    config.install.root=/usr/local/ \
+    config.install.private=hello/
 \
 
 \N|If you are relying on your system's dynamic linker defaults to

@@ -285,24 +285,25 @@ namespace build2
     //
 #define DIR(N, V) static const dir_path dir_##N (V)
 
-    DIR (data_root,  dir_path ("root"));
-    DIR (exec_root,  dir_path ("root"));
+    DIR (data_root,     dir_path ("root"));
+    DIR (exec_root,     dir_path ("root"));
 
-    DIR (sbin,       dir_path ("exec_root") /= "sbin");
-    DIR (bin,        dir_path ("exec_root") /= "bin");
-    DIR (lib,       (dir_path ("exec_root") /= "lib") /= "<private>");
-    DIR (libexec,  ((dir_path ("exec_root") /= "libexec") /= "<private>") /= "<project>");
-    DIR (pkgconfig,  dir_path ("lib")       /= "pkgconfig");
+    DIR (sbin,          dir_path ("exec_root") /= "sbin");
+    DIR (bin,           dir_path ("exec_root") /= "bin");
+    DIR (lib,          (dir_path ("exec_root") /= "lib") /= "<private>");
+    DIR (libexec,     ((dir_path ("exec_root") /= "libexec") /= "<private>") /= "<project>");
+    DIR (pkgconfig,     dir_path ("lib")       /= "pkgconfig");
 
-    DIR (etc,        dir_path ("data_root") /= "etc");
-    DIR (include,   (dir_path ("data_root") /= "include") /= "<private>");
-    DIR (share,      dir_path ("data_root") /= "share");
-    DIR (data,      (dir_path ("share")     /= "<private>") /= "<project>");
+    DIR (etc,           dir_path ("data_root") /= "etc");
+    DIR (include,      (dir_path ("data_root") /= "include") /= "<private>");
+    DIR (include_arch,  dir_path ("include"));
+    DIR (share,         dir_path ("data_root") /= "share");
+    DIR (data,         (dir_path ("share")     /= "<private>") /= "<project>");
 
-    DIR (doc,      ((dir_path ("share")     /= "doc") /= "<private>") /= "<project>");
-    DIR (legal,      dir_path ("doc"));
-    DIR (man,        dir_path ("share")     /= "man");
-    DIR (man1,       dir_path ("man")       /= "man1");
+    DIR (doc,         ((dir_path ("share")     /= "doc") /= "<private>") /= "<project>");
+    DIR (legal,         dir_path ("doc"));
+    DIR (man,           dir_path ("share")     /= "man");
+    DIR (man1,          dir_path ("man")       /= "man1");
 
 #undef DIR
 
@@ -583,28 +584,29 @@ namespace build2
 
         // Global config.install.* values.
         //
-        set_dir (s, p, rs, "",          abs_dir_path (), false, "644", "755", cmd);
+        set_dir (s, p, rs, "",             abs_dir_path (), false, "644", "755", cmd);
 
-        set_dir (s, p, rs, "root",      abs_dir_path ());
+        set_dir (s, p, rs, "root",         abs_dir_path ());
 
-        set_dir (s, p, rs, "data_root", dir_data_root);
-        set_dir (s, p, rs, "exec_root", dir_exec_root, false, "755");
+        set_dir (s, p, rs, "data_root",    dir_data_root);
+        set_dir (s, p, rs, "exec_root",    dir_exec_root, false, "755");
 
-        set_dir (s, p, rs, "sbin",      dir_sbin);
-        set_dir (s, p, rs, "bin",       dir_bin);
-        set_dir (s, p, rs, "lib",       dir_lib);
-        set_dir (s, p, rs, "libexec",   dir_libexec);
-        set_dir (s, p, rs, "pkgconfig", dir_pkgconfig, false, "644");
+        set_dir (s, p, rs, "sbin",         dir_sbin);
+        set_dir (s, p, rs, "bin",          dir_bin);
+        set_dir (s, p, rs, "lib",          dir_lib);
+        set_dir (s, p, rs, "libexec",      dir_libexec);
+        set_dir (s, p, rs, "pkgconfig",    dir_pkgconfig, false, "644");
 
-        set_dir (s, p, rs, "etc",       dir_etc);
-        set_dir (s, p, rs, "include",   dir_include);
-        set_dir (s, p, rs, "share",     dir_share);
-        set_dir (s, p, rs, "data",      dir_data);
+        set_dir (s, p, rs, "etc",          dir_etc);
+        set_dir (s, p, rs, "include",      dir_include);
+        set_dir (s, p, rs, "include_arch", dir_include_arch);
+        set_dir (s, p, rs, "share",        dir_share);
+        set_dir (s, p, rs, "data",         dir_data);
 
-        set_dir (s, p, rs, "doc",       dir_doc);
-        set_dir (s, p, rs, "legal",     dir_legal);
-        set_dir (s, p, rs, "man",       dir_man);
-        set_dir (s, p, rs, "man1",      dir_man1);
+        set_dir (s, p, rs, "doc",          dir_doc);
+        set_dir (s, p, rs, "legal",        dir_legal);
+        set_dir (s, p, rs, "man",          dir_man);
+        set_dir (s, p, rs, "man1",         dir_man1);
       }
 
       // Configure "installability" for built-in target types.

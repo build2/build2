@@ -49,6 +49,22 @@ Version 0.16.0
     For details, see the print_diag() API description in diagnostics.hxx. See
     also GH issue #40 for additional background/details.
 
+  * New include_arch installation location and the corresponding
+    config.install.include_arch configuration variable.
+
+    This location is meant for architecture-specific files, such as
+    configuration headers. By default it's the same as the standard include
+    location but can be configured by the user to a different value (for
+    example, /usr/include/x86_64-linux-gnu/) for platforms that support
+    multiple architectures from the same installation location. This is how
+    one would normally use it from a buildfile:
+
+    # The configuration header may contain target architecture-specific
+    # information so install it into include_arch/ instead of include/.
+    #
+    h{*}:      install = include/libhello/
+    h{config}: install = include_arch/libhello/
+
   * The in.substitution variable has been renamed to in.mode.
 
     The original name is still recognized for backwards compatibility.
