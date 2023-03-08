@@ -42,7 +42,7 @@ namespace build2
   }
 
   ostream&
-  operator<< (ostream& os, const ::butl::path& p)
+  operator<< (ostream& os, const path& p)
   {
     using namespace build2;
 
@@ -53,7 +53,7 @@ namespace build2
   }
 
   ostream&
-  operator<< (ostream& os, const ::butl::path_name_view& v)
+  operator<< (ostream& os, const path_name_view& v)
   {
     assert (!v.empty ());
 
@@ -61,7 +61,7 @@ namespace build2
   }
 
   ostream&
-  operator<< (ostream& os, const ::butl::process_path& p)
+  operator<< (ostream& os, const process_path& p)
   {
     using namespace build2;
 

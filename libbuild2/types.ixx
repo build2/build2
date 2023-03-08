@@ -10,7 +10,7 @@ namespace build2
   {
     if (!l.empty ())
     {
-      o << l.file;
+      build2::operator<< (o, l.file); // Disambiguate.
 
       if (l.line != 0)
       {

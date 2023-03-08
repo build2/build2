@@ -351,10 +351,10 @@ namespace build2
   // Path printing potentially relative with trailing slash for directories.
   //
   LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const ::butl::path&); // utility.cxx
+  operator<< (ostream&, const path&); // utility.cxx
 
   LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const ::butl::path_name_view&); // utility.cxx
+  operator<< (ostream&, const path_name_view&); // utility.cxx
 
   // <libbutl/timestamp.hxx>
   //
@@ -425,7 +425,7 @@ namespace build2
   // Print as recall[@effect].
   //
   LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const ::butl::process_path&); // utility.cxx
+  operator<< (ostream&, const process_path&); // utility.cxx
 
   // <libbutl/fdstream.hxx>
   //
