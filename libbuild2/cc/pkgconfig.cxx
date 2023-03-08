@@ -437,7 +437,7 @@ namespace build2
         // library. What we do at the moment is stop recognizing just library
         // names (without -l) after seeing an unknown option.
         //
-        bool first (true), known (true), have_L;
+        bool first (true), known (true), have_L (false);
 
         char arg ('\0'); // Option with pending argument.
         for (auto& o: pc.libs (la))
