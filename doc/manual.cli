@@ -6894,6 +6894,9 @@ if ($cxx.target.system == 'mingw32')
 That is, we use the \c{.def} file approach for MSVC (including when building
 with Clang) and the built-in support (\c{--export-all-symbols}) for MinGW.
 
+\N|You will likely also want to add the generated \c{.def} file (or the
+blanket \c{*.def}) to your \c{.gitignore} file.|
+
 Note that it is also possible to use the \c{.def} file approach for MinGW. In
 this case we need to explicitly load the \c{bin.def} module (which should be
 done after loading \c{c} or \c{cxx}) and can use the following arrangement:
