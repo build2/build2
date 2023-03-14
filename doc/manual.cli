@@ -371,7 +371,7 @@ Nothing really new here: we've specified the default extension for the
 prerequisites. If you have experience with other build systems, then
 explicitly listing headers might seem strange to you. As will be discussed
 later, in \c{build2} we have to explicitly list all the prerequisites of a
-target that should end up in a distribution of our project.
+target that should end up in a source distribution of our project.
 
 \N|You don't have to list \i{all} headers that you include, only the ones
 belonging to your project. Like all modern C/C++ build systems, \c{build2}
@@ -421,11 +421,11 @@ exe{hello}: {hxx cxx}{**}
 development more pleasant and less error prone: you don't need to update your
 \c{buildfile} every time you add, remove, or rename a source file and you
 won't forget to explicitly list headers, a mistake that is often only detected
-when trying to build a distribution of a project. On the other hand, there is
-the possibility of including stray source files into your build without
-noticing. And, for more complex projects, name patterns can become fairly
-complex (see \l{#name-patterns Name Patterns} for details). Note also that on
-modern hardware the performance of wildcard searches hardly warrants a
+when trying to build a source distribution of a project. On the other hand,
+there is the possibility of including stray source files into your build
+without noticing. And, for more complex projects, name patterns can become
+fairly complex (see \l{#name-patterns Name Patterns} for details). Note also
+that on modern hardware the performance of wildcard searches hardly warrants a
 consideration.
 
 In our experience, when combined with modern version control systems like
@@ -597,7 +597,7 @@ configuration \i{persistent}. We will see an example of this shortly.
 
 Next up are the \c{test}, \c{install}, and \c{dist} modules. As their names
 suggest, they provide support for testing, installation and preparation of
-distributions. Specifically, the \c{test} module defines the \c{test}
+source distributions. Specifically, the \c{test} module defines the \c{test}
 operation, the \c{install} module defines the \c{install} and \c{uninstall}
 operations, and the \c{dist} module defines the \c{dist}
 (meta-)operation. Again, we will try them out in a moment.
@@ -756,7 +756,7 @@ Let's take a look at a slightly more realistic root \c{buildfile}:
 Here we have the customary \c{README.md} and \c{LICENSE} files as well as the
 package \c{manifest}. Listing them as prerequisites achieves two things: they
 will be installed if/when our project is installed and, as mentioned earlier,
-they will be included into the project distribution.
+they will be included into the project source distribution.
 
 The \c{README.md} and \c{LICENSE} files use the \c{doc{\}} target type. We
 could have used the generic \c{file{\}} but using the more precise \c{doc{\}}
@@ -2400,11 +2400,11 @@ lib{hello}: cxx.pkgconfig.include = include/hello/
 \h2#intro-operations-dist|Distributing|
 
 The last module that we load in our \c{bootstrap.build} is \c{dist} which
-provides support for the preparation of distributions and defines the \c{dist}
-meta-operation. Similar to \c{configure}, \c{dist} is a meta-operation rather
-than an operation because, conceptually, we are preparing a distribution for
-performing operations (like \c{update}, \c{test}) on targets rather than
-targets themselves.
+provides support for the preparation of source distributions and defines the
+\c{dist} meta-operation. Similar to \c{configure}, \c{dist} is a
+meta-operation rather than an operation because, conceptually, we are
+preparing a distribution for performing operations (like \c{update}, \c{test})
+on targets rather than targets themselves.
 
 The preparation of a correct distribution requires that all the necessary
 project files (sources, documentation, etc) be listed as prerequisites in the
@@ -5663,7 +5663,7 @@ exe{hello}: cxx{+{f* b*} -{foo bar}}
 This is particularly useful if you would like to list the names to include or
 exclude in a variable. For example, this is how we can exclude certain files
 from compilation but still include them as ordinary file prerequisites (so
-that they are still included into the distribution):
+that they are still included into the source distribution):
 
 \
 exc = foo.cxx bar.cxx
@@ -6485,7 +6485,7 @@ just not ordered correctly. As a result, we feel that the risks are justified
 when the only alternative is manual version management (which is always an
 option, nevertheless).
 
-When we prepare a distribution of a snapshot, the \c{version} module
+When we prepare a source distribution of a snapshot, the \c{version} module
 automatically adjusts the package name to include the snapshot information as
 well as patches the manifest file in the distribution with the snapshot number
 and id (that is, replacing \c{.z} in the version value with the actual
