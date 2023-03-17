@@ -865,6 +865,8 @@ namespace build2
              const dir_path& dir,
              const string& e)
     {
+      // NOTE: similar code in bpkg (system-package-manager-archive.cxx).
+
       path an (pkg + '.' + e);
 
       // Delete old archive for good measure.
@@ -887,7 +889,7 @@ namespace build2
 
       if (e == "zip")
       {
-        // On Windows we use libarchive's bsdtar (zip is an MSYS executabales).
+        // On Windows we use libarchive's bsdtar (zip is an MSYS executable).
         //
         // While not explicitly stated, the compression-level option works
         // for zip archives.
@@ -1006,7 +1008,7 @@ namespace build2
       process apr;
       process cpr;
 
-      // Change the archiver's working directory to dist_root.
+      // Change the archiver's working directory to root.
       //
       // Note: this function is called during serial execution and so no
       // diagnostics buffering is needed (here and below).
