@@ -421,9 +421,9 @@ namespace build2
         using config::lookup_config;
         using config::specified_config;
 
-        // Note: ignore config.install.scope (see below).
+        // Note: ignore config.install.{scope,manifest} (see below).
         //
-        bool s (specified_config (rs, "install", {"scope"}));
+        bool s (specified_config (rs, "install", {"scope", "manifest"}));
 
         // Adjust module priority so that the (numerous) config.install.*
         // values are saved at the end of config.build.
@@ -580,6 +580,27 @@ namespace build2
             if (lookup l = lookup_config (rs, cvar, nullptr))
               v = cast<dir_path> (l); // Strip abs_dir_path.
           }
+        }
+
+        // Support for relocatable install.
+        //
+        // Note that it is false by default since supporting relocatable
+        // installation may require extra effort and not all projects may
+        // support it. A project that is known not to support it should assert
+        // this fact in its root.build, for example:
+        //
+        // assert (!$install.relocatable) 'relocatable installation not supported'
+        //
+        {
+          auto& var  (vp.insert<bool> (       "install.relocatable"));
+          auto& cvar (vp.insert<bool> ("config.install.relocatable"));
+
+          value& v (rs.assign (var));
+
+          // Note: unlike other variables, for ease of assertion set it to
+          // false if no config.install.* is specified.
+          //
+          v = s && cast_false<bool> (lookup_config (rs, cvar, false));
         }
 
         // Global config.install.* values.

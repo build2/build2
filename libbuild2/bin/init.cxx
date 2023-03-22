@@ -79,6 +79,9 @@ namespace build2
       // example, addition of rpaths for prerequisite libraries (see the cc
       // module for an example). Default is true.
       //
+      // Note also that a rule may need to make rpath relative if
+      // install.relocatable is true.
+      //
       vp.insert<dir_paths> ("config.bin.rpath");
       vp.insert<bool>      ("config.bin.rpath.auto");
 

@@ -20,6 +20,8 @@
 #include <libbuild2/bin/target.hxx>
 #include <libbuild2/bin/utility.hxx>
 
+#include <libbuild2/install/utility.hxx>
+
 #include <libbuild2/cc/target.hxx>  // c, pc*
 #include <libbuild2/cc/utility.hxx>
 
@@ -3264,10 +3266,72 @@ namespace build2
             rpath_libraries (sargs, bs, a, t, li, for_install /* link */);
 
           lookup l;
-
           if ((l = t["bin.rpath"]) && !l->empty ())
+          {
+            // See if we need to make the specified paths relative using the
+            // $ORIGIN (Linux, BSD) or @loader_path (Mac OS) mechanisms.
+            //
+            optional<dir_path> origin;
+            if (for_install && cast_false<bool> (rs["install.relocatable"]))
+            {
+              // Note that both $ORIGIN and @loader_path will be expanded to
+              // the path of the binary that we are building (executable or
+              // shared library) as opposed to top-level executable.
+              //
+              path p (install::resolve_file (t));
+
+              // If the file is not installable then the install.relocatable
+              // semantics does not apply, naturally.
+              //
+              if (!p.empty ())
+                origin = p.directory ();
+            }
+
+            bool origin_used (false);
             for (const dir_path& p: cast<dir_paths> (l))
-              sargs.push_back ("-Wl,-rpath," + p.string ());
+            {
+              string o ("-Wl,-rpath,");
+
+              // Note that we only rewrite absolute paths so if the user
+              // specified $ORIGIN or @loader_path manually, we will pass it
+              // through as is.
+              //
+              if (origin && p.absolute ())
+              {
+                dir_path l;
+                try
+                {
+                  l = p.relative (*origin);
+                }
+                catch (const invalid_path&)
+                {
+                  fail << "unable to make rpath " << p << " relative to "
+                       << *origin <<
+                    info << "required for relocatable installation";
+                }
+
+                o += (tclass == "macos" ? "@loader_path" : "$ORIGIN");
+
+                if (!l.empty ())
+                {
+                  o += path_traits::directory_separator;
+                  o += l.string ();
+                }
+
+                origin_used = true;
+              }
+              else
+                o += p.string ();
+
+              sargs.push_back (move (o));
+            }
+
+            // According to the Internet, `-Wl,-z,origin` is not needed except
+            // potentially for older BSDs.
+            //
+            if (origin_used && tclass == "bsd")
+              sargs.push_back ("-Wl,-z,origin");
+          }
 
           if ((l = t["bin.rpath_link"]) && !l->empty ())
           {
