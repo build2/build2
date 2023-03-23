@@ -74,13 +74,22 @@ namespace build2
     // and fail unless fail_unknown is false, in which case return empty
     // directory.
     //
+    // For rel_base semantics, see the $install.resolve() documentation. Note
+    // that fail_unknown does not apply to the rel_base resolution.
+    //
     // Note: implemented in rule.cxx.
     //
     LIBBUILD2_SYMEXPORT dir_path
-    resolve_dir (const target&, dir_path, bool fail_unknown = true);
+    resolve_dir (const target&,
+                 dir_path,
+                 dir_path rel_base = {},
+                 bool fail_unknown = true);
 
     LIBBUILD2_SYMEXPORT dir_path
-    resolve_dir (const scope&, dir_path, bool fail_unknown = true);
+    resolve_dir (const scope&,
+                 dir_path,
+                 dir_path rel_base = {},
+                 bool fail_unknown = true);
 
     // Resolve file installation path returning empty path if not installable.
     //

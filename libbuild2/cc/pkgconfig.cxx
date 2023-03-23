@@ -1410,7 +1410,7 @@ namespace build2
         {
           bool f (ldirs.empty ());
 
-          ldirs.push_back (resolve_dir (g, d, !f /* fail_unknown */));
+          ldirs.push_back (resolve_dir (g, d, {}, !f /* fail_unknown */));
 
           if (f && ldirs.back ().empty ())
             break;
@@ -1419,6 +1419,7 @@ namespace build2
       else
         ldirs.push_back (resolve_dir (g,
                                       cast<dir_path> (g["install.lib"]),
+                                      {},
                                       false /* fail_unknown */));
 
       if (!ldirs.empty () && ldirs.front ().empty ())

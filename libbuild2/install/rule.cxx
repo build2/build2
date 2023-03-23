@@ -668,24 +668,52 @@ namespace build2
       return rs;
     }
 
+    static dir_path
+    resolve_dir (const scope& s, const target* t,
+                 dir_path d, dir_path rb,
+                 bool fail_unknown)
+    {
+      install_dirs rs (resolve (s, t, move (d), fail_unknown));
+
+      if (rs.empty ())
+        return dir_path ();
+
+      dir_path r (move (rs.back ().dir));
+
+      if (!rb.empty ())
+      {
+        dir_path b (resolve (s, t, move (rb), false).back ().dir);
+
+        try
+        {
+          r = r.relative (b);
+        }
+        catch (const invalid_path&)
+        {
+          fail << "unable to make installation directory " << r
+               << " relative to " << b;
+        }
+      }
+
+      return r;
+    }
+
+    dir_path
+    resolve_dir (const target& t, dir_path d, dir_path rb, bool fail_unknown)
+    {
+      return resolve_dir (t.base_scope (), &t, move (d), move (rb), fail_unknown);
+    }
+
+    dir_path
+    resolve_dir (const scope& s, dir_path d, dir_path rb, bool fail_unknown)
+    {
+      return resolve_dir (s, nullptr, move (d), move (rb), fail_unknown);
+    }
+
     static inline install_dirs
     resolve (const target& t, dir_path d, bool fail_unknown = true)
     {
       return resolve (t.base_scope (), &t, move (d), fail_unknown);
-    }
-
-    dir_path
-    resolve_dir (const target& t, dir_path d, bool fail_unknown)
-    {
-      install_dirs r (resolve (t, move (d), fail_unknown));
-      return r.empty () ? dir_path () : move (r.back ().dir);
-    }
-
-    dir_path
-    resolve_dir (const scope& s, dir_path d, bool fail_unknown)
-    {
-      install_dirs r (resolve (s, nullptr, move (d), fail_unknown));
-      return r.empty () ? dir_path () : move (r.back ().dir);
     }
 
     path
