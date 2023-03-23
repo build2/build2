@@ -480,7 +480,8 @@ namespace build2
         // variable can only be specified as a global override. (While it
         // could be handy to save this varible in config.build in some
         // situations, supporting this will complicate the global override
-        // case).
+        // case). Note that as a result the manifest file path may not be
+        // specified in terms of the config.install.* values.
         //
         // Note also that the manifest is produced even in the dry-run mode.
         // However, in this case no directory creation is tracked.
@@ -529,6 +530,13 @@ namespace build2
         //   string name;
         //   vector<filesystem_entry*> entries;
         // };
+        //
+        // If installation is relocatable (see config.install.relocatable) and
+        // the installation manifest file path is inside config.install.root
+        // (including chroot), then absolute filesystem_entry::path's are
+        // saved as relative to the manifest file's directory (note that
+        // symlink_entry::target cannot be absolute in relocatable
+        // installation).
         //
         {
           auto& v (vp.insert<path> ("config.install.manifest"));

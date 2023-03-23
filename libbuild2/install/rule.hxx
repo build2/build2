@@ -221,6 +221,9 @@ namespace build2
       //
       // ln -s <link_target> <base>/<link>
       //
+      // Note that <link_target> must not be absolute if relocatable
+      // installation is requested (config.install.relocatable).
+      //
       // Note that the target argument only specifies which target this
       // symlink "belongs" to.
       //

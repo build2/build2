@@ -755,24 +755,6 @@ namespace build2
       return s;
     }
 
-    // Given an abolute path return its chroot'ed version, if any, accoring to
-    // install.chroot.
-    //
-    template <typename P>
-    static inline P
-    chroot_path (const scope& rs, const P& p)
-    {
-      if (const dir_path* d = cast_null<dir_path> (rs["install.chroot"]))
-      {
-        dir_path r (p.root_directory ());
-        assert (!r.empty ()); // Must be absolute.
-
-        return *d / p.leaf (r);
-      }
-
-      return p;
-    }
-
     void file_rule::
     install_d (const scope& rs,
                const install_dir& base,
@@ -941,6 +923,13 @@ namespace build2
                uint16_t verbosity)
     {
       context& ctx (rs.ctx);
+
+      if (link_target.absolute () &&
+          cast_false<bool> (rs["install.relocatable"]))
+      {
+        fail << "absolute symlink target " << link_target.string ()
+             << " in relocatable installation";
+      }
 
       dir_path chd (chroot_path (rs, base.dir));
 

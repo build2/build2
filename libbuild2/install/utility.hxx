@@ -86,6 +86,18 @@ namespace build2
     //
     LIBBUILD2_SYMEXPORT path
     resolve_file (const file&); // rule.cxx
+
+    // Given an abolute path return its chroot'ed version, if any, accoring to
+    // install.chroot.
+    //
+    template <typename P>
+    inline P
+    chroot_path (const scope& rs, const P& p)
+    {
+      assert (p.absolute ());
+      const dir_path* d (cast_null<dir_path> (rs["install.chroot"]));
+      return d != nullptr ? *d / p.leaf (p.root_directory ()) : p;
+    }
   }
 }
 

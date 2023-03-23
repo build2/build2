@@ -27,7 +27,8 @@ namespace build2
     struct install_context_data
     {
 #ifndef BUILD2_BOOTSTRAP
-      path_name manifest_file;
+      path      manifest_file; // Absolute and normalized, empty if `-`.
+      path_name manifest_name; // Original path/name.
       ofdstream manifest_ofs;
       ostream&  manifest_os;
       auto_rmfile manifest_autorm;
@@ -35,9 +36,9 @@ namespace build2
       const target* manifest_target = nullptr; // Target being installed.
       struct manifest_target_entry
       {
-        string path;
-        string mode;
-        string target;
+        build2::path path;
+        string       mode;
+        build2::path target;
       };
       vector<manifest_target_entry> manifest_target_entries;
 #endif

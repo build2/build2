@@ -10,6 +10,8 @@
 #include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 
+#include <libbuild2/install/utility.hxx>
+
 using namespace std;
 using namespace butl;
 
@@ -20,13 +22,67 @@ namespace build2
 #ifndef BUILD2_BOOTSTRAP
     install_context_data::
     install_context_data (const path* mf)
-        : manifest_file (mf),
+        : manifest_name (mf),
           manifest_os (mf != nullptr
-                       ? open_file_or_stdout (manifest_file, manifest_ofs)
+                       ? open_file_or_stdout (manifest_name, manifest_ofs)
                        : manifest_ofs),
           manifest_autorm (manifest_ofs.is_open () ? *mf : path ()),
           manifest_json (manifest_os, 0 /* indentation */)
     {
+      if (manifest_ofs.is_open ())
+      {
+        manifest_file = *mf;
+        manifest_file.complete ();
+        manifest_file.normalize ();
+      }
+    }
+
+    static path
+    relocatable_path (install_context_data& d, const target& t, path p)
+    {
+      // This is both inefficient (re-detecting relocatable manifest for every
+      // path) and a bit dirty (if multiple projects are being installed with
+      // different install.{relocatable,root} values, we may end up producing
+      // some paths relative and some absolute). But doing either of these
+      // properly is probably not worth the extra complexity.
+      //
+      if (!d.manifest_file.empty ()) // Not stdout.
+      {
+        const scope& rs (t.root_scope ());
+
+        if (cast_false<bool> (rs["install.relocatable"]))
+        {
+          // Note: install.root is abs_dir_path so absolute and normalized.
+          //
+          const dir_path* root (cast_null<dir_path> (rs["install.root"]));
+          if (root == nullptr)
+            fail << "unknown installation root directory in " << rs <<
+              info << "did you forget to specify config.install.root?";
+
+          // The manifest path would include chroot so if used, we need to add
+          // it to root and the file path (we could also strip it, but then
+          // making it absolute gets tricky on Windows).
+          //
+          dir_path md (d.manifest_file.directory ());
+
+          if (md.sub (chroot_path (rs, *root))) // Inside installation root.
+          {
+            p = chroot_path (rs, p);
+            try
+            {
+              p = p.relative (md);
+            }
+            catch (const invalid_path&)
+            {
+              fail << "unable to make filesystem entry path " << p
+                   << " relative to " << md <<
+                info << "required for relocatable installation manifest";
+            }
+          }
+        }
+      }
+
+      return p;
     }
 
     // Serialize current target and, if tgt is not NULL, start the new target.
@@ -69,19 +125,21 @@ namespace build2
 
           for (const auto& e: d.manifest_target_entries)
           {
+            path p (relocatable_path (d, *d.manifest_target, move (e.path)));
+
             s.begin_object ();
 
             if (e.target.empty ())
             {
               s.member ("type", "file");
-              s.member ("path", e.path);
+              s.member ("path", p.string ());
               s.member ("mode", e.mode);
             }
             else
             {
               s.member ("type", "symlink");
-              s.member ("path", e.path);
-              s.member ("target", e.target);
+              s.member ("path", p.string ());
+              s.member ("target", e.target.string ());
             }
 
             s.end_object ();
@@ -92,11 +150,11 @@ namespace build2
         }
         catch (const json::invalid_json_output& e)
         {
-          fail << "invalid " << d.manifest_file << " json output: " << e;
+          fail << "invalid " << d.manifest_name << " json output: " << e;
         }
         catch (const io_error& e)
         {
-          fail << "unable to write to " << d.manifest_file << ": " << e;
+          fail << "unable to write to " << d.manifest_name << ": " << e;
         }
 
         d.manifest_target_entries.clear ();
@@ -114,7 +172,7 @@ namespace build2
       auto& d (
         *static_cast<install_context_data*> (ctx.current_inner_odata.get ()));
 
-      if (d.manifest_file.path != nullptr)
+      if (d.manifest_name.path != nullptr)
       {
         try
         {
@@ -127,17 +185,17 @@ namespace build2
 
           s.begin_object ();
           s.member ("type", "directory");
-          s.member ("path", dir.string ());
+          s.member ("path", relocatable_path (d, tgt, dir).string ());
           s.member ("mode", mode);
           s.end_object ();
         }
         catch (const json::invalid_json_output& e)
         {
-          fail << "invalid " << d.manifest_file << " json output: " << e;
+          fail << "invalid " << d.manifest_name << " json output: " << e;
         }
         catch (const io_error& e)
         {
-          fail << "unable to write to " << d.manifest_file << ": " << e;
+          fail << "unable to write to " << d.manifest_name << ": " << e;
         }
       }
     }
@@ -152,13 +210,13 @@ namespace build2
       auto& d (
         *static_cast<install_context_data*> (ctx.current_inner_odata.get ()));
 
-      if (d.manifest_file.path != nullptr)
+      if (d.manifest_name.path != nullptr)
       {
         if (d.manifest_target != &tgt)
           manifest_flush_target (d, &tgt);
 
         d.manifest_target_entries.push_back (
-          manifest_target_entry {(dir / name).string (), mode, ""});
+          manifest_target_entry {dir / name, mode, path ()});
       }
     }
 
@@ -172,14 +230,13 @@ namespace build2
       auto& d (
         *static_cast<install_context_data*> (ctx.current_inner_odata.get ()));
 
-      if (d.manifest_file.path != nullptr)
+      if (d.manifest_name.path != nullptr)
       {
         if (d.manifest_target != &tgt)
           manifest_flush_target (d, &tgt);
 
         d.manifest_target_entries.push_back (
-          manifest_target_entry {
-            (dir / link).string (), "", link_target.string ()});
+          manifest_target_entry {dir / link, "", link_target});
       }
     }
 
@@ -189,7 +246,7 @@ namespace build2
       auto& d (
         *static_cast<install_context_data*> (ctx.current_inner_odata.get ()));
 
-      if (d.manifest_file.path != nullptr)
+      if (d.manifest_name.path != nullptr)
       {
         try
         {
@@ -205,11 +262,11 @@ namespace build2
         }
         catch (const json::invalid_json_output& e)
         {
-          fail << "invalid " << d.manifest_file << " json output: " << e;
+          fail << "invalid " << d.manifest_name << " json output: " << e;
         }
         catch (const io_error& e)
         {
-          fail << "unable to write to " << d.manifest_file << ": " << e;
+          fail << "unable to write to " << d.manifest_name << ": " << e;
         }
       }
     }
@@ -290,6 +347,10 @@ namespace build2
         //
         const variable& var (*ctx.var_pool.find ("config.install.manifest"));
         const path* mf (cast_null<path> (ctx.global_scope[var]));
+
+        // Note that we cannot calculate whether the manifest should use
+        // relocatable (relative) paths once here since we don't know the
+        // value of config.install.root.
 
         ctx.current_inner_odata = context::current_data_ptr (
           new install_context_data (mf),
