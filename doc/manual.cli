@@ -6215,6 +6215,73 @@ $ b install                       \
 
 |
 
+
+\h#install-reloc|Relocatable Installation|
+
+A relocatable installation can be moved to a directory other than its original
+installation location. Note that the installation should be moved as a whole
+preserving the directory structure under its root (\c{config.install.root}).
+To request a relocatable installation, set the \c{config.install.relocatable}
+variable to \c{true}. For example:
+
+\
+$ b install                          \
+    config.install.root=/tmp/install \
+    config.install.relocatable=true
+\
+
+A relocatable installation is achieved by using paths relative to one
+filesystem entry within the installation to locate another. Some examples
+include:
+
+\ul|
+
+\li|Paths specified in \c{config.bin.rpath} are made relative using the
+\c{$ORIGIN} (Linux, BSD) or \c{@loader_path} (Mac OS) mechanisms.|
+
+\li|Paths in the generated \c{pkg-config} files are made relative to the
+\c{${pcfiledir\}} built-in variable.|
+
+\li|Paths in the generated installation manifest (\c{config.install.manifest})
+are made relative to the location of the manifest file.||
+
+While these common aspects are handled automatically, if a projects relies on
+knowing its installation location, then it will most likely need to add manual
+support for relocatable installations.
+
+As an example, consider an executable that supports loading plugins and
+requires the plugin installation directory to be embedded into the executable
+during the build. The common way to support relocatable installations for such
+cases is to embed a path relative to the executable and complete it at
+runtime, normally by resolving the executable's path and using its directory
+as a base.
+
+If you would like to always use the relative path, regardless of whether the
+installation is relocatable of not, then you can obtain the library
+installation directory relative to the executable installation directory like
+this:
+
+\
+plugin_dir = $install.resolve($install.lib, $install.bin)
+\
+
+Alternatively, if you would like to continue using absolute paths for
+non-relocatable installations, then you can use something like this:
+
+\
+plugin_dir = $install.resolve( \
+  $install.lib,                \
+  ($install.relocatable ? $install.bin : [dir_path] ))
+\
+
+Finally, if you are unable to support relocatable installations, the correct
+way to handle this is to assert this fact in \c{root.build} of your project,
+for example:
+
+\
+assert (!$install.relocatable) 'relocatable installation not supported'
+\
+
 \h1#module-version|\c{version} Module|
 
 A project can use any version format as long as it meets the package version

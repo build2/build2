@@ -31,11 +31,11 @@ namespace build2
       //
       // As an example, consider an executable that supports loading plugins
       // and requires the plugin installation directory to be embedded into
-      // the executable during build. The common way to support relocatable
-      // installations for such cases is to embed a path relative to the
-      // executable and complete it at runtime. If you would like to always
-      // use the relative path, regardless of whether the installation is
-      // relocatable of not, then you can simply always pass rel_base, for
+      // the executable during the build. The common way to support
+      // relocatable installations for such cases is to embed a path relative
+      // to the executable and complete it at runtime. If you would like to
+      // always use the relative path, regardless of whether the installation
+      // is relocatable of not, then you can simply always pass rel_base, for
       // example:
       //
       // plugin_dir = $install.resolve($install.lib, $install.bin)
