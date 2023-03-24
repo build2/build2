@@ -34,6 +34,9 @@ namespace build2
     //
     // @@ TODO: handle empty values (save as ''?)
     //
+    // Note: may contain variable expansions (e.g, ${pcfiledir}) so unclear
+    //       if can use quoting.
+    //
     static string
     escape (const string& s)
     {
@@ -322,8 +325,17 @@ namespace build2
         // @@ Should we normalize the path for good measure? But on the other
         //    hand, most of the time when it's not normalized, it will likely
         //    be "consistently-relative", e.g., something like
-        //    $prefix/lib/../include. I guess let's wait and see for some
+        //    ${prefix}/lib/../include. I guess let's wait and see for some
         //    real-world examples.
+        //
+        //    Well, we now support generating relocatable .pc files that have
+        //    a bunch of -I${pcfiledir}/../../include and -L${pcfiledir}/.. .
+        //
+        //    On the other hand, there could be symlinks involved and just
+        //    normalize() may not be correct.
+        //
+        //    Note that we do normalize -L paths in the usrd logic later
+        //    (but not when seeting as *.export.loptions).
 
         for (const string& x: ops)
         {
@@ -975,6 +987,14 @@ namespace build2
 
           string mn (m, 0, p);
           path mp (m, p + 1, string::npos);
+
+          // Must be absolute but may not be normalized due to a relocatable
+          // .pc file. We assume there are no symlink shenanigans that would
+          // require realize().
+          //
+          if (!mp.normalized ())
+            mp.normalize ();
+
           path mf (mp.leaf ());
 
           // Extract module properties, if any.
@@ -1067,6 +1087,14 @@ namespace build2
         for (size_t b (0), e (0); !(h = next (*val, b, e)).empty (); )
         {
           path hp (move (h));
+
+          // Must be absolute but may not be normalized due to a relocatable
+          // .pc file. We assume there are no symlink shenanigans that would
+          // require realize().
+          //
+          if (!hp.normalized ())
+            hp.normalize ();
+
           path hf (hp.leaf ());
 
           auto tl (
@@ -1450,6 +1478,71 @@ namespace build2
       if (ctx.dry_run)
         return;
 
+      // See if we should be generating a relocatable .pc file and if so get
+      // its installation location. The plan is to make all absolute paths
+      // that we write relative to this location and prefix them with the
+      // built-in ${pcfiledir} variable (which supported by everybody: the
+      // original pkg-config, pkgconf, and our libpkg-config library).
+      //
+      dir_path rel_base;
+      if (cast_false<bool> (rs["install.relocatable"]))
+      {
+        path f (install::resolve_file (*t));
+        if (!f.empty ()) // Shouldn't happen but who knows.
+          rel_base = f.directory ();
+      }
+
+      // Note: reloc_*path() expect absolute and normalized paths.
+      //
+      // Note also that reloc_path() can be used on dir_path to get the path
+      // without the trailing slash.
+      //
+      auto reloc_path = [&rel_base,
+                         s = string ()] (const path& p,
+                                         const char* what) mutable
+        -> const string&
+      {
+        if (rel_base.empty ())
+          return p.string ();
+
+        try
+        {
+          s = p.relative (rel_base).string ();
+        }
+        catch (const invalid_path&)
+        {
+          fail << "unable to make " << what << " path " << p << " relative to "
+               << rel_base;
+        }
+
+        if (!s.empty ()) s.insert (0, 1, path_traits::directory_separator);
+        s.insert (0, "${pcfiledir}");
+        return s;
+      };
+
+      auto reloc_dir_path = [&rel_base,
+                             s = string ()] (const dir_path& p,
+                                             const char* what) mutable
+        -> const string&
+      {
+        if (rel_base.empty ())
+          return (s = p.representation ());
+
+        try
+        {
+          s = p.relative (rel_base).representation ();
+        }
+        catch (const invalid_path&)
+        {
+          fail << "unable to make " << what << " path " << p << " relative to "
+               << rel_base;
+        }
+
+        if (!s.empty ()) s.insert (0, 1, path_traits::directory_separator);
+        s.insert (0, "${pcfiledir}");
+        return s;
+      };
+
       auto_rmfile arm (p);
 
       try
@@ -1601,7 +1694,7 @@ namespace build2
         //
         os << "Cflags:";
         for (const dir_path& d: idirs)
-          os << " -I" << escape (d.string ());
+          os << " -I" << escape (reloc_path (d, "header search"));
         save_poptions (x_export_poptions);
         save_poptions (c_export_poptions);
         os << endl;
@@ -1621,7 +1714,7 @@ namespace build2
           // necessary to resolve its binful dependencies.
           //
           for (const dir_path& d: ldirs)
-            os << " -L" << escape (d.string ());
+            os << " -L" << escape (reloc_path (d, "library search"));
 
           // Now process ourselves as if we were being linked to something (so
           // pretty similar to link_rule::append_libraries()). We also reuse
@@ -1714,7 +1807,7 @@ namespace build2
 
             //@@ TODO: should we filter -L similar to -I?
             //@@ TODO: how will the Libs/Libs.private work?
-            //@@ TODO: remember to use escape()
+            //@@ TODO: remember to use reloc_*() and escape().
 
             if (d.pls != nullptr && d.pls->find (l) != nullptr)
               return true;
@@ -1970,12 +2063,39 @@ namespace build2
 
             os << *b.name << " =";
 
-            auto append = [&l, &var, &s] (const name& v)
+            auto append = [&rel_base,
+                           &reloc_path,
+                           &reloc_dir_path,
+                           &l, &var, &val, &s] (const name& v)
             {
+              // If this is absolute path or dir_path, then attempt to
+              // relocate. Without that the result will not be relocatable.
+              //
               if (v.simple ())
-                s += v.value;
+              {
+                path p;
+                if (!rel_base.empty ()                                    &&
+                    val.type != nullptr                                   &&
+                    (val.type->is_a<path> () || val.type->is_a<paths> ()) &&
+                    (p = path (v.value)).absolute ())
+                {
+                  p.normalize ();
+                  s += reloc_path (p, var.name.c_str ());
+                }
+                else
+                  s += v.value;
+              }
               else if (v.directory ())
-                s += v.dir.representation ();
+              {
+                if (!rel_base.empty () && v.dir.absolute ())
+                {
+                  dir_path p (v.dir);
+                  p.normalize ();
+                  s += reloc_dir_path (p, var.name.c_str ());
+                }
+                else
+                  s += v.dir.representation ();
+              }
               else
                 // It seems like we shouldn't end up here due to the type
                 // check but let's keep it for good measure.
@@ -2176,7 +2296,8 @@ namespace build2
               // Module names shouldn't require escaping.
               //
               os << (n != 1 ? " \\\n" : " ")
-                 << m.name << '=' << escape (m.file.string ());
+                 << m.name << '='
+                 << escape (reloc_path (m.file, "module interface"));
             }
 
             os << endl;
@@ -2202,7 +2323,8 @@ namespace build2
                << "c.importable_headers =";
 
             for (const path& h: c_hdrs)
-              os << (n != 1 ? " \\\n" : " ") << escape (h.string ());
+              os << (n != 1 ? " \\\n" : " ")
+                 << escape (reloc_path (h, "header unit"));
 
             os << endl;
           }
@@ -2213,7 +2335,8 @@ namespace build2
                << x << ".importable_headers =";
 
             for (const path& h: x_hdrs)
-              os << (n != 1 ? " \\\n" : " ") << escape (h.string ());
+              os << (n != 1 ? " \\\n" : " ")
+                 << escape (reloc_path (h, "header unit"));
 
             os << endl;
           }
