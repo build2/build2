@@ -531,6 +531,9 @@ namespace build2
         //   vector<filesystem_entry*> entries;
         // };
         //
+        // New entry types may be added later. Additional entry members may be
+        // added later to existing entries after the existing members.
+        //
         // If installation is relocatable (see config.install.relocatable) and
         // the installation manifest file path is inside config.install.root
         // (including chroot), then absolute filesystem_entry::path's are
