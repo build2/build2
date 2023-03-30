@@ -581,6 +581,7 @@ namespace build2
               continue;
             else if (cmp ("advapi32")        ||
                      cmp ("bcrypt")          ||
+                     cmp ("comdlg32")        ||
                      cmp ("crypt32")         ||
                      cmp ("d2d1")            ||
                      cmp ("d3d",   3)        || // d3d*
