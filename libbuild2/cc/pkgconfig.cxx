@@ -580,6 +580,7 @@ namespace build2
             if (l[0] != '-') // e.g., just shell32.lib
               continue;
             else if (cmp ("advapi32")        ||
+                     cmp ("authz")           ||
                      cmp ("bcrypt")          ||
                      cmp ("comdlg32")        ||
                      cmp ("crypt32")         ||
