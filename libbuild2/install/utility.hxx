@@ -9,6 +9,7 @@
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
+#include <libbuild2/filesystem.hxx> // entry_type
 
 #include <libbuild2/export.hxx>
 
@@ -107,6 +108,18 @@ namespace build2
       const dir_path* d (cast_null<dir_path> (rs["install.chroot"]));
       return d != nullptr ? *d / p.leaf (p.root_directory ()) : p;
     }
+
+    // Installation filtering (config.install.filter).
+    //
+    // If entry type is a directory, then leaf must be empty.
+    //
+    using filters = vector<pair<string, string>>;
+
+    LIBBUILD2_SYMEXPORT bool
+    filter_entry (const scope& rs,
+                  const dir_path& base,
+                  const path& leaf,
+                  entry_type);
   }
 }
 

@@ -12,7 +12,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/operation.hxx>
-#include <libbuild2/filesystem.hxx> // auto_rmfile, entry_type
+#include <libbuild2/filesystem.hxx> // auto_rmfile
 
 namespace build2
 {
@@ -22,25 +22,11 @@ namespace build2
     extern const operation_info op_uninstall;
     extern const operation_info op_update_for_install;
 
-    using filters = vector<pair<string, string>>;
-
     // Set as context::current_inner_odata during the install/uninstall inner
     // operations.
     //
     struct context_data
     {
-      // Filters.
-      //
-      const install::filters* filters;
-
-      // If entry type is a directory, then leaf must be empty.
-      //
-      static bool
-      filter (const scope& rs,
-              const dir_path& base,
-              const path& leaf,
-              entry_type);
-
       // Manifest.
       //
 #ifndef BUILD2_BOOTSTRAP
@@ -92,7 +78,7 @@ namespace build2
       // Constructor.
       //
       explicit
-      context_data (const install::filters*, const path* manifest);
+      context_data (const path* manifest);
     };
   }
 }

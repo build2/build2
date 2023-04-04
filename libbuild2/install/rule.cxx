@@ -807,8 +807,7 @@ namespace build2
       // Note that this also means we won't have the directory entries in the
       // manifest created with dry-run. Probably not a big deal.
       //
-      if (ctx.dry_run ||
-          !context_data::filter (rs, d, path (), entry_type::directory))
+      if (ctx.dry_run || !filter_entry (rs, d, path (), entry_type::directory))
         return;
 
       dir_path chd (chroot_path (rs, d));
@@ -890,7 +889,7 @@ namespace build2
 
       const path& leaf (name.empty () ? f.leaf () : name);
 
-      if (!context_data::filter (rs, base.dir, leaf, entry_type::regular))
+      if (!filter_entry (rs, base.dir, leaf, entry_type::regular))
         return;
 
       path relf (relative (f));
@@ -959,7 +958,7 @@ namespace build2
 
       context& ctx (rs.ctx);
 
-      if (!context_data::filter (rs, base.dir, link, entry_type::symlink))
+      if (!filter_entry (rs, base.dir, link, entry_type::symlink))
         return;
 
       if (link_target.absolute () &&
@@ -1173,8 +1172,7 @@ namespace build2
 
       // See install_d() for the rationale.
       //
-      if (ctx.dry_run ||
-          !context_data::filter (rs, d, path (), entry_type::directory))
+      if (ctx.dry_run || !filter_entry (rs, d, path (), entry_type::directory))
         return false;
 
       dir_path chd (chroot_path (rs, d));
@@ -1356,7 +1354,7 @@ namespace build2
 
       const path& leaf (name.empty () ? t->path ().leaf () : name);
 
-      if (!context_data::filter (rs, base.dir, leaf, entry_type::regular))
+      if (!filter_entry (rs, base.dir, leaf, entry_type::regular))
         return false;
 
       dir_path chd (chroot_path (rs, base.dir));
@@ -1401,7 +1399,7 @@ namespace build2
     {
       assert (link.simple () && !link.empty ());
 
-      if (!context_data::filter (rs, base.dir, link, entry_type::symlink))
+      if (!filter_entry (rs, base.dir, link, entry_type::symlink))
         return false;
 
       dir_path chd (chroot_path (rs, base.dir));

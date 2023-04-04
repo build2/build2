@@ -5,7 +5,6 @@
 #include <libbuild2/variable.hxx>
 
 #include <libbuild2/install/utility.hxx>
-#include <libbuild2/install/operation.hxx>
 
 namespace build2
 {
@@ -98,8 +97,7 @@ namespace build2
       // whether path is syntactially a directory (ends with a directory
       // separator).
       //
-      // Note that this function is not pure and can only be called from a
-      // install or uninstall operation recipe.
+      // Note that this function is not pure.
       //
       f.insert (".filter", false) += [] (const scope* s,
                                          path p,
@@ -107,16 +105,6 @@ namespace build2
       {
         if (s == nullptr)
           fail << "install.filter() called out of scope" << endf;
-
-        context& ctx (s->ctx);
-
-        if (ctx.phase != run_phase::match &&
-            ctx.phase != run_phase::execute)
-          fail << "install.filter() can only be called from recipe";
-
-        if (ctx.current_inner_oif != &op_install &&
-            ctx.current_inner_oif != &op_uninstall)
-          fail << "install.filter() can only be called during install/uninstall";
 
         entry_type t;
         if (ot)
@@ -145,7 +133,7 @@ namespace build2
           p.make_leaf ();
         }
 
-        return context_data::filter (*s->root_scope (), d, p, t);
+        return filter_entry (*s->root_scope (), d, p, t);
       };
     }
   }
