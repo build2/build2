@@ -790,6 +790,8 @@ namespace build2
                const file& t,
                uint16_t verbosity)
     {
+      assert (d.absolute ());
+
       context& ctx (rs.ctx);
 
       // Here is the problem: if this is a dry-run, then we will keep showing
@@ -805,7 +807,8 @@ namespace build2
       // Note that this also means we won't have the directory entries in the
       // manifest created with dry-run. Probably not a big deal.
       //
-      if (ctx.dry_run)
+      if (ctx.dry_run ||
+          !context_data::filter (rs, d, path (), entry_type::directory))
         return;
 
       dir_path chd (chroot_path (rs, d));
@@ -870,7 +873,7 @@ namespace build2
            pp, args,
            verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
 
-      install_context_data::manifest_install_d (ctx, t, d, *base.dir_mode);
+      context_data::manifest_install_d (ctx, t, d, *base.dir_mode);
     }
 
     void file_rule::
@@ -881,7 +884,14 @@ namespace build2
                const path& f,
                uint16_t verbosity)
     {
+      assert (name.empty () || name.simple ());
+
       context& ctx (rs.ctx);
+
+      const path& leaf (name.empty () ? f.leaf () : name);
+
+      if (!context_data::filter (rs, base.dir, leaf, entry_type::regular))
+        return;
 
       path relf (relative (f));
 
@@ -934,12 +944,7 @@ namespace build2
              pp, args,
              verb >= verbosity ? 1 : verb_never /* finish_verbosity */);
 
-      install_context_data::manifest_install_f (
-        ctx,
-        t,
-        base.dir,
-        name.empty () ? f.leaf () : name,
-        *base.mode);
+      context_data::manifest_install_f (ctx, t, base.dir, leaf, *base.mode);
     }
 
     void file_rule::
@@ -950,7 +955,12 @@ namespace build2
                const path& link_target,
                uint16_t verbosity)
     {
+      assert (link.simple () && !link.empty ());
+
       context& ctx (rs.ctx);
+
+      if (!context_data::filter (rs, base.dir, link, entry_type::symlink))
+        return;
 
       if (link_target.absolute () &&
           cast_false<bool> (rs["install.relocatable"]))
@@ -1033,12 +1043,11 @@ namespace build2
       }
 #endif
 
-      install_context_data::manifest_install_l (
-        ctx,
-        target,
-        link_target,
-        base.dir,
-        link);
+      context_data::manifest_install_l (ctx,
+                                        target,
+                                        link_target,
+                                        base.dir,
+                                        link);
     }
 
     target_state file_rule::
@@ -1158,9 +1167,14 @@ namespace build2
                  const dir_path& d,
                  uint16_t verbosity)
     {
+      assert (d.absolute ());
+
+      context& ctx (rs.ctx);
+
       // See install_d() for the rationale.
       //
-      if (rs.ctx.dry_run)
+      if (ctx.dry_run ||
+          !context_data::filter (rs, d, path (), entry_type::directory))
         return false;
 
       dir_path chd (chroot_path (rs, d));
@@ -1241,10 +1255,10 @@ namespace build2
           }
 
           process pr (run_start (pp, args,
-                                 0                          /* stdin */,
-                                 1                          /* stdout */,
-                                 diag_buffer::pipe (rs.ctx) /* stderr */));
-          diag_buffer dbuf (rs.ctx, args[0], pr);
+                                 0                       /* stdin */,
+                                 1                       /* stdout */,
+                                 diag_buffer::pipe (ctx) /* stderr */));
+          diag_buffer dbuf (ctx, args[0], pr);
           dbuf.read ();
           r = run_finish_code (
             dbuf,
@@ -1338,10 +1352,15 @@ namespace build2
                  const path& name,
                  uint16_t verbosity)
     {
-      assert (t != nullptr || !name.empty ());
+      assert (name.empty () ? t != nullptr : name.simple ());
+
+      const path& leaf (name.empty () ? t->path ().leaf () : name);
+
+      if (!context_data::filter (rs, base.dir, leaf, entry_type::regular))
+        return false;
 
       dir_path chd (chroot_path (rs, base.dir));
-      path f (chd / (name.empty () ? t->path ().leaf () : name));
+      path f (chd / leaf);
 
       try
       {
@@ -1380,6 +1399,11 @@ namespace build2
                  const path& /*link_target*/,
                  uint16_t verbosity)
     {
+      assert (link.simple () && !link.empty ());
+
+      if (!context_data::filter (rs, base.dir, link, entry_type::symlink))
+        return false;
+
       dir_path chd (chroot_path (rs, base.dir));
       path f (chd / link);
 

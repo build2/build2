@@ -52,7 +52,7 @@ namespace build2
       //
       if (bs->ctx.phase != run_phase::match &&
           bs->ctx.phase != run_phase::execute)
-        fail << f.name << " can only be called during execution";
+        fail << f.name << " can only be called from recipe";
 
       const module* m (rs->find_module<module> (d.x));
 
@@ -131,7 +131,7 @@ namespace build2
 
       if (bs->ctx.phase != run_phase::match && // See above.
           bs->ctx.phase != run_phase::execute)
-        fail << f.name << " can only be called during execution";
+        fail << f.name << " can only be called from recipe";
 
       const module* m (rs->find_module<module> (d.x));
 

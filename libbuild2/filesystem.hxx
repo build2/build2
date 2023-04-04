@@ -22,6 +22,8 @@
 //
 namespace build2
 {
+  using butl::entry_type;
+
   using butl::auto_rmfile;
   using butl::auto_rmdir;
 

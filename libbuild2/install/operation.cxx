@@ -19,10 +19,255 @@ namespace build2
 {
   namespace install
   {
+    bool context_data::
+    filter (const scope& rs,
+            const dir_path& base,
+            const path& leaf,
+            entry_type type)
+    {
+      assert (type != entry_type::unknown &&
+              (type == entry_type::directory) == leaf.empty ());
+
+      context& ctx (rs.ctx);
+
+      auto& d (*static_cast<context_data*> (ctx.current_inner_odata.get ()));
+
+      if (d.filters == nullptr || d.filters->empty ())
+        return true;
+
+      tracer trace ("install::context_data::filter");
+
+      // Parse, resolve, and apply each filter in order.
+      //
+      // If redoing all this work for every entry proves too slow, we can
+      // consider some form of caching (e.g., on the per-project basis).
+      //
+      size_t limit (0); // See below.
+
+      for (const pair<string, string>& kv: *d.filters)
+      {
+        path k;
+        try
+        {
+          k = path (kv.first);
+
+          if (k.absolute ())
+            k.normalize ();
+        }
+        catch (const invalid_path&)
+        {
+          fail << "invalid path '" << kv.first << "' in config.install.filter "
+               << "value";
+        }
+
+        bool v;
+        {
+          const string& s (kv.second);
+
+          size_t p (s.find (','));
+
+          if (s.compare (0, p, "true") == 0)
+            v = true;
+          else if (s.compare (0, p, "false") == 0)
+            v = false;
+          else
+            fail << "expected true or false instead of '" << string (s, 0, p)
+                 << "' in config.install.filter value";
+
+          if (p != string::npos)
+          {
+            if (s.compare (p + 1, string::npos, "symlink") == 0)
+            {
+              if (type != entry_type::symlink)
+                continue;
+            }
+            else
+              fail << "unknown modifier '" << string (s, p + 1) << "' in "
+                   << "config.install.filter value";
+          }
+        }
+
+        // @@ TODO (see below for all the corner cases). Note that in a sense
+        //    we already have the match file in any subdirectory support via
+        //    simple patterns so perhaps this is not worth the trouble. Or we
+        //    could support some limited form (e.g., `**` should be in the
+        //    last component). But it may still be tricky to determine if
+        //    it is a sub-filter.
+        //
+        if (path_pattern_recursive (k))
+          fail << "recursive wildcard pattern '" << kv.first << "' in "
+               << "config.install.filter value";
+
+        if (k.simple () && !k.to_directory ())
+        {
+          // Simple name/pattern matched against the leaf.
+          //
+          // @@ What if it is `**`?
+          //
+          if (path_pattern (k))
+          {
+            if (!path_match (leaf, k))
+              continue;
+          }
+          else
+          {
+            if (k != leaf)
+              continue;
+          }
+        }
+        else
+        {
+          // Split into directory and leaf.
+          //
+          // @@ What if leaf is `**`?
+          //
+          dir_path d;
+          if (k.to_directory ())
+          {
+            d = path_cast<dir_path> (move (k));
+            k = path (); // No leaf.
+          }
+          else
+          {
+            d = k.directory ();
+            k.make_leaf ();
+          }
+
+          // Resolve relative directory.
+          //
+          // Note that this resolution is potentially project-specific (that
+          // is, different projects may have different install.* locaitons).
+          //
+          // Note that if the first component is/contains a wildcard (e.g.,
+          // `*/`), then the resulution will fail, which feels correct (what
+          // does */ mean?).
+          //
+          if (d.relative ())
+          {
+            // @@ Strictly speaking, this should be base, not root scope.
+            //
+            d = resolve_dir (rs, move (d));
+          }
+
+          // Return the number of path components in the path.
+          //
+          auto path_comp = [] (const path& p)
+          {
+            size_t n (0);
+            for (auto i (p.begin ()); i != p.end (); ++i)
+              ++n;
+            return n;
+          };
+
+          // We need the sub() semantics but which uses pattern match instead
+          // of equality for the prefix. Looks like chopping off the path and
+          // calling path_match() on that is the best we can do.
+          //
+          // @@ Assumes no `**` components.
+          //
+          auto path_sub = [&path_comp] (const dir_path& ent,
+                                        const dir_path& pat,
+                                        size_t n = 0)
+          {
+            if (n == 0)
+              n = path_comp (pat);
+
+            dir_path p;
+            for (auto i (ent.begin ()); n != 0 && i != ent.end (); --n, ++i)
+              p.combine (*i, i.separator ());
+
+            return path_match (p, pat);
+          };
+
+          // The following checks should continue on no match and fall through
+          // to return.
+          //
+          if (k.empty ()) // Directory.
+          {
+            // Directories have special semantics.
+            //
+            // Consider this sequence of filters:
+            //
+            //   include/x86_64-linux-gnu/@true
+            //   include/x86_64-linux-gnu/details/@false
+            //   include/@false
+            //
+            // It seems the semantics we want is that only subcomponent
+            // filters should apply. Maybe remember the latest matched
+            // directory as a current limit? But perhaps we don't need to
+            // remember the directory itself but the number of path
+            // components?
+            //
+            // I guess for patterns we will use the actual matched directory,
+            // not the pattern, to calculate the limit? @@ Because we
+            // currently don't support `**`, we for now can count components
+            // in the pattern.
+
+            // Check if this is a sub-filter.
+            //
+            size_t n (path_comp (d));
+            if (n <= limit)
+              continue;
+
+            if (path_pattern (d))
+            {
+              if (!path_sub (base, d, n))
+                continue;
+            }
+            else
+            {
+              if (!base.sub (d))
+                continue;
+            }
+
+            if (v)
+            {
+              limit = n;
+              continue; // Continue looking for sub-filters.
+            }
+          }
+          else
+          {
+            if (path_pattern (d))
+            {
+              if (!path_sub (base, d))
+                continue;
+            }
+            else
+            {
+              if (!base.sub (d))
+                continue;
+            }
+
+            if (path_pattern (k))
+            {
+              // @@ Does not handle `**`.
+              //
+              if (!path_match (leaf, k))
+                continue;
+            }
+            else
+            {
+              if (k != leaf)
+                continue;
+            }
+          }
+        }
+
+        l4 ([&]{trace << (base / leaf)
+                      << (v ? " included by " : " excluded by ")
+                      << kv.first << '@' << kv.second;});
+        return v;
+      }
+
+      return true;
+    }
+
 #ifndef BUILD2_BOOTSTRAP
-    install_context_data::
-    install_context_data (const path* mf)
-        : manifest_name (mf),
+    context_data::
+    context_data (const install::filters* fs, const path* mf)
+        : filters (fs),
+          manifest_name (mf),
           manifest_os (mf != nullptr
                        ? open_file_or_stdout (manifest_name, manifest_ofs)
                        : manifest_ofs),
@@ -38,7 +283,7 @@ namespace build2
     }
 
     static path
-    relocatable_path (install_context_data& d, const target& t, path p)
+    relocatable_path (context_data& d, const target& t, path p)
     {
       // This is both inefficient (re-detecting relocatable manifest for every
       // path) and a bit dirty (if multiple projects are being installed with
@@ -101,7 +346,7 @@ namespace build2
     // symlinks belong to tragets, directories do not.
     //
     static void
-    manifest_flush_target (install_context_data& d, const target* tgt)
+    manifest_flush_target (context_data& d, const target* tgt)
     {
       if (d.manifest_target != nullptr)
       {
@@ -163,14 +408,13 @@ namespace build2
       d.manifest_target = tgt;
     }
 
-    void install_context_data::
+    void context_data::
     manifest_install_d (context& ctx,
                         const target& tgt,
                         const dir_path& dir,
                         const string& mode)
     {
-      auto& d (
-        *static_cast<install_context_data*> (ctx.current_inner_odata.get ()));
+      auto& d (*static_cast<context_data*> (ctx.current_inner_odata.get ()));
 
       if (d.manifest_name.path != nullptr)
       {
@@ -200,15 +444,14 @@ namespace build2
       }
     }
 
-    void install_context_data::
+    void context_data::
     manifest_install_f (context& ctx,
                         const target& tgt,
                         const dir_path& dir,
                         const path& name,
                         const string& mode)
     {
-      auto& d (
-        *static_cast<install_context_data*> (ctx.current_inner_odata.get ()));
+      auto& d (*static_cast<context_data*> (ctx.current_inner_odata.get ()));
 
       if (d.manifest_name.path != nullptr)
       {
@@ -220,15 +463,14 @@ namespace build2
       }
     }
 
-    void install_context_data::
+    void context_data::
     manifest_install_l (context& ctx,
                         const target& tgt,
                         const path& link_target,
                         const dir_path& dir,
                         const path& link)
     {
-      auto& d (
-        *static_cast<install_context_data*> (ctx.current_inner_odata.get ()));
+      auto& d (*static_cast<context_data*> (ctx.current_inner_odata.get ()));
 
       if (d.manifest_name.path != nullptr)
       {
@@ -243,8 +485,7 @@ namespace build2
     static void
     manifest_close (context& ctx)
     {
-      auto& d (
-        *static_cast<install_context_data*> (ctx.current_inner_odata.get ()));
+      auto& d (*static_cast<context_data*> (ctx.current_inner_odata.get ()));
 
       if (d.manifest_name.path != nullptr)
       {
@@ -271,12 +512,13 @@ namespace build2
       }
     }
 #else
-    install_context_data::
-    install_context_data (const path*)
+    context_data::
+    context_data (const install::filters* fs, const path*)
+        : filters (fs)
     {
     }
 
-    void install_context_data::
+    void context_data::
     manifest_install_d (context&,
                         const target&,
                         const dir_path&,
@@ -284,7 +526,7 @@ namespace build2
     {
     }
 
-    void install_context_data::
+    void context_data::
     manifest_install_f (context&,
                         const target&,
                         const dir_path&,
@@ -293,7 +535,7 @@ namespace build2
     {
     }
 
-    void install_context_data::
+    void context_data::
     manifest_install_l (context&,
                         const target&,
                         const path&,
@@ -341,20 +583,48 @@ namespace build2
 
       if (inner)
       {
-        // See if we need to write the installation manifest.
+        // See if we need to filter and/or write the installation manifest.
         //
         // Note: go straight for the public variable pool.
         //
-        const variable& var (*ctx.var_pool.find ("config.install.manifest"));
-        const path* mf (cast_null<path> (ctx.global_scope[var]));
+        const filters* fs (
+          cast_null<filters> (
+            ctx.global_scope[*ctx.var_pool.find ("config.install.filter")]));
+
+        const path* mf (
+          cast_null<path> (
+            ctx.global_scope[*ctx.var_pool.find ("config.install.manifest")]));
 
         // Note that we cannot calculate whether the manifest should use
         // relocatable (relative) paths once here since we don't know the
         // value of config.install.root.
 
         ctx.current_inner_odata = context::current_data_ptr (
-          new install_context_data (mf),
-          [] (void* p) {delete static_cast<install_context_data*> (p);});
+          new context_data (fs, mf),
+          [] (void* p) {delete static_cast<context_data*> (p);});
+      }
+    }
+
+    static void
+    uninstall_pre (context& ctx,
+                   const values& params,
+                   bool inner,
+                   const location& l)
+    {
+      // Note: a subset of install_pre().
+      //
+      if (!params.empty ())
+        fail (l) << "unexpected parameters for operation uninstall";
+
+      if (inner)
+      {
+        const filters* fs (
+          cast_null<filters> (
+            ctx.global_scope[*ctx.var_pool.find ("config.install.filter")]));
+
+        ctx.current_inner_odata = context::current_data_ptr (
+          new context_data (fs, nullptr),
+          [] (void* p) {delete static_cast<context_data*> (p);});
       }
     }
 
@@ -412,7 +682,7 @@ namespace build2
       0 /* concurrency */,      // Run serially
       &pre_uninstall,
       nullptr,
-      nullptr,
+      &uninstall_pre,
       nullptr,
       nullptr,
       nullptr

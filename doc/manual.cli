@@ -6282,6 +6282,81 @@ for example:
 assert (!$install.relocatable) 'relocatable installation not supported'
 \
 
+
+\h#install-filter|Installation Filtering|
+
+While project authors determine what gets installed at the \c{buildfile}
+level, the users of the project can further filter the installation using the
+\c{config.install.filter} variable. \N{This variable can only be specified as
+a global override.}
+
+The value of this variable is a list of key-value pairs that specify the
+filesystem entries to include or exclude from the installation. For example,
+the following filters will omit installing headers and static libraries
+(notice the quoting of the wildcard).
+
+\
+$ b install !config.install.filter='include/@false \"*.a\"@false'
+\
+
+The key in each pair is a file or directory path or a path wildcard pattern.
+If a key is relative and contains a directory component or is a directory,
+then it is treated relative to the corresponding \c{config.install.*}
+location. Otherwise (simple path, normally a pattern), it is matched against
+the leaf of any path. Note that if an absolute path is specified, it should be
+without the \c{config.install.chroot} prefix.
+
+The value in each pair is either \c{true} (include) or \c{false} (exclude).
+The filters are evaluated in the order specified and the first match that is
+found determines the outcome. If no match is found, the default is to
+include. For a directory, while \c{false} means exclude all the sub-paths
+inside this directory, \c{true} does not mean that all the sub-paths will be
+included wholesale. Rather, the matched component of the sub-path is treated
+as included with the rest of the components matched against the following
+sub-filters. For example:
+
+\
+$ b install !config.install.filter='
+   include/x86_64-linux-gnu/@true
+   include/x86_64-linux-gnu/details/@false
+   include/@false'
+\
+
+The \c{true} or \c{false} value may be followed by comma and the \c{symlink}
+modifier to only apply to symlink filesystem entries. For example:
+
+\
+$ b !config.install.filter='\"*.so\"@false,symlink'
+\
+
+Note that this mechanism only affects what gets physically copied to the
+installation directory without affecting what gets built for install or the
+view of what gets installed at the \c{buildfile} level. For example,
+given the \c{include/@false *.a@false} filters, static libraries will still be
+built (unless arranged not to with \c{config.bin.lib}) and the \c{pkg-config}
+files will still end up with \c{-I} options pointing to the header
+installation directory. Note also that this mechanism applies to both
+\c{install} and \c{uninstall} operations.
+
+\N|If you are familiar with the Debian or Fedora packaging, this mechanism is
+somewhat similar to (and can be used for a similar purpose as) the Debian's
+\c{.install} files and Fedora's \c{%files} spec file sections, which are used
+to split the installation into multiple binary packages.|
+
+As another example, the following filters will omit all the
+development-related files (headers, \c{pkg-config} files, static libraries,
+and shared library symlinks; assuming the platform uses the \c{.a}/\c{.so}
+extensions for the libraries):
+
+\
+$ b install !config.install.filter='
+   include/@false
+   pkgconfig/@false
+   \"lib/*.a\"@false
+   \"lib/*.so\"@false,symlink'
+\
+
+
 \h1#module-version|\c{version} Module|
 
 A project can use any version format as long as it meets the package version

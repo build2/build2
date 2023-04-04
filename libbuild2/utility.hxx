@@ -100,6 +100,7 @@ namespace build2
   // <libbutl/path-pattern.hxx>
   //
   using butl::path_pattern;
+  using butl::path_match;
 
   // Perform process-wide initializations/adjustments/workarounds. Should be
   // called once early in main(). In particular, besides other things, this

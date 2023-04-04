@@ -421,9 +421,10 @@ namespace build2
         using config::lookup_config;
         using config::specified_config;
 
-        // Note: ignore config.install.{scope,manifest} (see below).
+        // Note: ignore config.install.{scope,filter,manifest} (see below).
         //
-        bool s (specified_config (rs, "install", {"scope", "manifest"}));
+        bool s (specified_config (
+                  rs, "install", {"scope", "filter", "manifest"}));
 
         // Adjust module priority so that the (numerous) config.install.*
         // values are saved at the end of config.build.
@@ -455,6 +456,77 @@ namespace build2
             if (!l.belongs (rs.global_scope ()))
               fail << "config.install.scope must be a global override" <<
                 info << "specify !config.install.scope=...";
+          }
+
+          config::unsave_variable (rs, v);
+        }
+
+        // config.install.filter
+        //
+        // Installation filterting. The value of this variable is a list of
+        // key-value pairs that specify the filesystem entries to include or
+        // exclude from the installation. For example, the following filters
+        // will omit installing headers and static libraries (notice the
+        // quoting of the wildcard).
+        //
+        // !config.install.filter='include/@false "*.a"@false'
+        //
+        // The key in each pair is a file or directory path or a path wildcard
+        // pattern. If a key is relative and contains a directory component or
+        // is a directory, then it is treated relative to the corresponding
+        // config.install.* location. Otherwise (simple path, normally a
+        // pattern), it is matched against the leaf of any path. Note that if
+        // an absolute path is specified, it should be without the
+        // config.install.chroot prefix.
+        //
+        // The value in each pair is either true (include) or false (exclude).
+        // The filters are evaluated in the order specified and the first
+        // match that is found determines the outcome. If no match is found,
+        // the default is to include. For a directory, while false means
+        // exclude all the sub-paths inside this directory, true does not mean
+        // that all the sub-paths will be included wholesale. Rather, the
+        // matched component of the sub-path is treated as included with the
+        // rest of the components matched against the following
+        // sub-filters. For example:
+        //
+        // !config.install.filter='
+        //    include/x86_64-linux-gnu/@true
+        //    include/x86_64-linux-gnu/details/@false
+        //    include/@false'
+        //
+        // The true or false value may be followed by comma and the `symlink`
+        // modifier to only apply to symlink filesystem entries. For example:
+        //
+        // !config.install.filter='"*.so"@false,symlink'
+        //
+        // Note that this mechanism only affects what gets physically copied
+        // to the installation directory without affecting what gets built for
+        // install or the view of what gets installed at the buildfile level.
+        // For example, given the `include/@false *.a@false` filters, static
+        // libraries will still be built (unless arranged not to with
+        // config.bin.lib) and the pkg-config files will still end up with -I
+        // options pointing to the header installation directory. Note also
+        // that this mechanism applies to both install and uninstall
+        // operations.
+        //
+        // If you are familiar with the Debian or Fedora packaging, this
+        // mechanism is somewhat similar to (and can be used for a similar
+        // purpose as) the Debian's .install files and Fedora's %files spec
+        // file sections that are used to split the installation into multiple
+        // binary packages.
+        //
+        // Note: can only be specified as a global override.
+        //
+        {
+          auto& v (vp.insert<filters> ("config.install.filter"));
+
+          // If specified, verify it is a global override.
+          //
+          if (lookup l = rs[v])
+          {
+            if (!l.belongs (rs.global_scope ()))
+              fail << "config.install.filter must be a global override" <<
+                info << "specify !config.install.filter=...";
           }
 
           config::unsave_variable (rs, v);

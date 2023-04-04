@@ -5,6 +5,7 @@
 #include <libbuild2/variable.hxx>
 
 #include <libbuild2/install/utility.hxx>
+#include <libbuild2/install/operation.hxx>
 
 namespace build2
 {
@@ -16,6 +17,8 @@ namespace build2
       function_family f (m, "install");
 
       // $install.resolve(<dir>[, <rel_base>])
+      //
+      // @@ TODO: add overload to call resolve_file().
       //
       // Resolve potentially relative install.* value to an absolute and
       // normalized directory based on (other) install.* values visible from
@@ -79,6 +82,70 @@ namespace build2
         return resolve_dir (*s,
                             move (dir),
                             rel_base ? move (*rel_base) : dir_path ());
+      };
+
+      // @@ TODO: add $install.chroot().
+
+      // $install.filter(<path>[, <type>])
+      //
+      // Apply filters from config.install.filter and return true if the
+      // specified filesystem entry should be installed/uninstalled. Note that
+      // the entry is specified as an absolute and normalized installation
+      // path (so not $path($>) but $install.resolve($>)).
+      //
+      // The type argument can be one of `regular`, `directory`, or `symlink`.
+      // If unspecified, either `directory` or `regular` is assumed, based on
+      // whether path is syntactially a directory (ends with a directory
+      // separator).
+      //
+      // Note that this function is not pure and can only be called from a
+      // install or uninstall operation recipe.
+      //
+      f.insert (".filter", false) += [] (const scope* s,
+                                         path p,
+                                         optional<names> ot)
+      {
+        if (s == nullptr)
+          fail << "install.filter() called out of scope" << endf;
+
+        context& ctx (s->ctx);
+
+        if (ctx.phase != run_phase::match &&
+            ctx.phase != run_phase::execute)
+          fail << "install.filter() can only be called from recipe";
+
+        if (ctx.current_inner_oif != &op_install &&
+            ctx.current_inner_oif != &op_uninstall)
+          fail << "install.filter() can only be called during install/uninstall";
+
+        entry_type t;
+        if (ot)
+        {
+          string v (convert<string> (move (*ot)));
+
+          if      (v == "regular")   t = entry_type::regular;
+          else if (v == "directory") t = entry_type::directory;
+          else if (v == "symlink")   t = entry_type::symlink;
+          else throw invalid_argument ("unknown type '" + v + '\'');
+        }
+        else
+          t = p.to_directory () ? entry_type::directory : entry_type::regular;
+
+        // Split into directory and leaf.
+        //
+        dir_path d;
+        if (t == entry_type::directory)
+        {
+          d = path_cast<dir_path> (move (p));
+          p = path (); // No leaf.
+        }
+        else
+        {
+          d = p.directory ();
+          p.make_leaf ();
+        }
+
+        return context_data::filter (*s->root_scope (), d, p, t);
       };
     }
   }

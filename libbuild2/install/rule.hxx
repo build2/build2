@@ -205,6 +205,8 @@ namespace build2
       // install <file> <base>/        # if <name> is empty
       // install <file> <base>/<name>  # if <name> is not empty
       //
+      // Note that <name> should be a simple path.
+      //
       static void
       install_f (const scope& rs,
                  const install_dir& base,
@@ -221,8 +223,9 @@ namespace build2
       //
       // ln -s <link_target> <base>/<link>
       //
-      // Note that <link_target> must not be absolute if relocatable
-      // installation is requested (config.install.relocatable).
+      // Note that <link> should be a simple path. Note that <link_target>
+      // must not be absolute if relocatable installation is requested
+      // (config.install.relocatable).
       //
       // Note that the target argument only specifies which target this
       // symlink "belongs" to.
@@ -267,9 +270,9 @@ namespace build2
       //
       // uninstall -d <dir>
       //
-      // We try to remove all the directories between base and dir but not base
-      // itself unless base == dir. Return false if nothing has been removed
-      // (i.e., the directories do not exist or are not empty).
+      // We try to remove all the directories between base and dir but not
+      // base itself unless base == dir. Return false if nothing has been
+      // removed (i.e., the directories do not exist or are not empty).
       //
       static bool
       uninstall_d (const scope& rs,
