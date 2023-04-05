@@ -211,9 +211,11 @@ namespace build2
     unique_ptr<data> data_;
 
   public:
-    scheduler& sched;
-    global_mutexes& mutexes;
-    file_cache& fcache;
+    // These are only NULL for the "bare minimum" context (see below).
+    //
+    scheduler*      sched;
+    global_mutexes* mutexes;
+    file_cache*     fcache;
 
     // Match only flag (see --match-only but also dist).
     //
@@ -677,7 +679,6 @@ namespace build2
       reserves (size_t t, size_t v): targets (t), variables (v) {}
     };
 
-    explicit
     context (scheduler&,
              global_mutexes&,
              file_cache&,
@@ -690,6 +691,14 @@ namespace build2
              reserves = {0, 160},
              optional<context*> module_context = nullptr,
              const loaded_modules_lock* inherited_mudules_lock = nullptr);
+
+    // Special context with bare minimum of initializations. It is only
+    // guaranteed to be sufficiently initialized to call extract_variable().
+    //
+    // Note that for this purpose you may omit calls to init_diag() and
+    // init().
+    //
+    context ();
 
     // Reserve elements in containers to avoid re-allocation/re-hashing. Zero
     // values are ignored (that is, the corresponding container reserve()

@@ -369,8 +369,8 @@ namespace build2
     // Typification is kind of like caching so we reuse that mutex shard.
     //
     shared_mutex& m (
-      ctx.mutexes.variable_cache[
-        hash<value*> () (&v) % ctx.mutexes.variable_cache_size]);
+      ctx.mutexes->variable_cache[
+        hash<value*> () (&v) % ctx.mutexes->variable_cache_size]);
 
     // Note: v.type is rechecked by typify() under lock.
     //

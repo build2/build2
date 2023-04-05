@@ -2984,7 +2984,7 @@ namespace build2
             // If/when required we could probably support the precise sleep
             // mode (e.g., via an option).
             //
-            env.context.sched.sleep (t);
+            env.context.sched->sleep (t);
           }
         };
 

@@ -18,11 +18,11 @@ using namespace butl;
 
 namespace build2
 {
-  // Diagnostics state (verbosity level, progress, etc). Keep disabled until
-  // set from options.
+  // Diagnostics state (verbosity level, progress, etc). Keep default/disabled
+  // until set from options.
   //
-  uint16_t verb = 0;
-  bool silent = true;
+  uint16_t verb = 1;
+  bool silent = false;
 
   optional<bool> diag_progress_option;
   optional<bool> diag_color_option;
@@ -621,7 +621,7 @@ namespace build2
   int diag_buffer::
   pipe (context& ctx, bool force)
   {
-    return (ctx.sched.serial () || ctx.no_diag_buffer) && !force ? 2 : -1;
+    return (ctx.sched->serial () || ctx.no_diag_buffer) && !force ? 2 : -1;
   }
 
   void diag_buffer::
@@ -629,7 +629,7 @@ namespace build2
   {
     assert (state_ == state::closed && args0 != nullptr);
 
-    serial = ctx_.sched.serial ();
+    serial = ctx_.sched->serial ();
     nobuf = !serial && ctx_.no_diag_buffer;
 
     if (fd != nullfd)
@@ -653,7 +653,7 @@ namespace build2
   {
     assert (state_ == state::closed && args0 != nullptr);
 
-    serial = ctx_.sched.serial ();
+    serial = ctx_.sched->serial ();
     nobuf = !serial && ctx_.no_diag_buffer;
     this->args0 = args0;
     state_ = state::eof;

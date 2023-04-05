@@ -3964,7 +3964,7 @@ namespace build2
             auto i (find_option_prefix ("-flto", args.rbegin (), args.rend ()));
             if (i != args.rend () && strcmp (*i, "-flto=auto") == 0)
             {
-              jobs_extra = scheduler::alloc_guard (ctx.sched, 0);
+              jobs_extra = scheduler::alloc_guard (*ctx.sched, 0);
               jobs_arg = "-flto=" + to_string (1 + jobs_extra.n);
               *i = jobs_arg.c_str ();
             }
@@ -3983,7 +3983,7 @@ namespace build2
                 strcmp (*i, "-flto=thin") == 0 &&
                 !find_option_prefix ("-flto-jobs=", args))
             {
-              jobs_extra = scheduler::alloc_guard (ctx.sched, 0);
+              jobs_extra = scheduler::alloc_guard (*ctx.sched, 0);
               jobs_arg = "-flto-jobs=" + to_string (1 + jobs_extra.n);
               args.insert (i.base (), jobs_arg.c_str ()); // After -flto=thin.
             }

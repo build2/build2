@@ -753,7 +753,7 @@ namespace build2
 
     if (r == target_state::busy)
     {
-      t.ctx.sched.wait (t.ctx.count_executed (),
+      t.ctx.sched->wait (t.ctx.count_executed (),
                         t[a].task_count,
                         scheduler::work_none);
 
@@ -789,7 +789,7 @@ namespace build2
 
     // If the target is still busy, wait for its completion.
     //
-    ctx.sched.wait (ctx.count_executed (),
+    ctx.sched->wait (ctx.count_executed (),
                     t[a].task_count,
                     scheduler::work_none);
 
@@ -806,7 +806,7 @@ namespace build2
 
     if (r == target_state::busy)
     {
-      t.ctx.sched.wait (t.ctx.count_executed (),
+      t.ctx.sched->wait (t.ctx.count_executed (),
                         t[a].task_count,
                         scheduler::work_none);
 

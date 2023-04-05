@@ -81,9 +81,9 @@ namespace build2
     // adding a reasonable margin for future growth.
     //
     ctx.module_context_storage->reset (
-      new context (ctx.sched,
-                   ctx.mutexes,
-                   ctx.fcache,
+      new context (*ctx.sched,
+                   *ctx.mutexes,
+                   *ctx.fcache,
                    false,                    /* match_only */
                    false,                    /* no_external_modules */
                    false,                    /* dry_run */
@@ -144,8 +144,8 @@ namespace build2
     // keep it in case things change. Actually, we may need it, if the
     // scheduler was started up in a tuned state, like in bpkg).
     //
-    auto sched_tune (ctx.sched.serial ()
-                     ? scheduler::tune_guard (ctx.sched, 0)
+    auto sched_tune (ctx.sched->serial ()
+                     ? scheduler::tune_guard (*ctx.sched, 0)
                      : scheduler::tune_guard ());
 
     // Remap verbosity level 0 to 1 unless we were requested to be silent.
@@ -429,7 +429,7 @@ namespace build2
       //
       auto_thread_env penv (nullptr);
       context& ctx (*bs.ctx.module_context);
-      scheduler::phase_guard pg (ctx.sched);
+      scheduler::phase_guard pg (*ctx.sched);
 
       // Load the imported project in the module context.
       //

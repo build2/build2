@@ -3449,7 +3449,7 @@ namespace build2
 
               msvc_sanitize_cl (args);
 
-              psrc = ctx.fcache.create (t.path () + pext, !modules);
+              psrc = ctx.fcache->create (t.path () + pext, !modules);
 
               if (fc)
               {
@@ -3601,7 +3601,7 @@ namespace build2
 
                 // Preprocessor output.
                 //
-                psrc = ctx.fcache.create (t.path () + pext, !modules);
+                psrc = ctx.fcache->create (t.path () + pext, !modules);
                 args.push_back ("-o");
                 args.push_back (psrc.path ().string ().c_str ());
               }
@@ -3896,7 +3896,7 @@ namespace build2
               if (modules && (ctype != compiler_type::msvc ||
                               md.type != unit_type::module_intf))
               {
-                result.first = ctx.fcache.create_existing (t.path () + pext);
+                result.first = ctx.fcache->create_existing (t.path () + pext);
                 result.second = true;
               }
 
@@ -7521,7 +7521,7 @@ namespace build2
 
       // Compressed preprocessed file extension.
       //
-      string cpext (t.ctx.fcache.compressed_extension (pext));
+      string cpext (t.ctx.fcache->compressed_extension (pext));
 
       clean_extras extras;
       switch (ctype)

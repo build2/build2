@@ -278,7 +278,7 @@ namespace build2
         // unless we release the phase.
         //
         phase_unlock u (ct.ctx, true /* unlock */, true /* delay */);
-        e = ctx.sched.wait (busy - 1, task_count, u, *wq);
+        e = ctx.sched->wait (busy - 1, task_count, u, *wq);
       }
 
       // We don't lock already applied or executed targets.
@@ -327,7 +327,7 @@ namespace build2
     // this target.
     //
     task_count.store (offset + ctx.count_base (), memory_order_release);
-    ctx.sched.resume (task_count);
+    ctx.sched->resume (task_count);
   }
 
   target&
@@ -1101,7 +1101,7 @@ namespace build2
       // Also pass our diagnostics and lock stacks (this is safe since we
       // expect the caller to wait for completion before unwinding its stack).
       //
-      if (ct.ctx.sched.async (
+      if (ct.ctx.sched->async (
             start_count,
             *task_count,
             [a, try_match] (const diag_frame* ds,
@@ -2388,7 +2388,7 @@ namespace build2
                  target::offset_busy - target::offset_executed,
                  memory_order_release));
     assert (tc == ctx.count_busy ());
-    ctx.sched.resume (s.task_count);
+    ctx.sched->resume (s.task_count);
 
     return ts;
   }
@@ -2459,7 +2459,7 @@ namespace build2
           : s.state;
 
         s.task_count.store (exec, memory_order_release);
-        ctx.sched.resume (s.task_count);
+        ctx.sched->resume (s.task_count);
       }
       else
       {
@@ -2470,15 +2470,15 @@ namespace build2
           // Pass our diagnostics stack (this is safe since we expect the
           // caller to wait for completion before unwinding its diag stack).
           //
-          if (ctx.sched.async (start_count,
-                               *task_count,
-                               [a] (const diag_frame* ds, target& t)
-                               {
-                                 diag_frame::stack_guard dsg (ds);
-                                 execute_impl (a, t);
-                               },
-                               diag_frame::stack (),
-                               ref (t)))
+          if (ctx.sched->async (start_count,
+                                *task_count,
+                                [a] (const diag_frame* ds, target& t)
+                                {
+                                  diag_frame::stack_guard dsg (ds);
+                                  execute_impl (a, t);
+                                },
+                                diag_frame::stack (),
+                                ref (t)))
             return target_state::unknown; // Queued.
 
           // Executed synchronously, fall through.
@@ -2527,15 +2527,15 @@ namespace build2
           r = execute_impl (a, t);
         else
         {
-          if (ctx.sched.async (start_count,
-                               *task_count,
-                               [a] (const diag_frame* ds, target& t)
-                               {
-                                 diag_frame::stack_guard dsg (ds);
-                                 execute_impl (a, t);
-                               },
-                               diag_frame::stack (),
-                               ref (t)))
+          if (ctx.sched->async (start_count,
+                                *task_count,
+                                [a] (const diag_frame* ds, target& t)
+                                {
+                                  diag_frame::stack_guard dsg (ds);
+                                  execute_impl (a, t);
+                                },
+                                diag_frame::stack (),
+                                ref (t)))
             return target_state::unknown; // Queued.
 
           // Executed synchronously, fall through.
@@ -2551,7 +2551,7 @@ namespace build2
           : s.state;
 
         s.task_count.store (exec, memory_order_release);
-        ctx.sched.resume (s.task_count);
+        ctx.sched->resume (s.task_count);
       }
     }
     else
@@ -3096,7 +3096,7 @@ namespace build2
     target_state gs (execute_impl (a, g, 0, nullptr));
 
     if (gs == target_state::busy)
-      ctx.sched.wait (ctx.count_executed (),
+      ctx.sched->wait (ctx.count_executed (),
                       g[a].task_count,
                       scheduler::work_none);
 

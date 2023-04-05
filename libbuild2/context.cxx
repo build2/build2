@@ -86,9 +86,9 @@ namespace build2
            optional<context*> mc,
            const loaded_modules_lock* ml)
       : data_ (new data (*this)),
-        sched (s),
-        mutexes (ms),
-        fcache (fc),
+        sched (&s),
+        mutexes (&ms),
+        fcache (&fc),
         match_only (mo),
         no_external_modules (nem),
         dry_run_option (dr),
@@ -111,6 +111,8 @@ namespace build2
                                 ? optional<unique_ptr<context>> (nullptr)
                                 : nullopt)
   {
+    // NOTE: see also the bare minimum version below if adding anything here.
+
     tracer trace ("context");
 
     l6 ([&]{trace << "initializing build state";});
@@ -673,6 +675,42 @@ namespace build2
   }
 
   context::
+  context ()
+      : data_ (new data (*this)),
+        sched (nullptr),
+        mutexes (nullptr),
+        fcache (nullptr),
+        match_only (false),
+        no_external_modules (true),
+        dry_run_option (false),
+        no_diag_buffer (false),
+        keep_going (false),
+        phase_mutex (*this),
+        scopes (data_->scopes),
+        targets (data_->targets),
+        var_pool (data_->var_pool),
+        var_patterns (data_->var_patterns),
+        var_overrides (data_->var_overrides),
+        functions (data_->functions),
+        global_scope (create_global_scope (data_->scopes)),
+        global_target_types (data_->global_target_types),
+        global_override_cache (data_->global_override_cache),
+        global_var_overrides (data_->global_var_overrides),
+        modules_lock (nullptr),
+        module_context (nullptr)
+  {
+    variable_pool& vp (data_->var_pool);
+
+    var_src_root = &vp.insert<dir_path> ("src_root");
+    var_out_root = &vp.insert<dir_path> ("out_root");
+
+    var_project      = &vp.insert<project_name> ("project");
+    var_amalgamation = &vp.insert<dir_path>     ("amalgamation");
+
+    load_generation = 1;
+  }
+
+  context::
   ~context ()
   {
     // Cannot be inline since context::data is undefined.
@@ -812,11 +850,11 @@ namespace build2
       {
         ++contention; // Protected by m_.
 
-        ctx_.sched.deactivate (false /* external */);
+        ctx_.sched->deactivate (false /* external */);
         for (; ctx_.phase != n; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
-        ctx_.sched.activate (false /* external */);
+        ctx_.sched->activate (false /* external */);
       }
       else
         r = !fail_;
@@ -828,9 +866,9 @@ namespace build2
     {
       if (!lm_.try_lock ())
       {
-        ctx_.sched.deactivate (false /* external */);
+        ctx_.sched->deactivate (false /* external */);
         lm_.lock ();
-        ctx_.sched.activate (false /* external */);
+        ctx_.sched->activate (false /* external */);
 
         ++contention_load; // Protected by lm_.
       }
@@ -880,9 +918,9 @@ namespace build2
         // relock().
         //
         if (o == run_phase::match && n == run_phase::execute)
-          ctx_.sched.push_phase ();
+          ctx_.sched->push_phase ();
         else if (o == run_phase::execute && n == run_phase::match)
-          ctx_.sched.pop_phase ();
+          ctx_.sched->pop_phase ();
 
         if (v != nullptr)
         {
@@ -937,9 +975,9 @@ namespace build2
         // unlock().
         //
         if (o == run_phase::match && n == run_phase::execute)
-          ctx_.sched.push_phase ();
+          ctx_.sched->push_phase ();
         else if (o == run_phase::execute && n == run_phase::match)
-          ctx_.sched.pop_phase ();
+          ctx_.sched->pop_phase ();
 
         // Notify others that could be waiting for this phase.
         //
@@ -953,11 +991,11 @@ namespace build2
       {
         ++contention; // Protected by m_.
 
-        ctx_.sched.deactivate (false /* external */);
+        ctx_.sched->deactivate (false /* external */);
         for (; ctx_.phase != n; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
-        ctx_.sched.activate (false /* external */);
+        ctx_.sched->activate (false /* external */);
       }
     }
 
@@ -972,9 +1010,9 @@ namespace build2
         //
         s = false;
 
-        ctx_.sched.deactivate (false /* external */);
+        ctx_.sched->deactivate (false /* external */);
         lm_.lock ();
-        ctx_.sched.activate (false /* external */);
+        ctx_.sched->activate (false /* external */);
 
         ++contention_load; // Protected by lm_.
       }

@@ -278,11 +278,11 @@ namespace build2
         // through a few hoops to make sure we don't overindulge.
         //
         md.incr = stderr_term // Scale depending on output type.
-          ? (ctx.sched.serial () ? 1 : 5)
+          ? (ctx.sched->serial () ? 1 : 5)
           : 100;
         md.what = " targets to " + diag_do (ctx, a);
 
-        mg = ctx.sched.monitor (
+        mg = ctx.sched->monitor (
           ctx.target_count,
           md.incr,
           [&md] (size_t c) -> size_t
@@ -571,7 +571,7 @@ namespace build2
 
       switch (ctx.current_inner_oif->concurrency)
       {
-      case 0: sched_tune = tune_guard (ctx.sched, 1); break; // Run serially.
+      case 0: sched_tune = tune_guard (*ctx.sched, 1); break; // Run serially.
       case 1:                                         break; // Run as is.
       default:                               assert (false); // Not supported.
       }
@@ -594,7 +594,7 @@ namespace build2
         {
           what = "% of targets " + diag_did (ctx, a);
 
-          mg = ctx.sched.monitor (
+          mg = ctx.sched->monitor (
             ctx.target_count,
             init - incr,
             [init, incr, &what, &ctx] (size_t c) -> size_t

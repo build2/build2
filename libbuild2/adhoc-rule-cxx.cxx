@@ -302,7 +302,7 @@ namespace build2
       //
       auto_thread_env penv (nullptr);
       context& ctx (*t.ctx.module_context);
-      scheduler::phase_guard pg (ctx.sched);
+      scheduler::phase_guard pg (*ctx.sched);
 
       uint16_t verbosity (3); // Project creation command verbosity.
 

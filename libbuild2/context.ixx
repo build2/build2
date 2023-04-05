@@ -57,7 +57,7 @@ namespace build2
   wait ()
   {
     phase_unlock u (*ctx, phase, true /* delay */);
-    ctx->sched.wait (start_count, *task_count, u);
+    ctx->sched->wait (start_count, *task_count, u);
     task_count = nullptr;
   }
 }
