@@ -649,8 +649,8 @@ namespace build2
       sys_hdr_dirs_mode = hdr_dirs.second;
       sys_mod_dirs_mode = mod_dirs ? mod_dirs->second : 0;
 
-      sys_lib_dirs_extra = lib_dirs.first.size ();
-      sys_hdr_dirs_extra = hdr_dirs.first.size ();
+      sys_lib_dirs_extra = 0;
+      sys_hdr_dirs_extra = 0;
 
 #ifndef _WIN32
       // Add /usr/local/{include,lib}. We definitely shouldn't do this if we
@@ -666,11 +666,11 @@ namespace build2
       // on the next invocation.
       //
       {
-        auto& is (hdr_dirs.first);
+        auto& hs (hdr_dirs.first);
         auto& ls (lib_dirs.first);
 
-        bool ui  (find (is.begin (), is.end (), usr_inc)     != is.end ());
-        bool uli (find (is.begin (), is.end (), usr_loc_inc) != is.end ());
+        bool ui  (find (hs.begin (), hs.end (), usr_inc)     != hs.end ());
+        bool uli (find (hs.begin (), hs.end (), usr_loc_inc) != hs.end ());
 
 #ifdef __APPLE__
         // On Mac OS starting from 10.14 there is no longer /usr/include.
@@ -695,7 +695,7 @@ namespace build2
         //
         if (!ui && !uli)
         {
-          for (const dir_path& d: is)
+          for (const dir_path& d: hs)
           {
             if (path_match (d, a_usr_inc))
             {
@@ -709,18 +709,29 @@ namespace build2
         {
           bool ull (find (ls.begin (), ls.end (), usr_loc_lib) != ls.end ());
 
-          // Many platforms don't search in /usr/local/lib by default (but do
-          // for headers in /usr/local/include). So add it as the last option.
+          // Many platforms don't search in /usr/local/lib by default but do
+          // for headers in /usr/local/include.
+          //
+          // Note that customarily /usr/local/include is searched before
+          // /usr/include so we add /usr/local/lib before built-in entries
+          // (there isn't really a way to add it after since all we can do is
+          // specify it with -L).
           //
           if (!ull && exists (usr_loc_lib, true /* ignore_error */))
-            ls.push_back (usr_loc_lib);
+          {
+            ls.insert (ls.begin () + sys_lib_dirs_mode, usr_loc_lib);
+            ++sys_lib_dirs_extra;
+          }
 
           // FreeBSD is at least consistent: it searches in neither. Quoting
           // its wiki: "FreeBSD can't even find libraries that it installed."
           // So let's help it a bit.
           //
           if (!uli && exists (usr_loc_inc, true /* ignore_error */))
-            is.push_back (usr_loc_inc);
+          {
+            hs.insert (hs.begin () + sys_hdr_dirs_mode, usr_loc_inc);
+            ++sys_hdr_dirs_extra;
+          }
         }
       }
 #endif
@@ -824,8 +835,11 @@ namespace build2
           dr << "\n  hdr dirs";
           for (size_t i (0); i != incs.size (); ++i)
           {
-            if (i == sys_hdr_dirs_extra)
+            if ((sys_hdr_dirs_mode  != 0 && i == sys_hdr_dirs_mode) ||
+                (sys_hdr_dirs_extra != 0 &&
+                 i == sys_hdr_dirs_extra + sys_hdr_dirs_mode))
               dr << "\n    --";
+
             dr << "\n    " << incs[i];
           }
         }
@@ -835,8 +849,11 @@ namespace build2
           dr << "\n  lib dirs";
           for (size_t i (0); i != libs.size (); ++i)
           {
-            if (i == sys_lib_dirs_extra)
+            if ((sys_lib_dirs_mode  != 0 && i == sys_lib_dirs_mode) ||
+                (sys_lib_dirs_extra != 0 &&
+                 i == sys_lib_dirs_extra + sys_lib_dirs_mode))
               dr << "\n    --";
+
             dr << "\n    " << libs[i];
           }
         }

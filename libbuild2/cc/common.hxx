@@ -198,18 +198,22 @@ namespace build2
       build2::cc::importable_headers* importable_headers;
 
       // The order of sys_*_dirs is the mode entries first, followed by the
-      // compiler built-in entries, and finished off with any extra entries
-      // (e.g., fallback directories such as /usr/local/*).
+      // extra entries (e.g., /usr/local/*), followed by the compiler built-in
+      // entries.
+      //
+      // Note that even if we wanted to, we wouldn't be able to support extra
+      // trailing (after built-in) directories since we would need a portable
+      // equivalent of -idirafter for both headers and libraries.
       //
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
       const dir_paths& sys_hdr_dirs; // x.sys_hdr_dirs
       const dir_paths* sys_mod_dirs; // compiler_info::sys_mod_dirs
 
-      size_t sys_lib_dirs_mode; // Number of leading mode entries (0 if none).
+      size_t sys_lib_dirs_mode;  // Number of mode entries (0 if none).
       size_t sys_hdr_dirs_mode;
       size_t sys_mod_dirs_mode;
 
-      size_t sys_lib_dirs_extra; // First trailing extra entry (size if none).
+      size_t sys_lib_dirs_extra; // Number of extra entries (0 if none).
       size_t sys_hdr_dirs_extra;
 
       // Note that x_obj is patched in by the x.objx module. So it stays NULL

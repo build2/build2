@@ -3365,25 +3365,24 @@ namespace build2
 
         // Extra system library dirs (last).
         //
-        assert (sys_lib_dirs_extra <= sys_lib_dirs.size ());
+        assert (sys_lib_dirs_mode + sys_lib_dirs_extra <= sys_lib_dirs.size ());
+
+        // Note that the mode options are added as part of cmode.
+        //
+        auto b (sys_lib_dirs.begin () + sys_lib_dirs_mode);
+        auto x (b + sys_lib_dirs_extra);
 
         if (tsys == "win32-msvc")
         {
           // If we have no LIB environment variable set, then we add all of
           // them. But we want extras to come first.
           //
-          // Note that the mode options are added as part of cmode.
-          //
-          auto b (sys_lib_dirs.begin () + sys_lib_dirs_mode);
-          auto m (sys_lib_dirs.begin () + sys_lib_dirs_extra);
-          auto e (sys_lib_dirs.end ());
-
-          for (auto i (m); i != e; ++i)
+          for (auto i (b); i != x; ++i)
             sargs1.push_back ("/LIBPATH:" + i->string ());
 
           if (!getenv ("LIB"))
           {
-            for (auto i (b); i != m; ++i)
+            for (auto i (x), e (sys_lib_dirs.end ()); i != e; ++i)
               sargs1.push_back ("/LIBPATH:" + i->string ());
           }
 
@@ -3394,7 +3393,7 @@ namespace build2
           append_option_values (
             args,
             "-L",
-            sys_lib_dirs.begin () + sys_lib_dirs_extra, sys_lib_dirs.end (),
+            b, x,
             [] (const dir_path& d) {return d.string ().c_str ();});
         }
       }

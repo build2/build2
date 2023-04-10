@@ -295,24 +295,25 @@ namespace build2
     void compile_rule::
     append_sys_hdr_options (T& args) const
     {
-      assert (sys_hdr_dirs_extra <= sys_hdr_dirs.size ());
+      assert (sys_hdr_dirs_mode + sys_hdr_dirs_extra <= sys_hdr_dirs.size ());
 
       // Note that the mode options are added as part of cmode.
       //
       auto b (sys_hdr_dirs.begin () + sys_hdr_dirs_mode);
-      auto m (sys_hdr_dirs.begin () + sys_hdr_dirs_extra);
-      auto e (sys_hdr_dirs.end ());
+      auto x (b + sys_hdr_dirs_extra);
 
+      // Add extras.
+      //
       // Note: starting from 16.10, MSVC gained /external:I option though it
       // doesn't seem to affect the order, only "system-ness".
       //
       append_option_values (
         args,
-        cclass == compiler_class::gcc  ? "-idirafter" :
+        cclass == compiler_class::gcc  ? "-isystem" :
         cclass == compiler_class::msvc ? (isystem (*this)
                                           ? "/external:I"
                                           : "/I") : "-I",
-        m, e,
+        b, x,
         [] (const dir_path& d) {return d.string ().c_str ();});
 
       // For MSVC if we have no INCLUDE environment variable set, then we
@@ -328,7 +329,7 @@ namespace build2
         {
           append_option_values (
             args, "/I",
-            b, m,
+            x, sys_hdr_dirs.end (),
             [] (const dir_path& d) {return d.string ().c_str ();});
         }
       }
