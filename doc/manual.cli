@@ -6328,14 +6328,20 @@ modifier to only apply to symlink filesystem entries. For example:
 $ b config.install.filter='\"*.so\"@false,symlink'
 \
 
-Note that this mechanism only affects what gets physically copied to the
-installation directory without affecting what gets built for install or the
-view of what gets installed at the \c{buildfile} level. For example,
-given the \c{include/@false *.a@false} filters, static libraries will still be
-built (unless arranged not to with \c{config.bin.lib}) and the \c{pkg-config}
-files will still end up with \c{-I} options pointing to the header
-installation directory. Note also that this mechanism applies to both
-\c{install} and \c{uninstall} operations.
+A filter can be negated by specifying \c{!} as the first pair. For example:
+
+\
+$ b install config.install.filter='! include/@false \"*.a\"@false'
+\
+
+Note that the filtering mechanism only affects what gets physically copied to
+the installation directory without affecting what gets built for install or
+the view of what gets installed at the \c{buildfile} level. For example, given
+the \c{include/@false *.a@false} filters, static libraries will still be built
+(unless arranged not to with \c{config.bin.lib}) and the \c{pkg-config} files
+will still end up with \c{-I} options pointing to the header installation
+directory. Note also that this mechanism applies to both \c{install} and
+\c{uninstall} operations.
 
 \N|If you are familiar with the Debian or Fedora packaging, this mechanism is
 somewhat similar to (and can be used for a similar purpose as) the Debian's

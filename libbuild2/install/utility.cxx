@@ -57,10 +57,21 @@ namespace build2
       // If redoing all this work for every entry proves too slow, we can
       // consider some form of caching (e.g., on the per-project basis).
       //
+      auto i (fs->begin ());
+
+      bool negate (false);
+      if (i->first == "!")
+      {
+        negate = true;
+        ++i;
+      }
+
       size_t limit (0); // See below.
 
-      for (const pair<string, string>& kv: *fs)
+      for (auto e (fs->end ()); i != e; ++i)
       {
+        const pair<string, optional<string>>& kv (*i);
+
         path k;
         try
         {
@@ -77,7 +88,7 @@ namespace build2
 
         bool v;
         {
-          const string& s (kv.second);
+          const string& s (kv.second ? *kv.second : string ());
 
           size_t p (s.find (','));
 
@@ -269,13 +280,16 @@ namespace build2
           }
         }
 
+        if (negate)
+          v = !v;
+
         l4 ([&]{trace << (base / leaf)
                       << (v ? " included by " : " excluded by ")
-                      << kv.first << '@' << kv.second;});
+                      << kv.first << '@' << *kv.second;});
         return v;
       }
 
-      return true;
+      return !negate;
     }
   }
 }

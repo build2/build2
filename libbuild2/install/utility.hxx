@@ -113,7 +113,7 @@ namespace build2
     //
     // If entry type is a directory, then leaf must be empty.
     //
-    using filters = vector<pair<string, string>>;
+    using filters = vector<pair<string, optional<string>>>;
 
     LIBBUILD2_SYMEXPORT bool
     filter_entry (const scope& rs,
