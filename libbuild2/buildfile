@@ -4,7 +4,7 @@
 # NOTE: remember to update bundled_modules in libbuild2/module.cxx if adding a
 #       new module.
 #
-bundled_modules = bash/ bin/ c/ cc/ cxx/ in/ version/
+bundled_modules = bash/ bin/ c/ cc/ cli/ cxx/ in/ version/
 
 ./: lib{build2} $bundled_modules
 

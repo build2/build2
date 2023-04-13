@@ -54,8 +54,7 @@
 
 #ifndef BUILD2_BOOTSTRAP
 #  include <libbuild2/bash/init.hxx>
-
-#  include <build2/cli/init.hxx>
+#  include <libbuild2/cli/init.hxx>
 #endif
 
 using namespace butl;
@@ -384,8 +383,8 @@ main (int argc, char* argv[])
     load_builtin_module (&in::build2_in_load);
 
 #ifndef BUILD2_BOOTSTRAP
-    load_builtin_module (&cli::build2_cli_load);
     load_builtin_module (&bash::build2_bash_load);
+    load_builtin_module (&cli::build2_cli_load);
 #endif
 
     // Start up the scheduler and allocate lock shards.

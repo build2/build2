@@ -11,7 +11,7 @@ libs = $libbutl
 include ../libbuild2/
 libs += ../libbuild2/lib{build2}
 
-for m: bash bin c cc cxx in version
+for m: bash bin c cc cli cxx in version
 {
   include ../libbuild2/$m/
   libs += ../libbuild2/$m/lib{build2-$m}

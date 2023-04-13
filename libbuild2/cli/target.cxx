@@ -1,7 +1,7 @@
-// file      : build2/cli/target.cxx -*- C++ -*-
+// file      : libbuild2/cli/target.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cli/target.hxx>
+#include <libbuild2/cli/target.hxx>
 
 #include <libbuild2/context.hxx>
 

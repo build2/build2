@@ -1,8 +1,8 @@
-// file      : build2/cli/target.hxx -*- C++ -*-
+// file      : libbuild2/cli/target.hxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_CLI_TARGET_HXX
-#define BUILD2_CLI_TARGET_HXX
+#ifndef LIBBUILD2_CLI_TARGET_HXX
+#define LIBBUILD2_CLI_TARGET_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -11,11 +11,13 @@
 
 #include <libbuild2/cxx/target.hxx>
 
+#include <libbuild2/cli/export.hxx>
+
 namespace build2
 {
   namespace cli
   {
-    class cli: public file
+    class LIBBUILD2_CLI_SYMEXPORT cli: public file
     {
     public:
       cli (context& c, dir_path d, dir_path o, string n)
@@ -37,7 +39,8 @@ namespace build2
       const cxx::ixx* i = nullptr;
     };
 
-    class cli_cxx: public mtime_target, public cli_cxx_members
+    class LIBBUILD2_CLI_SYMEXPORT cli_cxx: public mtime_target,
+                                           public cli_cxx_members
     {
     public:
       cli_cxx (context& c, dir_path d, dir_path o, string n)
@@ -55,4 +58,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_CLI_TARGET_HXX
+#endif // LIBBUILD2_CLI_TARGET_HXX

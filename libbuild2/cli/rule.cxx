@@ -1,7 +1,7 @@
-// file      : build2/cli/rule.cxx -*- C++ -*-
+// file      : libbuild2/cli/rule.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cli/rule.hxx>
+#include <libbuild2/cli/rule.hxx>
 
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
@@ -11,7 +11,7 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/cli/target.hxx>
+#include <libbuild2/cli/target.hxx>
 
 namespace build2
 {

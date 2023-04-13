@@ -50,6 +50,7 @@ namespace build2
     "bin",
     "c",
     "cc",
+    "cli",
     "cxx",
     "in",
     "version"

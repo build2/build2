@@ -1,7 +1,7 @@
-// file      : build2/cli/init.cxx -*- C++ -*-
+// file      : libbuild2/cli/init.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cli/init.hxx>
+#include <libbuild2/cli/init.hxx>
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
@@ -13,9 +13,9 @@
 
 #include <libbuild2/cxx/target.hxx>
 
-#include <build2/cli/rule.hxx>
-#include <build2/cli/module.hxx>
-#include <build2/cli/target.hxx>
+#include <libbuild2/cli/rule.hxx>
+#include <libbuild2/cli/module.hxx>
+#include <libbuild2/cli/target.hxx>
 
 namespace build2
 {

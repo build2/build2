@@ -1,13 +1,15 @@
-// file      : build2/cli/rule.hxx -*- C++ -*-
+// file      : libbuild2/cli/rule.hxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_CLI_RULE_HXX
-#define BUILD2_CLI_RULE_HXX
+#ifndef LIBBUILD2_CLI_RULE_HXX
+#define LIBBUILD2_CLI_RULE_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/rule.hxx>
+
+#include <libbuild2/cli/export.hxx>
 
 namespace build2
 {
@@ -23,7 +25,8 @@ namespace build2
 
     // @@ Redo as two separate rules?
     //
-    class compile_rule: public simple_rule, virtual data
+    class LIBBUILD2_CLI_SYMEXPORT compile_rule: public simple_rule,
+                                                private virtual data
     {
     public:
       compile_rule (data&& d): data (move (d)) {}
@@ -40,4 +43,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_CLI_RULE_HXX
+#endif // LIBBUILD2_CLI_RULE_HXX

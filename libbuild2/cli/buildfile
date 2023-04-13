@@ -1,0 +1,71 @@
+# file      : libbuild2/cli/buildfile
+# license   : MIT; see accompanying LICENSE file
+
+# NOTE: shared imports should go into root.build.
+#
+include ../
+impl_libs = ../lib{build2} # Implied interface dependency.
+
+include ../cxx/
+intf_libs = ../cxx/lib{build2-cxx}
+
+./: lib{build2-cli}: libul{build2-cli}: {hxx ixx txx cxx}{** -**.test...} \
+  $intf_libs $impl_libs
+
+# Unit tests.
+#
+exe{*.test}:
+{
+  test = true
+  install = false
+}
+
+for t: cxx{**.test...}
+{
+  d = $directory($t)
+  n = $name($t)...
+
+  ./: $d/exe{$n}: $t $d/{hxx ixx txx}{+$n} $d/testscript{+$n}
+  $d/exe{$n}: libul{build2-cli}: bin.whole = false
+}
+
+# Build options.
+#
+obja{*}: cxx.poptions += -DLIBBUILD2_CLI_STATIC_BUILD
+objs{*}: cxx.poptions += -DLIBBUILD2_CLI_SHARED_BUILD
+
+# Export options.
+#
+lib{build2-cli}:
+{
+  cxx.export.poptions = "-I$out_root" "-I$src_root"
+  cxx.export.libs = $intf_libs
+}
+
+liba{build2-cli}: cxx.export.poptions += -DLIBBUILD2_CLI_STATIC
+libs{build2-cli}: cxx.export.poptions += -DLIBBUILD2_CLI_SHARED
+
+# For pre-releases use the complete version to make sure they cannot be used
+# in place of another pre-release or the final version. See the version module
+# for details on the version.* variable values.
+#
+# And because this is a build system module, we also embed the same value as
+# the interface version (note that we cannot use build.version.interface for
+# bundled modules because we could be built with a different version of the
+# build system).
+#
+ver = ($version.pre_release    \
+       ? "$version.project_id" \
+       : "$version.major.$version.minor")
+
+lib{build2-cli}: bin.lib.version = @"-$ver"
+libs{build2-cli}: bin.lib.load_suffix = "-$ver"
+
+# Install into the libbuild2/cli/ subdirectory of, say, /usr/include/
+# recreating subdirectories.
+#
+{hxx ixx txx}{*}:
+{
+  install         = include/libbuild2/cli/
+  install.subdirs = true
+}
