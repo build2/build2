@@ -353,6 +353,12 @@ namespace build2
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, const path&); // utility.cxx
 
+  inline ostream&
+  operator<< (ostream& os, const dir_path& d) // For overload resolution.
+  {
+    return build2::operator<< (os, static_cast<const path&> (d));
+  }
+
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, const path_name_view&); // utility.cxx
 

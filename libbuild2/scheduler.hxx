@@ -358,6 +358,9 @@ namespace build2
     size_t
     tune (size_t max_active);
 
+    bool
+    tuned () const {return max_active_ != orig_max_active_;}
+
     struct tune_guard
     {
       tune_guard (): s_ (nullptr), o_ (0) {}

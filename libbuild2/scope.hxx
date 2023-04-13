@@ -477,7 +477,7 @@ namespace build2
       // is not yet determined (happens at the end of bootstrap_src()). NULL
       // means there are no subprojects.
       //
-      optional<const build2::subprojects*> subprojects;
+      optional<build2::subprojects*> subprojects;
 
       bool altn;   // True if using alternative build file/directory naming.
       bool loaded; // True if already loaded (load_root()).

@@ -819,6 +819,8 @@ namespace build2
       // Don't translate default to update. In our case unspecified
       // means configure everything.
       //
+      // Note: see pkg_configure() in bpkg if changing anything here.
+      //
       return o;
     }
 
@@ -855,6 +857,8 @@ namespace build2
     static void
     configure_pre (context&, const values& params, const location& l)
     {
+      // Note: see pkg_configure() in bpkg if changing anything here.
+      //
       forward (params, "configure", l); // Validate.
     }
 
@@ -996,6 +1000,8 @@ namespace build2
       }
     }
 
+    // NOTE: see pkg_configure() in bpkg if changing anything here.
+    //
     const meta_operation_info mo_configure {
       configure_id,
       "configure",

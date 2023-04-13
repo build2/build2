@@ -72,6 +72,220 @@ namespace build2
       data_->var_pool.map_.reserve (res.variables);
   }
 
+  pair<char, variable_override> context::
+  parse_variable_override (const string& s, size_t i, bool buildspec)
+  {
+    istringstream is (s);
+    is.exceptions (istringstream::failbit | istringstream::badbit);
+
+    // Similar to buildspec we do "effective escaping" of the special `'"\$(`
+    // characters (basically what's escapable inside a double-quoted literal
+    // plus the single quote; note, however, that we exclude line
+    // continuations and `)` since they would make directory paths on Windows
+    // unusable).
+    //
+    path_name in ("<cmdline>");
+    lexer l (is, in, 1 /* line */, "\'\"\\$(");
+
+    // At the buildfile level the scope-specific variable should be separated
+    // from the directory with a whitespace, for example:
+    //
+    // ./ foo=$bar
+    //
+    // However, requiring this for command line variables would be too
+    // inconvinient so we support both.
+    //
+    // We also have the optional visibility modifier as a first character of
+    // the variable name:
+    //
+    // ! - global
+    // % - project
+    // / - scope
+    //
+    // The last one clashes a bit with the directory prefix:
+    //
+    // ./ /foo=bar
+    // .//foo=bar
+    //
+    // But that's probably ok (the need for a scope-qualified override with
+    // scope visibility should be pretty rare). Note also that to set the
+    // value on the global scope we use !.
+    //
+    // And so the first token should be a word which can be either a variable
+    // name (potentially with the directory qualification) or just the
+    // directory, in which case it should be followed by another word
+    // (unqualified variable name). To avoid treating any of the visibility
+    // modifiers as special we use the cmdvar mode.
+    //
+    l.mode (lexer_mode::cmdvar);
+    token t (l.next ());
+
+    optional<dir_path> dir;
+    if (t.type == token_type::word)
+    {
+      string& v (t.value);
+      size_t p (path::traits_type::rfind_separator (v));
+
+      if (p != string::npos && p != 0) // If first then visibility.
+      {
+        if (p == v.size () - 1)
+        {
+          // Separate directory.
+          //
+          dir = dir_path (move (v));
+          t = l.next ();
+
+          // Target-specific overrides are not yet supported (and probably
+          // never will be; the beast is already complex enough).
+          //
+          if (t.type == token_type::colon)
+          {
+            diag_record dr (fail);
+
+            dr << "'" << s << "' is a target-specific override";
+
+            if (buildspec)
+              dr << info << "use double '--' to treat this argument as "
+                 << "buildspec";
+          }
+        }
+        else
+        {
+          // Combined directory.
+          //
+          // If double separator (visibility marker), then keep the first in
+          // name.
+          //
+          if (p != 0 && path::traits_type::is_separator (v[p - 1]))
+            --p;
+
+          dir = dir_path (t.value, 0, p + 1); // Include the separator.
+          t.value.erase (0, p + 1);           // Erase the separator.
+        }
+
+        if (dir->relative ())
+        {
+          // Handle the special relative to base scope case (.../).
+          //
+          auto i (dir->begin ());
+
+          if (*i == "...")
+            dir = dir_path (++i, dir->end ()); // Note: can become empty.
+          else
+            dir->complete (); // Relative to CWD.
+        }
+
+        if (dir->absolute ())
+          dir->normalize ();
+      }
+    }
+
+    token_type tt (l.next ().type);
+
+    // The token should be the variable name followed by =, +=, or =+.
+    //
+    if (t.type != token_type::word || t.value.empty () ||
+        (tt != token_type::assign  &&
+         tt != token_type::prepend &&
+         tt != token_type::append))
+    {
+      diag_record dr (fail);
+
+      dr << "expected variable assignment instead of '" << s << "'";
+
+      if (buildspec)
+        dr << info << "use double '--' to treat this argument as buildspec";
+    }
+
+    // Take care of the visibility. Note that here we rely on the fact that
+    // none of these characters are lexer's name separators.
+    //
+    char c (t.value[0]);
+
+    if (path::traits_type::is_separator (c))
+      c = '/'; // Normalize.
+
+    string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);
+
+    // Make sure it is qualified.
+    //
+    // We can support overridable public unqualified variables (which must
+    // all be pre-entered by the end of this constructor) but we will need
+    // to detect their names here in an ad hoc manner (we cannot enter them
+    // before this logic because of the "untyped override" requirement).
+    //
+    // Note: issue the same diagnostics as in variable_pool::update().
+    //
+    if (n.find ('.') == string::npos)
+      fail << "variable " << n << " cannot be overridden";
+
+    if (c == '!' && dir)
+      fail << "scope-qualified global override of variable " << n;
+
+    // Pre-enter the main variable. Note that we rely on all the overridable
+    // variables with global visibility to be known (either entered or
+    // handled via a pattern) at this stage.
+    //
+    variable_pool& vp (data_->var_pool);
+    variable& var (
+      const_cast<variable&> (vp.insert (n, true /* overridable */)));
+
+    const variable* o;
+    {
+      variable_visibility v (c == '/' ? variable_visibility::scope   :
+                             c == '%' ? variable_visibility::project :
+                             variable_visibility::global);
+
+      const char* k (tt == token_type::assign ? "__override" :
+                     tt == token_type::append ? "__suffix" : "__prefix");
+
+      unique_ptr<variable> p (
+        new variable {
+          n + '.' + to_string (i + 1) + '.' + k,
+          &vp     /* owner */,
+          nullptr /* aliases   */,
+          nullptr /* type      */,
+          nullptr /* overrides */,
+          v});
+
+      // Back link.
+      //
+      p->aliases = p.get ();
+      if (var.overrides != nullptr)
+        swap (p->aliases,
+              const_cast<variable*> (var.overrides.get ())->aliases);
+
+      // Forward link.
+      //
+      p->overrides = move (var.overrides);
+      var.overrides = move (p);
+
+      o = var.overrides.get ();
+    }
+
+    // Currently we expand project overrides in the global scope to keep
+    // things simple. Pass original variable for diagnostics. Use current
+    // working directory as pattern base.
+    //
+    scope& gs (global_scope.rw ());
+
+    parser p (*this);
+    pair<value, token> r (p.parse_variable_value (l, gs, &work, var));
+
+    if (r.second.type != token_type::eos)
+      fail << "unexpected " << r.second << " in variable assignment "
+           << "'" << s << "'";
+
+    // Make sure the value is not typed.
+    //
+    if (r.first.type != nullptr)
+      fail << "typed override of variable " << n;
+
+    return make_pair (
+      c,
+      variable_override {var, *o, move (dir), move (r.first)});
+  }
+
   context::
   context (scheduler& s,
            global_mutexes& ms,
@@ -84,7 +298,8 @@ namespace build2
            const strings& cmd_vars,
            reserves res,
            optional<context*> mc,
-           const loaded_modules_lock* ml)
+           const loaded_modules_lock* ml,
+           const function<var_override_function>& var_ovr_func)
       : data_ (new data (*this)),
         sched (&s),
         mutexes (&ms),
@@ -130,7 +345,7 @@ namespace build2
     //
     meta_operation_table.insert ("noop");
     meta_operation_table.insert ("perform");
-    meta_operation_table.insert ("configure");
+    meta_operation_table.insert ("configure"); // bpkg assumes no process.
     meta_operation_table.insert ("disfigure");
 
     if (config_preprocess_create != nullptr)
@@ -373,223 +588,44 @@ namespace build2
     // marked as such first. Then, as we enter variables, we can verify that
     // the override is alowed.
     //
-    for (size_t i (0); i != cmd_vars.size (); ++i)
     {
-      const string& s (cmd_vars[i]);
-
-      istringstream is (s);
-      is.exceptions (istringstream::failbit | istringstream::badbit);
-
-      // Similar to buildspec we do "effective escaping" of the special
-      // `'"\$(` characters (basically what's escapable inside a double-quoted
-      // literal plus the single quote; note, however, that we exclude line
-      // continuations and `)` since they would make directory paths on
-      // Windows unusable).
-      //
-      path_name in ("<cmdline>");
-      lexer l (is, in, 1 /* line */, "\'\"\\$(");
-
-      // At the buildfile level the scope-specific variable should be
-      // separated from the directory with a whitespace, for example:
-      //
-      // ./ foo=$bar
-      //
-      // However, requiring this for command line variables would be too
-      // inconvinient so we support both.
-      //
-      // We also have the optional visibility modifier as a first character of
-      // the variable name:
-      //
-      // ! - global
-      // % - project
-      // / - scope
-      //
-      // The last one clashes a bit with the directory prefix:
-      //
-      // ./ /foo=bar
-      // .//foo=bar
-      //
-      // But that's probably ok (the need for a scope-qualified override with
-      // scope visibility should be pretty rare). Note also that to set the
-      // value on the global scope we use !.
-      //
-      // And so the first token should be a word which can be either a
-      // variable name (potentially with the directory qualification) or just
-      // the directory, in which case it should be followed by another word
-      // (unqualified variable name). To avoid treating any of the visibility
-      // modifiers as special we use the cmdvar mode.
-      //
-      l.mode (lexer_mode::cmdvar);
-      token t (l.next ());
-
-      optional<dir_path> dir;
-      if (t.type == token_type::word)
+      size_t i (0);
+      for (; i != cmd_vars.size (); ++i)
       {
-        string& v (t.value);
-        size_t p (path::traits_type::rfind_separator (v));
+        const string& s (cmd_vars[i]);
 
-        if (p != string::npos && p != 0) // If first then visibility.
+        pair<char, variable_override> p (
+          parse_variable_override (s, i, true /* buildspec */));
+
+        char c (p.first);
+        variable_override& vo (p.second);
+
+        // Global and absolute scope overrides we can enter directly. Project
+        // and relative scope ones will be entered later for each project.
+        //
+        if (c == '!' || (vo.dir && vo.dir->absolute ()))
         {
-          if (p == v.size () - 1)
-          {
-            // Separate directory.
-            //
-            dir = dir_path (move (v));
-            t = l.next ();
+          scope& s (c == '!' ? gs : *sm.insert_out (*vo.dir)->second.front ());
 
-            // Target-specific overrides are not yet supported (and probably
-            // never will be; the beast is already complex enough).
-            //
-            if (t.type == token_type::colon)
-              fail << "'" << s << "' is a target-specific override" <<
-                info << "use double '--' to treat this argument as buildspec";
-          }
-          else
-          {
-            // Combined directory.
-            //
-            // If double separator (visibility marker), then keep the first in
-            // name.
-            //
-            if (p != 0 && path::traits_type::is_separator (v[p - 1]))
-              --p;
+          auto p (s.vars.insert (vo.ovr));
+          assert (p.second); // Variable name is unique.
 
-            dir = dir_path (t.value, 0, p + 1); // Include the separator.
-            t.value.erase (0, p + 1);           // Erase the separator.
-          }
-
-          if (dir->relative ())
-          {
-            // Handle the special relative to base scope case (.../).
-            //
-            auto i (dir->begin ());
-
-            if (*i == "...")
-              dir = dir_path (++i, dir->end ()); // Note: can become empty.
-            else
-              dir->complete (); // Relative to CWD.
-          }
-
-          if (dir->absolute ())
-            dir->normalize ();
+          value& v (p.first);
+          v = move (vo.val);
         }
-      }
+        else
+          data_->var_overrides.push_back (move (vo));
 
-      token_type tt (l.next ().type);
-
-      // The token should be the variable name followed by =, +=, or =+.
-      //
-      if (t.type != token_type::word || t.value.empty () ||
-          (tt != token_type::assign  &&
-           tt != token_type::prepend &&
-           tt != token_type::append))
-      {
-        fail << "expected variable assignment instead of '" << s << "'" <<
-          info << "use double '--' to treat this argument as buildspec";
-      }
-
-      // Take care of the visibility. Note that here we rely on the fact that
-      // none of these characters are lexer's name separators.
-      //
-      char c (t.value[0]);
-
-      if (path::traits_type::is_separator (c))
-        c = '/'; // Normalize.
-
-      string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);
-
-      // Make sure it is qualified.
-      //
-      // We can support overridable public unqualified variables (which must
-      // all be pre-entered by the end of this constructor) but we will need
-      // to detect their names here in an ad hoc manner (we cannot enter them
-      // before this logic because of the "untyped override" requirement).
-      //
-      // Note: issue the same diagnostics as in variable_pool::update().
-      //
-      if (n.find ('.') == string::npos)
-        fail << "variable " << n << " cannot be overridden";
-
-      if (c == '!' && dir)
-        fail << "scope-qualified global override of variable " << n;
-
-      // Pre-enter the main variable. Note that we rely on all the overridable
-      // variables with global visibility to be known (either entered or
-      // handled via a pettern) at this stage.
-      //
-      variable& var (
-        const_cast<variable&> (vp.insert (n, true /* overridable */)));
-
-      const variable* o;
-      {
-        variable_visibility v (c == '/' ? variable_visibility::scope   :
-                               c == '%' ? variable_visibility::project :
-                               variable_visibility::global);
-
-        const char* k (tt == token_type::assign ? "__override" :
-                       tt == token_type::append ? "__suffix" : "__prefix");
-
-        unique_ptr<variable> p (
-          new variable {
-            n + '.' + to_string (i + 1) + '.' + k,
-            &vp     /* owner */,
-            nullptr /* aliases   */,
-            nullptr /* type      */,
-            nullptr /* overrides */,
-            v});
-
-        // Back link.
+        // Save global overrides for nested contexts.
         //
-        p->aliases = p.get ();
-        if (var.overrides != nullptr)
-          swap (p->aliases,
-                const_cast<variable*> (var.overrides.get ())->aliases);
-
-        // Forward link.
-        //
-        p->overrides = move (var.overrides);
-        var.overrides = move (p);
-
-        o = var.overrides.get ();
+        if (c == '!')
+          data_->global_var_overrides.push_back (s);
       }
 
-      // Currently we expand project overrides in the global scope to keep
-      // things simple. Pass original variable for diagnostics. Use current
-      // working directory as pattern base.
+      // Parse any ad hoc project-wide overrides.
       //
-      parser p (*this);
-      pair<value, token> r (p.parse_variable_value (l, gs, &work, var));
-
-      if (r.second.type != token_type::eos)
-        fail << "unexpected " << r.second << " in variable assignment "
-             << "'" << s << "'";
-
-      // Make sure the value is not typed.
-      //
-      if (r.first.type != nullptr)
-        fail << "typed override of variable " << n;
-
-      // Global and absolute scope overrides we can enter directly. Project
-      // and relative scope ones will be entered later for each project.
-      //
-      if (c == '!' || (dir && dir->absolute ()))
-      {
-        scope& s (c == '!' ? gs : *sm.insert_out (*dir)->second.front ());
-
-        auto p (s.vars.insert (*o));
-        assert (p.second); // Variable name is unique.
-
-        value& v (p.first);
-        v = move (r.first);
-      }
-      else
-        data_->var_overrides.push_back (
-          variable_override {var, *o, move (dir), move (r.first)});
-
-      // Save global overrides for nested contexts.
-      //
-      if (c == '!')
-        data_->global_var_overrides.push_back (s);
+      if (var_ovr_func != nullptr)
+        var_ovr_func (*this, i);
     }
 
     // Enter remaining variable patterns and builtin variables.
@@ -719,7 +755,8 @@ namespace build2
   void context::
   enter_project_overrides (scope& rs,
                            const dir_path& out_base,
-                           const variable_overrides& ovrs)
+                           const variable_overrides& ovrs,
+                           scope* as)
   {
     // The mildly tricky part here is to distinguish the situation where we
     // are bootstrapping the same project multiple times. The first override
@@ -744,7 +781,7 @@ namespace build2
       scope& s (
         o.dir
         ? *sm.insert_out ((out_base / *o.dir).normalize ())->second.front ()
-        : *rs.weak_scope ());
+        : *(as != nullptr ? as : (as = rs.weak_scope ())));
 
       auto p (s.vars.insert (o.ovr));
 

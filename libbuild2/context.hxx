@@ -667,6 +667,11 @@ namespace build2
     // properly setup context (including, normally, a self-reference in
     // modules_context).
     //
+    // The var_override_function callback can be used to parse ad hoc project-
+    // wide variable overrides (see parse_variable_override()). This has to
+    // happen at a specific point during context construction (see the
+    // implementation for details).
+    //
     // Note: see also the trace_* data members that, if needed, must be set
     // separately, after construction.
     //
@@ -679,6 +684,8 @@ namespace build2
       reserves (size_t t, size_t v): targets (t), variables (v) {}
     };
 
+    using var_override_function = void (context&, size_t&);
+
     context (scheduler&,
              global_mutexes&,
              file_cache&,
@@ -690,7 +697,8 @@ namespace build2
              const strings& cmd_vars = {},
              reserves = {0, 160},
              optional<context*> module_context = nullptr,
-             const loaded_modules_lock* inherited_mudules_lock = nullptr);
+             const loaded_modules_lock* inherited_mudules_lock = nullptr,
+             const function<var_override_function>& = nullptr);
 
     // Special context with bare minimum of initializations. It is only
     // guaranteed to be sufficiently initialized to call extract_variable().
@@ -707,12 +715,28 @@ namespace build2
     void
     reserve (reserves);
 
+    // Parse a variable override returning its type in the first half of the
+    // pair. Index is the variable index (used to derive unique name) and if
+    // buildspec is true then assume `--` is used as a separator between
+    // variables and buildscpec and issue appropriate diagnostics.
+    //
+    // Note: should only be called from the var_override_function constructor
+    // callback.
+    //
+    pair<char, variable_override>
+    parse_variable_override (const string& var, size_t index, bool buildspec);
+
     // Enter project-wide (as opposed to global) variable overrides.
+    //
+    // If the amalgamation scope is specified, then use it instead of
+    // rs.weak_scope() to set overrides with global visibility (make sure you
+    // understand the implications before doing this).
     //
     void
     enter_project_overrides (scope& rs,
                              const dir_path& out_base,
-                             const variable_overrides&);
+                             const variable_overrides&,
+                             scope* amalgamation = nullptr);
 
     // Set current meta-operation and operation.
     //

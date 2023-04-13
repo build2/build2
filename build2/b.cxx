@@ -451,13 +451,14 @@ main (int argc, char* argv[])
     // Parse the buildspec.
     //
     buildspec bspec;
+    path_name bspec_name ("<buildspec>");
     try
     {
       istringstream is (cmdl.buildspec);
       is.exceptions (istringstream::failbit | istringstream::badbit);
 
       parser p (*pctx);
-      bspec = p.parse_buildspec (is, path_name ("<buildspec>"));
+      bspec = p.parse_buildspec (is, bspec_name);
     }
     catch (const io_error&)
     {
@@ -483,9 +484,13 @@ main (int argc, char* argv[])
                     bspec.front ().front ().name == "info")));
 
     if (!mo_info)
+    {
+      // Note: also adjust in bpkg if adjusting here.
+      //
       pctx->reserve (context::reserves {
           30000 /* targets */,
           1100  /* variables */});
+    }
 
     const path& buildfile (ops.buildfile_specified ()
                            ? ops.buildfile ()
@@ -565,8 +570,7 @@ main (int argc, char* argv[])
 
       context& ctx (*pctx);
 
-      const path p ("<buildspec>");
-      const location l (p, 0, 0); //@@ TODO
+      const location l (bspec_name, 0, 0); //@@ TODO (also bpkg::pkg_configure())
 
       meta_operation_id mid (0); // Not yet translated.
       const meta_operation_info* mif (nullptr);
@@ -1194,6 +1198,8 @@ main (int argc, char* argv[])
           // luck with the nearest outer buildfile, in case our target is
           // defined there (common with non-intrusive project conversions
           // where everything is built from a single root buildfile).
+          //
+          // @@ Shouldn't the second be src_root, not src_base?
           //
           optional<path> bf (
             find_buildfile (src_base, src_base, altn, buildfile));

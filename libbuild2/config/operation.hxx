@@ -15,8 +15,8 @@ namespace build2
   {
     class module;
 
-    extern const meta_operation_info mo_configure;
-    extern const meta_operation_info mo_disfigure;
+    LIBBUILD2_SYMEXPORT extern const meta_operation_info mo_configure;
+    LIBBUILD2_SYMEXPORT extern const meta_operation_info mo_disfigure;
 
     const string&
     preprocess_create (context&,
