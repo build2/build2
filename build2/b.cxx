@@ -1198,7 +1198,8 @@ main (int argc, char* argv[])
           // defined there (common with non-intrusive project conversions
           // where everything is built from a single root buildfile).
           //
-          // @@ Shouldn't the second be src_root, not src_base?
+          // Note: we use find_plausible_buildfile() and not find_buildfile()
+          // to look in outer directories.
           //
           optional<path> bf (
             find_buildfile (src_base, src_base, altn, buildfile));
