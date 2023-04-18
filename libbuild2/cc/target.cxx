@@ -66,6 +66,20 @@ namespace build2
       target_type::flag::none
     };
 
+    extern const char S_ext_def[] = "S";
+    const target_type S::static_type
+    {
+      "S",
+      &cc::static_type,
+      &target_factory<S>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<S_ext_def>,
+      &target_pattern_var<S_ext_def>,
+      nullptr,
+      &file_search,
+      target_type::flag::none
+    };
+
     extern const char pc_ext[] = "pc"; // VC14 rejects constexpr.
     const target_type pc::static_type
     {

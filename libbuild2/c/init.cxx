@@ -324,11 +324,15 @@ namespace build2
       nullptr
     };
 
+    // Note that we include S{} here because .S files can include each other.
+    // (And maybe from inline assember instrcutions?)
+    //
     static const target_type* const inc[] =
     {
       &h::static_type,
       &c::static_type,
       &m::static_type,
+      &S::static_type,
       nullptr
     };
 
@@ -446,6 +450,42 @@ namespace build2
       return true;
     }
 
+    bool
+    as_cpp_init (scope& rs,
+                scope& bs,
+                const location& loc,
+                bool,
+                bool,
+                module_init_extra&)
+    {
+      tracer trace ("c::as_cpp_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "c.as-cpp module must be loaded in project root";
+
+      module* mod (rs.find_module<module> ("c"));
+
+      if (mod == nullptr)
+        fail (loc) << "c.as-cpp module must be loaded after c module";
+
+      // Register the target type and "enable" it in the module.
+      //
+      // Note that we must register the target type regardless of whether the
+      // C compiler is capable of compiling Assember with C preprocessor. But
+      // we enable only if it is.
+      //
+      rs.insert_target_type<S> ();
+
+      if (mod->ctype == compiler_type::gcc ||
+          mod->ctype == compiler_type::clang)
+        mod->x_asp = &S::static_type;
+
+      return true;
+    }
+
     static const module_functions mod_functions[] =
     {
       // NOTE: don't forget to also update the documentation in init.hxx if
@@ -455,6 +495,7 @@ namespace build2
       {"c.config", nullptr, config_init},
       {"c",        nullptr, init},
       {"c.objc",   nullptr, objc_init},
+      {"c.as-cpp", nullptr, as_cpp_init},
       {nullptr,    nullptr, nullptr}
     };
 

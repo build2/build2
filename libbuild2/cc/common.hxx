@@ -217,11 +217,14 @@ namespace build2
       size_t sys_hdr_dirs_extra;
 
       // Note that x_obj is patched in by the x.objx module. So it stays NULL
-      // if Objective-X compilation is not enabled.
+      // if Objective-X compilation is not enabled. Similarly for x_asp except
+      // here we don't have duality and it's purely to signal (by the c.as-cpp
+      // module) that it's enabled.
       //
       const target_type& x_src; // Source target type (c{}, cxx{}).
       const target_type* x_mod; // Module target type (mxx{}), if any.
       const target_type* x_obj; // Objective-X target type (m{}, mm{}).
+      const target_type* x_asp; // Assembler with CPP target type (S{}).
 
       // Check if an object (target, prerequisite, etc) is an Objective-X
       // source.
@@ -231,6 +234,16 @@ namespace build2
       x_objective (const T& t) const
       {
         return x_obj != nullptr && t.is_a (*x_obj);
+      }
+
+      // Check if an object (target, prerequisite, etc) is an Assembler with
+      // C preprocessor source.
+      //
+      template <typename T>
+      bool
+      x_assembler_cpp (const T& t) const
+      {
+        return x_asp != nullptr && t.is_a (*x_asp);
       }
 
       // Array of target types that are considered the X-language headers
@@ -305,7 +318,7 @@ namespace build2
             sys_lib_dirs_mode (slm), sys_hdr_dirs_mode (shm),
             sys_mod_dirs_mode (smm),
             sys_lib_dirs_extra (sle), sys_hdr_dirs_extra (she),
-            x_src (src), x_mod (mod), x_obj (nullptr),
+            x_src (src), x_mod (mod), x_obj (nullptr), x_asp (nullptr),
             x_hdr (hdr), x_inc (inc) {}
     };
 

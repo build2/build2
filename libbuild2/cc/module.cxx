@@ -979,8 +979,8 @@ namespace build2
       {
         using namespace install;
 
-        // Note: not registering x_obj (it's registered seperately by the
-        // x.objx module).
+        // Note: not registering x_obj or x_asp (they are registered
+        // seperately by the respective optional submodules).
         //
         rs.insert_target_type (x_src);
 

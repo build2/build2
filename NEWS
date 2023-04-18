@@ -25,6 +25,13 @@ Version 0.16.0
     and no attempt to automatically link any necessary Objective-C runtime
     (such as -lobjc) is made.
 
+  * Support for Assembler with C Preprocessor (.S) compilation.
+
+    Specifically, the c module now provides the c.as-cpp submodules which can
+    be loaded in order to register the S{} target type and enable Assembler
+    with C Preprocessor compilation in the c compile rule. For details, refer
+    to "Assembler with C Preprocessor Compilation" in the manual.
+
   * Low verbosity diagnostics rework.
 
     The low verbosity (level 1) rule diagnostics format has been adjusted to

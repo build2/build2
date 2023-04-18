@@ -91,6 +91,7 @@ namespace build2
         return (x_header (p)   ||
                 p.is_a (x_src) ||
                 (x_mod != nullptr && p.is_a (*x_mod)) ||
+                (x_asp != nullptr && p.is_a (*x_asp)) ||
                 (x_obj != nullptr && p.is_a (*x_obj)));
       };
 
@@ -340,6 +341,7 @@ namespace build2
         return (x_header (p)   ||
                 p.is_a (x_src) ||
                 (x_mod != nullptr && p.is_a (*x_mod)) ||
+                (x_asp != nullptr && p.is_a (*x_asp)) ||
                 (x_obj != nullptr && p.is_a (*x_obj)));
       };
 

@@ -292,6 +292,7 @@ namespace build2
 
         if (p.is_a (x_src)                        ||
             (x_mod != nullptr && p.is_a (*x_mod)) ||
+            (x_asp != nullptr && p.is_a (*x_asp)) ||
             (x_obj != nullptr && p.is_a (*x_obj)) ||
             // Header-only X library (or library with C source and X header).
             (library          && x_header (p, false /* c_hdr */)))
@@ -1003,6 +1004,7 @@ namespace build2
             if (!um)
               um = (p.is_a (x_src) || p.is_a<c> ()                          ||
                     (x_mod != nullptr && p.is_a (*x_mod))                   ||
+                    (x_asp != nullptr && p.is_a (*x_asp))                   ||
                     (x_obj != nullptr && (p.is_a (*x_obj) || p.is_a<m> ())) ||
                     x_header (p, true));
 #endif
@@ -1032,8 +1034,9 @@ namespace build2
         bool mod (x_mod != nullptr && p.is_a (*x_mod));
         bool hdr (false);
 
-        if (mod                            ||
-            p.is_a (x_src) || p.is_a<c> () ||
+        if (mod                                                   ||
+            p.is_a (x_src) || p.is_a<c> ()                        ||
+            (x_asp != nullptr && p.is_a (*x_asp))                 ||
             (x_obj != nullptr && (p.is_a (*x_obj) || p.is_a<m> ())))
         {
           binless = binless && (mod ? user_binless : false);
@@ -1902,7 +1905,8 @@ namespace build2
               //
               if (mod
                   ? p1.is_a (*x_mod)
-                  : (p1.is_a (x_src) || p1.is_a<c> () ||
+                  : (p1.is_a (x_src) || p1.is_a<c> ()                        ||
+                     (x_asp != nullptr && p1.is_a (*x_asp))                  ||
                      (x_obj != nullptr && (p1.is_a (*x_obj) || p1.is_a<m> ()))))
               {
                 src = true;
@@ -1916,8 +1920,9 @@ namespace build2
                   p1.is_a<libx>  ()                                         ||
                   p1.is_a<liba> () || p1.is_a<libs> () || p1.is_a<libux> () ||
                   p1.is_a<bmi>  () || p1.is_a<bmix> ()                      ||
-                  ((mod            ||
-                    p.is_a (x_src) ||
+                  ((mod                                   ||
+                    p.is_a (x_src)                        ||
+                    (x_asp != nullptr && p.is_a (*x_asp)) ||
                     (x_obj != nullptr && p.is_a (*x_obj))) && x_header (p1)) ||
                   ((p.is_a<c> () ||
                     (x_obj != nullptr && p.is_a<m> ())) && p1.is_a<h> ()))
@@ -2062,7 +2067,8 @@ namespace build2
         {
           if (mod
               ? p1.is_a (*x_mod)
-              : (p1.is_a (x_src) || p1.is_a<c> () ||
+              : (p1.is_a (x_src) || p1.is_a<c> ()                         ||
+                 (x_asp != nullptr && p1.is_a (*x_asp))                   ||
                  (x_obj != nullptr && (p1.is_a (*x_obj) || p1.is_a<m> ()))))
           {
             // Searching our own prerequisite is ok, p1 must already be

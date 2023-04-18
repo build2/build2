@@ -21,6 +21,12 @@ namespace build2
   // implementation's perspectives, the module library is "loaded" and the
   // module is optionally "bootstrapped" (or "booted" for short) and then
   // "initialized" (or "inited").
+  //
+  // Note also that a module name (or component thereof, for submodules) is
+  // not a project name (in particular, it can be less than 3 characters long)
+  // and we usually use `-` instead of `_` as a word separator within
+  // components, for example `c.as-cpp` (since the top-level component ends up
+  // in the library name; but this is not a hard rule).
 
   // Base class for module instance.
   //

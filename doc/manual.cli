@@ -7329,6 +7329,90 @@ automatically link any necessary Objective-C runtime library (such as
 \c{-lobjc}).
 
 
+\h#c-as-cpp|Assembler with C Preprocessor Compilation|
+
+The \c{c} module provides the \c{c.as-cpp} submodules which can be loaded in
+order to register the \c{S{\}} target type and enable Assembler with C
+Preprocessor compilation in the \c{C} compile rule. Note that \c{c.as-cpp}
+must be loaded after the \c{c} module and while the \c{S{\}} target type is
+registered unconditionally, compilation is only enabled if the C compiler
+supports Assembler with C Preprocessor compilation.
+
+Typical usage:
+
+\
+# root.build
+#
+using c
+using c.as-cpp
+\
+
+\
+# buildfile
+#
+exe{hello}: {h c}{* -hello.c}
+
+# Use C implementation as a fallback if no assembler.
+#
+assembler = ($c.class == 'gcc' && $c.target.cpu == 'x86_64')
+
+exe{hello}: S{hello}: include = $assembler
+exe{hello}: c{hello}: include = (!$assembler)
+\
+
+\
+/* hello.S
+ */
+#ifndef HELLO_RESULT
+#  define HELLO_RESULT 0
+#endif
+
+text
+
+.global hello
+hello:
+  /* ... */
+  movq $HELLO_RESULT, %rax
+  ret
+
+#ifdef __ELF__
+.section .note.GNU-stack, \"\", @progbits
+#endif
+\
+
+The default file extension for the \c{S{\}} target type is \c{.S} (capital)
+but that can be customized using the standard mechanisms. For example:
+
+\
+# root.build
+#
+using c
+using c.as-cpp
+
+h{*}: extension = h
+c{*}: extension = c
+S{*}: extension = sx
+\
+
+Note that \c{*.coptions} are passed to the C compiler when compiling Assembler
+with C Preprocessor files because compile options may cause additional
+preprocessor macros to be defined. Plus, some of them (such as \c{-g}) are
+passed (potentially translated) to the underlying assembler. To pass
+additional options when compiling Assembler files use \c{c.poptions} and
+\c{c.coptions}. For example (continuing with the previous example):
+
+\
+if $assembler
+{
+  obj{hello}:
+  {
+    c.poptions += -DHELLO_RESULT=1
+    c.coptions += -Wa,--no-pad-sections
+  }
+}
+\
+
+
 \h1#module-cxx|\c{cxx} Module|
 
 \N{This chapter is a work in progress and is incomplete.}

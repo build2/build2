@@ -783,6 +783,10 @@ namespace build2
       nullptr
     };
 
+    // Note that we don't include S{} here because none of the files we
+    // compile can plausibly want to include .S. (Maybe in inline assember
+    // instrcutions?)
+    //
     static const target_type* const inc[] =
     {
       &hxx::static_type,

@@ -371,13 +371,19 @@ namespace build2
           case unit_type::non_modular:
           case unit_type::module_impl:
             {
-              bool obj (x_objective (md.src));
-
               o1 = "-x";
-              switch (x_lang)
+
+              if (x_assembler_cpp (md.src))
+                o2 = "assembler-with-cpp";
+              else
               {
-              case lang::c:   o2 = obj ? "objective-c"   : "c";   break;
-              case lang::cxx: o2 = obj ? "objective-c++" : "c++"; break;
+                bool obj (x_objective (md.src));
+
+                switch (x_lang)
+                {
+                case lang::c:   o2 = obj ? "objective-c"   : "c";   break;
+                case lang::cxx: o2 = obj ? "objective-c++" : "c++"; break;
+                }
               }
               break;
             }
@@ -479,7 +485,9 @@ namespace build2
         //
         if (ut == unit_type::module_header ? p.is_a (**x_hdr) || p.is_a<h> () :
             ut == unit_type::module_intf   ? p.is_a (*x_mod)                  :
-            p.is_a (x_src) || (x_obj != nullptr && p.is_a (*x_obj)))
+            p.is_a (x_src)                        ||
+            (x_asp != nullptr && p.is_a (*x_asp)) ||
+            (x_obj != nullptr && p.is_a (*x_obj)))
         {
           // Save in the target's auxiliary storage.
           //
@@ -3021,11 +3029,14 @@ namespace build2
 
       // Preprocessed file extension.
       //
-      const char* pext (x_objective (src) ? x_obj_pext : x_pext);
+      const char* pext (x_assembler_cpp (src) ? ".Si"      :
+                        x_objective (src)     ? x_obj_pext :
+                        x_pext);
 
       // Preprocesor mode that preserves as much information as possible while
       // still performing inclusions. Also serves as a flag indicating whether
-      // this compiler uses the separate preprocess and compile setup.
+      // this (non-MSVC) compiler uses the separate preprocess and compile
+      // setup.
       //
       const char* pp (nullptr);
 
@@ -3036,7 +3047,16 @@ namespace build2
           // -fdirectives-only is available since GCC 4.3.0.
           //
           if (cmaj > 4 || (cmaj == 4 && cmin >= 3))
-            pp = "-fdirectives-only";
+          {
+            // Note that for assembler-with-cpp GCC currently forces full
+            // preprocessing in (what appears to be) an attempt to paper over
+            // a deeper issue (see GCC bug 109534). If/when that bug gets
+            // fixed, we can enable this on our side. Note also that Clang's
+            // -frewrite-includes appear to work correctly on such files.
+            //
+            if (!x_assembler_cpp (src))
+              pp = "-fdirectives-only";
+          }
 
           break;
         }
@@ -6877,7 +6897,6 @@ namespace build2
       small_vector<string, 2> module_args; // Module options storage.
 
       size_t out_i (0);  // Index of the -o option.
-      //size_t lang_n (0); // Number of lang options. @@ TMP
 
       switch (cclass)
       {
@@ -7236,7 +7255,7 @@ namespace build2
             args.push_back ("-c");
           }
 
-          /*lang_n = */append_lang_options (args, md); // @@ TMP
+          append_lang_options (args, md);
 
           if (md.pp == preprocessed::all)
           {
@@ -7288,7 +7307,13 @@ namespace build2
       // @@ TODO: why don't we print env (here and/or below)? Also link rule.
       //
       if (verb == 1)
-        print_diag (x_objective (s) ? x_obj_name : x_name, s, t);
+      {
+        const char* name (x_assembler_cpp (s) ? "as-cpp"   :
+                          x_objective (s)     ? x_obj_name :
+                          x_name);
+
+        print_diag (name, s, t);
+      }
       else if (verb == 2)
         print_process (args);
 
@@ -7314,31 +7339,15 @@ namespace build2
         {
         case compiler_type::gcc:
           {
-            // @@ TMP
-#if 0
-            // The -fpreprocessed is implied by .i/.ii. But not when compiling
-            // a header unit (there is no .hi/.hii).
-            //
-            if (ut == unit_type::module_header)
-              args.push_back ("-fpreprocessed");
-            else
-              // Pop -x since it takes precedence over the extension.
-              //
-              // @@ I wonder why bother and not just add -fpreprocessed? Are
-              //    we trying to save an option or does something break?
-              //
-              for (; lang_n != 0; --lang_n)
-                args.pop_back ();
-#else
             // -fpreprocessed is implied by .i/.ii unless compiling a header
             // unit (there is no .hi/.hii). Also, we would need to pop -x
             // since it takes precedence over the extension, which would mess
             // up our osrc logic. So in the end it feels like always passing
             // explicit -fpreprocessed is the way to go.
             //
+            // Also note that similarly there is no .Si for .S files.
+            //
             args.push_back ("-fpreprocessed");
-#endif
-
             args.push_back ("-fdirectives-only");
             break;
           }
@@ -7518,7 +7527,9 @@ namespace build2
 
       // Preprocessed file extension.
       //
-      const char* pext (x_objective (srct) ? x_obj_pext : x_pext);
+      const char* pext (x_assembler_cpp (srct) ? ".Si"      :
+                        x_objective (srct)     ? x_obj_pext :
+                        x_pext);
 
       // Compressed preprocessed file extension.
       //

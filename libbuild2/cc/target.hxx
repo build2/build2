@@ -84,6 +84,22 @@ namespace build2
       static const target_type static_type;
     };
 
+    // Assembler with C preprocessor source file (the same rationale for
+    // having it here as for c{} above).
+    //
+    class LIBBUILD2_CC_SYMEXPORT S: public cc
+    {
+    public:
+      S (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
+
+    public:
+      static const target_type static_type;
+    };
+
     // pkg-config file targets.
     //
     class LIBBUILD2_CC_SYMEXPORT pc: public file // .pc (common)
