@@ -45,6 +45,8 @@ copyright = $process.run_regex(                      \
 
 obj{b}: cxx.poptions += -DBUILD2_COPYRIGHT=\"$copyright\"
 
+# NOTE: remember to update bpkg buildfile if changing anything here.
+#
 switch $cxx.target.class
 {
   case 'linux'
