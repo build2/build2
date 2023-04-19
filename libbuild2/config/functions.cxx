@@ -95,7 +95,7 @@ namespace build2
         // See save_config() for details.
         //
         assert (s->ctx.phase == run_phase::load);
-        module* mod (s->rw ().find_module<module> (module::name));
+        const module* mod (s->find_module<module> (module::name));
 
         if (mod == nullptr)
           fail << "config.save() called without config module";

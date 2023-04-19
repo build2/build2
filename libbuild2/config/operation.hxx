@@ -37,7 +37,7 @@ namespace build2
     save_config (const scope& rs,
                  ostream&, const path_name&,
                  bool inherit,
-                 module&,
+                 const module&,
                  const project_set&);
 
     // See config.config.hermetic.environment.

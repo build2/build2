@@ -163,11 +163,18 @@ namespace build2
     //    and this function can be called from a buildfile (probably only
     //    during serial execution but still).
     //
+    //    We could also be configuring multiple projects (including from
+    //    pkg_configure() in bpkg) but feels like we should be ok since we
+    //    only modify this project's root scope data which should not affect
+    //    any other project.
+    //
+    //    See also save_environment() for a similar issue.
+    //
     void
     save_config (const scope& rs,
                  ostream& os, const path_name& on,
                  bool inherit,
-                 module& mod,
+                 const module& mod,
                  const project_set& projects)
     {
       context& ctx (rs.ctx);
@@ -259,7 +266,7 @@ namespace build2
                                                     true  /* unused */));
           if (r.first) // save
           {
-            mod.save_variable (*var, 0);
+            const_cast<module&> (mod).save_variable (*var, 0);
 
             if (r.second) // warn
             {
@@ -560,7 +567,7 @@ namespace build2
     save_config (const scope& rs,
                  const path& f,
                  bool inherit,
-                 module& mod,
+                 const module& mod,
                  const project_set& projects)
     {
       path_name fn (f);
@@ -587,6 +594,9 @@ namespace build2
     }
 
     // Update config.config.environment value for a hermetic configuration.
+    //
+    // @@ We are modifying the module. See also save_config() for a similar
+    //    issue.
     //
     static void
     save_environment (scope& rs, module& mod)
@@ -660,9 +670,9 @@ namespace build2
 
     static void
     configure_project (action a,
-                       scope& rs,
+                       const scope& rs,
                        const variable* c_s, // config.config.save
-                       module& mod,
+                       const module& mod,
                        project_set& projects)
     {
       tracer trace ("configure_project");
@@ -696,7 +706,7 @@ namespace build2
         // for the other half of this logic).
         //
         if (cast_false<bool> (rs["config.config.hermetic"]))
-          save_environment (rs, mod);
+          save_environment (const_cast<scope&> (rs), const_cast<module&> (mod));
 
         // Save src-root.build unless out_root is the same as src.
         //
@@ -759,14 +769,14 @@ namespace build2
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          scope& nrs (ctx.scopes.find_out (out_nroot).rw ());
+          const scope& nrs (ctx.scopes.find_out (out_nroot));
 
           // Skip this subproject if it is not loaded or doesn't use the
           // config module.
           //
           if (nrs.out_path () == out_nroot)
           {
-            if (module* m = nrs.find_module<module> (module::name))
+            if (const module* m = nrs.find_module<module> (module::name))
             {
               configure_project (a, nrs, c_s, *m, projects);
             }
@@ -992,9 +1002,9 @@ namespace build2
           }
 
           configure_project (a,
-                             rs->rw (),
+                             *rs,
                              c_s,
-                             *rs->rw ().find_module<module> (module::name),
+                             *rs->find_module<module> (module::name),
                              projects);
         }
       }

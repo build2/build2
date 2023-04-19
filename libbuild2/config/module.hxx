@@ -160,7 +160,7 @@ namespace build2
       save_module (scope&, const char*, int);
 
       const saved_variable*
-      find_variable (const variable& var)
+      find_variable (const variable& var) const
       {
         auto i (saved_modules.find_sup (var.name));
         if (i != saved_modules.end ())
