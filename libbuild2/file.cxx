@@ -1337,9 +1337,9 @@ namespace build2
 
     // Call module's post-boot functions.
     //
-    for (size_t i (0); i != root.root_extra->modules.size (); ++i)
+    for (size_t i (0); i != root.root_extra->loaded_modules.size (); ++i)
     {
-      module_state& s (root.root_extra->modules[i]);
+      module_state& s (root.root_extra->loaded_modules[i]);
 
       if (s.boot_post != nullptr)
         boot_post_module (root, s);
@@ -1556,11 +1556,11 @@ namespace build2
     // Note that init() can load additional modules invalidating iterators.
     //
     auto init_modules =
-      [&root, n = root.root_extra->modules.size ()] (module_boot_init v)
+      [&root, n = root.root_extra->loaded_modules.size ()] (module_boot_init v)
     {
       for (size_t i (0); i != n; ++i)
       {
-        module_state& s (root.root_extra->modules[i]);
+        module_state& s (root.root_extra->loaded_modules[i]);
 
         if (s.boot_init && *s.boot_init == v)
           init_module (root, root, s.name, s.loc);
@@ -2084,6 +2084,9 @@ namespace build2
   //
   // Return empty name if an ad hoc import resulted in a NULL target (only
   // allowed if optional is true).
+  //
+  // Note that this function has a side effect of potentially marking some
+  // config.import.* variables as used.
   //
   pair<name, optional<dir_path>>
   import_search (bool& new_value,

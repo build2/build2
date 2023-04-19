@@ -510,9 +510,10 @@ namespace build2
       build2::meta_operations meta_operations;
       build2::operations operations;
 
-      // Modules loaded by this project.
+      // Modules imported/loaded by this project.
       //
-      module_map modules;
+      module_import_map imported_modules;
+      module_state_map  loaded_modules;
 
       // Buildfiles already loaded for this project.
       //
@@ -591,21 +592,21 @@ namespace build2
     bool
     find_module (const string& name) const
     {
-      return root_extra->modules.find_module<module> (name) != nullptr;
+      return root_extra->loaded_modules.find_module<module> (name) != nullptr;
     }
 
     template <typename T>
     T*
     find_module (const string& name)
     {
-      return root_extra->modules.find_module<T> (name);
+      return root_extra->loaded_modules.find_module<T> (name);
     }
 
     template <typename T>
     const T*
     find_module (const string& name) const
     {
-      return root_extra->modules.find_module<T> (name);
+      return root_extra->loaded_modules.find_module<T> (name);
     }
 
   public:

@@ -30,21 +30,20 @@ using namespace butl;
 
 namespace build2
 {
-  mutex loaded_modules_lock::mutex_;
+  mutex module_libraries_lock::mutex_;
 
-  loaded_module_map loaded_modules;
+  module_libraries_map module_libraries;
 
   void
   load_builtin_module (module_load_function* lf)
   {
     for (const module_functions* i (lf ()); i->name != nullptr; ++i)
-      loaded_modules[i->name] = i;
+      module_libraries.emplace (i->name, module_library {*i, dir_path ()});
   }
 
   // Sorted array of bundled modules (excluding core modules bundled with
   // libbuild2; see below).
   //
-#if !defined(BUILD2_BOOTSTRAP) && !defined(LIBBUILD2_STATIC_BUILD)
   static const char* bundled_modules[] = {
     "bash",
     "bin",
@@ -64,7 +63,6 @@ namespace build2
       bundled_modules + sizeof (bundled_modules) / sizeof (*bundled_modules),
       mod);
   }
-#endif
 
   // Note: also used by ad hoc recipes thus not static.
   //
@@ -244,11 +242,20 @@ namespace build2
   }
 #endif
 
-  static module_load_function*
+  // Return the module functions as well as the module project directory or
+  // empty if not imported from project. Return {nullptr, nullopt} if not
+  // found.
+  //
+  // The dry-run mode only calls import_search() and always returns NULL for
+  // module functions (see below for background).
+  //
+  static pair<module_load_function*, optional<dir_path>>
   import_module (
 #if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
+    bool,
     scope&,
 #else
+    bool dry_run,
     scope& bs,
 #endif
     const string& mod,
@@ -262,15 +269,21 @@ namespace build2
   {
     tracer trace ("import_module");
 
+    pair<module_load_function*, optional<dir_path>> r (nullptr, nullopt);
+
     // Take care of core modules that are bundled with libbuild2 in case they
     // are not pre-loaded by the driver.
     //
-    if      (mod == "config")  return &config::build2_config_load;
-    else if (mod == "dist")    return &dist::build2_dist_load;
-    else if (mod == "install") return &install::build2_install_load;
-    else if (mod == "test")    return &test::build2_test_load;
+    if      (mod == "config")  r.first = &config::build2_config_load;
+    else if (mod == "dist")    r.first = &dist::build2_dist_load;
+    else if (mod == "install") r.first = &install::build2_install_load;
+    else if (mod == "test")    r.first = &test::build2_test_load;
 
-    module_load_function* r (nullptr);
+    if (r.first != nullptr)
+    {
+      r.second = dir_path ();
+      return r;
+    }
 
     // No dynamic loading of build system modules during bootstrap or if
     // statically-linked..
@@ -339,7 +352,7 @@ namespace build2
     // and undefined if the module was not mentioned.
     //
     if (boot && !bundled && ctx.no_external_modules)
-      return nullptr;
+      return r; // NULL
 
     // See if we can import a target for this module.
     //
@@ -394,13 +407,15 @@ namespace build2
     if (ir.first.empty ())
     {
       assert (opt);
-      return nullptr;
+      return r; // NULL
     }
 
     if (ir.second)
     {
       // What if a module is specified with config.import.<mod>.<lib>.libs?
       // Note that this could still be a project-qualified target.
+      //
+      // Note: we now return an empty directory to mean something else.
       //
       if (ir.second->empty ())
         fail (loc) << "direct module target importation not yet supported";
@@ -409,6 +424,17 @@ namespace build2
       // the target (which will also give us the shared library path).
       //
       l5 ([&]{trace << "found " << ir.first << " in " << *ir.second;});
+    }
+
+    if (dry_run)
+    {
+      r.second = ir.second ? move (*ir.second) : dir_path ();
+      return r;
+    }
+
+    if (ir.second)
+    {
+      r.second = *ir.second;
 
       // Create the build context if necessary.
       //
@@ -421,7 +447,7 @@ namespace build2
         create_module_context (ctx, loc);
       }
 
-      // Inherit loaded_modules lock from the outer context.
+      // Inherit module_libraries lock from the outer context.
       //
       ctx.module_context->modules_lock = ctx.modules_lock;
 
@@ -481,6 +507,8 @@ namespace build2
     }
     else
     {
+      r.second = dir_path ();
+
       // No module project found. Form the shared library name (incorporating
       // build system core version) and try using system-default search
       // (installed, rpath, etc).
@@ -523,7 +551,7 @@ namespace build2
         fail (loc) << "unable to lookup " << sym << " in build system module "
                    << mod << " (" << lib << "): " << err;
 
-      r = function_cast<module_load_function*> (hs.second);
+      r.first = function_cast<module_load_function*> (hs.second);
     }
     else if (!opt)
     {
@@ -535,7 +563,10 @@ namespace build2
                  << "line variable to specify its project out_root";
     }
     else
+    {
+      r.second = nullopt;
       l5 ([&]{trace << "unable to load " << lib << ": " << err;});
+    }
 
 #endif // BUILD2_BOOTSTRAP || LIBBUILD2_STATIC_BUILD
 
@@ -551,89 +582,200 @@ namespace build2
   {
     tracer trace ("find_module");
 
-    // Note that we hold the lock for the entire time it takes to build a
-    // module.
+    // If this is a submodule, get the main module name.
     //
-    loaded_modules_lock lock (bs.ctx);
+    string mmod (smod, 0, smod.find ('.'));
 
-    // Optional modules and submodules sure make this logic convoluted. So we
-    // divide it into two parts: (1) find or insert an entry (for submodule
-    // or, failed that, for the main module, the latter potentially NULL) and
-    // (2) analyze the entry and issue diagnostics.
+    // We have a somewhat strange two-level caching in imported_modules
+    // and module_libraries in order to achieve the following:
     //
-    auto i (loaded_modules.find (smod)), e (loaded_modules.end ());
+    // 1. Correctly handle cases where a module can be imported from one
+    //    project but not the other.
+    //
+    // 2. Make sure that for each project that imports the module we actually
+    //    call import_search() in order to mark any config.import.* as used.
+    //
+    // 3. Make sure that all the projects import the same module.
+    //
+    scope& rs (*bs.root_scope ());
 
-    if (i == e)
+    const string* mod;
+    const module_functions* fun;
+
+    // First check the project's imported_modules in case this (main) module
+    // is known to be not found.
+    //
+    auto j (rs.root_extra->imported_modules.find (mmod));
+    auto je (rs.root_extra->imported_modules.end ());
+
+    if (j != je && !j->found)
     {
-      // If this is a submodule, get the main module name.
+      mod = &mmod;
+      fun = nullptr;
+    }
+    else
+    {
+      // Note that we hold the lock for the entire time it takes to build a
+      // module.
       //
-      string mmod (smod, 0, smod.find ('.'));
+      module_libraries_lock lock (bs.ctx);
 
-      if (mmod != smod)
-        i = loaded_modules.find (mmod);
+      // Optional modules and submodules sure make this logic convoluted. So
+      // we divide it into two parts: (1) find or insert an entry (for
+      // submodule or, failed that, for the main module) and (2) analyze the
+      // entry and issue diagnostics.
+      //
+      auto i (module_libraries.find (smod));
+      auto ie (module_libraries.end ());
 
-      if (i == e)
+      bool imported (false);
+      if (i == ie)
       {
-        module_load_function* f (import_module (bs, mmod, loc, boot, opt));
+        if (mmod != smod)
+          i = module_libraries.find (mmod);
 
-        if (f != nullptr)
+        if (i == ie)
         {
-          // Enter all the entries noticing which one is our submodule. If
-          // none are, then we notice the main module.
-          //
-          for (const module_functions* j (f ()); j->name != nullptr; ++j)
+          pair<module_load_function*, optional<dir_path>> ir (
+            import_module (false /* dry_run */, bs, mmod, loc, boot, opt));
+
+          if (module_load_function* f = ir.first)
           {
-            const string& n (j->name);
+            // Enter all the entries noticing which one is our submodule. If
+            // none are, then we notice the main module.
+            //
+            for (const module_functions* j (f ()); j->name != nullptr; ++j)
+            {
+              const string& n (j->name);
 
-            l5 ([&]{trace << "registering " << n;});
+              l5 ([&]{trace << "registering " << n;});
 
-            auto p (loaded_modules.emplace (n, j));
+              bool main (n == mmod);
 
-            if (!p.second)
-              fail (loc) << "build system submodule name " << n << " of main "
-                         << "module " << mmod << " is already in use";
+              auto p (module_libraries.emplace (
+                        n,
+                        module_library {
+                          *j,
+                          main ? move (*ir.second) : dir_path ()}));
 
-            if (n == smod || (i == e && n == mmod))
-              i = p.first;
+              if (!p.second)
+                fail (loc) << "build system submodule name " << n << " of main "
+                           << "module " << mmod << " is already in use";
+
+              // Note: this assumes the main module is last.
+              //
+              if (n == smod || (main && i == ie))
+                i = p.first;
+            }
+
+            // We should at least have the main module.
+            //
+            if (i == ie)
+              fail (loc) << "invalid function list in build system module "
+                         << mmod;
           }
 
-          // We should at least have the main module.
-          //
-          if (i == e)
-            fail (loc) << "invalid function list in build system module "
-                       << mmod;
+          imported = true;
         }
-        else
-          i = loaded_modules.emplace (move (mmod), nullptr).first;
+      }
+
+      // Now the iterator points to a submodule or to the main module, or to
+      // end if neither is found.
+      //
+      assert (j == je || i != ie); // Cache state consistecy sanity check.
+
+      if (i != ie)
+      {
+        // Note: these should remain stable after we release the lock.
+        //
+        mod = &i->first;
+        fun = &i->second.functions.get ();
+
+        // If this project hasn't imported this main module and we found the
+        // entry in the cache, then we have to perform the import_search()
+        // part of import_module() in order to cover items (2) and (3) above.
+        //
+        // There is one nuance: omit this for bundled modules since it's
+        // possible to first import them ad hoc and then, if we call
+        // import_search() again, to find them differently (e.g., as a
+        // subproject).
+        //
+        if (j == je && !imported && !bundled_module (mmod))
+        {
+          pair<module_load_function*, optional<dir_path>> ir (
+            import_module (true /* dry_run */, bs, mmod, loc, boot, opt));
+
+          if (ir.second)
+          {
+            if (i->first != mmod)
+            {
+              i = module_libraries.find (mmod);
+              assert (i != ie); // Has to be there.
+            }
+
+            const dir_path& cd (*ir.second);
+            const dir_path& pd (i->second.import_path);
+
+            if (cd != pd)
+            {
+              fail (loc) << "inconsistent build system module " << mmod
+                         << " importation" <<
+                info << rs << " imports it as "
+                     << (cd.empty () ? "ad hoc" : cd.representation ().c_str ()) <<
+                info << "previously imported as "
+                     << (pd.empty () ? "ad hoc" : pd.representation ().c_str ());
+            }
+          }
+          else
+          {
+            // This module is not found from this project.
+            //
+            mod = &mmod;
+            fun = nullptr;
+          }
+        }
+      }
+      else
+      {
+        mod = &mmod;
+        fun = nullptr;
       }
     }
+
+    // Cache the result in imported_modules if necessary.
+    //
+    if (j == je)
+      rs.root_extra->imported_modules.push_back (
+        module_import {mmod, fun != nullptr});
 
     // Reduce skipped external module to optional.
     //
-    if (boot && i->second == nullptr)
+    if (boot && fun == nullptr)
       opt = true;
 
-    // Now the iterator points to a submodule or to the main module, the
-    // latter potentially NULL.
+    // Handle optional.
     //
-    if (!opt)
+    if (fun == nullptr)
     {
-      if (i->second == nullptr)
-      {
-        fail (loc) << "unable to load build system module " << i->first;
-      }
-      else if (i->first != smod)
-      {
-        fail (loc) << "build system module " << i->first << " has no "
+      if (!opt)
+        fail (loc) << "unable to load build system module " << *mod;
+    }
+    else if (*mod != smod)
+    {
+      if (!opt)
+        fail (loc) << "build system module " << *mod << " has no "
                    << "submodule " << smod;
+      else
+      {
+        // Note that if the main module exists but has no such submodule, we
+        // return NULL rather than fail (think of an older version of a module
+        // that doesn't implement some extra functionality).
+        //
+        fun = nullptr;
       }
     }
 
-    // Note that if the main module exists but has no such submodule, we
-    // return NULL rather than fail (think of an older version of a module
-    // that doesn't implement some extra functionality).
-    //
-    return i->second;
+    return fun;
   }
 
   void
@@ -641,7 +783,7 @@ namespace build2
   {
     // First see if this modules has already been booted for this project.
     //
-    module_map& lm (rs.root_extra->modules);
+    module_state_map& lm (rs.root_extra->loaded_modules);
     auto i (lm.find (mod));
 
     if (i != lm.end ())
@@ -717,7 +859,7 @@ namespace build2
   {
     // First see if this modules has already been inited for this project.
     //
-    module_map& lm (rs.root_extra->modules);
+    module_state_map& lm (rs.root_extra->loaded_modules);
     auto i (lm.find (mod));
     bool f (i == lm.end ());
 
@@ -837,7 +979,7 @@ namespace build2
     if (cast_false<bool> (bs[name + ".loaded"]))
     {
       if (cast_false<bool> (bs[name + ".configured"]))
-        return rs.root_extra->modules.find (name)->module;
+        return rs.root_extra->loaded_modules.find (name)->module;
     }
     else
     {
@@ -859,7 +1001,7 @@ namespace build2
     //   attempt to load it was optional?
 
     return cast_false<bool> (bs[name + ".loaded"])
-      ? rs.root_extra->modules.find (name)->module
+      ? rs.root_extra->loaded_modules.find (name)->module
       : init_module (rs, bs, name, loc, false /* optional */, hints)->module;
   }
 }

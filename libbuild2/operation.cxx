@@ -952,7 +952,7 @@ namespace build2
       //
       auto print_mods = [&rs] ()
       {
-        for (const module_state& ms: rs.root_extra->modules)
+        for (const module_state& ms: rs.root_extra->loaded_modules)
           cout << ' ' << ms.name;
       };
 
@@ -1123,12 +1123,12 @@ namespace build2
 
       // Print modules.
       //
-      if (!rs.root_extra->modules.empty ())
+      if (!rs.root_extra->loaded_modules.empty ())
       {
         s.member_name ("modules", false /* check */);
         s.begin_array ();
 
-        for (const module_state& ms: rs.root_extra->modules)
+        for (const module_state& ms: rs.root_extra->loaded_modules)
           s.value (ms.name, false /* check */);
 
         s.end_array ();

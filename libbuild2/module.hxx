@@ -161,7 +161,31 @@ namespace build2
   extern "C"
   using module_load_function = const module_functions* ();
 
-  // Module state.
+  // Imported module state.
+  //
+  // The module name is the main module (corresponding to the library). If
+  // found is false then this module could not be imported from this project.
+  //
+  struct module_import
+  {
+    const string name;
+    bool found;
+  };
+
+  struct module_import_map: vector<module_import>
+  {
+    iterator
+    find (const string& name)
+    {
+      return find_if (
+        begin (), end (),
+        [&name] (const module_import& i) {return i.name == name;});
+    }
+  };
+
+  // Loaded module state.
+  //
+  // Note that unlike import_state, the module name here could be a submodule.
   //
   struct module_state
   {
@@ -173,7 +197,7 @@ namespace build2
     optional<module_boot_init> boot_init;
   };
 
-  struct module_map: vector<module_state>
+  struct module_state_map: vector<module_state>
   {
     iterator
     find (const string& name)
@@ -274,23 +298,28 @@ namespace build2
     return static_cast<T&> (*load_module (root, base, name, l, config_hints));
   }
 
-  // Loaded modules (as in libraries).
+  // Loaded module libraries.
   //
-  // A NULL entry for the main module indicates that a module library was not
-  // found.
+  // Note that this map contains entries for all the submodules.
   //
-  using loaded_module_map = map<string, const module_functions*>;
+  struct module_library
+  {
+    reference_wrapper<const module_functions> functions;
+    dir_path import_path; // Only for main module.
+  };
 
-  // The loaded_modules map is locked per top-level (as opposed to nested)
+  using module_libraries_map = map<string, module_library>;
+
+  // The module_libraries map is locked per top-level (as opposed to nested)
   // context (see context.hxx for details).
   //
   // Note: should only be constructed during contexts-wide serial execution.
   //
-  class LIBBUILD2_SYMEXPORT loaded_modules_lock
+  class LIBBUILD2_SYMEXPORT module_libraries_lock
   {
   public:
     explicit
-    loaded_modules_lock (context& c)
+    module_libraries_lock (context& c)
       : ctx_ (c), lock_ (mutex_, defer_lock)
     {
       if (ctx_.modules_lock == nullptr)
@@ -300,7 +329,7 @@ namespace build2
       }
     }
 
-    ~loaded_modules_lock ()
+    ~module_libraries_lock ()
     {
       if (ctx_.modules_lock == this)
         ctx_.modules_lock = nullptr;
@@ -312,7 +341,7 @@ namespace build2
     mlock lock_;
   };
 
-  LIBBUILD2_SYMEXPORT extern loaded_module_map loaded_modules;
+  LIBBUILD2_SYMEXPORT extern module_libraries_map modules_libraries;
 
   // Load a builtin module (i.e., a module linked as a static/shared library
   // or that is part of the build system driver).

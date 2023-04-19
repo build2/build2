@@ -298,7 +298,7 @@ namespace build2
            const strings& cmd_vars,
            reserves res,
            optional<context*> mc,
-           const loaded_modules_lock* ml,
+           const module_libraries_lock* ml,
            const function<var_override_function>& var_ovr_func)
       : data_ (new data (*this)),
         sched (&s),

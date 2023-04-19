@@ -21,7 +21,7 @@
 namespace build2
 {
   class file_cache;
-  class loaded_modules_lock;
+  class module_libraries_lock;
 
   class LIBBUILD2_SYMEXPORT run_phase_mutex
   {
@@ -142,9 +142,9 @@ namespace build2
   // instead go the multiple communicating schedulers route, a la the job
   // server).
   //
-  // The loaded_modules state (module.hxx) is shared among all the contexts
+  // The module_libraries state (module.hxx) is shared among all the contexts
   // (there is no way to have multiple shared library loading "contexts") and
-  // is protected by loaded_modules_lock. A nested context should normally
+  // is protected by module_libraries_lock. A nested context should normally
   // inherit this lock value from its outer context.
   //
   // Note also that any given thread should not participate in multiple
@@ -648,9 +648,9 @@ namespace build2
     dir_path old_src_root;
     dir_path new_src_root;
 
-    // NULL if this context hasn't already locked the loaded_modules state.
+    // NULL if this context hasn't already locked the module_libraries state.
     //
-    const loaded_modules_lock* modules_lock;
+    const module_libraries_lock* modules_lock;
 
     // Nested context for updating build system modules and ad hoc recipes.
     //
@@ -697,7 +697,7 @@ namespace build2
              const strings& cmd_vars = {},
              reserves = {0, 160},
              optional<context*> module_context = nullptr,
-             const loaded_modules_lock* inherited_mudules_lock = nullptr,
+             const module_libraries_lock* inherited_modules_lock = nullptr,
              const function<var_override_function>& = nullptr);
 
     // Special context with bare minimum of initializations. It is only
