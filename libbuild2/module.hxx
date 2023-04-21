@@ -151,9 +151,9 @@ namespace build2
   //
   // The <name> part in the function name is the main module name without
   // submodule components (for example, `c` in `c.config`) and the load
-  // function is expected to return boot/init functions for all its submodules
-  // (if any) as well as for the module itself as an array of module_functions
-  // terminated with an all-NULL entry.
+  // function is expected to return boot/init functions as an array of
+  // module_functions: entries for all its submodules (if any) first, followed
+  // by the module itself, and terminated with an all-NULL entry.
   //
   // Note that the load function is guaranteed to be called during serial
   // execution (either from main() or during the load phase).

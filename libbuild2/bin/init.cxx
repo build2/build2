@@ -1217,7 +1217,6 @@ namespace build2
 
       {"bin.vars",      nullptr, vars_init},
       {"bin.config",    nullptr, config_init},
-      {"bin",           nullptr, init},
       {"bin.ar.config", nullptr, ar_config_init},
       {"bin.ar",        nullptr, ar_init},
       {"bin.ld.config", nullptr, ld_config_init},
@@ -1227,6 +1226,7 @@ namespace build2
       {"bin.nm.config", nullptr, nm_config_init},
       {"bin.nm",        nullptr, nm_init},
       {"bin.def",       nullptr, def_init},
+      {"bin",           nullptr, init},
       {nullptr,         nullptr, nullptr}
     };
 

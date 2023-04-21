@@ -934,8 +934,8 @@ namespace build2
 
       {"cxx.guess",  nullptr, guess_init},
       {"cxx.config", nullptr, config_init},
-      {"cxx",        nullptr, init},
       {"cxx.objcxx", nullptr, objcxx_init},
+      {"cxx",        nullptr, init},
       {nullptr,      nullptr, nullptr}
     };
 

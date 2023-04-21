@@ -493,9 +493,9 @@ namespace build2
 
       {"c.guess",  nullptr, guess_init},
       {"c.config", nullptr, config_init},
-      {"c",        nullptr, init},
       {"c.objc",   nullptr, objc_init},
       {"c.as-cpp", nullptr, as_cpp_init},
+      {"c",        nullptr, init},
       {nullptr,    nullptr, nullptr}
     };
 
