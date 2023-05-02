@@ -54,6 +54,17 @@ namespace build2
       };
 
       template <>
+      struct parser<pair<name, optional<name>>>
+      {
+        static void
+        parse (pair<name, optional<name>>&, bool&, scanner&);
+
+        static void
+        merge (pair<name, optional<name>>& b,
+               const pair<name, optional<name>>& a) {b = a;}
+      };
+
+      template <>
       struct parser<structured_result_format>
       {
         static void

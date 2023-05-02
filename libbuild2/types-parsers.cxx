@@ -52,6 +52,24 @@ namespace build2
         parse_path (x, s);
       }
 
+      static names
+      parse_names (const char* o, const char* v)
+      {
+        using build2::parser;
+        using std::istringstream;
+
+        istringstream is (v);
+        is.exceptions (istringstream::failbit | istringstream::badbit);
+
+        // @@ TODO: currently this issues diagnostics to diag_stream.
+        //          Perhaps we should redirect it? Also below.
+        //
+        path_name in (o);
+        lexer l (is, in, 1 /* line */, "\'\"\\$("); // Effective.
+        parser p (nullptr);
+        return p.parse_names (l, nullptr, parser::pattern_mode::preserve);
+      }
+
       void parser<name>::
       parse (name& x, bool& xs, scanner& s)
       {
@@ -64,24 +82,47 @@ namespace build2
 
         try
         {
-          using build2::parser;
-          using std::istringstream;
-
-          istringstream is (v);
-          is.exceptions (istringstream::failbit | istringstream::badbit);
-
-          // @@ TODO: currently this issues diagnostics to diag_stream.
-          //          Perhaps we should redirect it?
-          //
-          path_name in (o);
-          lexer l (is, in, 1 /* line */, "\'\"\\$("); // Effective.
-          parser p (nullptr);
-          names r (p.parse_names (l, nullptr, parser::pattern_mode::preserve));
+          names r (parse_names (o, v));
 
           if (r.size () != 1)
             throw invalid_value (o, v);
 
           x = move (r.front ());
+          xs = true;
+        }
+        catch (const failed&)
+        {
+          throw invalid_value (o, v);
+        }
+      }
+
+      void parser<pair<name, optional<name>>>::
+      parse (pair<name, optional<name>>& x, bool& xs, scanner& s)
+      {
+        const char* o (s.next ());
+
+        if (!s.more ())
+          throw missing_value (o);
+
+        const char* v (s.next ());
+
+        try
+        {
+          names r (parse_names (o, v));
+
+          if (r.size () == 1)
+          {
+            x.first = move (r.front ());
+            x.second = nullopt;
+          }
+          else if (r.size () == 2 && r.front ().pair == '@')
+          {
+            x.first = move (r.front ());
+            x.second = move (r.back ());
+          }
+          else
+            throw invalid_value (o, v);
+
           xs = true;
         }
         catch (const failed&)

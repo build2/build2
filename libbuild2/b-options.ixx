@@ -206,7 +206,7 @@ namespace build2
     return this->no_mtime_check_;
   }
 
-  inline const std::set<string>& b_options::
+  inline const strings& b_options::
   dump () const
   {
     return this->dump_;
@@ -218,7 +218,31 @@ namespace build2
     return this->dump_specified_;
   }
 
-  inline const std::vector<name>& b_options::
+  inline const dir_paths& b_options::
+  dump_scope () const
+  {
+    return this->dump_scope_;
+  }
+
+  inline bool b_options::
+  dump_scope_specified () const
+  {
+    return this->dump_scope_specified_;
+  }
+
+  inline const vector<pair<name, optional<name>>>& b_options::
+  dump_target () const
+  {
+    return this->dump_target_;
+  }
+
+  inline bool b_options::
+  dump_target_specified () const
+  {
+    return this->dump_target_specified_;
+  }
+
+  inline const vector<name>& b_options::
   trace_match () const
   {
     return this->trace_match_;
@@ -230,7 +254,7 @@ namespace build2
     return this->trace_match_specified_;
   }
 
-  inline const std::vector<name>& b_options::
+  inline const vector<name>& b_options::
   trace_execute () const
   {
     return this->trace_execute_;

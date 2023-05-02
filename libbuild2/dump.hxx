@@ -18,14 +18,17 @@ namespace build2
   // rules have been matched for this action and dump action-specific
   // information (like rule-specific variables).
   //
+  // If scope or target is NULL, then assume not found and write a format-
+  // appropriate indication.
+  //
   LIBBUILD2_SYMEXPORT void
-  dump (const context&, optional<action> = nullopt);
+  dump (const context&, optional<action>);
 
   LIBBUILD2_SYMEXPORT void
-  dump (const scope&, const char* ind = "");
+  dump (const scope*, optional<action>, const char* ind = "");
 
   LIBBUILD2_SYMEXPORT void
-  dump (const target&, const char* ind = "");
+  dump (const target*, optional<action>, const char* ind = "");
 }
 
 #endif // LIBBUILD2_DUMP_HXX

@@ -361,6 +361,10 @@ namespace build2
     no_mtime_check_ (),
     dump_ (),
     dump_specified_ (false),
+    dump_scope_ (),
+    dump_scope_specified_ (false),
+    dump_target_ (),
+    dump_target_specified_ (false),
     trace_match_ (),
     trace_match_specified_ (false),
     trace_execute_ (),
@@ -609,21 +613,35 @@ namespace build2
 
     if (a.dump_specified_)
     {
-      ::build2::build::cli::parser< std::set<string>>::merge (
+      ::build2::build::cli::parser< strings>::merge (
         this->dump_, a.dump_);
       this->dump_specified_ = true;
     }
 
+    if (a.dump_scope_specified_)
+    {
+      ::build2::build::cli::parser< dir_paths>::merge (
+        this->dump_scope_, a.dump_scope_);
+      this->dump_scope_specified_ = true;
+    }
+
+    if (a.dump_target_specified_)
+    {
+      ::build2::build::cli::parser< vector<pair<name, optional<name>>>>::merge (
+        this->dump_target_, a.dump_target_);
+      this->dump_target_specified_ = true;
+    }
+
     if (a.trace_match_specified_)
     {
-      ::build2::build::cli::parser< std::vector<name>>::merge (
+      ::build2::build::cli::parser< vector<name>>::merge (
         this->trace_match_, a.trace_match_);
       this->trace_match_specified_ = true;
     }
 
     if (a.trace_execute_specified_)
     {
-      ::build2::build::cli::parser< std::vector<name>>::merge (
+      ::build2::build::cli::parser< vector<name>>::merge (
         this->trace_execute_, a.trace_execute_);
       this->trace_execute_specified_ = true;
     }
@@ -958,7 +976,20 @@ namespace build2
        << "\033[1m--dump\033[0m \033[4mphase\033[0m            Dump the build system state after the specified phase." << ::std::endl
        << "                        Valid \033[4mphase\033[0m values are \033[1mload\033[0m (after loading \033[1mbuildfiles\033[0m)" << ::std::endl
        << "                        and \033[1mmatch\033[0m (after matching rules to targets). Repeat" << ::std::endl
-       << "                        this option to dump the state after multiple phases." << ::std::endl;
+       << "                        this option to dump the state after multiple phases. By" << ::std::endl
+       << "                        default the entire build state is dumped but this" << ::std::endl
+       << "                        behavior can be altered with the --dump-scope\033[0m and" << ::std::endl
+       << "                        \033[1m--dump-target\033[0m options." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--dump-scope\033[0m \033[4mdir\033[0m        Dump the build system state for the specified scope" << ::std::endl
+       << "                        only. Repeat this option to dump the state of multiple" << ::std::endl
+       << "                        scopes." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--dump-target\033[0m \033[4mtarget\033[0m    Dump the build system state for the specified target" << ::std::endl
+       << "                        only. Repeat this option to dump the state of multiple" << ::std::endl
+       << "                        targets." << ::std::endl;
 
     os << std::endl
        << "\033[1m--trace-match\033[0m \033[4mtarget\033[0m    Trace rule matching for the specified target. This is" << ::std::endl
@@ -1135,13 +1166,19 @@ namespace build2
       _cli_b_options_map_["--no-mtime-check"] =
       &::build2::build::cli::thunk< b_options, &b_options::no_mtime_check_ >;
       _cli_b_options_map_["--dump"] =
-      &::build2::build::cli::thunk< b_options, std::set<string>, &b_options::dump_,
+      &::build2::build::cli::thunk< b_options, strings, &b_options::dump_,
         &b_options::dump_specified_ >;
+      _cli_b_options_map_["--dump-scope"] =
+      &::build2::build::cli::thunk< b_options, dir_paths, &b_options::dump_scope_,
+        &b_options::dump_scope_specified_ >;
+      _cli_b_options_map_["--dump-target"] =
+      &::build2::build::cli::thunk< b_options, vector<pair<name, optional<name>>>, &b_options::dump_target_,
+        &b_options::dump_target_specified_ >;
       _cli_b_options_map_["--trace-match"] =
-      &::build2::build::cli::thunk< b_options, std::vector<name>, &b_options::trace_match_,
+      &::build2::build::cli::thunk< b_options, vector<name>, &b_options::trace_match_,
         &b_options::trace_match_specified_ >;
       _cli_b_options_map_["--trace-execute"] =
-      &::build2::build::cli::thunk< b_options, std::vector<name>, &b_options::trace_execute_,
+      &::build2::build::cli::thunk< b_options, vector<name>, &b_options::trace_execute_,
         &b_options::trace_execute_specified_ >;
       _cli_b_options_map_["--no-column"] =
       &::build2::build::cli::thunk< b_options, &b_options::no_column_ >;

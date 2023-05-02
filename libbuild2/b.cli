@@ -1,8 +1,6 @@
 // file      : libbuild2/b.cli
 // license   : MIT; see accompanying LICENSE file
 
-include <set>;
-
 include <libbuild2/common.cli>;
 
 "\section=1"
@@ -774,23 +772,39 @@ namespace build2
        \cb{--mtime-check} for details."
     }
 
-    std::set<string> --dump
+    strings --dump
     {
       "<phase>",
       "Dump the build system state after the specified phase. Valid <phase>
        values are \cb{load} (after loading \cb{buildfiles}) and \cb{match}
-       (after matching rules to targets). Repeat this option to dump the
-       state after multiple phases."
+       (after matching rules to targets). Repeat this option to dump the state
+       after multiple phases. By default the entire build state is dumped but
+       this behavior can be altered with the \c{--dump-scope} and
+       \cb{--dump-target} options."
     }
 
-    std::vector<name> --trace-match
+    dir_paths --dump-scope
+    {
+      "<dir>",
+      "Dump the build system state for the specified scope only. Repeat this
+       option to dump the state of multiple scopes."
+    }
+
+    vector<pair<name, optional<name>>> --dump-target
+    {
+      "<target>",
+      "Dump the build system state for the specified target only. Repeat this
+       option to dump the state of multiple targets."
+    }
+
+    vector<name> --trace-match
     {
       "<target>",
       "Trace rule matching for the specified target. This is primarily useful
        during troubleshooting. Repeat this option to trace multiple targets."
     }
 
-    std::vector<name> --trace-execute
+    vector<name> --trace-execute
     {
       "<target>",
       "Trace rule execution for the specified target. This is primarily useful

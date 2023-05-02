@@ -497,11 +497,136 @@ main (int argc, char* argv[])
 
     bool dump_load (false);
     bool dump_match (false);
-    if (ops.dump_specified ())
+    for (const string& p: ops.dump ())
     {
-      dump_load  = ops.dump ().find ("load") != ops.dump ().end ();
-      dump_match = ops.dump ().find ("match") != ops.dump ().end ();
+      if      (p == "load")  dump_load = true;
+      else if (p == "match") dump_match = true;
+      else fail << "unknown phase '" << p << "' specified with --dump";
     }
+
+    auto dump = [&trace, &ops] (context& ctx, optional<action> a)
+    {
+      const dir_paths& scopes (ops.dump_scope ());
+      const vector<pair<name, optional<name>>>& targets (ops.dump_target ());
+
+      if (scopes.empty () && targets.empty ())
+        build2::dump (ctx, a);
+      else
+      {
+        auto comp_norm = [] (dir_path& d, const char* what)
+        {
+          try
+          {
+            if (d.relative ())
+              d.complete ();
+
+            d.normalize ();
+          }
+          catch (const invalid_path& e)
+          {
+            fail << "invalid path '" << e.path << "' specified with " << what;
+          }
+        };
+
+        // If exact is false then return any outer scope that contains this
+        // directory except for the global scope.
+        //
+        auto find_scope = [&ctx, &comp_norm] (dir_path& d,
+                                              bool exact,
+                                              const char* what) -> const scope*
+        {
+          comp_norm (d, what);
+
+          // This is always the output directory (specifically, see the target
+          // case below).
+          //
+          const scope& s (ctx.scopes.find_out (d));
+
+          return ((exact ? s.out_path () == d : s != ctx.global_scope)
+                  ? &s
+                  : nullptr);
+        };
+
+        // Dump scopes.
+        //
+        for (dir_path d: scopes)
+        {
+          const scope* s (find_scope (d, true, "--dump-scope"));
+
+          if (s == nullptr)
+            l5 ([&]{trace << "unknown target scope " << d
+                          << " specified with --dump-scope";});
+
+          build2::dump (s, a);
+        }
+
+        // Dump targets.
+        //
+        for (const pair<name, optional<name>>& p: targets)
+        {
+          const target* t (nullptr);
+
+          // Find the innermost known scope that contains this target. This
+          // is where we are going to resolve its type.
+          //
+          dir_path d (p.second ? p.second->dir : p.first.dir);
+
+          if (const scope* s = find_scope (d, false, "--dump-target"))
+          {
+            // Complete relative directories in names.
+            //
+            name n (p.first), o;
+
+            if (p.second)
+            {
+              comp_norm (n.dir, "--dump-target");
+              o.dir = move (d);
+            }
+            else
+              n.dir = move (d);
+
+            // Similar logic to parser::enter_target::find_target() as used by
+            // the dump directive. Except here we treat unknown target type as
+            // unknown target.
+            //
+            auto r (s->find_target_type (n, location ()));
+
+            if (r.first != nullptr)
+            {
+              t = ctx.targets.find (*r.first, // target type
+                                    n.dir,
+                                    o.dir,
+                                    n.value,
+                                    r.second, // extension
+                                    trace);
+
+              if (t == nullptr)
+                l5 ([&]
+                    {
+                      // @@ TODO: default_extension?
+                      //
+                      target::combine_name (n.value, r.second, false);
+                      names ns {move (n)};
+                      if (p.second)
+                        ns.push_back (move (o));
+
+                      trace << "unknown target " << ns
+                            << " specified with --dump-target";
+                    });
+            }
+            else
+              l5 ([&]{trace << "unknown target type '" << n.type << "' in "
+                            << *s << " specified with --dump-target";});
+
+          }
+          else
+            l5 ([&]{trace << "unknown target scope " << d
+                          << " specified with --dump-target";});
+
+          build2::dump (t, a);
+        }
+      }
+    };
 
     // If not NULL, then lifted points to the operation that has been "lifted"
     // to the meta-operaion (see the logic below for details). Skip is the
@@ -1328,7 +1453,7 @@ main (int argc, char* argv[])
         } // target
 
         if (dump_load)
-          dump (ctx);
+          dump (ctx, nullopt /* action */);
 
         // Finally, match the rules and perform the operation.
         //

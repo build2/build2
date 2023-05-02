@@ -4493,7 +4493,8 @@ buildfile:5:1: dump:
 The output of \c{dump} might look familiar: in \l{#intro-dirs-scopes Output
 Directories and Scopes} we've used the \c{--dump} option to print the entire
 build state, which looks pretty similar. In fact, the \c{dump} directive uses
-the same mechanism but allows us to print individual scopes and targets.
+the same mechanism but allows us to print individual scopes and targets from
+within a \c{buildfile}.
 
 There is, however, an important difference to keep in mind: \c{dump} prints
 the state of a target or scope at the point in the \c{buildfile} load phase
@@ -4506,6 +4507,9 @@ resolution of prerequisites to targets, assignment of file extensions, etc. As
 a result, while the \c{dump} directive should be sufficient in most cases,
 sometimes you may need to use the \c{--dump} option to examine the build state
 just before rule execution.
+
+\N|It is possible to limit the output of \c{--dump} to specific scopes and/or
+targets with the \c{--dump-scope} and \c{--dump-target} options.|
 
 Let's now move from state to behavior. As we already know, to see the
 underlying commands executed by the build system we use the \c{-v} options

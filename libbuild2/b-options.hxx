@@ -13,8 +13,6 @@
 //
 // End prologue.
 
-#include <set>
-
 #include <libbuild2/common-options.hxx>
 
 namespace build2
@@ -167,19 +165,31 @@ namespace build2
     const bool&
     no_mtime_check () const;
 
-    const std::set<string>&
+    const strings&
     dump () const;
 
     bool
     dump_specified () const;
 
-    const std::vector<name>&
+    const dir_paths&
+    dump_scope () const;
+
+    bool
+    dump_scope_specified () const;
+
+    const vector<pair<name, optional<name>>>&
+    dump_target () const;
+
+    bool
+    dump_target_specified () const;
+
+    const vector<name>&
     trace_match () const;
 
     bool
     trace_match_specified () const;
 
-    const std::vector<name>&
+    const vector<name>&
     trace_execute () const;
 
     bool
@@ -293,11 +303,15 @@ namespace build2
     bool structured_result_specified_;
     bool mtime_check_;
     bool no_mtime_check_;
-    std::set<string> dump_;
+    strings dump_;
     bool dump_specified_;
-    std::vector<name> trace_match_;
+    dir_paths dump_scope_;
+    bool dump_scope_specified_;
+    vector<pair<name, optional<name>>> dump_target_;
+    bool dump_target_specified_;
+    vector<name> trace_match_;
     bool trace_match_specified_;
-    std::vector<name> trace_execute_;
+    vector<name> trace_execute_;
     bool trace_execute_specified_;
     bool no_column_;
     bool no_line_;

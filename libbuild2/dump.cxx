@@ -651,29 +651,43 @@ namespace build2
   }
 
   void
-  dump (const scope& s, const char* cind)
+  dump (const scope* s, optional<action> a, const char* cind)
   {
-    const scope_map& m (s.ctx.scopes);
-    auto i (m.find_exact (s.out_path ()));
-    assert (i != m.end () && i->second.front () == &s);
-
     string ind (cind);
     ostream& os (*diag_stream);
-    dump_scope (nullopt /* action */, os, ind, i, false /* relative */);
+
+    if (s != nullptr)
+    {
+      const scope_map& m (s->ctx.scopes);
+      auto i (m.find_exact (s->out_path ()));
+      assert (i != m.end () && i->second.front () == s);
+
+      dump_scope (a, os, ind, i, false /* relative */);
+    }
+    else
+      os << ind << "<no known scope to dump>";
+
     os << endl;
   }
 
   void
-  dump (const target& t, const char* cind)
+  dump (const target* t, optional<action> a, const char* cind)
   {
     string ind (cind);
     ostream& os (*diag_stream);
-    dump_target (nullopt /* action */,
-                 os,
-                 ind,
-                 t,
-                 t.base_scope (),
-                 false /* relative */);
+
+    if (t != nullptr)
+    {
+      dump_target (a,
+                   os,
+                   ind,
+                   *t,
+                   t->base_scope (),
+                   false /* relative */);
+    }
+    else
+      os << ind << "<no known target to dump>";
+
     os << endl;
   }
 }
