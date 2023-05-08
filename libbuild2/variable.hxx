@@ -944,7 +944,7 @@ namespace build2
   // pair of two empties).
   //
   // @@ Maybe we should redo this with optional<> to signify which half can
-  //    be missing?
+  //    be missing? See also dump_value(json).
   //
   template <>
   struct LIBBUILD2_SYMEXPORT value_traits<name_pair>
@@ -1212,6 +1212,8 @@ namespace build2
   // merely an optimization since not doing so we may end up with multiple
   // value type objects for the same traits type (and we use their addressed
   // as identity; see cast(const value&) for an example).
+  //
+  // NOTE: REMEMBER TO UPDATE dump_value(json) IF CHANGING ANYTHING HERE!
   //
   extern template struct LIBBUILD2_DECEXPORT value_traits<strings>;
   extern template struct LIBBUILD2_DECEXPORT value_traits<vector<name>>;

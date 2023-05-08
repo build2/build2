@@ -47,6 +47,7 @@ function compile ()
 --generate-html --html-suffix .xhtml \
 --html-prologue-file man-prologue.xhtml \
 --html-epilogue-file man-epilogue.xhtml \
+--link-regex '%b(#.+)?%build2-build-system-manual.xhtml$1%' \
 ../libbuild2/$n.cli
 
   cli -I .. \
@@ -58,6 +59,7 @@ function compile ()
 --generate-man --man-suffix .1 --ascii-tree \
 --man-prologue-file man-prologue.1 \
 --man-epilogue-file man-epilogue.1 \
+--link-regex '%b(#.+)?%$1%' \
 ../libbuild2/$n.cli
 }
 

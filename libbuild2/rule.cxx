@@ -201,7 +201,7 @@ namespace build2
   }
 
   const file_rule file_rule::instance;
-  const rule_match file_rule::rule_match ("file", file_rule::instance);
+  const rule_match file_rule::rule_match ("build.file", file_rule::instance);
 
   // alias_rule
   //

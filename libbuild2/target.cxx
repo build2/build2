@@ -38,7 +38,9 @@ namespace build2
     if (!name->empty ())
     {
       v = *name;
-      target::combine_name (v, ext, false /* @@ TODO: what to do? */);
+      // @@ TMP: see also other calls to combine_name() -- need to fix.
+      //
+      target::combine_name (v, ext, false /* @@ TMP: what to do? */);
     }
     else
       assert (!ext || ext->empty ()); // Unspecified or none.

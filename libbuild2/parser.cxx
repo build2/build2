@@ -4702,8 +4702,10 @@ namespace build2
 
     if (ns.empty ())
     {
+      // Indent two spaces.
+      //
       if (scope_ != nullptr)
-        dump (scope_, nullopt /* action */, "  "); // Indent two spaces.
+        dump (scope_, nullopt /* action */, dump_format::buildfile, "  ");
       else
         os << "  <no current scope>" << endl;
     }
@@ -4721,8 +4723,10 @@ namespace build2
 
         const target* t (enter_target::find_target (*this, n, o, l, trace));
 
+        // Indent two spaces.
+        //
         if (t != nullptr)
-          dump (t, nullopt /* action */, "  "); // Indent two spaces.
+          dump (t, nullopt /* action */, dump_format::buildfile, "  ");
         else
         {
           os << "  <no target " << n;

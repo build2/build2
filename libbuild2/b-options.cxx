@@ -361,6 +361,8 @@ namespace build2
     no_mtime_check_ (),
     dump_ (),
     dump_specified_ (false),
+    dump_format_ (),
+    dump_format_specified_ (false),
     dump_scope_ (),
     dump_scope_specified_ (false),
     dump_target_ (),
@@ -616,6 +618,13 @@ namespace build2
       ::build2::build::cli::parser< strings>::merge (
         this->dump_, a.dump_);
       this->dump_specified_ = true;
+    }
+
+    if (a.dump_format_specified_)
+    {
+      ::build2::build::cli::parser< string>::merge (
+        this->dump_format_, a.dump_format_);
+      this->dump_format_specified_ = true;
     }
 
     if (a.dump_scope_specified_)
@@ -975,11 +984,37 @@ namespace build2
     os << std::endl
        << "\033[1m--dump\033[0m \033[4mphase\033[0m            Dump the build system state after the specified phase." << ::std::endl
        << "                        Valid \033[4mphase\033[0m values are \033[1mload\033[0m (after loading \033[1mbuildfiles\033[0m)" << ::std::endl
-       << "                        and \033[1mmatch\033[0m (after matching rules to targets). Repeat" << ::std::endl
-       << "                        this option to dump the state after multiple phases. By" << ::std::endl
-       << "                        default the entire build state is dumped but this" << ::std::endl
-       << "                        behavior can be altered with the --dump-scope\033[0m and" << ::std::endl
-       << "                        \033[1m--dump-target\033[0m options." << ::std::endl;
+       << "                        and \033[1mmatch\033[0m (after matching rules to targets). The \033[1mmatch\033[0m" << ::std::endl
+       << "                        value also has the \033[1mmatch-pre\033[0m and \033[1mmatch-post\033[0m variants to" << ::std::endl
+       << "                        dump the state for the pre/post-operations (\033[1mmatch\033[0m dumps" << ::std::endl
+       << "                        the main operation only). Repeat this option to dump" << ::std::endl
+       << "                        the state after multiple phases/variants. By default" << ::std::endl
+       << "                        the entire build state is dumped but this behavior can" << ::std::endl
+       << "                        be altered with the \033[1m--dump-scope\033[0m and \033[1m--dump-target\033[0m" << ::std::endl
+       << "                        options." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--dump-format\033[0m \033[4mformat\033[0m    Representation format and output stream to use when" << ::std::endl
+       << "                        dumping the build system state. Valid values for this" << ::std::endl
+       << "                        option are \033[1mbuildfile\033[0m (a human-readable, Buildfile-like" << ::std::endl
+       << "                        format written to \033[1mstderr\033[0m; this is the default), and" << ::std::endl
+       << "                        \033[1mjson-v0.1\033[0m (machine-readable, JSON-based format written" << ::std::endl
+       << "                        to \033[1mstdout\033[0m). For details on the \033[1mbuildfile\033[0m format, see" << ::std::endl
+       << "                        Diagnostics and Debugging (b#intro-diag-debug). For" << ::std::endl
+       << "                        details on the \033[1mjson-v0.1\033[0m format, see the JSON OUTPUT" << ::std::endl
+       << "                        section below (overall properties) and Build System" << ::std::endl
+       << "                        State JSON Dump Format (b#@@) (format specifics). Note" << ::std::endl
+       << "                        that the JSON format is currently unstable (thus the" << ::std::endl
+       << "                        temporary \033[1m-v0.1\033[0m suffix)." << ::std::endl
+       << ::std::endl
+       << "                        Note that because it's possible to end up with multiple" << ::std::endl
+       << "                        dumps (for example, by specifying the \033[1m--dump-scope\033[0m" << ::std::endl
+       << "                        and/or \033[1m--dump-target\033[0m options multiple times), the JSON" << ::std::endl
+       << "                        output is in the \"JSON Lines\" form, that is, without" << ::std::endl
+       << "                        pretty-printing and with the top-level JSON objects" << ::std::endl
+       << "                        delimited by newlines. Note also that if the JSON dump" << ::std::endl
+       << "                        output is combined with \033[1m--structured-result=json\033[0m, then" << ::std::endl
+       << "                        the structured result is the last line." << ::std::endl;
 
     os << std::endl
        << "\033[1m--dump-scope\033[0m \033[4mdir\033[0m        Dump the build system state for the specified scope" << ::std::endl
@@ -1168,6 +1203,9 @@ namespace build2
       _cli_b_options_map_["--dump"] =
       &::build2::build::cli::thunk< b_options, strings, &b_options::dump_,
         &b_options::dump_specified_ >;
+      _cli_b_options_map_["--dump-format"] =
+      &::build2::build::cli::thunk< b_options, string, &b_options::dump_format_,
+        &b_options::dump_format_specified_ >;
       _cli_b_options_map_["--dump-scope"] =
       &::build2::build::cli::thunk< b_options, dir_paths, &b_options::dump_scope_,
         &b_options::dump_scope_specified_ >;

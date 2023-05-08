@@ -777,10 +777,37 @@ namespace build2
       "<phase>",
       "Dump the build system state after the specified phase. Valid <phase>
        values are \cb{load} (after loading \cb{buildfiles}) and \cb{match}
-       (after matching rules to targets). Repeat this option to dump the state
-       after multiple phases. By default the entire build state is dumped but
-       this behavior can be altered with the \c{--dump-scope} and
-       \cb{--dump-target} options."
+       (after matching rules to targets). The \cb{match} value also has the
+       \cb{match-pre} and \cb{match-post} variants to dump the state for the
+       pre/post-operations (\cb{match} dumps the main operation only). Repeat
+       this option to dump the state after multiple phases/variants. By
+       default the entire build state is dumped but this behavior can be
+       altered with the \cb{--dump-scope} and \cb{--dump-target} options."
+    }
+
+    string --dump-format
+    {
+      // NOTE: fix all references to json-v0.1
+      //
+      "<format>",
+      "Representation format and output stream to use when dumping the build
+       system state. Valid values for this option are \cb{buildfile} (a
+       human-readable, Buildfile-like format written to \cb{stderr}; this is
+       the default), and \cb{json-v0.1} (machine-readable, JSON-based format
+       written to \cb{stdout}). For details on the \cb{buildfile} format, see
+       \l{b#intro-diag-debug Diagnostics and Debugging}. For details on the
+       \cb{json-v0.1} format, see the JSON OUTPUT section below (overall
+       properties) and \l{b#@@ Build System State JSON Dump Format} (format
+       specifics). Note that the JSON format is currently unstable (thus
+       the temporary \cb{-v0.1} suffix).
+
+       Note that because it's possible to end up with multiple dumps (for
+       example, by specifying the \cb{--dump-scope} and/or \cb{--dump-target}
+       options multiple times), the JSON output is in the \"JSON Lines\" form,
+       that is, without pretty-printing and with the top-level JSON objects
+       delimited by newlines. Note also that if the JSON dump output is
+       combined with \cb{--structured-result=json}, then the structured
+       result is the last line."
     }
 
     dir_paths --dump-scope

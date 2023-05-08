@@ -148,32 +148,20 @@ namespace build2
 
       s.begin_object ();
 
-      // Target.
+      // Display target.
       //
-      {
-        // Change the stream verbosity (see print_lines() for details).
-        //
-        ostringstream os;
-        stream_verb (os, stream_verbosity (1, 0));
-        os << t;
-        s.member ("target", os.str ());
-      }
+      s.member_name ("target");
+      dump_display_target_name (s, t);
 
       // Quoted target.
       //
-      {
-        names ns (t.as_name ()); // Note: potentially adds an extension.
+      s.member_name ("quoted_target");
+      dump_quoted_target_name (s, t);
 
-        ostringstream os;
-        stream_verb (os, stream_verbosity (1, 0));
-        to_stream (os, ns, quote_mode::effective, '@');
-        s.member ("quoted_target", os.str ());
-      }
-
-      s.member ("target_type", t.key ().type->name, false /* check */);
+      s.member ("target_type", t.type ().name, false /* check */);
 
       if (t.is_a<dir> ())
-        s.member ("target_path", t.key ().dir->string ());
+        s.member ("target_path", t.dir.string ());
       else if (const auto* pt = t.is_a<path_target> ())
         s.member ("target_path", pt->path ().string ());
 
@@ -497,20 +485,47 @@ main (int argc, char* argv[])
 
     bool dump_load (false);
     bool dump_match (false);
+    bool dump_match_pre (false);
+    bool dump_match_post (false);
     for (const string& p: ops.dump ())
     {
-      if      (p == "load")  dump_load = true;
-      else if (p == "match") dump_match = true;
+      if      (p == "load")       dump_load = true;
+      else if (p == "match")      dump_match = true;
+      else if (p == "match-pre")  dump_match_pre = true;
+      else if (p == "match-post") dump_match_post = true;
       else fail << "unknown phase '" << p << "' specified with --dump";
     }
 
-    auto dump = [&trace, &ops] (context& ctx, optional<action> a)
+    dump_format dump_fmt (dump_format::buildfile);
+    if (ops.dump_format_specified ())
+    {
+      const string& f (ops.dump_format ());
+
+      if (f == "json-v0.1")
+      {
+#ifdef BUILD2_BOOTSTRAP
+        fail << "json dump not supported in bootstrap build system";
+#endif
+        dump_fmt = dump_format::json;
+      }
+      else if (f != "buildfile")
+      {
+        diag_record dr (fail);
+
+        dr << "unsupported format '" << f << "' specified with --dump-format";
+
+        if (f.compare (0, 4, "json") == 0)
+          dr << info << "supported json format version is json-v0.1";
+      }
+    }
+
+    auto dump = [&trace, &ops, dump_fmt] (context& ctx, optional<action> a)
     {
       const dir_paths& scopes (ops.dump_scope ());
       const vector<pair<name, optional<name>>>& targets (ops.dump_target ());
 
       if (scopes.empty () && targets.empty ())
-        build2::dump (ctx, a);
+        build2::dump (ctx, a, dump_fmt);
       else
       {
         auto comp_norm = [] (dir_path& d, const char* what)
@@ -557,7 +572,7 @@ main (int argc, char* argv[])
             l5 ([&]{trace << "unknown target scope " << d
                           << " specified with --dump-scope";});
 
-          build2::dump (s, a);
+          build2::dump (s, a, dump_fmt);
         }
 
         // Dump targets.
@@ -623,7 +638,7 @@ main (int argc, char* argv[])
             l5 ([&]{trace << "unknown target scope " << d
                           << " specified with --dump-target";});
 
-          build2::dump (t, a);
+          build2::dump (t, a, dump_fmt);
         }
       }
     };
@@ -644,7 +659,10 @@ main (int argc, char* argv[])
     // Note that this constructor is cheap and so we rather call it always
     // instead of resorting to dynamic allocations.
     //
-    json::stream_serializer js (cout);
+    // Note also that we disable pretty-printing if there is also the JSON
+    // dump and thus we need to combine the two in the JSON Lines format.
+    //
+    json::stream_serializer js (cout, dump_fmt == dump_format::json ? 0 : 2);
 
     if (ops.structured_result_specified () &&
         ops.structured_result () == structured_result_format::json)
@@ -1484,7 +1502,7 @@ main (int argc, char* argv[])
             if (mif->match != nullptr)
               mif->match (mparams, a, tgs, diag, true /* progress */);
 
-            if (dump_match)
+            if (dump_match_pre)
               dump (ctx, a);
 
             if (mif->execute != nullptr && !ctx.match_only)
@@ -1572,7 +1590,7 @@ main (int argc, char* argv[])
             if (mif->match != nullptr)
               mif->match (mparams, a, tgs, diag, true /* progress */);
 
-            if (dump_match)
+            if (dump_match_post)
               dump (ctx, a);
 
             if (mif->execute != nullptr && !ctx.match_only)

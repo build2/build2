@@ -171,6 +171,12 @@ namespace build2
     bool
     dump_specified () const;
 
+    const string&
+    dump_format () const;
+
+    bool
+    dump_format_specified () const;
+
     const dir_paths&
     dump_scope () const;
 
@@ -305,6 +311,8 @@ namespace build2
     bool no_mtime_check_;
     strings dump_;
     bool dump_specified_;
+    string dump_format_;
+    bool dump_format_specified_;
     dir_paths dump_scope_;
     bool dump_scope_specified_;
     vector<pair<name, optional<name>>> dump_target_;

@@ -218,6 +218,18 @@ namespace build2
     return this->dump_specified_;
   }
 
+  inline const string& b_options::
+  dump_format () const
+  {
+    return this->dump_format_;
+  }
+
+  inline bool b_options::
+  dump_format_specified () const
+  {
+    return this->dump_format_specified_;
+  }
+
   inline const dir_paths& b_options::
   dump_scope () const
   {
