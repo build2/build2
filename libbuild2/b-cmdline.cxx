@@ -418,6 +418,9 @@ namespace build2
 
       if (ops.mtime_check () && ops.no_mtime_check ())
         fail << "both --mtime-check and --no-mtime-check specified";
+
+      if (ops.match_only () && ops.load_only ())
+        fail << "both --match-only and --load-only specified";
     }
     catch (const cli::exception& e)
     {

@@ -151,6 +151,9 @@ namespace build2
     match_only () const;
 
     const bool&
+    load_only () const;
+
+    const bool&
     no_external_modules () const;
 
     const structured_result_format&
@@ -304,6 +307,7 @@ namespace build2
     bool dry_run_;
     bool no_diag_buffer_;
     bool match_only_;
+    bool load_only_;
     bool no_external_modules_;
     structured_result_format structured_result_;
     bool structured_result_specified_;

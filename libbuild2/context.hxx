@@ -120,6 +120,16 @@ namespace build2
     }
   };
 
+  // Match-only level.
+  //
+  // See the --match-only and --load-only options for background.
+  //
+  enum class match_only_level
+  {
+    alias, // Match only alias{} targets.
+    all    // Match all targets.
+  };
+
   // A build context encapsulates the state of a build. It is possible to have
   // multiple build contexts provided they are non-overlapping, that is, they
   // don't try to build the same projects (note that this is currently not
@@ -217,9 +227,9 @@ namespace build2
     global_mutexes* mutexes;
     file_cache*     fcache;
 
-    // Match only flag (see --match-only but also dist).
+    // Match only flag/level (see --{load,match}-only but also dist).
     //
-    bool match_only;
+    optional<match_only_level> match_only;
 
     // Skip booting external modules flag (see --no-external-modules).
     //
@@ -689,7 +699,7 @@ namespace build2
     context (scheduler&,
              global_mutexes&,
              file_cache&,
-             bool match_only = false,
+             optional<match_only_level> match_only = nullopt,
              bool no_external_modules = false,
              bool dry_run = false,
              bool no_diag_buffer = false,

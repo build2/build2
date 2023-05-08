@@ -219,7 +219,23 @@ namespace build2
     //
     inject_fsdir (a, t, true, false);
 
-    match_prerequisites (a, t);
+    // Handle the alias match-only level.
+    //
+    match_search ms;
+    if (t.ctx.match_only && *t.ctx.match_only == match_only_level::alias)
+    {
+      ms = [] (action,
+               const target& t,
+               const prerequisite& p,
+               include_type i)
+        {
+          return prerequisite_target (
+            p.is_a<alias> () ? &search (t, p) : nullptr,
+            i);
+        };
+    }
+
+    match_prerequisites (a, t, ms);
     return default_recipe;
   }
 

@@ -416,10 +416,14 @@ main (int argc, char* argv[])
         pctx = nullptr; // Free first to reuse memory.
       }
 
+      optional<match_only_level> mo;
+      if      (ops.load_only ())  mo = match_only_level::alias;
+      else if (ops.match_only ()) mo = match_only_level::all;
+
       pctx.reset (new context (sched,
                                mutexes,
                                fcache,
-                               ops.match_only (),
+                               mo,
                                ops.no_external_modules (),
                                ops.dry_run (),
                                ops.no_diag_buffer (),
@@ -478,6 +482,8 @@ main (int argc, char* argv[])
           30000 /* targets */,
           1100  /* variables */});
     }
+
+    bool load_only (ops.load_only ());
 
     const path& buildfile (ops.buildfile_specified ()
                            ? ops.buildfile ()
@@ -1409,6 +1415,9 @@ main (int argc, char* argv[])
           break;
         }
 
+        if (load_only && (mid != perform_id || oid != update_id))
+          fail << "--load-only requires perform(update) action";
+
         // Now load the buildfiles and search the targets.
         //
         action_targets tgs;
@@ -1440,6 +1449,9 @@ main (int argc, char* argv[])
           if (tt == nullptr)
             fail (l) << "unknown target type " << tn.type;
 
+          if (load_only && !tt->is_a<alias> ())
+            fail << "--load-only requires alias target";
+
           if (mif->search != nullptr)
           {
             // If the directory is relative, assume it is relative to work
@@ -1470,7 +1482,9 @@ main (int argc, char* argv[])
           }
         } // target
 
-        if (dump_load)
+        // Delay until after match in the --load-only mode (see below).
+        //
+        if (dump_load && !load_only)
           dump (ctx, nullopt /* action */);
 
         // Finally, match the rules and perform the operation.
@@ -1609,6 +1623,9 @@ main (int argc, char* argv[])
           l5 ([&]{trace << "end post-operation batch " << post_oif->name
                         << ", id " << static_cast<uint16_t> (post_oid);});
         }
+
+        if (dump_load && load_only)
+          dump (ctx, nullopt /* action */);
 
         if (mif->operation_post != nullptr)
           mif->operation_post (ctx, mparams, oid);

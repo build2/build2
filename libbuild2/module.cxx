@@ -83,7 +83,7 @@ namespace build2
       new context (*ctx.sched,
                    *ctx.mutexes,
                    *ctx.fcache,
-                   false,                    /* match_only */
+                   nullopt,                  /* match_only */
                    false,                    /* no_external_modules */
                    false,                    /* dry_run */
                    ctx.no_diag_buffer,

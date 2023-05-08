@@ -302,8 +302,8 @@ namespace build2
           }
         };
 
-        auto mog = make_guard ([&ctx] () {ctx.match_only = false;});
-        ctx.match_only = true;
+        auto mog = make_guard ([&ctx] () {ctx.match_only = nullopt;});
+        ctx.match_only = match_only_level::all;
 
         const operations& ops (rs.root_extra->operations);
         for (operations::size_type id (default_id + 1); // Skip default_id.

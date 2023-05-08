@@ -663,8 +663,18 @@ namespace build2
 
     bool --match-only
     {
-      "Match the rules but do not execute the operation. This mode is primarily
-       useful for profiling."
+      "Match the rules without executing the operation. This mode is primarily
+       useful for profiling and dumping the build system state."
+    }
+
+    bool --load-only
+    {
+      "Match the rules only to \cb{alias{\}} targets ignoring other targets
+       and without executing the operation. In particular, this has the
+       effect of loading all the subdirectory \cb{buildfiles} that are not
+       explicitly included. Note that this option can only be used with the
+       \cb{perform(update)} action on an \cb{alias{\}} target, usually
+       \cb{dir{\}}."
     }
 
     bool --no-external-modules
@@ -782,7 +792,8 @@ namespace build2
        pre/post-operations (\cb{match} dumps the main operation only). Repeat
        this option to dump the state after multiple phases/variants. By
        default the entire build state is dumped but this behavior can be
-       altered with the \cb{--dump-scope} and \cb{--dump-target} options."
+       altered with the \cb{--dump-scope} and \cb{--dump-target} options.
+       See also the \cb{--match-only} and \cb{--load-only} options."
     }
 
     string --dump-format

@@ -354,6 +354,7 @@ namespace build2
     dry_run_ (),
     no_diag_buffer_ (),
     match_only_ (),
+    load_only_ (),
     no_external_modules_ (),
     structured_result_ (),
     structured_result_specified_ (false),
@@ -586,6 +587,12 @@ namespace build2
     {
       ::build2::build::cli::parser< bool>::merge (
         this->match_only_, a.match_only_);
+    }
+
+    if (a.load_only_)
+    {
+      ::build2::build::cli::parser< bool>::merge (
+        this->load_only_, a.load_only_);
     }
 
     if (a.no_external_modules_)
@@ -883,8 +890,18 @@ namespace build2
        << "                        lines and thus could be tolerable." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--match-only\033[0m            Match the rules but do not execute the operation. This" << ::std::endl
-       << "                        mode is primarily useful for profiling." << ::std::endl;
+       << "\033[1m--match-only\033[0m            Match the rules without executing the operation. This" << ::std::endl
+       << "                        mode is primarily useful for profiling and dumping the" << ::std::endl
+       << "                        build system state." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--load-only\033[0m             Match the rules only to \033[1malias{}\033[0m targets ignoring other" << ::std::endl
+       << "                        targets and without executing the operation. In" << ::std::endl
+       << "                        particular, this has the effect of loading all the" << ::std::endl
+       << "                        subdirectory \033[1mbuildfiles\033[0m that are not explicitly" << ::std::endl
+       << "                        included. Note that this option can only be used with" << ::std::endl
+       << "                        the \033[1mperform(update)\033[0m action on an \033[1malias{}\033[0m target," << ::std::endl
+       << "                        usually \033[1mdir{}\033[0m." << ::std::endl;
 
     os << std::endl
        << "\033[1m--no-external-modules\033[0m   Don't load external modules during project bootstrap." << ::std::endl
@@ -991,6 +1008,7 @@ namespace build2
        << "                        the state after multiple phases/variants. By default" << ::std::endl
        << "                        the entire build state is dumped but this behavior can" << ::std::endl
        << "                        be altered with the \033[1m--dump-scope\033[0m and \033[1m--dump-target\033[0m" << ::std::endl
+       << "                        options. See also the \033[1m--match-only\033[0m and \033[1m--load-only\033[0m" << ::std::endl
        << "                        options." << ::std::endl;
 
     os << std::endl
@@ -1191,6 +1209,8 @@ namespace build2
       &::build2::build::cli::thunk< b_options, &b_options::no_diag_buffer_ >;
       _cli_b_options_map_["--match-only"] =
       &::build2::build::cli::thunk< b_options, &b_options::match_only_ >;
+      _cli_b_options_map_["--load-only"] =
+      &::build2::build::cli::thunk< b_options, &b_options::load_only_ >;
       _cli_b_options_map_["--no-external-modules"] =
       &::build2::build::cli::thunk< b_options, &b_options::no_external_modules_ >;
       _cli_b_options_map_["--structured-result"] =

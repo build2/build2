@@ -177,6 +177,12 @@ namespace build2
   }
 
   inline const bool& b_options::
+  load_only () const
+  {
+    return this->load_only_;
+  }
+
+  inline const bool& b_options::
   no_external_modules () const
   {
     return this->no_external_modules_;
