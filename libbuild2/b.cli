@@ -798,7 +798,7 @@ namespace build2
 
     string --dump-format
     {
-      // NOTE: fix all references to json-v0.1
+      // NOTE: fix all references to json-v0.1, including the manual.
       //
       "<format>",
       "Representation format and output stream to use when dumping the build
@@ -808,9 +808,9 @@ namespace build2
        written to \cb{stdout}). For details on the \cb{buildfile} format, see
        \l{b#intro-diag-debug Diagnostics and Debugging}. For details on the
        \cb{json-v0.1} format, see the JSON OUTPUT section below (overall
-       properties) and \l{b#@@ Build System State JSON Dump Format} (format
-       specifics). Note that the JSON format is currently unstable (thus
-       the temporary \cb{-v0.1} suffix).
+       properties) and \l{b#json-dump JSON Dump Format} (format specifics).
+       Note that the JSON format is currently unstable (thus the temporary
+       \cb{-v0.1} suffix).
 
        Note that because it's possible to end up with multiple dumps (for
        example, by specifying the \cb{--dump-scope} and/or \cb{--dump-target}
@@ -981,7 +981,7 @@ namespace build2
   The order in which default options files are loaded is traced at the
   verbosity level 3 (\cb{-V} option) or higher.
 
-  \h|JSON OUTPUT|
+  \h#json-output|JSON OUTPUT|
 
   Commands that support the JSON output specify their formats as a
   serialized representation of a C++ \cb{struct} or an array thereof. For

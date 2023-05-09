@@ -1020,10 +1020,10 @@ namespace build2
        << "                        to \033[1mstdout\033[0m). For details on the \033[1mbuildfile\033[0m format, see" << ::std::endl
        << "                        Diagnostics and Debugging (b#intro-diag-debug). For" << ::std::endl
        << "                        details on the \033[1mjson-v0.1\033[0m format, see the JSON OUTPUT" << ::std::endl
-       << "                        section below (overall properties) and Build System" << ::std::endl
-       << "                        State JSON Dump Format (b#@@) (format specifics). Note" << ::std::endl
-       << "                        that the JSON format is currently unstable (thus the" << ::std::endl
-       << "                        temporary \033[1m-v0.1\033[0m suffix)." << ::std::endl
+       << "                        section below (overall properties) and JSON Dump Format" << ::std::endl
+       << "                        (b#json-dump) (format specifics). Note that the JSON" << ::std::endl
+       << "                        format is currently unstable (thus the temporary \033[1m-v0.1\033[0m" << ::std::endl
+       << "                        suffix)." << ::std::endl
        << ::std::endl
        << "                        Note that because it's possible to end up with multiple" << ::std::endl
        << "                        dumps (for example, by specifying the \033[1m--dump-scope\033[0m" << ::std::endl

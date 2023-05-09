@@ -9458,4 +9458,498 @@ corresponding \c{in{\}} and one or more \c{bash{\}} prerequisites as well as
 \c{bash{\}} targets that have the corresponding \c{in{\}} prerequisite (if you
 need to preprocess a script that does not depend on any modules, you can use
 the \c{in} module's rule).
+
+
+\h1#json-dump|Appendix A \- JSON Dump Format|
+
+This appendix describes the machine-readable, JSON-based build system state
+dump format that can be requested with the \c{--dump-format=json-v0.1} build
+system driver option (see \l{b(1)} for details).
+
+The format is specified in terms of the serialized representation of C++
+\c{struct} instances. See \l{b.xhtml#json-output JSON OUTPUT} for details on
+the overall properties of this format and the semantics of the \c{struct}
+serialization.
+
+\N|This format is currently unstable (thus the temporary \c{-v0.1} suffix)
+and may be changed in ways other than as described in \l{b.xhtml#json-output
+JSON OUTPUT}. In case of such changes the format version will be incremented
+to allow detecting incompatibilities but no support for older versions is
+guaranteed.|
+
+The build system state can be dumped after the load phase (\c{--dump=load}),
+once the build state has been loaded, and/or after the match phase
+(\c{--dump=match}), after rules have been matched to targets to execute the
+desired action. The JSON format differs depending on after which phase it is
+produced. After the load phase the format aims to describe the
+action-independent state, essentially as specified in the \c{buildfiles}.
+While after the match phase it aims to describe the state for executing the
+specified action, as determined by the rules that have been matched. The
+former state would be more appropriate, for example, for an IDE that tries to
+use \c{buildfiles} as project files. While the latter state could be used to
+determine the actual build graph for a certain action, for example, in order
+to infer which executable targets are considered tests by the \c{test}
+operation.
+
+While it's possible to dump the build state as a byproduct of executing an
+action (for example, performing an update), it's often desirable to only dump
+the build state and do it as quickly as possible. For such cases the
+recommended option combinations are as follows (see the \c{--load-only} and
+\c{--match-only} documentation for details):
+
+\
+$ b --load-only --dump=load --dump-format=json-v0.1 .../dir/
+
+$ b --match-only --dump=match --dump-format=json-v0.1 .../dir/
+$ b --match-only --dump=match --dump-format=json-v0.1 .../dir/type{name}
+\
+
+\N|Note that a match dump for a large project can produce a large amount of
+data, especially for the \c{update} operation (tens and even hundreds of
+megabytes is not uncommon). To reduce this size it is possible to limit the
+dump to specific scopes and/or targets with the \c{--dump-scope} and
+\c{--dump-target} options.|
+
+The complete dump (that is, not of a specific scope or target) is a tree of
+nested scope objects (see \l{#intro-dirs-scopes Output Directories and Scopes}
+for background). The scope object has the serialized representation of the
+following C++ \c{struct} \c{scope}. It is the same for both load and match
+dumps except for the type of the \c{targets} member:
+
+\
+struct scope
+{
+  string           out_path;
+  optional<string> src_path;
+
+  vector<variable> variables; // Non-type/pattern scope variables.
+
+  vector<scope> scopes; // Immediate children.
+
+  vector<loaded_target|matched_target> targets;
+};
+\
+
+For example (parts of the output are omitted for brevity):
+
+\N|The actual output is produced unindented to reduce the size.|
+
+\
+$ cd /tmp
+$ bdep new hello
+$ cd hello
+$ bdep new -C @gcc cc
+$ b --load-only --dump=load --dump-format=json-v0.1
+{
+  \"out_path\": \"\",
+  \"variables\": [ ... ],
+  \"scopes\": [
+    {
+      \"out_path\": \"/tmp/hello-gcc\",
+      \"variables\": [ ... ],
+      \"scopes\": [
+        {
+          \"out_path\": \"hello\",
+          \"src_path\": \"/tmp/hello\",
+          \"variables\": [ ... ],
+          \"scopes\": [
+            {
+              \"out_path\": \"hello\",
+              \"src_path\": \"/tmp/hello/hello\",
+              \"variables\": [ ... ],
+              \"targets\": [ ... ]
+            }
+          ],
+          \"targets\": [ ... ]
+        }
+      ],
+      \"targets\": [ ... ]
+    }
+  ]
+}
+\
+
+The \c{out_path} member is relative to the parent scope. It is empty for the
+special global scope, which is the root of the tree. The \c{src_path} member
+is absent if it is the same as \c{out_path} (in source build or scope outside
+of project).
+
+\N|For the match dump, targets that have not been matched for the specified
+action are omitted.|
+
+In the load dump, the target object has the serialized representation of the
+following C++ \c{struct} \c{loaded_target}:
+
+\
+struct loaded_target
+{
+  string           name;  // Relative quoted/qualified name.
+  string   display_name;  // Relative display name.
+  string           type;  // Target type.
+  optional<string> group; // Absolute quoted/qualified group target.
+
+  vector<variable> variables; // Target variables.
+
+  vector<prerequisite> prerequisites;
+};
+\
+
+For example (continuing with the previous \c{hello} setup):
+
+\
+{
+  \"out_path\": \"\",
+  \"scopes\": [
+    {
+      \"out_path\": \"/tmp/hello-gcc\",
+      \"scopes\": [
+        {
+          \"out_path\": \"hello\",
+          \"src_path\": \"/tmp/hello\",
+          \"scopes\": [
+            {
+              \"out_path\": \"hello\",
+              \"src_path\": \"/tmp/hello/hello\",
+              \"targets\": [
+                {
+                  \"name\": \"exe{hello}\",
+                  \"display_name\": \"exe{hello}\",
+                  \"type\": \"exe\",
+                  \"prerequisites\": [
+                    {
+                      \"name\": \"cxx{hello}\",
+                      \"type\": \"cxx\"
+                    },
+                    {
+                      \"name\": \"testscript{testscript}\",
+                      \"type\": \"testscript\"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+\
+
+The target \c{name} member is the target name that is qualified with the
+extension (if applicable and known) and, if required, is quoted so that it can
+be passed back to the build system driver on the command line. The
+\c{display_name} member is unqualified and unquoted. Note that both the target
+\c{name} and \c{display_name} members are normally relative to the containing
+scope (if any).
+
+The prerequisite object has the serialized representation of the following C++
+\c{struct} \c{prerequisite}:
+
+\
+struct prerequisite
+{
+  string name; // Quoted/qualified name.
+  string type;
+  vector<variable> variables; // Prerequisite variables.
+};
+\
+
+The prerequisite \c{name} member is normally relative to the containing scope.
+
+In the match dump, the target object has the serialized representation of the
+following C++ \c{struct} \c{matched_target}:
+
+\
+struct matched_target
+{
+  string           name;
+  string   display_name;
+  string           type;
+  optional<string> group;
+
+  optional<path> path; // Absent if not path target, not assigned.
+
+  vector<variable> variables;
+
+  optional<operation_state> outer_operation; // null if not matched.
+  operation_state           inner_operation; // null if not matched.
+};
+\
+
+For example (outer scopes removed for brevity):
+
+\
+$ b --match-only --dump=match --dump-format=json-v0.1
+{
+  \"out_path\": \"hello\",
+  \"src_path\": \"/tmp/hello/hello\",
+  \"targets\": [
+    {
+      \"name\": \"/tmp/hello/hello/cxx{hello.cxx}@./\",
+      \"display_name\": \"/tmp/hello/hello/cxx{hello}@./\",
+      \"type\": \"cxx\",
+      \"path\": \"/tmp/hello/hello/hello.cxx\",
+      \"inner_operation\": {
+        \"rule\": \"build.file\",
+        \"state\": \"unchanged\"
+      }
+    },
+    {
+      \"name\": \"obje{hello.o}\",
+      \"display_name\": \"obje{hello}\",
+      \"type\": \"obje\",
+      \"group\": \"/tmp/hello-gcc/hello/hello/obj{hello}\",
+      \"path\": \"/tmp/hello-gcc/hello/hello/hello.o\",
+      \"inner_operation\": {
+        \"rule\": \"cxx.compile\",
+        \"prerequisite_targets\": [
+          {
+            \"name\": \"/tmp/hello/hello/cxx{hello.cxx}@./\",
+            \"type\": \"cxx\"
+          },
+          {
+            \"name\": \"/usr/include/c++/12/h{iostream.}\",
+            \"type\": \"h\"
+          },
+          ...
+        ]
+      }
+    },
+    {
+      \"name\": \"exe{hello.}\",
+      \"display_name\": \"exe{hello}\",
+      \"type\": \"exe\",
+      \"path\": \"/tmp/hello-gcc/hello/hello/hello\",
+      \"inner_operation\": {
+        \"rule\": \"cxx.link\",
+        \"prerequisite_targets\": [
+          {
+            \"name\": \"/tmp/hello-gcc/hello/hello/obje{hello.o}\",
+            \"type\": \"obje\"
+          }
+        ]
+      }
+    }
+  ]
+}
+\
+
+The first four members in \c{matched_target} have the same semantics as in
+\c{loaded_target}.
+
+The \c{outer_operation} member is only present if the action has an outer
+operation. For example, when performing \c{update-for-test}, \c{test} is the
+outer operation while \c{update} is the inner operation.
+
+The operation state object has the serialized representation of the following
+C++ \c{struct} \c{operation_state}:
+
+\
+struct operation_state
+{
+  string rule; // null if direct recipe match.
+
+  optional<string> state; // One of unchanged|changed|group.
+
+  vector<variable> variables; // Rule variables.
+
+  vector<prerequisite_target> prerequisite_targets;
+};
+\
+
+The \c{rule} member is the matched rule name. The \c{state} member is the
+target state, if known after match. The \c{prerequisite_targets} array is a
+subset of prerequisites resolved to targets that are in effect for this
+action. The matched rule may add additional targets, for example, dynamically
+extracted additional dependencies, like \c{/usr/include/c++/12/h{iostream.\}}
+in the above listing.
+
+The prerequisite target object has the serialized representation of the
+following C++ \c{struct} \c{prerequisite_target}:
+
+\
+struct prerequisite_target
+{
+  string name; // Absolute quoted/qualified target name.
+  string type;
+  bool adhoc;
+};
+\
+
+The \c{variables} array in the scope, target, prerequisite, and prerequisite
+target objects contains scope, target, prerequisite, and rule variables,
+respectively.
+
+The variable object has the serialized representation of the following C++
+\c{struct} \c{variable}:
+
+\
+struct variable
+{
+  string           name;
+  optional<string> type;
+  json_value       value; // null|boolean|number|string|object|array
+};
+\
+
+For example:
+
+\
+{
+  \"out_path\": \"\",
+  \"variables\": [
+    {
+      \"name\": \"build.show_progress\",
+      \"type\": \"bool\",
+      \"value\": true
+    },
+    {
+      \"name\": \"build.verbosity\",
+      \"type\": \"uint64\",
+      \"value\": 1
+    },
+    ...
+  ],
+  \"scopes\": [
+    {
+      \"out_path\": \"/tmp/hello-gcc\",
+      \"scopes\": [
+        {
+          \"out_path\": \"hello\",
+          \"src_path\": \"/tmp/hello\",
+          \"scopes\": [
+            {
+              \"out_path\": \"hello\",
+              \"src_path\": \"/tmp/hello/hello\",
+              \"variables\": [
+                {
+                  \"name\": \"out_base\",
+                  \"type\": \"dir_path\",
+                  \"value\": \"/tmp/hello-gcc/hello/hello\"
+                },
+                {
+                  \"name\": \"src_base\",
+                  \"type\": \"dir_path\",
+                  \"value\": \"/tmp/hello/hello\"
+                },
+                {
+                  \"name\": \"cxx.poptions\",
+                  \"type\": \"strings\",
+                  \"value\": [
+                    \"-I/tmp/hello-gcc/hello\",
+                    \"-I/tmp/hello\"
+                  ]
+                },
+                {
+                  \"name\": \"libs\",
+                  \"value\": \"/tmp/hello-gcc/libhello/libhello/lib{hello}\"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+\
+
+The \c{type} member is absent if the variable value is untyped.
+
+The \c{value} member contains the variable value in a suitable JSON
+representation. Specifically:
+
+\ul|
+
+\li|\c{null} values are represented as JSON \c{null}.|
+
+\li|\c{bool} values are represented as JSON \c{boolean}.|
+
+\li|\c{int64} and \c{uint64} values are represented as JSON \c{number}.|
+
+\li|\c{string}, \c{path}, \c{dir_path} values are represented as JSON
+    \c{string}.|
+
+\li|Untyped simple name values are represented as JSON \c{string}.|
+
+\li|Pairs of above values are represented as JSON objects with the \c{first}
+    and \c{second} members corresponding to the pair elements.|
+
+\li|Untyped complex name values are serialized as target names and represented
+    as JSON \c{string}.|
+
+\li|Containers of above values are represented as JSON arrays corresponding to
+    the container elements.|
+
+\li|An empty value is represented as an empty JSON object if it's a typed
+    pair, as an empty JSON array if it's a typed container or is untyped, and
+    as an empty string otherwise.||
+
+One expected use-case for the match dump is to determine the set of targets
+for which a given action is applicable. For example, we may want to determine
+all the executables in a project that can be tested with the \c{test}
+operation in order to present this list to the user in an IDE plugin or
+some such. To further illuminate the problem, consider the following
+\c{buildfile} which declares a number of executable targets, some are
+tests and some are not:
+
+\
+exe{hello1}: ... testscript # Test because of testscript prerequisite.
+
+exe{hello2}: test = true    # Test because of test=true.
+
+exe{hello3}: ... testscript # Not a test because of test=false.
+{
+  test = false
+}
+\
+
+As can be seen, trying to infer this information is not straightforward and
+doing so manually by examining prerequisites, variables, etc., while possible,
+will be complex and likely brittle. Instead, the recommended approach is to
+use the match dump and base the decision on the \c{state} target object
+member. Specifically, a rule which matched the target but determined that
+nothing needs to be done for this target, returns the special \c{noop}
+recipe. The \c{build2} core recognizes this situation and sets such target's
+state to \c{unchanged} during match. Here is what the match dump will look
+like for the above three executables:
+
+\
+$ b --match-only --dump=match --dump-format=json-v0.1 test
+{
+  \"out_path\": \"hello\",
+  \"src_path\": \"/tmp/hello/hello\",
+  \"targets\": [
+    {
+      \"name\": \"exe{hello1.}\",
+      \"display_name\": \"exe{hello1}\",
+      \"type\": \"exe\",
+      \"path\": \"/tmp/hello-gcc/hello/hello/hello1\",
+      \"inner_operation\": {
+        \"rule\": \"test\"
+      }
+    },
+    {
+      \"name\": \"exe{hello2.}\",
+      \"display_name\": \"exe{hello2}\",
+      \"type\": \"exe\",
+      \"path\": \"/tmp/hello-gcc/hello/hello/hello2\",
+      \"inner_operation\": {
+        \"rule\": \"test\"
+      }
+    },
+    {
+      \"name\": \"exe{hello3}\",
+      \"display_name\": \"exe{hello3}\",
+      \"type\": \"exe\",
+      \"inner_operation\": {
+        \"rule\": \"test\",
+        \"state\": \"unchanged\"
+      }
+    }
+  ]
+}
+\
+
 "

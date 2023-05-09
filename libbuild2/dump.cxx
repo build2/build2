@@ -943,7 +943,7 @@ namespace build2
     {
       string           name; // Quoted/qualified name.
       string   display_name;
-      string           type;
+      string           type; // Target type.
       //string         declaration;
       optional<string> group; // Quoted/qualified group target name.
 
@@ -980,7 +980,7 @@ namespace build2
       //string         declaration;
       optional<string> group;
 
-      optional<path> path; // Absent of not path-based target, not assigned.
+      optional<path> path; // Absent if not path-based target, not assigned.
 
       vector<variable> variables;
 
@@ -1371,9 +1371,9 @@ namespace build2
 #if 0
     struct scope
     {
-      // The out_path member is relative to parent scopes. It is empty for the
-      // special global scope. The src_path member is absent if the same as
-      // out_path (in-source build or scope outside of project).
+      // The out_path member is relative to the parent scope. It is empty for
+      // the special global scope. The src_path member is absent if the same
+      // as out_path (in-source build or scope outside of project).
       //
       string           out_path;
       optional<string> src_path;
