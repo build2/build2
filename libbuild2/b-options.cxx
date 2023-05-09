@@ -930,8 +930,9 @@ namespace build2
        << "                        the outer operation is specified in parenthesis. For" << ::std::endl
        << "                        example:" << ::std::endl
        << ::std::endl
-       << "                        unchanged perform update(test) /tmp/dir{hello/}" << ::std::endl
-       << "                        changed perform test /tmp/hello/exe{test}" << ::std::endl
+       << "                        unchanged perform update(test)" << ::std::endl
+       << "                        /tmp/hello/hello/exe{hello}" << ::std::endl
+       << "                        changed perform test /tmp/hello/hello/exe{hello}" << ::std::endl
        << ::std::endl
        << "                        If the output format is \033[1mjson\033[0m, then the output is a JSON" << ::std::endl
        << "                        array of objects which are the serialized" << ::std::endl
@@ -941,7 +942,7 @@ namespace build2
        << "                        struct target_action_result" << ::std::endl
        << "                        {" << ::std::endl
        << "                          string           target;" << ::std::endl
-       << "                          string           quoted_target;" << ::std::endl
+       << "                          string           display_target;" << ::std::endl
        << "                          string           target_type;" << ::std::endl
        << "                          optional<string> target_path;" << ::std::endl
        << "                          string           meta_operation;" << ::std::endl
@@ -954,20 +955,20 @@ namespace build2
        << ::std::endl
        << "                        [" << ::std::endl
        << "                          {" << ::std::endl
-       << "                            \"target\": \"/tmp/dir{hello/}\"," << ::std::endl
-       << "                            \"quoted_target\": \"/tmp/dir{hello/}\"," << ::std::endl
-       << "                            \"target_type\": \"dir\"," << ::std::endl
-       << "                            \"target_path\": \"/tmp/hello\"," << ::std::endl
+       << "                            \"target\": \"/tmp/hello/hello/exe{hello.}\"," << ::std::endl
+       << "                            \"display_target\": \"/tmp/hello/hello/exe{hello}\"," << ::std::endl
+       << "                            \"target_type\": \"exe\"," << ::std::endl
+       << "                            \"target_path\": \"/tmp/hello/hello/hello\"," << ::std::endl
        << "                            \"meta_operation\": \"perform\"," << ::std::endl
        << "                            \"operation\": \"update\"," << ::std::endl
        << "                            \"outer_operation\": \"test\"," << ::std::endl
        << "                            \"state\": \"unchanged\"" << ::std::endl
        << "                          }," << ::std::endl
        << "                          {" << ::std::endl
-       << "                            \"target\": \"/tmp/dir{hello/}\"," << ::std::endl
-       << "                            \"quoted_target\": \"/tmp/dir{hello/}\"," << ::std::endl
-       << "                            \"target_type\": \"dir\"," << ::std::endl
-       << "                            \"target_path\": \"/tmp/hello\"," << ::std::endl
+       << "                            \"target\": \"/tmp/hello/hello/exe{hello.}\"," << ::std::endl
+       << "                            \"display_target\": \"/tmp/hello/hello/exe{hello}\"," << ::std::endl
+       << "                            \"target_type\": \"exe\"," << ::std::endl
+       << "                            \"target_path\": \"/tmp/hello/hello/hello\"," << ::std::endl
        << "                            \"meta_operation\": \"perform\"," << ::std::endl
        << "                            \"operation\": \"test\"," << ::std::endl
        << "                            \"state\": \"changed\"" << ::std::endl
@@ -978,13 +979,15 @@ namespace build2
        << "                        overall properties of this format and the semantics of" << ::std::endl
        << "                        the \033[1mstruct\033[0m serialization." << ::std::endl
        << ::std::endl
-       << "                        The \033[1mtarget\033[0m member is a \"display\" target name, the same" << ::std::endl
-       << "                        as in the \033[1mlines\033[0m format. The \033[1mquoted_target\033[0m member is a" << ::std::endl
-       << "                        target name that, if required, is quoted so that it can" << ::std::endl
-       << "                        be passed back to the driver on the command line. The" << ::std::endl
-       << "                        \033[1mtarget_type\033[0m member is the type of target. The" << ::std::endl
-       << "                        \033[1mtarget_path\033[0m member is an absolute path to the target if" << ::std::endl
-       << "                        the target type is path-based or \033[1mdir\033[0m." << ::std::endl;
+       << "                        The \033[1mtarget\033[0m member is the target name that is qualified" << ::std::endl
+       << "                        with the extension (if applicable) and, if required, is" << ::std::endl
+       << "                        quoted so that it can be passed back to the build" << ::std::endl
+       << "                        system driver on the command line. The \033[1mdisplay_target\033[0m" << ::std::endl
+       << "                        member is the unqualified and unquoted \"display\" target" << ::std::endl
+       << "                        name, the same as in the \033[1mlines\033[0m format. The \033[1mtarget_type\033[0m" << ::std::endl
+       << "                        member is the type of target.  The \033[1mtarget_path\033[0m member" << ::std::endl
+       << "                        is an absolute path to the target if the target type is" << ::std::endl
+       << "                        path-based or \033[1mdir\033[0m." << ::std::endl;
 
     os << std::endl
        << "\033[1m--mtime-check\033[0m           Perform file modification time sanity checks. These" << ::std::endl

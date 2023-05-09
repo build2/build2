@@ -148,15 +148,15 @@ namespace build2
 
       s.begin_object ();
 
-      // Display target.
-      //
-      s.member_name ("target");
-      dump_display_target_name (s, t);
-
       // Quoted target.
       //
-      s.member_name ("quoted_target");
+      s.member_name ("target");
       dump_quoted_target_name (s, t);
+
+      // Display target.
+      //
+      s.member_name ("display_target");
+      dump_display_target_name (s, t);
 
       s.member ("target_type", t.type ().name, false /* check */);
 

@@ -706,8 +706,8 @@ namespace build2
        outer operation is specified in parenthesis. For example:
 
        \
-       unchanged perform update(test) /tmp/dir{hello/}
-       changed perform test /tmp/hello/exe{test}
+       unchanged perform update(test) /tmp/hello/hello/exe{hello}
+       changed perform test /tmp/hello/hello/exe{hello}
        \
 
        If the output format is \cb{json}, then the output is a JSON array of
@@ -718,7 +718,7 @@ namespace build2
        struct target_action_result
        {
          string           target;
-         string           quoted_target;
+         string           display_target;
          string           target_type;
          optional<string> target_path;
          string           meta_operation;
@@ -733,20 +733,20 @@ namespace build2
        \
        [
          {
-           \"target\": \"/tmp/dir{hello/}\",
-           \"quoted_target\": \"/tmp/dir{hello/}\",
-           \"target_type\": \"dir\",
-           \"target_path\": \"/tmp/hello\",
+           \"target\": \"/tmp/hello/hello/exe{hello.}\",
+           \"display_target\": \"/tmp/hello/hello/exe{hello}\",
+           \"target_type\": \"exe\",
+           \"target_path\": \"/tmp/hello/hello/hello\",
            \"meta_operation\": \"perform\",
            \"operation\": \"update\",
            \"outer_operation\": \"test\",
            \"state\": \"unchanged\"
          },
          {
-           \"target\": \"/tmp/dir{hello/}\",
-           \"quoted_target\": \"/tmp/dir{hello/}\",
-           \"target_type\": \"dir\",
-           \"target_path\": \"/tmp/hello\",
+           \"target\": \"/tmp/hello/hello/exe{hello.}\",
+           \"display_target\": \"/tmp/hello/hello/exe{hello}\",
+           \"target_type\": \"exe\",
+           \"target_path\": \"/tmp/hello/hello/hello\",
            \"meta_operation\": \"perform\",
            \"operation\": \"test\",
            \"state\": \"changed\"
@@ -758,12 +758,14 @@ namespace build2
        properties of this format and the semantics of the \cb{struct}
        serialization.
 
-       The \cb{target} member is a \"display\" target name, the same as in the
-       \cb{lines} format. The \cb{quoted_target} member is a target name that,
-       if required, is quoted so that it can be passed back to the driver on
-       the command line. The \cb{target_type} member is the type of target.
-       The \cb{target_path} member is an absolute path to the target if the
-       target type is path-based or \cb{dir}.
+       The \cb{target} member is the target name that is qualified with the
+       extension (if applicable) and, if required, is quoted so that it can be
+       passed back to the build system driver on the command line. The
+       \cb{display_target} member is the unqualified and unquoted \"display\"
+       target name, the same as in the \cb{lines} format. The \cb{target_type}
+       member is the type of target.  The \cb{target_path} member is an
+       absolute path to the target if the target type is path-based or
+       \cb{dir}.
        "
     }
 
