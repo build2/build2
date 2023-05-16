@@ -270,10 +270,11 @@ namespace build2
                    scope* root,
                    scope& base,
                    target* tgt,
-                   prerequisite* prq)
+                   prerequisite* prq,
+                   bool enter)
   {
     lexer l (is, in);
-    parse_buildfile (l, root, base, tgt, prq);
+    parse_buildfile (l, root, base, tgt, prq, enter);
   }
 
   void parser::
@@ -281,7 +282,8 @@ namespace build2
                    scope* root,
                    scope& base,
                    target* tgt,
-                   prerequisite* prq)
+                   prerequisite* prq,
+                   bool enter)
   {
     path_ = &l.name ();
     lexer_ = &l;
@@ -300,8 +302,8 @@ namespace build2
       ? auto_project_env (*root_)
       : auto_project_env ());
 
-    if (path_->path != nullptr)
-      enter_buildfile (*path_->path); // Note: needs scope_.
+    if (enter && path_->path != nullptr)
+      enter_buildfile (*path_->path);
 
     token t;
     type tt;
@@ -319,6 +321,25 @@ namespace build2
 
     if (tt != type::eos)
       fail (t) << "unexpected " << t;
+  }
+
+  names parser::
+  parse_export_stub (istream& is, const path_name& name,
+                     const scope& rs, scope& gs, scope& ts)
+  {
+    // Enter the export stub manually with correct out.
+    //
+    if (name.path != nullptr)
+    {
+      dir_path out (!rs.out_eq_src ()
+                    ? out_src (name.path->directory (), rs)
+                    : dir_path ());
+
+      enter_buildfile (*name.path, move (out));
+    }
+
+    parse_buildfile (is, name, &gs, ts, nullptr, nullptr, false /* enter */);
+    return move (export_value);
   }
 
   token parser::
@@ -8644,7 +8665,7 @@ namespace build2
   }
 
   void parser::
-  enter_buildfile (const path& p)
+  enter_buildfile (const path& p, optional<dir_path> out)
   {
     tracer trace ("parser::enter_buildfile", &path_);
 
@@ -8652,17 +8673,20 @@ namespace build2
 
     // Figure out if we need out.
     //
-    dir_path out;
-    if (scope_->src_path_ != nullptr &&
-        scope_->src_path () != scope_->out_path () &&
-        d.sub (scope_->src_path ()))
+    dir_path o;
+    if (out)
+      o = move (*out);
+    else if (root_ != nullptr            &&
+             root_->src_path_ != nullptr &&
+             !root_->out_eq_src ()       &&
+             d.sub (*root_->src_path_))
     {
-      out = out_src (d, *root_);
+      o = out_src (d, *root_);
     }
 
     ctx->targets.insert<buildfile> (
       move (d),
-      move (out),
+      move (o),
       p.leaf ().base ().string (),
       p.extension (), // Always specified.
       trace);

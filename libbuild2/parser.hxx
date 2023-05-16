@@ -69,14 +69,20 @@ namespace build2
                      scope* root,
                      scope& base,
                      target* = nullptr,
-                     prerequisite* = nullptr);
+                     prerequisite* = nullptr,
+                     bool enter_buildfile = true);
 
     void
     parse_buildfile (lexer&,
                      scope* root,
                      scope& base,
                      target* = nullptr,
-                     prerequisite* = nullptr);
+                     prerequisite* = nullptr,
+                     bool enter_buildfile = true);
+
+    names
+    parse_export_stub (istream& is, const path_name& name,
+                       const scope& rs, scope& gs, scope& ts);
 
     buildspec
     parse_buildspec (istream&, const path_name&);
@@ -86,14 +92,6 @@ namespace build2
 
     pair<value, token>
     parse_variable_value (lexer&, scope&, const dir_path*, const variable&);
-
-    names
-    parse_export_stub (istream& is, const path_name& name,
-                       scope& rs, scope& bs)
-    {
-      parse_buildfile (is, name, &rs, bs);
-      return move (export_value);
-    }
 
     // Parse an evaluation context (`(...)`).
     //
@@ -620,7 +618,7 @@ namespace build2
     // Enter buildfile as a target.
     //
     void
-    enter_buildfile (const path&);
+    enter_buildfile (const path&, optional<dir_path> out = nullopt);
 
     // Lexer.
     //

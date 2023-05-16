@@ -2732,7 +2732,7 @@ namespace build2
             });
 
           parser p (ctx);
-          v = p.parse_export_stub (ifs, path_name (es), gs, ts);
+          v = p.parse_export_stub (ifs, path_name (es), *root, gs, ts);
         }
 
         // If there were no export directive executed in an export stub,
