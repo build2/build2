@@ -6,6 +6,8 @@
 #include <libbutl/sha1.hxx>
 #include <libbutl/sha256.hxx>
 
+#include <libbutl/filesystem.hxx> // try_mkdir_p(), cpfile()
+
 #include <libbuild2/file.hxx>
 #include <libbuild2/dump.hxx>
 #include <libbuild2/scope.hxx>
@@ -29,14 +31,14 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const process_path&, context&, const dir_path&);
+    install (const process_path*, context&, const dir_path&);
 
     // install <file> <dir>[/<name>]
     //
     // Return the destination file path.
     //
     static path
-    install (const process_path&, const file&, const dir_path&, const path&);
+    install (const process_path*, const file&, const dir_path&, const path&);
 
     // tar|zip ... <dir>/<pkg>.<ext> <pkg>
     //
@@ -108,9 +110,7 @@ namespace build2
 
         // Figure out if we need out.
         //
-        dir_path out (rs.src_path () != rs.out_path ()
-                      ? out_src (d, rs)
-                      : dir_path ());
+        dir_path out (!rs.out_eq_src () ? out_src (d, rs) : dir_path ());
 
         const T& t (rs.ctx.targets.insert<T> (
                       move (d),
@@ -241,7 +241,8 @@ namespace build2
       const module& mod (*rs.find_module<module> (module::name));
 
       const string& dist_package (cast<string> (l));
-      const process_path& dist_cmd (cast<process_path> (rs.vars["dist.cmd"]));
+      const process_path* dist_cmd (
+        cast_null<process_path> (rs.vars["dist.cmd"]));
 
       dir_path td (dist_root / dir_path (dist_package));
 
@@ -399,7 +400,7 @@ namespace build2
         // Add ad hoc files and buildfiles that are not normally loaded as
         // part of the project, for example, the export stub. They will still
         // be ignored on the next step if the user explicitly marked them
-        // dist=false.
+        // with dist=false.
         //
         auto add_adhoc = [] (const scope& rs)
         {
@@ -796,66 +797,131 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const process_path& cmd, context& ctx, const dir_path& d)
+    install (const process_path* cmd, context& ctx, const dir_path& d)
     {
-      path reld (relative (d));
+      path reld;
+      cstrings args;
 
-      cstrings args {cmd.recall_string (), "-d"};
+      if (cmd != nullptr || verb >= 2)
+      {
+        reld = relative (d);
 
-      args.push_back ("-m");
-      args.push_back ("755");
-      args.push_back (reld.string ().c_str ());
-      args.push_back (nullptr);
+        args.push_back (cmd != nullptr ? cmd->recall_string () : "install");
+        args.push_back ("-d");
+        args.push_back ("-m");
+        args.push_back ("755");
+        args.push_back (reld.string ().c_str ());
+        args.push_back (nullptr);
 
-      if (verb >= 2)
-        print_process (args);
+        if (verb >= 2)
+          print_process (args);
+      }
 
-      run (ctx, cmd, args, 1 /* finish_verbosity */);
+      if (cmd != nullptr)
+        run (ctx, *cmd, args, 1 /* finish_verbosity */);
+      else
+      {
+        try
+        {
+          // Note that mode has no effect on Windows, which is probably for
+          // the best.
+          //
+          try_mkdir_p (d, 0755);
+        }
+        catch (const system_error& e)
+        {
+          fail << "unable to create directory " << d << ": " << e;
+        }
+      }
     }
 
     // install <file> <dir>[/<name>]
     //
     static path
-    install (const process_path& cmd,
+    install (const process_path* cmd,
              const file& t,
              const dir_path& d,
              const path& n)
     {
-      path reld (relative (d));
-      path relf (relative (t.path ()));
+      const path& f (t.path ());
+      path r (d / (n.empty () ? f.leaf () : n));
 
-      if (!n.empty ())
-        reld /= n.string ();
-
-      cstrings args {cmd.recall_string ()};
-
-      // Preserve timestamps. This could becomes important if, for
-      // example, we have pre-generated sources. Note that the
-      // install-sh script doesn't support this option, while both
-      // Linux and BSD install's do.
+      // Assume the file is executable if the owner has execute permission,
+      // in which case we make it executable for everyone.
       //
-      args.push_back ("-p");
+      bool exe ((path_perms (f) & permissions::xu) == permissions::xu);
 
-      // Assume the file is executable if the owner has execute
-      // permission, in which case we make it executable for
-      // everyone.
-      //
-      args.push_back ("-m");
-      args.push_back (
-        (path_perms (t.path ()) & permissions::xu) == permissions::xu
-        ? "755"
-        : "644");
+      path relf, reld;
+      cstrings args;
 
-      args.push_back (relf.string ().c_str ());
-      args.push_back (reld.string ().c_str ());
-      args.push_back (nullptr);
+      if (cmd != nullptr || verb >= 2)
+      {
+        relf = relative (f);
+        reld = relative (d);
 
-      if (verb >= 2)
-        print_process (args);
+        if (!n.empty ()) // Leave as just directory if no custom name.
+          reld /= n;
 
-      run (t.ctx, cmd, args, 1 /* finish_verbosity */);
+        args.push_back (cmd != nullptr ? cmd->recall_string () : "install");
 
-      return d / (n.empty () ? relf.leaf () : n);
+        // Preserve timestamps. This could becomes important if, for example,
+        // we have pre-generated sources. Note that the install-sh script
+        // doesn't support this option, while both Linux and BSD install's do.
+        //
+        args.push_back ("-p");
+
+        // Assume the file is executable if the owner has execute permission,
+        // in which case we make it executable for everyone.
+        //
+        args.push_back ("-m");
+        args.push_back (exe ? "755" : "644");
+        args.push_back (relf.string ().c_str ());
+        args.push_back (reld.string ().c_str ());
+        args.push_back (nullptr);
+
+        if (verb >= 2)
+          print_process (args);
+      }
+
+      if (cmd != nullptr)
+        run (t.ctx, *cmd, args, 1 /* finish_verbosity */);
+      else
+      {
+        permissions perm (permissions::ru | permissions::wu |
+                          permissions::rg |
+                          permissions::ro); // 644
+        if (exe)
+          perm |= permissions::xu | permissions::xg | permissions::xo; // 755
+
+        try
+        {
+          // Note that we don't pass cpflags::overwrite_content which means
+          // this will fail if the file already exists. Since we clean up the
+          // destination directory, this will detect cases where we have
+          // multiple source files with the same distribution destination.
+          //
+          cpfile (f,
+                  r,
+                  cpflags::overwrite_permissions | cpflags::copy_timestamps,
+                  perm);
+        }
+        catch (const system_error& e)
+        {
+          if (e.code ().category () == generic_category () &&
+              e.code ().value () == EEXIST)
+          {
+            // @@ TMP (added in 0.16.0).
+            //
+            warn << "multiple files are distributed as " << r <<
+              info << "second file is " << f <<
+              info << "this warning will become error in the future";
+          }
+          else
+            fail << "unable to copy " << f << " to " << r << ": " << e;
+        }
+      }
+
+      return r;
     }
 
     static path

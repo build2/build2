@@ -133,7 +133,7 @@ namespace build2
       //
       bool s (specified_config (rs, "dist", {"bootstrap"}));
 
-      // dist.root
+      // config.dist.root
       //
       {
         value& v (rs.assign ("dist.root"));
@@ -145,22 +145,24 @@ namespace build2
         }
       }
 
-      // dist.cmd
+      // config.dist.cmd
+      //
+      // By default we use in-process code for creating directories and
+      // copying files (for performance, especially on Windows). But an
+      // external program (normally install) can be used if configured.
       //
       {
-        value& v (rs.assign<process_path> ("dist.cmd"));
+        value& v (rs.assign<process_path> ("dist.cmd")); // NULL
 
         if (s)
         {
-          if (lookup l = lookup_config (rs,
-                                        "config.dist.cmd",
-                                        path ("install")))
+          if (lookup l = lookup_config (rs, "config.dist.cmd", nullptr))
             v = run_search (cast<path> (l), true);
         }
       }
 
-      // dist.archives
-      // dist.checksums
+      // config.dist.archives
+      // config.dist.checksums
       //
       {
         value& a (rs.assign ("dist.archives"));
@@ -183,7 +185,7 @@ namespace build2
         }
       }
 
-      // dist.uncommitted
+      // config.dist.uncommitted
       //
       // Omit it from the configuration unless specified.
       //
