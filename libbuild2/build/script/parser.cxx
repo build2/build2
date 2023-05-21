@@ -158,6 +158,7 @@ namespace build2
         {
           s.depdb_dyndep = depdb_dyndep_->second;
           s.depdb_dyndep_byproduct = depdb_dyndep_byproduct_;
+          s.depdb_dyndep_dyn_target = depdb_dyndep_dyn_target_;
         }
         s.depdb_preamble = move (depdb_preamble_);
 
@@ -830,8 +831,18 @@ namespace build2
                   fail (l) << "multiple 'depdb dyndep' calls" <<
                     info (depdb_dyndep_->first) << "previous call is here";
 
-                if (peek () == type::word && peeked ().value == "--byproduct")
-                  depdb_dyndep_byproduct_ = true;
+                if (peek () == type::word)
+                {
+                  const string& v (peeked ().value);
+
+                  // Note: --byproduct and --dyn-target are mutually
+                  // exclusive.
+                  //
+                  if (v == "--byproduct")
+                    depdb_dyndep_byproduct_ = true;
+                  else if (v == "--dyn-target")
+                    depdb_dyndep_dyn_target_ = true;
+                }
               }
               else
               {
@@ -1280,6 +1291,7 @@ namespace build2
                            environment& e, const script& s, runner& r,
                            lines_iterator begin, lines_iterator end,
                            depdb& dd,
+                           paths* dyn_targets,
                            bool* update,
                            optional<timestamp> mt,
                            bool* deferred_failure,
@@ -1308,12 +1320,17 @@ namespace build2
           const script& scr;
 
           depdb& dd;
+          paths* dyn_targets;
           bool* update;
           bool* deferred_failure;
           optional<timestamp> mt;
           dyndep_byproduct* byp;
 
-        } data {trace, a, bs, t, e, s, dd, update, deferred_failure, mt, byp};
+        } data {
+          trace,
+          a, bs, t,
+          e, s,
+          dd, dyn_targets, update, deferred_failure, mt, byp};
 
         auto exec_cmd = [this, &data] (token& t,
                                        build2::script::token_type& tt,
@@ -1345,6 +1362,7 @@ namespace build2
                                  li, ll,
                                  data.a, data.bs, const_cast<file&> (data.t),
                                  data.dd,
+                                 *data.dyn_targets,
                                  *data.update,
                                  *data.mt,
                                  *data.deferred_failure,
@@ -1354,35 +1372,29 @@ namespace build2
             {
               names ns (exec_special (t, tt, true /* skip <cmd> */));
 
+              string v;
+              const char* w (nullptr);
               if (cmd == "hash")
               {
                 sha256 cs;
                 for (const name& n: ns)
                   to_checksum (cs, n);
 
-                if (data.dd.expect (cs.string ()) != nullptr)
-                  l4 ([&] {
-                      data.trace (ll)
-                        << "'depdb hash' argument change forcing update of "
-                        << data.t;});
+                v = cs.string ();
+                w = "argument";
               }
               else if (cmd == "string")
               {
-                string s;
                 try
                 {
-                  s = convert<string> (move (ns));
+                  v = convert<string> (move (ns));
                 }
                 catch (const invalid_argument& e)
                 {
                   fail (ll) << "invalid 'depdb string' argument: " << e;
                 }
 
-                if (data.dd.expect (s) != nullptr)
-                  l4 ([&] {
-                      data.trace (ll)
-                        << "'depdb string' argument change forcing update of "
-                        << data.t;});
+                w = "argument";
               }
               else if (cmd == "env")
               {
@@ -1403,14 +1415,32 @@ namespace build2
                   fail (ll) << pf << e;
                 }
 
-                if (data.dd.expect (cs.string ()) != nullptr)
-                  l4 ([&] {
-                      data.trace (ll)
-                        << "'depdb env' environment change forcing update of "
-                        << data.t;});
+                v = cs.string ();
+                w = "environment";
               }
               else
                 assert (false);
+
+              // Prefix the value with the type letter. This serves two
+              // purposes:
+              //
+              // 1. It makes sure the result is never a blank line. We use
+              //    blank lines as anchors to skip directly to certain entries
+              //    (e.g., dynamic targets).
+              //
+              // 2. It allows us to detect the beginning of prerequisites
+              //    since an absolute path will be distinguishable from these
+              //    entries (in the future we may want to add an explicit
+              //    blank after such custom entries to make this easier).
+              //
+              v.insert (0, 1, ' ');
+              v.insert (0, 1, cmd[0]); // `h`, `s`, or `e`
+
+              if (data.dd.expect (v) != nullptr)
+                l4 ([&] {
+                    data.trace (ll)
+                      << "'depdb " << cmd << "' " << w << " change forcing "
+                      << "update of " << data.t;});
             }
           }
           else
@@ -1617,6 +1647,7 @@ namespace build2
                          size_t li, const location& ll,
                          action a, const scope& bs, file& t,
                          depdb& dd,
+                         paths& dyn_targets,
                          bool& update,
                          timestamp mt,
                          bool& deferred_failure,
@@ -1629,6 +1660,7 @@ namespace build2
         depdb_dyndep_options ops;
         bool prog (false);
         bool byprod (false);
+        bool dyn_tgt (false);
 
         // Prerequisite update filter (--update-*).
         //
@@ -1671,11 +1703,9 @@ namespace build2
 
           next (t, tt); // Skip the 'dyndep' command.
 
-          if (tt == type::word && t.value == "--byproduct")
-          {
-            byprod = true;
+          if (tt == type::word && ((byprod = (t.value == "--byproduct")) ||
+                                   (dyn_tgt = (t.value == "--dyn-target"))))
             next (t, tt);
-          }
 
           assert (byprod == (byprod_result != nullptr));
 
@@ -1894,10 +1924,23 @@ namespace build2
                 continue;
               }
 
-              // Handle --byproduct in the wrong place.
+              // Handle --byproduct and --dyn-target in the wrong place.
               //
               if (strcmp (a, "--byproduct") == 0)
-                fail (ll) << "depdb dyndep: --byproduct must be first option";
+              {
+                fail (ll) << "depdb dyndep: "
+                          << (dyn_tgt
+                              ? "--byproduct specified with --dyn-target"
+                              : "--byproduct must be first option");
+              }
+
+              if (strcmp (a, "--dyn-target") == 0)
+              {
+                fail (ll) << "depdb dyndep: "
+                          << (byprod
+                              ? "--dyn-target specified with --byproduct"
+                              : "--dyn-target must be first option");
+              }
 
               // Handle non-literal --update-*.
               //
@@ -1922,16 +1965,9 @@ namespace build2
           }
         }
 
-        // --what
-        //
-        const char* what (ops.what_specified ()
-                          ? ops.what ().c_str ()
-                          : "file");
-
         // --format
         //
         dyndep_format format (dyndep_format::make);
-
         if (ops.format_specified ())
         {
           const string& f (ops.format ());
@@ -1941,10 +1977,18 @@ namespace build2
                       << f << "'";
         }
 
+        // Prerequisite-specific options.
+        //
+
+        // --what
+        //
+        const char* what (ops.what_specified ()
+                          ? ops.what ().c_str ()
+                          : "file");
+
         // --cwd
         //
         optional<dir_path> cwd;
-
         if (ops.cwd_specified ())
         {
           if (!byprod)
@@ -1964,28 +2008,6 @@ namespace build2
             fail (ll) << "depdb dyndep: -I specified with --byproduct";
         }
 
-        // --file
-        //
-        // Note that if --file is specified without a program, then we assume
-        // it is one of the static prerequisites.
-        //
-        optional<path> file;
-
-        if (ops.file_specified ())
-        {
-          file = move (ops.file ());
-
-          if (file->relative ())
-          {
-            if (!cwd)
-              fail (ll) << "depdb dyndep: relative path specified with --file";
-
-            *file = *cwd / *file;
-          }
-        }
-        else if (!prog)
-          fail (ll) << "depdb dyndep: program or --file expected";
-
         // --default-type
         //
         // Get the default prerequisite type falling back to file{} if not
@@ -1997,7 +2019,7 @@ namespace build2
         // translation unit would want to make sure it resolves extracted
         // system headers to h{} targets analogous to the c module's rule.
         //
-        const target_type* def_pt;
+        const target_type* def_pt (&file::static_type);
         if (ops.default_type_specified ())
         {
           const string& t (ops.default_type ());
@@ -2005,10 +2027,8 @@ namespace build2
           def_pt = bs.find_target_type (t);
           if (def_pt == nullptr)
             fail (ll) << "depdb dyndep: unknown target type '" << t
-                      << "' specific with --default-type";
+                      << "' specified with --default-type";
         }
-        else
-          def_pt = &file::static_type;
 
         // --adhoc
         //
@@ -2017,6 +2037,76 @@ namespace build2
           if (byprod)
             fail (ll) << "depdb dyndep: --adhoc specified with --byproduct";
         }
+
+        // Target-specific options.
+        //
+
+        // --target-what
+        //
+        const char* what_tgt ("file");
+        if (ops.target_what_specified ())
+        {
+          if (!dyn_tgt)
+            fail (ll) << "depdb dyndep: --target-what specified without "
+                      << "--dyn-target";
+
+          what_tgt = ops.target_what ().c_str ();
+        }
+
+        // --target-cwd
+        //
+        optional<dir_path> cwd_tgt;
+        if (ops.target_cwd_specified ())
+        {
+          if (!dyn_tgt)
+            fail (ll) << "depdb dyndep: --target-cwd specified without "
+                      << "--dyn-target";
+
+          cwd_tgt = move (ops.target_cwd ());
+
+          if (cwd_tgt->relative ())
+            fail (ll) << "depdb dyndep: relative path specified with "
+                      << "--target-cwd";
+        }
+
+        // --target-default-type
+        //
+        const target_type* def_tt (&file::static_type);
+        if (ops.target_default_type_specified ())
+        {
+          if (!dyn_tgt)
+            fail (ll) << "depdb dyndep: --target-default-type specified "
+                      << "without --dyn-target";
+
+          const string& t (ops.target_default_type ());
+
+          def_tt = bs.find_target_type (t);
+          if (def_tt == nullptr)
+            fail (ll) << "depdb dyndep: unknown target type '" << t
+                      << "' specified with --target-default-type";
+        }
+
+
+        // --file (last since need --*cwd)
+        //
+        // Note that if --file is specified without a program, then we assume
+        // it is one of the static prerequisites.
+        //
+        optional<path> file;
+        if (ops.file_specified ())
+        {
+          file = move (ops.file ());
+
+          if (file->relative ())
+          {
+            if (!cwd && !cwd_tgt)
+              fail (ll) << "depdb dyndep: relative path specified with --file";
+
+            *file = (cwd ? *cwd : *cwd_tgt) / *file;
+          }
+        }
+        else if (!prog)
+          fail (ll) << "depdb dyndep: program or --file expected";
 
         // Update prerequisite targets.
         //
@@ -2148,6 +2238,8 @@ namespace build2
           return;
         }
 
+        const scope& rs (*bs.root_scope ());
+
         // This code is based on the prior work in the cc module (specifically
         // extract_headers()) where you can often find more detailed rationale
         // for some of the steps performed.
@@ -2161,6 +2253,7 @@ namespace build2
           [] (const scope& bs, const string& n, const string& e)
           {
             // NOTE: another version in adhoc_buildscript_rule::apply().
+            // NOTE: now also used for dynamic targets below!
 
             // @@ TODO: allow specifying base target types.
             //
@@ -2275,14 +2368,17 @@ namespace build2
             // they include the line index in their names to avoid clashes
             // between lines).
             //
-            // Cleanups are not an issue, they will simply replaced. And
+            // Cleanups are not an issue, they will simply be replaced. And
             // overriding the contents of the special files seems harmless and
             // consistent with what would happen if the command redirects its
             // output to a non-special file.
             //
+            // Note: make it a maybe-cleanup in case the command cleans it
+            // up itself.
+            //
             if (file)
               environment_->clean (
-                {build2::script::cleanup_type::always, *file},
+                {build2::script::cleanup_type::maybe, *file},
                 true /* implicit */);
           }
         };
@@ -2429,13 +2525,27 @@ namespace build2
                  << t;
           });
 
+        // While in the make format targets come before prerequisites, in
+        // depdb we store them after since any change to prerequisites can
+        // invalidate the set of targets. So we save them first and process
+        // later.
+        //
+        // Note also that we need to return them to the caller in case we are
+        // updating.
+
         // If nothing so far has invalidated the dependency database, then try
         // the cached data before running the program.
         //
         bool cache (!update);
+        bool skip_blank (false);
 
         for (bool restart (true), first_run (true); restart; cache = false)
         {
+          // Clear the state in case we are restarting.
+          //
+          if (dyn_tgt)
+            dyn_targets.clear ();
+
           restart = false;
 
           if (cache)
@@ -2444,7 +2554,8 @@ namespace build2
             //
             assert (skip_count == 0);
 
-            // We should always end with a blank line.
+            // We should always end with a blank line after the list of
+            // dynamic prerequisites.
             //
             for (;;)
             {
@@ -2458,8 +2569,11 @@ namespace build2
                 break;
               }
 
-              if (l->empty ()) // Done, nothing changed.
-                return;
+              if (l->empty ()) // Done with prerequisites, nothing changed.
+              {
+                skip_blank = true;
+                break;
+              }
 
               if (optional<bool> r = add (path (move (*l)), nullptr, mt))
               {
@@ -2480,6 +2594,36 @@ namespace build2
                 deferred_failure = true;
                 return;
               }
+            }
+
+            if (!restart) // Nothing changed.
+            {
+              if (dyn_tgt)
+              {
+                // We should always end with a blank line after the list of
+                // dynamic targets.
+                //
+                for (;;)
+                {
+                  string* l (dd.read ());
+
+                  // If the line is invalid, run the compiler.
+                  //
+                  if (l == nullptr)
+                  {
+                    restart = true;
+                    break;
+                  }
+
+                  if (l->empty ()) // Done with target.
+                    break;
+
+                  dyn_targets.push_back (path (move (*l)));
+                }
+              }
+
+              if (!restart) // Done, nothing changed.
+                break; // Break earliy to keep cache=true.
             }
           }
           else
@@ -2614,31 +2758,63 @@ namespace build2
                     if (r.second.empty ())
                       continue;
 
-                    // @@ TODO: what should we do about targets?
+                    // Skip targets unless requested to extract.
                     //
-                    // Note that if we take GCC as an example, things are
+                    // BTW, if you are wondering why don't we extract targets
+                    // by default, take GCC as an example, where things are
                     // quite messed up: by default it ignores -o and just
                     // takes the source file name and replaces the extension
                     // with a platform-appropriate object file extension. One
                     // can specify a custom target (or even multiple targets)
-                    // with -MT or with -MQ (quoting). Though MinGW GCC still
-                    // does not quote `:` with -MQ. So in this case it's
+                    // with -MT or with -MQ (quoting). So in this case it's
                     // definitely easier for the user to ignore the targets
                     // and just specify everything in the buildfile.
                     //
-                    // On the other hand, other tools are likely to produce
-                    // more sensible output (except perhaps for quoting).
-                    //
-                    // @@ Maybe in the lax mode we should only recognize `:`
-                    //    if it's separated on at least one side?
-                    //
-                    //    Alternatively, we could detect Windows drives in
-                    //    paths and "handle" them (I believe this is what GNU
-                    //    make does). Maybe we should have three formats:
-                    //    make-lax, make, make-strict?
-                    //
                     if (r.first == make_type::target)
+                    {
+                      if (dyn_tgt)
+                      {
+                        path& f (r.second);
+
+                        if (f.relative ())
+                        {
+                          if (!cwd_tgt)
+                            fail (il) << "relative target path '" << f
+                                      << "' in make dependency declaration" <<
+                              info << "consider using --target-cwd to specify "
+                                   << "relative path base";
+
+                          f = *cwd_tgt / f;
+                        }
+
+                        // Note that unlike prerequisites, here we don't need
+                        // normalize_external() since we expect the targets to
+                        // be within this project.
+                        //
+                        try
+                        {
+                          f.normalize ();
+                        }
+                        catch (const invalid_path&)
+                        {
+                          fail << "invalid " << what_tgt << " path '"
+                               << f.string () << "'";
+                        }
+
+                        // The target must be within this project.
+                        //
+                        if (!f.sub (rs.out_path ()))
+                        {
+                          fail << what_tgt << " target path " << f
+                               << " must be inside project output directory "
+                               << rs.out_path ();
+                        }
+
+                        dyn_targets.push_back (move (f));
+                      }
+
                       continue;
+                    }
 
                     if (optional<bool> u = add (move (r.second), &skip, rmt))
                     {
@@ -2667,7 +2843,7 @@ namespace build2
                     break;
                 }
 
-                break;
+                break; // case
               }
             }
 
@@ -2678,9 +2854,88 @@ namespace build2
           }
         }
 
-        // Add the terminating blank line (we are updating depdb).
+        // Add the dynamic prerequisites terminating blank line if we are
+        // updating depdb and unless it's already there.
         //
-        dd.expect ("");
+        if (!cache && !skip_blank)
+          dd.expect ("");
+
+        // Handle dynamic targets.
+        //
+        if (dyn_tgt)
+        {
+          // There is one more level (at least that we know of) to this rabbit
+          // hole: if the set of dynamic targets changes between clean and
+          // update and we do a `clean update` batch, then we will end up with
+          // old targets (as entered by clean from old depdb information)
+          // being present during update. So we need to clean them out.
+          //
+          // Optimize this for a first/single batch (common case) by noticing
+          // that there are only real targets to start with.
+          //
+          optional<vector<const target*>> dts;
+          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+          {
+            if (m->decl != target_decl::real)
+              dts = vector<const target*> ();
+          }
+
+          for (const path& f: dyn_targets)
+          {
+            // Note that this logic should be consistent with what we have in
+            // adhoc_buildscript_rule::apply() for perform_clean.
+            //
+            pair<const build2::file&, bool> r (
+              dyndep::inject_adhoc_group_member (
+                what_tgt,
+                a, bs, t,
+                f, // Can't move since need to return dyn_targets.
+                map_ext, *def_tt));
+
+            // Note that we have to track the dynamic target even if it was
+            // already a member (think `b update && b clean update`).
+            //
+            if (r.second || r.first.decl != target_decl::real)
+            {
+              if (!cache)
+                dd.expect (f);
+
+              if (dts)
+                dts->push_back (&r.first);
+            }
+          }
+
+          // Add the dynamic targets terminating blank line.
+          //
+          if (!cache)
+            dd.expect ("");
+
+          // Clean out old dynamic targets (skip the primary member).
+          //
+          if (dts)
+          {
+            for (target* p (&t); p->adhoc_member != nullptr; )
+            {
+              target* m (p->adhoc_member);
+
+              if (m->decl != target_decl::real)
+              {
+                // While there could be quite a few dynamic targets (think
+                // something like Doxygen), this will hopefully be optimized
+                // down to a contiguous memory region scan for an integer and
+                // so should be fast.
+                //
+                if (find (dts->begin (), dts->end (), m) == dts->end ())
+                {
+                  p->adhoc_member = m->adhoc_member; // Drop m.
+                  continue;
+                }
+              }
+
+              p = m;
+            }
+          }
+        }
 
         // Reload $< and $> to make sure they contain the newly discovered
         // prerequisites and targets.

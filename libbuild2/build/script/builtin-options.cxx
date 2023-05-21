@@ -289,7 +289,13 @@ namespace build2
         adhoc_ (),
         cwd_ (),
         cwd_specified_ (false),
-        drop_cycles_ ()
+        drop_cycles_ (),
+        target_what_ (),
+        target_what_specified_ (false),
+        target_default_type_ (),
+        target_default_type_specified_ (false),
+        target_cwd_ (),
+        target_cwd_specified_ (false)
       {
       }
 
@@ -391,6 +397,15 @@ namespace build2
             &depdb_dyndep_options::cwd_specified_ >;
           _cli_depdb_dyndep_options_map_["--drop-cycles"] =
           &::build2::build::cli::thunk< depdb_dyndep_options, &depdb_dyndep_options::drop_cycles_ >;
+          _cli_depdb_dyndep_options_map_["--target-what"] =
+          &::build2::build::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::target_what_,
+            &depdb_dyndep_options::target_what_specified_ >;
+          _cli_depdb_dyndep_options_map_["--target-default-type"] =
+          &::build2::build::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::target_default_type_,
+            &depdb_dyndep_options::target_default_type_specified_ >;
+          _cli_depdb_dyndep_options_map_["--target-cwd"] =
+          &::build2::build::cli::thunk< depdb_dyndep_options, dir_path, &depdb_dyndep_options::target_cwd_,
+            &depdb_dyndep_options::target_cwd_specified_ >;
         }
       };
 

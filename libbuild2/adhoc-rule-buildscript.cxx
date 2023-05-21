@@ -5,6 +5,8 @@
 
 #include <sstream>
 
+#include <libbutl/filesystem.hxx> // try_rm_file()
+
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
@@ -225,6 +227,8 @@ namespace build2
     build::script::default_runner run;
 
     path dd;
+    paths dyn_targets;
+    paths old_dyn_targets;
 
     const scope* bs;
     timestamp mt;
@@ -457,10 +461,120 @@ namespace build2
       }
     }
 
+    // Read the list of dynamic targets from depdb, if exists (used in a few
+    // depdb-dyndep --dyn-target handling places below).
+    //
+    auto read_dyn_targets = [] (path ddp) -> paths
+    {
+      depdb dd (move (ddp), true /* read_only */);
+
+      paths r;
+      while (dd.reading ()) // Breakout loop.
+      {
+        string* l;
+        auto read = [&dd, &l] () -> bool
+        {
+          return (l = dd.read ()) != nullptr;
+        };
+
+        if (!read ()) // Rule id.
+          break;
+
+        // We can omit this for as long as we don't break our blank line
+        // anchors semantics (e.g., by adding another blank somewhere, say
+        // after the custom depdb builtins).
+        //
+#if 0
+        if (*l != rule_id_)
+          fail << "unable to clean dynamic target group " << t
+               << " with old depdb";
+#endif
+
+        // Note that we cannot read out expected lines since there can be
+        // custom depdb builtins. We also need to skip the prerequisites
+        // list. So we read until the blank line that always terminates the
+        // prerequisites list.
+        //
+        {
+          bool r;
+          while ((r = read ()) && !l->empty ()) ;
+          if (!r)
+            break;
+        }
+
+        // Read the dynamic target files. We should always end with a blank
+        // line.
+        //
+        for (;;)
+        {
+          if (!read () || l->empty ())
+            break;
+
+          r.push_back (path (*l));
+        }
+
+        break;
+      }
+
+      return r;
+    };
+
     // See if we are providing the standard clean as a fallback.
     //
     if (me.fallback)
-      return &perform_clean_file;
+    {
+      // For depdb-dyndep --dyn-target use depdb to clean dynamic targets.
+      //
+      if (script.depdb_dyndep && script.depdb_dyndep_dyn_target)
+      {
+        file& t (xt.as<file> ());
+
+        // Note that only removing the relevant filesystem entries is not
+        // enough: we actually have to populate the group with members since
+        // this information could be used to clean derived targets (for
+        // example, object files). So we just do that and let the standard
+        // clean logic take care of them the same as static members.
+        //
+        using dyndep = dyndep_rule;
+
+        function<dyndep::map_extension_func> map_ext (
+          [] (const scope& bs, const string& n, const string& e)
+          {
+            return dyndep::map_extension (bs, n, e, nullptr);
+          });
+
+        for (path& f: read_dyn_targets (t.path () + ".d"))
+        {
+          // Note that this logic should be consistent with what we have in
+          // exec_depdb_dyndep().
+          //
+          // Note that here we don't bother cleaning any old dynamic targets
+          // -- the more we can clean, the merrier.
+          //
+          // @@ We don't have --target-what, --target-default-type here.
+          //    Could we do the same thing as byproduct to get them? That
+          //    would require us running the first half of the depdb preamble
+          //    but ignoring all the depdb builtins (we still want all the
+          //    variable assignments -- maybe we could automatically skip them
+          //    if we see depdb is not open). Wonder if there would be any
+          //    other complications...
+          //
+          //    BTW, this sort of works for --target-default-type since we
+          //    just clean them as file{} targets (but diagnostics is off). It
+          //    does break, however, if there is s batch, since then we end up
+          //    detecting different targets sharing a path. This will also not
+          //    work at all if/when we support specifying custom extension to
+          //    type mapping in order to resolve ambiguities.
+          //
+          dyndep::inject_adhoc_group_member ("file",
+                                             a, bs, t,
+                                             move (f),
+                                             map_ext, file::static_type);
+        }
+      }
+
+      return perform_clean_file;
+    }
 
     // If we have any update during match prerequisites, now is the time to
     // update them.
@@ -575,9 +689,48 @@ namespace build2
       }
     }
 
+    // Note that while it's tempting to turn match_data* into recipes, some of
+    // their members are not movable. And in the end we will have the same
+    // result: one dynamic memory allocation.
+    //
+    unique_ptr<match_data> md;
+    unique_ptr<match_data_byproduct> mdb;
+
+    if (script.depdb_dyndep_byproduct)
+    {
+      mdb.reset (new match_data_byproduct (
+                   a, t, bs, script.depdb_preamble_temp_dir));
+    }
+    else
+    {
+      md.reset (new match_data (a, t, bs, script.depdb_preamble_temp_dir));
+
+      // If the set of dynamic targets can change based on changes to the
+      // inputs (say, each entity, such as a type, in the input file gets its
+      // own output file), then we can end up with a large number of old
+      // output files laying around because they are not part of the new
+      // dynamic target set. So we try to clean them up based on the old depdb
+      // information, similar to how we do it for perform_clean above (except
+      // here we will just keep the list of old files).
+      //
+      // Note: do before opening depdb, which can start over-writing it.
+      //
+      // We also have to do this speculatively, without knowing whether we
+      // will need to update. Oh, well, being dynamic ain't free.
+      //
+      if (script.depdb_dyndep_dyn_target)
+        md->old_dyn_targets = read_dyn_targets (tp + ".d");
+    }
+
     depdb dd (tp + ".d");
 
     // NOTE: see the "static dependencies" version (with comments) below.
+    //
+    // NOTE: We use blank lines as anchors to skip directly to certain entries
+    //       (e.g., dynamic targets). So make sure none of the other entries
+    //       can be blank (for example, see `depdb string` builtin).
+    //
+    // NOTE: KEEP IN SYNC WITH read_dyn_targets ABOVE!
     //
     if (dd.expect ("<ad hoc buildscript recipe> 1") != nullptr)
       l4 ([&]{trace << "rule mismatch forcing update of " << t;});
@@ -613,10 +766,21 @@ namespace build2
           l4 ([&]{trace << "recipe variable change forcing update of " << t;});
       }
 
+      // Static targets and prerequisites (there can also be dynamic targets;
+      // see dyndep --dyn-target).
+      //
+      // There is a nuance: in an operation batch (e.g., `b update update`) we
+      // will already have the dynamic targets as members on the subsequent
+      // operations and we need to make sure we don't treat them as static.
+      // Using target_decl to distinguish the two seems like a natural way.
+      //
       {
         sha256 tcs;
         for (const target* m (&t); m != nullptr; m = m->adhoc_member)
-          hash_target (tcs, *m, storage);
+        {
+          if (m->decl == target_decl::real)
+            hash_target (tcs, *m, storage);
+        }
 
         if (dd.expect (tcs.string ()) != nullptr)
           l4 ([&]{trace << "target set change forcing update of " << t;});
@@ -634,22 +798,8 @@ namespace build2
       }
     }
 
-    // Note that while it's tempting to turn match_data* into recipes, some of
-    // their members are not movable. And in the end we will have the same
-    // result: one dynamic memory allocation.
+    // Get ready to run the depdb preamble.
     //
-    unique_ptr<match_data> md;
-    unique_ptr<match_data_byproduct> mdb;
-
-    if (script.depdb_dyndep_byproduct)
-    {
-      mdb.reset (new match_data_byproduct (
-                   a, t, bs, script.depdb_preamble_temp_dir));
-    }
-    else
-      md.reset (new match_data (a, t, bs, script.depdb_preamble_temp_dir));
-
-
     build::script::environment& env (mdb != nullptr ? mdb->env : md->env);
     build::script::default_runner& run (mdb != nullptr ? mdb->run : md->run);
 
@@ -828,20 +978,22 @@ namespace build2
     else
     {
       // Run the second half of the preamble (depdb-dyndep commands) to update
-      // our prerequisite targets and extract dynamic dependencies.
+      // our prerequisite targets and extract dynamic dependencies (targets and
+      // prerequisites).
       //
       // Note that this should be the last update to depdb (the invalidation
       // order semantics).
       //
-      bool deferred_failure (false);
+      md->deferred_failure = false;
       {
         build::script::parser p (ctx);
         p.execute_depdb_preamble_dyndep (a, bs, t,
                                          env, script, run,
                                          dd,
+                                         md->dyn_targets,
                                          update,
                                          mt,
-                                         deferred_failure);
+                                         md->deferred_failure);
       }
 
       if (update && dd.reading () && !ctx.dry_run)
@@ -854,7 +1006,6 @@ namespace build2
       //
       md->bs = &bs;
       md->mt = update ? timestamp_nonexistent : mt;
-      md->deferred_failure = deferred_failure;
 
       return [this, md = move (md)] (action a, const target& t)
       {
@@ -1066,7 +1217,7 @@ namespace build2
               if (r.second.empty ())
                 continue;
 
-              // @@ TODO: what should we do about targets?
+              // Note: no support for dynamic targets in byproduct mode.
               //
               if (r.first == make_type::target)
                 continue;
@@ -1076,10 +1227,10 @@ namespace build2
               if (f.relative ())
               {
                 if (!byp.cwd)
-                  fail (il) << "relative path '" << f << "' in make dependency"
-                            << " declaration" <<
+                  fail (il) << "relative prerequisite path '" << f
+                            << "' in make dependency declaration" <<
                     info << "consider using --cwd to specify relative path "
-                            << "base";
+                         << "base";
 
                 f = *byp.cwd / f;
               }
@@ -1141,6 +1292,30 @@ namespace build2
     {
       run.leave (env, script.end_loc);
       return *ps;
+    }
+
+    // Remove previous dynamic targets since their set may change with changes
+    // to the inputs (see apply() for details).
+    //
+    // The dry-run mode complicates things: if we don't remove the old files,
+    // then that information will be gone (since we update depdb even in the
+    // dry-run mode). But if we remove everything in the dry-run mode, then we
+    // may also remove some of the current files, which would be incorrect. So
+    // let's always remove but only files that are not in the current set.
+    //
+    for (const path& f: md.old_dyn_targets)
+    {
+      if (find (md.dyn_targets.begin (), md.dyn_targets.end (), f) ==
+          md.dyn_targets.end ())
+      {
+        // This is an optimization so best effort.
+        //
+        if (optional<rmfile_status> s = butl::try_rmfile_ignore_error (f))
+        {
+          if (s == rmfile_status::success && verb >= 2)
+            text << "rm " << f;
+        }
+      }
     }
 
     // Sequence start time for mtime checks below.
@@ -1626,6 +1801,8 @@ namespace build2
     //
     // Finally, we print the entire ad hoc group at verbosity level 1, similar
     // to the default update diagnostics.
+    //
+    // @@ TODO: .t may also be a temporary directory.
     //
     return perform_clean_extra (a,
                                 t.as<file> (),

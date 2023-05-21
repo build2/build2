@@ -17,8 +17,8 @@ namespace build2
       //
       class depdb_dyndep_options
       {
-        // Note that --byproduct, if any, must be the first option and is
-        // handled ad hoc, kind of as a sub-command.
+        // Note that --byproduct or --dyn-target, if any, must be the first
+        // option and is handled ad hoc.
         //
         // Similarly, --update-{include,exclude} are handled ad hoc and must
         // be literals, similar to the -- separator. They specify prerequisite
@@ -44,16 +44,19 @@ namespace build2
         // and the other for prerequisite, we omit "prerequisite" as that's
         // what we extract by default and most commonly. For example:
         //
-        // --what          --what-target
-        // --default-type  --default-target-type
+        // --what          --target-what
+        // --default-type  --target-default-type
         //
         path --file;                  // Read from file rather than stdin.
 
         string --format;              // Dependency format: make (default).
 
-        string --what;                // Dependency kind, e.g., "header".
+        // Dynamic dependency extraction options.
+        //
+        string --what;                // Prerequisite kind, e.g., "header".
 
-        dir_paths --include-path|-I;  // Search paths for generated files.
+        dir_paths --include-path|-I;  // Search paths for generated
+                                      // prerequisites.
 
         string --default-type;        // Default prerequisite type to use
                                       // if none could be derived from ext.
@@ -64,14 +67,36 @@ namespace build2
                                       // normal mode).
 
         dir_path --cwd;               // Builtin's working directory used
-                                      // to complete relative paths (only
-                                      // in --byproduct mode).
+                                      // to complete relative paths of
+                                      // prerequisites (only in --byproduct
+                                      // mode).
 
         bool --drop-cycles;           // Drop prerequisites that are also
                                       // targets. Only use if you are sure
                                       // such cycles are harmless, that is,
                                       // the output is not affected by such
                                       // prerequisites' content.
+
+        // Dynamic target extraction options.
+        //
+        // This functionality is enabled with the --dyn-target option. Only
+        // the make format is supported, where the listed targets are added as
+        // ad hoc group members (unless already specified as static members).
+        // This functionality is not available in the byproduct mode.
+        //
+        // @@ BTW, here what would likely be more useful than default target
+        //    is the ability to specify custom extension-to-type mapping in
+        //    order to resolve ambiguities. See also the issue with getting
+        //    these options during clean.
+        //
+        string --target-what;         // Target kind, e.g., "source".
+
+        string --target-default-type; // Default target type to use if none
+                                      // could be derived from ext.
+
+        dir_path --target-cwd;        // Builtin's working directory used to
+                                      // complete relative paths of targets.
+
       };
     }
   }

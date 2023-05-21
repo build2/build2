@@ -768,7 +768,9 @@ namespace build2
     {
       using script::cleanup;
 
-      assert (!implicit || c.type == cleanup_type::always);
+      // Implicit never-cleanup doesn't make sense.
+      //
+      assert (!implicit || c.type != cleanup_type::never);
 
       const path& p (c.path);
 

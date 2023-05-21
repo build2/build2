@@ -123,14 +123,16 @@ namespace build2
         execute_depdb_preamble_dyndep (
           action a, const scope& base, file& t,
           environment& e, const script& s, runner& r,
-          depdb& dd, bool& update, timestamp mt, bool& deferred_failure)
+          depdb& dd,
+          paths& dyn_targets,
+          bool& update, timestamp mt, bool& deferred_failure)
         {
           exec_depdb_preamble (
             a, base, t,
             e, s, r,
             s.depdb_preamble.begin () + *s.depdb_dyndep,
             s.depdb_preamble.end (),
-            dd, &update, mt, &deferred_failure);
+            dd, &dyn_targets, &update, mt, &deferred_failure);
         }
 
         // This version doesn't actually execute the depdb-dyndep builtin (but
@@ -161,6 +163,7 @@ namespace build2
           // This is getting a bit ugly (we also don't really need to pass
           // depdb here). One day we will find a better way...
           //
+          paths dyn_targets;
           bool deferred_failure; // Dymmy.
 
           dyndep_byproduct v;
@@ -169,7 +172,7 @@ namespace build2
             e, s, r,
             s.depdb_preamble.begin () + *s.depdb_dyndep,
             s.depdb_preamble.end (),
-            dd, &update, mt, &deferred_failure, &v);
+            dd, &dyn_targets, &update, mt, &deferred_failure, &v);
           return v;
         }
 
@@ -221,6 +224,7 @@ namespace build2
                              environment&, const script&, runner&,
                              lines_iterator begin, lines_iterator end,
                              depdb&,
+                             paths* dyn_targets = nullptr,
                              bool* update = nullptr,
                              optional<timestamp> mt = nullopt,
                              bool* deferred_failure = nullptr,
@@ -231,6 +235,7 @@ namespace build2
                            size_t line_index, const location&,
                            action, const scope& base, file&,
                            depdb&,
+                           paths& dyn_targets,
                            bool& update,
                            timestamp,
                            bool& deferred_failure,
@@ -355,6 +360,7 @@ namespace build2
         optional<pair<location, size_t>>
                            depdb_dyndep_;   // depdb-dyndep location/position.
         bool               depdb_dyndep_byproduct_ = false; // --byproduct
+        bool               depdb_dyndep_dyn_target_ = false; // --dyn-target
         lines              depdb_preamble_; // Note: excluding depdb-clear.
 
         // If present, the first impure function called in the body of the

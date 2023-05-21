@@ -174,6 +174,51 @@ namespace build2
         void
         drop_cycles (const bool&);
 
+        const string&
+        target_what () const;
+
+        string&
+        target_what ();
+
+        void
+        target_what (const string&);
+
+        bool
+        target_what_specified () const;
+
+        void
+        target_what_specified (bool);
+
+        const string&
+        target_default_type () const;
+
+        string&
+        target_default_type ();
+
+        void
+        target_default_type (const string&);
+
+        bool
+        target_default_type_specified () const;
+
+        void
+        target_default_type_specified (bool);
+
+        const dir_path&
+        target_cwd () const;
+
+        dir_path&
+        target_cwd ();
+
+        void
+        target_cwd (const dir_path&);
+
+        bool
+        target_cwd_specified () const;
+
+        void
+        target_cwd_specified (bool);
+
         // Implementation details.
         //
         protected:
@@ -201,6 +246,12 @@ namespace build2
         dir_path cwd_;
         bool cwd_specified_;
         bool drop_cycles_;
+        string target_what_;
+        bool target_what_specified_;
+        string target_default_type_;
+        bool target_default_type_specified_;
+        dir_path target_cwd_;
+        bool target_cwd_specified_;
       };
     }
   }

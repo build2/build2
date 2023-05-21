@@ -272,6 +272,10 @@ namespace build2
   //    fuzzy: they feel more `real` than `implied`. Maybe introduce
   //    `synthesized` in-between?
   //
+  // @@ There are also now dynamically-discovered targets (ad hoc group
+  //    members; see depdb-dyndep --dyn-target) which currently end up
+  //    with prereq_new.
+  //
   enum class target_decl: uint8_t
   {
     prereq_new = 1, // Created from prerequisite (create_new_target()).

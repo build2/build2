@@ -94,6 +94,10 @@ namespace build2
     // and those derived from them are considered. Otherwise, any file-based
     // type is considered but not the file type itself.
     //
+    // It's possible the extension-to-target type mapping is ambiguous (for
+    // example, because both C and C++-language headers use the same .h
+    // extension). So this function can return multiple target types.
+    //
     static small_vector<const target_type*, 2>
     map_extension (const scope& base,
                    const string& name, const string& ext,
@@ -244,6 +248,23 @@ namespace build2
       return inject_group_member (
         a, bs, g, move (p), T::static_type).template as<T> ();
     }
+
+    // Find or insert a target file path as a target, make it a member of the
+    // specified ad hoc group unless it already is, and set its path. Return
+    // the target and an indication of whether it was added as a member.
+    //
+    // The target type is determined using the map_extension function if
+    // specified, falling back to the fallback type if unable to.
+    //
+    // The file path must be absolute and normalized. Note that this function
+    // assumes that this target can only be known as a member of this group.
+    //
+    static pair<const file&, bool>
+    inject_adhoc_group_member (const char* what,
+                               action, const scope& base, target& g,
+                               path,
+                               const function<map_extension_func>&,
+                               const target_type& fallback);
   };
 }
 

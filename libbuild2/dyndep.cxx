@@ -162,12 +162,6 @@ namespace build2
       dr << info << "consider listing it as static prerequisite of " << t;
   }
 
-  // Reverse-lookup target type(s) from file name/extension.
-  //
-  // If the list of base target types is specified, then only these types and
-  // those derived from them are considered. Otherwise, any file-based type is
-  // considered but not the file type itself.
-  //
   small_vector<const target_type*, 2> dyndep_rule::
   map_extension (const scope& bs,
                  const string& n, const string& e,
@@ -876,5 +870,100 @@ namespace build2
     match_recipe (tl, group_recipe);
 
     return t;
+  }
+
+  pair<const file&, bool> dyndep_rule::
+  inject_adhoc_group_member (const char* what,
+                             action, const scope& bs, target& t,
+                             path f,
+                             const function<map_extension_func>& map_ext,
+                             const target_type& fallback)
+  {
+    path n (f.leaf ());
+    string e (n.extension ());
+    n.make_base ();
+
+    // Map extension to the target type, falling back to def_tt.
+    //
+    small_vector<const target_type*, 2> tts;
+    if (map_ext != nullptr)
+      tts = map_ext (bs, n.string (), e);
+
+    // Not sure what else we can do in this case.
+    //
+    if (tts.size () > 1)
+    {
+      diag_record dr (fail);
+
+      dr << "mapping of " << what << " target file " << f
+         << " to target type is ambiguous";
+
+      for (const target_type* tt: tts)
+        dr << info << "can be " << tt->name << "{}";
+    }
+
+    const target_type& tt (tts.empty () ? fallback : *tts.front ());
+
+    if (!tt.is_a<file> ())
+    {
+      fail << what << " target file " << f << " mapped to non-file-based "
+           << "target type " << tt.name << "{}";
+    }
+
+    // Assume nobody else can insert these members (seems reasonable seeing
+    // that their names are dynamically discovered).
+    //
+    auto l (search_new_locked (
+              bs.ctx,
+              tt,
+              f.directory (),
+              dir_path (), // Always in out.
+              move (n).string (),
+              &e,
+              &bs));
+
+    file* ft (&l.first.as<file> ()); // Note: non-const only if locked.
+
+    // Skip if this is one of the static targets (or a duplicate of the
+    // dynamic target).
+    //
+    // In particular, we expect to skip all the targets that we could not lock
+    // (e.g., in case all of this has already been done for the previous
+    // operation in a batch; make sure to test `update update update` and
+    // `update clean update ...` batches if changing anything here).
+    //
+    // While at it also find the ad hoc members list tail.
+    //
+    const_ptr<target>* tail (&t.adhoc_member);
+    for (target* m (&t); m != nullptr; m = m->adhoc_member)
+    {
+      if (ft == m)
+      {
+        tail = nullptr;
+        break;
+      }
+
+      tail = &m->adhoc_member;
+    }
+
+    if (tail == nullptr)
+      return pair<const file&, bool> (*ft, false);
+
+    if (!l.second)
+      fail << "dynamic " << what << " target " << *ft << " already exists "
+           << "and cannot be made ad hoc member of group " << t;
+
+    ft->group = &t;
+    l.second.unlock ();
+
+    // We need to be able to distinguish static targets from dynamic (see the
+    // static set hashing in adhoc_buildscript_rule::apply() for details).
+    //
+    assert (ft->decl != target_decl::real);
+
+    *tail = ft;
+    ft->path (move (f));
+
+    return pair<const file&, bool> (*ft, true);
   }
 }

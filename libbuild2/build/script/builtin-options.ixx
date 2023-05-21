@@ -233,6 +233,96 @@ namespace build2
       {
         this->drop_cycles_ = x;
       }
+
+      inline const string& depdb_dyndep_options::
+      target_what () const
+      {
+        return this->target_what_;
+      }
+
+      inline string& depdb_dyndep_options::
+      target_what ()
+      {
+        return this->target_what_;
+      }
+
+      inline void depdb_dyndep_options::
+      target_what (const string& x)
+      {
+        this->target_what_ = x;
+      }
+
+      inline bool depdb_dyndep_options::
+      target_what_specified () const
+      {
+        return this->target_what_specified_;
+      }
+
+      inline void depdb_dyndep_options::
+      target_what_specified (bool x)
+      {
+        this->target_what_specified_ = x;
+      }
+
+      inline const string& depdb_dyndep_options::
+      target_default_type () const
+      {
+        return this->target_default_type_;
+      }
+
+      inline string& depdb_dyndep_options::
+      target_default_type ()
+      {
+        return this->target_default_type_;
+      }
+
+      inline void depdb_dyndep_options::
+      target_default_type (const string& x)
+      {
+        this->target_default_type_ = x;
+      }
+
+      inline bool depdb_dyndep_options::
+      target_default_type_specified () const
+      {
+        return this->target_default_type_specified_;
+      }
+
+      inline void depdb_dyndep_options::
+      target_default_type_specified (bool x)
+      {
+        this->target_default_type_specified_ = x;
+      }
+
+      inline const dir_path& depdb_dyndep_options::
+      target_cwd () const
+      {
+        return this->target_cwd_;
+      }
+
+      inline dir_path& depdb_dyndep_options::
+      target_cwd ()
+      {
+        return this->target_cwd_;
+      }
+
+      inline void depdb_dyndep_options::
+      target_cwd (const dir_path& x)
+      {
+        this->target_cwd_ = x;
+      }
+
+      inline bool depdb_dyndep_options::
+      target_cwd_specified () const
+      {
+        return this->target_cwd_specified_;
+      }
+
+      inline void depdb_dyndep_options::
+      target_cwd_specified (bool x)
+      {
+        this->target_cwd_specified_ = x;
+      }
     }
   }
 }
