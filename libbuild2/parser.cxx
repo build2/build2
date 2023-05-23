@@ -1267,6 +1267,9 @@ namespace build2
           // rule for an explicit group that wishes to match based on some of
           // its members feels far fetched.
           //
+          // @@ TODO: expl: this can be used to inject static members (which
+          //    otherwise would be tedious to repeat).
+          //
           const location& mloc (gns.empty () ? location () : gns[0].member_loc);
 
           if (!gns.empty () && gns[0].expl)

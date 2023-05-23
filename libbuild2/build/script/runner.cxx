@@ -28,12 +28,29 @@ namespace build2
         //
         for (auto i (env.cleanups.begin ()); i != env.cleanups.end (); )
         {
-          const target* m (&env.target);
-          for (; m != nullptr; m = m->adhoc_member)
+          const target* m (nullptr);
+          if (const group* g = env.target.is_a<group> ())
           {
-            if (const path_target* pm = m->is_a<path_target> ())
-              if (i->path == pm->path ())
-                break;
+            for (const target* gm: g->members)
+            {
+              if (const path_target* pm = gm->is_a<path_target> ())
+              {
+                if (i->path == pm->path ())
+                {
+                  m = gm;
+                  break;
+                }
+              }
+            }
+          }
+          else
+          {
+            for (m = &env.target; m != nullptr; m = m->adhoc_member)
+            {
+              if (const path_target* pm = m->is_a<path_target> ())
+                if (i->path == pm->path ())
+                  break;
+            }
           }
 
           if (m != nullptr)

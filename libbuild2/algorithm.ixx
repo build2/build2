@@ -392,7 +392,10 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT const rule_match*
-  match_rule (action, target&, const rule* skip, bool try_match = false);
+  match_rule (action, target&,
+              const rule* skip,
+              bool try_match = false,
+              match_extra* = nullptr);
 
   LIBBUILD2_SYMEXPORT recipe
   apply_impl (action, target&, const rule_match&);

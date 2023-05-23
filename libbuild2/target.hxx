@@ -170,6 +170,7 @@ namespace build2
   //
   struct match_extra
   {
+    bool locked;   // Normally true (see adhoc_rule::match() for background).
     bool fallback; // True if matching a fallback rule (see match_rule()).
 
     // Auxiliary data storage.
@@ -237,7 +238,12 @@ namespace build2
 
     // Implementation details.
     //
+    // NOTE: see match_rule() in algorithms.cxx if changing anything here.
+    //
   public:
+    explicit
+    match_extra (bool l = true, bool f = false): locked (l), fallback (f) {}
+
     void
     init (bool fallback);
 
@@ -852,8 +858,11 @@ namespace build2
     // Return true if the target has been matched for the specified action.
     // This function can only be called during the match or execute phases.
     //
+    // If you need to observe something in the matched target (e.g., the
+    // matched rule), use memory_order_acquire.
+    //
     bool
-    matched (action) const;
+    matched (action, memory_order mo = memory_order_relaxed) const;
 
     // This function can only be called during match if we have observed
     // (synchronization-wise) that this target has been matched (i.e., the
@@ -2160,14 +2169,33 @@ namespace build2
   // Note that it is not see-through but a derived group can be made see-
   // through via the [see_through] attribute.
   //
-  // Note that normally you wouldn't use it as a base for a custom group
-  // defined in C++, instead deriving from mtime_target directly and using a
-  // custom members layout more appropriate for the group's semantics.
+  // Note also that you shouldn't use it as a base for a custom group defined
+  // in C++, instead deriving from mtime_target directly and using a custom
+  // members layout more appropriate for the group's semantics. To put it
+  // another way, a group-based target should only be matched by an ad hoc
+  // recipe/rule (see match_rule() in algorithms.cxx for details).
   //
   class LIBBUILD2_SYMEXPORT group: public mtime_target
   {
   public:
     vector<reference_wrapper<const target>> static_members;
+
+    // Note: we expect no NULL entries in members.
+    //
+    vector<const target*> members; // Layout compatible with group_view.
+    action members_action; // Action on which members were resolved.
+    size_t members_on = 0; // Operation number on which members were resolved.
+
+    void
+    reset_members (action a)
+    {
+      members.clear ();
+      members_action = a;
+      members_on = ctx.current_on;
+    }
+
+    virtual group_view
+    group_members (action) const override;
 
     group (context& c, dir_path d, dir_path o, string n)
       : mtime_target (c, move (d), move (o), move (n))

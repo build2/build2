@@ -32,7 +32,7 @@ namespace build2
                               names&&, const location&);
 
     virtual bool
-    match (action, target&, const string&, match_extra&) const override;
+    match (action, const target&, const string&, match_extra&) const override;
 
     virtual void
     apply_adhoc_members (action, target&,

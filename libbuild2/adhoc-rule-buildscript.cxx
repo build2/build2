@@ -211,11 +211,13 @@ namespace build2
   bool adhoc_buildscript_rule::
   reverse_fallback (action a, const target_type& tt) const
   {
-    // We can provide clean for a file target if we are providing update.
+    // We can provide clean for a file or group target if we are providing
+    // update.
     //
-    return a == perform_clean_id && tt.is_a<file> () &&
-      find (actions.begin (), actions.end (),
-            perform_update_id) != actions.end ();
+    return (a == perform_clean_id                   &&
+            (tt.is_a<file> () || tt.is_a<group> ()) &&
+            find (actions.begin (), actions.end (),
+                  perform_update_id) != actions.end ());
   }
 
   struct adhoc_buildscript_rule::match_data
@@ -256,22 +258,27 @@ namespace build2
   };
 
   bool adhoc_buildscript_rule::
-  match (action a, target& t, const string& h, match_extra& me) const
+  match (action a, target& xt, const string& h, match_extra& me) const
   {
+    const target& t (xt); // See adhoc_rule::match().
+
     // We pre-parsed the script with the assumption it will be used on a
-    // non/file-based target. Note that this should not be possible with
-    // patterns.
+    // non/file-based (or file group-based) target. Note that this should not
+    // be possible with patterns.
     //
     if (pattern == nullptr)
     {
-      if ((t.is_a<file> () != nullptr) != ttype->is_a<file> ())
-      {
+      // Let's not allow mixing file/group.
+      //
+      if ((t.is_a<file> () != nullptr) == ttype->is_a<file> () ||
+          (t.is_a<group> () != nullptr) == ttype->is_a<group> ())
+        ;
+      else
         fail (loc) << "incompatible target types used with shared recipe" <<
-          info << "all targets must be file-based or non-file-based";
-      }
+          info << "all targets must be file- or file group-based or non";
     }
 
-    return adhoc_rule::match (a, t, h, me);
+    return adhoc_rule::match (a, xt, h, me);
   }
 
   recipe adhoc_buildscript_rule::
@@ -282,17 +289,27 @@ namespace build2
 
   recipe adhoc_buildscript_rule::
   apply (action a,
-         target& xt,
+         target& t,
          match_extra& me,
-         const optional<timestamp>& d) const
+         const optional<timestamp>& deadline) const
   {
     tracer trace ("adhoc_buildscript_rule::apply");
 
+    // Handle matching explicit group members (see adhoc_rule::match() for
+    // background).
+    //
+    if (const group* g = t.group != nullptr ? t.group->is_a<group> () : nullptr)
+    {
+      match_sync (a, *g);
+      return group_recipe; // Execute the group's recipe.
+    }
+
     // We don't support deadlines for any of these cases (see below).
     //
-    if (d && (a.outer ()  ||
-              me.fallback ||
-              (a == perform_update_id && xt.is_a<file> ())))
+    if (deadline && (a.outer ()  ||
+                     me.fallback ||
+                     (a == perform_update_id &&
+                      (t.is_a<file> () || t.is_a<group> ()))))
       return empty_recipe;
 
     // If this is an outer operation (e.g., update-for-test), then delegate to
@@ -300,26 +317,80 @@ namespace build2
     //
     if (a.outer ())
     {
-      match_inner (a, xt);
+      match_inner (a, t);
       return execute_inner;
     }
 
-    context& ctx (xt.ctx);
-    const scope& bs (xt.base_scope ());
+    context& ctx (t.ctx);
+    const scope& bs (t.base_scope ());
+
+    group* g (t.is_a<group> ()); // Explicit group.
 
     // Inject pattern's ad hoc group members, if any.
     //
     if (pattern != nullptr)
-      pattern->apply_adhoc_members (a, xt, bs, me);
+    {
+      pattern->apply_adhoc_members (a, t, bs, me);
 
-    // Derive file names for the target and its ad hoc group members, if any.
+      // A pattern rule that matches an explicit group should not inject any
+      // ad hoc members.
+      //
+      if (g != nullptr)
+        assert (t.adhoc_member == nullptr);
+    }
+
+    // Derive file names for the target and its static/ad hoc group members,
+    // if any.
     //
     if (a == perform_update_id || a == perform_clean_id)
     {
-      for (target* m (&xt); m != nullptr; m = m->adhoc_member)
+      if (g != nullptr)
       {
-        if (auto* p = m->is_a<path_target> ())
-          p->derive_path ();
+        g->reset_members (a); // See group::group_members() for background.
+
+        for (const target& m: g->static_members)
+        {
+          if (auto* p = m.is_a<path_target> ())
+            p->derive_path ();
+
+          g->members.push_back (&m);
+        }
+
+        if (g->members.empty ())
+        {
+          if (!script.depdb_dyndep_dyn_target) // @@ TODO: expl: first must file
+            fail << "group " << *g << " has no static or dynamic members";
+        }
+        else if (!g->members.front ()->is_a<file> ())
+        {
+          // We use the first static member to derive depdb path, get mtime,
+          // etc. So it must be file-based.
+          //
+          fail << "first static member " << g->members.front () << " of group "
+               << *g << " is not a file";
+        }
+      }
+      else
+      {
+        for (target* m (&t); m != nullptr; m = m->adhoc_member)
+        {
+          if (auto* p = m->is_a<path_target> ())
+            p->derive_path ();
+        }
+      }
+    }
+    else if (g != nullptr)
+    {
+      // This could be, for example, configure/dist update which could need a
+      // "representative sample" of members (in order to be able to match the
+      // rules). So add static members if there aren't any.
+      //
+      if (g->group_members (a).members == nullptr) // Note: not g->member.
+      {
+        g->reset_members (a);
+
+        for (const target& m: g->static_members)
+          g->members.push_back (&m);
       }
     }
 
@@ -332,22 +403,22 @@ namespace build2
     // prerequisites injected by the pattern. So we have to handle this ad hoc
     // below.
     //
-    const fsdir* dir (inject_fsdir (a, xt, false /* prereq */));
+    const fsdir* dir (inject_fsdir (a, t, false /* prereq */));
 
     // Match prerequisites.
     //
     // This is essentially match_prerequisite_members() but with support
     // for update=unmatch|match.
     //
-    auto& pts (xt.prerequisite_targets[a]);
+    auto& pts (t.prerequisite_targets[a]);
     {
       // Re-create the clean semantics as in match_prerequisite_members().
       //
-      bool clean (a.operation () == clean_id && !xt.is_a<alias> ());
+      bool clean (a.operation () == clean_id && !t.is_a<alias> ());
 
       // Add target's prerequisites.
       //
-      for (prerequisite_member p: group_prerequisite_members (a, xt))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // Note that we have to recognize update=unmatch|match for *(update),
         // not just perform(update). But only actually do anything about it
@@ -355,7 +426,7 @@ namespace build2
         //
         lookup l; // The `update` variable value, if any.
         include_type pi (
-          include (a, xt, p, a.operation () == update_id ? &l : nullptr));
+          include (a, t, p, a.operation () == update_id ? &l : nullptr));
 
         // Use prerequisite_target::include to signal update during match or
         // unmatch.
@@ -387,7 +458,7 @@ namespace build2
         if (!pi)
           continue;
 
-        const target& pt (p.search (xt));
+        const target& pt (p.search (t));
 
         if (&pt == dir) // Don't add injected fsdir{} twice.
           continue;
@@ -406,19 +477,19 @@ namespace build2
       // Inject pattern's prerequisites, if any.
       //
       if (pattern != nullptr)
-        pattern->apply_prerequisites (a, xt, bs, me);
+        pattern->apply_prerequisites (a, t, bs, me);
 
       // Start asynchronous matching of prerequisites. Wait with unlocked
       // phase to allow phase switching.
       //
-      wait_guard wg (ctx, ctx.count_busy (), xt[a].task_count, true);
+      wait_guard wg (ctx, ctx.count_busy (), t[a].task_count, true);
 
       for (const prerequisite_target& pt: pts)
       {
         if (pt.target == dir) // Don't match injected fsdir{} twice.
           continue;
 
-        match_async (a, *pt.target, ctx.count_busy (), xt[a].task_count);
+        match_async (a, *pt.target, ctx.count_busy (), t[a].task_count);
       }
 
       wg.wait ();
@@ -525,9 +596,9 @@ namespace build2
     {
       // For depdb-dyndep --dyn-target use depdb to clean dynamic targets.
       //
-      if (script.depdb_dyndep && script.depdb_dyndep_dyn_target)
+      if (script.depdb_dyndep_dyn_target)
       {
-        file& t (xt.as<file> ());
+        file& ft (t.as<file> ()); // @@ TODO: expl
 
         // Note that only removing the relevant filesystem entries is not
         // enough: we actually have to populate the group with members since
@@ -543,8 +614,13 @@ namespace build2
             return dyndep::map_extension (bs, n, e, nullptr);
           });
 
-        for (path& f: read_dyn_targets (t.path () + ".d"))
+        // @@ TODO: expl
+        //
+        //    - depdb name?
+
+        for (path& f: read_dyn_targets (ft.path () + ".d"))
         {
+
           // Note that this logic should be consistent with what we have in
           // exec_depdb_dyndep().
           //
@@ -567,13 +643,13 @@ namespace build2
           //    type mapping in order to resolve ambiguities.
           //
           dyndep::inject_adhoc_group_member ("file",
-                                             a, bs, t,
+                                             a, bs, ft,
                                              move (f),
                                              map_ext, file::static_type);
         }
       }
 
-      return perform_clean_file;
+      return g == nullptr ? perform_clean_file : perform_clean_group;
     }
 
     // If we have any update during match prerequisites, now is the time to
@@ -586,17 +662,17 @@ namespace build2
     // prerequisite_target::data.
     //
     if (a == perform_update_id)
-      update_during_match_prerequisites (trace, a, xt);
+      update_during_match_prerequisites (trace, a, t);
 
-    // See if this is not update or not on a file-based target.
+    // See if this is not update or not on a file/group-based target.
     //
-    if (a != perform_update_id || !xt.is_a<file> ())
+    if (a != perform_update_id || !(g != nullptr || t.is_a<file> ()))
     {
       // Make sure we get small object optimization.
       //
-      if (d)
+      if (deadline)
       {
-        return [dv = *d, this] (action a, const target& t)
+        return [dv = *deadline, this] (action a, const target& t)
         {
           return default_action (a, t, dv);
         };
@@ -616,14 +692,14 @@ namespace build2
     {
       return [this] (action a, const target& t)
       {
-        return perform_update_file (a, t);
+        return perform_update_file_or_group (a, t);
       };
     }
 
-    // This is a perform update on a file target with extraction of dynamic
-    // dependency information either in the depdb preamble (depdb-dyndep
-    // without --byproduct) or as a byproduct of the recipe body execution
-    // (depdb-dyndep with --byproduct).
+    // This is a perform update on a file or group target with extraction of
+    // dynamic dependency information either in the depdb preamble
+    // (depdb-dyndep without --byproduct) or as a byproduct of the recipe body
+    // execution (depdb-dyndep with --byproduct).
     //
     // For the former case, we may need to add additional prerequisites (or
     // even target group members). We also have to save any such additional
@@ -641,9 +717,6 @@ namespace build2
     // example and all this logic is based on the prior work in the cc module
     // where you can often find more detailed rationale for some of the steps
     // performed (like the fsdir update below).
-    //
-    file& t (xt.as<file> ());
-    const path& tp (t.path ());
 
     // Re-acquire fsdir{} specified by the user, similar to inject_fsdir()
     // (which we have disabled; see above).
@@ -688,6 +761,11 @@ namespace build2
         p.target = nullptr;
       }
     }
+
+    assert (g != nullptr); // @@ TODO: expl
+
+    file& ft (t.as<file> ());
+    const path& tp (ft.path ());
 
     // Note that while it's tempting to turn match_data* into recipes, some of
     // their members are not movable. And in the end we will have the same
@@ -821,8 +899,10 @@ namespace build2
       update = true;
     else
     {
-      if ((mt = t.mtime ()) == timestamp_unknown)
-        t.mtime (mt = mtime (tp)); // Cache.
+      // @@ TODO: expl mtime
+
+      if ((mt = ft.mtime ()) == timestamp_unknown)
+        ft.mtime (mt = mtime (tp)); // Cache.
 
       update = dd.mtime > mt;
     }
@@ -854,7 +934,7 @@ namespace build2
       {
         build::script::parser p (ctx);
         mdb->byp = p.execute_depdb_preamble_dyndep_byproduct (
-          a, bs, t,
+          a, bs, ft, // @@ TODO: expl
           env, script, run,
           dd, update, mt);
       }
@@ -978,8 +1058,8 @@ namespace build2
     else
     {
       // Run the second half of the preamble (depdb-dyndep commands) to update
-      // our prerequisite targets and extract dynamic dependencies (targets and
-      // prerequisites).
+      // our prerequisite targets and extract dynamic dependencies (targets
+      // and prerequisites).
       //
       // Note that this should be the last update to depdb (the invalidation
       // order semantics).
@@ -987,7 +1067,7 @@ namespace build2
       md->deferred_failure = false;
       {
         build::script::parser p (ctx);
-        p.execute_depdb_preamble_dyndep (a, bs, t,
+        p.execute_depdb_preamble_dyndep (a, bs, ft, // @@ TODO: expl
                                          env, script, run,
                                          dd,
                                          md->dyn_targets,
@@ -1341,21 +1421,25 @@ namespace build2
   }
 
   target_state adhoc_buildscript_rule::
-  perform_update_file (action a, const target& xt) const
+  perform_update_file_or_group (action a, const target& t) const
   {
-    tracer trace ("adhoc_buildscript_rule::perform_update_file");
+    tracer trace ("adhoc_buildscript_rule::perform_update_file_or_group");
 
-    context& ctx (xt.ctx);
-
-    const file& t (xt.as<file> ());
-    const path& tp (t.path ());
-
+    context& ctx (t.ctx);
     const scope& bs (t.base_scope ());
+
+    // For a group we use the first (static) member to derive depdb path, as a
+    // source of mtime, etc.
+    //
+    const group* g (t.is_a<group> ());
+
+    const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
+    const path& tp (ft.path ());
 
     // Update prerequisites and determine if any of them render this target
     // out-of-date.
     //
-    timestamp mt (t.load_mtime ());
+    timestamp mt (g == nullptr ? ft.load_mtime () : g->load_mtime (tp));
 
     // This is essentially ps=execute_prerequisites(a, t, mt) which we
     // cannot use because we need to see ad hoc prerequisites.
@@ -1449,8 +1533,18 @@ namespace build2
       //
       {
         sha256 tcs;
-        for (const target* m (&t); m != nullptr; m = m->adhoc_member)
-          hash_target (tcs, *m, storage);
+        if (g == nullptr)
+        {
+          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+            hash_target (tcs, *m, storage);
+        }
+        else
+        {
+          // Feels like there is not much sense in hashing the group itself.
+          //
+          for (const target* m: g->members)
+            hash_target (tcs, *m, storage);
+        }
 
         if (dd.expect (tcs.string ()) != nullptr)
           l4 ([&]{trace << "target set change forcing update of " << t;});
@@ -1534,7 +1628,11 @@ namespace build2
     {
       // Prepare to execute the script diag preamble and/or body.
       //
-      if ((r = execute_update_file (bs, a, t, env, run)))
+      r = g == nullptr
+        ? execute_update_file (bs, a, ft, env, run)
+        : execute_update_group (bs, a, *g, env, run);
+
+      if (r)
       {
         if (!ctx.dry_run)
           dd.check_mtime (tp);
@@ -1544,7 +1642,8 @@ namespace build2
     if (r || depdb_preamble)
       run.leave (env, script.end_loc);
 
-    t.mtime (system_clock::now ());
+    const auto& m (g == nullptr ? static_cast<const mtime_target&> (ft) : *g);
+    m.mtime (system_clock::now ());
     return target_state::changed;
   }
 
@@ -1653,6 +1752,8 @@ namespace build2
                        build::script::default_runner& run,
                        bool deferred_failure) const
   {
+    // NOTE: similar to execute_update_group() below.
+    //
     context& ctx (t.ctx);
 
     const scope& rs (*bs.root_scope ());
@@ -1787,6 +1888,115 @@ namespace build2
     return exec_diag || exec_body;
   }
 
+  bool adhoc_buildscript_rule::
+  execute_update_group (const scope& bs,
+                        action a, const group& g,
+                        build::script::environment& env,
+                        build::script::default_runner& run,
+                        bool deferred_failure) const
+  {
+    // Note: similar to execute_update_file() above (see there for comments).
+    //
+    context& ctx (g.ctx);
+
+    const scope& rs (*bs.root_scope ());
+
+    build::script::parser p (ctx);
+
+    bool exec_body  (!ctx.dry_run || verb >= 2);
+    bool exec_diag  (!script.diag_preamble.empty () && (exec_body || verb == 1));
+    bool exec_depdb (!script.depdb_preamble.empty ());
+
+    if (script.diag_name)
+    {
+      if (verb == 1)
+      {
+        const file* pt (nullptr);
+        for (const prerequisite_target& p: g.prerequisite_targets[a])
+        {
+          if (p.target != nullptr && !p.adhoc ())
+          {
+            pt = p.target->is_a<file> ();
+            break;
+          }
+        }
+
+        if (pt != nullptr)
+          print_diag (script.diag_name->c_str (), *pt, g);
+        else
+          print_diag (script.diag_name->c_str (), g);
+      }
+    }
+    else if (exec_diag)
+    {
+      if (script.diag_preamble_temp_dir && !script.depdb_preamble_temp_dir)
+        env.set_temp_dir_variable ();
+
+      pair<names, location> diag (
+        p.execute_diag_preamble (rs, bs,
+                                 env, script, run,
+                                 verb == 1   /* diag */,
+                                 !exec_depdb /* enter */,
+                                 false       /* leave */));
+      if (verb == 1)
+        print_custom_diag (bs, move (diag.first), diag.second);
+    }
+
+    if (exec_body)
+    {
+      // On failure remove the target files that may potentially exist but
+      // be invalid.
+      //
+      small_vector<auto_rmfile, 8> rms;
+
+      if (!ctx.dry_run)
+      {
+        for (const target* m: g.members)
+        {
+          if (auto* f = m->is_a<file> ())
+            rms.emplace_back (f->path ());
+        }
+      }
+
+      if (script.body_temp_dir            &&
+          !script.depdb_preamble_temp_dir &&
+          !script.diag_preamble_temp_dir)
+        env.set_temp_dir_variable ();
+
+      p.execute_body (rs, bs,
+                      env, script, run,
+                      !exec_depdb && !exec_diag /* enter */,
+                      false                     /* leave */);
+
+      if (!ctx.dry_run)
+      {
+        if (deferred_failure)
+          fail << "expected error exit status from recipe body";
+
+#ifndef _WIN32
+        auto chmod = [] (const path& p)
+        {
+          path_perms (p,
+                      (path_perms (p)  |
+                       permissions::xu |
+                       permissions::xg |
+                       permissions::xo));
+        };
+
+        for (const target* m: g.members)
+        {
+          if (auto* p = m->is_a<exe> ())
+            chmod (p->path ());
+        }
+#endif
+        for (auto& rm: rms)
+          rm.cancel ();
+      }
+    }
+
+    return exec_diag || exec_body;
+  }
+
   target_state adhoc_buildscript_rule::
   perform_clean_file (action a, const target& t)
   {
@@ -1802,13 +2012,32 @@ namespace build2
     // Finally, we print the entire ad hoc group at verbosity level 1, similar
     // to the default update diagnostics.
     //
-    // @@ TODO: .t may also be a temporary directory.
+    // @@ TODO: .t may also be a temporary directory (and below).
     //
     return perform_clean_extra (a,
                                 t.as<file> (),
                                 {".d", ".t"},
                                 {},
                                 true /* show_adhoc_members */);
+  }
+
+  target_state adhoc_buildscript_rule::
+  perform_clean_group (action a, const target& xt)
+  {
+    const group& g (xt.as<group> ());
+
+    path d, t;
+    if (!g.static_members.empty ())
+    {
+      const path& p (g.static_members.front ().get ().as<file> ().path ());
+      d = p + ".d";
+      t = p + ".t";
+    }
+    else
+      assert (false); // @@ TODO: expl
+
+    return perform_clean_group_extra (a, g, {d.string ().c_str (),
+                                             t.string ().c_str ()});
   }
 
   target_state adhoc_buildscript_rule::

@@ -126,9 +126,12 @@ namespace build2
   }
 
   bool adhoc_rule_regex_pattern::
-  match (action a, target& t, const string&, match_extra& me) const
+  match (action a, const target& t, const string&, match_extra& me) const
   {
     tracer trace ("adhoc_rule_regex_pattern::match");
+
+    // Note: target may not be locked in which case we should not modify
+    //       target or match_extra (see adhoc_rule::match() for background).
 
     // The plan is as follows: First check the "type signature" of the target
     // and its prerequisites (the primary target type has already been matched
@@ -161,11 +164,16 @@ namespace build2
       // implementation. Except we support the unmatch and match values in
       // the update variable.
       //
+      // Note: assuming group prerequisites are immutable (not locked).
+      //
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // Note that here we don't validate the update operation override
         // value (since we may not match). Instead the rule does this in
         // apply().
+        //
+        // Note: assuming include()'s use of target only relied on immutable
+        // data (not locked).
         //
         lookup l;
         if (include (a, t, p, a.operation () == update_id ? &l : nullptr) ==
@@ -205,10 +213,13 @@ namespace build2
     // So the plan is to store the string in match_extra::data() and
     // regex_match_results (which we can move) in the auxiliary data storage.
     //
+    // Note: only cache if locked.
+    //
     static_assert (sizeof (string) <= match_extra::data_size,
                    "match data too large");
 
-    string& ns (me.data (string ()));
+    string tmp;
+    string& ns (me.locked ? me.data (string ()) : tmp);
 
     auto append_name = [&ns,
                         first = true,
@@ -226,9 +237,11 @@ namespace build2
     // Primary target (always a pattern).
     //
     auto te (targets_.end ()), ti (targets_.begin ());
-    append_name (t.key (), *ti);
+    append_name (t.key (), *ti); // Immutable (not locked).
 
     // Match ad hoc group members.
+    //
+    // Note: shouldn't be in effect for an explicit group (not locked).
     //
     while ((ti = find_if (ti + 1, te, pattern)) != te)
     {
@@ -279,7 +292,9 @@ namespace build2
       return false;
     }
 
-    t.data (a, move (mr));
+    if (me.locked)
+      t.data (a, move (mr));
+
     return true;
   }
 

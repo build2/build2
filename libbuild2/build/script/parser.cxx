@@ -61,7 +61,7 @@ namespace build2
 
         pbase_  = scope_->src_path_;
 
-        file_based_ = tt.is_a<file> ();
+        file_based_ = tt.is_a<file> () || tt.is_a<group> ();
         perform_update_ = find (as.begin (), as.end (), perform_update_id) !=
                           as.end ();
 
@@ -748,8 +748,8 @@ namespace build2
             }
 
             if (!file_based_)
-              fail (l) << "'depdb' builtin can only be used for file-based "
-                       << "targets";
+              fail (l) << "'depdb' builtin can only be used for file- or "
+                       << "file group-based targets";
 
             if (!diag_preamble_.empty ())
               fail (diag_loc ()) << "'diag' builtin call before 'depdb' call" <<
@@ -1287,7 +1287,7 @@ namespace build2
       }
 
       void parser::
-      exec_depdb_preamble (action a, const scope& bs, const file& t,
+      exec_depdb_preamble (action a, const scope& bs, const target& t,
                            environment& e, const script& s, runner& r,
                            lines_iterator begin, lines_iterator end,
                            depdb& dd,
@@ -1314,7 +1314,7 @@ namespace build2
 
           action a;
           const scope& bs;
-          const file& t;
+          const target& t;
 
           environment& env;
           const script& scr;
@@ -1360,7 +1360,7 @@ namespace build2
               //
               exec_depdb_dyndep (t, tt,
                                  li, ll,
-                                 data.a, data.bs, const_cast<file&> (data.t),
+                                 data.a, data.bs, const_cast<target&> (data.t),
                                  data.dd,
                                  *data.dyn_targets,
                                  *data.update,
@@ -1645,7 +1645,7 @@ namespace build2
       void parser::
       exec_depdb_dyndep (token& lt, build2::script::token_type& ltt,
                          size_t li, const location& ll,
-                         action a, const scope& bs, file& t,
+                         action a, const scope& bs, target& t,
                          depdb& dd,
                          paths& dyn_targets,
                          bool& update,
@@ -2455,6 +2455,8 @@ namespace build2
               //
               if (ops.drop_cycles ())
               {
+                // @@ TODO: expl
+
                 for (const target* m (&t); m != nullptr; m = m->adhoc_member)
                 {
                   if (ft == m)
@@ -2874,7 +2876,7 @@ namespace build2
           // that there are only real targets to start with.
           //
           optional<vector<const target*>> dts;
-          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+          for (const target* m (&t); m != nullptr; m = m->adhoc_member) // @@ TODO: expl
           {
             if (m->decl != target_decl::real)
               dts = vector<const target*> ();
@@ -2914,7 +2916,7 @@ namespace build2
           //
           if (dts)
           {
-            for (target* p (&t); p->adhoc_member != nullptr; )
+            for (target* p (&t); p->adhoc_member != nullptr; ) // @@ TODO: expl
             {
               target* m (p->adhoc_member);
 

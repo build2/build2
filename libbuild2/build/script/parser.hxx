@@ -103,8 +103,10 @@ namespace build2
         // runner's enter() function is called before the first preamble/body
         // command execution and leave() -- after the last command.
         //
+        // Note: target must be file or group.
+        //
         void
-        execute_depdb_preamble (action a, const scope& base, const file& t,
+        execute_depdb_preamble (action a, const scope& base, const target& t,
                                 environment& e, const script& s, runner& r,
                                 depdb& dd)
         {
@@ -219,8 +221,10 @@ namespace build2
         names
         exec_special (token&, build2::script::token_type&, bool skip_first);
 
+        // Note: target must be file or group.
+        //
         void
-        exec_depdb_preamble (action, const scope& base, const file&,
+        exec_depdb_preamble (action, const scope& base, const target&,
                              environment&, const script&, runner&,
                              lines_iterator begin, lines_iterator end,
                              depdb&,
@@ -230,10 +234,12 @@ namespace build2
                              bool* deferred_failure = nullptr,
                              dyndep_byproduct* = nullptr);
 
+        // Note: target must be file or group.
+        //
         void
         exec_depdb_dyndep (token&, build2::script::token_type&,
                            size_t line_index, const location&,
-                           action, const scope& base, file&,
+                           action, const scope& base, target&,
                            depdb&,
                            paths& dyn_targets,
                            bool& update,
@@ -276,9 +282,9 @@ namespace build2
         script* script_;
         const small_vector<action, 1>* actions_; // Non-NULL during pre-parse.
 
-        // True if this script is for file-based targets and performing update
-        // is one of the actions, respectively. Only set for the pre-parse
-        // mode.
+        // True if this script is for file- or file group-based targets and
+        // performing update is one of the actions, respectively. Only set for
+        // the pre-parse mode.
         //
         bool file_based_;
         bool perform_update_;

@@ -58,11 +58,27 @@ namespace build2
         {
           // $>
           //
+          // What should it contain for an explicit group? While it may seem
+          // that just the members should be enough (and analogous to the ad
+          // hoc case), this won't let us get the group name for diagnostics.
+          // So the group name followed by all the members seems like the
+          // logical choice.
+          //
           names ns;
-          for (const target_type* m (&target);
-               m != nullptr;
-               m = m->adhoc_member)
-            m->as_name (ns);
+
+          if (const group* g = target.is_a<group> ())
+          {
+            g->as_name (ns);
+            for (const target_type* m: g->members)
+              m->as_name (ns);
+          }
+          else
+          {
+            for (const target_type* m (&target);
+                 m != nullptr;
+                 m = m->adhoc_member)
+              m->as_name (ns);
+          }
 
           assign (var_ts) = move (ns);
         }

@@ -44,7 +44,7 @@ namespace build2
       // Use scratch match_extra since if there is no recipe, then we don't
       // want to keep any changes and if there is, then we want it discarded.
       //
-      match_extra s;
+      match_extra s (true /* locked */); // Not called from adhoc_rule::match().
       if (match_adhoc_recipe (action (a.meta_operation (), o), t, s) != nullptr)
         return false;
     }
@@ -73,7 +73,7 @@ namespace build2
   {
     if (!t.adhoc_recipes.empty ())
     {
-      match_extra s;
+      match_extra s (true /* locked */); // Not called from adhoc_rule::match().
       if (match_adhoc_recipe (action (a.meta_operation (), o), t, s) != nullptr)
         return false;
     }
@@ -403,8 +403,9 @@ namespace build2
   }
 
   bool adhoc_rule::
-  match (action a, target& t, const string& h, match_extra& me) const
+  match (action a, target& xt, const string& h, match_extra& me) const
   {
+    const target& t (xt);
     return pattern == nullptr || pattern->match (a, t, h, me);
   }
 

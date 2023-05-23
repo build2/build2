@@ -36,7 +36,7 @@ namespace build2
            const optional<timestamp>&) const override;
 
     target_state
-    perform_update_file (action, const target&) const;
+    perform_update_file_or_group (action, const target&) const;
 
     struct match_data;
     struct match_data_byproduct;
@@ -58,8 +58,18 @@ namespace build2
                          build::script::default_runner&,
                          bool deferred_failure = false) const;
 
+    bool
+    execute_update_group (const scope&,
+                          action a, const group&,
+                          build::script::environment&,
+                          build::script::default_runner&,
+                          bool deferred_failure = false) const;
+
     static target_state
     perform_clean_file (action, const target&);
+
+    static target_state
+    perform_clean_group (action, const target&);
 
     target_state
     default_action (action, const target&, const optional<timestamp>&) const;

@@ -95,8 +95,10 @@ namespace build2
   load_module_library (const path& lib, const string& sym, string& err);
 
   bool adhoc_cxx_rule::
-  match (action a, target& t, const string& hint, match_extra& me) const
+  match (action a, target& xt, const string& hint, match_extra& me) const
   {
+    const target& t (xt); // See adhoc_rule::match() for background.
+
     if (pattern != nullptr && !pattern->match (a, t, hint, me))
       return false;
 
@@ -674,13 +676,24 @@ namespace build2
       }
     }
 
-    return impl->match (a, t, hint, me);
+    return impl->match (a, xt, hint, me);
   }
 #endif // BUILD2_BOOTSTRAP || LIBBUILD2_STATIC_BUILD
 
   recipe adhoc_cxx_rule::
   apply (action a, target& t, match_extra& me) const
   {
+    // Handle matching explicit group member (see adhoc_rule::match() for
+    // background).
+    //
+    if (const group* g = (t.group != nullptr
+                          ? t.group->is_a<group> ()
+                          : nullptr))
+    {
+      match_sync (a, *g);
+      return group_recipe; // Execute the group's recipe.
+    }
+
     return impl.load (memory_order_relaxed)->apply (a, t, me);
   }
 }

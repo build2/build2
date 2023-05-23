@@ -52,6 +52,9 @@ namespace build2
 
     // Return true by default.
     //
+    // Note: must treat target as const (unless known to match a non-group).
+    // See adhoc_rule::match() for background.
+    //
     virtual bool
     match (action, target&) const override;
   };

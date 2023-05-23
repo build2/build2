@@ -504,8 +504,65 @@ namespace build2
   // Return the matching rule or NULL if no match and try_match is true.
   //
   const rule_match*
-  match_rule (action a, target& t, const rule* skip, bool try_match)
+  match_rule (action a, target& t,
+              const rule* skip,
+              bool try_match,
+              match_extra* pme)
   {
+    using fallback_rule = adhoc_rule_pattern::fallback_rule;
+
+    auto adhoc_rule_match = [] (const rule_match& r)
+    {
+      return dynamic_cast<const adhoc_rule*> (&r.second.get ());
+    };
+
+    auto fallback_rule_match = [] (const rule_match& r)
+    {
+      return dynamic_cast<const fallback_rule*> (&r.second.get ());
+    };
+
+    // If this is a member of group-based target, then first try to find a
+    // matching ad hoc recipe/rule by matching (to an ad hoc recipe/rule) the
+    // group but applying to the member. See adhoc_rule::match() for
+    // background, including for why const_cast should be safe.
+    //
+    // To put it another way, if a group is matched by an ad hoc recipe/rule,
+    // then we want all the member to be matched to the same recipe/rule.
+    //
+    if (const group* g = t.group != nullptr ? t.group->is_a<group> () : nullptr)
+    {
+      assert (pme == nullptr);
+
+      // As an optimization, check if the group is already matched for this
+      // action. Note that this can become important when matching adhoc regex
+      // rules since we can potentially call match() for many members. This is
+      // probably ok for static members (of which we don't expect more than a
+      // handful) but can become an issue for dynamic members.
+      //
+      if (g->matched (a, memory_order_acquire))
+      {
+        const rule_match* r (g->state[a].rule);
+
+        if (r != nullptr && adhoc_rule_match (*r))
+          return r;
+
+        // Fall through: if some rule matched the group then it must also deal
+        // with the members.
+      }
+      else
+      {
+        // We cannot init match_extra from the target if it's unlocked so use
+        // a temporary (it shouldn't be modified if unlocked).
+        //
+        match_extra me (false /* locked */);
+        if (const rule_match* r = match_rule (
+              a, const_cast<group&> (*g), skip, true /* try_match */, &me))
+          return r;
+
+        // Fall through to normal match of the member.
+      }
+    }
+
     const scope& bs (t.base_scope ());
 
     // Match rules in project environment.
@@ -514,7 +571,7 @@ namespace build2
     if (const scope* rs = bs.root_scope ())
       penv = auto_project_env (*rs);
 
-    match_extra& me (t[a].match_extra);
+    match_extra& me (pme == nullptr ? t[a].match_extra : *pme);
 
     // First check for an ad hoc recipe.
     //
@@ -619,8 +676,6 @@ namespace build2
               //    reverse_fallback() rather than it returning (a list) of
               //    reverse actions, which would be necessary to register them.
               //
-              using fallback_rule = adhoc_rule_pattern::fallback_rule;
-
               auto find_fallback = [mo, o, tt] (const fallback_rule& fr)
                 -> const rule_match*
               {
@@ -633,13 +688,18 @@ namespace build2
 
               if (oi == 0)
               {
-                if (auto* fr =
-                      dynamic_cast<const fallback_rule*> (&r->second.get ()))
+                if (const fallback_rule* fr = fallback_rule_match (*r))
                 {
                   if ((r = find_fallback (*fr)) == nullptr)
                     continue;
                 }
               }
+
+              // Skip non-ad hoc rules if the target is not locked (see
+              // above).
+              //
+              if (!me.locked && !adhoc_rule_match (*r))
+                continue;
 
               const string& n (r->first);
               const rule& ru (r->second);
@@ -672,13 +732,15 @@ namespace build2
 
                 if (oi == 0)
                 {
-                  if (auto* fr =
-                        dynamic_cast<const fallback_rule*> (&r1->second.get ()))
+                  if (const fallback_rule* fr = fallback_rule_match (*r1))
                   {
                     if ((r1 = find_fallback (*fr)) == nullptr)
                       continue;
                   }
                 }
+
+                if (!me.locked && !adhoc_rule_match (*r1))
+                  continue;
 
                 const string& n1 (r1->first);
                 const rule& ru1 (r1->second);
@@ -698,8 +760,7 @@ namespace build2
                   //
                   // @@ Can't we temporarily swap things out in target?
                   //
-                  match_extra me1;
-                  me1.init (oi == 0);
+                  match_extra me1 (me.locked, oi == 0 /* fallback */);
                   if (!ru1.match (a, t, *hint, me1))
                     continue;
                 }

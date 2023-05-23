@@ -252,6 +252,16 @@ namespace build2
     // The default implementation forwards to the pattern's match() if there
     // is a pattern and returns true otherwise.
     //
+    // Note also that in case of a member of a group-based target, match() is
+    // called on the group while apply() on the member (see match_rule() in
+    // algorithms.cxx for details). This means that match() may be called
+    // without having the target locked and as a result match() should (unless
+    // known to only match a non-group) treat the target as const and only
+    // rely on immutable information (type, name, etc) since the group could
+    // be matched concurrenly. This case can be detected by examining
+    // match_extra::locked (see adhoc_rule_regex_pattern::match() for a
+    // use-case).
+    //
     virtual bool
     match (action, target&, const string&, match_extra&) const override;
 
@@ -318,8 +328,10 @@ namespace build2
     ~adhoc_rule_pattern ();
 
   public:
+    // Note: the adhoc_rule::match() restrictions apply here as well.
+    //
     virtual bool
-    match (action, target&, const string&, match_extra&) const = 0;
+    match (action, const target&, const string&, match_extra&) const = 0;
 
     virtual void
     apply_adhoc_members (action, target&,

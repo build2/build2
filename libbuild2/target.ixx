@@ -235,13 +235,13 @@ namespace build2
   }
 
   inline bool target::
-  matched (action a) const
+  matched (action a, memory_order mo) const
   {
     assert (ctx.phase == run_phase::match ||
             ctx.phase == run_phase::execute);
 
     const opstate& s (state[a]);
-    size_t c (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
+    size_t c (s.task_count.load (mo) - ctx.count_base ());
 
     if (ctx.phase == run_phase::match)
     {
