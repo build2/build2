@@ -409,7 +409,7 @@ namespace build2
     //   usually needed is to derive its path.
     //
     // - Unless declared, members are discovered lazily, they are only known
-    //   after the group's rule's apply() call.
+    //   after the matching rule's apply() call.
     //
     // - Only declared members can be used as prerequisites but all can be
     //   used as targets (e.g., to set variables, etc).
@@ -439,7 +439,11 @@ namespace build2
     // target for the ad hoc members (with a special target type that rules
     // like install could recognize). See also the variable lookup semantics.
     // We could also probably support see_through via an attribute or some
-    // such.
+    // such. Or perhaps such cases should be handled through explicit groups
+    // and the ad hoc semantics is left to the non-see_through "primary
+    // targets with a bunch of subordinates" cases. In other words, if the
+    // members are "equal/symmetrical", then perhaps an explicit group is the
+    // correct approach.
     //
     const_ptr<target> adhoc_member = nullptr;
 
@@ -2140,6 +2144,33 @@ namespace build2
   public:
     file (context& c, dir_path d, dir_path o, string n)
       : path_target (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
+
+  public:
+    static const target_type static_type;
+  };
+
+  // Mtime-based group target.
+  //
+  // Used to support explicit groups in buildfiles: can be derived from,
+  // populated with static members using the group{foo}<...> syntax, and
+  // matched with an ad hoc recipe/rule, including dynamic member extraction.
+  // Note that it is not see-through but a derived group can be made see-
+  // through via the [see_through] attribute.
+  //
+  // Note that normally you wouldn't use it as a base for a custom group
+  // defined in C++, instead deriving from mtime_target directly and using a
+  // custom members layout more appropriate for the group's semantics.
+  //
+  class LIBBUILD2_SYMEXPORT group: public mtime_target
+  {
+  public:
+    vector<reference_wrapper<const target>> static_members;
+
+    group (context& c, dir_path d, dir_path o, string n)
+      : mtime_target (c, move (d), move (o), move (n))
     {
       dynamic_type = &static_type;
     }

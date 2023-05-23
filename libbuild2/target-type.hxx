@@ -102,6 +102,8 @@ namespace build2
     // group link-up only happens during match, then the hint would be looked
     // up before the group is known.
     //
+    // Note: consider exposing as an attribute in define if adding a new flag.
+    //
     enum class flag: uint64_t
     {
       none        = 0,

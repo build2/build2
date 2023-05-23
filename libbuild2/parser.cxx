@@ -623,9 +623,39 @@ namespace build2
       location nloc (get_location (t));
       names ns;
 
-      if (tt != type::labrace)
+      // We have to parse names in chunks to detect invalid cases of the
+      // group{foo}<...> syntax.
+      //
+      // Consider (1):
+      //
+      // x =
+      // group{foo} $x<...>:
+      //
+      // And (2):
+      //
+      // x = group{foo} group{bar}
+      // $x<...>:
+      //
+      // As well as (3):
+      //
+      // <...><...>:
+      //
+      struct chunk
       {
-        ns = parse_names (t, tt, pattern_mode::preserve);
+        size_t   pos; // Index in ns of the beginning of the last chunk.
+        location loc; // Position of the beginning of the last chunk.
+      };
+      optional<chunk> ns_last;
+
+      bool labrace_first (tt == type::labrace);
+      if (!labrace_first)
+      {
+        do
+        {
+          ns_last = chunk {ns.size (), get_location (t)};
+          parse_names (t, tt, ns, pattern_mode::preserve, true /* chunk */);
+        }
+        while (start_names (tt));
 
         // Allow things like function calls that don't result in anything.
         //
@@ -641,44 +671,87 @@ namespace build2
         }
       }
 
-      // Handle ad hoc target group specification (<...>).
+      // Handle target group specification (<...>).
       //
       // We keep an "optional" (empty) vector of names parallel to ns that
-      // contains the ad hoc group members.
+      // contains the group members. Note that when we "catch" gns up to ns,
+      // we populate it with ad hoc (as opposed to explicit) groups with no
+      // members.
       //
-      adhoc_names ans;
+      group_names gns;
       if (tt == type::labrace)
       {
-        while (tt == type::labrace)
+        for (; tt == type::labrace; labrace_first = false)
         {
-          // Parse target names inside < >.
+          // Detect explicit group (group{foo}<...>).
+          //
+          // Note that `<` first thing on the line is not seperated thus the
+          // labrace_first complication.
+          //
+          bool expl (!t.separated && !labrace_first);
+          if (expl)
+          {
+            // Note: (N) refers to the example in the above comment.
+            //
+            if (!ns_last /* (3) */ || ns_last->pos == ns.size () /* (1) */)
+            {
+              fail (t) << "group name or whitespace expected before '<'";
+            }
+            else
+            {
+              size_t n (ns.size () - ns_last->pos);
+
+              // Note: could be a pair.
+              //
+              if ((n > 2 || (n == 2 && !ns[ns_last->pos].pair)) /* (2) */)
+              {
+                fail (t) << "single group name or whitespace expected before "
+                         << "'<' instead of '"
+                         << names_view (ns.data () + ns_last->pos, n) << "'";
+              }
+            }
+          }
+
+          // Parse target names inside <>.
           //
           // We "reserve" the right to have attributes inside <> though what
           // exactly that would mean is unclear. One potentially useful
-          // semantics would be the ability to specify attributes for ad hoc
-          // members though the fact that the primary target is listed first
-          // would make it rather unintuitive. Maybe attributes that change
-          // the group semantics itself?
+          // semantics would be the ability to specify attributes for group
+          // members though the fact that the primary target for ad hoc groups
+          // is listed first would make it rather unintuitive. Maybe
+          // attributes that change the group semantics itself?
           //
           next_with_attributes (t, tt);
 
           auto at (attributes_push (t, tt));
 
           if (at.first)
-            fail (at.second) << "attributes before ad hoc target";
+            fail (at.second) << "attributes before group member";
           else
             attributes_pop ();
 
-          // Allow empty case (<>).
+          // For explicit groups, the group target is already in ns and all
+          // the members should go straight to gns.
           //
-          if (tt != type::rabrace)
+          // For ad hoc groups, the first name (or a pair) is the primary
+          // target which we need to keep in ns. The rest, if any, are ad
+          // hoc members that we should move to gns.
+          //
+          if (expl)
           {
-            location aloc (get_location (t));
+            gns.resize (ns.size ()); // Catch up with the names vector.
+            group_names_loc& g (gns.back ());
+            g.expl = true;
+            g.group_loc = move (ns_last->loc);
+            g.member_loc = get_location (t); // Start of members.
 
-            // The first name (or a pair) is the primary target which we need
-            // to keep in ns. The rest, if any, are ad hoc members that we
-            // should move to ans.
-            //
+            if (tt != type::rabrace) // Handle empty case (<>)
+              parse_names (t, tt, g.ns, pattern_mode::preserve);
+          }
+          else if (tt != type::rabrace) // Allow and ignore empty case (<>).
+          {
+            location mloc (get_location (t)); // Start of members.
+
             size_t m (ns.size ());
             parse_names (t, tt, ns, pattern_mode::preserve);
             size_t n (ns.size ());
@@ -695,11 +768,10 @@ namespace build2
               {
                 n -= m; // Number of names in ns we should end up with.
 
-                ans.resize (n); // Catch up with the names vector.
-                adhoc_names_loc& a (ans.back ());
-
-                a.loc = move (aloc);
-                a.ns.insert (a.ns.end (),
+                gns.resize (n); // Catch up with the names vector.
+                group_names_loc& g (gns.back ());
+                g.group_loc = g.member_loc = move (mloc);
+                g.ns.insert (g.ns.end (),
                              make_move_iterator (ns.begin () + n),
                              make_move_iterator (ns.end ()));
                 ns.resize (n);
@@ -713,12 +785,16 @@ namespace build2
           // Parse the next chunk of target names after >, if any.
           //
           next (t, tt);
-          if (start_names (tt))
-            parse_names (t, tt, ns, pattern_mode::preserve);
+          ns_last = nullopt; // To detect <...><...>.
+          while (start_names (tt))
+          {
+            ns_last = chunk {ns.size (), get_location (t)};
+            parse_names (t, tt, ns, pattern_mode::preserve, true /* chunk */);
+          }
         }
 
-        if (!ans.empty ())
-          ans.resize (ns.size ()); // Catch up with the final chunk.
+        if (!gns.empty ())
+          gns.resize (ns.size ()); // Catch up with the final chunk.
 
         if (tt != type::colon)
           fail (t) << "expected ':' instead of " << t;
@@ -746,11 +822,11 @@ namespace build2
         // evaluated. The function signature is:
         //
         // void (token& t, type& tt,
-        //       bool adhoc_member,
+        //       optional<bool> member, // true -- explict, false -- ad hoc
         //       optional<pattern_type>, const target_type* pat_tt, string pat,
         //       const location& pat_loc)
         //
-        // Note that the target and its ad hoc members are inserted implied
+        // Note that the target and its group members are inserted implied
         // but this flag can be cleared and default_target logic applied if
         // appropriate.
         //
@@ -847,20 +923,20 @@ namespace build2
           if (ttype == nullptr)
             fail (nloc) << "unknown target type " << n.type;
 
-          f (t, tt, false, n.pattern, ttype, move (n.value), nloc);
+          f (t, tt, nullopt, n.pattern, ttype, move (n.value), nloc);
         };
 
         auto for_each = [this, &trace, &for_one_pat,
-                         &t, &tt, &as, &ns, &nloc, &ans] (auto&& f)
+                         &t, &tt, &as, &ns, &nloc, &gns] (auto&& f)
         {
-          // We need replay if we have multiple targets or ad hoc members.
+          // We need replay if we have multiple targets or group members.
           //
           // Note: watch out for an out-qualified single target (two names).
           //
           replay_guard rg (*this,
                            ns.size () > 2 ||
                            (ns.size () == 2 && !ns[0].pair) ||
-                           !ans.empty ());
+                           !gns.empty ());
 
           for (size_t i (0), e (ns.size ()); i != e; )
           {
@@ -880,8 +956,9 @@ namespace build2
               if (n.pair)
                 fail (nloc) << "out-qualified target type/pattern";
 
-              if (!ans.empty () && !ans[i].ns.empty ())
-                fail (ans[i].loc) << "ad hoc member in target type/pattern";
+              if (!gns.empty () && !gns[i].ns.empty ())
+                fail (gns[i].member_loc)
+                  << "group member in target type/pattern";
 
               if (*n.pattern == pattern_type::regex_substitution)
                 fail (nloc) << "regex substitution " << n << " without "
@@ -891,7 +968,8 @@ namespace build2
             }
             else
             {
-              vector<reference_wrapper<target>> ams;
+              bool expl;
+              vector<reference_wrapper<target>> gms;
               {
                 name o (n.pair ? move (ns[++i]) : name ());
                 enter_target tg (*this,
@@ -904,24 +982,32 @@ namespace build2
                 if (!as.empty ())
                   apply_target_attributes (*target_, as);
 
-                // Enter ad hoc members.
+                // Enter group members.
                 //
-                if (!ans.empty ())
+                if (!gns.empty ())
                 {
                   // Note: index after the pair increment.
                   //
-                  ams = enter_adhoc_members (move (ans[i]), true /* implied */);
+                  group_names_loc& g (gns[i]);
+                  expl = g.expl;
+
+                  if (expl && !target_->is_a<group> ())
+                    fail (g.group_loc) << *target_ << " is not group target";
+
+                  gms = expl
+                    ? enter_explicit_members (move (g), true /* implied */)
+                    : enter_adhoc_members (move (g), true /* implied */);
                 }
 
-                f (t, tt, false, nullopt, nullptr, string (), location ());
+                f (t, tt, nullopt, nullopt, nullptr, string (), location ());
               }
 
-              for (target& am: ams)
+              for (target& gm: gms)
               {
                 rg.play (); // Replay.
 
-                enter_target tg (*this, am);
-                f (t, tt, true, nullopt, nullptr, string (), location ());
+                enter_target tg (*this, gm);
+                f (t, tt, expl, nullopt, nullptr, string (), location ());
               }
             }
 
@@ -980,8 +1066,11 @@ namespace build2
             //
             if (tt == type::assign || tt == type::prepend || tt == type::append)
             {
-              if (!ans.empty ())
-                fail (ans[0].loc) << "ad hoc member in target type/pattern";
+              // Note: ns contains single target name.
+              //
+              if (!gns.empty ())
+                fail (gns[0].member_loc)
+                  << "group member in target type/pattern";
 
               // Note: see the same code below if changing anything here.
               //
@@ -1000,7 +1089,7 @@ namespace build2
               for_one_pat (
                 [this, &var, akind, &aloc] (
                   token& t, type& tt,
-                  bool,
+                  optional<bool>,
                   optional<pattern_type> pt, const target_type* ptt,
                   string pat, const location& ploc)
                 {
@@ -1046,7 +1135,7 @@ namespace build2
             for_one_pat (
               [this] (
                 token& t, type& tt,
-                bool,
+                optional<bool>,
                 optional<pattern_type> pt, const target_type* ptt,
                 string pat, const location& ploc)
               {
@@ -1066,8 +1155,11 @@ namespace build2
             if (pns.empty () &&
                 tt != type::percent && tt != type::multi_lcbrace)
             {
-              if (!ans.empty ())
-                fail (ans[0].loc) << "ad hoc member in target type/pattern";
+              // Note: ns contains single target name.
+              //
+              if (!gns.empty ())
+                fail (gns[0].member_loc)
+                  << "group member in target type/pattern";
 
               if (!as.empty ())
                 fail (as.loc) << "attributes before target type/pattern";
@@ -1171,22 +1263,30 @@ namespace build2
 
           check_pattern (n, nloc);
 
-          // Verify all the ad hoc members are patterns or substitutions and
-          // of the correct type.
+          // If we have group members, make sure it's for an ad hoc group. A
+          // rule for an explicit group that wishes to match based on some of
+          // its members feels far fetched.
           //
-          names ns (ans.empty () ? names () : move (ans[0].ns));
-          const location& aloc (ans.empty () ? location () : ans[0].loc);
+          const location& mloc (gns.empty () ? location () : gns[0].member_loc);
+
+          if (!gns.empty () && gns[0].expl)
+            fail (mloc) << "explicit group members in ad hoc pattern rule";
+
+          // Then verify all the ad hoc members are patterns or substitutions
+          // and of the correct type.
+          //
+          names ns (gns.empty () ? names () : move (gns[0].ns));
 
           for (name& n: ns)
           {
             if (!n.pattern || !(*n.pattern == pt || (st && *n.pattern == *st)))
             {
-              fail (aloc) << "expected " << pn << " pattern or substitution "
+              fail (mloc) << "expected " << pn << " pattern or substitution "
                           << "instead of " << n;
             }
 
             if (*n.pattern != pattern_type::regex_substitution)
-              check_pattern (n, aloc);
+              check_pattern (n, mloc);
           }
 
           // The same for prerequisites except here we can have non-patterns.
@@ -1259,7 +1359,7 @@ namespace build2
               rp.reset (new adhoc_rule_regex_pattern (
                           *scope_, rn, *ttype,
                           move (n), nloc,
-                          move (ns), aloc,
+                          move (ns), mloc,
                           move (pns), ploc));
               break;
             case pattern_type::regex_substitution:
@@ -1404,7 +1504,7 @@ namespace build2
               st = token (t), // Save start token (will be gone on replay).
               recipes = small_vector<shared_ptr<adhoc_rule>, 1> ()]
               (token& t, type& tt,
-               bool am,
+               optional<bool> gm, // true -- explicit, false -- ad hoc
                optional<pattern_type> pt, const target_type* ptt, string pat,
                const location& ploc) mutable
             {
@@ -1418,7 +1518,14 @@ namespace build2
                 //
                 next (t, tt); // Newline.
                 next (t, tt); // First token inside the variable block.
-                parse_variable_block (t, tt, pt, ptt, move (pat), ploc);
+
+                // For explicit groups we only assign variables on the group
+                // omitting the members.
+                //
+                if (!gm || !*gm)
+                  parse_variable_block (t, tt, pt, ptt, move (pat), ploc);
+                else
+                  skip_block (t, tt);
 
                 if (tt != type::rcbrace)
                   fail (t) << "expected '}' instead of " << t;
@@ -1434,10 +1541,10 @@ namespace build2
               else
                 rt = st;
 
-              // If this is an ad hoc group member then we know we are
-              // replaying and can skip the recipe.
+              // If this is a group member then we know we are replaying and
+              // can skip the recipe.
               //
-              if (am)
+              if (gm)
               {
                 replay_skip ();
                 next (t, tt);
@@ -1464,7 +1571,7 @@ namespace build2
             // Note also that we treat this as an explicit dependency
             // declaration (i.e., not implied).
             //
-            enter_targets (move (ns), nloc, move (ans), 0, as);
+            enter_targets (move (ns), nloc, move (gns), 0, as);
           }
 
           continue;
@@ -1514,7 +1621,7 @@ namespace build2
           for_each (
             [this, &var, akind, &aloc] (
               token& t, type& tt,
-              bool,
+              optional<bool> gm,
               optional<pattern_type> pt, const target_type* ptt, string pat,
               const location& ploc)
             {
@@ -1523,7 +1630,18 @@ namespace build2
                                              *pt, *ptt, move (pat), ploc,
                                              var, akind, aloc);
               else
-                parse_variable (t, tt, var, akind);
+              {
+                // Skip explicit group members (see the block case above for
+                // background).
+                //
+                if (!gm || !*gm)
+                  parse_variable (t, tt, var, akind);
+                else
+                {
+                  next (t, tt);
+                  skip_line (t, tt);
+                }
+              }
             });
 
           next_after_newline (t, tt);
@@ -1541,7 +1659,7 @@ namespace build2
 
           parse_dependency (t, tt,
                             move (ns), nloc,
-                            move (ans),
+                            move (gns),
                             move (pns), ploc,
                             as);
         }
@@ -1786,10 +1904,27 @@ namespace build2
     //
     if (target_ != nullptr)
     {
+      // @@ What if some members are added later?
+      //
+      // @@ Also, what happends if redeclared as real dependency, do we
+      //    upgrade the members?
+      //
       if (target_->decl != target_decl::real)
       {
-        for (target* m (target_); m != nullptr; m = m->adhoc_member)
-          m->decl = target_decl::real;
+        target_->decl = target_decl::real;
+
+        if (group* g = target_->is_a<group> ())
+        {
+          for (const target& m: g->static_members)
+            const_cast<target&> (m).decl = target_decl::real; // During load.
+        }
+        else
+        {
+          for (target* m (target_->adhoc_member);
+               m != nullptr;
+               m = m->adhoc_member)
+            m->decl = target_decl::real;
+        }
 
         if (default_target_ == nullptr)
           default_target_ = target_;
@@ -2225,15 +2360,96 @@ namespace build2
   }
 
   vector<reference_wrapper<target>> parser::
-  enter_adhoc_members (adhoc_names_loc&& ans, bool implied)
+  enter_explicit_members (group_names_loc&& gns, bool implied)
+  {
+    tracer trace ("parser::enter_explicit_members", &path_);
+
+    names& ns (gns.ns);
+    const location& loc (gns.member_loc);
+
+    vector<reference_wrapper<target>> r;
+    r.reserve (ns.size ());
+
+    group& g (target_->as<group> ());
+    auto& ms (g.static_members);
+
+    for (size_t i (0); i != ns.size (); ++i)
+    {
+      name&& n (move (ns[i]));
+      name&& o (n.pair ? move (ns[++i]) : name ());
+
+      if (n.qualified ())
+        fail (loc) << "project name in target " << n;
+
+      // We derive the path unless the target name ends with the '...' escape
+      // which here we treat as the "let the rule derive the path" indicator
+      // (see target::split_name() for details). This will only be useful for
+      // referring to group members that are managed by the group's matching
+      // rule. Note also that omitting '...' for such a member could be used
+      // to override the file name, provided the rule checks if the path has
+      // already been derived before doing it itself.
+      //
+      // @@ What can the ad hoc recipe/rule do differently here? Maybe get
+      //    path from dynamic targets? Maybe we will have custom path
+      //    derivation support in buildscript in the future?
+      //
+      bool escaped;
+      {
+        const string& v (n.value);
+        size_t p (v.size ());
+
+        escaped = (p > 3 &&
+                   v[--p] == '.' && v[--p] == '.' && v[--p] == '.' &&
+                   v[--p] != '.');
+      }
+
+      target& m (enter_target::insert_target (*this,
+                                              move (n), move (o),
+                                              implied,
+                                              loc, trace));
+
+      if (g == m)
+        fail (loc) << "explicit group member " << m << " is group itself";
+
+      // Add as static member skipping duplicates.
+      //
+      if (find (ms.begin (), ms.end (), m) == ms.end ())
+      {
+        if (m.group == nullptr)
+          m.group = &g;
+        else if (m.group != &g)
+          fail (loc) << g << " group member " << m << " already belongs to "
+                     << "group " << *m.group;
+
+        ms.push_back (m);
+      }
+
+      if (!escaped)
+      {
+        if (file* ft = m.is_a<file> ())
+          ft->derive_path ();
+      }
+
+      r.push_back (m);
+    }
+
+    return r;
+  }
+
+  vector<reference_wrapper<target>> parser::
+  enter_adhoc_members (group_names_loc&& gns, bool implied)
   {
     tracer trace ("parser::enter_adhoc_members", &path_);
 
-    vector<reference_wrapper<target>> r;
-    r.reserve (ans.ns.size ());
+    names& ns (gns.ns);
+    const location& loc (gns.member_loc);
 
-    names& ns (ans.ns);
-    const location& loc (ans.loc);
+    if (target_->is_a<group> ())
+      fail (loc) << "ad hoc group primary member " << *target_
+                 << " is explicit group";
+
+    vector<reference_wrapper<target>> r;
+    r.reserve (ns.size ());
 
     for (size_t i (0); i != ns.size (); ++i)
     {
@@ -2261,14 +2477,16 @@ namespace build2
                    v[--p] != '.');
       }
 
-      target& at (
-        enter_target::insert_target (*this,
-                                     move (n), move (o),
-                                     implied,
-                                     loc, trace));
+      target& m (enter_target::insert_target (*this,
+                                              move (n), move (o),
+                                              implied,
+                                              loc, trace));
 
-      if (target_ == &at)
-        fail (loc) << "ad hoc group member " << at << " is primary target";
+      if (target_ == &m)
+        fail (loc) << "ad hoc group member " << m << " is primary target";
+
+      if (m.is_a<group> ())
+        fail (loc) << "ad hoc group member " << m << " is explicit group";
 
       // Add as an ad hoc member at the end of the chain skipping duplicates.
       //
@@ -2276,7 +2494,7 @@ namespace build2
         const_ptr<target>* mp (&target_->adhoc_member);
         for (; *mp != nullptr; mp = &(*mp)->adhoc_member)
         {
-          if (*mp == &at)
+          if (*mp == &m)
           {
             mp = nullptr;
             break;
@@ -2285,18 +2503,22 @@ namespace build2
 
         if (mp != nullptr)
         {
-          *mp = &at;
-          at.group = target_;
+          if (m.group == nullptr)
+            m.group = target_;
+          else if (m.group != target_)
+            fail (loc) << *target_ << " ad hoc group member " << m
+                       << " already belongs to group " << *m.group;
+          *mp = &m;
         }
       }
 
       if (!escaped)
       {
-        if (file* ft = at.is_a<file> ())
+        if (file* ft = m.is_a<file> ())
           ft->derive_path ();
       }
 
-      r.push_back (at);
+      r.push_back (m);
     }
 
     return r;
@@ -2305,12 +2527,12 @@ namespace build2
   small_vector<pair<reference_wrapper<target>,
                     vector<reference_wrapper<target>>>, 1> parser::
   enter_targets (names&& tns, const location& tloc, // Target names.
-                 adhoc_names&& ans,                 // Ad hoc target names.
+                 group_names&& gns,                 // Group member names.
                  size_t prereq_size,
                  const attributes& tas)             // Target attributes.
   {
-    // Enter all the targets (normally we will have just one) and their ad hoc
-    // groups.
+    // Enter all the targets (normally we will have just one) and their group
+    // members.
     //
     tracer trace ("parser::enter_targets", &path_);
 
@@ -2340,14 +2562,21 @@ namespace build2
       if (!tas.empty ())
         apply_target_attributes (*target_, tas);
 
-      // Enter ad hoc members.
+      // Enter group members.
       //
-      vector<reference_wrapper<target>> ams;
-      if (!ans.empty ())
+      vector<reference_wrapper<target>> gms;
+      if (!gns.empty ())
       {
         // Note: index after the pair increment.
         //
-        ams = enter_adhoc_members (move (ans[i]), false /* implied */);
+        group_names_loc& g (gns[i]);
+
+        if (g.expl && !target_->is_a<group> ())
+          fail (g.group_loc) << *target_ << " is not group target";
+
+        gms = g.expl
+          ? enter_explicit_members (move (g), false /* implied */)
+          : enter_adhoc_members (move (g), false /* implied */);
       }
 
       if (default_target_ == nullptr)
@@ -2355,7 +2584,7 @@ namespace build2
 
       target_->prerequisites_state_.store (2, memory_order_relaxed);
       target_->prerequisites_.reserve (prereq_size);
-      tgs.emplace_back (*target_, move (ams));
+      tgs.emplace_back (*target_, move (gms));
     }
 
     return tgs;
@@ -2443,7 +2672,7 @@ namespace build2
   void parser::
   parse_dependency (token& t, token_type& tt,
                     names&& tns, const location& tloc, // Target names.
-                    adhoc_names&& ans,                 // Ad hoc target names.
+                    group_names&& gns,                 // Group member names.
                     names&& pns, const location& ploc, // Prereq names.
                     const attributes& tas)             // Target attributes.
   {
@@ -2497,7 +2726,7 @@ namespace build2
     //
     small_vector<pair<reference_wrapper<target>,
                       vector<reference_wrapper<target>>>, 1>
-      tgs (enter_targets (move (tns), tloc, move (ans), pns.size (), tas));
+      tgs (enter_targets (move (tns), tloc, move (gns), pns.size (), tas));
 
     // Now enter each prerequisite into each target.
     //
@@ -2593,32 +2822,41 @@ namespace build2
     //
     // We handle multiple targets and/or prerequisites by replaying the tokens
     // (see the target-specific case comments for details). The function
-    // signature is:
+    // signature for for_each_t (see for_each on the gm argument semantics):
+    //
+    // void (token& t, type& tt, optional<bool> gm)
+    //
+    // And for for_each_p:
     //
     // void (token& t, type& tt)
     //
     auto for_each_t = [this, &t, &tt, &tgs] (auto&& f)
     {
-      // We need replay if we have multiple targets or ad hoc members.
+      // We need replay if we have multiple targets or group members.
       //
       replay_guard rg (*this, tgs.size () > 1 || !tgs[0].second.empty ());
 
       for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
       {
         target& tg (ti->first);
-        const vector<reference_wrapper<target>>& ams (ti->second);
+        const vector<reference_wrapper<target>>& gms (ti->second);
 
         {
           enter_target g (*this, tg);
-          f (t, tt, false);
+          f (t, tt, nullopt);
         }
 
-        for (target& am: ams)
+        if (!gms.empty ())
         {
-          rg.play (); // Replay.
+          bool expl (tg.is_a<group> ());
 
-          enter_target g (*this, am);
-          f (t, tt, true);
+          for (target& gm: gms)
+          {
+            rg.play (); // Replay.
+
+            enter_target g (*this, gm);
+            f (t, tt, expl);
+          }
         }
 
         if (++ti != te)
@@ -2676,7 +2914,7 @@ namespace build2
           this,
           st = token (t), // Save start token (will be gone on replay).
           recipes = small_vector<shared_ptr<adhoc_rule>, 1> ()]
-          (token& t, type& tt, bool am) mutable
+          (token& t, type& tt, optional<bool> gm) mutable
         {
           token rt; // Recipe start token.
 
@@ -2686,7 +2924,14 @@ namespace build2
           {
             next (t, tt); // Newline.
             next (t, tt); // First token inside the variable block.
-            parse_variable_block (t, tt);
+
+            // Skip explicit group members (see the block case above for
+            // background).
+            //
+            if (!gm || !*gm)
+              parse_variable_block (t, tt);
+            else
+              skip_block (t, tt);
 
             if (tt != type::rcbrace)
               fail (t) << "expected '}' instead of " << t;
@@ -2702,10 +2947,10 @@ namespace build2
           else
             rt = st;
 
-          // If this is an ad hoc group member then we know we are
-          // replaying and can skip the recipe.
+          // If this is a group member then we know we are replaying and can
+          // skip the recipe.
           //
-          if (am)
+          if (gm)
           {
             replay_skip ();
             next (t, tt);
@@ -2860,16 +3105,16 @@ namespace build2
         // we just say that the dependency chain is equivalent to specifying
         // each dependency separately.
         //
-        // Also note that supporting ad hoc target group specification in
-        // chains will be complicated. For example, what if prerequisites that
-        // have ad hoc targets don't end up being chained? Do we just silently
-        // drop them? Also, these are prerequsites first that happened to be
-        // reused as target names so perhaps it is the right thing not to
-        // support, conceptually.
+        // Also note that supporting target group specification in chains will
+        // be complicated. For example, what if prerequisites that have group
+        // members don't end up being chained? Do we just silently drop them?
+        // Also, these are prerequsites first that happened to be reused as
+        // target names so perhaps it is the right thing not to support,
+        // conceptually.
         //
         parse_dependency (t, tt,
                           move (pns), ploc,
-                          {} /* ad hoc target name */,
+                          {} /* group names */,
                           move (ns), loc,
                           attributes () /* target attributes */);
       }
@@ -3617,9 +3862,9 @@ namespace build2
     //
     next_with_attributes (t, tt);
 
-    // Get variable attributes, if any, and deal with the special metadata
-    // attribute. Since currently it can only appear in the import directive,
-    // we handle it in an ad hoc manner.
+    // Get variable attributes, if any, and deal with the special metadata and
+    // rule_hint attributes. Since currently they can only appear in the
+    // import directive, we handle them in an ad hoc manner.
     //
     attributes_push (t, tt);
 
@@ -3878,11 +4123,37 @@ namespace build2
   void parser::
   parse_define (token& t, type& tt)
   {
-    // define <derived>: <base>
+    // define [<attrs>] <derived>: <base>
     //
     // See tests/define.
     //
-    if (next (t, tt) != type::word)
+    next_with_attributes (t, tt);
+
+    // Handle attributes.
+    //
+    attributes_push (t, tt);
+
+    target_type::flag flags (target_type::flag::none);
+    {
+      attributes as (attributes_pop ());
+      const location& l (as.loc);
+
+      for (attribute& a: as)
+      {
+        const string& n (a.name);
+        value& v (a.value);
+
+        if      (n == "see_through") flags |= target_type::flag::see_through;
+        else if (n == "member_hint") flags |= target_type::flag::member_hint;
+        else
+          fail (l) << "unknown target type definition attribute " << n;
+
+        if (!v.null)
+          fail (l) << "unexpected value in attribute " << n;
+      }
+    }
+
+    if (tt != type::word)
       fail (t) << "expected name instead of " << t << " in target type "
                << "definition";
 
@@ -3905,7 +4176,18 @@ namespace build2
       if (bt == nullptr)
         fail (t) << "unknown target type " << bn;
 
-      if (!root_->derive_target_type (move (dn), *bt).second)
+      // Note that the group{foo}<...> syntax is only recognized for group-
+      // based targets and ad hoc buildscript recipes/rules only match group.
+      // (We may want to relax this for member_hint in the future since its
+      // currently also used on non-mtime-based targets, though what exactly
+      // we will do in ad hoc recipes/rules in this case is fuzzy).
+      //
+      if ((flags & target_type::flag::group) == target_type::flag::group &&
+          !bt->is_a<group> ())
+        fail (t) << "base target type " << bn << " must be group for "
+                 << "group-related attribute";
+
+      if (!root_->derive_target_type (move (dn), *bt, flags).second)
         fail (dnl) << "target type " << dn << " already defined in this "
                    << "project";
 

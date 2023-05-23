@@ -1217,6 +1217,19 @@ namespace build2
     target_type::flag::none
   };
 
+  const target_type group::static_type
+  {
+    "group",
+    &mtime_target::static_type,
+    &target_factory<group>,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    &target_search,
+    target_type::flag::group
+  };
+
   static const target*
   alias_search (const target& t, const prerequisite_key& pk)
   {

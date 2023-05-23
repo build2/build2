@@ -390,8 +390,12 @@ namespace build2
     // reference to the target type and an indicator of whether it was
     // actually created.
     //
+    // Note: the flags are OR'ed to the base's flags.
+    //
     pair<reference_wrapper<const target_type>, bool>
-    derive_target_type (const string& name, const target_type& base);
+    derive_target_type (const string& name,
+                        const target_type& base,
+                        target_type::flag flags = target_type::flag::none);
 
     template <typename T>
     pair<reference_wrapper<const target_type>, bool>

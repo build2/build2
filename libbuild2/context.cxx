@@ -547,6 +547,7 @@ namespace build2
       t.insert<path_target>  ();
 
       t.insert<file>         ();
+      t.insert<group>        ();
       t.insert<alias>        ();
       t.insert<dir>          ();
       t.insert<fsdir>        ();

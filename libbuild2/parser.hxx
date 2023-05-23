@@ -178,24 +178,29 @@ namespace build2
                   const target_type* = nullptr,
                   const string& = {});
 
-    // Ad hoc target names inside < ... >.
+    // Group target names inside < ... >.
     //
-    struct adhoc_names_loc
+    struct group_names_loc
     {
+      bool expl = false;   // True -- explicit group, fase -- ad hoc.
+      location group_loc;  // Group/primary target location.
+      location member_loc; // Members location.
       names ns;
-      location loc;
     };
 
-    using adhoc_names = small_vector<adhoc_names_loc, 1>;
+    using group_names = small_vector<group_names_loc, 1>;
 
     vector<reference_wrapper<target>>
-    enter_adhoc_members (adhoc_names_loc&&, bool);
+    enter_explicit_members (group_names_loc&&, bool);
+
+    vector<reference_wrapper<target>>
+    enter_adhoc_members (group_names_loc&&, bool);
 
     small_vector<pair<reference_wrapper<target>,          // Target.
                       vector<reference_wrapper<target>>>, // Ad hoc members.
                  1>
     enter_targets (names&&, const location&,
-                   adhoc_names&&,
+                   group_names&&,
                    size_t,
                    const attributes&);
 
@@ -205,7 +210,7 @@ namespace build2
     void
     parse_dependency (token&, token_type&,
                       names&&, const location&,
-                      adhoc_names&&,
+                      group_names&&,
                       names&&, const location&,
                       const attributes&);
 
@@ -414,14 +419,7 @@ namespace build2
                  const string* separators = &name_separators)
     {
       names ns;
-      parse_names (t, tt,
-                   ns,
-                   pmode,
-                   chunk,
-                   what,
-                   separators,
-                   0,
-                   nullopt, nullptr, nullptr);
+      parse_names (t, tt, ns, pmode, chunk, what, separators);
       return ns;
     }
 
@@ -443,14 +441,7 @@ namespace build2
                  bool chunk = false)
     {
       names ns;
-      auto r (parse_names (t, tt,
-                           ns,
-                           pmode,
-                           chunk,
-                           what,
-                           separators,
-                           0,
-                           nullopt, nullptr, nullptr));
+      auto r (parse_names (t, tt, ns, pmode, chunk, what, separators));
 
       value v (r.type); // Potentially typed NULL value.
 

@@ -952,7 +952,9 @@ namespace build2
   }
 
   pair<reference_wrapper<const target_type>, bool> scope::
-  derive_target_type (const string& name, const target_type& base)
+  derive_target_type (const string& name,
+                      const target_type& base,
+                      target_type::flag flags)
   {
     assert (root_scope () == this);
 
@@ -970,10 +972,13 @@ namespace build2
     //
     //    Currently, if we define myfile{}: file{}, then myfile{foo} and
     //    myfile{foo.x} are the same target.
+
+    // Note: copies flags.
     //
     unique_ptr<target_type> dt (new target_type (base));
     dt->base = &base;
     dt->factory = &derived_tt_factory;
+    dt->flags |= flags;
 
 #if 0
     // @@ We should probably inherit the fixed extension unless overriden with
