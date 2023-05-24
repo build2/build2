@@ -2849,6 +2849,56 @@ false
 Do nothing and terminate normally with the 1 exit code (indicating failure).
 
 
+\h#builtins-find|\c{find}|
+
+\
+find <start-path>... [<expression>]
+\
+
+Search for filesystem entries in a filesystem hierarchy. Traverse filesystem
+hierarchies from each \i{start-path} specified on the command line, evaluate
+for each filesystem entry the boolean \i{expression} consisting of the
+options-like arguments called \i{primaries}, and print the filesystem entry
+path if it evaluates to \c{true}, one path per line. The primaries are
+combined into the expression with an implicit logical AND operator. The empty
+expression always evaluates to \c{true}.
+
+Note that the implementation deviates from POSIX in a number of ways. It only
+supports a small subset of primaries and doesn't support compound expressions,
+negations, logical OR and (explicit) AND operators, and the \c{-type} primary
+values other than \c{f}, \c{d}, and \c{l}. It, however, supports the
+\c{-mindepth} and \c{-maxdepth} primaries which are not specified by POSIX but
+are supported by the major \c{find} utility implementations.
+
+The following primaries are supported:
+
+\dl|
+
+\li|\n\c{-name <pattern>}
+
+  Evaluates to \c{true} if a filesystem entry base name matches the specified
+  wildcard pattern.|
+
+\li|\n\c{-type <type>}
+
+  Evaluates to \c{true} if a filesystem entry type matches the specified type:
+  \c{f} for a regular file, \c{d} for a directory, and \c{l} for a symbolic
+  link.|
+
+\li|\n\c{-mindepth <depth>}
+
+  Evaluates to \c{true} if a filesystem entry directory level is not less than
+  the specified depth. The level of the \i{start-path} entries specified on
+  the command line is 0.|
+
+\li|\n\c{-maxdepth <depth>}
+
+  Evaluates to \c{true} if a filesystem entry directory level is not greater
+  than the specified depth. The level of the \i{start-path} entries specified
+  on the command line is 0. Note that the implementation is smart enough not
+  to traverse a directory when the maximum depth is reached.||
+
+
 \h#builtins-ln|\c{ln}|
 
 \
