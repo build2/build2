@@ -2928,7 +2928,7 @@ namespace build2
                   what_tgt,
                   a, bs, *g,
                   f, // Can't move since need to return dyn_targets.
-                  map_ext, *def_tt, filter));
+                  map_ext, *def_tt, filter, true /* skip_match */));
 
               // Note: no target_decl shenanigans since reset the members on
               // each update.

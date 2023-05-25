@@ -35,7 +35,7 @@ namespace build2
     match (action, const target&, const string&, match_extra&) const override;
 
     virtual void
-    apply_adhoc_members (action, target&,
+    apply_group_members (action, target&,
                          const scope&,
                          match_extra&) const override;
 

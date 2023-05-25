@@ -319,8 +319,14 @@ namespace build2
   }
 
   void adhoc_rule_regex_pattern::
-  apply_adhoc_members (action a, target& t, const scope&, match_extra&) const
+  apply_group_members (action a, target& t, const scope& bs,
+                       match_extra&) const
   {
+    if (targets_.size () == 1) // The group/primary target is always present.
+      return;
+
+    group* g (t.is_a<group> ());
+
     const auto& mr (t.data<regex_match_results> (a));
 
     for (auto i (targets_.begin () + 1); i != targets_.end (); ++i)
@@ -348,14 +354,83 @@ namespace build2
         d.normalize ();
       }
 
-      // @@ TODO: currently this uses type as the ad hoc member identity.
-      //
-      add_adhoc_member (
-        t,
-        e.type,
-        move (d),
-        dir_path () /* out */,
-        substitute (t, mr, e.name.value, "ad hoc target group member"));
+      string n (substitute (
+                  t,
+                  mr,
+                  e.name.value,
+                  (g != nullptr
+                   ? "explicit target group member"
+                   : "ad hoc target group member")));
+
+      // @@ TODO: what if name contains extension? Shouldn't we call
+      //          split_name()?
+
+      if (g != nullptr)
+      {
+        auto& ms (g->members);
+
+        // These are conceptually static but they behave more like dynamic in
+        // that we likely need to insert the target, set its group, etc.
+        //
+        // Note: a custom version of the dyndep_rule::inject_group_member()
+        // logic.
+        //
+        auto l (search_new_locked (
+                  bs.ctx,
+                  e.type,
+                  move (d),
+                  dir_path (), // Always in out.
+                  move (n),
+                  nullptr /* ext */,
+                  &bs));
+
+        const target& t (l.first); // Note: non-const only if have lock.
+
+        // Note: we don't need to match the group recipe directy due to the
+        // special ad hoc recipe/rule semantics for explicit group members
+        // in match_rule().
+        //
+        if (l.second)
+        {
+          l.first.group = g;
+          l.second.unlock ();
+        }
+        else
+        {
+          if (find (ms.begin (), ms.end (), &t) != ms.end ())
+            continue;
+
+          // We can only update the group under lock.
+          //
+          target_lock tl (lock (a, t));
+
+          if (!tl)
+            fail << "group " << *g << " member " << t << " is already matched" <<
+              info << "static group members specified by pattern rules cannot "
+                   << "be used as prerequisites directly, only via group";
+
+          if (t.group == nullptr)
+            tl.target->group = g;
+          else if (t.group != g)
+          {
+            fail << "group " << *g << " member " << t
+                 << " is already member of group " << *t.group;
+          }
+        }
+
+        ms.push_back (&t);
+      }
+      else
+      {
+        // @@ TODO: currently this uses type as the ad hoc member identity.
+        //
+        add_adhoc_member (
+          t,
+          e.type,
+          move (d),
+          dir_path (), // Always in out.
+          move (n));
+      }
     }
   }
 

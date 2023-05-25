@@ -256,6 +256,11 @@ namespace build2
     //
     // If specified, the group_filter function is called on the target before
     // making it a group member, skipping it if this function returns false.
+    // Note that the filter is skipped if the target is newly inserted (the
+    // filter is meant to be used to skip duplicates).
+    //
+    // Note that skip_match is an implementation detail and should not be
+    // used.
     //
     using group_filter_func = bool (mtime_target& g, const file&);
 
@@ -265,7 +270,8 @@ namespace build2
                          path,
                          const function<map_extension_func>&,
                          const target_type& fallback,
-                         const function<group_filter_func>& = nullptr);
+                         const function<group_filter_func>& = nullptr,
+                         bool skip_match = false);
 
 
     // Find or insert a target file path as a target, make it a member of the

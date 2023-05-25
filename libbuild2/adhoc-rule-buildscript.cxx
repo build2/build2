@@ -326,22 +326,11 @@ namespace build2
 
     group* g (t.is_a<group> ()); // Explicit group.
 
-    // Inject pattern's ad hoc group members, if any.
+    // Inject pattern's ad hoc group members, if any (explicit group members
+    // are injected after reset below).
     //
-    if (pattern != nullptr)
-    {
-      // @@ TODO: expl: pattern: if first must be file, we should probably add
-      //    them after the group's static_members. Suppress duplicates that
-      //    are already in group::static_members.
-
-      pattern->apply_adhoc_members (a, t, bs, me);
-
-      // A pattern rule that matches an explicit group should not inject any
-      // ad hoc members.
-      //
-      if (g != nullptr)
-        assert (t.adhoc_member == nullptr);
-    }
+    if (g == nullptr && pattern != nullptr)
+      pattern->apply_group_members (a, t, bs, me);
 
     // Derive file names for the target and its static/ad hoc group members,
     // if any.
@@ -357,27 +346,37 @@ namespace build2
         // is a file.
         //
         for (const target& m: g->static_members)
-        {
-          if (auto* p = m.is_a<path_target> ())
-            p->derive_path ();
-
           g->members.push_back (&m);
-        }
 
         g->members_static = g->members.size ();
+
+        if (pattern != nullptr)
+        {
+          pattern->apply_group_members (a, *g, bs, me);
+          g->members_static = g->members.size ();
+        }
 
         if (g->members_static == 0)
         {
           if (!script.depdb_dyndep_dyn_target)
             fail << "group " << *g << " has no static or dynamic members";
         }
-        else if (!g->members.front ()->is_a<file> ())
+        else
         {
-          // We use the first static member to derive depdb path, get mtime,
-          // etc. So it must be file-based.
+          if (!g->members.front ()->is_a<file> ())
+          {
+            // We use the first static member to derive depdb path, get mtime,
+            // etc. So it must be file-based.
+            //
+            fail << "first static member " << g->members.front ()
+                 << " of group " << *g << " is not a file";
+          }
+
+          // Derive paths for all the static members.
           //
-          fail << "first static member " << g->members.front () << " of group "
-               << *g << " is not a file";
+          for (const target* m: g->members)
+            if (auto* p = m->is_a<path_target> ())
+              p->derive_path ();
         }
       }
       else
@@ -404,6 +403,12 @@ namespace build2
           g->members.push_back (&m);
 
         g->members_static = g->members.size ();
+
+        if (pattern != nullptr)
+        {
+          pattern->apply_group_members (a, *g, bs, me);
+          g->members_static = g->members.size ();
+        }
       }
     }
 
@@ -680,7 +685,7 @@ namespace build2
                 what,
                 a, bs, *g,
                 move (f),
-                map_ext, def_tt, filter));
+                map_ext, def_tt, filter, true /* skip_match */));
 
             if (r.second)
               g->members.push_back (&r.first);

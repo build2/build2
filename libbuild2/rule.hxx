@@ -333,8 +333,11 @@ namespace build2
     virtual bool
     match (action, const target&, const string&, match_extra&) const = 0;
 
+    // Append additional group members. Note that this function should handle
+    // both ad hoc and explicit groups.
+    //
     virtual void
-    apply_adhoc_members (action, target&,
+    apply_group_members (action, target&,
                          const scope& base,
                          match_extra&) const = 0;
 

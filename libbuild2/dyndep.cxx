@@ -831,10 +831,11 @@ namespace build2
   inject_group_member_impl (action a, const scope& bs, mtime_target& g,
                             path f, string n, string e,
                             const target_type& tt,
-                            const function<dyndep_rule::group_filter_func>& fl)
+                            const function<dyndep_rule::group_filter_func>& fl,
+                            bool skip_match)
   {
-    // Assume nobody else can insert these members (seems reasonable seeing
-    // that their names are dynamically discovered).
+    // We expect that nobody else can insert these members (seems reasonable
+    // seeing that their names are dynamically discovered).
     //
     auto l (search_new_locked (
               bs.ctx,
@@ -847,29 +848,56 @@ namespace build2
 
     const file& t (l.first.as<file> ()); // Note: non-const only if have lock.
 
-    if (fl != nullptr && !fl (g, t))
-      return pair<const file&, bool> (t, false);
-
-    if (l.second)
+    bool locked (l.second);
+    if (locked)
     {
       l.first.group = &g;
       l.second.unlock ();
-      t.path (move (f)); // Only do this once.
+
+      // We don't need to match the group recipe directy from ad hoc
+      // recipes/rules due to the special semantics for explicit group members
+      // in match_rule(). This is what skip_match is for.
+      //
+      if (skip_match)
+      {
+        t.path (move (f));
+        return pair<const file&, bool> (t, true);
+      }
     }
     else
-      // Must have been already done (e.g., on previous operation in a
-      // batch).
-      //
-      assert (t.group == &g);
+    {
+      if (fl != nullptr && !fl (g, t))
+        return pair<const file&, bool> (t, false);
+    }
 
-    // This shouldn't fail since we are the only ones that should be matching
-    // this target.
+    // This shouldn't normally fail since we are the only ones that should
+    // know about this target (otherwise why is it dynamicaly discovered).
+    // However, nothing prevents the user from depending on such a target,
+    // however misguided.
     //
     target_lock tl (lock (a, t));
-    assert (tl);
 
-    match_inc_dependents (a, g);
-    match_recipe (tl, group_recipe);
+    if (!tl)
+      fail << "group " << g << " member " << t << " is already matched" <<
+        info << "dynamically extracted group members cannot be used as "
+             << "prerequisites directly, only via group";
+
+    if (!locked)
+    {
+      if (t.group == nullptr)
+        tl.target->group = &g;
+      else if (t.group != &g)
+        fail << "group " << g << " member " << t
+             << " is already member of group " << *t.group;
+    }
+
+    t.path (move (f));
+
+    if (!skip_match)
+    {
+      match_inc_dependents (a, g);
+      match_recipe (tl, group_recipe);
+    }
 
     return pair<const file&, bool> (t, true);
   }
@@ -885,7 +913,8 @@ namespace build2
     return inject_group_member_impl (a, bs, g,
                                      move (f), move (n).string (), move (e),
                                      tt,
-                                     nullptr /* filter */).first;
+                                     nullptr /* filter */,
+                                     false).first;
   }
 
   static const target_type&
@@ -931,7 +960,8 @@ namespace build2
                        path f,
                        const function<map_extension_func>& map_ext,
                        const target_type& fallback,
-                       const function<group_filter_func>& filter)
+                       const function<group_filter_func>& filter,
+                       bool skip_match)
   {
     path n (f.leaf ());
     string e (n.extension ());
@@ -945,7 +975,8 @@ namespace build2
     return inject_group_member_impl (a, bs, g,
                                      move (f), move (n).string (), move (e),
                                      tt,
-                                     filter);
+                                     filter,
+                                     skip_match);
   }
 
   pair<const file&, bool> dyndep_rule::

@@ -1263,22 +1263,17 @@ namespace build2
 
           check_pattern (n, nloc);
 
-          // If we have group members, make sure it's for an ad hoc group. A
-          // rule for an explicit group that wishes to match based on some of
-          // its members feels far fetched.
+          // If we have group members, verify all the members are patterns or
+          // substitutions (ad hoc) or subsitutions (explicit) and of the
+          // correct pattern type. A rule for an explicit group that wishes to
+          // match based on some of its members feels far fetched.
           //
-          // @@ TODO: expl: pattern: this can be used to inject static members
-          //    (which otherwise would be tedious to repeat).
+          // For explicit groups the use-case is to inject static members
+          // which could otherwise be tedious to specify for each group.
           //
           const location& mloc (gns.empty () ? location () : gns[0].member_loc);
-
-          if (!gns.empty () && gns[0].expl)
-            fail (mloc) << "explicit group members in ad hoc pattern rule";
-
-          // Then verify all the ad hoc members are patterns or substitutions
-          // and of the correct type.
-          //
           names ns (gns.empty () ? names () : move (gns[0].ns));
+          bool expl (gns.empty () ? false : gns[0].expl);
 
           for (name& n: ns)
           {
@@ -1289,7 +1284,12 @@ namespace build2
             }
 
             if (*n.pattern != pattern_type::regex_substitution)
+            {
+              if (expl)
+                fail (mloc) << "explicit group member pattern " << n;
+
               check_pattern (n, mloc);
+            }
           }
 
           // The same for prerequisites except here we can have non-patterns.
@@ -1350,6 +1350,12 @@ namespace build2
 
             if (ttype == nullptr)
               fail (nloc) << "unknown target type " << n.type;
+
+            if (!gns.empty ())
+            {
+              if (ttype->is_a<group> () != expl)
+                fail (nloc) << "group type and target type mismatch";
+            }
 
             unique_ptr<adhoc_rule_pattern> rp;
             switch (pt)
