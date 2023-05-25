@@ -720,8 +720,13 @@ namespace build2
   inline timestamp mtime_target::
   load_mtime (const path& p) const
   {
-    assert (ctx.phase == run_phase::execute &&
-            !group_state (action () /* inner */));
+    // We can only enforce "not group state" during the execute phase. During
+    // match (e.g., the target is being matched), we will just have to pay
+    // attention.
+    //
+    assert (ctx.phase == run_phase::match ||
+            (ctx.phase == run_phase::execute &&
+             !group_state (action () /* inner */)));
 
     duration::rep r (mtime_.load (memory_order_consume));
     if (r == timestamp_unknown_rep)

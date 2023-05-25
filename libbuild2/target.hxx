@@ -1913,7 +1913,7 @@ namespace build2
       dynamic_type = &static_type;
     }
 
-    // Modification time is an "atomic cash". That is, it can be set at any
+    // Modification time is an "atomic cache". That is, it can be set at any
     // time (including on a const instance) and we assume everything will be
     // ok regardless of the order in which racing updates happen because we do
     // not modify the external state (which is the source of timestemps) while
@@ -1946,8 +1946,7 @@ namespace build2
     // If the mtime is unknown, then load it from the filesystem also caching
     // the result.
     //
-    // Note: can only be called during executing and must not be used if the
-    // target state is group.
+    // Note: must not be used if the target state is group.
     //
     timestamp
     load_mtime (const path&) const;
@@ -2008,7 +2007,7 @@ namespace build2
 
     // Target path. Must be absolute and normalized.
     //
-    // Target path is an "atomic consistent cash". That is, it can be set at
+    // Target path is an "atomic consistent cache". That is, it can be set at
     // any time (including on a const instance) but any subsequent updates
     // must set the same path. Or, in other words, once the path is set, it
     // never changes.
@@ -2185,6 +2184,7 @@ namespace build2
     vector<const target*> members; // Layout compatible with group_view.
     action members_action; // Action on which members were resolved.
     size_t members_on = 0; // Operation number on which members were resolved.
+    size_t members_static; // Number of static ones in members (always first).
 
     void
     reset_members (action a)
@@ -2192,6 +2192,7 @@ namespace build2
       members.clear ();
       members_action = a;
       members_on = ctx.current_on;
+      members_static = 0;
     }
 
     virtual group_view

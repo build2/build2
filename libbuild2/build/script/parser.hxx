@@ -123,7 +123,7 @@ namespace build2
 
         void
         execute_depdb_preamble_dyndep (
-          action a, const scope& base, file& t,
+          action a, const scope& base, target& t,
           environment& e, const script& s, runner& r,
           depdb& dd,
           paths& dyn_targets,
@@ -158,7 +158,7 @@ namespace build2
 
         dyndep_byproduct
         execute_depdb_preamble_dyndep_byproduct (
-          action a, const scope& base, const file& t,
+          action a, const scope& base, const target& t,
           environment& e, const script& s, runner& r,
           depdb& dd, bool& update, timestamp mt)
         {

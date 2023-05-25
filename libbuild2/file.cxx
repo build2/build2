@@ -219,7 +219,7 @@ namespace build2
     // Checking for plausability feels expensive since we have to recursively
     // traverse the directory tree. Note, however, that if the answer is
     // positive, then shortly after we will be traversing this tree anyway and
-    // presumably this time getting the data from the cash (we don't really
+    // presumably this time getting the data from the cache (we don't really
     // care about the negative answer since this is a degenerate case).
     //
     optional<path> bf;

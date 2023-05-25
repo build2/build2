@@ -827,32 +827,34 @@ namespace build2
                             map_ext, fallback, pfx_map, so_map);
   }
 
-  const file& dyndep_rule::
-  inject_group_member (action a, const scope& bs, mtime_target& g,
-                       path p, const target_type& tt)
+  static pair<const file&, bool>
+  inject_group_member_impl (action a, const scope& bs, mtime_target& g,
+                            path f, string n, string e,
+                            const target_type& tt,
+                            const function<dyndep_rule::group_filter_func>& fl)
   {
-    path n (p.leaf ());
-    string e (n.extension ());
-
     // Assume nobody else can insert these members (seems reasonable seeing
     // that their names are dynamically discovered).
     //
     auto l (search_new_locked (
               bs.ctx,
               tt,
-              p.directory (),
+              f.directory (),
               dir_path (), // Always in out.
-              move (n.make_base ()).string (),
+              move (n),
               &e,
               &bs));
 
     const file& t (l.first.as<file> ()); // Note: non-const only if have lock.
 
+    if (fl != nullptr && !fl (g, t))
+      return pair<const file&, bool> (t, false);
+
     if (l.second)
     {
       l.first.group = &g;
       l.second.unlock ();
-      t.path (move (p)); // Only do this once.
+      t.path (move (f)); // Only do this once.
     }
     else
       // Must have been already done (e.g., on previous operation in a
@@ -869,25 +871,35 @@ namespace build2
     match_inc_dependents (a, g);
     match_recipe (tl, group_recipe);
 
-    return t;
+    return pair<const file&, bool> (t, true);
   }
 
-  pair<const file&, bool> dyndep_rule::
-  inject_adhoc_group_member (const char* what,
-                             action, const scope& bs, target& t,
-                             path f,
-                             const function<map_extension_func>& map_ext,
-                             const target_type& fallback)
+  const file& dyndep_rule::
+  inject_group_member (action a, const scope& bs, mtime_target& g,
+                       path f, const target_type& tt)
   {
     path n (f.leaf ());
     string e (n.extension ());
     n.make_base ();
 
-    // Map extension to the target type, falling back to def_tt.
+    return inject_group_member_impl (a, bs, g,
+                                     move (f), move (n).string (), move (e),
+                                     tt,
+                                     nullptr /* filter */).first;
+  }
+
+  static const target_type&
+  map_target_type (const char* what,
+                   const scope& bs,
+                   const path& f, const string& n, const string& e,
+                   const function<dyndep_rule::map_extension_func>& map_ext,
+                   const target_type& fallback)
+  {
+    // Map extension to the target type, falling back to the fallback type.
     //
     small_vector<const target_type*, 2> tts;
     if (map_ext != nullptr)
-      tts = map_ext (bs, n.string (), e);
+      tts = map_ext (bs, n, e);
 
     // Not sure what else we can do in this case.
     //
@@ -909,6 +921,48 @@ namespace build2
       fail << what << " target file " << f << " mapped to non-file-based "
            << "target type " << tt.name << "{}";
     }
+
+    return tt;
+  }
+
+  pair<const file&, bool> dyndep_rule::
+  inject_group_member (const char* what,
+                       action a, const scope& bs, mtime_target& g,
+                       path f,
+                       const function<map_extension_func>& map_ext,
+                       const target_type& fallback,
+                       const function<group_filter_func>& filter)
+  {
+    path n (f.leaf ());
+    string e (n.extension ());
+    n.make_base ();
+
+    // Map extension to the target type, falling back to the fallback type.
+    //
+    const target_type& tt (
+      map_target_type (what, bs, f, n.string (), e, map_ext, fallback));
+
+    return inject_group_member_impl (a, bs, g,
+                                     move (f), move (n).string (), move (e),
+                                     tt,
+                                     filter);
+  }
+
+  pair<const file&, bool> dyndep_rule::
+  inject_adhoc_group_member (const char* what,
+                             action, const scope& bs, target& t,
+                             path f,
+                             const function<map_extension_func>& map_ext,
+                             const target_type& fallback)
+  {
+    path n (f.leaf ());
+    string e (n.extension ());
+    n.make_base ();
+
+    // Map extension to the target type, falling back to the fallback type.
+    //
+    const target_type& tt (
+      map_target_type (what, bs, f, n.string (), e, map_ext, fallback));
 
     // Assume nobody else can insert these members (seems reasonable seeing
     // that their names are dynamically discovered).

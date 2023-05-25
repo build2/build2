@@ -42,10 +42,11 @@ namespace build2
     struct match_data_byproduct;
 
     target_state
-    perform_update_file_dyndep (action, const target&, match_data&) const;
+    perform_update_file_or_group_dyndep (
+      action, const target&, match_data&) const;
 
     target_state
-    perform_update_file_dyndep_byproduct (
+    perform_update_file_or_group_dyndep_byproduct (
       action, const target&, match_data_byproduct&) const;
 
     optional<target_state>

@@ -2240,6 +2240,8 @@ namespace build2
 
         const scope& rs (*bs.root_scope ());
 
+        group* g (t.is_a<group> ()); // If not group then file.
+
         // This code is based on the prior work in the cc module (specifically
         // extract_headers()) where you can often find more detailed rationale
         // for some of the steps performed.
@@ -2389,7 +2391,7 @@ namespace build2
         size_t skip_count (0);
 
         auto add = [this, &trace, what,
-                    a, &bs, &t, &pts, pts_n = pts.size (),
+                    a, &bs, &t, g, &pts, pts_n = pts.size (),
                     &ops, &map_ext, def_pt, &pfx_map, &so_map,
                     &dd, &skip_count] (path fp,
                                        size_t* skip,
@@ -2453,14 +2455,25 @@ namespace build2
 
               // Skip if this is one of the targets.
               //
+              // Note that for dynamic targets this only works if we see the
+              // targets before prerequisites (like in the make dependency
+              // format).
+              //
               if (ops.drop_cycles ())
               {
-                // @@ TODO: expl
-
-                for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+                if (g != nullptr)
                 {
-                  if (ft == m)
+                  auto& ms (g->members);
+                  if (find (ms.begin (), ms.end (), ft) != ms.end ())
                     return false;
+                }
+                else
+                {
+                  for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+                  {
+                    if (ft == m)
+                      return false;
+                  }
                 }
               }
 
@@ -2866,6 +2879,9 @@ namespace build2
         //
         if (dyn_tgt)
         {
+          if (g != nullptr && g->members_static == 0 && dyn_targets.empty ())
+            fail (ll) << "group " << *g << " has no static or dynamic members";
+
           // There is one more level (at least that we know of) to this rabbit
           // hole: if the set of dynamic targets changes between clean and
           // update and we do a `clean update` batch, then we will end up with
@@ -2875,11 +2891,29 @@ namespace build2
           // Optimize this for a first/single batch (common case) by noticing
           // that there are only real targets to start with.
           //
+          // Note that this doesn't affect explicit groups where we reset the
+          // members on each update (see adhoc_rule_buildscript::apply()).
+          //
           optional<vector<const target*>> dts;
-          for (const target* m (&t); m != nullptr; m = m->adhoc_member) // @@ TODO: expl
+          if (g == nullptr)
           {
-            if (m->decl != target_decl::real)
-              dts = vector<const target*> ();
+            for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+            {
+              if (m->decl != target_decl::real)
+                dts = vector<const target*> ();
+            }
+          }
+
+          function<dyndep::group_filter_func> filter;
+          if (g != nullptr)
+          {
+            // Skip static/duplicate members in explicit group.
+            //
+            filter = [] (mtime_target& g, const build2::file& m)
+            {
+              auto& ms (g.as<group> ().members);
+              return find (ms.begin (), ms.end (), &m) == ms.end ();
+            };
           }
 
           for (const path& f: dyn_targets)
@@ -2887,24 +2921,47 @@ namespace build2
             // Note that this logic should be consistent with what we have in
             // adhoc_buildscript_rule::apply() for perform_clean.
             //
-            pair<const build2::file&, bool> r (
-              dyndep::inject_adhoc_group_member (
-                what_tgt,
-                a, bs, t,
-                f, // Can't move since need to return dyn_targets.
-                map_ext, *def_tt));
-
-            // Note that we have to track the dynamic target even if it was
-            // already a member (think `b update && b clean update`).
-            //
-            if (r.second || r.first.decl != target_decl::real)
+            if (g != nullptr)
             {
-              if (!cache)
-                dd.expect (f);
+              pair<const build2::file&, bool> r (
+                dyndep::inject_group_member (
+                  what_tgt,
+                  a, bs, *g,
+                  f, // Can't move since need to return dyn_targets.
+                  map_ext, *def_tt, filter));
+
+              // Note: no target_decl shenanigans since reset the members on
+              // each update.
+              //
+              if (!r.second)
+                continue;
+
+              // Note: we only currently support dynamic file members so it
+              // will be file if first.
+              //
+              g->members.push_back (&r.first);
+            }
+            else
+            {
+              pair<const build2::file&, bool> r (
+                dyndep::inject_adhoc_group_member (
+                  what_tgt,
+                  a, bs, t,
+                  f, // Can't move since need to return dyn_targets.
+                  map_ext, *def_tt));
+
+              // Note that we have to track the dynamic target even if it was
+              // already a member (think `b update && b clean update`).
+              //
+              if (!r.second && r.first.decl == target_decl::real)
+                continue;
 
               if (dts)
                 dts->push_back (&r.first);
             }
+
+            if (!cache)
+              dd.expect (f);
           }
 
           // Add the dynamic targets terminating blank line.
@@ -2916,7 +2973,9 @@ namespace build2
           //
           if (dts)
           {
-            for (target* p (&t); p->adhoc_member != nullptr; ) // @@ TODO: expl
+            assert (g == nullptr);
+
+            for (target* p (&t); p->adhoc_member != nullptr; )
             {
               target* m (p->adhoc_member);
 

@@ -243,11 +243,30 @@ namespace build2
 
     template <typename T>
     static const T&
-    inject_group_member (action a, const scope& bs, mtime_target& g, path p)
+    inject_group_member (action a, const scope& bs, mtime_target& g, path f)
     {
       return inject_group_member (
-        a, bs, g, move (p), T::static_type).template as<T> ();
+        a, bs, g, move (f), T::static_type).template as<T> ();
     }
+
+    // As above but the target type is determined using the map_extension
+    // function if specified, falling back to the fallback type if unable to
+    // (the what argument is used for diagnostics during this process). Return
+    // the target and an indication of whether it was made a member.
+    //
+    // If specified, the group_filter function is called on the target before
+    // making it a group member, skipping it if this function returns false.
+    //
+    using group_filter_func = bool (mtime_target& g, const file&);
+
+    static pair<const file&, bool>
+    inject_group_member (const char* what,
+                         action, const scope& base, mtime_target& g,
+                         path,
+                         const function<map_extension_func>&,
+                         const target_type& fallback,
+                         const function<group_filter_func>& = nullptr);
+
 
     // Find or insert a target file path as a target, make it a member of the
     // specified ad hoc group unless it already is, and set its path. Return

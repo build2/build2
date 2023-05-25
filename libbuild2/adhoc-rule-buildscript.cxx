@@ -330,6 +330,10 @@ namespace build2
     //
     if (pattern != nullptr)
     {
+      // @@ TODO: expl: pattern: if first must be file, we should probably add
+      //    them after the group's static_members. Suppress duplicates that
+      //    are already in group::static_members.
+
       pattern->apply_adhoc_members (a, t, bs, me);
 
       // A pattern rule that matches an explicit group should not inject any
@@ -348,6 +352,10 @@ namespace build2
       {
         g->reset_members (a); // See group::group_members() for background.
 
+        // Note that we rely on the fact that if the group has static members,
+        // then they always come first in members and the first static member
+        // is a file.
+        //
         for (const target& m: g->static_members)
         {
           if (auto* p = m.is_a<path_target> ())
@@ -356,9 +364,11 @@ namespace build2
           g->members.push_back (&m);
         }
 
-        if (g->members.empty ())
+        g->members_static = g->members.size ();
+
+        if (g->members_static == 0)
         {
-          if (!script.depdb_dyndep_dyn_target) // @@ TODO: expl: first must file
+          if (!script.depdb_dyndep_dyn_target)
             fail << "group " << *g << " has no static or dynamic members";
         }
         else if (!g->members.front ()->is_a<file> ())
@@ -383,7 +393,8 @@ namespace build2
     {
       // This could be, for example, configure/dist update which could need a
       // "representative sample" of members (in order to be able to match the
-      // rules). So add static members if there aren't any.
+      // rules). So add static members unless we already have something
+      // cached.
       //
       if (g->group_members (a).members == nullptr) // Note: not g->member.
       {
@@ -391,6 +402,8 @@ namespace build2
 
         for (const target& m: g->static_members)
           g->members.push_back (&m);
+
+        g->members_static = g->members.size ();
       }
     }
 
@@ -590,6 +603,21 @@ namespace build2
       return r;
     };
 
+    // Target path to derive the depdb path, query mtime (if file), etc.
+    //
+    // To derive the depdb path for a group with at least one static member we
+    // use the path of the first member. For a group without any static
+    // members we use the group name with the target type name as the
+    // second-level extension.
+    //
+    auto target_path = [&t, g, p = path ()] () mutable -> const path&
+    {
+      return
+      g == nullptr           ? t.as<file> ().path ()                    :
+      g->members_static != 0 ? g->members.front ()->as<file> ().path () :
+      (p = g->dir / (g->name + '.' + g->type ().name));
+    };
+
     // See if we are providing the standard clean as a fallback.
     //
     if (me.fallback)
@@ -598,13 +626,14 @@ namespace build2
       //
       if (script.depdb_dyndep_dyn_target)
       {
-        file& ft (t.as<file> ()); // @@ TODO: expl
-
         // Note that only removing the relevant filesystem entries is not
         // enough: we actually have to populate the group with members since
         // this information could be used to clean derived targets (for
         // example, object files). So we just do that and let the standard
         // clean logic take care of them the same as static members.
+        //
+        // NOTE that this logic should be consistent with what we have in
+        // exec_depdb_dyndep().
         //
         using dyndep = dyndep_rule;
 
@@ -614,38 +643,58 @@ namespace build2
             return dyndep::map_extension (bs, n, e, nullptr);
           });
 
-        // @@ TODO: expl
-        //
-        //    - depdb name?
-
-        for (path& f: read_dyn_targets (ft.path () + ".d"))
+        function<dyndep::group_filter_func> filter;
+        if (g != nullptr)
         {
+          filter = [] (mtime_target& g, const build2::file& m)
+          {
+            auto& ms (g.as<group> ().members);
+            return find (ms.begin (), ms.end (), &m) == ms.end ();
+          };
+        }
 
-          // Note that this logic should be consistent with what we have in
-          // exec_depdb_dyndep().
-          //
-          // Note that here we don't bother cleaning any old dynamic targets
-          // -- the more we can clean, the merrier.
-          //
-          // @@ We don't have --target-what, --target-default-type here.
-          //    Could we do the same thing as byproduct to get them? That
-          //    would require us running the first half of the depdb preamble
-          //    but ignoring all the depdb builtins (we still want all the
-          //    variable assignments -- maybe we could automatically skip them
-          //    if we see depdb is not open). Wonder if there would be any
-          //    other complications...
-          //
-          //    BTW, this sort of works for --target-default-type since we
-          //    just clean them as file{} targets (but diagnostics is off). It
-          //    does break, however, if there is s batch, since then we end up
-          //    detecting different targets sharing a path. This will also not
-          //    work at all if/when we support specifying custom extension to
-          //    type mapping in order to resolve ambiguities.
-          //
-          dyndep::inject_adhoc_group_member ("file",
-                                             a, bs, ft,
-                                             move (f),
-                                             map_ext, file::static_type);
+        // @@ We don't have --target-what, --target-default-type here. Could
+        //    we do the same thing as byproduct to get them? That would
+        //    require us running the first half of the depdb preamble but
+        //    ignoring all the depdb builtins (we still want all the variable
+        //    assignments -- maybe we could automatically skip them if we see
+        //    depdb is not open). Wonder if there would be any other
+        //    complications...
+        //
+        //    BTW, this sort of works for --target-default-type since we just
+        //    clean them as file{} targets (but diagnostics is off). It does
+        //    break, however, if there is s batch, since then we end up
+        //    detecting different targets sharing a path. This will also not
+        //    work at all if/when we support specifying custom extension to
+        //    type mapping in order to resolve ambiguities.
+        //
+        const char* what ("file");
+        const target_type& def_tt (file::static_type);
+
+        for (path& f: read_dyn_targets (target_path () + ".d"))
+        {
+          if (g != nullptr)
+          {
+            pair<const build2::file&, bool> r (
+              dyndep::inject_group_member (
+                what,
+                a, bs, *g,
+                move (f),
+                map_ext, def_tt, filter));
+
+            if (r.second)
+              g->members.push_back (&r.first);
+          }
+          else
+          {
+            // Note that here we don't bother cleaning any old dynamic targets
+            // -- the more we can clean, the merrier.
+            //
+            dyndep::inject_adhoc_group_member (what,
+                                               a, bs, t,
+                                               move (f),
+                                               map_ext, def_tt);
+          }
         }
       }
 
@@ -686,6 +735,8 @@ namespace build2
       }
     }
 
+    // This is a perform update on a file or group target.
+    //
     // See if this is the simple case with only static dependencies.
     //
     if (!script.depdb_dyndep)
@@ -762,10 +813,7 @@ namespace build2
       }
     }
 
-    assert (g != nullptr); // @@ TODO: expl
-
-    file& ft (t.as<file> ());
-    const path& tp (ft.path ());
+    const path& tp (target_path ());
 
     // Note that while it's tempting to turn match_data* into recipes, some of
     // their members are not movable. And in the end we will have the same
@@ -847,16 +895,27 @@ namespace build2
       // Static targets and prerequisites (there can also be dynamic targets;
       // see dyndep --dyn-target).
       //
-      // There is a nuance: in an operation batch (e.g., `b update update`) we
-      // will already have the dynamic targets as members on the subsequent
-      // operations and we need to make sure we don't treat them as static.
-      // Using target_decl to distinguish the two seems like a natural way.
-      //
       {
         sha256 tcs;
-        for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+        if (g == nullptr)
         {
-          if (m->decl == target_decl::real)
+          // There is a nuance: in an operation batch (e.g., `b update
+          // update`) we will already have the dynamic targets as members on
+          // the subsequent operations and we need to make sure we don't treat
+          // them as static. Using target_decl to distinguish the two seems
+          // like a natural way.
+          //
+          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+          {
+            if (m->decl == target_decl::real)
+              hash_target (tcs, *m, storage);
+          }
+        }
+        else
+        {
+          // Feels like there is not much sense in hashing the group itself.
+          //
+          for (const target* m: g->members)
             hash_target (tcs, *m, storage);
         }
 
@@ -892,19 +951,39 @@ namespace build2
 
     // Determine if we need to do an update based on the above checks.
     //
-    bool update;
+    bool update (false);
     timestamp mt;
 
     if (dd.writing ())
       update = true;
     else
     {
-      // @@ TODO: expl mtime
+      if (g == nullptr)
+      {
+        const file& ft (t.as<file> ());
 
-      if ((mt = ft.mtime ()) == timestamp_unknown)
-        ft.mtime (mt = mtime (tp)); // Cache.
+        if ((mt = ft.mtime ()) == timestamp_unknown)
+          ft.mtime (mt = mtime (tp)); // Cache.
+      }
+      else
+      {
+        // Use static member, old dynamic, or force update.
+        //
+        const path* p (
+          g->members_static != 0
+          ? &tp /* first static member path */
+          : (md != nullptr && !md->old_dyn_targets.empty ()
+             ? &md->old_dyn_targets.front ()
+             : nullptr));
 
-      update = dd.mtime > mt;
+        if (p != nullptr)
+          mt = g->load_mtime (*p);
+        else
+          update = true;
+      }
+
+      if (!update)
+        update = dd.mtime > mt;
     }
 
     if (update)
@@ -934,7 +1013,7 @@ namespace build2
       {
         build::script::parser p (ctx);
         mdb->byp = p.execute_depdb_preamble_dyndep_byproduct (
-          a, bs, ft, // @@ TODO: expl
+          a, bs, t,
           env, script, run,
           dd, update, mt);
       }
@@ -1052,7 +1131,7 @@ namespace build2
 
       return [this, md = move (mdb)] (action a, const target& t)
       {
-        return perform_update_file_dyndep_byproduct (a, t, *md);
+        return perform_update_file_or_group_dyndep_byproduct (a, t, *md);
       };
     }
     else
@@ -1067,7 +1146,7 @@ namespace build2
       md->deferred_failure = false;
       {
         build::script::parser p (ctx);
-        p.execute_depdb_preamble_dyndep (a, bs, ft, // @@ TODO: expl
+        p.execute_depdb_preamble_dyndep (a, bs, t,
                                          env, script, run,
                                          dd,
                                          md->dyn_targets,
@@ -1089,23 +1168,31 @@ namespace build2
 
       return [this, md = move (md)] (action a, const target& t)
       {
-        return perform_update_file_dyndep (a, t, *md);
+        return perform_update_file_or_group_dyndep (a, t, *md);
       };
     }
   }
 
   target_state adhoc_buildscript_rule::
-  perform_update_file_dyndep_byproduct (action a,
-                                        const target& xt,
-                                        match_data_byproduct& md) const
+  perform_update_file_or_group_dyndep_byproduct (
+    action a, const target& t, match_data_byproduct& md) const
   {
     // Note: using shared function name among the three variants.
     //
-    tracer trace ("adhoc_buildscript_rule::perform_update_file");
+    tracer trace (
+      "adhoc_buildscript_rule::perform_update_file_or_group_dyndep_byproduct");
 
-    context& ctx (xt.ctx);
+    context& ctx (t.ctx);
 
-    const file& t (xt.as<file> ());
+    // For a group we use the first (for now static) member as a source of
+    // mtime.
+    //
+    // @@ TODO: expl: byproduct: Note that until we support dynamic targets in
+    // the byproduct mode, we verify there is at least one static member in
+    // apply() above. Once we do support this, we will need to verify after
+    // the dependency extraction below.
+    //
+    const group* g (t.is_a<group> ());
 
     // Note that even if we've updated all our prerequisites in apply(), we
     // still need to execute them here to keep the dependency counts straight.
@@ -1134,7 +1221,14 @@ namespace build2
 
     if (!ctx.dry_run || verb != 0)
     {
-      execute_update_file (bs, a, t, env, run);
+      if (g == nullptr)
+        execute_update_file (bs, a, t.as<file> (), env, run);
+      else
+      {
+        // Note: no dynamic members yet.
+        //
+        execute_update_group (bs, a, *g, env, run);
+      }
     }
 
     // Extract the dynamic dependency information as byproduct of the recipe
@@ -1174,7 +1268,7 @@ namespace build2
       const auto& pts (t.prerequisite_targets[a]);
 
       auto add = [&trace, what,
-                  a, &bs, &t, &pts, pts_n = md.pts_n,
+                  a, &bs, &t, g, &pts, pts_n = md.pts_n,
                   &byp, &map_ext, &dd, &skip] (path fp)
       {
         normalize_external (fp, what);
@@ -1212,14 +1306,24 @@ namespace build2
             }
           }
 
-          // Skip if this is one of the targets.
+          // Skip if this is one of the targets (see the non-byproduct version
+          // for background).
           //
           if (byp.drop_cycles)
           {
-            for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+            if (g != nullptr)
             {
-              if (ft == m)
+              auto& ms (g->members);
+              if (find (ms.begin (), ms.end (), ft) != ms.end ())
                 return;
+            }
+            else
+            {
+              for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+              {
+                if (ft == m)
+                  return;
+              }
             }
           }
 
@@ -1332,6 +1436,8 @@ namespace build2
       dd.expect ("");
       dd.close ();
 
+      //@@ TODO: expl: byproduct: verify have at least one member.
+
       md.dd.path = move (dd.path); // For mtime check below.
     }
 
@@ -1340,20 +1446,38 @@ namespace build2
     timestamp now (system_clock::now ());
 
     if (!ctx.dry_run)
-      depdb::check_mtime (start, md.dd.path, t.path (), now);
+    {
+      // Only now we know for sure there must be a member in the group.
+      //
+      const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
 
-    t.mtime (now);
+      depdb::check_mtime (start, md.dd.path, ft.path (), now);
+    }
+
+    (g == nullptr
+     ? static_cast<const mtime_target&> (t.as<file> ())
+     : static_cast<const mtime_target&> (*g)).mtime (now);
+
     return target_state::changed;
   }
 
   target_state adhoc_buildscript_rule::
-  perform_update_file_dyndep (action a, const target& xt, match_data& md) const
+  perform_update_file_or_group_dyndep (
+    action a, const target& t, match_data& md) const
   {
-    tracer trace ("adhoc_buildscript_rule::perform_update_file");
+    tracer trace (
+      "adhoc_buildscript_rule::perform_update_file_or_group_dyndep");
 
-    context& ctx (xt.ctx);
+    context& ctx (t.ctx);
 
-    const file& t (xt.as<file> ());
+    // For a group we use the first (static or dynamic) member as a source of
+    // mtime. Note that in this case there must be at least one since we fail
+    // if we were unable to extract any dynamic members and there are no
+    // static (see exec_depdb_dyndep()).
+    //
+    const group* g (t.is_a<group> ());
+
+    const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
 
     // Note that even if we've updated all our prerequisites in apply(), we
     // still need to execute them here to keep the dependency counts straight.
@@ -1406,7 +1530,10 @@ namespace build2
 
     if (!ctx.dry_run || verb != 0)
     {
-      execute_update_file (*md.bs, a, t, env, run, md.deferred_failure);
+      if (g == nullptr)
+        execute_update_file (*md.bs, a, ft, env, run, md.deferred_failure);
+      else
+        execute_update_group (*md.bs, a, *g, env, run, md.deferred_failure);
     }
 
     run.leave (env, script.end_loc);
@@ -1414,9 +1541,12 @@ namespace build2
     timestamp now (system_clock::now ());
 
     if (!ctx.dry_run)
-      depdb::check_mtime (start, md.dd, t.path (), now);
+      depdb::check_mtime (start, md.dd, ft.path (), now);
 
-    t.mtime (now);
+    (g == nullptr
+     ? static_cast<const mtime_target&> (ft)
+     : static_cast<const mtime_target&> (*g)).mtime (now);
+
     return target_state::changed;
   }
 
@@ -1429,7 +1559,9 @@ namespace build2
     const scope& bs (t.base_scope ());
 
     // For a group we use the first (static) member to derive depdb path, as a
-    // source of mtime, etc.
+    // source of mtime, etc. Note that in this case there must be a static
+    // member since in this version of perform_update we don't extract dynamic
+    // dependencies (see apply() details).
     //
     const group* g (t.is_a<group> ());
 
@@ -1642,8 +1774,10 @@ namespace build2
     if (r || depdb_preamble)
       run.leave (env, script.end_loc);
 
-    const auto& m (g == nullptr ? static_cast<const mtime_target&> (ft) : *g);
-    m.mtime (system_clock::now ());
+    (g == nullptr
+     ? static_cast<const mtime_target&> (ft)
+     : static_cast<const mtime_target&> (*g)).mtime (system_clock::now ());
+
     return target_state::changed;
   }
 
@@ -1897,6 +2031,10 @@ namespace build2
   {
     // Note: similar to execute_update_file() above (see there for comments).
     //
+    // NOTE: when called from perform_update_file_or_group_dyndep_byproduct(),
+    //       the group does not contain dynamic members yet and thus could
+    //       have no members at all.
+    //
     context& ctx (g.ctx);
 
     const scope& rs (*bs.root_scope ());
@@ -1947,6 +2085,9 @@ namespace build2
       // On failure remove the target files that may potentially exist but
       // be invalid.
       //
+      // Note: we may leave dynamic members if we don't know about them yet.
+      // Feels natural enough.
+      //
       small_vector<auto_rmfile, 8> rms;
 
       if (!ctx.dry_run)
@@ -1973,6 +2114,12 @@ namespace build2
         if (deferred_failure)
           fail << "expected error exit status from recipe body";
 
+        // @@ TODO: expl: byproduct
+        //
+        // Note: will not work for dynamic members if we don't know about them
+        // yet. Could probably fix by doing this later, after the dynamic
+        // dependency extraction.
+        //
 #ifndef _WIN32
         auto chmod = [] (const path& p)
         {
@@ -2027,14 +2174,20 @@ namespace build2
     const group& g (xt.as<group> ());
 
     path d, t;
-    if (!g.static_members.empty ())
+    if (g.members_static != 0)
     {
-      const path& p (g.static_members.front ().get ().as<file> ().path ());
+      const path& p (g.members.front ()->as<file> ().path ());
       d = p + ".d";
       t = p + ".t";
     }
     else
-      assert (false); // @@ TODO: expl
+    {
+      // See target_path lambda in apply().
+      //
+      t = g.dir / (g.name + '.' + g.type ().name);
+      d = t + ".d";
+      t += ".t";
+    }
 
     return perform_clean_group_extra (a, g, {d.string ().c_str (),
                                              t.string ().c_str ()});
