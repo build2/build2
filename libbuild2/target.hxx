@@ -380,9 +380,12 @@ namespace build2
     //
     // Note that the group-member link-up can happen anywhere between the
     // member creation and rule matching so reading the group before the
-    // member has been matched can be racy.
+    // member has been matched can be racy. However, once the member is linked
+    // up to the group, this relationship is immutable. As a result, one can
+    // atomically query the current value to see if already linked up (can be
+    // used as an optimization, to avoid deadlocks, etc).
     //
-    const target* group = nullptr;
+    relaxed_atomic<const target*> group = nullptr;
 
     // What has been described above is an "explicit" group. That is, there is
     // a dedicated target type that explicitly serves as a group and there is

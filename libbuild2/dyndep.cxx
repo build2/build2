@@ -834,6 +834,9 @@ namespace build2
                             const function<dyndep_rule::group_filter_func>& fl,
                             bool skip_match)
   {
+    // NOTE: see adhoc_rule_regex_pattern::apply_group_members() for a variant
+    //       of the same code.
+
     // We expect that nobody else can insert these members (seems reasonable
     // seeing that their names are dynamically discovered).
     //
@@ -870,33 +873,44 @@ namespace build2
         return pair<const file&, bool> (t, false);
     }
 
-    // This shouldn't normally fail since we are the only ones that should
-    // know about this target (otherwise why is it dynamicaly discovered).
-    // However, nothing prevents the user from depending on such a target,
-    // however misguided.
+    // Check if we already belong to this group. Note that this not a mere
+    // optimization since we may be in the member->group->member chain and
+    // trying to lock the member the second time would deadlock (this can be
+    // triggered, for example, by dist, which sort of depends on such members
+    // directly @@ maybe this should be fixed there?).
     //
-    target_lock tl (lock (a, t));
-
-    if (!tl)
-      fail << "group " << g << " member " << t << " is already matched" <<
-        info << "dynamically extracted group members cannot be used as "
-             << "prerequisites directly, only via group";
-
-    if (!locked)
+    if (t.group == &g && skip_match) // Note: group query is atomic.
+      t.path (move (f));
+    else
     {
-      if (t.group == nullptr)
-        tl.target->group = &g;
-      else if (t.group != &g)
-        fail << "group " << g << " member " << t
-             << " is already member of group " << *t.group;
-    }
+      // This shouldn't normally fail since we are the only ones that should
+      // know about this target (otherwise why is it dynamicaly discovered).
+      // However, nothing prevents the user from depending on such a target,
+      // however misguided.
+      //
+      target_lock tl (lock (a, t));
 
-    t.path (move (f));
+      if (!tl)
+        fail << "group " << g << " member " << t << " is already matched" <<
+          info << "dynamically extracted group members cannot be used as "
+               << "prerequisites directly, only via group";
 
-    if (!skip_match)
-    {
-      match_inc_dependents (a, g);
-      match_recipe (tl, group_recipe);
+      if (!locked)
+      {
+        if (t.group == nullptr)
+          tl.target->group = &g;
+        else if (t.group != &g)
+          fail << "group " << g << " member " << t
+               << " is already member of group " << *t.group;
+      }
+
+      t.path (move (f));
+
+      if (!skip_match)
+      {
+        match_inc_dependents (a, g);
+        match_recipe (tl, group_recipe);
+      }
     }
 
     return pair<const file&, bool> (t, true);

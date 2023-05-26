@@ -400,21 +400,31 @@ namespace build2
           if (find (ms.begin (), ms.end (), &t) != ms.end ())
             continue;
 
-          // We can only update the group under lock.
+          // Check if we already belong to this group. Note that this not a
+          // mere optimization since we may be in the member->group->member
+          // chain and trying to lock the member the second time would
+          // deadlock (this can be triggered, for example, by dist, which sort
+          // of depends on such members directly @@ maybe this should be fixed
+          // there?).
           //
-          target_lock tl (lock (a, t));
-
-          if (!tl)
-            fail << "group " << *g << " member " << t << " is already matched" <<
-              info << "static group members specified by pattern rules cannot "
-                   << "be used as prerequisites directly, only via group";
-
-          if (t.group == nullptr)
-            tl.target->group = g;
-          else if (t.group != g)
+          if (t.group != g) // Note: atomic.
           {
-            fail << "group " << *g << " member " << t
-                 << " is already member of group " << *t.group;
+            // We can only update the group under lock.
+            //
+            target_lock tl (lock (a, t));
+
+            if (!tl)
+              fail << "group " << *g << " member " << t << " is already matched" <<
+                info << "static group members specified by pattern rules cannot "
+                     << "be used as prerequisites directly, only via group";
+
+            if (t.group == nullptr)
+              tl.target->group = g;
+            else if (t.group != g)
+            {
+              fail << "group " << *g << " member " << t
+                   << " is already member of group " << *t.group;
+            }
           }
         }
 
