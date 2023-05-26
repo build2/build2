@@ -2340,9 +2340,29 @@ namespace build2
         command_expr cmd;
         srcout_map so_map;
 
+        // Save/restore script cleanups.
+        //
+        struct cleanups
+        {
+          build2::script::cleanups ordinary;
+          paths                    special;
+        };
+        optional<cleanups> script_cleanups;
+
+        auto cleanups_guard = make_guard (
+          [this, &script_cleanups] ()
+          {
+            if (script_cleanups)
+            {
+              swap (environment_->cleanups, script_cleanups->ordinary);
+              swap (environment_->special_cleanups, script_cleanups->special);
+            }
+          });
+
         auto init_run = [this, &ctx,
                          &lt, &ltt, &ll,
-                         prog, &file, &ops, &cmd, &so_map] ()
+                         prog, &file, &ops,
+                         &cmd, &so_map, &script_cleanups] ()
         {
           // Populate the srcout map with the -I$out_base -I$src_base pairs.
           //
@@ -2355,6 +2375,10 @@ namespace build2
 
           if (prog)
           {
+            script_cleanups = cleanups {};
+            swap (environment_->cleanups, script_cleanups->ordinary);
+            swap (environment_->special_cleanups, script_cleanups->special);
+
             cmd = parse_command_line (lt, static_cast<token_type&> (ltt));
 
             // If the output goes to stdout, then this should be a single
@@ -2648,9 +2672,16 @@ namespace build2
               init_run ();
               first_run = false;
             }
-            else if (!prog)
+            else
             {
-              fail (ll) << "generated " << what << " without program to retry";
+              if (!prog)
+                fail (ll) << "generated " << what << " without program to retry";
+
+              // Drop dyndep cleanups accumulated on the previous run.
+              //
+              assert (script_cleanups); // Sanity check.
+              environment_->cleanups.clear ();
+              environment_->special_cleanups.clear ();
             }
 
             // Save the timestamp just before we run the command. If we depend
@@ -2862,10 +2893,18 @@ namespace build2
               }
             }
 
+            if (file)
+              ifs.close ();
+
             // Bail out early if we have deferred a failure.
             //
             if (deferred_failure)
               return;
+
+            // Clean after each depdb-dyndep execution.
+            //
+            if (prog)
+              clean (*environment_, ll);
           }
         }
 
