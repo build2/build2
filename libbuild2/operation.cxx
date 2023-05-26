@@ -761,26 +761,42 @@ namespace build2
     if (fail)
       throw failed ();
 
-    // We should have executed every target that we matched, provided we
-    // haven't failed (in which case we could have bailed out early).
-    //
-    assert (ctx.target_count.load (memory_order_relaxed) == 0);
-
 #ifndef NDEBUG
-    if (ctx.dependency_count.load (memory_order_relaxed) != 0)
+    // For now we disable these checks if we've performed any group member
+    // resolutions that required a match (with apply()) but not execute.
+    //
+    if (ctx.resolve_count.load (memory_order_relaxed) == 0)
     {
-      diag_record dr;
-      dr << info << "detected unexecuted matched targets:";
+      // We should have executed every target that we matched, provided we
+      // haven't failed (in which case we could have bailed out early).
+      //
+      assert (ctx.target_count.load (memory_order_relaxed) == 0);
 
-      for (const auto& pt: ctx.targets)
+      if (ctx.dependency_count.load (memory_order_relaxed) != 0)
       {
-        const target& t (*pt);
-        if (size_t n = t[a].dependents.load (memory_order_relaxed))
-          dr << text << t << ' ' << n;
+        diag_record dr;
+        dr << info << "detected unexecuted matched targets:";
+
+        for (const auto& pt: ctx.targets)
+        {
+          const target& t (*pt);
+
+          if (size_t n = t[a].dependents.load (memory_order_relaxed))
+            dr << text << t << ' ' << n;
+
+          if (a.outer ())
+          {
+            action ia (a.inner_action ());
+
+            if (size_t n = t[ia].dependents.load (memory_order_relaxed))
+              dr << text << t << ' ' << n;
+          }
+        }
       }
+
+      assert (ctx.dependency_count.load (memory_order_relaxed) == 0);
     }
 #endif
-    assert (ctx.dependency_count.load (memory_order_relaxed) == 0);
   }
 
   const meta_operation_info mo_perform {

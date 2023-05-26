@@ -1283,7 +1283,10 @@ namespace build2
           throw failed ();
 
         if ((r = g.group_members (a)).members != nullptr)
+        {
+          g.ctx.resolve_count.fetch_add (1, memory_order_relaxed);
           break;
+        }
 
         // Unlock and to execute ...
         //
@@ -1299,6 +1302,10 @@ namespace build2
         // is by definition the first attempt to execute this rule (otherwise
         // we would have already known the members list) and we really do need
         // to execute it now.
+        //
+        // Note that while it might be tempting to decrement resolve_count
+        // here, there is no guarantee that we were the ones who have matched
+        // this target.
         //
         {
           phase_switch ps (g.ctx, run_phase::execute);

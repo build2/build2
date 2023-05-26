@@ -433,6 +433,7 @@ namespace build2
       else
       {
         // @@ TODO: currently this uses type as the ad hoc member identity.
+        //          Use inject_adhoc_group_member() variant?
         //
         add_adhoc_member (
           t,

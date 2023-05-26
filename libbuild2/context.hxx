@@ -405,11 +405,13 @@ namespace build2
     // decremented after such recipe has been executed. If such a recipe has
     // skipped executing the operation, then it should increment the skip
     // count. These two counters are used for progress monitoring and
-    // diagnostics.
+    // diagnostics. The resolve count keeps track of the number of targets
+    // matched but not executed as a result of the resolve_members() calls.
     //
     atomic_count dependency_count;
     atomic_count target_count;
     atomic_count skip_count;
+    atomic_count resolve_count;
 
     // Build state (scopes, targets, variables, etc).
     //
