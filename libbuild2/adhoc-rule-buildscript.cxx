@@ -1414,7 +1414,8 @@ namespace build2
               if (f.relative ())
               {
                 if (!byp.cwd)
-                  fail (il) << "relative prerequisite path '" << f
+                  fail (il) << "relative " << what
+                            << " prerequisite path '" << f
                             << "' in make dependency declaration" <<
                     info << "consider using --cwd to specify relative path "
                          << "base";
@@ -1428,6 +1429,47 @@ namespace build2
 
             if (make.state == make_state::end)
               break;
+          }
+
+          break;
+        }
+      case dyndep_format::lines:
+        {
+          for (string l;; ++il.line) // Reuse the buffer.
+          {
+            if (eof (getline (is, l)))
+              break;
+
+            if (l.empty ())
+              fail (il) << "blank line in prerequisites list";
+
+            if (l.front () == ' ')
+              fail (il) << "non-existent prerequisite in --byproduct mode";
+
+            path f;
+            try
+            {
+              f = path (l);
+
+              if (f.relative ())
+              {
+                if (!byp.cwd)
+                  fail (il) << "relative " << what
+                            << " prerequisite path '" << f
+                            << "' in lines dependency declaration" <<
+                    info << "consider using --cwd to specify "
+                         << "relative path base";
+
+                f = *byp.cwd / f;
+              }
+            }
+            catch (const invalid_path&)
+            {
+              fail (il) << "invalid " << what << " prerequisite path '"
+                        << l << "'";
+            }
+
+            add (move (f));
           }
 
           break;

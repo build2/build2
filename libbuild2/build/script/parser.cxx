@@ -1972,7 +1972,8 @@ namespace build2
         {
           const string& f (ops.format ());
 
-          if (f != "make")
+          if      (f == "lines") format = dyndep_format::lines;
+          else if (f != "make")
             fail (ll) << "depdb dyndep: invalid --format option value '"
                       << f << "'";
         }
@@ -2819,6 +2820,8 @@ namespace build2
                     //
                     if (r.first == make_type::target)
                     {
+                      // NOTE: similar code below.
+                      //
                       if (dyn_tgt)
                       {
                         path& f (r.second);
@@ -2826,7 +2829,8 @@ namespace build2
                         if (f.relative ())
                         {
                           if (!cwd_tgt)
-                            fail (il) << "relative target path '" << f
+                            fail (il) << "relative " << what_tgt
+                                      << " target path '" << f
                                       << "' in make dependency declaration" <<
                               info << "consider using --target-cwd to specify "
                                    << "relative path base";
@@ -2844,17 +2848,17 @@ namespace build2
                         }
                         catch (const invalid_path&)
                         {
-                          fail << "invalid " << what_tgt << " path '"
-                               << f.string () << "'";
+                          fail (il) << "invalid " << what_tgt << " target "
+                                    << "path '" << f.string () << "'";
                         }
 
                         // The target must be within this project.
                         //
                         if (!f.sub (rs.out_path ()))
                         {
-                          fail << what_tgt << " target path " << f
-                               << " must be inside project output directory "
-                               << rs.out_path ();
+                          fail (il) << what_tgt << " target path " << f
+                                    << " must be inside project output "
+                                    << "directory " << rs.out_path ();
                         }
 
                         dyn_targets.push_back (move (f));
@@ -2863,6 +2867,8 @@ namespace build2
                       continue;
                     }
 
+                    // NOTE: similar code below.
+                    //
                     if (optional<bool> u = add (move (r.second), &skip, rmt))
                     {
                       restart = *u;
@@ -2888,6 +2894,143 @@ namespace build2
 
                   if (make.state == make_state::end || deferred_failure)
                     break;
+                }
+
+                break; // case
+              }
+            case dyndep_format::lines:
+              {
+                bool tgt (dyn_tgt); // Reading targets or prerequisites.
+
+                for (string l; !restart; ++il.line) // Reuse the buffer.
+                {
+                  if (eof (getline (is, l)))
+                    break;
+
+                  if (l.empty ())
+                  {
+                    if (!tgt)
+                      fail (il) << "blank line in prerequisites list";
+
+                    tgt = false; // Targets/prerequisites separating blank.
+                    continue;
+                  }
+
+                  // See if this line start with space to indicate a non-
+                  // existent prerequisite. This variable serves both as a
+                  // flag and as a position of the beginning of the path.
+                  //
+                  size_t n (l.front () == ' ' ? 1 : 0);
+
+                  if (tgt)
+                  {
+                    // NOTE: similar code above.
+                    //
+                    path f;
+                    try
+                    {
+                      // Non-existent target doesn't make sense.
+                      //
+                      if (n)
+                        throw invalid_path ("");
+
+                      f = path (l);
+
+                      if (f.relative ())
+                      {
+                        if (!cwd_tgt)
+                          fail (il) << "relative " << what_tgt
+                                    << " target path '" << f
+                                    << "' in lines dependency declaration" <<
+                            info << "consider using --target-cwd to specify "
+                                 << "relative path base";
+
+                        f = *cwd_tgt / f;
+                      }
+
+                      // Note that unlike prerequisites, here we don't need
+                      // normalize_external() since we expect the targets to
+                      // be within this project.
+                      //
+                      f.normalize ();
+                    }
+                    catch (const invalid_path&)
+                    {
+                      fail (il) << "invalid " << what_tgt << " target path '"
+                                << l << "'";
+                    }
+
+                    // The target must be within this project.
+                    //
+                    if (!f.sub (rs.out_path ()))
+                    {
+                      fail (il) << what_tgt << " target path " << f
+                                << " must be inside project output directory "
+                                << rs.out_path ();
+                    }
+
+                    dyn_targets.push_back (move (f));
+                  }
+                  else
+                  {
+                    path f;
+                    try
+                    {
+                      f = path (l.c_str () + n, l.size () - n);
+
+                      if (f.empty ())
+                        throw invalid_path ("");
+
+                      if (f.relative ())
+                      {
+                        if (!n)
+                        {
+                          if (!cwd)
+                            fail (il) << "relative " << what
+                                      << " prerequisite path '" << f
+                                      << "' in lines dependency declaration" <<
+                              info << "consider using --cwd to specify "
+                                   << "relative path base";
+
+                          f = *cwd / f;
+                        }
+                      }
+                      else if (n)
+                      {
+                        // @@ TODO: non-existent absolute paths.
+                        //
+                        throw invalid_path ("");
+                      }
+
+                    }
+                    catch (const invalid_path&)
+                    {
+                      fail (il) << "invalid " << what << " prerequisite path '"
+                                << l << "'";
+                    }
+
+                    // NOTE: similar code above.
+                    //
+                    if (optional<bool> u = add (move (f), &skip, rmt))
+                    {
+                      restart = *u;
+
+                      if (restart)
+                      {
+                        update = true;
+                        l6 ([&]{trace << "restarting";});
+                      }
+                    }
+                    else
+                    {
+                      // Trigger recompilation, mark as expected to fail, and
+                      // bail out.
+                      //
+                      update = true;
+                      deferred_failure = true;
+                      break;
+                    }
+                  }
                 }
 
                 break; // case

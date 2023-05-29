@@ -143,7 +143,7 @@ namespace build2
         // depdb-dyndep --byproduct logic (which fits better into the rule
         // implementation).
         //
-        enum class dyndep_format {make};
+        enum class dyndep_format {make, lines};
 
         struct dyndep_byproduct
         {
