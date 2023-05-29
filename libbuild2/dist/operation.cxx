@@ -463,41 +463,89 @@ namespace build2
         // Note that we are not showing progress here (e.g., "N targets to
         // distribute") since it will be useless (too fast).
         //
+        auto see_through = [] (const target& t)
+        {
+          return ((t.type ().flags & target_type::flag::see_through) ==
+                  target_type::flag::see_through);
+        };
+
+        auto collect = [&trace, &dist_var,
+                        &src_root, &out_root] (const file& ft)
+        {
+          if (ft.dir.sub (src_root))
+          {
+            // Include unless explicitly excluded.
+            //
+            if (const path* v = cast_null<path> (ft[dist_var]))
+            {
+              if (v->string () == "false")
+              {
+                l5 ([&]{trace << "excluding " << ft;});
+                return false;
+              }
+            }
+
+            return true;
+          }
+          else if (ft.dir.sub (out_root))
+          {
+            // Exclude unless explicitly included.
+            //
+            if (const path* v = cast_null<path> (ft[dist_var]))
+            {
+              if (v->string () != "false")
+              {
+                l5 ([&]{trace << "including " << ft;});
+                return true;
+              }
+            }
+
+            return false;
+          }
+          else
+            return false; // Out of project.
+        };
+
         for (const auto& pt: ctx.targets)
         {
+          // Collect see-through groups if they are marked with dist=true.
+          //
+          // Note that while it's possible that only their certain members are
+          // marked as such (e.g., via a pattern), we will still require
+          // dist=true on the group itself (and potentially dist=false on some
+          // of its members) for such cases because we don't want to update
+          // every see-through group only to discover that most of them don't
+          // have anything to distribute.
+          //
+          if (see_through (*pt))
+          {
+            if (const path* v = cast_null<path> ((*pt)[dist_var]))
+            {
+              if (v->string () != "false")
+              {
+                l5 ([&]{trace << "including group " << *pt;});
+                files.push_back (pt.get ());
+              }
+            }
+
+            continue;
+          }
+
           file* ft (pt->is_a<file> ());
 
           if (ft == nullptr) // Not a file.
             continue;
 
-          if (ft->dir.sub (src_root))
-          {
-            // Include unless explicitly excluded.
-            //
-            if (const path* v = cast_null<path> ((*ft)[dist_var]))
-            {
-              if (v->string () == "false")
-              {
-                l5 ([&]{trace << "excluding " << *ft;});
-                continue;
-              }
-            }
+          // Skip member of see-through groups since after dist_* their list
+          // can be incomplete (or even bogus, e.g., the "representative
+          // sample"). Instead, we will collect them during perfrom_update
+          // below.
+          //
+          if (ft->group != nullptr && see_through (*ft->group))
+            continue;
 
+          if (collect (*ft))
             files.push_back (ft);
-          }
-          else if (ft->dir.sub (out_root))
-          {
-            // Exclude unless explicitly included.
-            //
-            if (const path* v = cast_null<path> ((*ft)[dist_var]))
-            {
-              if (v->string () != "false")
-              {
-                l5 ([&]{trace << "including " << *ft;});
-                files.push_back (ft);
-              }
-            }
-          }
         }
 
         // Make sure what we need to distribute is up to date.
@@ -536,6 +584,50 @@ namespace build2
           mo_perform.execute ({}, a, files,
                               1    /* diag (failures only) */,
                               prog /* progress */);
+
+          // Replace see-through groups (which now should have their members
+          // resolved) with members.
+          //
+          for (auto i (files.begin ()); i != files.end (); )
+          {
+            const target& t (i->as<target> ());
+            if (see_through (t))
+            {
+              group_view gv (t.group_members (a)); // Go directly.
+
+              if (gv.members == nullptr)
+                fail << "unable to resolve see-through group " << t
+                     << " members";
+
+              i = files.erase (i); // Drop the group itself.
+
+              for (size_t j (0); j != gv.count; ++j)
+              {
+                if (const target* m = gv.members[j])
+                {
+                  if (const file* ft = m->is_a<file> ())
+                  {
+                    // Note that a rule may only link-up its members to groups
+                    // if/when matched (for example, the cli.cxx{} group). It
+                    // feels harmless for us to do the linking here.
+                    //
+                    if (ft->group == nullptr)
+                      const_cast<file*> (ft)->group = &t;
+                    else
+                      assert (ft->group == &t); // Sanity check.
+
+                    if (collect (*ft))
+                    {
+                      i = files.insert (i, ft); // Insert instead of the group.
+                      i++;                      // Stay after the group.
+                    }
+                  }
+                }
+              }
+            }
+            else
+              ++i;
+          }
 
           if (op_update.operation_post != nullptr)
             op_update.operation_post (ctx, {}, true /* inner */);
@@ -585,7 +677,7 @@ namespace build2
 
       for (size_t i (0), n (files.size ()); i != n; ++i)
       {
-        const file& t (*files[i].as<target> ().is_a<file> ());
+        const file& t (files[i].as<target> ().as<file> ()); // Only files.
 
         // Figure out where this file is inside the target directory.
         //

@@ -30,10 +30,21 @@ namespace build2
       const dir_path& src_root (rs.src_path ());
       const dir_path& out_root (rs.out_path ());
 
-      // If we can, go inside see-through groups.
+      // Note that we don't go inside see-through groups since the members for
+      // dist_* may be incomplete (or even bogus, e.g., the "representative
+      // sample"). Instead, for see-through groups our plan is as follows:
       //
-      for (prerequisite_member pm:
-             group_prerequisite_members (a, t, members_mode::maybe))
+      // 1. Here we match them as groups (so that we still match all their
+      //    prerequisites).
+      //
+      // 2. In dist_project() we collect them along with files after dist_*
+      //    but before perform_update. Here we also skip files that are
+      //    members of see-through groups (which we may still get).
+      //
+      // 3. During perform_update we collect all the see-through group
+      //    members, similar to files on step (2).
+      //
+      for (const prerequisite& p: group_prerequisites (t))
       {
         // Note: no exclusion tests, we want all of them (and see also the
         // dist_include() override). But if we don't ignore post hoc ones
@@ -41,12 +52,12 @@ namespace build2
         // by the post-pass).
         //
         lookup l; // Ignore any operation-specific values.
-        if (include (a, t, pm, &l) == include_type::posthoc)
+        if (include (a, t, p, &l) == include_type::posthoc)
           continue;
 
         // Skip prerequisites imported from other projects.
         //
-        if (pm.proj ())
+        if (p.proj)
           continue;
 
         // We used to always search and match but that resulted in the
@@ -65,14 +76,12 @@ namespace build2
         // @@ Note that this is still an issue in a custom dist rule.
         //
         const target* pt (nullptr);
-        if (pm.is_a<file> ())
+        if (p.is_a<file> ())
         {
-          pt = pm.load ();
+          pt = p.target.load ();
 
           if (pt == nullptr)
           {
-            const prerequisite& p (pm.prerequisite);
-
             // Search for an existing target or existing file in src.
             //
             // Note: see also similar code in match_postponed() below.
@@ -106,7 +115,7 @@ namespace build2
           }
         }
         else
-          pt = &pm.search (t);
+          pt = &search (t, p);
 
         // Don't match targets that are outside of our project.
         //
