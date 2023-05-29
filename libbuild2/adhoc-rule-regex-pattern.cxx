@@ -370,7 +370,8 @@ namespace build2
         auto& ms (g->members);
 
         // These are conceptually static but they behave more like dynamic in
-        // that we likely need to insert the target, set its group, etc.
+        // that we likely need to insert the target, set its group, etc. In a
+        // sense, they are rule-static, but group-dynamic.
         //
         // Note: a custom version of the dyndep_rule::inject_group_member()
         // logic.
@@ -386,10 +387,6 @@ namespace build2
 
         const target& t (l.first); // Note: non-const only if have lock.
 
-        // Note: we don't need to match the group recipe directy due to the
-        // special ad hoc recipe/rule semantics for explicit group members
-        // in match_rule().
-        //
         if (l.second)
         {
           l.first.group = g;
@@ -400,13 +397,6 @@ namespace build2
           if (find (ms.begin (), ms.end (), &t) != ms.end ())
             continue;
 
-          // Check if we already belong to this group. Note that this not a
-          // mere optimization since we may be in the member->group->member
-          // chain and trying to lock the member the second time would
-          // deadlock (this can be triggered, for example, by dist, which sort
-          // of depends on such members directly @@ maybe this should be fixed
-          // there?).
-          //
           if (t.group != g) // Note: atomic.
           {
             // We can only update the group under lock.

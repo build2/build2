@@ -831,11 +831,20 @@ namespace build2
   inject_group_member_impl (action a, const scope& bs, mtime_target& g,
                             path f, string n, string e,
                             const target_type& tt,
-                            const function<dyndep_rule::group_filter_func>& fl,
-                            bool skip_match)
+                            const function<dyndep_rule::group_filter_func>& fl)
   {
     // NOTE: see adhoc_rule_regex_pattern::apply_group_members() for a variant
     //       of the same code.
+
+    // Note that we used to directly match such a member with group_recipe.
+    // But that messes up our dependency counts since we don't really know
+    // whether someone will execute such a member.
+    //
+    // So instead we now just link the member up to the group and rely on the
+    // special semantics in match_rule() for groups with the dyn_members flag.
+    //
+    assert ((g.type ().flags & target_type::flag::dyn_members) ==
+            target_type::flag::dyn_members);
 
     // We expect that nobody else can insert these members (seems reasonable
     // seeing that their names are dynamically discovered).
@@ -851,21 +860,15 @@ namespace build2
 
     const file& t (l.first.as<file> ()); // Note: non-const only if have lock.
 
-    bool locked (l.second);
-    if (locked)
+    // We don't need to match the group recipe directy from ad hoc
+    // recipes/rules due to the special semantics for explicit group members
+    // in match_rule(). This is what skip_match is for.
+    if (l.second)
     {
       l.first.group = &g;
       l.second.unlock ();
-
-      // We don't need to match the group recipe directy from ad hoc
-      // recipes/rules due to the special semantics for explicit group members
-      // in match_rule(). This is what skip_match is for.
-      //
-      if (skip_match)
-      {
-        t.path (move (f));
-        return pair<const file&, bool> (t, true);
-      }
+      t.path (move (f));
+      return pair<const file&, bool> (t, true);
     }
     else
     {
@@ -877,9 +880,9 @@ namespace build2
     // optimization since we may be in the member->group->member chain and
     // trying to lock the member the second time would deadlock (this can be
     // triggered, for example, by dist, which sort of depends on such members
-    // directly @@ maybe this should be fixed there?).
+    // directly... which was not quite correct and is now fixed).
     //
-    if (t.group == &g && skip_match) // Note: group query is atomic.
+    if (t.group == &g) // Note: atomic.
       t.path (move (f));
     else
     {
@@ -895,22 +898,13 @@ namespace build2
           info << "dynamically extracted group members cannot be used as "
                << "prerequisites directly, only via group";
 
-      if (!locked)
-      {
-        if (t.group == nullptr)
-          tl.target->group = &g;
-        else if (t.group != &g)
-          fail << "group " << g << " member " << t
-               << " is already member of group " << *t.group;
-      }
+      if (t.group == nullptr)
+        tl.target->group = &g;
+      else if (t.group != &g)
+        fail << "group " << g << " member " << t
+             << " is already member of group " << *t.group;
 
       t.path (move (f));
-
-      if (!skip_match)
-      {
-        match_inc_dependents (a, g);
-        match_recipe (tl, group_recipe);
-      }
     }
 
     return pair<const file&, bool> (t, true);
@@ -927,8 +921,7 @@ namespace build2
     return inject_group_member_impl (a, bs, g,
                                      move (f), move (n).string (), move (e),
                                      tt,
-                                     nullptr /* filter */,
-                                     false).first;
+                                     nullptr /* filter */).first;
   }
 
   static const target_type&
@@ -974,8 +967,7 @@ namespace build2
                        path f,
                        const function<map_extension_func>& map_ext,
                        const target_type& fallback,
-                       const function<group_filter_func>& filter,
-                       bool skip_match)
+                       const function<group_filter_func>& filter)
   {
     path n (f.leaf ());
     string e (n.extension ());
@@ -989,8 +981,7 @@ namespace build2
     return inject_group_member_impl (a, bs, g,
                                      move (f), move (n).string (), move (e),
                                      tt,
-                                     filter,
-                                     skip_match);
+                                     filter);
   }
 
   pair<const file&, bool> dyndep_rule::

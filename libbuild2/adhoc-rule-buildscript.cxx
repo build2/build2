@@ -295,8 +295,7 @@ namespace build2
   {
     tracer trace ("adhoc_buildscript_rule::apply");
 
-    // Handle matching explicit group members (see adhoc_rule::match() for
-    // background).
+    // Handle matching group members (see adhoc_rule::match() for background).
     //
     if (const group* g = t.group != nullptr ? t.group->is_a<group> () : nullptr)
     {
@@ -681,11 +680,10 @@ namespace build2
           if (g != nullptr)
           {
             pair<const build2::file&, bool> r (
-              dyndep::inject_group_member (
-                what,
-                a, bs, *g,
-                move (f),
-                map_ext, def_tt, filter, true /* skip_match */));
+              dyndep::inject_group_member (what,
+                                           a, bs, *g,
+                                           move (f),
+                                           map_ext, def_tt, filter));
 
             if (r.second)
               g->members.push_back (&r.first);

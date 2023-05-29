@@ -109,7 +109,8 @@ namespace build2
       none        = 0,
       group       = 0x01,         // A (non-adhoc) group.
       see_through = group | 0x02, // A group with "see through" semantics.
-      member_hint = group | 0x04  // Untyped rule hint applies to members.
+      member_hint = group | 0x04, // Untyped rule hint applies to members.
+      dyn_members = group | 0x08  // A group with dynamic members.
     };
 
     flag flags;

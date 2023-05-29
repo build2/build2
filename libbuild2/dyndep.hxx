@@ -232,7 +232,8 @@ namespace build2
     // set its path, and match it with group_recipe.
     //
     // The file path must be absolute and normalized. Note that this function
-    // assumes that this member can only be matched via this group.
+    // assumes that this member can only be matched via this group. The group
+    // type must have the target_type::flag::dyn_members flag.
     //
     // Note: we can split this function into {enter,match}_group_member()
     //       if necessary.
@@ -259,9 +260,6 @@ namespace build2
     // Note that the filter is skipped if the target is newly inserted (the
     // filter is meant to be used to skip duplicates).
     //
-    // Note that skip_match is an implementation detail and should not be
-    // used.
-    //
     using group_filter_func = bool (mtime_target& g, const file&);
 
     static pair<const file&, bool>
@@ -270,8 +268,7 @@ namespace build2
                          path,
                          const function<map_extension_func>&,
                          const target_type& fallback,
-                         const function<group_filter_func>& = nullptr,
-                         bool skip_match = false);
+                         const function<group_filter_func>& = nullptr);
 
 
     // Find or insert a target file path as a target, make it a member of the
