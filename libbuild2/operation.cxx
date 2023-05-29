@@ -774,6 +774,21 @@ namespace build2
 
       if (ctx.dependency_count.load (memory_order_relaxed) != 0)
       {
+        auto dependents = [base = ctx.count_base ()] (action a,
+                                                      const target& t)
+        {
+          const target::opstate& s (t.state[a]);
+
+          // Only consider targets that have been matched for this operation
+          // (since matching is what causes the dependents count reset).
+          //
+          size_t c (s.task_count.load (memory_order_relaxed) - base);
+
+          return (c >= target::offset_applied
+                  ? s.dependents.load (memory_order_relaxed)
+                  : 0);
+        };
+
         diag_record dr;
         dr << info << "detected unexecuted matched targets:";
 
@@ -781,14 +796,12 @@ namespace build2
         {
           const target& t (*pt);
 
-          if (size_t n = t[a].dependents.load (memory_order_relaxed))
+          if (size_t n = dependents (a, t))
             dr << text << t << ' ' << n;
 
           if (a.outer ())
           {
-            action ia (a.inner_action ());
-
-            if (size_t n = t[ia].dependents.load (memory_order_relaxed))
+            if (size_t n = dependents (a.inner_action (), t))
               dr << text << t << ' ' << n;
           }
         }

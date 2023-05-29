@@ -1263,7 +1263,11 @@ namespace build2
     nullptr,
     nullptr,
     &target_search,
-    target_type::flag::group
+    //
+    // Note that the dyn_members semantics is used not only to handle
+    // depdb-dyndep --dyn-target, but also pattern rule-static members.
+    //
+    target_type::flag::group | target_type::flag::dyn_members
   };
 
   // alias

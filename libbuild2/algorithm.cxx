@@ -521,42 +521,45 @@ namespace build2
       return dynamic_cast<const fallback_rule*> (&r.second.get ());
     };
 
-    // If this is a member of group-based target, then first try to find a
-    // matching ad hoc recipe/rule by matching (to an ad hoc recipe/rule) the
-    // group but applying to the member. See adhoc_rule::match() for
-    // background, including for why const_cast should be safe.
-    //
-    // To put it another way, if a group is matched by an ad hoc recipe/rule,
-    // then we want all the member to be matched to the same recipe/rule.
-    //
-    if (const group* g = t.group != nullptr ? t.group->is_a<group> () : nullptr)
+    if (const target* g = t.group)
     {
-      assert (pme == nullptr);
-
-      // As an optimization, check if the group is already matched for this
-      // action. Note that this can become important when matching adhoc regex
-      // rules since we can potentially call match() for many members. This is
-      // probably ok for static members (of which we don't expect more than a
-      // handful) but can become an issue for dynamic members.
+      // If this is a group with dynamic members, then match it with the
+      // group's rule automatically. See dyndep_rule::inject_group_member()
+      // for background.
       //
-      if (g->matched (a, memory_order_acquire))
+      if ((g->type ().flags & target_type::flag::dyn_members) ==
+          target_type::flag::dyn_members)
       {
-        const rule_match* r (g->state[a].rule);
-
-        if (r != nullptr && adhoc_rule_match (*r))
+        if (g->matched (a, memory_order_acquire))
+        {
+          const rule_match* r (g->state[a].rule);
+          assert (r != nullptr); // Shouldn't happen with dyn_members.
           return r;
+        }
 
-        // Fall through: if some rule matched the group then it must also deal
-        // with the members.
+        // Assume static member and fall through.
       }
-      else
+
+      // If this is a member of group-based target, then first try to find a
+      // matching ad hoc recipe/rule by matching (to an ad hoc recipe/rule) the
+      // group but applying to the member. See adhoc_rule::match() for
+      // background, including for why const_cast should be safe.
+      //
+      // To put it another way, if a group is matched by an ad hoc
+      // recipe/rule, then we want all the member to be matched to the same
+      // recipe/rule.
+      //
+      // Note that such a group is dyn_members so we would have tried the
+      // "already matched" case above.
+      //
+      if (g->is_a<group> ())
       {
         // We cannot init match_extra from the target if it's unlocked so use
         // a temporary (it shouldn't be modified if unlocked).
         //
         match_extra me (false /* locked */);
         if (const rule_match* r = match_rule (
-              a, const_cast<group&> (*g), skip, true /* try_match */, &me))
+              a, const_cast<target&> (*g), skip, true /* try_match */, &me))
           return r;
 
         // Fall through to normal match of the member.
