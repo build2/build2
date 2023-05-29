@@ -8,6 +8,78 @@ posix = (!$windows)
 
 s = ($posix ? '/' : '\')
 
+: posix-string
+:
+{
+  : relative
+  :
+  {
+    s = ($posix ? '/' : '\\')
+
+    $* <"print \$posix_string\([path] a$(s)b)"                 >'a/b'     : path
+    $* <"print \$posix_string\([paths] a$(s)b a$(s)c$(s))"     >'a/b a/c' : paths
+    $* <"print \$posix_string\([dir_path] a$(s)b)"             >'a/b'     : dir-path
+    $* <"print \$posix_string\([dir_paths] a$(s)b a$(s)c$(s))" >'a/b a/c' : dir-paths
+    $* <"print \$path.posix_string\(a$(s)b a$(s)c$(s))"        >'a/b a/c' : untyped
+  }
+
+  : absolute
+  :
+  {
+    if $posix
+    {
+      $* <'print $posix_string([paths] /a/b /a/c/)'     >'/a/b /a/c' : paths
+      $* <'print $posix_string([dir_paths] /a/b /a/c/)' >'/a/b /a/c' : dir-paths
+      $* <'print $posix_string([dir_path] /)'           >'/'         : root-dir
+      $* <'print $path.posix_string(/a/b /a/c/)'        >'/a/b /a/c' : untyped
+    }
+    else
+    {
+      $* <'print $posix_string([paths] "c:\\a\\b" "C:\\a\\c\\")'     >'c:/a/b C:/a/c' : paths
+      $* <'print $posix_string([dir_paths] "c:\\a\\b" "C:\\a\\c\\")' >'c:/a/b C:/a/c' : dir-paths
+      $* <'print $posix_string([dir_paths] "c:\\" "C:")'             >'c:/ C:/'       : root-dir
+      $* <'print $path.posix_string("c:\\a\\b" "C:\\a\\c\\")'        >'c:/a/b C:/a/c' : untyped
+      $* <'print $path.posix_string("c:\\" "C:")'                    >'c:/ C:/'       : untyped-root
+    }
+  }
+}
+
+: posix-representation
+:
+{
+  : relative
+  :
+  {
+    s = ($posix ? '/' : '\\')
+
+    $* <"print \$posix_representation\([path] a$(s)b)"                 >'a/b'       : path
+    $* <"print \$posix_representation\([paths] a$(s)b a$(s)c$(s))"     >'a/b a/c/'  : paths
+    $* <"print \$posix_representation\([dir_path] a$(s)b)"             >'a/b/'      : dir-path
+    $* <"print \$posix_representation\([dir_paths] a$(s)b a$(s)c$(s))" >'a/b/ a/c/' : dir-paths
+    $* <"print \$path.posix_representation\(a$(s)b a$(s)c$(s))"        >'a/b a/c/'  : untyped
+  }
+
+  : absolute
+  :
+  {
+    if $posix
+    {
+      $* <'print $posix_representation([paths] /a/b /a/c/)'     >'/a/b /a/c/'  : paths
+      $* <'print $posix_representation([dir_paths] /a/b /a/c/)' >'/a/b/ /a/c/' : dir-paths
+      $* <'print $posix_representation([dir_path] /)'           >'/'           : root-dir
+      $* <'print $path.posix_representation(/a/b /a/c/)'        >'/a/b /a/c/'  : untyped
+    }
+    else
+    {
+      $* <'print $posix_representation([paths] "c:\\a\\b" "C:\\a\\c\\")'     >'c:/a/b C:/a/c/'  : paths
+      $* <'print $posix_representation([dir_paths] "c:\\a\\b" "C:\\a\\c\\")' >'c:/a/b/ C:/a/c/' : dir-paths
+      $* <'print $posix_representation([dir_paths] "c:\\" "C:")'             >'c:/ C:/'         : root-dir
+      $* <'print $path.posix_representation("c:\\a\\b" "C:\\a\\c\\")'        >'c:/a/b C:/a/c/'  : untyped
+      $* <'print $path.posix_representation("c:\\" "C:")'                    >'c:/ C:/'         : untyped-root
+    }
+  }
+}
+
 : canonicalize
 :
 {

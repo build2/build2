@@ -154,6 +154,45 @@ namespace build2
     return path_match (entry, pattern, *start);
   }
 
+  // Don't fail for absolute paths on Windows and, for example, just return
+  // c:/foo for c:\foo.
+  //
+  template <typename P>
+  static inline string
+  posix_string (P&& p)
+  {
+#ifndef _WIN32
+    return move (p).posix_string ();
+#else
+    if (p.relative ())
+      return move (p).posix_string ();
+
+    // Note: also handles root directories.
+    //
+    dir_path d (p.root_directory ());
+    return d.string () + '/' + p.leaf (d).posix_string ();
+#endif
+  }
+
+  // Similar to the above don't fail for absolute paths on Windows.
+  //
+  template <typename P>
+  static inline string
+  posix_representation (P&& p)
+  {
+#ifndef _WIN32
+    return move (p).posix_representation ();
+#else
+    if (p.relative ())
+      return move (p).posix_representation ();
+
+    // Note: also handles root directories.
+    //
+    dir_path d (p.root_directory ());
+    return d.string () + '/' + p.leaf (d).posix_representation ();
+#endif
+  }
+
   void
   path_functions (function_map& m)
   {
@@ -185,6 +224,41 @@ namespace build2
       return r;
     };
 
+    // posix_string
+    //
+    f["posix_string"] += [](path p)     {return posix_string (move (p));};
+    f["posix_string"] += [](dir_path p) {return posix_string (move (p));};
+
+    f["posix_string"] += [](paths v)
+    {
+      strings r;
+      for (auto& p: v)
+        r.push_back (posix_string (move (p)));
+      return r;
+    };
+
+    f["posix_string"] += [](dir_paths v)
+    {
+      strings r;
+      for (auto& p: v)
+        r.push_back (posix_string (move (p)));
+      return r;
+    };
+
+    f[".posix_string"] += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of strings.
+      //
+      for (name& n: ns)
+      {
+        n = n.directory ()
+            ? posix_string (move (n.dir))
+            : posix_string (convert<path> (move (n)));
+      }
+      return ns;
+    };
+
     // representation
     //
     f["representation"] += [](path p) {return move (p).representation ();};
@@ -203,6 +277,48 @@ namespace build2
       for (auto& p: v)
         r.push_back (move (p).representation ());
       return r;
+    };
+
+    // posix_representation
+    //
+    f["posix_representation"] += [](path p)
+    {
+      return posix_representation (move (p));
+    };
+
+    f["posix_representation"] += [](dir_path p)
+    {
+      return posix_representation (move (p));
+    };
+
+    f["posix_representation"] += [](paths v)
+    {
+      strings r;
+      for (auto& p: v)
+        r.push_back (posix_representation (move (p)));
+      return r;
+    };
+
+    f["posix_representation"] += [](dir_paths v)
+    {
+      strings r;
+      for (auto& p: v)
+        r.push_back (posix_representation (move (p)));
+      return r;
+    };
+
+    f[".posix_representation"] += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of strings.
+      //
+      for (name& n: ns)
+      {
+        n = n.directory ()
+            ? posix_representation (move (n.dir))
+            : posix_representation (convert<path> (move (n)));
+      }
+      return ns;
     };
 
     // canonicalize
