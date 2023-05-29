@@ -40,6 +40,23 @@ namespace build2
         // with support for generated files (and thus -I) at least in the make
         // format where we use relative paths for non-existent files.
         //
+        // Currently Supported dependency formats (--format) are `make`
+        // (default) and `lines`.
+        //
+        // The `make` format is the make dependency declaration in the
+        // `<target>...: [<prerequisite>...]` form. In the non-byproduct mode
+        // a relative prerequisite path is considered non-existent.
+        //
+        // The `lines` format lists targets and/or prerequisites one per line.
+        // If the --dyn-target option is specified then the target list is
+        // expected to come first separated from the prerequisites list with a
+        // blank line. If there are no prerequisites, then the blank line can
+        // be omitted. If the --dyn-target option is not specified, then all
+        // lines are treated as prerequisites and there should be no blank
+        // lines. In the non-byproduct mode a prerequisite line that starts
+        // with a leading space is considered a non-existent prerequisite.
+        // Currently only relative non-existent prerequisites are supported.
+        //
         // Note on naming: whenever we (may) have two options, one for target
         // and the other for prerequisite, we omit "prerequisite" as that's
         // what we extract by default and most commonly. For example:
@@ -49,7 +66,8 @@ namespace build2
         //
         path --file;                  // Read from file rather than stdin.
 
-        string --format;              // Dependency format: make (default).
+        string --format;              // Dependency format: `make` (default),
+                                      // or `lines`.
 
         // Dynamic dependency extraction options.
         //
@@ -69,7 +87,8 @@ namespace build2
         dir_path --cwd;               // Builtin's working directory used
                                       // to complete relative paths of
                                       // prerequisites (only in --byproduct
-                                      // mode).
+                                      // mode, lines format for existing
+                                      // paths).
 
         bool --drop-cycles;           // Drop prerequisites that are also
                                       // targets. Only use if you are sure
