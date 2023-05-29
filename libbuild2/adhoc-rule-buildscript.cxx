@@ -230,7 +230,6 @@ namespace build2
 
     path dd;
     paths dyn_targets;
-    paths old_dyn_targets;
 
     const scope* bs;
     timestamp mt;
@@ -825,6 +824,8 @@ namespace build2
     unique_ptr<match_data> md;
     unique_ptr<match_data_byproduct> mdb;
 
+    paths old_dyn_targets;
+
     if (script.depdb_dyndep_byproduct)
     {
       mdb.reset (new match_data_byproduct (
@@ -848,7 +849,7 @@ namespace build2
       // will need to update. Oh, well, being dynamic ain't free.
       //
       if (script.depdb_dyndep_dyn_target)
-        md->old_dyn_targets = read_dyn_targets (tp + ".d");
+        old_dyn_targets = read_dyn_targets (tp + ".d");
     }
 
     depdb dd (tp + ".d");
@@ -975,9 +976,7 @@ namespace build2
         const path* p (
           g->members_static != 0
           ? &tp /* first static member path */
-          : (md != nullptr && !md->old_dyn_targets.empty ()
-             ? &md->old_dyn_targets.front ()
-             : nullptr));
+          : (!old_dyn_targets.empty () ? &old_dyn_targets.front () : nullptr));
 
         if (p != nullptr)
           mt = g->load_mtime (*p);
@@ -1162,11 +1161,45 @@ namespace build2
         dd.touch = timestamp_unknown;
 
       dd.close (false /* mtime_check */);
-      md->dd = move (dd.path);
 
-      // Pass on base scope and update/mtime.
+      // Remove previous dynamic targets since their set may change with
+      // changes to the inputs.
+      //
+      // The dry-run mode complicates things: if we don't remove the old
+      // files, then that information will be gone (since we update depdb even
+      // in the dry-run mode). But if we remove everything in the dry-run
+      // mode, then we may also remove some of the current files, which would
+      // be incorrect. So let's always remove but only files that are not in
+      // the current set.
+      //
+      // Note that we used to do this in perform_update_file_or_group_dyndep()
+      // but that had a tricky issue: if we end up performing match but not
+      // execute (e.g., via the resolve_members() logic), then we will not
+      // cleanup old targets but loose this information (since the depdb has
+      // be updated). So now we do it here, which is a bit strange, but it
+      // sort of fits into that dry-run logic above. Note also that we do this
+      // unconditionally, update or not, since if everything is up to date,
+      // then old and new sets should be the same.
+      //
+      for (const path& f: old_dyn_targets)
+      {
+        if (find (md->dyn_targets.begin (), md->dyn_targets.end (), f) ==
+            md->dyn_targets.end ())
+        {
+          // This is an optimization so best effort.
+          //
+          if (optional<rmfile_status> s = butl::try_rmfile_ignore_error (f))
+          {
+            if (s == rmfile_status::success && verb >= 2)
+              text << "rm " << f;
+          }
+        }
+      }
+
+      // Pass on the base scope, depdb path, and update/mtime.
       //
       md->bs = &bs;
+      md->dd = move (dd.path);
       md->mt = update ? timestamp_nonexistent : mt;
 
       return [this, md = move (md)] (action a, const target& t)
@@ -1541,30 +1574,6 @@ namespace build2
     {
       run.leave (env, script.end_loc);
       return *ps;
-    }
-
-    // Remove previous dynamic targets since their set may change with changes
-    // to the inputs (see apply() for details).
-    //
-    // The dry-run mode complicates things: if we don't remove the old files,
-    // then that information will be gone (since we update depdb even in the
-    // dry-run mode). But if we remove everything in the dry-run mode, then we
-    // may also remove some of the current files, which would be incorrect. So
-    // let's always remove but only files that are not in the current set.
-    //
-    for (const path& f: md.old_dyn_targets)
-    {
-      if (find (md.dyn_targets.begin (), md.dyn_targets.end (), f) ==
-          md.dyn_targets.end ())
-      {
-        // This is an optimization so best effort.
-        //
-        if (optional<rmfile_status> s = butl::try_rmfile_ignore_error (f))
-        {
-          if (s == rmfile_status::success && verb >= 2)
-            text << "rm " << f;
-        }
-      }
     }
 
     // Sequence start time for mtime checks below.
