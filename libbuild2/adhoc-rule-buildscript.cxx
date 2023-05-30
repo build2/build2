@@ -628,8 +628,8 @@ namespace build2
               p + 1 == l->size ()) // Empty path.
             break;
 
-          r.first.emplace_back (string (*l, 0, p),
-                                path (*l, p + 1, string::npos));
+          r.first.push_back (
+            dynamic_target {string (*l, 0, p), path (*l, p + 1, string::npos)});
         }
 
         break;

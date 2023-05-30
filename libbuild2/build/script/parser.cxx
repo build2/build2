@@ -2736,7 +2736,8 @@ namespace build2
                   string t (*l, 0, p);
                   l->erase (0, p + 1);
 
-                  dyn_targets.emplace_back (move (t), path (move (*l)));
+                  dyn_targets.push_back (
+                    dynamic_target {move (t), path (move (*l))});
                 }
               }
 
@@ -2949,7 +2950,8 @@ namespace build2
 
                         // Note: type is resolved later.
                         //
-                        dyn_targets.emplace_back (string (), move (f));
+                        dyn_targets.push_back (
+                          dynamic_target {string (), move (f)});
                       }
 
                       continue;
@@ -3059,7 +3061,8 @@ namespace build2
 
                     // Note: type is resolved later.
                     //
-                    dyn_targets.emplace_back (string (), move (f));
+                    dyn_targets.push_back (
+                      dynamic_target {string (), move (f)});
                   }
                   else
                   {
