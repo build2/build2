@@ -2434,6 +2434,61 @@ namespace build2
 
           bool cache (skip == nullptr);
 
+          // Handle fsdir{} prerequisite separately.
+          //
+          // Note: inspired by inject_fsdir().
+          //
+          if (fp.to_directory ())
+          {
+            if (!cache)
+            {
+              // Note: already absolute since cannot be non-existent.
+              //
+              fp.normalize ();
+            }
+
+            const fsdir* dt (&search<fsdir> (t,
+                                             path_cast<dir_path> (fp),
+                                             dir_path (),
+                                             string (), nullptr, nullptr));
+
+            // Subset of code for file below.
+            //
+            if (!cache)
+            {
+              for (size_t i (0); i != pts_n; ++i)
+              {
+                const prerequisite_target& p (pts[i]);
+
+                if (const target* pt =
+                    (p.target != nullptr ? p.target :
+                     p.adhoc ()          ? reinterpret_cast<target*> (p.data) :
+                     nullptr))
+                {
+                  if (dt == pt)
+                    return false;
+                }
+              }
+
+              if (*skip != 0)
+              {
+                --(*skip);
+                return false;
+              }
+            }
+
+            match_sync (a, *dt);
+            pts.push_back (
+              prerequisite_target (
+                nullptr, true /* adhoc */, reinterpret_cast<uintptr_t> (dt)));
+
+            if (!cache)
+              dd.expect (fp.representation ());
+
+            skip_count++;
+            return false;
+          }
+
           // We can only defer the failure if we will be running the recipe
           // body.
           //
@@ -3013,7 +3068,8 @@ namespace build2
                     {
                       f = path (l.c_str () + n, l.size () - n);
 
-                      if (f.empty ())
+                      if (f.empty ()             ||
+                          (n && f.to_directory ())) // Non-existent fsdir{}.
                         throw invalid_path ("");
 
                       if (f.relative ())
@@ -3036,7 +3092,6 @@ namespace build2
                         //
                         throw invalid_path ("");
                       }
-
                     }
                     catch (const invalid_path&)
                     {

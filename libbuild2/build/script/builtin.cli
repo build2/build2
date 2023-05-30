@@ -56,6 +56,10 @@ namespace build2
         // lines. In the non-byproduct mode a prerequisite line that starts
         // with a leading space is considered a non-existent prerequisite.
         // Currently only relative non-existent prerequisites are supported.
+        // Finally, in this mode, if the prerequisite is syntactically a
+        // directory (that is, it ends with a trailing directory separator),
+        // then it is added as fsdir{}. This can be used to handle situations
+        // where the dynamic targets are placed into subdirectories.
         //
         // Note on naming: whenever we (may) have two options, one for target
         // and the other for prerequisite, we omit "prerequisite" as that's

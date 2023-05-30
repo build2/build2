@@ -551,14 +551,16 @@ namespace build2
       }
     }
 
-    // Read the list of dynamic targets from depdb, if exists (used in a few
-    // depdb-dyndep --dyn-target handling places below).
+    // Read the list of dynamic targets and, optionally, fsdir{} prerequisites
+    // from depdb, if exists (used in a few depdb-dyndep --dyn-target handling
+    // places below).
     //
-    auto read_dyn_targets = [] (path ddp) -> dynamic_targets
+    auto read_dyn_targets = [] (path ddp, bool fsdir)
+      -> pair<dynamic_targets, dir_paths>
     {
       depdb dd (move (ddp), true /* read_only */);
 
-      dynamic_targets r;
+      pair<dynamic_targets, dir_paths> r;
       while (dd.reading ()) // Breakout loop.
       {
         string* l;
@@ -571,8 +573,7 @@ namespace build2
           break;
 
         // We can omit this for as long as we don't break our blank line
-        // anchors semantics (e.g., by adding another blank somewhere, say
-        // after the custom depdb builtins).
+        // anchors semantics.
         //
 #if 0
         if (*l != rule_id_)
@@ -581,14 +582,33 @@ namespace build2
 #endif
 
         // Note that we cannot read out expected lines since there can be
-        // custom depdb builtins. We also need to skip the prerequisites
-        // list. So we read until the blank line that always terminates the
-        // prerequisites list.
+        // custom depdb builtins. So we use the blank lines as anchors to
+        // skip to the parts we need.
+        //
+        // Skip until the first blank that separated custom depdb entries from
+        // the prerequisites list.
+        {
+          bool g;
+          while ((g = read ()) && !l->empty ()) ;
+          if (!g)
+            break;
+        }
+
+        // Next read the prerequisites, detecting fsdir{} entries if asked.
         //
         {
-          bool r;
-          while ((r = read ()) && !l->empty ()) ;
-          if (!r)
+          bool g;
+          while ((g = read ()) && !l->empty ())
+          {
+            if (fsdir)
+            {
+              path p (*l);
+              if (p.to_directory ())
+                r.second.push_back (path_cast<dir_path> (move (p)));
+            }
+          }
+
+          if (!g)
             break;
         }
 
@@ -608,7 +628,8 @@ namespace build2
               p + 1 == l->size ()) // Empty path.
             break;
 
-          r.emplace_back (string (*l, 0, p), path (*l, p + 1, string::npos));
+          r.first.emplace_back (string (*l, 0, p),
+                                path (*l, p + 1, string::npos));
         }
 
         break;
@@ -661,7 +682,10 @@ namespace build2
           };
         }
 
-        for (dynamic_target& dt: read_dyn_targets (target_path () + ".d"))
+        pair<dynamic_targets, dir_paths> p (
+          read_dyn_targets (target_path () + ".d", true));
+
+        for (dynamic_target& dt: p.first)
         {
           path& f (dt.path);
 
@@ -686,6 +710,20 @@ namespace build2
             //
             dyndep::inject_adhoc_group_member (a, bs, t, move (f), *tt);
           }
+        }
+
+        // Enter fsdir{} prerequisites.
+        //
+        // See the add lambda in exec_depdb_dyndep() for background.
+        //
+        for (dir_path& d: p.second)
+        {
+          const fsdir& dt (search<fsdir> (t,
+                                          move (d),
+                                          dir_path (),
+                                          string (), nullptr, nullptr));
+          match_sync (a, dt);
+          pts.push_back (prerequisite_target (&dt, true /* adhoc */));
         }
       }
 
@@ -838,7 +876,7 @@ namespace build2
       // will need to update. Oh, well, being dynamic ain't free.
       //
       if (script.depdb_dyndep_dyn_target)
-        old_dyn_targets = read_dyn_targets (tp + ".d");
+        old_dyn_targets = read_dyn_targets (tp + ".d", false).first;
     }
 
     depdb dd (tp + ".d");
@@ -940,6 +978,14 @@ namespace build2
     {
       build::script::parser p (ctx);
       p.execute_depdb_preamble (a, bs, t, env, script, run, dd);
+
+      // Write a blank line after the custom depdb entries and before
+      // prerequisites, which we use as an anchor (see read_dyn_targets
+      // above). We only do it for the new --dyn-target mode in order not to
+      // invalidate the existing depdb instances.
+      //
+      if (script.depdb_dyndep_dyn_target)
+        dd.expect ("");
     }
 
     // Determine if we need to do an update based on the above checks.
@@ -1480,6 +1526,11 @@ namespace build2
             {
               f = path (l);
 
+              // fsdir{} prerequisites only make sense with dynamic targets.
+              //
+              if (f.to_directory ())
+                throw invalid_path ("");
+
               if (f.relative ())
               {
                 if (!byp.cwd)
@@ -1551,8 +1602,6 @@ namespace build2
     //
     const group* g (t.is_a<group> ());
 
-    const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
-
     // Note that even if we've updated all our prerequisites in apply(), we
     // still need to execute them here to keep the dependency counts straight.
     //
@@ -1581,7 +1630,8 @@ namespace build2
     if (!ctx.dry_run || verb != 0)
     {
       if (g == nullptr)
-        execute_update_file (*md.bs, a, ft, env, run, md.deferred_failure);
+        execute_update_file (
+          *md.bs, a, t.as<file> (), env, run, md.deferred_failure);
       else
         execute_update_group (*md.bs, a, *g, env, run, md.deferred_failure);
     }
@@ -1591,10 +1641,15 @@ namespace build2
     timestamp now (system_clock::now ());
 
     if (!ctx.dry_run)
+    {
+      // Note: in case of deferred failure we may not have any members.
+      //
+      const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
       depdb::check_mtime (start, md.dd, ft.path (), now);
+    }
 
     (g == nullptr
-     ? static_cast<const mtime_target&> (ft)
+     ? static_cast<const mtime_target&> (t)
      : static_cast<const mtime_target&> (*g)).mtime (now);
 
     return target_state::changed;
