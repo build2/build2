@@ -255,8 +255,8 @@ namespace build2
                          path f,
                          const function<group_filter_func>& filter = nullptr)
     {
-      return inject_group_member (
-        a, bs, g, move (f), T::static_type, filter).template as<T> ();
+      auto p (inject_group_member (a, bs, g, move (f), T::static_type, filter));
+      return pair<const T&, bool> (p.first.template as<T> (), p.second);
     }
 
     // As above but the target type is determined using the map_extension
