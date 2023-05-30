@@ -76,8 +76,8 @@ namespace build2
         dir_paths --include-path|-I;  // Search paths for generated
                                       // prerequisites.
 
-        string --default-type;        // Default prerequisite type to use
-                                      // if none could be derived from ext.
+        string --default-type;        // Default prerequisite type to use if
+                                      // none could be derived from extension.
 
         bool --adhoc;                 // Treat dynamically discovered
                                       // prerequisites as ad hoc (so they
@@ -103,15 +103,17 @@ namespace build2
         // ad hoc group members (unless already specified as static members).
         // This functionality is not available in the byproduct mode.
         //
-        // @@ BTW, here what would likely be more useful than default target
-        //    is the ability to specify custom extension-to-type mapping in
-        //    order to resolve ambiguities. See also the issue with getting
-        //    these options during clean.
-        //
         string --target-what;         // Target kind, e.g., "source".
 
         string --target-default-type; // Default target type to use if none
-                                      // could be derived from ext.
+                                      // could be derived from extension.
+
+        map<string, string>           // Extension to target type mapping in
+          --target-extension-type;    // the <ext>=<type> form, for example,
+                                      // h=hxx. This mapping is considered
+                                      // before attempting to automatically
+                                      // map the extension and so can be used
+                                      // to resolve ambiguities.
 
         dir_path --target-cwd;        // Builtin's working directory used to
                                       // complete relative paths of targets.

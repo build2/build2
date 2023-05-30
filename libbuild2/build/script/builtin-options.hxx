@@ -204,6 +204,21 @@ namespace build2
         void
         target_default_type_specified (bool);
 
+        const map<string, string>&
+        target_extension_type () const;
+
+        map<string, string>&
+        target_extension_type ();
+
+        void
+        target_extension_type (const map<string, string>&);
+
+        bool
+        target_extension_type_specified () const;
+
+        void
+        target_extension_type_specified (bool);
+
         const dir_path&
         target_cwd () const;
 
@@ -250,6 +265,8 @@ namespace build2
         bool target_what_specified_;
         string target_default_type_;
         bool target_default_type_specified_;
+        map<string, string> target_extension_type_;
+        bool target_extension_type_specified_;
         dir_path target_cwd_;
         bool target_cwd_specified_;
       };

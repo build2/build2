@@ -294,6 +294,8 @@ namespace build2
         target_what_specified_ (false),
         target_default_type_ (),
         target_default_type_specified_ (false),
+        target_extension_type_ (),
+        target_extension_type_specified_ (false),
         target_cwd_ (),
         target_cwd_specified_ (false)
       {
@@ -403,6 +405,9 @@ namespace build2
           _cli_depdb_dyndep_options_map_["--target-default-type"] =
           &::build2::build::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::target_default_type_,
             &depdb_dyndep_options::target_default_type_specified_ >;
+          _cli_depdb_dyndep_options_map_["--target-extension-type"] =
+          &::build2::build::cli::thunk< depdb_dyndep_options, map<string, string>, &depdb_dyndep_options::target_extension_type_,
+            &depdb_dyndep_options::target_extension_type_specified_ >;
           _cli_depdb_dyndep_options_map_["--target-cwd"] =
           &::build2::build::cli::thunk< depdb_dyndep_options, dir_path, &depdb_dyndep_options::target_cwd_,
             &depdb_dyndep_options::target_cwd_specified_ >;

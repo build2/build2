@@ -294,6 +294,36 @@ namespace build2
         this->target_default_type_specified_ = x;
       }
 
+      inline const map<string, string>& depdb_dyndep_options::
+      target_extension_type () const
+      {
+        return this->target_extension_type_;
+      }
+
+      inline map<string, string>& depdb_dyndep_options::
+      target_extension_type ()
+      {
+        return this->target_extension_type_;
+      }
+
+      inline void depdb_dyndep_options::
+      target_extension_type (const map<string, string>& x)
+      {
+        this->target_extension_type_ = x;
+      }
+
+      inline bool depdb_dyndep_options::
+      target_extension_type_specified () const
+      {
+        return this->target_extension_type_specified_;
+      }
+
+      inline void depdb_dyndep_options::
+      target_extension_type_specified (bool x)
+      {
+        this->target_extension_type_specified_ = x;
+      }
+
       inline const dir_path& depdb_dyndep_options::
       target_cwd () const
       {

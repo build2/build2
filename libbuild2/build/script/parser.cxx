@@ -2087,6 +2087,23 @@ namespace build2
                       << "' specified with --target-default-type";
         }
 
+        map<string, const target_type*> map_tt;
+        if (ops.target_extension_type_specified ())
+        {
+          if (!dyn_tgt)
+            fail (ll) << "depdb dyndep: --target-extension-type specified "
+                      << "without --dyn-target";
+
+          for (pair<const string, string>& p: ops.target_extension_type ())
+          {
+            const target_type* tt (bs.find_target_type (p.second));
+            if (tt == nullptr)
+              fail (ll) << "depdb dyndep: unknown target type '" << p.second
+                        << "' specified with --target-extension-type";
+
+            map_tt[p.first] = tt;
+          }
+        }
 
         // --file (last since need --*cwd)
         //
@@ -2256,7 +2273,6 @@ namespace build2
           [] (const scope& bs, const string& n, const string& e)
           {
             // NOTE: another version in adhoc_buildscript_rule::apply().
-            // NOTE: now also used for dynamic targets below!
 
             // @@ TODO: allow specifying base target types.
             //
@@ -3106,6 +3122,47 @@ namespace build2
             }
           }
 
+          struct map_ext_data
+          {
+            const char* what_tgt;
+            const map<string, const target_type*>& map_tt;
+            const path* f; // Updated on each iteration.
+          } d {what_tgt, map_tt, nullptr};
+
+          function<dyndep::map_extension_func> map_ext (
+            [this, &d] (const scope& bs, const string& n, const string& e)
+            {
+              small_vector<const target_type*, 2> tts;
+
+              // Check the custom mapping first.
+              //
+              auto i (d.map_tt.find (e));
+              if (i != d.map_tt.end ())
+                tts.push_back (i->second);
+              else
+              {
+                tts = dyndep::map_extension (bs, n, e, nullptr);
+
+                // Issue custom diagnostics suggesting --target-extension-type.
+                //
+                if (tts.size () > 1)
+                {
+                  diag_record dr (fail);
+
+                  dr << "mapping of " << d.what_tgt << " target path " << *d.f
+                     << " to target type is ambiguous";
+
+                  for (const target_type* tt: tts)
+                    dr << info << "can be " << tt->name << "{}";
+
+                  dr << info << "use --target-extension-type to provide custom "
+                     << "mapping";
+                }
+              }
+
+              return tts;
+            });
+
           function<dyndep::group_filter_func> filter;
           if (g != nullptr)
           {
@@ -3130,6 +3187,8 @@ namespace build2
           for (dynamic_target& dt: dyn_targets)
           {
             const path& f (dt.path);
+
+            d.f = &f; // Current file being mapped.
 
             // Note that this logic should be consistent with what we have in
             // adhoc_buildscript_rule::apply() for perform_clean.
