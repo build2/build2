@@ -910,9 +910,11 @@ namespace build2
     return pair<const file&, bool> (t, true);
   }
 
-  const file& dyndep_rule::
+  pair<const file&, bool> dyndep_rule::
   inject_group_member (action a, const scope& bs, mtime_target& g,
-                       path f, const target_type& tt)
+                       path f,
+                       const target_type& tt,
+                       const function<group_filter_func>& filter)
   {
     path n (f.leaf ());
     string e (n.extension ());
@@ -921,7 +923,7 @@ namespace build2
     return inject_group_member_impl (a, bs, g,
                                      move (f), move (n).string (), move (e),
                                      tt,
-                                     nullptr /* filter */).first;
+                                     filter);
   }
 
   static const target_type&
@@ -943,7 +945,7 @@ namespace build2
     {
       diag_record dr (fail);
 
-      dr << "mapping of " << what << " target file " << f
+      dr << "mapping of " << what << " target path " << f
          << " to target type is ambiguous";
 
       for (const target_type* tt: tts)
@@ -954,7 +956,7 @@ namespace build2
 
     if (!tt.is_a<file> ())
     {
-      fail << what << " target file " << f << " mapped to non-file-based "
+      fail << what << " target path " << f << " mapped to non-file-based "
            << "target type " << tt.name << "{}";
     }
 
@@ -984,22 +986,11 @@ namespace build2
                                      filter);
   }
 
-  pair<const file&, bool> dyndep_rule::
-  inject_adhoc_group_member (const char* what,
-                             action, const scope& bs, target& t,
-                             path f,
-                             const function<map_extension_func>& map_ext,
-                             const target_type& fallback)
+  pair<const file&, bool>
+  inject_adhoc_group_member_impl (action, const scope& bs, target& t,
+                                  path f, string n, string e,
+                                  const target_type& tt)
   {
-    path n (f.leaf ());
-    string e (n.extension ());
-    n.make_base ();
-
-    // Map extension to the target type, falling back to the fallback type.
-    //
-    const target_type& tt (
-      map_target_type (what, bs, f, n.string (), e, map_ext, fallback));
-
     // Assume nobody else can insert these members (seems reasonable seeing
     // that their names are dynamically discovered).
     //
@@ -1008,7 +999,7 @@ namespace build2
               tt,
               f.directory (),
               dir_path (), // Always in out.
-              move (n).string (),
+              move (n),
               &e,
               &bs));
 
@@ -1040,8 +1031,8 @@ namespace build2
       return pair<const file&, bool> (*ft, false);
 
     if (!l.second)
-      fail << "dynamic " << what << " target " << *ft << " already exists "
-           << "and cannot be made ad hoc member of group " << t;
+      fail << "dynamic target " << *ft << " already exists and cannot be "
+           << "made ad hoc member of group " << t;
 
     ft->group = &t;
     l.second.unlock ();
@@ -1055,5 +1046,39 @@ namespace build2
     ft->path (move (f));
 
     return pair<const file&, bool> (*ft, true);
+  }
+
+  pair<const file&, bool> dyndep_rule::
+  inject_adhoc_group_member (action a, const scope& bs, target& t,
+                             path f,
+                             const target_type& tt)
+  {
+    path n (f.leaf ());
+    string e (n.extension ());
+    n.make_base ();
+
+    return inject_adhoc_group_member_impl (
+      a, bs, t, move (f), move (n).string (), move (e), tt);
+  }
+
+  pair<const file&, bool> dyndep_rule::
+  inject_adhoc_group_member (const char* what,
+                             action a, const scope& bs, target& t,
+                             path f,
+                             const function<map_extension_func>& map_ext,
+                             const target_type& fallback)
+  {
+    path n (f.leaf ());
+    string e (n.extension ());
+    n.make_base ();
+
+    // Map extension to the target type, falling back to the fallback type.
+    //
+    const target_type& tt (
+      map_target_type (what, bs, f, n.string (), e, map_ext, fallback));
+
+
+    return inject_adhoc_group_member_impl (
+      a, bs, t, move (f), move (n).string (), move (e), tt);
   }
 }

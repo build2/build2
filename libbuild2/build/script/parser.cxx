@@ -1291,7 +1291,7 @@ namespace build2
                            environment& e, const script& s, runner& r,
                            lines_iterator begin, lines_iterator end,
                            depdb& dd,
-                           paths* dyn_targets,
+                           dynamic_targets* dyn_targets,
                            bool* update,
                            optional<timestamp> mt,
                            bool* deferred_failure,
@@ -1320,7 +1320,7 @@ namespace build2
           const script& scr;
 
           depdb& dd;
-          paths* dyn_targets;
+          dynamic_targets* dyn_targets;
           bool* update;
           bool* deferred_failure;
           optional<timestamp> mt;
@@ -1647,7 +1647,7 @@ namespace build2
                          size_t li, const location& ll,
                          action a, const scope& bs, target& t,
                          depdb& dd,
-                         paths& dyn_targets,
+                         dynamic_targets& dyn_targets,
                          bool& update,
                          timestamp mt,
                          bool& deferred_failure,
@@ -2647,10 +2647,25 @@ namespace build2
                     break;
                   }
 
-                  if (l->empty ()) // Done with target.
+                  if (l->empty ()) // Done with targets.
                     break;
 
-                  dyn_targets.push_back (path (move (*l)));
+                  // Split into type and path (see below for background).
+                  //
+                  size_t p (l->find (' '));
+                  if (p == string::npos || // Invalid format.
+                      p == 0            || // Empty type.
+                      p + 1 == l->size ()) // Empty path.
+                  {
+                    dd.write (); // Invalidate this line.
+                    restart = true;
+                    break;
+                  }
+
+                  string t (*l, 0, p);
+                  l->erase (0, p + 1);
+
+                  dyn_targets.emplace_back (move (t), path (move (*l)));
                 }
               }
 
@@ -2861,7 +2876,9 @@ namespace build2
                                     << "directory " << rs.out_path ();
                         }
 
-                        dyn_targets.push_back (move (f));
+                        // Note: type is resolved later.
+                        //
+                        dyn_targets.emplace_back (string (), move (f));
                       }
 
                       continue;
@@ -2969,7 +2986,9 @@ namespace build2
                                 << rs.out_path ();
                     }
 
-                    dyn_targets.push_back (move (f));
+                    // Note: type is resolved later.
+                    //
+                    dyn_targets.emplace_back (string (), move (f));
                   }
                   else
                   {
@@ -3099,11 +3118,23 @@ namespace build2
             };
           }
 
-          for (const path& f: dyn_targets)
+          // Unlike for prerequisites, for targets we store in depdb both the
+          // resolved target type and path. The target type is used in clean
+          // (see adhoc_rule_buildscript::apply()) where we cannot easily get
+          // hold of all the dyndep options to map the path to target type.
+          // So the format of the target line is:
+          //
+          // <type> <path>
+          //
+          string l; // Reuse the buffer.
+          for (dynamic_target& dt: dyn_targets)
           {
+            const path& f (dt.path);
+
             // Note that this logic should be consistent with what we have in
             // adhoc_buildscript_rule::apply() for perform_clean.
             //
+            const build2::file* ft (nullptr);
             if (g != nullptr)
             {
               pair<const build2::file&, bool> r (
@@ -3117,12 +3148,17 @@ namespace build2
               // each update.
               //
               if (!r.second)
+              {
+                dt.type.clear (); // Static indicator.
                 continue;
+              }
+
+              ft = &r.first;
 
               // Note: we only currently support dynamic file members so it
               // will be file if first.
               //
-              g->members.push_back (&r.first);
+              g->members.push_back (ft);
             }
             else
             {
@@ -3137,14 +3173,41 @@ namespace build2
               // already a member (think `b update && b clean update`).
               //
               if (!r.second && r.first.decl == target_decl::real)
+              {
+                dt.type.clear (); // Static indicator.
                 continue;
+              }
+
+              ft = &r.first;
 
               if (dts)
-                dts->push_back (&r.first);
+                dts->push_back (ft);
+            }
+
+            const char* tn (ft->type ().name);
+
+            if (dt.type.empty ())
+              dt.type = tn;
+            else if (dt.type != tn)
+            {
+              // This can, for example, happen if the user changed the
+              // extension to target type mapping. Say swapped extension
+              // variable values of two target types.
+              //
+              fail << "mapping of " << what_tgt << " target path " << f
+                   << " to target type has changed" <<
+                info << "previously mapped to " << dt.type << "{}" <<
+                info << "now mapped to " << tn << "{}" <<
+                info << "perform from scratch rebuild of " << t;
             }
 
             if (!cache)
-              dd.expect (f);
+            {
+              l = dt.type;
+              l += ' ';
+              l += f.string ();
+              dd.expect (l);
+            }
           }
 
           // Add the dynamic targets terminating blank line.

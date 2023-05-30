@@ -121,12 +121,20 @@ namespace build2
             dd);
         }
 
+        struct dynamic_target
+        {
+          string       type; // Target type name (absent if static member).
+          build2::path path;
+        };
+
+        using dynamic_targets = vector<dynamic_target>;
+
         void
         execute_depdb_preamble_dyndep (
           action a, const scope& base, target& t,
           environment& e, const script& s, runner& r,
           depdb& dd,
-          paths& dyn_targets,
+          dynamic_targets& dyn_targets,
           bool& update, timestamp mt, bool& deferred_failure)
         {
           exec_depdb_preamble (
@@ -162,11 +170,13 @@ namespace build2
           environment& e, const script& s, runner& r,
           depdb& dd, bool& update, timestamp mt)
         {
+          // Dummies.
+          //
           // This is getting a bit ugly (we also don't really need to pass
           // depdb here). One day we will find a better way...
           //
-          paths dyn_targets;
-          bool deferred_failure; // Dymmy.
+          dynamic_targets dyn_targets;
+          bool deferred_failure;
 
           dyndep_byproduct v;
           exec_depdb_preamble (
@@ -228,7 +238,7 @@ namespace build2
                              environment&, const script&, runner&,
                              lines_iterator begin, lines_iterator end,
                              depdb&,
-                             paths* dyn_targets = nullptr,
+                             dynamic_targets* dyn_targets = nullptr,
                              bool* update = nullptr,
                              optional<timestamp> mt = nullopt,
                              bool* deferred_failure = nullptr,
@@ -241,7 +251,7 @@ namespace build2
                            size_t line_index, const location&,
                            action, const scope& base, target&,
                            depdb&,
-                           paths& dyn_targets,
+                           dynamic_targets& dyn_targets,
                            bool& update,
                            timestamp,
                            bool& deferred_failure,

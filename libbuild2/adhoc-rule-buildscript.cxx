@@ -220,6 +220,9 @@ namespace build2
                   perform_update_id) != actions.end ());
   }
 
+  using dynamic_target = build::script::parser::dynamic_target;
+  using dynamic_targets = build::script::parser::dynamic_targets;
+
   struct adhoc_buildscript_rule::match_data
   {
     match_data (action a, const target& t, const scope& bs, bool temp_dir)
@@ -229,7 +232,7 @@ namespace build2
     build::script::default_runner run;
 
     path dd;
-    paths dyn_targets;
+    dynamic_targets dyn_targets;
 
     const scope* bs;
     timestamp mt;
@@ -551,11 +554,11 @@ namespace build2
     // Read the list of dynamic targets from depdb, if exists (used in a few
     // depdb-dyndep --dyn-target handling places below).
     //
-    auto read_dyn_targets = [] (path ddp) -> paths
+    auto read_dyn_targets = [] (path ddp) -> dynamic_targets
     {
       depdb dd (move (ddp), true /* read_only */);
 
-      paths r;
+      dynamic_targets r;
       while (dd.reading ()) // Breakout loop.
       {
         string* l;
@@ -597,7 +600,15 @@ namespace build2
           if (!read () || l->empty ())
             break;
 
-          r.push_back (path (*l));
+          // Split into type and path.
+          //
+          size_t p (l->find (' '));
+          if (p == string::npos || // Invalid format.
+              p == 0            || // Empty type.
+              p + 1 == l->size ()) // Empty path.
+            break;
+
+          r.emplace_back (string (*l, 0, p), path (*l, p + 1, string::npos));
         }
 
         break;
@@ -640,12 +651,6 @@ namespace build2
         //
         using dyndep = dyndep_rule;
 
-        function<dyndep::map_extension_func> map_ext (
-          [] (const scope& bs, const string& n, const string& e)
-          {
-            return dyndep::map_extension (bs, n, e, nullptr);
-          });
-
         function<dyndep::group_filter_func> filter;
         if (g != nullptr)
         {
@@ -656,33 +661,20 @@ namespace build2
           };
         }
 
-        // @@ We don't have --target-what, --target-default-type here. Could
-        //    we do the same thing as byproduct to get them? That would
-        //    require us running the first half of the depdb preamble but
-        //    ignoring all the depdb builtins (we still want all the variable
-        //    assignments -- maybe we could automatically skip them if we see
-        //    depdb is not open). Wonder if there would be any other
-        //    complications...
-        //
-        //    BTW, this sort of works for --target-default-type since we just
-        //    clean them as file{} targets (but diagnostics is off). It does
-        //    break, however, if there is s batch, since then we end up
-        //    detecting different targets sharing a path. This will also not
-        //    work at all if/when we support specifying custom extension to
-        //    type mapping in order to resolve ambiguities.
-        //
-        const char* what ("file");
-        const target_type& def_tt (file::static_type);
-
-        for (path& f: read_dyn_targets (target_path () + ".d"))
+        for (dynamic_target& dt: read_dyn_targets (target_path () + ".d"))
         {
+          path& f (dt.path);
+
+          // Resolve target type. Clean it as file if unable to.
+          //
+          const target_type* tt (bs.find_target_type (dt.type));
+          if (tt == nullptr)
+            tt = &file::static_type;
+
           if (g != nullptr)
           {
             pair<const build2::file&, bool> r (
-              dyndep::inject_group_member (what,
-                                           a, bs, *g,
-                                           move (f),
-                                           map_ext, def_tt, filter));
+              dyndep::inject_group_member (a, bs, *g, move (f), *tt, filter));
 
             if (r.second)
               g->members.push_back (&r.first);
@@ -692,10 +684,7 @@ namespace build2
             // Note that here we don't bother cleaning any old dynamic targets
             // -- the more we can clean, the merrier.
             //
-            dyndep::inject_adhoc_group_member (what,
-                                               a, bs, t,
-                                               move (f),
-                                               map_ext, def_tt);
+            dyndep::inject_adhoc_group_member (a, bs, t, move (f), *tt);
           }
         }
       }
@@ -824,7 +813,7 @@ namespace build2
     unique_ptr<match_data> md;
     unique_ptr<match_data_byproduct> mdb;
 
-    paths old_dyn_targets;
+    dynamic_targets old_dyn_targets;
 
     if (script.depdb_dyndep_byproduct)
     {
@@ -976,7 +965,9 @@ namespace build2
         const path* p (
           g->members_static != 0
           ? &tp /* first static member path */
-          : (!old_dyn_targets.empty () ? &old_dyn_targets.front () : nullptr));
+          : (!old_dyn_targets.empty ()
+             ? &old_dyn_targets.front ().path
+             : nullptr));
 
         if (p != nullptr)
           mt = g->load_mtime (*p);
@@ -1181,10 +1172,15 @@ namespace build2
       // unconditionally, update or not, since if everything is up to date,
       // then old and new sets should be the same.
       //
-      for (const path& f: old_dyn_targets)
+      for (const dynamic_target& dt: old_dyn_targets)
       {
-        if (find (md->dyn_targets.begin (), md->dyn_targets.end (), f) ==
-            md->dyn_targets.end ())
+        const path& f (dt.path);
+
+        if (find_if (md->dyn_targets.begin (), md->dyn_targets.end (),
+                     [&f] (const dynamic_target& dt)
+                     {
+                       return dt.path == f;
+                     }) == md->dyn_targets.end ())
         {
           // This is an optimization so best effort.
           //
