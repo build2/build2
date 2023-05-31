@@ -258,6 +258,24 @@ namespace build2
               continue;
           }
 
+          // A common reason behind an unused config.import.* value is an
+          // unused dependency. That is, there is depends in manifest but no
+          // import in buildfile (or import could be conditional in which case
+          // depends should also be conditional). So let's suggest this
+          // possibility. Note that the project name may have been sanitized
+          // to a variable name. Oh, well, better than nothing.
+          //
+          auto info_import = [] (diag_record& dr, const string& var)
+          {
+            if (var.compare (0, 14, "config.import.") == 0)
+            {
+              size_t p (var.find ('.', 14));
+
+              dr << info << "potentially unused dependency on "
+                 << string (var, 14, p == string::npos ? p : p - 14);
+            }
+          };
+
           const value& v (p.first->second);
 
           pair<bool, bool> r (save_config_variable (*var,
@@ -285,6 +303,7 @@ namespace build2
 
               diag_record dr;
               dr << warn (on) << "saving no longer used variable " << *var;
+              info_import (dr, var->name);
               if (verb >= 2)
                 info_value (dr, v);
             }
@@ -295,6 +314,7 @@ namespace build2
             {
               diag_record dr;
               dr << warn (on) << "dropping no longer used variable " << *var;
+              info_import (dr, var->name);
               info_value (dr, v);
             }
           }
