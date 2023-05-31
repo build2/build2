@@ -1447,7 +1447,12 @@ namespace build2
                 // And the same for the configure meta-operation to, for
                 // example, make sure a hinted ad hoc rule matches. @@ Hm,
                 // maybe we fixed this with action-specific hints? But the
-                // injection part above may still apply.
+                // injection part above may still apply. BTW, this is also
+                // required for see-through groups in order to resolve their
+                // member.
+                //
+                // Note also that the equivalent semantics for ad hoc recipes
+                // is provided by match_adhoc_recipe().
                 //
                 if (a.meta_operation () == perform_id)
                 {
@@ -1469,7 +1474,8 @@ namespace build2
                 //    see-through target group, then we may also need to
                 //    register update for other meta-operations (see, for
                 //    example, wildcard update registration in the cli
-                //    module).
+                //    module). BTW, we can now detect such a target via
+                //    its target type flags.
               }
             }
           }
@@ -2225,6 +2231,9 @@ namespace build2
             }
 
             target_->adhoc_recipes.push_back (r);
+
+            // Note that "registration" of configure_* and dist_* actions
+            // (similar to ad hoc rules) is provided by match_adhoc_recipe().
           }
         }
 

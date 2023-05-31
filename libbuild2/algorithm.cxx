@@ -466,39 +466,85 @@ namespace build2
                ? a
                : action (a.meta_operation (), a.outer_operation ()));
 
-    auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
-    auto i (find_if (
-              b, e,
-              [&match, ca] (const shared_ptr<adhoc_rule>& r)
-              {
-                auto& as (r->actions);
-                return (find (as.begin (), as.end (), ca) != as.end () &&
-                        match (*r, false));
-              }));
-
-    if (i == e)
+    // If returned rule_match is NULL, then the second half indicates whether
+    // the rule was found (but did not match).
+    //
+    auto find_match = [&t, &match] (action ca) -> pair<const rule_match*, bool>
     {
-      // See if we have a fallback implementation.
+      // Note that there can be at most one recipe for any action.
       //
-      // See the adhoc_rule::reverse_fallback() documentation for details on
-      // what's going on here.
-      //
-      i = find_if (
-        b, e,
-        [&match, ca, &t] (const shared_ptr<adhoc_rule>& r)
-        {
-          auto& as (r->actions);
+      auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
+      auto i (find_if (
+                b, e,
+                [ca] (const shared_ptr<adhoc_rule>& r)
+                {
+                  auto& as (r->actions);
+                  return find (as.begin (), as.end (), ca) != as.end ();
+                }));
 
-          // Note that the rule could be there but not match (see above),
-          // thus this extra check.
-          //
-          return (find (as.begin (), as.end (), ca) == as.end () &&
-                  r->reverse_fallback (ca, t.type ())            &&
-                  match (*r, true));
-        });
+      bool f (i != e);
+      if (f)
+      {
+        if (!match (**i, false /* fallback */))
+          i = e;
+      }
+      else
+      {
+        // See if we have a fallback implementation.
+        //
+        // See the adhoc_rule::reverse_fallback() documentation for details on
+        // what's going on here.
+        //
+        // Note that it feels natural not to look for a fallback if a custom
+        // recipe was provided but did not match.
+        //
+        const target_type& tt (t.type ());
+        i = find_if (
+          b, e,
+          [ca, &tt] (const shared_ptr<adhoc_rule>& r)
+          {
+            // Only the rule that provides the "forward" action can provide
+            // "reverse", so there can be at most one such rule.
+            //
+            return r->reverse_fallback (ca, tt);
+          });
+
+        f = (i != e);
+        if (f)
+        {
+          if (!match (**i, true /* fallback */))
+            i = e;
+        }
+      }
+
+      return pair<const rule_match*, bool> (
+        i != e ? &(*i)->rule_match : nullptr,
+        f);
+    };
+
+    pair<const rule_match*, bool> r (find_match (ca));
+
+    // Provide the "add dist_* and configure_* actions for every perform_*
+    // action unless there is a custom one" semantics (see the equivalent ad
+    // hoc rule registration code in the parser for background).
+    //
+    // Note that handling this in the parser by adding the extra actions is
+    // difficult because we store recipe actions in the recipe itself (
+    // adhoc_rule::actions) and a recipe could be shared among multiple
+    // targets, some of which may provide a "custom one" as another recipe. On
+    // the other hand, handling it here is relatively straightforward.
+    //
+    if (r.first == nullptr && !r.second)
+    {
+      meta_operation_id mo (ca.meta_operation ());
+      if (mo == configure_id || mo == dist_id)
+      {
+        action pa (perform_id, ca.operation ());
+        r = find_match (pa);
+      }
     }
 
-    return i != e ? &(*i)->rule_match : nullptr;
+    return r.first;
   }
 
   // Return the matching rule or NULL if no match and try_match is true.
