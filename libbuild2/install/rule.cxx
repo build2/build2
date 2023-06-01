@@ -197,7 +197,7 @@ namespace build2
       if (a.operation () == update_id)
       {
         match_inner (a, t);
-        return &execute_inner;
+        return inner_recipe;
       }
       else
         return noop_recipe;

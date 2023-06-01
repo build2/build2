@@ -11,4 +11,5 @@ namespace build2
   recipe_function* const noop_recipe    = &noop_action;
   recipe_function* const default_recipe = &default_action;
   recipe_function* const group_recipe   = &group_action;
+  recipe_function* const inner_recipe   = &execute_inner;
 }

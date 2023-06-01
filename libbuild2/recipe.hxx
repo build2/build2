@@ -49,6 +49,7 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern recipe_function* const noop_recipe;
   LIBBUILD2_SYMEXPORT extern recipe_function* const default_recipe;
   LIBBUILD2_SYMEXPORT extern recipe_function* const group_recipe;
+  LIBBUILD2_SYMEXPORT extern recipe_function* const inner_recipe;
 }
 
 #endif // LIBBUILD2_RECIPE_HXX

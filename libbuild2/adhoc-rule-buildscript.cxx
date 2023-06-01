@@ -319,7 +319,7 @@ namespace build2
     if (a.outer ())
     {
       match_inner (a, t);
-      return execute_inner;
+      return inner_recipe;
     }
 
     context& ctx (t.ctx);

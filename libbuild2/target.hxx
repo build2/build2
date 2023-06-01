@@ -938,7 +938,7 @@ namespace build2
     // resolve_members_impl() for background). Note that a rule should not
     // store targets that are semantically prerequisites in an ad hoc manner
     // (e.g., in match data) with a few well-known execeptions (see
-    // group_action and execute_inner).
+    // group_recipe and inner_recipe).
     //
     // Note that the recipe may modify this list. @@ TMP TSAN issue
     //

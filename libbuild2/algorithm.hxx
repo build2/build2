@@ -430,7 +430,8 @@ namespace build2
   match_inc_dependents (action, const target&);
 
   // Match (synchronously) a rule for the inner operation from withing the
-  // outer rule's apply() function. See also the companion execute_inner().
+  // outer rule's apply() function. See also the companion execute_inner()
+  // and inner_recipe.
   //
   target_state
   match_inner (action, const target&);
@@ -604,7 +605,8 @@ namespace build2
   // Note that the returned target state is for the inner operation. The
   // appropriate usage is to call this function from the outer operation's
   // recipe and to factor the obtained state into the one returned (similar to
-  // how we do it for prerequisites).
+  // how we do it for prerequisites). Or, if factoring is not needed, simply
+  // return inner_recipe as outer recipe.
   //
   // Note: waits for the completion if the target is busy and translates
   // target_state::failed to the failed exception.

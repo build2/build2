@@ -845,7 +845,7 @@ namespace build2
   }
 
   inline target_state
-  execute_inner (action a, const target& t) // @@ TMP Why inline (used as recipe)?
+  execute_inner (action a, const target& t)
   {
     assert (a.outer ());
     return execute_sync (a.inner_action (), t);

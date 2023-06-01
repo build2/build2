@@ -803,7 +803,7 @@ namespace build2
       // @@ There are special recipes that don't populate prerequisite_targets
       //    like group_recipe! Are we banning any user-defined such recipes?
       //    Need to actually look if we have anything else like this. There
-      //    is also execute_inner, though doesn't apply here (only for outer).
+      //    is also inner_recipe, though doesn't apply here (only for outer).
       //
       // @@ TMP: do and enable after the 0.16.0 release.
       //
