@@ -1472,9 +1472,7 @@ namespace build2
   }
 
   include_type
-  include (action, const target&,
-           const prerequisite_member&,
-           lookup* = nullptr);
+  include (action, const target&, const prerequisite_member&, lookup* = nullptr);
 
   // A "range" that presents a sequence of prerequisites (e.g., from
   // group_prerequisites()) as a sequence of prerequisite_member's. For each

@@ -566,16 +566,25 @@ namespace build2
     context& ctx (t.ctx);
 
     include_type r (include_type::normal);
-
-    if (const string* v = cast_null<string> (p.vars[ctx.var_include]))
     {
-      if      (*v == "false")   r = include_type::excluded;
-      else if (*v == "true")    r = include_type::normal;
-      else if (*v == "adhoc")   r = include_type::adhoc;
-      else if (*v == "posthoc") r = include_type::posthoc;
-      else
-        fail << "invalid " << *ctx.var_include << " variable value "
-             << "'" << *v << "' specified for prerequisite " << p;
+      lookup l (p.vars[ctx.var_include]);
+
+      if (l.defined ())
+      {
+        if (l->null)
+          fail << "null " << *ctx.var_include << " variable value specified "
+               << "for prerequisite " << p;
+
+        const string& v (cast<string> (*l));
+
+        if      (v == "false")   r = include_type::excluded;
+        else if (v == "true")    r = include_type::normal;
+        else if (v == "adhoc")   r = include_type::adhoc;
+        else if (v == "posthoc") r = include_type::posthoc;
+        else
+          fail << "invalid " << *ctx.var_include << " variable value '"
+               << v << "' specified for prerequisite " << p;
+      }
     }
 
     // Handle operation-specific override (see var_include documentation
@@ -601,31 +610,40 @@ namespace build2
          ? ctx.current_outer_oif
          : ctx.current_inner_oif)->id].ovar;
 
-      if (ovar != nullptr && (l = p.vars[*ovar]))
+      if (ovar != nullptr)
       {
-        // Maybe we should optimize this for the common cases (bool, path,
-        // name)? But then again we don't expect many such overrides. Plus
-        // will complicate the diagnostics below.
-        //
-        ns = reverse (*l, storage, true /* reduce */);
+        l = p.vars[*ovar];
 
-        if (ns.size () == 1)
+        if (l.defined ())
         {
-          const name& n (ns[0]);
+          if (l->null)
+            fail << "null " << *ovar << " variable value specified for "
+                 << "prerequisite " << p;
 
-          if (n.simple ())
+          // Maybe we should optimize this for the common cases (bool, path,
+          // name)? But then again we don't expect many such overrides. Plus
+          // will complicate the diagnostics below.
+          //
+          ns = reverse (*l, storage, true /* reduce */);
+
+          if (ns.size () == 1)
           {
-            const string& v (n.value);
+            const name& n (ns[0]);
 
-            if (v == "false")
-              r1 = false;
-            else if (v == "true")
-              r1 = true;
+            if (n.simple ())
+            {
+              const string& v (n.value);
+
+              if (v == "false")
+                r1 = false;
+              else if (v == "true")
+                r1 = true;
+            }
           }
-        }
 
-        if (r1 && !*r1)
-          r = include_type::excluded;
+          if (r1 && !*r1)
+            r = include_type::excluded;
+        }
       }
     }
 
@@ -646,8 +664,8 @@ namespace build2
         // Note: we have to delay this until the meta-operation callback above
         // had a chance to override it.
         //
-        fail << "unrecognized " << *ovar << " variable value "
-             << "'" << ns << "' specified for prerequisite " << p;
+        fail << "unrecognized " << *ovar << " variable value '" << ns
+             << "' specified for prerequisite " << p;
       }
     }
 
