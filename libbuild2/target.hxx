@@ -479,7 +479,8 @@ namespace build2
 
   public:
     // Normally you should not call this function directly and rather use
-    // resolve_members() from <libbuild2/algorithm.hxx>.
+    // resolve_members() from <libbuild2/algorithm.hxx>. Note that action
+    // is always inner.
     //
     virtual group_view
     group_members (action) const;
@@ -779,6 +780,12 @@ namespace build2
       //
       target_state state;
 
+      // Set to true (only for the inner action) if this target has been
+      // matched but not executed as a result of the resolve_members() call.
+      // See also context::resolve_count.
+      //
+      bool resolve_counted;
+
       // Rule-specific variables.
       //
       // The rule (for this action) has to be matched before these variables
@@ -922,12 +929,18 @@ namespace build2
     // NULL means the target should be skipped (or the rule may simply not add
     // such a target to the list).
     //
-    // Note also that it is possible the target can vary from action to
-    // action, just like recipes. We don't need to keep track of the action
-    // here since the targets will be updated if the recipe is updated,
-    // normally as part of rule::apply().
+    // A rule should make sure that the target's prerequisite_targets are in
+    // the "canonical" form (that is, all the prerequisites that need to be
+    // executed are present with prerequisite_target::target pointing to the
+    // corresponding target). This is relied upon in a number of places,
+    // including in dump and to be able to pretend-execute the operation on
+    // this target without actually calling the recipe (see perform_execute(),
+    // resolve_members_impl() for background). Note that a rule should not
+    // store targets that are semantically prerequisites in an ad hoc manner
+    // (e.g., in match data) with a few well-known execeptions (see
+    // group_action and execute_inner).
     //
-    // Note that the recipe may modify this list.
+    // Note that the recipe may modify this list. @@ TMP TSAN issue
     //
     mutable action_state<build2::prerequisite_targets> prerequisite_targets;
 
@@ -1080,14 +1093,6 @@ namespace build2
     data (action a) const
     {
       return *state[a].recipe.target<T> ();
-    }
-
-    void
-    clear_data (action a) const
-    {
-      const opstate& s (state[a]);
-      s.recipe = nullptr;
-      s.recipe_keep = false;
     }
 
     // Target type info and casting.

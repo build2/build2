@@ -1904,6 +1904,8 @@ namespace build2
   //
   // See also environment::set_special_variables().
   //
+  // See also perform_execute() which has to deal with these shenanigans.
+  //
   optional<target_state> adhoc_buildscript_rule::
   execute_update_prerequisites (action a, const target& t, timestamp mt) const
   {

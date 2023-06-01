@@ -18,6 +18,10 @@
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#if 0
+#include <libbuild2/adhoc-rule-buildscript.hxx> // @@ For a hack below.
+#endif
+
 using namespace std;
 using namespace butl;
 
@@ -762,53 +766,189 @@ namespace build2
       throw failed ();
 
 #ifndef NDEBUG
+    size_t base (ctx.count_base ());
+
     // For now we disable these checks if we've performed any group member
     // resolutions that required a match (with apply()) but not execute.
     //
-    if (ctx.resolve_count.load (memory_order_relaxed) == 0)
+    if (ctx.target_count.load (memory_order_relaxed) != 0 &&
+        ctx.resolve_count.load (memory_order_relaxed) != 0)
     {
-      // We should have executed every target that we matched, provided we
-      // haven't failed (in which case we could have bailed out early).
+      // These counts are only tracked for the inner operation.
       //
-      assert (ctx.target_count.load (memory_order_relaxed) == 0);
+      action ia (a.outer () ? a.inner_action () : a);
 
-      if (ctx.dependency_count.load (memory_order_relaxed) != 0)
+      // While it may seem that just decrementing the counters for every
+      // target with the resolve_counted flag set should be enough, this will
+      // miss any prerequisites that this target has matched but did not
+      // execute, which may affect both task_count and dependency_count. Note
+      // that this applies recursively and we effectively need to pretend to
+      // execute this target and all its prerequisites, recursively without
+      // actually executing any of their recepies.
+      //
+      // That last bit means we must be able to interpret the populated
+      // prerequisite_targets generically, which is a requirement we place on
+      // rules that resolve groups in apply (see target::group_members() for
+      // details). It so happens that our own adhoc_buildscript_rule doesn't
+      // follow this rule (see execute_update_prerequisites()) so we detect
+      // and handle this with a hack.
+      //
+      // @@ Hm, but there is no guarantee that this holds recursively since
+      // prerequisites may not be see-through groups. For this to work we
+      // would have to impose this restriction globally. Which we could
+      // probably do, just need to audit things carefully (especially
+      // cc::link_rule). But we already sort of rely on that for dump! Maybe
+      // should just require it everywhere and fix adhoc_buildscript_rule.
+      //
+      // @@ There are special recipes that don't populate prerequisite_targets
+      //    like group_recipe! Are we banning any user-defined such recipes?
+      //    Need to actually look if we have anything else like this. There
+      //    is also execute_inner, though doesn't apply here (only for outer).
+      //
+      // @@ TMP: do and enable after the 0.16.0 release.
+      //
+      // Note: recursive lambda.
+      //
+#if 0
+      auto pretend_execute = [base, ia] (target& t,
+                                         const auto& pretend_execute) -> void
       {
-        auto dependents = [base = ctx.count_base ()] (action a,
-                                                      const target& t)
+        context& ctx (t.ctx);
+
+        // Note: tries to emulate the execute_impl() functions semantics.
+        //
+        auto execute_impl = [base, ia, &ctx, &pretend_execute] (target& t)
         {
-          const target::opstate& s (t.state[a]);
+          target::opstate& s (t.state[ia]);
 
-          // Only consider targets that have been matched for this operation
-          // (since matching is what causes the dependents count reset).
+          size_t gd (ctx.dependency_count.fetch_sub (1, memory_order_relaxed));
+          size_t td (s.dependents.fetch_sub (1, memory_order_release));
+          assert (td != 0 && gd != 0);
+
+          // Execute unless already executed.
           //
-          size_t c (s.task_count.load (memory_order_relaxed) - base);
-
-          return (c >= target::offset_applied
-                  ? s.dependents.load (memory_order_relaxed)
-                  : 0);
+          if (s.task_count.load (memory_order_relaxed) - base !=
+              target::offset_executed)
+            pretend_execute (t, pretend_execute);
         };
 
-        diag_record dr;
-        dr << info << "detected unexecuted matched targets:";
+        target::opstate& s (t.state[ia]);
 
-        for (const auto& pt: ctx.targets)
+        if (s.state != target_state::unchanged) // Noop recipe.
         {
-          const target& t (*pt);
-
-          if (size_t n = dependents (a, t))
-            dr << text << t << ' ' << n;
-
-          if (a.outer ())
+          if (s.recipe_group_action)
           {
-            if (size_t n = dependents (a.inner_action (), t))
-              dr << text << t << ' ' << n;
+            execute_impl (const_cast<target&> (*t.group));
           }
+          else
+          {
+            // @@ Special hack for adhoc_buildscript_rule (remember to drop
+            //    include above if getting rid of).
+            //
+            bool adhoc (
+              ia == perform_update_id &&
+              s.rule != nullptr       &&
+              dynamic_cast<const adhoc_buildscript_rule*> (
+                &s.rule->second.get ()) != nullptr);
+
+            for (const prerequisite_target& p: t.prerequisite_targets[ia])
+            {
+              const target* pt;
+
+              if (adhoc)
+                pt = (p.target != nullptr ? p.target :
+                      p.adhoc ()          ? reinterpret_cast<target*> (p.data) :
+                      nullptr);
+              else
+                pt = p.target;
+
+              if (pt != nullptr)
+                execute_impl (const_cast<target&> (*pt));
+            }
+
+            ctx.target_count.fetch_sub (1, memory_order_relaxed);
+            if (s.resolve_counted)
+            {
+              s.resolve_counted = false;
+              ctx.resolve_count.fetch_sub (1, memory_order_relaxed);
+            }
+          }
+
+          s.state = target_state::changed;
+        }
+
+        s.task_count.store (base + target::offset_executed,
+                            memory_order_relaxed);
+      };
+#endif
+
+      for (const auto& pt: ctx.targets)
+      {
+        target& t (*pt);
+        target::opstate& s (t.state[ia]);
+
+        // We are only interested in the targets that have been matched for
+        // this operation and are in the applied state.
+        //
+        if (s.task_count.load (memory_order_relaxed) - base !=
+            target::offset_applied)
+          continue;
+
+        if (s.resolve_counted)
+        {
+#if 0
+          pretend_execute (t, pretend_execute);
+
+          if (ctx.resolve_count.load (memory_order_relaxed) == 0)
+            break;
+#else
+          return; // Skip all the below checks.
+#endif
         }
       }
-
-      assert (ctx.dependency_count.load (memory_order_relaxed) == 0);
     }
+
+    // We should have executed every target that we have matched, provided we
+    // haven't failed (in which case we could have bailed out early).
+    //
+    assert (ctx.target_count.load (memory_order_relaxed) == 0);
+    assert (ctx.resolve_count.load (memory_order_relaxed) == 0); // Sanity check.
+
+    if (ctx.dependency_count.load (memory_order_relaxed) != 0)
+    {
+      auto dependents = [base] (action a, const target& t)
+      {
+        const target::opstate& s (t.state[a]);
+
+        // Only consider targets that have been matched for this operation
+        // (since matching is what causes the dependents count reset).
+        //
+        size_t c (s.task_count.load (memory_order_relaxed) - base);
+
+        return (c >= target::offset_applied
+                ? s.dependents.load (memory_order_relaxed)
+                : 0);
+      };
+
+      diag_record dr;
+      dr << info << "detected unexecuted matched targets:";
+
+      for (const auto& pt: ctx.targets)
+      {
+        const target& t (*pt);
+
+        if (size_t n = dependents (a, t))
+          dr << text << t << ' ' << n;
+
+        if (a.outer ())
+        {
+          if (size_t n = dependents (a.inner_action (), t))
+            dr << text << t << ' ' << n;
+        }
+      }
+    }
+
+    assert (ctx.dependency_count.load (memory_order_relaxed) == 0);
 #endif
   }
 

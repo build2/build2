@@ -406,7 +406,8 @@ namespace build2
     // skipped executing the operation, then it should increment the skip
     // count. These two counters are used for progress monitoring and
     // diagnostics. The resolve count keeps track of the number of targets
-    // matched but not executed as a result of the resolve_members() calls.
+    // matched but not executed as a result of the resolve_members() calls
+    // (see also target::resolve_counted).
     //
     atomic_count dependency_count;
     atomic_count target_count;

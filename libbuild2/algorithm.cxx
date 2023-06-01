@@ -1270,6 +1270,8 @@ namespace build2
   static group_view
   resolve_members_impl (action a, const target& g, target_lock&& l)
   {
+    assert (a.inner ());
+
     // Note that we will be unlocked if the target is already applied.
     //
     group_view r;
@@ -1296,27 +1298,6 @@ namespace build2
       // Fall through.
     case target::offset_matched:
       {
-        // @@ Doing match without execute messes up our target_count. Does
-        //    not seem like it will be easy to fix (we don't know whether
-        //    someone else will execute this target).
-        //
-        //    What if we always do match & execute together? After all,
-        //    if a group can be resolved in apply(), then it can be
-        //    resolved in match()! Feels a bit drastic.
-        //
-        //    But, this won't be a problem if the target returns noop_recipe.
-        //    And perhaps it's correct to fail if it's not noop_recipe but
-        //    nobody executed it? Maybe not.
-        //
-        //    Another option would be to have a count for such "matched but
-        //    may not be executed" targets and then make sure target_count
-        //    is less than that at the end. Though this definitelt makes it
-        //    less exact (since we can end up executed this target but not
-        //    some other). Maybe we can increment and decrement such targets
-        //    in a separate count (i.e., mark their recipe as special or some
-        //    such).
-        //
-
         // Apply (locked).
         //
         pair<bool, target_state> s (match_impl (l, true /* step */));
@@ -1333,7 +1314,40 @@ namespace build2
 
         if ((r = g.group_members (a)).members != nullptr)
         {
-          g.ctx.resolve_count.fetch_add (1, memory_order_relaxed);
+          // Doing match without execute messes up our target_count. There
+          // doesn't seem to be a clean way to solve this. Well, just always
+          // executing if we've done the match would have been clean but quite
+          // heavy-handed (it would be especially surprising if otherwise
+          // there is nothing else to do, which can happen, for example,
+          // during update-for-test when there are no tests to run).
+          //
+          // So our solution is as follows:
+          //
+          // 1. Keep track both of the targets that ended up in this situation
+          //    (the target::resolve_counted flag) as well as their total
+          //    count (the context::resolve_count member). Only do this if
+          //    set_recipe() (called by match_impl()) would have incremented
+          //    target_count.
+          //
+          // 2. If we happen to execute such a target (common case), then
+          //    clear the flag and decrement the count.
+          //
+          // 3. When it's time to assert that target_count==0 (i.e., all the
+          //    matched targets have been executed), check if resolve_count is
+          //    0. If it's not, then find every target with the flag set,
+          //    pretend-execute it, and decrement both counts. See
+          //    perform_execute() for further details on this step.
+          //
+          if (s.second != target_state::unchanged)
+          {
+            target::opstate& s (l.target->state[a]); // Inner.
+
+            if (!s.recipe_group_action)
+            {
+              s.resolve_counted = true;
+              g.ctx.resolve_count.fetch_add (1, memory_order_relaxed);
+            }
+          }
           break;
         }
 
@@ -1409,6 +1423,8 @@ namespace build2
   void
   resolve_group_impl (action a, const target& t, target_lock&& l)
   {
+    assert (a.inner ());
+
     pair<bool, target_state> r (
       match_impl (l, true /* step */, true /* try_match */));
 
@@ -2496,7 +2512,17 @@ namespace build2
     // postponment logic (see excute_recipe() for details).
     //
     if (a.inner () && !s.recipe_group_action)
+    {
+      // See resolve_members_impl() for background.
+      //
+      if (s.resolve_counted)
+      {
+        s.resolve_counted = false;
+        ctx.resolve_count.fetch_sub (1, memory_order_relaxed);
+      }
+
       ctx.target_count.fetch_sub (1, memory_order_relaxed);
+    }
 
     // Decrement the task count (to count_executed) and wake up any threads
     // that might be waiting for this target.
@@ -2516,6 +2542,8 @@ namespace build2
                 size_t start_count,
                 atomic_count* task_count)
   {
+    // NOTE: see also pretend_execute lambda in perform_execute().
+
     target& t (const_cast<target&> (ct)); // MT-aware.
     target::opstate& s (t[a]);
 

@@ -508,9 +508,9 @@ namespace build2
   // ((prerequisite_target::include & mask) == value) condition.
   //
   LIBBUILD2_SYMEXPORT void
-  match_members (action a,
-                 const target& t,
-                 prerequisite_targets& ts,
+  match_members (action,
+                 const target&,
+                 prerequisite_targets&,
                  size_t start = 0,
                  pair<uintptr_t, uintptr_t> include = {0, 0});
 

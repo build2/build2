@@ -535,9 +535,12 @@ namespace build2
   inline void
   clear_target (action a, target& t)
   {
-    t[a].vars.clear ();
+    target::opstate& s (t.state[a]);
+    s.recipe = nullptr;
+    s.recipe_keep = false;
+    s.resolve_counted = false;
+    s.vars.clear ();
     t.prerequisite_targets[a].clear ();
-    t.clear_data (a);
   }
 
   LIBBUILD2_SYMEXPORT void
@@ -842,7 +845,7 @@ namespace build2
   }
 
   inline target_state
-  execute_inner (action a, const target& t)
+  execute_inner (action a, const target& t) // @@ TMP Why inline (used as recipe)?
   {
     assert (a.outer ());
     return execute_sync (a.inner_action (), t);
