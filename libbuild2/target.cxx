@@ -572,18 +572,26 @@ namespace build2
       if (l.defined ())
       {
         if (l->null)
-          fail << "null " << *ctx.var_include << " variable value specified "
-               << "for prerequisite " << p;
-
-        const string& v (cast<string> (*l));
-
-        if      (v == "false")   r = include_type::excluded;
-        else if (v == "true")    r = include_type::normal;
-        else if (v == "adhoc")   r = include_type::adhoc;
-        else if (v == "posthoc") r = include_type::posthoc;
+        {
+          // @@ TMP (added in 0.16.0).
+          //
+          warn << "null " << *ctx.var_include << " variable value specified "
+               << "for prerequisite " << p <<
+            info << "treated as undefined for backwards compatibility" <<
+            info << "this warning will become error in the future";
+        }
         else
-          fail << "invalid " << *ctx.var_include << " variable value '"
-               << v << "' specified for prerequisite " << p;
+        {
+          const string& v (cast<string> (*l));
+
+          if      (v == "false")   r = include_type::excluded;
+          else if (v == "true")    r = include_type::normal;
+          else if (v == "adhoc")   r = include_type::adhoc;
+          else if (v == "posthoc") r = include_type::posthoc;
+          else
+            fail << "invalid " << *ctx.var_include << " variable value '"
+                 << v << "' specified for prerequisite " << p;
+        }
       }
     }
 
