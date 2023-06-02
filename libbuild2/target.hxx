@@ -940,7 +940,11 @@ namespace build2
     // (e.g., in match data) with a few well-known execeptions (see
     // group_recipe and inner_recipe).
     //
-    // Note that the recipe may modify this list. @@ TMP TSAN issue
+    // Note that the recipe may modify this list during execute. Normally this
+    // would be just blanking out of ad hoc prerequisites, in which case check
+    // for ad hoc first and for not NULL second if accessing prerequisites of
+    // targets that you did not execute (see the library metadata protocol in
+    // cc for an example).
     //
     mutable action_state<build2::prerequisite_targets> prerequisite_targets;
 
