@@ -1007,6 +1007,12 @@ namespace build2
             // to match it if we may need its modules or importable headers
             // (see search_modules(), make_header_sidebuild() for details).
             //
+            // Well, that was the case until we've added support for immediate
+            // importation of libraries, which happens during the load phase
+            // and natually leaves the library unmatched. While we could have
+            // returned from search_library() an indication of whether the
+            // library has been matched, this doesn't seem worth the trouble.
+            //
             if (p.proj ())
             {
               pt = search_library (a,
@@ -1014,8 +1020,10 @@ namespace build2
                                    usr_lib_dirs,
                                    p.prerequisite);
 
+#if 0
               if (pt != nullptr && !modules)
                 continue;
+#endif
             }
 
             if (pt == nullptr)
