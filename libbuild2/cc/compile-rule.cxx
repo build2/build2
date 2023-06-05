@@ -7069,6 +7069,46 @@ namespace build2
         {
           append_options (args, cmode);
 
+          // Clang 15 introduced the unqualified-std-cast-call warning which
+          // warns about unqualified calls to std::move() and std::forward()
+          // (because they can be "hijacked" via ADL). Surprisingly, this
+          // warning is enabled by default, as opposed to with -Wextra or at
+          // least -Wall. It has also proven to be quite disruptive, causing a
+          // large number of warnings in a large number of packages. So we are
+          // going to "remap" it to -Wextra for now and in the future may
+          // "relax" it to -Wall and potentially to being enabled by default.
+          // See GitHub issue #259 for background and details.
+          //
+          if (x_lang == lang::cxx           &&
+              ctype == compiler_type::clang &&
+              cmaj >= 15)
+          {
+            bool w (false);       // Seen -W[no-]unqualified-std-cast-call
+            optional<bool> extra; // Seen -W[no-]extra
+
+            for (const char* s: reverse_iterate (args))
+            {
+              if (s != nullptr)
+              {
+                if (strcmp (s, "-Wunqualified-std-cast-call") == 0 ||
+                    strcmp (s, "-Wno-unqualified-std-cast-call") == 0)
+                {
+                  w = true;
+                  break;
+                }
+
+                if (!extra) // Last seen option wins.
+                {
+                  if      (strcmp (s, "-Wextra") == 0) extra = true;
+                  else if (strcmp (s, "-Wno-extra") == 0) extra = false;
+                }
+              }
+            }
+
+            if (!w && (!extra || !*extra))
+              args.push_back ("-Wno-unqualified-std-cast-call");
+          }
+
           if (md.pp != preprocessed::all)
             append_sys_hdr_options (args); // Extra system header dirs (last).
 
