@@ -48,9 +48,11 @@ EOI
 print ($cxx.features.modules && $cxx.id == 'gcc')
 EOI
 
-# @@ TMP: modules support is completely broken in MinGW GCC 11.x.
+# @@ TMP: modules support is broken in MinGW GCC (symexport).
 #
+#\
 if ($cxx.target.class == 'windows' && $cxx.id == 'gcc')
   modules = false
   headers = false
 end
+#\
