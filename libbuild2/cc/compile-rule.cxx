@@ -1943,23 +1943,211 @@ namespace build2
       for (size_t i (0); i != batch_n; ++i)
       {
         string& r (batch[i]);
+        size_t rn (r.size ());
 
-        // @@ TODO: quoting and escaping.
+        // The protocol uses a peculiar quoting/escaping scheme that can be
+        // summarized as follows (see the libcody documentation for details):
         //
-        size_t b (0), e (0), n; // Next word.
+        // - Words are seperated with spaces and/or tabs.
+        //
+        // - Words need not be quoted if they only containing characters from
+        //   the [-+_/%.A-Za-z0-9] set.
+        //
+        // - Otherwise words need to be single-quoted.
+        //
+        // - Inside single-quoted words, the \n \t \' and \\ escape sequences
+        //   are recognized.
+        //
+        // Note that we currently don't treat abutted quotes (as in a' 'b) as
+        // a single word (it doesn't seem plausible that we will ever receive
+        // something like this).
+        //
+        size_t b (0), e (0), n; bool q; // Next word.
 
-        auto next = [&r, &b, &e, &n] () -> size_t
+        auto next = [&r, rn, &b, &e, &n, &q] () -> size_t
         {
-          return (n = next_word (r, b, e, ' ', '\t'));
+          if (b != e)
+            b = e;
+
+          // Skip leading whitespaces.
+          //
+          for (; b != rn && (r[b] == ' ' || r[b] == '\t'); ++b) ;
+
+          if (b != rn)
+          {
+            q = (r[b] == '\'');
+
+            // Find first trailing whitespace or closing quote.
+            //
+            for (e = b + 1; e != rn; ++e)
+            {
+              // Note that we deal with invalid quoting/escaping in unquote().
+              //
+              switch (r[e])
+              {
+              case ' ':
+              case '\t':
+                if (q)
+                  continue;
+                else
+                  break;
+              case '\'':
+                if (q)
+                {
+                  ++e; // Include closing quote (hopefully).
+                  break;
+                }
+                else
+                {
+                  assert (false); // Abutted quote.
+                  break;
+                }
+              case '\\':
+                if (++e != rn) // Skip next character (hopefully).
+                  continue;
+                else
+                  break;
+              default:
+                continue;
+              }
+
+              break;
+            }
+
+            n = e - b;
+          }
+          else
+          {
+            q = false;
+            e = rn;
+            n = 0;
+          }
+
+          return n;
         };
+
+        // Unquote into tmp the current word returning false if malformed.
+        //
+        auto unquote = [&r, &b, &n, &q, &tmp] (bool clear = true) -> bool
+        {
+          if (q && n > 1)
+          {
+            size_t e (b + n - 1);
+
+            if (r[b] == '\'' && r[e] == '\'')
+            {
+              if (clear)
+                tmp.clear ();
+
+              size_t i (b + 1);
+              for (; i != e; ++i)
+              {
+                char c (r[i]);
+                if (c == '\\')
+                {
+                  if (++i == e)
+                  {
+                    i = 0;
+                    break;
+                  }
+
+                  c = r[i];
+                  if      (c == 'n') c = '\n';
+                  else if (c == 't') c = '\t';
+                }
+                tmp += c;
+              }
+
+              if (i == e)
+                return true;
+            }
+          }
+
+          return false;
+        };
+
+#if 0
+#define UNQUOTE(x, y)                     \
+        r = x; rn = r.size (); b = e = 0; \
+        assert (next () && unquote () && tmp == y)
+
+        UNQUOTE ("'foo bar'", "foo bar");
+        UNQUOTE (" 'foo bar' ", "foo bar");
+        UNQUOTE ("'foo\\\\bar'", "foo\\bar");
+        UNQUOTE ("'\\'foo bar'", "'foo bar");
+        UNQUOTE ("'foo bar\\''", "foo bar'");
+        UNQUOTE ("'\\'foo\\\\bar\\''", "'foo\\bar'");
+
+        fail << "all good";
+#endif
+
+        // Escape if necessary the specified string and append to r.
+        //
+        auto escape = [&r] (const string& s)
+        {
+          size_t b (0), e, n (s.size ());
+          while (b != n && (e = s.find_first_of ("\\'\n\t", b)) != string::npos)
+          {
+            r.append (s, b, e - b); // Preceding chunk.
+
+            char c (s[e]);
+            r += '\\';
+            r += (c == '\n' ? 'n' : c == '\t' ? 't' : c);
+            b = e + 1;
+          }
+
+          if (b != n)
+            r.append (s, b, e); // Final chunk.
+        };
+
+        // Quote and escape if necessary the specified string and append to r.
+        //
+        auto quote = [&r, &escape] (const string& s)
+        {
+          if (find_if (s.begin (), s.end (),
+                       [] (char c)
+                       {
+                         return !((c >= 'a' && c <= 'z') ||
+                                  (c >= '0' && c <= '9') ||
+                                  (c >= 'A' && c <= 'Z') ||
+                                  c == '-' || c == '_' || c == '/' ||
+                                  c == '.' || c == '+' || c == '%');
+                       }) == s.end ())
+          {
+            r += s;
+          }
+          else
+          {
+            r += '\'';
+            escape (s);
+            r += '\'';
+          }
+        };
+
+#if 0
+#define QUOTE(x, y)            \
+        r.clear (); quote (x); \
+        assert (r == y)
+
+        QUOTE ("foo/Bar-7.h", "foo/Bar-7.h");
+
+        QUOTE ("foo bar", "'foo bar'");
+        QUOTE ("foo\\bar", "'foo\\\\bar'");
+        QUOTE ("'foo bar", "'\\'foo bar'");
+        QUOTE ("foo bar'", "'foo bar\\''");
+        QUOTE ("'foo\\bar'", "'\\'foo\\\\bar\\''");
+
+        fail << "all good";
+#endif
 
         next (); // Request name.
 
-        auto name = [&r, b, n] (const char* c) -> bool
+        auto name = [&r, b, n, q] (const char* c) -> bool
         {
           // We can reasonably assume a command will never be quoted.
           //
-          return (r.compare (b, n, c) == 0 &&
+          return (!q                       &&
+                  r.compare (b, n, c) == 0 &&
                   (r[n] == ' '  || r[n] == '\t' || r[n] == '\0'));
         };
 
@@ -2008,7 +2196,17 @@ namespace build2
 
           if (next ())
           {
-            path f (r, b, n);
+            path f;
+            if (!q)
+              f = path (r, b, n);
+            else if (unquote ())
+              f = path (tmp);
+            else
+            {
+              r = "ERROR 'malformed quoting/escaping in request'";
+              continue;
+            }
+
             bool exists (true);
 
             // The TU path we pass to the compiler is always absolute so any
@@ -2019,8 +2217,9 @@ namespace build2
             //
             if (exists && f.relative ())
             {
-              tmp.assign (r, b, n);
-              r = "ERROR 'relative header path "; r += tmp; r += '\'';
+              r = "ERROR 'relative header path ";
+              escape (f.string ());
+              r += '\'';
               continue;
             }
 
@@ -2128,7 +2327,7 @@ namespace build2
               // Note: if ht is NULL, f is still valid.
               //
               r = "ERROR 'unable to update header ";
-              r += (ht != nullptr ? ht->path () : f).string ();
+              escape ((ht != nullptr ? ht->path () : f).string ());
               r += '\'';
               continue;
             }
@@ -2263,17 +2462,27 @@ namespace build2
                   // original (which we may need to normalize when we read
                   // this mapping in extract_headers()).
                   //
-                  tmp = "@ "; tmp.append (r, b, n); tmp += ' '; tmp += bp;
+                  // @@ This still breaks if the header path contains spaces.
+                  //    GCC bug 110153.
+                  //
+                  tmp = "@ ";
+                  if (!q) tmp.append (r, b, n);
+                  else    unquote (false /* clear */); // Can't fail.
+                  tmp += ' ';
+                  tmp += bp;
+
                   dd.expect (tmp);
                   st.header_units++;
                 }
 
-                r = "PATHNAME "; r += bp;
+                r = "PATHNAME ";
+                quote (bp);
               }
               catch (const failed&)
               {
                 r = "ERROR 'unable to update header unit for ";
-                r += hs; r += '\'';
+                escape (hs);
+                r += '\'';
                 continue;
               }
             }
@@ -2299,7 +2508,7 @@ namespace build2
         // Truncate the response batch and terminate the communication (see
         // also libcody issue #22).
         //
-        tmp.assign (r, b, n);
+        tmp.assign (r, b, n); // Request name (unquoted).
         r = "ERROR '"; r += w; r += ' '; r += tmp; r += '\'';
         batch_n = i + 1;
         term = true;
