@@ -57,10 +57,10 @@ namespace build2
     assert (t.ctx.phase == run_phase::match);
 
     // If this is a project-qualified prerequisite, then this is import's
-    // business.
+    // business (phase 2).
     //
     if (pk.proj)
-      return import (t.ctx, pk);
+      return import2 (t.ctx, pk);
 
     if (const target* pt = pk.tk.type->search (t, pk))
       return *pt;

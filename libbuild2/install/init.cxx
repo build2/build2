@@ -260,7 +260,7 @@ namespace build2
       // way we distinguish between the two is via the presence/absence of
       // the trailing directory separator.
       //
-      // Plus it can have the special true/false values when acting as a
+      // Plus it can have the special true/false values when acting as an
       // operation variable.
       //
       auto& ovar (rs.var_pool ().insert<path> ("install",
@@ -299,6 +299,7 @@ namespace build2
     DIR (include_arch,  dir_path ("include"));
     DIR (share,         dir_path ("data_root") /= "share");
     DIR (data,         (dir_path ("share")     /= "<private>") /= "<project>");
+    DIR (buildfile,   ((dir_path ("share") /= "build2") /= "export") /= "<project>");
 
     DIR (doc,         ((dir_path ("share")     /= "doc") /= "<private>") /= "<project>");
     DIR (legal,         dir_path ("doc"));
@@ -701,6 +702,7 @@ namespace build2
         set_dir (s, p, rs, "include_arch", dir_include_arch);
         set_dir (s, p, rs, "share",        dir_share);
         set_dir (s, p, rs, "data",         dir_data);
+        set_dir (s, p, rs, "buildfile",    dir_buildfile);
 
         set_dir (s, p, rs, "doc",          dir_doc);
         set_dir (s, p, rs, "legal",        dir_legal);

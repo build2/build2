@@ -379,15 +379,15 @@ namespace build2
     attributes&
     attributes_top () {return attributes_.back ();}
 
-    // Source a stream optionnaly performing the default target processing.
-    // If the specified path name has a real path, then also enter it as a
-    // buildfile.
+    // Source a buildfile as a stream optionally performing the default target
+    // processing. If the specified path name has a real path, then also enter
+    // it as a buildfile.
     //
     void
-    source (istream&,
-            const path_name&,
-            const location&,
-            bool default_target);
+    source_buildfile (istream&,
+                      const path_name&,
+                      const location&,
+                      bool default_target);
 
     // The what argument is used in diagnostics (e.g., "expected <what>
     // instead of ...".
@@ -604,11 +604,11 @@ namespace build2
     switch_scope (const dir_path& out_base);
 
     void
-    process_default_target (token&);
+    process_default_target (token&, const buildfile*);
 
     // Enter buildfile as a target.
     //
-    void
+    const buildfile&
     enter_buildfile (const path&, optional<dir_path> out = nullopt);
 
     // Lexer.

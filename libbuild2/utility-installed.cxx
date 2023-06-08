@@ -14,6 +14,10 @@ namespace build2
 #ifdef BUILD2_INSTALL_LIB
   const dir_path build_install_lib (BUILD2_INSTALL_LIB);
 #endif
+
+#ifdef BUILD2_INSTALL_BUILDFILE
+  const dir_path build_install_buildfile (BUILD2_INSTALL_BUILDFILE);
+#endif
 }
 
 #endif

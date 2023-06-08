@@ -85,7 +85,8 @@ namespace build2
   {
     // Load project's root.build.
     //
-    load_root (root);
+    if (!root.root_extra->loaded)
+      load_root (root);
 
     // Create the base scope. Note that its existence doesn't mean it was
     // already setup as a base scope; it can be the same as root.

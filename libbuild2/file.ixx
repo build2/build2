@@ -22,16 +22,16 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT const target*
-  import (context&,
-          const prerequisite_key&,
-          const string& hint,
-          bool optional_,
-          const optional<string>& metadata, // False or metadata key.
-          bool existing,
-          const location&);
+  import2 (context&,
+           const prerequisite_key&,
+           const string& hint,
+           bool optional_,
+           const optional<string>& metadata, // False or metadata key.
+           bool existing,
+           const location&);
 
   inline const target&
-  import (context& ctx, const prerequisite_key& pk)
+  import2 (context& ctx, const prerequisite_key& pk)
   {
     assert (ctx.phase == run_phase::match);
 
@@ -40,7 +40,7 @@ namespace build2
     //    Looks like the only way to do this is to keep location in name and
     //    then in prerequisite. Perhaps one day...
     //
-    return *import (ctx, pk, string (), false, nullopt, false, location ());
+    return *import2 (ctx, pk, string (), false, nullopt, false, location ());
   }
 
   inline import_result<target>
@@ -98,6 +98,6 @@ namespace build2
   inline const target*
   import_existing (context& ctx, const prerequisite_key& pk)
   {
-    return import (ctx, pk, string (), false, nullopt, true, location ());
+    return import2 (ctx, pk, string (), false, nullopt, true, location ());
   }
 }

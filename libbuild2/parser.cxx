@@ -302,9 +302,9 @@ namespace build2
       ? auto_project_env (*root_)
       : auto_project_env ());
 
-    if (enter && path_->path != nullptr)
-      enter_buildfile (*path_->path);
-
+    const buildfile* bf (enter && path_->path != nullptr
+                         ? &enter_buildfile (*path_->path)
+                         : nullptr);
     token t;
     type tt;
     next (t, tt);
@@ -316,7 +316,7 @@ namespace build2
     else
     {
       parse_clause (t, tt);
-      process_default_target (t);
+      process_default_target (t, bf);
     }
 
     if (tt != type::eos)
@@ -1601,7 +1601,8 @@ namespace build2
         if (!start_names (tt))
           fail (t) << "unexpected " << t;
 
-        // @@ PAT: currently we pattern-expand target-specific var names.
+        // @@ PAT: currently we pattern-expand target-specific var names (see
+        //         also parse_import()).
         //
         const location ploc (get_location (t));
         names pns (parse_names (t, tt, pattern_mode::expand));
@@ -3140,14 +3141,18 @@ namespace build2
   }
 
   void parser::
-  source (istream& is, const path_name& in, const location& loc, bool deft)
+  source_buildfile (istream& is,
+                    const path_name& in,
+                    const location& loc,
+                    bool deft)
   {
-    tracer trace ("parser::source", &path_);
+    tracer trace ("parser::source_buildfile", &path_);
 
     l5 ([&]{trace (loc) << "entering " << in;});
 
-    if (in.path != nullptr)
-      enter_buildfile (*in.path);
+    const buildfile* bf (in.path != nullptr
+                         ? &enter_buildfile (*in.path)
+                         : nullptr);
 
     const path_name* op (path_);
     path_ = &in;
@@ -3173,7 +3178,7 @@ namespace build2
 
     if (deft)
     {
-      process_default_target (t);
+      process_default_target (t, bf);
       default_target_ = odt;
     }
 
@@ -3217,10 +3222,10 @@ namespace build2
       try
       {
         ifdstream ifs (p);
-        source (ifs,
-                path_name (p),
-                get_location (t),
-                false /* default_target */);
+        source_buildfile (ifs,
+                          path_name (p),
+                          get_location (t),
+                          false /* default_target */);
       }
       catch (const io_error& e)
       {
@@ -3350,6 +3355,8 @@ namespace build2
         continue;
       }
 
+      // Note: see a variant of this in parse_import().
+      //
       // Clear/restore if/switch location.
       //
       // We do it here but not in parse_source since the included buildfile is
@@ -3365,10 +3372,10 @@ namespace build2
       try
       {
         ifdstream ifs (p);
-        source (ifs,
-                path_name (p),
-                get_location (t),
-                true /* default_target */);
+        source_buildfile (ifs,
+                          path_name (p),
+                          get_location (t),
+                          true /* default_target */);
       }
       catch (const io_error& e)
       {
@@ -3451,10 +3458,10 @@ namespace build2
             dr << info (l) << "while parsing " << args[0] << " output";
           });
 
-        source (is,
-                path_name ("<stdout>"),
-                l,
-                false /* default_target */);
+        source_buildfile (is,
+                          path_name ("<stdout>"),
+                          l,
+                          false /* default_target */);
       }
 
       is.close (); // Detect errors.
@@ -3867,9 +3874,13 @@ namespace build2
     if (stage_ == stage::boot)
       fail (t) << "import during bootstrap";
 
-    // General import format:
+    // General import form:
     //
     // import[?!] [<attrs>] <var> = [<attrs>] (<target>|<project>%<target>])+
+    //
+    // Special form for importing buildfiles:
+    //
+    // import[?!] [<attrs>] (<target>|<project>%<target>])+
     //
     bool opt (t.value.back () == '?');
     optional<string> ph2 (opt || t.value.back () == '!'
@@ -3880,13 +3891,15 @@ namespace build2
     //
     next_with_attributes (t, tt);
 
-    // Get variable attributes, if any, and deal with the special metadata and
-    // rule_hint attributes. Since currently they can only appear in the
-    // import directive, we handle them in an ad hoc manner.
+    // Get variable (or value, in the second form) attributes, if any, and
+    // deal with the special metadata and rule_hint attributes. Since
+    // currently they can only appear in the import directive, we handle them
+    // in an ad hoc manner.
     //
     attributes_push (t, tt);
 
-    bool meta (false);
+    bool meta (false); // Import with metadata.
+    bool once (false); // Import buildfile once.
     {
       attributes& as (attributes_top ());
       const location& l (as.loc);
@@ -3903,6 +3916,10 @@ namespace build2
               info << "consider using the import! directive instead";
 
           meta = true;
+        }
+        else if (n == "once")
+        {
+          once = true;
         }
         else if (n == "rule_hint")
         {
@@ -3934,79 +3951,196 @@ namespace build2
       }
     }
 
-    if (tt != type::word)
-      fail (t) << "expected variable name instead of " << t;
-
-    const variable& var (
-      parse_variable_name (move (t.value), get_location (t)));
-    apply_variable_attributes (var);
-
-    if (var.visibility > variable_visibility::scope)
-    {
-      fail (t) << "variable " << var << " has " << var.visibility
-               << " visibility but is assigned in import";
-    }
-
-    // Next should come the assignment operator. Note that we don't support
-    // default assignment (?=) yet (could make sense when attempting to import
-    // alternatives or some such).
-    //
-    next (t, tt);
-
-    if (tt != type::assign && tt != type::append && tt != type::prepend)
-      fail (t) << "expected variable assignment instead of " << t;
-
-    type atype (tt);
-    value& val (atype == type::assign
-                ? scope_->assign (var)
-                : scope_->append (var));
-
-    // The rest should be a list of targets. Parse them similar to a value on
-    // the RHS of an assignment (attributes, etc).
+    // Note that before supporting the second form (without <var>) we used to
+    // parse the value after assignment in the value mode. However, we don't
+    // really need to since what we should have is a bunch of target names.
+    // In other words, whatever the value mode does not treat as special
+    // compared to the normal mode (like `:`) would be illegal here.
     //
     // Note that we expant patterns for the ad hoc import case:
     //
     // import sub = */
     //
-    mode (lexer_mode::value, '@');
-    next_with_attributes (t, tt);
+    // @@ PAT: the only issue here is that we currently pattern-expand var
+    //         name (same assue as with target-specific var names).
+    //
+    if (!start_names (tt))
+      fail (t) << "expected variable name or buildfile target instead of " << t;
 
-    if (tt == type::newline || tt == type::eos)
-      fail (t) << "expected target to import instead of " << t;
+    location loc (get_location (t));
+    names ns (parse_names (t, tt, pattern_mode::expand));
 
-    const location loc (get_location (t));
-
-    if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
+    // Next could come the assignment operator. Note that we don't support
+    // default assignment (?=) yet (could make sense when attempting to import
+    // alternatives or some such).
+    //
+    type atype;
+    const variable* var (nullptr);
+    if (tt == type::assign || tt == type::append || tt == type::prepend)
     {
-      names storage;
-      for (name& n: reverse (v, storage, true /* reduce */))
+      var = &parse_variable_name (move (ns), loc);
+      apply_variable_attributes (*var);
+
+      if (var->visibility > variable_visibility::scope)
       {
-        // @@ Could this be an out-qualified ad hoc import?
-        //
-        if (n.pair)
-          fail (loc) << "unexpected pair in import";
+        fail (loc) << "variable " << *var << " has " << var->visibility
+                   << " visibility but is assigned in import";
+      }
 
-        // import() will check the name, if required.
-        //
-        names r (import (*scope_, move (n), ph2, opt, meta, loc).first);
+      atype = tt;
+      next_with_attributes (t, tt);
+      attributes_push (t, tt, true /* standalone */);
 
+      if (!start_names (tt))
+        fail (t) << "expected target to import instead of " << t;
+
+      loc = get_location (t);
+      ns = parse_names (t, tt, pattern_mode::expand);
+    }
+    else if (tt == type::default_assign)
+      fail (t) << "default assignment not yet supported";
+
+
+    // If there are any value attributes, roundtrip the names through the
+    // value applying the attributes.
+    //
+    if (!attributes_top ().empty ())
+    {
+      value lhs, rhs (move (ns));
+      apply_value_attributes (nullptr, lhs, move (rhs), type::assign);
+
+      if (!lhs)
+        fail (loc) << "expected target to import instead of null value";
+
+      untypify (lhs, true /* reduce */);
+      ns = move (lhs.as<names> ());
+    }
+    else
+      attributes_pop ();
+
+    value* val (var != nullptr ?
+                &(atype == type::assign
+                  ? scope_->assign (*var)
+                  : scope_->append (*var))
+                : nullptr);
+
+    for (name& n: ns)
+    {
+      // @@ Could this be an out-qualified ad hoc import? Yes, see comment
+      //    about buildfile import in import_load().
+      //
+      if (n.pair)
+        fail (loc) << "unexpected pair in import";
+
+      // See if we are importing a buildfile target. Such an import is always
+      // immediate.
+      //
+      bool bf (n.type == "buildfile");
+      if (bf)
+      {
+        if (meta)
+          fail (loc) << "metadata requested for buildfile target " << n;
+
+        if (once && var != nullptr)
+          fail (loc) << "once importation requested with variable assignment";
+
+        if (ph2 && !ph2->empty ())
+          fail (loc) << "rule hint specified for buildfile target " << n;
+      }
+      else
+      {
+        if (once)
+          fail (loc) << "once importation requested for target " << n;
+
+        if (var == nullptr)
+          fail (loc) << "variable assignment required to import target " << n;
+      }
+
+      // import() will check the name, if required.
+      //
+      names r (import (*scope_,
+                       move (n),
+                       ph2 ? ph2 : bf ? optional<string> (string ()) : nullopt,
+                       opt,
+                       meta,
+                       loc).first);
+
+      if (val != nullptr)
+      {
         if (r.empty ()) // Optional not found.
         {
           if (atype == type::assign)
-            val = nullptr;
+            *val = nullptr;
         }
         else
         {
-          if (atype == type::assign)
-            val.assign (move (r), &var);
-          else if (atype == type::prepend)
-            val.prepend (move (r), &var);
-          else
-            val.append (move (r), &var);
+          if      (atype == type::assign)  val->assign  (move (r), var);
+          else if (atype == type::prepend) val->prepend (move (r), var);
+          else                             val->append  (move (r), var);
         }
 
         if (atype == type::assign)
           atype = type::append; // Append subsequent values.
+      }
+      else
+      {
+        assert (bf);
+
+        if (r.empty ()) // Optional not found.
+        {
+          assert (opt);
+          continue;
+        }
+
+        // Note: see also import_buildfile().
+        //
+        assert (r.size () == 1); // See import_load() for details.
+        name& n (r.front ());
+        path p (n.dir / n.value); // Should already include extension.
+
+        // Note: similar to parse_include().
+        //
+        // Nuance: we insert this buildfile even with once=false in case it
+        // gets imported with once=true from another place.
+        //
+        if (!root_->root_extra->insert_buildfile (p) && once)
+        {
+          l5 ([&]{trace (loc) << "skipping already imported " << p;});
+          continue;
+        }
+
+        // Clear/restore if/switch location.
+        //
+        auto g = make_guard ([this, old = condition_] () mutable
+                             {
+                               condition_ = old;
+                             });
+        condition_ = nullopt;
+
+        try
+        {
+          ifdstream ifs (p);
+
+          auto df = make_diag_frame (
+            [this, &loc] (const diag_record& dr)
+            {
+              dr << info (loc) << "imported from here";
+            });
+
+          // @@ Do we want to enter this buildfile? What's the harm (one
+          //    benefit is that it will be in dump). But, we currently don't
+          //    out-qualify them, though feels like there is nothing fatal
+          //    in that, just inaccurate.
+          //
+          source_buildfile (ifs,
+                            path_name (p),
+                            loc,
+                            false /* default_target */);
+        }
+        catch (const io_error& e)
+        {
+          fail (loc) << "unable to read imported buildfile " << p << ": " << e;
+        }
       }
     }
 
@@ -8910,22 +9044,26 @@ namespace build2
     return r;
   }
 
+  // file.cxx
+  //
+  extern const dir_path std_export_dir;
+  extern const dir_path alt_export_dir;
+
   void parser::
-  process_default_target (token& t)
+  process_default_target (token& t, const buildfile* bf)
   {
     tracer trace ("parser::process_default_target", &path_);
 
     // The logic is as follows: if we have an explicit current directory
-    // target, then that's the default target. Otherwise, we take the
-    // first target and use it as a prerequisite to create an implicit
-    // current directory target, effectively making it the default
-    // target via an alias. If there are no targets in this buildfile,
-    // then we don't do anything.
+    // target, then that's the default target. Otherwise, we take the first
+    // target and use it as a prerequisite to create an implicit current
+    // directory target, effectively making it the default target via an
+    // alias. If this is a project root buildfile, then also add exported
+    // buildfiles. And if there are no targets in this buildfile, then we
+    // don't do anything (reasonably assuming it's not root).
     //
     if (default_target_ == nullptr) // No targets in this buildfile.
       return;
-
-    target& dt (*default_target_);
 
     target* ct (
       const_cast<target*> (                     // Ok (serial execution).
@@ -8936,35 +9074,169 @@ namespace build2
                            nullopt,
                            trace)));
 
-    if (ct == nullptr)
-    {
-      l5 ([&]{trace (t) << "creating current directory alias for " << dt;});
-
-      // While this target is not explicitly mentioned in the buildfile, we
-      // say that we behave as if it were. Thus not implied.
-      //
-      ct = &ctx->targets.insert (dir::static_type,
-                                scope_->out_path (),
-                                dir_path (),
-                                string (),
-                                nullopt,
-                                target_decl::real,
-                                trace).first;
-      // Fall through.
-    }
-    else if (ct->decl != target_decl::real)
-    {
-      ct->decl = target_decl::real;
-      // Fall through.
-    }
+    if (ct != nullptr && ct->decl == target_decl::real)
+      ; // Existing and not implied.
     else
-      return; // Existing and not implied.
+    {
+      target& dt (*default_target_);
 
-    ct->prerequisites_state_.store (2, memory_order_relaxed);
-    ct->prerequisites_.emplace_back (prerequisite (dt));
+      if (ct == nullptr)
+      {
+        l5 ([&]{trace (t) << "creating current directory alias for " << dt;});
+
+        // While this target is not explicitly mentioned in the buildfile, we
+        // say that we behave as if it were. Thus not implied.
+        //
+        ct = &ctx->targets.insert (dir::static_type,
+                                   scope_->out_path (),
+                                   dir_path (),
+                                   string (),
+                                   nullopt,
+                                   target_decl::real,
+                                   trace).first;
+      }
+      else
+        ct->decl = target_decl::real;
+
+      ct->prerequisites_state_.store (2, memory_order_relaxed);
+      ct->prerequisites_.push_back (prerequisite (dt));
+    }
+
+    // See if this is a root buildfile and not in a simple project.
+    //
+    if (bf != nullptr                          &&
+        root_ != nullptr                       &&
+        root_->root_extra != nullptr           &&
+        root_->root_extra->loaded              &&
+        *root_->root_extra->project != nullptr &&
+        bf->dir == root_->src_path ()          &&
+        bf->name == root_->root_extra->buildfile_file.string ())
+    {
+      // See if we have any exported buildfiles.
+      //
+      const dir_path& export_dir (
+        root_->root_extra->altn ? alt_export_dir : std_export_dir);
+
+      dir_path d (root_->src_path () / export_dir);
+      if (exists (d))
+      {
+        // Make sure prerequisites are set.
+        //
+        ct->prerequisites_state_.store (2, memory_order_relaxed);
+
+        const string& build_ext (root_->root_extra->build_ext);
+
+        // Return true if entered any exported buildfiles.
+        //
+        // Note: recursive lambda.
+        //
+        auto iterate = [this, &trace,
+                        ct, &build_ext] (const dir_path& d,
+                                         const auto& iterate) -> bool
+        {
+          bool r (false);
+
+          try
+          {
+            for (const dir_entry& e:
+                   dir_iterator (d, dir_iterator::detect_dangling))
+            {
+              switch (e.type ())
+              {
+              case entry_type::directory:
+              {
+                r = iterate (d / path_cast<dir_path> (e.path ()), iterate) || r;
+                break;
+              }
+              case entry_type::regular:
+              {
+                const path& n (e.path ());
+
+                if (n.extension () == build_ext)
+                {
+                  // Similar to above, enter as real.
+                  //
+                  // Note that these targets may already be entered (for
+                  // example, if already imported).
+                  //
+                  const target& bf (
+                    ctx->targets.insert (buildfile::static_type,
+                                         d,
+                                         (root_->out_eq_src ()
+                                          ? dir_path ()
+                                          : out_src (d, *root_)),
+                                         n.base ().string (),
+                                         build_ext,
+                                         target_decl::real,
+                                         trace).first);
+
+                  ct->prerequisites_.push_back (prerequisite (bf));
+                  r = true;
+                }
+
+                break;
+              }
+              case entry_type::unknown:
+              {
+                bool sl (e.ltype () == entry_type::symlink);
+
+                fail << (sl ? "dangling symlink" : "inaccessible entry")
+                     << ' ' << d / e.path ();
+
+                break;
+              }
+              default:
+                break;
+              }
+            }
+          }
+          catch (const system_error& e)
+          {
+            fail << "unable to iterate over " << d << ": " << e;
+          }
+
+          return r;
+        };
+
+        if (iterate (d, iterate))
+        {
+          // Arrange for the exported buildfiles to be installed, recreating
+          // subdirectories inside export/. Essentially, we are arranging for
+          // this:
+          //
+          // build/export/buildfile{*}:
+          // {
+          //   install = buildfile/
+          //   install.subdirs = true
+          // }
+          //
+          if (cast_false<bool> (root_->vars["install.loaded"]))
+          {
+            enter_scope es (*this, dir_path (export_dir));
+            auto& vars (scope_->target_vars[buildfile::static_type]["*"]);
+
+            // @@ TODO: get cached variables from the module once we have one.
+            //
+            {
+              auto r (vars.insert (*root_->var_pool ().find ("install")));
+
+              if (r.second) // Already set by the user?
+                r.first = path_cast<path> (dir_path ("buildfile"));
+            }
+
+            {
+              auto r (vars.insert (
+                        *root_->var_pool (true).find ("install.subdirs")));
+              if (r.second)
+                r.first = true;
+            }
+          }
+        }
+      }
+    }
   }
 
-  void parser::
+  const buildfile& parser::
   enter_buildfile (const path& p, optional<dir_path> out)
   {
     tracer trace ("parser::enter_buildfile", &path_);
@@ -8984,7 +9256,7 @@ namespace build2
       o = out_src (d, *root_);
     }
 
-    ctx->targets.insert<buildfile> (
+    return ctx->targets.insert<buildfile> (
       move (d),
       move (o),
       p.leaf ().base ().string (),

@@ -2312,29 +2312,30 @@ If the value of the \c{install} variable is not \c{false}, then it is normally
 a relative path with the first path component being one of these names:
 
 \
-name          default                       override
-----          -------                       --------
-root                                        config.install.root
+name          default                        override
+----          -------                        --------
+root                                         config.install.root
 
-data_root     root/                         config.install.data_root
-exec_root     root/                         config.install.exec_root
+data_root     root/                          config.install.data_root
+exec_root     root/                          config.install.exec_root
 
-bin           exec_root/bin/                config.install.bin
-sbin          exec_root/sbin/               config.install.sbin
-lib           exec_root/lib/                config.install.lib
-libexec       exec_root/libexec/<project>/  config.install.libexec
-pkgconfig     lib/pkgconfig/                config.install.pkgconfig
+bin           exec_root/bin/                 config.install.bin
+sbin          exec_root/sbin/                config.install.sbin
+lib           exec_root/lib/                 config.install.lib
+libexec       exec_root/libexec/<project>/   config.install.libexec
+pkgconfig     lib/pkgconfig/                 config.install.pkgconfig
 
-etc           data_root/etc/                config.install.etc
-include       data_root/include/            config.install.include
-include_arch  include/                      config.install.include_arch
-share         data_root/share/              config.install.share
-data          share/<project>/              config.install.data
+etc           data_root/etc/                 config.install.etc
+include       data_root/include/             config.install.include
+include_arch  include/                       config.install.include_arch
+share         data_root/share/               config.install.share
+data          share/<project>/               config.install.data
+buildfile     share/build2/export/<project>/ config.install.buildfile
 
-doc           share/doc/<project>/          config.install.doc
-legal         doc/                          config.install.legal
-man           share/man/                    config.install.man
-man<N>        man/man<N>/                   config.install.man<N>
+doc           share/doc/<project>/           config.install.doc
+legal         doc/                           config.install.legal
+man           share/man/                     config.install.man
+man<N>        man/man<N>/                    config.install.man<N>
 \
 
 Let's see what's going on here: The default install directory tree is derived
@@ -6159,6 +6160,7 @@ include       data_root/include/<private>/            c.i.include
 include_arch  include/                                c.i.include_arch
 share         data_root/share/                        c.i.share
 data          share/<private>/<project>/              c.i.data
+buildfile     share/build2/export/<project>/          c.i.buildfile
 
 doc           share/doc/<private>/<project>/          c.i.doc
 legal         doc/                                    c.i.legal
@@ -6180,6 +6182,12 @@ normally use it from a \c{buildfile}:
 h{*}:      install = include/libhello/
 h{config}: install = include_arch/libhello/
 \
+
+The \c{buildfile} location is meant for exported buildfiles that can be
+imported by other projects. If a project contains any \c{**.build} buildfiles
+in its \c{build/export/} directory (or \c{**.build2} and \c{build2/export/} in
+the alternative naming scheme), then they are automatically installed into
+this location (recreating subdirectories).
 
 The \c{<project>}, \c{<version>}, and \c{<private>} substitutions in these
 \c{config.install.*} values are replaced with the project name, version, and

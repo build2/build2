@@ -191,14 +191,37 @@ if! $cross
 {
   {obja objs}{context}: cxx.poptions += \
     -DBUILD2_IMPORT_PATH=\"$regex.replace($out_root, '\\', '\\\\')\"
+}
 
-  # While this object file should only be linked when we are installing, it
-  # will be compiled even in the uninstalled case.
+# Note that while the -installed object file should only be linked when we
+# are installing, it will be compiled even in the uninstalled case.
+#
+if ($install.root != [null])
+{
+  # Only if installed.
   #
-  if ($install.root != [null])
-    {obja objs}{utility-installed}: cxx.poptions += \
-      -DBUILD2_INSTALL_LIB=\"$regex.replace(\
-        $install.resolve($install.lib), '\\', '\\\\')\"
+  {obja objs}{utility-installed}: cxx.poptions += \
+    -DBUILD2_INSTALL_LIB=\"$regex.replace(\
+      $install.resolve($install.lib), '\\', '\\\\')\"
+
+  # Only if configured.
+  #
+  # Note: strip the last directory component (<project>).
+  #
+  # @@ TMP drop after 0.16.0 release.
+  #
+  install_buildfile = ($install.buildfile != [null] \
+                       ? $directory($install.resolve($install.buildfile)) \
+                       :)
+  {obja objs}{utility-installed utility-uninstalled}: cxx.poptions += \
+    -DBUILD2_INSTALL_BUILDFILE=\"$regex.replace($install_buildfile, '\\', '\\\\')\"
+
+  #\
+  {obja objs}{utility-installed utility-uninstalled}: cxx.poptions += \
+    -DBUILD2_INSTALL_BUILDFILE=\"$regex.replace(\
+      $directory($install.resolve($install.buildfile)), '\\', '\\\\')\"
+  #\
+
 }
 
 if ($cxx.target.class != 'windows')

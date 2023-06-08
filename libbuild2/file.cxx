@@ -29,6 +29,8 @@ namespace build2
 {
   // Standard and alternative build file/directory naming schemes.
   //
+  extern const dir_path std_export_dir;
+  extern const dir_path alt_export_dir;
 
   // build:
 
@@ -36,6 +38,7 @@ namespace build2
   const dir_path std_root_dir        (dir_path (std_build_dir) /= "root");
   const dir_path std_bootstrap_dir   (dir_path (std_build_dir) /= "bootstrap");
   const dir_path std_build_build_dir (dir_path (std_build_dir) /= "build");
+  const dir_path std_export_dir      (dir_path (std_build_dir) /= "export");
 
   const path std_root_file      (std_build_dir     / "root.build");
   const path std_bootstrap_file (std_build_dir     / "bootstrap.build");
@@ -53,6 +56,7 @@ namespace build2
   const dir_path alt_root_dir        (dir_path (alt_build_dir) /= "root");
   const dir_path alt_bootstrap_dir   (dir_path (alt_build_dir) /= "bootstrap");
   const dir_path alt_build_build_dir (dir_path (alt_build_dir) /= "build");
+  const dir_path alt_export_dir      (dir_path (alt_build_dir) /= "export");
 
   const path alt_root_file      (alt_build_dir     / "root.build2");
   const path alt_bootstrap_file (alt_build_dir     / "bootstrap.build2");
@@ -2043,7 +2047,7 @@ namespace build2
   static void
   import_suggest (const diag_record& dr,
                   const project_name& pn,
-                  const target_type& tt,
+                  const target_type* tt,
                   const string& tn,
                   bool rule_hint,
                   const char* qual = nullptr)
@@ -2058,11 +2062,11 @@ namespace build2
     // Suggest ad hoc import but only if it's a path-based target (doing it
     // for lib{} is very confusing).
     //
-    if (tt.is_a<path_target> ())
+    if (tt != nullptr && tt->is_a<path_target> ())
     {
-      string v (tt.is_a<exe> () && (pv == tn || pn == tn)
+      string v (tt->is_a<exe> () && (pv == tn || pn == tn)
                 ? "config." + pv
-                : "config.import." + pv + '.' + tn + '.' + tt.name);
+                : "config.import." + pv + '.' + tn + '.' + tt->name);
 
       dr << info << "or use " << v << " configuration variable to specify "
          << "its " << (qual != nullptr ? qual : "") << "path";
@@ -2119,6 +2123,9 @@ namespace build2
     //
     // 4. Normal import.
     //
+    // @@ PERF: in quite a few places (local, subproject) we could have
+    //          returned the scope and save on bootstrap in import_load().
+    //
     if (tgt.unqualified ())
     {
       if (tgt.directory () && tgt.relative ())
@@ -2126,6 +2133,8 @@ namespace build2
 
       if (tgt.absolute ())
       {
+        // Ad hoc import.
+        //
         // Actualize the directory to be analogous to the config.import.<proj>
         // case (which is of abs_dir_path type).
         //
@@ -2142,7 +2151,7 @@ namespace build2
           fail (loc) << "project-local importation of target " << tgt
                      << " from an unnamed project";
 
-        tgt.proj = pn;
+        tgt.proj = pn; // Reduce to normal import.
 
         return make_pair (move (tgt), optional<dir_path> (iroot.out_path ()));
       }
@@ -2347,7 +2356,7 @@ namespace build2
                         [&proj, tt, &on] (const diag_record& dr)
                         {
                           import_suggest (
-                            dr, proj, *tt, on, false, "alternative ");
+                            dr, proj, tt, on, false, "alternative ");
                         });
 
                       md = extract_metadata (e->process_path (),
@@ -2670,6 +2679,65 @@ namespace build2
       fail (loc) << out_root << " is not out_root for " << *proj;
     }
 
+    // Buildfile importation is quite different so handle it separately.
+    //
+    // Note that we don't need to load the project in this case.
+    //
+    // @@ For now we don't out-qualify the resulting target to be able to
+    //    re-import it ad hoc (there is currently no support for out-qualified
+    //    ad hoc import). Feels like this should be harmless since it's just a
+    //    glorified path to a static file that nobody is actually going to use
+    //    as a target (e.g., to depend upon).
+    //
+    if (tgt.type == "buildfile")
+    {
+      auto add_ext = [&altn] (string& n)
+      {
+        if (path_traits::find_extension (n) == string::npos)
+        {
+          if (n != (*altn ? alt_buildfile_file : std_buildfile_file).string ())
+          {
+            n += ".";
+            n += *altn ? alt_build_ext : std_build_ext;
+          }
+        }
+      };
+
+      if (proj)
+      {
+        name n;
+
+        n.dir = move (src_root);
+        n.dir /= *altn ? alt_export_dir : std_export_dir;
+        if (!tgt.dir.empty ())
+        {
+          n.dir /= tgt.dir;
+          n.dir.normalize ();
+        }
+
+        n.type = tgt.type;
+        n.value = tgt.value;
+        add_ext (n.value);
+
+        pair<names, const scope&> r (names {move (n)}, *root);
+
+        // Cache.
+        //
+        if (cache_out_root.empty ())
+          cache_out_root = move (out_root);
+
+        ctx.import_cache.emplace (
+          import_key {move (cache_out_root), move (tgt), metav}, r);
+
+        return r;
+      }
+      else
+      {
+        add_ext (tgt.value);
+        return pair<names, const scope&> (names {move (tgt)}, *root);
+      }
+    }
+
     // Load the imported root scope.
     //
     if (!root->root_extra->loaded)
@@ -2806,6 +2874,9 @@ namespace build2
     }
   }
 
+  static names
+  import2_buildfile (context&, names&&, bool, const location&);
+
   pair<names, import_kind>
   import (scope& base,
           name tgt,
@@ -2867,18 +2938,23 @@ namespace build2
         //
         if (ns.back ().qualified ())
         {
-          if (ph2)
+          if (ns.back ().type == "buildfile")
+          {
+            assert (ph2);
+            ns = import2_buildfile (ctx, move (ns), opt && !r.second, loc);
+          }
+          else if (ph2)
           {
             // This is tricky: we only want the optional semantics for the
             // fallback case.
             //
-            if (const target* t = import (ctx,
-                                          base.find_prerequisite_key (ns, loc),
-                                          *ph2,
-                                          opt && !r.second  /* optional */,
-                                          nullopt           /* metadata */,
-                                          false             /* existing */,
-                                          loc))
+            if (const target* t = import2 (ctx,
+                                           base.find_prerequisite_key (ns, loc),
+                                           *ph2,
+                                           opt && !r.second  /* optional */,
+                                           nullopt           /* metadata */,
+                                           false             /* existing */,
+                                           loc))
             {
               // Note that here r.first was still project-qualified and we
               // have no choice but to call as_name(). This shouldn't cause
@@ -2909,15 +2985,15 @@ namespace build2
   }
 
   const target*
-  import (context& ctx,
-          const prerequisite_key& pk,
-          const string& hint,
-          bool opt,
-          const optional<string>& meta,
-          bool exist,
-          const location& loc)
+  import2 (context& ctx,
+           const prerequisite_key& pk,
+           const string& hint,
+           bool opt,
+           const optional<string>& meta,
+           bool exist,
+           const location& loc)
   {
-    tracer trace ("import");
+    tracer trace ("import2");
 
     // Neither hint nor metadata can be requested for existing.
     //
@@ -3037,7 +3113,7 @@ namespace build2
         auto df = make_diag_frame (
           [&proj, &tt, &tk] (const diag_record& dr)
           {
-            import_suggest (dr, proj, tt, *tk.name, false, "alternative ");
+            import_suggest (dr, proj, &tt, *tk.name, false, "alternative ");
           });
 
         if (!(md = extract_metadata (pp, *meta, opt, loc)))
@@ -3082,7 +3158,84 @@ namespace build2
     else
       // Use metadata as proxy for immediate import.
       //
-      import_suggest (dr, proj, tt, *tk.name, meta && hint.empty ());
+      import_suggest (dr, proj, &tt, *tk.name, meta && hint.empty ());
+
+    dr << endf;
+  }
+
+  static names
+  import2_buildfile (context&, names&& ns, bool opt, const location& loc)
+  {
+    tracer trace ("import2_buildfile");
+
+    assert (ns.size () == 1);
+    name n (move (ns.front ()));
+
+    // Our approach doesn't work for targets without a project so let's fail
+    // hard, even if optional.
+    //
+    if (!n.proj || n.proj->empty ())
+      fail (loc) << "unable to import target " << n << " without project name";
+
+    while (!build_install_buildfile.empty ()) // Breakout loop.
+    {
+      path f (build_install_buildfile      /
+              dir_path (n.proj->string ()) /
+              n.dir                        /
+              n.value);
+
+      // See if we need to try with extensions.
+      //
+      bool ext (path_traits::find_extension (n.value) == string::npos &&
+                n.value != std_buildfile_file.string () &&
+                n.value != alt_buildfile_file.string ());
+
+      if (ext)
+      {
+        f += '.';
+        f += std_build_ext;
+      }
+
+      if (!exists (f))
+      {
+        l6 ([&]{trace << "tried " << f;});
+
+        if (ext)
+        {
+          f.make_base ();
+          f += '.';
+          f += alt_build_ext;
+
+          if (!exists (f))
+          {
+            l6 ([&]{trace << "tried " << f;});
+            break;
+          }
+        }
+        else
+          break;
+      }
+
+      // Split the path into the target.
+      //
+      ns = {name (f.directory (), move (n.type), f.leaf ().string ())};
+      return ns;
+    }
+
+    if (opt)
+      return names {};
+
+    diag_record dr;
+    dr << fail (loc) << "unable to import target " << n;
+
+    import_suggest (dr, *n.proj, nullptr /* tt */, n.value, false);
+
+    if (build_install_buildfile.empty ())
+      dr << info << "no exported buildfile installation location is "
+         << "configured in build2";
+    else
+      dr << info << "exported buildfile installation location is "
+         << build_install_buildfile;
 
     dr << endf;
   }
@@ -3104,7 +3257,7 @@ namespace build2
 
     l5 ([&]{trace << tgt << " from " << base << " for " << what;});
 
-    assert ((!opt || ph2) && (!metadata || ph2));
+    assert ((!opt || ph2) && (!metadata || ph2) && tgt.type != "buildfile");
 
     context& ctx (base.ctx);
     assert (ctx.phase == run_phase::load);
@@ -3147,13 +3300,13 @@ namespace build2
           // This is tricky: we only want the optional semantics for the
           // fallback case.
           //
-          pt = import (ctx,
-                       base.find_prerequisite_key (ns, loc),
-                       *ph2,
-                       opt && !r.second,
-                       meta,
-                       false /* existing */,
-                       loc);
+          pt = import2 (ctx,
+                        base.find_prerequisite_key (ns, loc),
+                        *ph2,
+                        opt && !r.second,
+                        meta,
+                        false /* existing */,
+                        loc);
         }
 
         if (pt == nullptr)
@@ -3272,6 +3425,31 @@ namespace build2
     }
 
     return import_result<target> {pt, move (rns), k};
+  }
+
+  path
+  import_buildfile (scope& bs, name n, bool opt, const location& loc)
+  {
+    names r (import (bs,
+                     move (n),
+                     string () /* phase2 */,
+                     opt,
+                     false     /* metadata */,
+                     loc).first);
+
+    path p;
+    if (!r.empty ()) // Optional not found.
+    {
+      // Note: see also parse_import().
+      //
+      assert (r.size () == 1); // See import_load() for details.
+      name& n (r.front ());
+      p = n.dir / n.value; // Should already include extension.
+    }
+    else
+      assert (opt);
+
+    return p;
   }
 
   ostream&
