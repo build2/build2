@@ -6988,9 +6988,35 @@ namespace build2
     bool concat_quoted_first (false);
     name concat_data;
 
+    auto concat_diag_multiple = [this] (const location& loc,
+                                        const char* what_expansion)
+    {
+      diag_record dr (fail (loc));
+
+      dr << "concatenating " << what_expansion << " contains multiple values";
+
+      // See if this looks like a subscript without an evaluation context and
+      // help the user out.
+      //
+      if (mode () != lexer_mode::eval)
+      {
+        const token& t (peeked ()); // Should be peeked at.
+
+        if (t.type == type::word &&
+            t.qtype == quote_type::unquoted &&
+            t.value[0] == '[')
+        {
+          dr << info << "wrap it in (...) evaluation context if this "
+             << "is value subscript";
+        }
+      }
+    };
+
     auto concat_typed = [this, what, &vnull, &vtype,
-                         &concat, &concat_data] (value&& rhs,
-                                                 const location& loc)
+                         &concat, &concat_data,
+                         &concat_diag_multiple] (value&& rhs,
+                                                 const location& loc,
+                                                 const char* what_expansion)
     {
       // If we have no LHS yet, then simply copy value/type.
       //
@@ -7006,6 +7032,10 @@ namespace build2
           a.back ().assign (move (concat_data), nullptr);
 
         // RHS.
+        //
+        // Note that if RHS contains multiple values then we expect the result
+        // to be a single value somehow or, more likely, there to be no
+        // suitable $builtin.concat() overload.
         //
         a.push_back (move (rhs));
 
@@ -7058,7 +7088,12 @@ namespace build2
         //
         if (!d.empty ())
         {
-          assert (d.size () == 1); // Must be a single value.
+          if (d.size () != 1)
+          {
+            assert (what_expansion != nullptr);
+            concat_diag_multiple (loc, what_expansion);
+          }
+
           concat_data = move (d[0]);
         }
       }
@@ -7353,7 +7388,7 @@ namespace build2
             //
             names ns;
             ns.push_back (name (move (val)));
-            concat_typed (value (move (ns)), get_location (t));
+            concat_typed (value (move (ns)), get_location (t), nullptr);
           }
           else
           {
@@ -8296,7 +8331,7 @@ namespace build2
             if (result != &result_data) // Same reason as above.
               result = &(result_data = *result);
 
-            concat_typed (move (result_data), loc);
+            concat_typed (move (result_data), loc, what);
           }
           //
           // Untyped concatenation. Note that if RHS is NULL/empty, we still
@@ -8313,27 +8348,7 @@ namespace build2
             // This should be a simple value or a simple directory.
             //
             if (lv.size () > 1)
-            {
-              diag_record dr (fail (loc));
-
-              dr << "concatenating " << what << " contains multiple values";
-
-              // See if this looks like a subscript without an evaluation
-              // context and help the user out.
-              //
-              if (mode () != lexer_mode::eval)
-              {
-                const token& t (peeked ()); // Should be peeked at.
-
-                if (t.type == type::word &&
-                    t.qtype == quote_type::unquoted &&
-                    t.value[0] == '[')
-                {
-                  dr << info << "wrap it in (...) evaluation context if this "
-                     << "is value subscript";
-                }
-              }
-            }
+              concat_diag_multiple (loc, what);
 
             const name& n (lv[0]);
 
