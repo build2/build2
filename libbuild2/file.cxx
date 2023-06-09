@@ -3219,7 +3219,7 @@ namespace build2
       // Split the path into the target.
       //
       ns = {name (f.directory (), move (n.type), f.leaf ().string ())};
-      return ns;
+      return move (ns);
     }
 
     if (opt)
