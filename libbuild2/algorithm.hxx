@@ -164,7 +164,7 @@ namespace build2
   // argument.
   //
   LIBBUILD2_SYMEXPORT const target&
-  search (const target&, name, const scope&, const target_type* = nullptr);
+  search (const target&, name&&, const scope&, const target_type* = nullptr);
 
   // Note: returns NULL for unknown target types. Note that unlike the above
   // version, these ones can be called during the load and execute phases.

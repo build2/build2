@@ -465,37 +465,37 @@ namespace build2
   template <typename T> T& cast (value&);
   template <typename T> T&& cast (value&&);
   template <typename T> const T& cast (const value&);
-  template <typename T> const T& cast (const lookup&);
+  template <typename T> const T& cast (lookup);
 
   // As above but returns NULL if the value is NULL (or not defined, in
   // case of lookup).
   //
   template <typename T> T* cast_null (value&);
   template <typename T> const T* cast_null (const value&);
-  template <typename T> const T* cast_null (const lookup&);
+  template <typename T> const T* cast_null (lookup);
 
   // As above but returns empty value if the value is NULL (or not defined, in
   // case of lookup).
   //
   template <typename T> const T& cast_empty (const value&);
-  template <typename T> const T& cast_empty (const lookup&);
+  template <typename T> const T& cast_empty (lookup);
 
   // As above but returns the specified default if the value is NULL (or not
   // defined, in case of lookup). Note that the return is by value, not by
   // reference.
   //
   template <typename T> T cast_default (const value&, const T&);
-  template <typename T> T cast_default (const lookup&, const T&);
+  template <typename T> T cast_default (lookup, const T&);
 
   // As above but returns false/true if the value is NULL (or not defined,
   // in case of lookup). Note that the template argument is only for
   // documentation and should be bool (or semantically compatible).
   //
   template <typename T> T cast_false (const value&);
-  template <typename T> T cast_false (const lookup&);
+  template <typename T> T cast_false (lookup);
 
   template <typename T> T cast_true (const value&);
-  template <typename T> T cast_true (const lookup&);
+  template <typename T> T cast_true (lookup);
 
   // Assign value type to the value. The variable is optional and is only used
   // for diagnostics.

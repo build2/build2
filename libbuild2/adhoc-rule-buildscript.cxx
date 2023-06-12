@@ -718,10 +718,11 @@ namespace build2
         //
         for (dir_path& d: p.second)
         {
+          dir_path o; string n; // For GCC 13 -Wdangling-reference.
           const fsdir& dt (search<fsdir> (t,
                                           move (d),
-                                          dir_path (),
-                                          string (), nullptr, nullptr));
+                                          move (o),
+                                          move (n), nullptr, nullptr));
           match_sync (a, dt);
           pts.push_back (prerequisite_target (&dt, true /* adhoc */));
         }

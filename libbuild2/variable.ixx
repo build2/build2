@@ -224,7 +224,7 @@ namespace build2
 
   template <typename T>
   inline const T&
-  cast (const lookup& l)
+  cast (lookup l)
   {
     return cast<T> (*l);
   }
@@ -245,7 +245,7 @@ namespace build2
 
   template <typename T>
   inline const T*
-  cast_null (const lookup& l)
+  cast_null (lookup l)
   {
     return l ? &cast<T> (*l) : nullptr;
   }
@@ -259,7 +259,7 @@ namespace build2
 
   template <typename T>
   inline const T&
-  cast_empty (const lookup& l)
+  cast_empty (lookup l)
   {
     return l ? cast<T> (l) : value_traits<T>::empty_instance;
   }
@@ -273,7 +273,7 @@ namespace build2
 
   template <typename T>
   inline T
-  cast_default (const lookup& l, const T& d)
+  cast_default (lookup l, const T& d)
   {
     return l ? cast<T> (l) : d;
   }
@@ -287,7 +287,7 @@ namespace build2
 
   template <typename T>
   inline T
-  cast_false (const lookup& l)
+  cast_false (lookup l)
   {
     return l && cast<T> (l);
   }
@@ -301,7 +301,7 @@ namespace build2
 
   template <typename T>
   inline T
-  cast_true (const lookup& l)
+  cast_true (lookup l)
   {
     return !l || cast<T> (l);
   }

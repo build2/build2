@@ -122,7 +122,7 @@ namespace build2
   }
 
   const target&
-  search (const target& t, name n, const scope& s, const target_type* tt)
+  search (const target& t, name&& n, const scope& s, const target_type* tt)
   {
     assert (t.ctx.phase == run_phase::match);
 
