@@ -5271,12 +5271,35 @@ namespace build2
               //
               if (ps)
               {
-                if (ctype == compiler_type::gcc)
+                switch (ctype)
                 {
-                  // Note that only these two *plus* -x do the trick.
-                  //
-                  args.push_back ("-fpreprocessed");
-                  args.push_back ("-fdirectives-only");
+                case compiler_type::gcc:
+                  {
+                    // Note that only these two *plus* -x do the trick.
+                    //
+                    args.push_back ("-fpreprocessed");
+                    args.push_back ("-fdirectives-only");
+                    break;
+                  }
+                case compiler_type::clang:
+                  {
+                    // See below for details.
+                    //
+                    if (ctype == compiler_type::clang && cmaj >= 15)
+                    {
+                      if (find_options ({"-pedantic",  "-pedantic-errors",
+                                         "-Wpedantic", "-Werror=pedantic"},
+                                        args))
+                      {
+                        args.push_back ("-Wno-gnu-line-marker");
+                      }
+                    }
+
+                    break;
+                  }
+                case compiler_type::msvc:
+                case compiler_type::icc:
+                  assert (false);
                 }
               }
 
@@ -7578,7 +7601,7 @@ namespace build2
       //
       // But we remember the original source/position to restore later.
       //
-      bool psrc (md.psrc);
+      bool psrc (md.psrc); // Note: false if cc.reprocess.
       bool ptmp (psrc && md.psrc.temporary);
       pair<size_t, const char*> osrc;
       if (psrc)
@@ -7610,6 +7633,20 @@ namespace build2
           }
         case compiler_type::clang:
           {
+            // Clang 15 and later with -pedantic warns about GNU-style line
+            // markers that it wrote itself in the -frewrite-includes output
+            // (llvm-project issue 63284). So we suppress this warning unless
+            // compiling from source.
+            //
+            if (ctype == compiler_type::clang && cmaj >= 15)
+            {
+              if (find_options ({"-pedantic",  "-pedantic-errors",
+                                 "-Wpedantic", "-Werror=pedantic"}, args))
+              {
+                args.push_back ("-Wno-gnu-line-marker");
+              }
+            }
+
             // Note that without -x Clang will treat .i/.ii as fully
             // preprocessed.
             //
