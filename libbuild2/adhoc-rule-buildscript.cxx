@@ -1159,7 +1159,7 @@ namespace build2
       // Note that in case of dry run we will have an incomplete (but valid)
       // database which will be updated on the next non-dry run.
       //
-      if (!update || ctx.dry_run)
+      if (!update || ctx.dry_run_option)
         dd.close (false /* mtime_check */);
       else
         mdb->dd = dd.close_to_reopen ();
@@ -1195,7 +1195,7 @@ namespace build2
                                          md->deferred_failure);
       }
 
-      if (update && dd.reading () && !ctx.dry_run)
+      if (update && dd.reading () && !ctx.dry_run_option)
         dd.touch = timestamp_unknown;
 
       dd.close (false /* mtime_check */);

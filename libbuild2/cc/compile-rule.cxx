@@ -1488,7 +1488,7 @@ namespace build2
         // to keep re-validating the file on every subsequent dry-run as well
         // on the real run).
         //
-        if (u && dd.reading () && !ctx.dry_run)
+        if (u && dd.reading () && !ctx.dry_run_option)
           dd.touch = timestamp_unknown;
 
         dd.close (false /* mtime_check */);
