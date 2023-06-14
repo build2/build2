@@ -5,6 +5,7 @@
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
+#include <libbuild2/search.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>
@@ -430,6 +431,8 @@ namespace build2
     // NOTE: see enter_header() caching logic if changing anyting here with
     //       regards to the target and base scope usage.
 
+    assert (!insert || t.ctx.phase == run_phase::match);
+
     // Find or maybe insert the target.
     //
     // If insert is false, then don't consider dynamically-created targets
@@ -446,6 +449,8 @@ namespace build2
                              bool insert,
                              bool dynamic = false) -> const file*
     {
+      context& ctx (t.ctx);
+
       // Split the file into its name part and extension. Here we can assume
       // the name part is a valid filesystem name.
       //
@@ -504,7 +509,7 @@ namespace build2
         }
         else
         {
-          const scope& bs (**t.ctx.scopes.find (d).first);
+          const scope& bs (**ctx.scopes.find (d).first);
           if (const scope* rs = bs.root_scope ())
           {
             if (map_extension != nullptr)
@@ -558,7 +563,7 @@ namespace build2
         {
           const target_type& tt (*tts[i]);
 
-          if (const target* x = t.ctx.targets.find (tt, d, out, n, e, trace))
+          if (const target* x = ctx.targets.find (tt, d, out, n, e, trace))
           {
             // What would be the harm in reusing a dynamically-inserted target
             // if there is no buildfile-mentioned one? Probably none (since it
@@ -619,10 +624,25 @@ namespace build2
           r = f;
       }
 
-      // @@ OPT: move d, out, n
-      //
       if (r == nullptr && insert)
+      {
+        // Like search(t, pk) but don't fail if the target is in src.
+        //
+        // While it may seem like there is not much difference, the caller may
+        // actually do more than just issue more specific diagnostics. For
+        // example, if may defer the failure to the tool diagnostics.
+        //
+#if 0
         r = &search (t, *tts[0], d, out, n, &e, s);
+#else
+        prerequisite_key pk {nullopt, {tts[0], &d, &out, &n, move (e)}, s};
+
+        r = pk.tk.type->search (t, pk);
+
+        if (r == nullptr && pk.tk.out->empty ())
+          r = &create_new_target (ctx, pk);
+#endif
+      }
 
       return static_cast<const file*> (r);
     };
