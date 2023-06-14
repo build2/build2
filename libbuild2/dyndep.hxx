@@ -57,8 +57,10 @@ namespace build2
                  bool adhoc = false,
                  uintptr_t data = 0);
 
-    // As above but verify the file is matched with noop_recipe and issue
-    // diagnostics and fail otherwise (regardless of the fail flag).
+    // As above but verify the file is matched with noop_recipe or was updated
+    // during match and issue diagnostics and fail otherwise (regardless of
+    // the fail flag). Pass 0 for pts_n if don't want the "was updated during
+    // match" part.
     //
     // This version (together with verify_existing_file() below) is primarily
     // useful for handling dynamic dependencies that are produced as a
@@ -77,9 +79,11 @@ namespace build2
                           bool adhoc = false,
                           uintptr_t data = 0);
 
-    // Verify the file is matched with noop_recipe and issue diagnostics and
-    // fail otherwise. If the file is not matched, then fail if the target is
-    // not implied (that is, declared in a buildfile).
+    // Verify the file is matched with noop_recipe or was updated during match
+    // and issue diagnostics and fail otherwise. If the file is not matched,
+    // then fail if the target is not implied (that is, declared in a
+    // buildfile). Pass 0 for pts_n if don't want the "was updated during
+    // match" part.
     //
     // Note: can only be called in the execute phase.
     //

@@ -115,7 +115,7 @@ namespace build2
     recipe_function* const* rf (pt[a].recipe.target<recipe_function*> ());
     if (rf == nullptr || *rf != &noop_action)
     {
-      if (!updated_during_match (a, t, pts_n, pt))
+      if (pts_n == 0 || !updated_during_match (a, t, pts_n, pt))
       {
         fail << what << ' ' << pt << " has non-noop recipe" <<
           info << "consider listing it as static prerequisite of " << t;
@@ -143,7 +143,7 @@ namespace build2
       recipe_function* const* rf (pt[a].recipe.target<recipe_function*> ());
       if (rf == nullptr || *rf != &noop_action)
       {
-        if (!updated_during_match (a, t, pts_n, pt))
+        if (pts_n == 0 || !updated_during_match (a, t, pts_n, pt))
         {
           dr << fail << what << ' ' << pt << " has non-noop recipe";
         }
