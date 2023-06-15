@@ -1378,12 +1378,12 @@ namespace build2
         if (t != nullptr)
         {
           if (name.empty ())
-            print_diag ("uninstall ", *t, chd, "<-");
+            print_diag ("uninstall", *t, chd, "<-");
           else
-            print_diag ("uninstall ", *t, f, "<-");
+            print_diag ("uninstall", *t, f, "<-");
         }
         else
-          print_diag ("uninstall ", f);
+          print_diag ("uninstall", f);
       }
 
       uninstall_f_impl (rs, base, f, verbosity);
