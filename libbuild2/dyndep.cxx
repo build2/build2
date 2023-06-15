@@ -139,7 +139,7 @@ namespace build2
   {
     diag_record dr;
 
-    if (pt.matched (a))
+    if (pt.matched (a, memory_order_acquire))
     {
       recipe_function* const* rf (pt[a].recipe.target<recipe_function*> ());
       if (rf == nullptr || *rf != &noop_action)

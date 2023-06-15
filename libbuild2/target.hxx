@@ -869,7 +869,7 @@ namespace build2
     // This function can only be called during the match or execute phases.
     //
     // If you need to observe something in the matched target (e.g., the
-    // matched rule), use memory_order_acquire.
+    // matched rule or recipe), use memory_order_acquire.
     //
     bool
     matched (action, memory_order mo = memory_order_relaxed) const;
