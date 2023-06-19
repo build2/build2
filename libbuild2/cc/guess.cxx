@@ -2523,7 +2523,7 @@ namespace build2
         // https://gist.github.com/yamaya/2924292
         //
         // Specifically, we now look in the libc++'s __config file for the
-        // _LIBCPP_VERSION and use the previous version as a conservative
+        // __LIBCPP_VERSION and use the previous version as a conservative
         // estimate (NOTE that there could be multiple __config files with
         // potentially different versions so compile with -v to see which one
         // gets picked up).
@@ -2548,35 +2548,41 @@ namespace build2
         // 12.0.5 -> 10.0 (yes, seriously!)
         // 13.0.0 -> 11.0
         // 13.1.6 -> 12.0
+        // 14.0.0 -> 12.0   (__LIBCPP_VERSION=130000)
+        // 14.0.3 -> 15.0.5 (__LIBCPP_VERSION=150006)
+        // 15.0.0 -> 16.0.1 (__LIBCPP_VERSION=160002)
         //
         uint64_t mj (var_ver->major);
         uint64_t mi (var_ver->minor);
         uint64_t pa (var_ver->patch);
 
-        if      (mj > 13 || (mj == 13 && mi >= 1)) {mj = 12; mi = 0;}
-        else if (mj == 13)                         {mj = 11; mi = 0;}
-        else if (mj == 12 && (mi > 0 || pa >= 5))  {mj = 10; mi = 0;}
-        else if (mj == 12)                         {mj = 9;  mi = 0;}
-        else if (mj == 11 && (mi > 0 || pa >= 3))  {mj = 8;  mi = 0;}
-        else if (mj == 11)                         {mj = 7;  mi = 0;}
-        else if (mj == 10)                         {mj = 6;  mi = 0;}
-        else if (mj == 9 && mi >= 1)               {mj = 5;  mi = 0;}
-        else if (mj == 9)                          {mj = 4;  mi = 0;}
-        else if (mj == 8)                          {mj = 3;  mi = 9;}
-        else if (mj == 7 && mi >= 3)               {mj = 3;  mi = 8;}
-        else if (mj == 7)                          {mj = 3;  mi = 7;}
-        else if (mj == 6 && mi >= 1)               {mj = 3;  mi = 5;}
-        else if (mj == 6)                          {mj = 3;  mi = 4;}
-        else if (mj == 5 && mi >= 1)               {mj = 3;  mi = 3;}
-        else if (mj == 5)                          {mj = 3;  mi = 2;}
-        else if (mj == 4 && mi >= 2)               {mj = 3;  mi = 1;}
-        else                                       {mj = 3;  mi = 0;}
+
+        if      (mj >= 15)                          {mj = 16; mi = 0; pa = 1;}
+        else if (mj == 14 && (mi > 0 || pa >= 3))   {mj = 15; mi = 0; pa = 5;}
+        else if (mj == 14 || (mj == 13 && mi >= 1)) {mj = 12; mi = 0; pa = 0;}
+        else if (mj == 13)                          {mj = 11; mi = 0; pa = 0;}
+        else if (mj == 12 && (mi > 0 || pa >= 5))   {mj = 10; mi = 0; pa = 0;}
+        else if (mj == 12)                          {mj = 9;  mi = 0; pa = 0;}
+        else if (mj == 11 && (mi > 0 || pa >= 3))   {mj = 8;  mi = 0; pa = 0;}
+        else if (mj == 11)                          {mj = 7;  mi = 0; pa = 0;}
+        else if (mj == 10)                          {mj = 6;  mi = 0; pa = 0;}
+        else if (mj == 9 && mi >= 1)                {mj = 5;  mi = 0; pa = 0;}
+        else if (mj == 9)                           {mj = 4;  mi = 0; pa = 0;}
+        else if (mj == 8)                           {mj = 3;  mi = 9; pa = 0;}
+        else if (mj == 7 && mi >= 3)                {mj = 3;  mi = 8; pa = 0;}
+        else if (mj == 7)                           {mj = 3;  mi = 7; pa = 0;}
+        else if (mj == 6 && mi >= 1)                {mj = 3;  mi = 5; pa = 0;}
+        else if (mj == 6)                           {mj = 3;  mi = 4; pa = 0;}
+        else if (mj == 5 && mi >= 1)                {mj = 3;  mi = 3; pa = 0;}
+        else if (mj == 5)                           {mj = 3;  mi = 2; pa = 0;}
+        else if (mj == 4 && mi >= 2)                {mj = 3;  mi = 1; pa = 0;}
+        else                                        {mj = 3;  mi = 0; pa = 0;}
 
         ver = compiler_version {
-          to_string (mj) + '.' + to_string (mi) + ".0",
+          to_string (mj) + '.' + to_string (mi) + '.' + to_string (pa),
           mj,
           mi,
-          0,
+          pa,
           ""};
       }
       else if (emscr)
