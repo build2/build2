@@ -5285,7 +5285,8 @@ namespace build2
                   {
                     // See below for details.
                     //
-                    if (ctype == compiler_type::clang && cmaj >= 15)
+                    if (ctype == compiler_type::clang &&
+                        cmaj >= (cvariant != "apple" ? 15 : 16))
                     {
                       if (find_options ({"-pedantic",  "-pedantic-errors",
                                          "-Wpedantic", "-Werror=pedantic"},
@@ -7638,7 +7639,13 @@ namespace build2
             // (llvm-project issue 63284). So we suppress this warning unless
             // compiling from source.
             //
-            if (ctype == compiler_type::clang && cmaj >= 15)
+            // In Apple Clang this warning/option are absent in 14.0.3 (which
+            // is said to be based on vanilla Clang 15.0.5) for some reason
+            // (let's hope it's because they patched it out rather than due to
+            // a misleading __LIBCPP_VERSION value).
+            //
+            if (ctype == compiler_type::clang &&
+                cmaj >= (cvariant != "apple" ? 15 : 16))
             {
               if (find_options ({"-pedantic",  "-pedantic-errors",
                                  "-Wpedantic", "-Werror=pedantic"}, args))
