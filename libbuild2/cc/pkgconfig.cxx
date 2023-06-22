@@ -361,7 +361,7 @@ namespace build2
         strings pops;
 
         char arg ('\0'); // Option with pending argument.
-        for (auto& o: pc.cflags (la))
+        for (string& o: pc.cflags (la))
         {
           if (arg)
           {
@@ -451,8 +451,10 @@ namespace build2
         //
         bool first (true), known (true), have_L (false);
 
+        string self; // The library itself (-l of just name/path).
+
         char arg ('\0'); // Option with pending argument.
-        for (auto& o: pc.libs (la))
+        for (string& o: pc.libs (la))
         {
           if (arg)
           {
@@ -481,7 +483,7 @@ namespace build2
 
           // See if that's -l, -pthread, or just the library name/path.
           //
-          if ((known && o[0] != '-') ||
+          if ((known && n != 0 && o[0] != '-') ||
               (n > 2 && o[0] == '-' && (o[1] == 'l' || o == "-pthread")))
           {
             // Unless binless, the first one is the library itself, which we
@@ -489,19 +491,11 @@ namespace build2
             // be some other library, but we haven't encountered such a beast
             // yet.
             //
-            if (first)
-            {
-              first = false;
-
-              if (!binless)
-                continue;
-            }
-
-            // @@ If for some reason this is the library itself (doesn't go
-            //    first or libpkg-config parsed libs in some bizarre way) we
-            //    will have a dependency cycle by trying to lock its target
-            //    inside search_library() as by now it is already locked. To
-            //    be safe we probably shouldn't rely on the position and
+            // What we have enountered (e.g., in the Magick++ library) is the
+            // library itself repeated in Libs.private. So now we save it and
+            // filter all its subsequent occurences.
+            //
+            // @@ To be safe we probably shouldn't rely on the position and
             //    filter out all occurrences of the library itself (by name?)
             //    and complain if none were encountered.
             //
@@ -511,6 +505,22 @@ namespace build2
             //    frame around the call to search_library() to help diagnose
             //    such situations.
             //
+            if (first)
+            {
+              first = false;
+
+              if (!binless)
+              {
+                self = move (o);
+                continue;
+              }
+            }
+            else
+            {
+              if (!binless && o == self)
+                continue;
+            }
+
             libs.push_back (name (move (o)));
             continue;
           }
@@ -530,7 +540,7 @@ namespace build2
         auto lflags = [&pc, la] () -> string
         {
           string r;
-          for (const auto& o: pc.libs (la))
+          for (const string& o: pc.libs (la))
           {
             if (!r.empty ())
               r += ' ';
@@ -539,7 +549,7 @@ namespace build2
           return r;
         };
 
-        if (first && !binless)
+        if (!binless && self.empty ())
           fail << "library expected in '" << lflags () << "'" <<
             info << "while parsing pkg-config --libs " << pc.path;
 
