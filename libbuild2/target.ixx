@@ -240,8 +240,8 @@ namespace build2
     assert (ctx.phase == run_phase::match ||
             ctx.phase == run_phase::execute);
 
-    const opstate& s (state[a]);
-    size_t c (s.task_count.load (mo) - ctx.count_base ());
+    size_t c (state[a].task_count.load (mo));
+    size_t b (ctx.count_base ()); // Note: cannot do (c - b)!
 
     if (ctx.phase == run_phase::match)
     {
@@ -250,7 +250,7 @@ namespace build2
       // Note that we can't do >= offset_applied since offset_busy means it is
       // being matched.
       //
-      return c == offset_applied || c == offset_executed;
+      return c == (b + offset_applied) || c == (b + offset_executed);
     }
     else
     {
@@ -258,7 +258,7 @@ namespace build2
       // least offset_matched since it must have been "achieved" before the
       // phase switch.
       //
-      return c >= offset_matched;
+      return c >= (b + offset_matched);
     }
   }
 
@@ -298,9 +298,10 @@ namespace build2
 
     // Note: already synchronized.
     //
-    size_t o (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
+    size_t c (s.task_count.load (memory_order_relaxed));
+    size_t b (ctx.count_base ()); // Note: cannot do (c - b)!
 
-    if (o == offset_tried)
+    if (c == (b + offset_tried))
       return make_pair (false, target_state::unknown);
     else
     {
@@ -308,7 +309,7 @@ namespace build2
       // latter case we are guaranteed to be synchronized since we are in the
       // match phase.
       //
-      assert (o == offset_applied || o == offset_executed);
+      assert (c == (b + offset_applied) || c == (b + offset_executed));
       return make_pair (true, (group_state (a) ? group->state[a] : s).state);
     }
   }

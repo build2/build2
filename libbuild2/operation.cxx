@@ -164,8 +164,9 @@ namespace build2
     //
     map.reserve (ctx.targets.size () / 2);
 
-    bool e (false);
+    size_t count_matched (ctx.count_matched ());
 
+    bool e (false);
     for (size_t pass (1); pass != 3; ++pass)
     {
       for (const auto& pt: ctx.targets)
@@ -180,8 +181,7 @@ namespace build2
         //
         const target::opstate& s (t->state[a]);
 
-        if (s.task_count.load (memory_order_relaxed) - ctx.count_base () <
-            target::offset_matched)
+        if (s.task_count.load (memory_order_relaxed) < count_matched)
           continue;
 
         // Skip if for some reason the path is not assigned.
@@ -828,8 +828,8 @@ namespace build2
 
           // Execute unless already executed.
           //
-          if (s.task_count.load (memory_order_relaxed) - base !=
-              target::offset_executed)
+          if (s.task_count.load (memory_order_relaxed) !=
+              base + target::offset_executed)
             pretend_execute (t, pretend_execute);
         };
 
@@ -891,8 +891,8 @@ namespace build2
         // We are only interested in the targets that have been matched for
         // this operation and are in the applied state.
         //
-        if (s.task_count.load (memory_order_relaxed) - base !=
-            target::offset_applied)
+        if (s.task_count.load (memory_order_relaxed) !=
+            base + target::offset_applied)
           continue;
 
         if (s.resolve_counted)
@@ -924,9 +924,9 @@ namespace build2
         // Only consider targets that have been matched for this operation
         // (since matching is what causes the dependents count reset).
         //
-        size_t c (s.task_count.load (memory_order_relaxed) - base);
+        size_t c (s.task_count.load (memory_order_relaxed));
 
-        return (c >= target::offset_applied
+        return (c >= base + target::offset_applied
                 ? s.dependents.load (memory_order_relaxed)
                 : 0);
       };

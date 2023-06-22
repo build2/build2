@@ -1009,9 +1009,10 @@ namespace build2
         const opstate& s (state[action () /* inner */]);
 
         // Note: already synchronized.
-        size_t o (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
+        size_t c (s.task_count.load (memory_order_relaxed));
+        size_t b (ctx.count_base ()); // Note: cannot do (c - b)!
 
-        if (o != offset_applied && o != offset_executed)
+        if (c != (b + offset_applied) && c != (b + offset_executed))
           break;
       }
       // Fall through.
