@@ -78,7 +78,12 @@ namespace build2
           // C17/18 is a bug-fix version of C11 so here we assume it is the
           // same as C11.
           //
-          // And it's still early days for C2X.
+          // And it's still early days for C2X. Specifically, there is not
+          // much about C2X in MSVC in the official places and the following
+          // page shows that it's pretty much unimplement at the time of the
+          // MSVC 17.6 release:
+          //
+          // https://en.cppreference.com/w/c/compiler_support/23
           //
           // From version 16.8 VC now supports /std:c11 and /std:c17 options
           // which enable C11/17 conformance. However, as of version 16.10,

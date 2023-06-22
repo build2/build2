@@ -194,6 +194,8 @@ namespace build2
             // for this mode. So starting from 16 we only enable it in
             // `experimental`.
             //
+            // Note: no /std:c++23 yet as of MSVC 17.6.
+            //
             if (v16_11)
               o = "/std:c++20";
             else if (v16_0)
@@ -316,12 +318,14 @@ namespace build2
             ;
           else
           {
-            // Translate 11 to 0x, 14 to 1y, 17 to 1z, 20 to 2a, and 23 to 2b
-            // for compatibility with older versions of the compilers.
+            // Translate 11 to 0x, 14 to 1y, 17 to 1z, 20 to 2a, 23 to 2b, and
+            // 26 to 2c for compatibility with older versions of the
+            // compilers.
             //
             o = "-std=";
 
-            if      (*v == "23") o += "c++2b";
+            if      (*v == "26") o += "c++2c";
+            else if (*v == "23") o += "c++2b";
             else if (*v == "20") o += "c++2a";
             else if (*v == "17") o += "c++1z";
             else if (*v == "14") o += "c++1y";
