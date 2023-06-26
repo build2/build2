@@ -14,8 +14,13 @@ if ($cxx.target.system == 'win32-msvc')
 if ($cxx.class == 'msvc')
   cxx.coptions += /wd4251 /wd4275 /wd4800
 elif ($cxx.id == 'gcc')
+{
   cxx.coptions += -Wno-maybe-uninitialized -Wno-free-nonheap-object \
 -Wno-stringop-overread # libbutl
+
+  if ($cxx.version.major >= 13)
+    cxx.coptions += -Wno-dangling-reference
+}
 elif ($cxx.id.type == 'clang' && $cxx.version.major >= 15)
   cxx.coptions += -Wno-unqualified-std-cast-call
 
