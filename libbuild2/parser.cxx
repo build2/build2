@@ -6467,9 +6467,11 @@ namespace build2
     // May throw invalid_path.
     //
     auto include_pattern =
-      [&r, &append, &include_match, sp, &l, this] (string&& p,
-                                                   optional<string>&& e,
-                                                   bool a)
+      [this,
+       &append, &include_match,
+       &r, sp, &l, &dir] (string&& p,
+                          optional<string>&& e,
+                          bool a)
     {
       // If we don't already have any matches and our pattern doesn't contain
       // multiple recursive wildcards, then the result will be unique and we
@@ -6527,22 +6529,51 @@ namespace build2
         return true;
       };
 
+      const function<bool (const dir_entry&)> dangling (
+        [&dir] (const dir_entry& de)
+        {
+          bool sl (de.ltype () == entry_type::symlink);
+
+          const path& n (de.path ());
+
+          // One case where this turned out to be not worth it practically
+          // (too much noise) is the backlinks to executables (and the
+          // associated DLL assemblies for Windows). So we now have this
+          // heuristics that if this looks like an executable (or DLL for
+          // Windows), then we omit the warning. On POSIX, where executables
+          // don't have extensions, we will consider it an executable only if
+          // we are not looking for directories (which also normally don't
+          // have extension).
+          //
+          // @@ PEDANTIC: re-enable if --pedantic.
+          //
+          if (sl)
+          {
+            string e (n.extension ());
+
+            if ((e.empty () && !dir)                 ||
+                path_traits::compare (e, "exe") == 0 ||
+                path_traits::compare (e, "dll") == 0 ||
+                path_traits::compare (e, "pdb") == 0 ||   // .{exe,dll}.pdb
+                (path_traits::compare (e, "dlls") == 0 && // .exe.dlls assembly
+                 path_traits::compare (n.base ().extension (), "exe") == 0))
+              return true;
+          }
+
+          warn << "skipping "
+               << (sl ? "dangling symlink" : "inaccessible entry")
+               << ' ' << de.base () / n;
+
+          return true;
+        });
+
       try
       {
         path_search (path (move (p)),
                      process,
                      *sp,
                      path_match_flags::follow_symlinks,
-                     [] (const dir_entry& de)
-                     {
-                       bool sl (de.ltype () == entry_type::symlink);
-
-                       warn << "skipping "
-                            << (sl ? "dangling symlink" : "inaccessible entry")
-                            << ' ' << de.base () / de.path ();
-
-                       return true;
-                     });
+                     dangling);
       }
       catch (const system_error& e)
       {
