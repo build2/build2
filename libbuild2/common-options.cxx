@@ -30,7 +30,7 @@ namespace build2
       // unknown_option
       //
       unknown_option::
-      ~unknown_option () throw ()
+      ~unknown_option () noexcept
       {
       }
 
@@ -41,7 +41,7 @@ namespace build2
       }
 
       const char* unknown_option::
-      what () const throw ()
+      what () const noexcept
       {
         return "unknown option";
       }
@@ -49,7 +49,7 @@ namespace build2
       // unknown_argument
       //
       unknown_argument::
-      ~unknown_argument () throw ()
+      ~unknown_argument () noexcept
       {
       }
 
@@ -60,7 +60,7 @@ namespace build2
       }
 
       const char* unknown_argument::
-      what () const throw ()
+      what () const noexcept
       {
         return "unknown argument";
       }
@@ -68,7 +68,7 @@ namespace build2
       // missing_value
       //
       missing_value::
-      ~missing_value () throw ()
+      ~missing_value () noexcept
       {
       }
 
@@ -79,7 +79,7 @@ namespace build2
       }
 
       const char* missing_value::
-      what () const throw ()
+      what () const noexcept
       {
         return "missing option value";
       }
@@ -87,7 +87,7 @@ namespace build2
       // invalid_value
       //
       invalid_value::
-      ~invalid_value () throw ()
+      ~invalid_value () noexcept
       {
       }
 
@@ -102,7 +102,7 @@ namespace build2
       }
 
       const char* invalid_value::
-      what () const throw ()
+      what () const noexcept
       {
         return "invalid option value";
       }
@@ -116,7 +116,7 @@ namespace build2
       }
 
       const char* eos_reached::
-      what () const throw ()
+      what () const noexcept
       {
         return "end of argument stream reached";
       }
@@ -124,7 +124,7 @@ namespace build2
       // file_io_failure
       //
       file_io_failure::
-      ~file_io_failure () throw ()
+      ~file_io_failure () noexcept
       {
       }
 
@@ -135,7 +135,7 @@ namespace build2
       }
 
       const char* file_io_failure::
-      what () const throw ()
+      what () const noexcept
       {
         return "unable to open file or read failure";
       }
@@ -143,7 +143,7 @@ namespace build2
       // unmatched_quote
       //
       unmatched_quote::
-      ~unmatched_quote () throw ()
+      ~unmatched_quote () noexcept
       {
       }
 
@@ -154,7 +154,7 @@ namespace build2
       }
 
       const char* unmatched_quote::
-      what () const throw ()
+      what () const noexcept
       {
         return "unmatched quote";
       }

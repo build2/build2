@@ -94,7 +94,7 @@ namespace build2
       {
         public:
         virtual
-        ~unknown_option () throw ();
+        ~unknown_option () noexcept;
 
         unknown_option (const std::string& option);
 
@@ -105,7 +105,7 @@ namespace build2
         print (::std::ostream&) const;
 
         virtual const char*
-        what () const throw ();
+        what () const noexcept;
 
         private:
         std::string option_;
@@ -115,7 +115,7 @@ namespace build2
       {
         public:
         virtual
-        ~unknown_argument () throw ();
+        ~unknown_argument () noexcept;
 
         unknown_argument (const std::string& argument);
 
@@ -126,7 +126,7 @@ namespace build2
         print (::std::ostream&) const;
 
         virtual const char*
-        what () const throw ();
+        what () const noexcept;
 
         private:
         std::string argument_;
@@ -136,7 +136,7 @@ namespace build2
       {
         public:
         virtual
-        ~missing_value () throw ();
+        ~missing_value () noexcept;
 
         missing_value (const std::string& option);
 
@@ -147,7 +147,7 @@ namespace build2
         print (::std::ostream&) const;
 
         virtual const char*
-        what () const throw ();
+        what () const noexcept;
 
         private:
         std::string option_;
@@ -157,7 +157,7 @@ namespace build2
       {
         public:
         virtual
-        ~invalid_value () throw ();
+        ~invalid_value () noexcept;
 
         invalid_value (const std::string& option,
                        const std::string& value,
@@ -176,7 +176,7 @@ namespace build2
         print (::std::ostream&) const;
 
         virtual const char*
-        what () const throw ();
+        what () const noexcept;
 
         private:
         std::string option_;
@@ -191,14 +191,14 @@ namespace build2
         print (::std::ostream&) const;
 
         virtual const char*
-        what () const throw ();
+        what () const noexcept;
       };
 
       class LIBBUILD2_SYMEXPORT file_io_failure: public exception
       {
         public:
         virtual
-        ~file_io_failure () throw ();
+        ~file_io_failure () noexcept;
 
         file_io_failure (const std::string& file);
 
@@ -209,7 +209,7 @@ namespace build2
         print (::std::ostream&) const;
 
         virtual const char*
-        what () const throw ();
+        what () const noexcept;
 
         private:
         std::string file_;
@@ -219,7 +219,7 @@ namespace build2
       {
         public:
         virtual
-        ~unmatched_quote () throw ();
+        ~unmatched_quote () noexcept;
 
         unmatched_quote (const std::string& argument);
 
@@ -230,7 +230,7 @@ namespace build2
         print (::std::ostream&) const;
 
         virtual const char*
-        what () const throw ();
+        what () const noexcept;
 
         private:
         std::string argument_;
