@@ -5,10 +5,16 @@
 *.d
 *.t
 *.i
+*.i.*
 *.ii
+*.ii.*
 *.o
 *.obj
+*.gcm
+*.pcm
+*.ifc
 *.so
+*.dylib
 *.dll
 *.a
 *.lib
