@@ -24,6 +24,8 @@ if ($cxx.class == 'msvc')
 elif ($cxx.id == 'gcc')
   cxx.coptions += -Wno-maybe-uninitialized -Wno-free-nonheap-object \
 -Wno-stringop-overread # libbutl
+elif ($cxx.id.type == 'clang' && $cxx.version.major >= 15)
+  cxx.coptions += -Wno-unqualified-std-cast-call
 
 cxx.poptions =+ "-I$out_root" "-I$src_root"
 
