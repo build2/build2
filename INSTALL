@@ -1,0 +1,146 @@
+Unless you specifically only need the build2 build system, you should install
+the entire build2 toolchain instead, either using the install script
+(https://build2.org/install.xhtml) or the build2-toolchain distribution.
+
+The instructions outlined below are essentially a summary of the first three
+steps of the manual bootstrap process described in build2-toolchain with a few
+extra examples that would primarily be useful for distribution packaging.
+
+Also, below we only show commands for UNIX-like operating systems. For other
+operating systems and for more details on each step, refer to the
+build2-toolchain installation documentation.
+
+build2 requires a C++14 compiler. GCC 4.9, Clang 3.7, and MSVC 14 (2015) Update
+3 or any later versions of these compilers are known to work. The build system
+is self-hosted, which means that unless you have obtained a pre-built binary
+from somewhere else, you will need to bootstrap it. To accomplish this, we use
+the bootstrap.sh shell script (or equivalent batch files for Windows) found in
+the root directory of the build2 distribution. On UNIX-like operating systems
+as well as on Windows with MinGW or Clang, a GNU make makefile called
+bootstrap.gmake can also be used with the major advanage over the script being
+support for parallel compilation and an out of tree build (see comments inside
+the makefile for more information).
+
+The following is the recommended sequence of steps:
+
+0. Prerequisites
+
+    Get libbutl (normally from the same place where you got build2) and place
+    it inside build2, so that you have:
+
+    build2-X.Y.Z
+    |
+    `-- libbutl-X.Y.Z
+
+1. Bootstrap, Phase 1
+
+    First, we build a minimal build system using bootstrap.sh (run bootstrap.sh
+    -h for options):
+
+    $ cd build2-X.Y.Z
+    $ ./bootstrap.sh g++
+
+    $ build2/b-boot --version
+
+    Alternatively, we can use the bootstrap.gmake makefile:
+
+    $ cd build2-X.Y.Z
+    $ make -f bootstrap.gmake -j 8 CXX=g++
+
+    $ build2/b-boot --version
+
+    If you would prefer to bootstrap out of source tree, this is supported by
+    the makefile (but not the script):
+
+    $ mkdir build2-boot
+    $ make -C build2-boot -f ../build2-X.Y.Z/bootstrap.gmake -j 8 CXX=g++
+
+    $ build2-boot/build2/b-boot --version
+
+2. Bootstrap, Phase 2
+
+    Then, we rebuild the build system with the result of Phase 1 linking
+    libraries statically.
+
+    $ build2/b-boot config.cxx=g++ config.bin.lib=static build2/exe{b}
+    $ mv build2/b build2/b-boot
+
+    $ build2/b-boot --version
+
+    Or, alternatively, for an out of source build:
+
+    $ build2-boot/build2/b-boot config.cxx=g++ config.bin.lib=static \
+      build2-X.Y.Z/build2/@build2-static/build2/exe{b}
+
+    $ build2-static/build2/b --version
+
+3. Build and Install
+
+    Finally, we configure, build, and optionally install the "final" version
+    using shared libraries:
+
+    $ build2/b-boot configure         \
+      config.config.hermetic=true     \
+      config.cxx=g++                  \
+      config.cc.coptions=-O3          \
+      config.bin.rpath=/usr/local/lib \
+      config.install.root=/usr/local  \
+      config.install.sudo=sudo
+
+    $ build2/b-boot
+
+    | The config.config.hermetic=true configuration variable in the first
+    | command makes sure the embedded ~host and ~build2 configurations include
+    | the current environment. This is especially important for ~build2 which
+    | is used to dynamically build and load ad hoc recipes and build system
+    | modules and must therefore match the environment that was used to build
+    | the build system itself.
+
+    If you are only interested in installing the result, then you can avoid
+    building tests by specifying the update-for-install operation in the last
+    command:
+
+    $ build2/b-boot update-for-install
+
+    On the other hand, if I you are not planning to install the result, then
+    you can omit the config.install.* values as well as .rpath.
+
+    To install:
+
+    $ build2/b-boot install
+    $ which b
+    $ b --version
+
+    To uninstall:
+
+    $ b uninstall
+    $ which b
+
+    Or, alternatively, for an out of source build:
+
+    $ build2-static/build2/b configure: build2-X.Y.Z/@build2-shared/ \
+      config.config.hermetic=true     \
+      config.cxx=g++                  \
+      config.cc.coptions=-O3          \
+      config.bin.rpath=/usr/local/lib \
+      config.install.root=/usr/local  \
+      config.install.sudo=sudo
+
+    $ build2-static/build2/b update-for-install: build2-shared/
+
+    $ build2-static/build2/b install: build2-shared/
+
+    $ b uninstall: build2-shared/
+
+    For distribution packaging it is often required to install "as if" into the
+    system directory (for example, /usr) but to copy the files somewhere else
+    (for example, /tmp/install/usr; aka the DESTDIR functionality). In build2
+    this can be achieved with the config.install.chroot configuration variable,
+    for example:
+
+    $ build2-static/build2/b configure: build2-X.Y.Z/@build2-shared/ \
+      config.config.hermetic=true        \
+      config.cxx=g++                     \
+      config.cc.coptions=-O3             \
+      config.install.root=/usr           \
+      config.install.chroot=/tmp/install

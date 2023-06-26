@@ -1,10 +1,8 @@
 : 1
 summary: build2 build system repository
 
-:
-role: prerequisite
-location: ../libbutl.git##HEAD
 
 :
 role: prerequisite
-location: https://github.com/build2/libpkg-config.git##HEAD
+location: https://stage.build2.org/1
+trust: EC:50:13:E2:3D:F7:92:B4:50:0B:BF:2A:1F:7D:31:04:C6:57:6F:BC:BE:04:2E:E0:58:14:FA:66:66:21:1F:14
