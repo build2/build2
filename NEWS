@@ -18,7 +18,7 @@ Version 0.16.0
     # buildfile
     #
     lib{hello}: {hxx cxx}{*}
-    lib{hello}: mm{*}: include = ($cxx.target.class  == 'macos')
+    lib{hello}: mm{*}: include = ($cxx.target.class == 'macos')
 
     Note also that while there is support for linking Objective-C/C++
     executables and libraries, this is done using the C/C++ compiler driver
@@ -97,12 +97,12 @@ Version 0.16.0
     If the recipe target is an explicit group (see the previous NEWS item),
     then the dynamically extracted targets are added as its members.
     Otherwise, the listed targets are added as ad hoc group members. In both
-    cases the dynamically extract target is ignored if it is already specified
-    as a static member or injected by a rule. Note that this functionality is
-    not available in the --byproduct mode. See the depdb-dyndep builtin
-    options description for details.
+    cases the dynamically extracted target is ignored if it is already
+    specified as a static member or injected by a rule. Note that this
+    functionality is not available in the --byproduct mode. See the
+    depdb-dyndep builtin options description for details.
 
-  * New `lines` depdb-dyndep dependency format in  addition to `make`.
+  * New `lines` depdb-dyndep dependency format in addition to `make`.
 
     The `lines` format lists targets and/or prerequisites one per line. See
     the depdb-dyndep builtin options description for details.
