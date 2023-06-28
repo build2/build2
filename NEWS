@@ -23,29 +23,107 @@ Version 0.16.0
     Note also that while there is support for linking Objective-C/C++
     executables and libraries, this is done using the C/C++ compiler driver
     and no attempt to automatically link any necessary Objective-C runtime
-    (such as -lobjc) is made.
+    (such as -lobjc) is made. For details, refer to "Objective-C Compilation"
+    and "Objective-C++ Compilation" in the manual.
 
   * Support for Assembler with C Preprocessor (.S) compilation.
 
-    Specifically, the c module now provides the c.as-cpp submodules which can
+    Specifically, the c module now provides the c.as-cpp submodule which can
     be loaded in order to register the S{} target type and enable Assembler
     with C Preprocessor compilation in the c compile rule. For details, refer
     to "Assembler with C Preprocessor Compilation" in the manual.
+
+  * Support for buildfile importation.
+
+    A project can now export buildfiles that can then be imported by other
+    projects. This mechanism is primarily useful for exporting target type
+    definitions and ad hoc rules.
+
+    Specifically, a project can now place *.build files into its build/export/
+    subdirectory (or *.build2 and build2/export/ in the alternative naming
+    scheme). Such files can then be imported by other projects as buildfile{}
+    targets. For example:
+
+    import thrift%buildfile{thrift-cxx}
+
+    While for other target types the semantics of import is to load the
+    project's export stub and return the exported target, for buildfile{} the
+    semantics is to source the imported buildfile at the point of importation.
+
+    Note that care must be taken when authoring exported buildfiles since they
+    will be sourced by other projects in unpredictable circumstances. In
+    particular, the import directive by default does not prevent sourcing the
+    same buildfile multiple times (neither in the same project nor in the same
+    scope). As a result, if certain parts must only be sourced once per
+    project (such as target type definitions), then they must be factored into
+    a separate buildfile (in build/export/) that is imported by the "main"
+    exported buildfile with the `once` attribute. For example, the above
+    thrift-cxx.build may contain:
+
+    import [once] thrift%buildfile{thrift-cxx-target-type}
+
+    See also "install Module" in the manual for details on the exported
+    buildfile installation.
+
+  * Support for defining explicit (as opposed to ad hoc) target groups.
+
+    A user-defined explicit target group must be derived from the group base
+    target type. If desired, it can be marked as "see-through", meaning that
+    when it is listed as a prerequisite of a target, the matching rule will
+    "see" its members, rather than the group itself. For example:
+
+    define [see_through] thrift_cxx: group
+
+    define thrift: file
+    thrift{*}: extension = thrift
+
+    exe{hello}:       cxx{hello} thrift_cxx{data}
+    thrift_cxx{data}: thrift{data}
+
+    Explicit group members can be specified statically, injected by an ad hoc
+    rule, or extracted dynamically by the depdb-dyndep builtin (see the next
+    NEWS item). For example:
+
+    thrift_cxx{data}<{hxx cxx}{data_constants}>: thrift{data}        # Static.
+
+    thrift_cxx{~'/(.+)/'}<{hxx cxx}{^'/\1_types/'}>: thrift{~'/\1/'} # Inject.
+    {{
+       depdb dyndep --dyn-target ...                                 # Dynamic.
+    }}
+
+  * Support for dynamic target extraction in addition to prerequisites.
+
+    This functionality is enabled with the depdb-dyndep --dyn-target option.
+    If the recipe target is an explicit group (see the previous NEWS item),
+    then the dynamically extracted targets are added as its members.
+    Otherwise, the listed targets are added as ad hoc group members. In both
+    cases the dynamically extract target is ignored if it is already specified
+    as a static member or injected by a rule. Note that this functionality is
+    not available in the --byproduct mode. See the depdb-dyndep builtin
+    options description for details.
+
+  * New `lines` depdb-dyndep dependency format in  addition to `make`.
+
+    The `lines` format lists targets and/or prerequisites one per line. See
+    the depdb-dyndep builtin options description for details.
 
   * Low verbosity diagnostics rework.
 
     The low verbosity (level 1) rule diagnostics format has been adjusted to
     include the output target where appropriate. The implementation has also
     been redesigned to go through the uniform print_diag() API, including for
-    the `diag` pseudo-builtin in ad hoc recipes. Specifically, the `diag`
-    builtin now expects its arguments to be in one of the following two forms
-    (which correspond to the two forms of print_diag()):
+    the `diag` pseudo-builtin in ad hoc recipes.
+
+    Specifically, the `diag` builtin now expects its arguments to be in one of
+    the following two forms (which correspond to the two print_diag() forms):
 
     diag <prog> <l-target> <comb> <r-target>...
     diag <prog> <r-target>...
 
     If the `diag` builtin is not specified, the default diagnostics is now
-    equivalent to, for update:
+    equivalent to:
+
+    For update:
 
     diag <prog> ($<[0]) -> $>
 
@@ -54,7 +132,126 @@ Version 0.16.0
     diag <prog> $>
 
     For details, see the print_diag() API description in diagnostics.hxx. See
-    also GH issue #40 for additional background/details.
+    also GitHub issue #40 for additional background/details.
+
+  * Buffering of diagnostics from child processes.
+
+    By default, unless running serially or --no-diag-buffer is specified,
+    diagnostics issued by child processes (compilers, etc) is buffered and
+    printed all at once after each child exits in order to prevent
+    interleaving. See also the new --[no-]diag-color options.
+
+  * New $path.posix_string() and $path.posix_representation() functions.
+
+    These functions are similar to $path.string() and $path.representation()
+    except that they always return the string/representation of a path in the
+    POSIX notation, that is, using forward slashes.
+
+  * New $regex.filter[_out]_{match,search}(<vals>, <pat>) functions.
+
+    The match versions return elements of a list that match (filter) or do not
+    match (filter_out) the regular expression. The search versions do the same
+    except for the search instead of match regex semantics.
+
+  * New $find(<sequence>, <value>), $find_index(<sequence>, <value>) functions.
+
+    The $find() function returns true if the sequence contains the specified
+    value. The $find_index() function returns the index of the first element
+    in the sequence that is equal to the specified value or $size(<sequence>)
+    if none is found. For string sequences, it's possible to request case-
+    insensitive comparison with a flag, for example:
+
+    if ($find ($values, 'foo', icase))
+      ...
+
+  * New $integer_sequence(<begin>, <end>[, <step>]) function.
+
+    This function returns the list of uint64 integers starting from <begin>
+    (including) to <end> (excluding) with the specified <step> or 1 if
+    unspecified. For example:
+
+    hdr = foo.hxx bar.hxx baz.hxx
+    src = foo.cxx bar.cxx baz.cxx
+
+    assert ($size($hdr) == $size($src)) "hdr and src expected to be parallel"
+
+    for i: $integer_sequence(0, $size($hdr))
+    {
+      h = ($hdr[$i])
+      s = ($src[$i])
+      ...
+    }
+
+  * New $is_a(<name>, <target-type>), $filter[_out](<names>, <target-types>)
+    functions.
+
+    $is_a() returns true if the <name>'s target type is-a <target-type>. Note
+    that this is a dynamic type check that takes into account target type
+    inheritance.
+
+    $filter[_out]() return names with target types which are-a (filter) or
+    not are-a (filter_out) one of <target-types>.
+
+    In particular, these functions are useful for filtering prerequisite
+    targets ($<) in ad hoc recipes and rules.
+
+  * Support for the hex notation for the uint64 type.
+
+    Specifically, now we can do:
+
+    x = [uint64] 0x0000ffff
+
+    cxx.poptions += "-DOFFSET=$x"                 # -DOFFSET=65535
+    cxx.poptions += "-DOFFSET=$string($x, 16)"    # -DOFFSET=0xffff
+    cxx.poptions += "-DOFFSET=$string($x, 16, 8)" # -DOFFSET=0x0000ffff
+
+    Note that there is no hex notation support for the int64 (signed) type.
+
+  * Support for the `for` and `while` loops in Buildscript and Testscript.
+
+    For example:
+
+    for v: $values
+      ...
+    end
+
+    cat values.txt | for -n v
+      ...
+    end
+
+    while (!$regex.match(...))
+      ...
+    end
+
+    See "Command-For" and "Command-While" in the Testscript manual for
+    details.
+
+  * New `find` builtin in Buildscript and Testscript.
+
+    For example:
+
+    find gen/ -type f -name '*.?xx' | for -n f
+      ...
+    end
+
+    See "find" in the Testscript manual for details.
+
+  * Improvements to escape sequence support.
+
+    In the double-quoted strings we now only do effective escaping of the
+    special [$("\] characters, line continuations, plus [)] for symmetry.
+
+    There is now support for "escape sequence expansion" in the $\X form where
+    \X can be any of the C/C++ simple escape sequences (\n, \t, etc) plus \0
+    (which in C/C++ is an octal escape sequence). For example:
+
+    info "foo$\n$\tbar$\n$\tbaz"
+
+    Will print:
+
+    buildfile:1:1: info: foo
+             bar
+             baz
 
   * New include_arch installation location and the corresponding
     config.install.include_arch configuration variable.
@@ -66,15 +263,82 @@ Version 0.16.0
     multiple architectures from the same installation location. This is how
     one would normally use it from a buildfile:
 
-    # The configuration header may contain target architecture-specific
-    # information so install it into include_arch/ instead of include/.
+    # The generated configuration header may contain target architecture-
+    # specific information so install it into include_arch/ instead of
+    # include/.
     #
     h{*}:      install = include/libhello/
     h{config}: install = include_arch/libhello/
 
+  * Support for installation filtering.
+
+    While project authors determine what gets installed at the buildfile
+    level, the users of the project can now further filter the installation
+    using the config.install.filter variable. For details, see "Installation
+    Filtering" in the manual.
+
+  * Support for relocatable installations.
+
+    A relocatable installation can be moved to a directory other than its
+    original installation location. To request a relocatable installation, set
+    the config.install.relocatable variable to true. For details, see
+    "Relocatable Installation" in the manual.
+
+  * Support for installation manifest.
+
+    During the install operation, the config.install.manifest variable can be
+    set to a file path (or `-`) in order to write the information about all
+    the filesystem entries being installed into the specified file (or
+    stdout). The format of the installation manifest is "JSON lines". For
+    details, see the config.install.manifest variable documentation in the
+    install module.
+
+  * Ability to remap paths in source distributions.
+
+    The dist target-specific variable can now specify a path besides true or
+    false. This path is the "imaginary" source location which is used to
+    derive the corresponding distribution location. This location can be
+    either a directory path (to remap with the same file name) or a file path
+    (to remap with a different name). If the path is relative, then it is
+    treated relative to the target directory. Note that to make things less
+    error-prone, simple paths without any directory separators are not allowed
+    (use ./<name> instead).
+
+    Note that if multiple targets end up with the same source location, the
+    behavior is undefined and no diagnostics is issued. Note also that such
+    remapping has naturally no effect in the bootstrap distribution mode.
+
   * The in.substitution variable has been renamed to in.mode.
 
     The original name is still recognized for backwards compatibility.
+
+  * Ability to specify `in` rule substitutions as key-value pairs.
+
+    See "in Module" in the manual for details.
+
+  * New public/private variables model.
+
+    Now unqualified variables are project-private and can be typed, meaning
+    that a value assigned to a variable with such a name anywhere within the
+    project will have this type. For example:
+
+    [uint64] priority   = [null]
+    [uint64] stack_size = [null]
+
+    priority = 1     # Ok.
+    stack_size = abc # Error.
+
+    Besides the type, variable attributes can specify visibility (project by
+    default) and overridability (false by default). For example:
+
+    thread{*}:
+    {
+      [uint64, visibility=target] priority   = [null]
+      [uint64, visibility=target] stack_size = [null]
+    }
+
+    thread{foo}: priority = 1 # Ok.
+    priority = 1              # Error.
 
   * Support for post hoc prerequisites.
 
@@ -107,6 +371,50 @@ Version 0.16.0
     Specifically, while order-only prerequisite is guaranteed to be built
     before the target, post hoc prerequisite is only guaranteed to be built
     before the end of the overall build.
+
+  * Support for dumping build system state in the JSON format.
+
+    The new --dump-format option can be used to select the desired format.
+    Its valid values are `buildfile` and `json-v0.1`. For details on the JSON
+    dump format see "Appendix A - JSON Dump Format" in the manual.
+
+  * Change to the --dump option semantics.
+
+    This option now recognizes two additional values: `match-pre` and
+    `match-post` to dump the state of pre/post-operations. The `match` value
+    now only triggers dumping of the main operation.
+
+  * New --dump-scope and --dump-target options to limit --dump output.
+
+  * New --load-only option in addition to --match-only.
+
+    This option has the effect of loading all the subdirectory buildfiles that
+    are not explicitly included and is primarily useful in combination with
+    --dump.
+
+  * Quoted/display target names in the JSON structured result are now
+    consistent with the JSON dump.
+
+    Specifically, before we had `target` (display) and `quoted_target` and now
+    we have `target` (quoted) and `display_target`. Note that this is a
+    backwards-incompatible change.
+
+  * The dist meta-operation no longer invokes the install program.
+
+    This results in a substantial speedup, especially on Windows. The use of
+    install (or another install-like program) can still be forced with
+    explicit config.dist.cmd=install.
+
+  * Clang -Wunqualified-std-cast-call warning was remapped to -Wextra.
+
+    Clang 15 introduced the -Wunqualified-std-cast-call warning which warns
+    about unqualified calls to std::move() and std::forward() (because they
+    can be "hijacked" via ADL). Surprisingly, this warning is enabled by
+    default, as opposed to with -Wextra or at least -Wall. It has also proven
+    to be quite disruptive, causing a large number of warnings in a large
+    number of packages. So we have "remapped" it to -Wextra for now and in the
+    future may "relax" it to -Wall and potentially to being enabled by
+    default. See GitHub issue #259 for background and details.
 
 Version 0.15.0
 
