@@ -156,7 +156,7 @@ Let's now try to build and run our program (\c{b} is the build system driver):
 $ cd hello/  # Change to project root.
 
 $ b
-c++ cxx{hello}
+c++ cxx{hello} -> obje{hello}
 ld exe{hello}
 
 $ ls -1
@@ -177,7 +177,7 @@ Or, if we are on Windows and using Visual Studio:
 > cd hello
 
 > b
-c++ cxx{hello}
+c++ cxx{hello} -> obje{hello}
 ld exe{hello}
 
 > dir /b
@@ -235,7 +235,7 @@ noise, the commands being executed are by default shown abbreviated and with
 the same target type notation as we used in the \c{buildfile}. For example:
 
 \
-c++ cxx{hello}
+c++ cxx{hello} -> obje{hello}
 ld exe{hello}
 \
 
@@ -815,7 +815,7 @@ in this new layout:
 \
 $ cd hello/  # Change to project root.
 $ b
-c++ hello/cxx{hello}
+c++ hello/cxx{hello} -> hello/obje{hello}
 ld hello/exe{hello}
 
 $ tree ./
@@ -973,7 +973,7 @@ To start, let's build it in the \c{hello-out/} directory next to the project:
 $ b hello/@hello-out/
 mkdir fsdir{hello-out/}
 mkdir hello-out/fsdir{hello/}
-c++ hello/hello/cxx{hello}@hello-out/hello/
+c++ hello/hello/cxx{hello} -> hello-out/hello/obje{hello}
 ld hello-out/hello/exe{hello}
 
 $ ls -1
@@ -1053,21 +1053,25 @@ We could have also specified out for an in source build, but that's redundant:
 $ b hello/@hello/
 \
 
-There is another example of this elaborate target specification in the build
-diagnostics:
+There is another example of this elaborate target specification that can be
+seen in the build diagnostics, for instance, when installing headers of a
+library (the \c{install} operation is discussed in the next section):
 
 \
-c++ hello/hello/cxx{hello}@hello-out/hello/
+$ b install: libhello/@libhello-out/
+...
+install libhello/libhello/hxx{hello}@libhello-out/libhello/ ->
+        /usr/local/include/
 \
 
-Notice, however, that now the target (\c{cxx{hello\}}) is on the left of
+Notice, however, that now the target (\c{hxx{hello\}}) is on the left of
 \c{@}, that is, in the src directory. It does, however, make sense if you
-think about it: our \c{hello.cxx} is a \i{source file}, it is not built and it
-resides in the project's source directory. This is in contrast, for example,
-to the \c{exe{hello\}} target which is the output of the build system and goes
-to the out directory. So in \c{build2} targets can be either in src or in out
-(there can also be \i{out of any project} targets, for example, installed
-files).
+think about it: our \c{hello.hxx} is a \i{source file}, in a sense that it is
+not built and it resides in the project's source directory. This is in
+contrast, for example, to the \c{exe{hello\}} target which is the output of
+the build system and goes to the out directory. So in \c{build2} targets can
+be either in src or in out (there can also be \i{out of any project} targets,
+for example, installed files).
 
 The elaborate target specification can also be used in \c{buildfiles}. We
 haven't encountered any so far because targets mentioned without explicit
@@ -1876,7 +1880,7 @@ $ b configure: hello/@hello-gcc/,forward
 
 $ cd hello/  # Change to project root.
 $ b
-c++ hello/cxx{hello}@../hello-gcc/hello/
+c++ hello/cxx{hello} -> ../hello-gcc/hello/obje{hello}
 ld ../hello-gcc/hello/exe{hello}
 ln ../hello-gcc/hello/exe{hello} -> hello/
 \
@@ -1986,7 +1990,7 @@ actual output:
 
 \
 $ b test
-c++ hello/cxx{hello}
+c++ hello/cxx{hello} -> hello/obje{hello}
 ld hello/exe{hello}
 test hello/exe{hello}
 --- test.out
@@ -2088,9 +2092,9 @@ expect to see when running the tests:
 
 \
 b test
-c++ hello/cxx{hello}
+c++ hello/cxx{hello} -> hello/obje{hello}
 ld hello/exe{hello}
-test hello/testscript{testscript} hello/exe{hello}
+test hello/exe{hello} + hello/testscript{testscript}
 hello/testscript:7:1: error: hello/hello exit code 0 == 0
   info: stdout: hello/test-hello/missing-name/stdout
 \
@@ -2600,9 +2604,9 @@ source directory to use its in source build (\c{out_root\ ==\ src_root}):
 
 \
 $ b hello/ config.import.libhello=libhello/
-c++ libhello/libhello/cxx{hello}
+c++ libhello/libhello/cxx{hello} -> libhello/libhello/objs{hello}
 ld libhello/libhello/libs{hello}
-c++ hello/hello/cxx{hello}
+c++ hello/hello/cxx{hello} -> hello/hello/obje{hello}
 ld hello/hello/exe{hello}
 \
 
@@ -2617,9 +2621,9 @@ $ b configure: hello/@hello-clang/ config.cxx=clang++ \
   config.import.libhello=libhello-clang/
 
 $ b hello-clang/
-c++ libhello/libhello/cxx{hello}@libhello-clang/libhello/
+c++ libhello/libhello/cxx{hello} -> libhello-clang/libhello/objs{hello}
 ld libhello-clang/libhello/libs{hello}
-c++ hello/hello/cxx{hello}@hello-clang/hello/
+c++ hello/hello/cxx{hello} -> hello-clang/hello/obje{hello}
 ld hello-clang/hello/exe{hello}
 \
 
@@ -3166,9 +3170,10 @@ hello/
 └── buildfile
 
 $ b hello/
-c++ hello/libhello/libhello/cxx{hello}
+c++ hello/libhello/libhello/cxx{hello} ->
+    hello/libhello/libhello/objs{hello}
 ld hello/libhello/libhello/libs{hello}
-c++ hello/hello/cxx{hello}
+c++ hello/hello/cxx{hello} -> hello/hello/obje{hello}
 ld hello/hello/exe{hello}
 \
 
