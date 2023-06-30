@@ -207,7 +207,8 @@ Version 0.16.0
 
     Note that there is no hex notation support for the int64 (signed) type.
 
-  * Support for the `for` and `while` loops in Buildscript and Testscript.
+  * Support for the `for` and `while` loops in Buildscript recipes and
+    Testscript.
 
     For example:
 
@@ -226,7 +227,7 @@ Version 0.16.0
     See "Command-For" and "Command-While" in the Testscript manual for
     details.
 
-  * New `find` builtin in Buildscript and Testscript.
+  * New `find` builtin in Buildscript recipes and Testscript.
 
     For example:
 
