@@ -35,18 +35,34 @@ rem
   )
 goto :eof
 
+rem For :compile and :link, directories that include spaces must be enclosed in
+rem double quotes. A directory may be an absolute path or a relative path.
+rem Similarly, %cxx% must also be enclosed in double quotes, as it could contain
+rem spaces if specified as an absolute path. With :compile, both "/I%owd%" and
+rem /I"%owd%" can be used interchangeably and the space between /I and directory
+rem is optional.
+rem
+rem Note also that in the first iteration, s is an empty variable, so when the
+rem first argument is appended, it includes an extra space prior to expanding,
+rem of which we strip once we finish globbing their respective inputs.
+rem
+
 :compile
-  rem Note that echo does not override errorlevel.
-  rem
+  set "s="
+  for %%i in (%*) do @(set "s=!s! "%%i"")
+  set "s=%s:~1%"
   echo on
-  %cxx% /I"%owd%\%libbutl%" /I"%owd%" /D_CRT_SECURE_NO_WARNINGS /D_SCL_SECURE_NO_WARNINGS /DBUILD2_BOOTSTRAP /DBUILD2_HOST_TRIPLET=\"x86_64-microsoft-win32-msvc\" %ops% /c /TP %*
+  "%cxx%" /I"%owd%\%libbutl%" /I"%owd%" /D_CRT_SECURE_NO_WARNINGS /D_SCL_SECURE_NO_WARNINGS /DBUILD2_BOOTSTRAP /DBUILD2_HOST_TRIPLET=\"x86_64-microsoft-win32-msvc\" %ops% /c /TP %s%
   @echo off
   if errorlevel 1 exit /b 1
 goto :eof
 
 :link
+  set "s="
+  for %%i in (%*) do @(set "s=!s! "%%i"")
+  set "s=%s:~1%"
   echo on
-  %cxx% %ops% %*
+  "%cxx%" %ops% %s%
   @echo off
   if errorlevel 1 exit /b 1
 goto :eof
