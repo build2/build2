@@ -70,19 +70,21 @@ namespace build2
     {
       const prerequisite_target& p (pts[i]);
 
-      // @@ This currently doesn't cover adhoc targets if matched with
-      //    buildscript (it stores them in p.data). Probably need to redo
-      //    things there (see adhoc_buildscript_rule::apply()).
+      // If include_target flag is specified, then p.data contains the
+      // target pointer.
       //
-      if (p.target != nullptr)
+      if (const target* xt =
+          (p.target != nullptr ? p.target :
+           ((p.include & prerequisite_target::include_target) != 0
+            ? reinterpret_cast<target*> (p.data)
+            : nullptr)))
       {
-        if (p.target == &pt &&
-            (p.include & prerequisite_target::include_udm) != 0)
+        if (xt == &pt && (p.include & prerequisite_target::include_udm) != 0)
           return true;
 
-        if (size_t n = p.target->prerequisite_targets[a].size ())
+        if (size_t n = xt->prerequisite_targets[a].size ())
         {
-          if (updated_during_match (a, *p.target, n, pt))
+          if (updated_during_match (a, *xt, n, pt))
             return true;
         }
       }

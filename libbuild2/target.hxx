@@ -111,8 +111,15 @@ namespace build2
     //   prerequisites that are updated during match should have this bit set
     //   (see dyndep_rule::*_existing_file() for details).
     //
-    static const uintptr_t include_adhoc = 0x01;
-    static const uintptr_t include_udm   = 0x02;
+    // target
+    //
+    //   The data member contains the target pointer that has been "blanked
+    //   out" for some reason (updated during match, unmatched, etc). See
+    //   dyndep_rule::updated_during_match() for details.
+    //
+    static const uintptr_t include_adhoc  = 0x01;
+    static const uintptr_t include_udm    = 0x02;
+    static const uintptr_t include_target = 0x80;
 
     uintptr_t include;
 

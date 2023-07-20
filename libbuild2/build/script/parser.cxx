@@ -2591,10 +2591,15 @@ namespace build2
             {
               prerequisite_target& pt (pts.back ());
 
+              // Note: set the include_target flag for consistency (the
+              // updated_during_match() check does not apply since it's a
+              // dynamic prerequisite).
+              //
               if (pt.adhoc ())
               {
                 pt.data = reinterpret_cast<uintptr_t> (pt.target);
                 pt.target = nullptr;
+                pt.include |= prerequisite_target::include_target;
               }
               else
                 pt.data = 1; // Already updated.

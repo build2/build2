@@ -543,8 +543,22 @@ namespace build2
           // information (e.g., poptions from a library) and those will be
           // change-tracked.
           //
+          // Note: set the include_target flag for the updated_during_match()
+          // check.
+          //
           if (mr.first)
+          {
+            pt.data = reinterpret_cast<uintptr_t> (pt.target);
             pt.target = nullptr;
+            pt.include |= prerequisite_target::include_target;
+
+            // Note that this prerequisite could also be ad hoc and we must
+            // clear that flag if we managed to unmatch (failed that we will
+            // treat it as ordinary ad hoc since it has the target pointer in
+            // data).
+            //
+            pt.include &= ~prerequisite_target::include_adhoc;
+          }
           else
             pt.include |= prerequisite_target::include_adhoc;
         }
@@ -828,9 +842,7 @@ namespace build2
     // them to the auxiliary data member in prerequisite_target (see
     // execute_update_prerequisites() for details).
     //
-    // @@ This actually messes up with updated_during_match() check. Could
-    //    we not redo this so that we always keep p.target intact? Can't
-    //    we just omit p.adhoc() targets from $<?
+    // Note: set the include_target flag for the updated_during_match() check.
     //
     for (prerequisite_target& p: pts)
     {
@@ -840,6 +852,7 @@ namespace build2
       {
         p.data = reinterpret_cast<uintptr_t> (p.target);
         p.target = nullptr;
+        p.include |= prerequisite_target::include_target;
       }
     }
 
@@ -1898,6 +1911,7 @@ namespace build2
   // !NULL   false  1      - normal prerequisite already updated
   // !NULL   true   0      - ad hoc prerequisite to be updated and blanked
   //  NULL   true   !NULL  - ad hoc prerequisite already updated and blanked
+  //  NULL   false  !NULL  - unmatched prerequisite (ignored by this function)
   //
   // Note that we still execute already updated prerequisites to keep the
   // dependency counts straight. But we don't consider them for the "renders
@@ -1972,10 +1986,14 @@ namespace build2
 
           // Blank out adhoc.
           //
+          // Note: set the include_target flag for the updated_during_match()
+          // check.
+          //
           if (p.adhoc ())
           {
             p.data = reinterpret_cast<uintptr_t> (p.target);
             p.target = nullptr;
+            p.include |= prerequisite_target::include_target;
           }
         }
       }
