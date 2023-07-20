@@ -533,7 +533,7 @@ namespace build2
           l6 ([&]{trace << "unmatch " << *pt.target << ": " << mr.first;});
 
           // If we managed to unmatch, blank it out so that it's not executed,
-          // etc. Otherwise, convert it to ad hoc (we also automatically avoid
+          // etc. Otherwise, leave it as is (but we still automatically avoid
           // hashing it, updating it during match in exec_depdb_dyndep(), and
           // making us out of date in execute_update_prerequisites()).
           //
@@ -557,10 +557,16 @@ namespace build2
             // treat it as ordinary ad hoc since it has the target pointer in
             // data).
             //
-            pt.include &= ~prerequisite_target::include_adhoc;
+            // But that makes it impossible to distinguish ad hoc unmatch from
+            // ordinary unmatch prerequisites later when setting $<. Another
+            // flag to the rescue.
+            //
+            if ((pt.include & prerequisite_target::include_adhoc) != 0)
+            {
+              pt.include &= ~prerequisite_target::include_adhoc;
+              pt.include |= include_unmatch_adhoc;
+            }
           }
-          else
-            pt.include |= prerequisite_target::include_adhoc;
         }
       }
     }

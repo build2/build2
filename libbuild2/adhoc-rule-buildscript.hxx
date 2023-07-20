@@ -96,9 +96,12 @@ namespace build2
   public:
     using script_type = build::script::script;
 
-    // The prerequisite_target::include bit that indicates update=unmatch.
+    // The prerequisite_target::include bits that indicate update=unmatch and
+    // an ad hoc version of that.
     //
-    static const uintptr_t include_unmatch = 0x100;
+    static const uintptr_t include_unmatch       = 0x100;
+    static const uintptr_t include_unmatch_adhoc = 0x200;
+
 
     script_type        script;
     string             checksum; // Script text hash.

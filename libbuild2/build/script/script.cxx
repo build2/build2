@@ -7,6 +7,8 @@
 
 #include <libbuild2/target.hxx>
 
+#include <libbuild2/adhoc-rule-buildscript.hxx> // include_unmatch*
+
 #include <libbuild2/script/timeout.hxx>
 
 #include <libbuild2/build/script/parser.hxx>
@@ -91,13 +93,25 @@ namespace build2
           // much sense, they could be handy to exclude certain prerequisites
           // from $< while still treating them as such, especially in rule.
           //
+          // While initially we treated update=unmatch prerequisites as
+          // implicitly ad hoc, this turned out to be not quite correct, so
+          // now we add them unless they are explicitly marked ad hoc.
+          //
           names ns;
-          for (const prerequisite_target& pt: target.prerequisite_targets[a])
+          for (const prerequisite_target& p: target.prerequisite_targets[a])
           {
             // See adhoc_buildscript_rule::execute_update_prerequisites().
             //
-            if (pt.target != nullptr && !pt.adhoc ())
-              pt.target->as_name (ns);
+            if (const target_type* pt =
+                p.target != nullptr ? (p.adhoc () ? nullptr : p.target) :
+                (p.include & adhoc_buildscript_rule::include_unmatch) != 0 &&
+                (p.include & prerequisite_target::include_adhoc) == 0      &&
+                (p.include & adhoc_buildscript_rule::include_unmatch_adhoc) == 0
+                ? reinterpret_cast<target_type*> (p.data)
+                : nullptr)
+            {
+              pt->as_name (ns);
+            }
           }
 
           assign (var_ps) = move (ns);
