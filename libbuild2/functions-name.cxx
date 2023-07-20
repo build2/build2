@@ -48,9 +48,22 @@ namespace build2
     if (const target* r = search_existing (n, s, o.dir))
       return *r;
 
-    fail << "target "
-         << (n.pair ? names {move (n), move (o)} : names {move (n)})
-         << " not found" << endf;
+    // Inside recipes we don't treat `{}` as special so a literal target name
+    // will have no type and won't be found, which is confusing as hell.
+    //
+    bool typed (n.typed ());
+
+    diag_record dr (fail);
+
+    dr << "target "
+       << (n.pair ? names {move (n), move (o)} : names {move (n)})
+       << " not found";
+
+    if (!typed)
+      dr << info << "wrap it in ([names] ...) if this is literal target name "
+         << "specified inside recipe";
+
+    dr << endf;
   }
 
   const target&
