@@ -1265,6 +1265,20 @@ namespace build2
     return ct.try_matched_state (a, false);
   }
 
+  void
+  match_only_sync (action a, const target& t)
+  {
+    assert (t.ctx.phase == run_phase::match);
+
+    target_lock l (lock_impl (a, t, scheduler::work_none));
+
+    if (l.target != nullptr && l.offset < target::offset_matched)
+    {
+      if (match_impl (l, true /* step */).second == target_state::failed)
+        throw failed ();
+    }
+  }
+
   // Note: lock is a reference to avoid the stacking overhead.
   //
   static group_view

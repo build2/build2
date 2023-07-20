@@ -376,6 +376,13 @@ namespace build2
   pair<bool, target_state>
   match_sync (action, const target&, unmatch);
 
+  // As above but only match the target (unless already matched) without
+  // applying the match (which is normally done with match_sync()). You will
+  // most likely regret using this function.
+  //
+  LIBBUILD2_SYMEXPORT void
+  match_only_sync (action, const target&);
+
   // As above but without incrementing the target's dependents count. Should
   // be executed with execute_direct_*().
   //

@@ -63,9 +63,11 @@ namespace build2
     // in_rule
     //
     bool in_rule::
-    match (action a, target& t, const string& hint, match_extra&) const
+    match (action a, target& xt, const string& hint, match_extra&) const
     {
       tracer trace ("bash::in_rule::match");
+
+      file& t (xt.as<file> ()); // Only registered for exe{} and bash{}.
 
       // Note that for bash{} and for exe{} with hint we match even if the
       // target does not depend on any modules (while it could have been
@@ -88,6 +90,12 @@ namespace build2
       if (!fm)
         l4 ([&]{trace << "no bash module prerequisite or hint for target "
                       << t;});
+
+      // If we match, derive the file name early as recommended by the in
+      // rule.
+      //
+      if (fi && fm)
+        t.derive_path ();
 
       return fi && fm;
     }

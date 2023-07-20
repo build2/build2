@@ -93,6 +93,12 @@ namespace build2
       if (!fi)
         l5 ([&]{trace << "no in file prerequisite for target " << t;});
 
+      // If we match, derive the file name early as recommended by the in
+      // rule.
+      //
+      if (fm && fi)
+        t.derive_path ();
+
       return fm && fi;
     }
 

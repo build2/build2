@@ -22,6 +22,11 @@ namespace build2
     // cache data (e.g., in match() or apply()) to be used in substitute() and
     // lookup() calls.
     //
+    // A derived rule is also required to derive the target file name in
+    // match() instead of apply() to make it available early for the in{}
+    // prerequisite search (see install::file_rule::apply_impl() for
+    // background).
+    //
     // Note also that currently this rule ignores the dry-run mode (see
     // perform_update() for the rationale).
     //

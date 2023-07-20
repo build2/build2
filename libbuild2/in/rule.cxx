@@ -47,6 +47,13 @@ namespace build2
       if (!fi)
         l5 ([&]{trace << "no in file prerequisite for target " << t;});
 
+      // If we match, derive the file name here instead of in apply() to make
+      // it available early for the in{} prerequisite search (see
+      // install::file_rule::apply_impl() for background).
+      //
+      if (fi)
+        t.derive_path ();
+
       return fi;
     }
 
@@ -55,9 +62,9 @@ namespace build2
     {
       file& t (xt.as<file> ());
 
-      // Derive the file name.
+      // Make sure derived rules assign the path in match().
       //
-      t.derive_path ();
+      assert (!t.path ().empty ());
 
       // Inject dependency on the output directory.
       //
