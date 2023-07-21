@@ -36,7 +36,7 @@ namespace build2
     // target.
     //
     // Return the indication of whether it has changed or, if the passed
-    // timestamp is not timestamp_unknown, is older than this timestamp. If
+    // timestamp is not timestamp_unknown, is newer than this timestamp. If
     // the prerequisite target does not exists nor can be generated (no rule),
     // then issue diagnostics and fail if the fail argument is true and return
     // nullopt otherwise.
