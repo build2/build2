@@ -624,6 +624,7 @@ namespace build2
                      cmp ("psapi")           ||
                      cmp ("rpcrt4")          ||
                      cmp ("secur32")         ||
+                     cmp ("setupapi")        ||
                      cmp ("shell32")         ||
                      cmp ("shlwapi")         ||
                      cmp ("synchronization") ||
