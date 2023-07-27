@@ -62,8 +62,8 @@ namespace build2
       uint64_t mi (ci.version.minor);
       uint64_t p (ci.version.patch);
 
-      // Besides various `c++NN` we have two special values: `latest` and
-      // `experimental`.
+      // Besides various `NN` we have two special values: `latest` and
+      // `experimental`. It can also be `gnu++NN`.
       //
       // The semantics of the `latest` value is the latest available standard
       // that is not necessarily complete or final but is practically usable.
@@ -90,6 +90,24 @@ namespace build2
       //
       bool latest       (v != nullptr && *v == "latest");
       bool experimental (v != nullptr && *v == "experimental");
+
+      // This helper helps recognize both NN and [cC]++NN to avoid an endless
+      // stream of user questions. It can also be used to recognize Nx in
+      // addition to NN (e.g., "14" and "1y").
+      //
+      auto stdcmp = [v] (const char* nn, const char* nx = nullptr)
+      {
+        if (v != nullptr)
+        {
+          const char* s (v->c_str ());
+          if ((s[0] == 'c' || s[0] == 'C') && s[1] == '+' && s[2] == '+')
+            s += 3;
+
+          return strcmp (s, nn) == 0 || (nx != nullptr && strcmp (s, nx) == 0);
+        }
+
+        return false;
+      };
 
       // Feature flags.
       //
@@ -205,44 +223,44 @@ namespace build2
           }
           else if (v == nullptr)
             ;
-          else if (*v != "98" && *v != "03")
+          else if (!stdcmp ("98") && !stdcmp ("03"))
           {
             bool sup (false);
 
-            if      (*v == "11") // C++11 since VS2010/10.0.
+            if      (stdcmp ("11", "0x")) // C++11 since VS2010/10.0.
             {
               sup = mj >= 16;
             }
-            else if (*v == "14") // C++14 since VS2015/14.0.
+            else if (stdcmp ("14", "1y")) // C++14 since VS2015/14.0.
             {
               sup = mj >= 19;
             }
-            else if (*v == "17") // C++17 since VS2015/14.0u2.
+            else if (stdcmp ("17", "1z")) // C++17 since VS2015/14.0u2.
             {
               // Note: the VC15 compiler version is 19.10.
               //
               sup = (mj > 19 ||
                      (mj == 19 && (mi > 0 || (mi == 0 && p >= 23918))));
             }
-            else if (*v == "20") // C++20 since VS2019/16.11.
+            else if (stdcmp ("20", "2a")) // C++20 since VS2019/16.11.
             {
               sup = v16_11;
             }
 
             if (!sup)
-              fail << "C++" << *v << " is not supported by " << ci.signature <<
+              fail << "C++ " << *v << " is not supported by " << ci.signature <<
                 info << "required by " << project (rs) << '@' << rs;
 
             if (v15_3)
             {
-              if      (*v == "20") o = "/std:c++20";
-              else if (*v == "17") o = "/std:c++17";
-              else if (*v == "14") o = "/std:c++14";
+              if      (stdcmp ("20", "2a")) o = "/std:c++20";
+              else if (stdcmp ("17", "1z")) o = "/std:c++17";
+              else if (stdcmp ("14", "1y")) o = "/std:c++14";
             }
             else if (v14_3)
             {
-              if      (*v == "14") o = "/std:c++14";
-              else if (*v == "17") o = "/std:c++latest";
+              if      (stdcmp ("14", "1y")) o = "/std:c++14";
+              else if (stdcmp ("17", "1z")) o = "/std:c++latest";
             }
           }
 
@@ -324,14 +342,14 @@ namespace build2
             //
             o = "-std=";
 
-            if      (*v == "26") o += "c++2c";
-            else if (*v == "23") o += "c++2b";
-            else if (*v == "20") o += "c++2a";
-            else if (*v == "17") o += "c++1z";
-            else if (*v == "14") o += "c++1y";
-            else if (*v == "11") o += "c++0x";
-            else if (*v == "03") o += "c++03";
-            else if (*v == "98") o += "c++98";
+            if      (stdcmp ("26", "2c")) o += "c++2c";
+            else if (stdcmp ("23", "2b")) o += "c++2b";
+            else if (stdcmp ("20", "2a")) o += "c++2a";
+            else if (stdcmp ("17", "1z")) o += "c++1z";
+            else if (stdcmp ("14", "1y")) o += "c++1y";
+            else if (stdcmp ("11", "0x")) o += "c++0x";
+            else if (stdcmp ("03")      ) o += "c++03";
+            else if (stdcmp ("98")      ) o += "c++98";
             else o += *v; // In case the user specifies `gnu++NN` or some such.
           }
 

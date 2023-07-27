@@ -54,6 +54,26 @@ namespace build2
                    strings& mode,
                    const string* v) const
     {
+      // The standard is `NN` but can also be `gnuNN`.
+
+      // This helper helps recognize both NN and [cC]NN to avoid an endless
+      // stream of user questions. It can also be used to recognize Nx in
+      // addition to NN (e.g., "23" and "2x").
+      //
+      auto stdcmp = [v] (const char* nn, const char* nx = nullptr)
+      {
+        if (v != nullptr)
+        {
+          const char* s (v->c_str ());
+          if (s[0] == 'c' || s[0] == 'C')
+            s += 1;
+
+          return strcmp (s, nn) == 0 || (nx != nullptr && strcmp (s, nx) == 0);
+        }
+
+        return false;
+      };
+
       switch (ci.class_)
       {
       case compiler_class::msvc:
@@ -92,17 +112,17 @@ namespace build2
           //
           if (v == nullptr)
             ;
-          else if (*v != "90")
+          else if (!stdcmp ("90"))
           {
             uint64_t cver (ci.version.major);
 
-            if ((*v == "99"   && cver < 16) ||  // Since VS2010/10.0.
-                ((*v == "11" ||
-                  *v == "17" ||
-                  *v == "18") && cver < 18) ||
-                (*v == "2x"               ))
+            if ((stdcmp ("99")   && cver < 16) ||  // Since VS2010/10.0.
+                ((stdcmp ("11") ||
+                  stdcmp ("17") ||
+                  stdcmp ("18")) && cver < 18) ||  // Since VS????/11.0.
+                (stdcmp ("23", "2x")           ))
             {
-              fail << "C" << *v << " is not supported by " << ci.signature <<
+              fail << "C " << *v << " is not supported by " << ci.signature <<
                 info << "required by " << project (rs) << '@' << rs;
             }
           }
@@ -119,12 +139,12 @@ namespace build2
           {
             string o ("-std=");
 
-            if      (*v == "2x") o += "c2x"; // GCC 9, Clang 9 (8?).
-            else if (*v == "17" ||
-                     *v == "18") o += "c17"; // GCC 8, Clang 6.
-            else if (*v == "11") o += "c1x";
-            else if (*v == "99") o += "c9x";
-            else if (*v == "90") o += "c90";
+            if      (stdcmp ("23", "2x")) o += "c2x"; // GCC 9, Clang 9 (8?).
+            else if (stdcmp ("17") ||
+                     stdcmp ("18"))       o += "c17"; // GCC 8, Clang 6.
+            else if (stdcmp ("11"))       o += "c1x";
+            else if (stdcmp ("99"))       o += "c9x";
+            else if (stdcmp ("90"))       o += "c90";
             else o += *v; // In case the user specifies `gnuNN` or some such.
 
             mode.insert (mode.begin (), move (o));
