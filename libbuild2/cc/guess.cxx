@@ -2365,17 +2365,20 @@ namespace build2
     // These are derived from gcc_* plus the sparse documentation (clang(1))
     // and source code.
     //
+    // Note that for now for Clang targeting MSVC we use msvc_env but should
+    // probably use a combined list.
+    //
     // See also the note on environment and caching below if adding any new
     // variables.
     //
     static const char* clang_c_env[] = {
-      "CPATH", "C_INCLUDE_PATH",
+      "CPATH", "C_INCLUDE_PATH", "CCC_OVERRIDE_OPTIONS",
       "LIBRARY_PATH", "LD_RUN_PATH",
       "COMPILER_PATH",
       nullptr};
 
     static const char* clang_cxx_env[] = {
-      "CPATH", "CPLUS_INCLUDE_PATH",
+      "CPATH", "CPLUS_INCLUDE_PATH", "CCC_OVERRIDE_OPTIONS",
       "LIBRARY_PATH", "LD_RUN_PATH",
       "COMPILER_PATH",
       nullptr};
