@@ -172,6 +172,10 @@ namespace build2
                    tracer& tr)
     {
       auto r (p.scope_->find_target_type (n, o, loc));
+
+      if (r.first.factory == nullptr)
+        p.fail (loc) << "abstract target type " << r.first.name << "{}";
+
       return p.ctx->targets.insert (
         r.first,         // target type
         move (n.dir),
@@ -192,6 +196,10 @@ namespace build2
                  tracer& tr)
     {
       auto r (p.scope_->find_target_type (n, o, loc));
+
+      if (r.first.factory == nullptr)
+        p.fail (loc) << "abstract target type " << r.first.name << "{}";
+
       return p.ctx->targets.find (r.first,  // target type
                                   n.dir,
                                   o.dir,
@@ -915,6 +923,8 @@ namespace build2
           }
 
           // Resolve target type. If none is specified, then it's file{}.
+          //
+          // Note: abstract target type is ok here.
           //
           const target_type* ttype (n.untyped ()
                                     ? &file::static_type
@@ -2765,6 +2775,9 @@ namespace build2
       if (t == nullptr)
         fail (ploc) << "unknown target type " << n.type;
 
+      if (t->factory == nullptr)
+        fail (ploc) << "abstract target type " << t->name << "{}";
+
       // Current dir collapses to an empty one.
       //
       if (!n.dir.empty ())
@@ -4327,6 +4340,13 @@ namespace build2
 
       if (bt == nullptr)
         fail (t) << "unknown target type " << bn;
+
+      // The derive_target_type() call below does not produce a non-abstract
+      // type if passed an abstract base. So we ban this for now (it's unclear
+      // why would someone want to do this).
+      //
+      if (bt->factory == nullptr)
+        fail (t) << "abstract base target type " << bt->name << "{}";
 
       // Note that the group{foo}<...> syntax is only recognized for group-
       // based targets and ad hoc buildscript recipes/rules only match group.
@@ -7521,6 +7541,8 @@ namespace build2
 
               if (ttp == nullptr)
                 ppat = pinc = false;
+              else if (ttp->factory == nullptr)
+                fail (loc) << "abstract target type " << ttp->name << "{}";
             }
           }
 
@@ -7681,6 +7703,9 @@ namespace build2
                 const target_type* ttp (tp != nullptr && scope_ != nullptr
                                         ? scope_->find_target_type (*tp)
                                         : nullptr);
+
+                if (ttp != nullptr && ttp->factory == nullptr)
+                  fail (loc) << "abstract target type " << ttp->name << "{}";
 
                 if (tp == nullptr || ttp != nullptr)
                 {

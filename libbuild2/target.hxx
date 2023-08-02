@@ -2413,7 +2413,7 @@ namespace build2
   // in the generic install rule. @@ This is still a TODO.
   //
   // Note that handling subsections with man1..9{} is easy, we
-  // simply specify the extension explicitly, e.g., man{foo.1p}.
+  // simply specify the extension explicitly, e.g., man1{foo.1p}.
   //
   class LIBBUILD2_SYMEXPORT man: public doc
   {
