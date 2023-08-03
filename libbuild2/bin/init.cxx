@@ -466,6 +466,9 @@ namespace build2
 
         if (first)
         {
+          // NOTE: remember to update the documentation if changing anything
+          //       here!
+          //
           rs.insert_target_type<obj>  ();
           rs.insert_target_type<obje> ();
           rs.insert_target_type<obja> ();

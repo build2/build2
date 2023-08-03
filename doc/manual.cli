@@ -275,7 +275,8 @@ above listings. In our \c{buildfile} we refer to the executable target as
 extension, if any, will be determined based on the compiler's target platform
 by the rule doing the linking. In this sense, target types are a
 platform-independent replacement of file extensions (though they do have other
-benefits, such as allowing non-file targets as well as being hierarchical).
+benefits, such as allowing non-file targets as well as being hierarchical;
+see \l{#targets-types Target Types} for details).
 
 Let's revisit the dependency declaration line from our \c{buildfile}:
 
@@ -681,7 +682,8 @@ notation for \c{dir{\}}. As we will see shortly, it fits naturally with other
 uses of directories in \c{buildfiles} (for example, in scopes).
 
 The \c{dir{\}} target type is an \i{alias} (and, in fact, is derived from more
-general \c{alias{\}}). Building it means building all its prerequisites.
+general \c{alias{\}}; see \l{#targets-types Target Types} for
+details). Building it means building all its prerequisites.
 
 \N|If you are familiar with \c{make}, then you can probably see the similarity
 with the ubiquitous \c{all} pseudo-target. In \c{build2} we instead use
@@ -4220,18 +4222,8 @@ files as belonging to unit tests. Because it is a second-level extension, we
 have to indicate this fact to the pattern matching machinery with the trailing
 triple dot (meaning \"there are more extensions coming\"). If we didn't do
 that, \c{.test} would have been treated as a first-level extension explicitly
-specified for our source files.
-
-\N|If you need to specify a name that does not have an extension, then end it
-with a single dot. For example, for a header \c{utility} you would write
-\c{hxx{utility.\}}. If you need to specify a name with an actual trailing dot,
-then escape it with a double dot, for example, \c{hxx{utility..\}}.
-
-More generally, anywhere in a name, a double dot can be used to specify a dot
-that should not be considered the extension separator while a triple dot \-
-which should. For example, in \c{obja{foo.a.o\}} the extension is \c{.o} and
-if instead we wanted \c{.a.o} to be considered the extension, then we could
-rewrite it either as \c{obja{foo.a..o\}} or as \c{obja{foo...a.o\}}.|
+specified for our source files (see \l{#targets-types Target Types} for
+details).
 
 The next couple of lines set target type/pattern-specific variables to treat
 all unit test executables as tests that should not be installed:
@@ -5750,8 +5742,8 @@ patterns/matches that do not already contain an extension. Then the filesystem
 search is performed for matching files.
 
 For example, the \c{cxx{\}} target type obtains the default extension from the
-\c{extension} variable. Assuming we have the following line in our
-\c{root.build}:
+\c{extension} variable (see \l{#targets-types Target Types} for background).
+Assuming we have the following line in our \c{root.build}:
 
 \
 cxx{*}: extension = cxx
@@ -5844,6 +5836,16 @@ info $(file{bar}: y) # s w
 
 \N{This chapter is a work in progress and is incomplete.}
 
+\h#directives-define|\c{define}|
+
+\
+define <derived>: <base>
+\
+
+Define a new target type \c{<derived>} by inheriting from existing target type
+\c{<base>}. See \l{#targets-types Target Types} for details.
+
+
 \h#directives-include|\c{include}|
 
 \
@@ -5868,6 +5870,366 @@ Load the specified file in the current scope as if its contents were copied
 and pasted in place of the \c{source} directive. Note that subsequent sourcing
 of the same file in the same scope are not automatically ignored.  See also
 \l{#directives-include \c{include}}.
+
+
+
+\h1#targets|Targets and Target Types|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+
+\h#targets-types|Target Types|
+
+A target type is part of a target's identity. The core idea behind the concept
+of target types is to abstract away from file extensions which can vary from
+project to project (for example, C++ source files extensions) or from platform
+to platform (for example, executable file extensions). It also allows us to
+have non-file-based targets.
+
+Target types form a \i{base-derived} inheritance tree. The root of this tree
+is the abstract \c{target{\}} type. The \c{build2} core defines a number of
+standard target types, such as \c{file{\}}, \c{doc{\}}, and \c{exe{\}}. Build
+system modules can define additional target types that are based on the
+standard ones (or on types defined by other modules). For example, the \c{c}
+module that provides the C compilation support defines the \c{h{\}} and
+\c{c{\}} target types. Finally, \c{buildfiles} can derive project-local target
+types using the \c{define} directive.
+
+\N|If a target type represents a file type with a well-established extension,
+then by convention such an extension is used as the target type name. For
+example, the C language header and source files use the \c{.h} and \c{.c}
+extensions and the target types are called \c{h{\}} and \c{c{\}}.
+
+Speaking of conventions, as you may have noticed, when mentioning a target
+type we customarily add \c{{\}} after its name. We found that this helps with
+comprehension since target type names are often short (you can also search for
+\c{<type>{} to narrow it down to target types). In a way this is a similar
+approach to adding \c{()} after a function name except here we use \c{{\}},
+which mimics target type usage in target names, for example \c{c{hello\}} for
+\c{hello.c}.|
+
+The following listing shows the hierarchy of the standard target types defined
+by the \c{build2} core (the abstract target types are marked with \c{*}) while
+the following sections describe each standard target type in detail. For
+target types defined by a module refer to the respective module documentation.
+
+\
+                   .-----target*------------.
+                   |                 |      |
+              mtime_target*---.    alias  fsdir
+                   |          |      |
+              path_target*  group   dir
+                   |
+        .---------file----.
+        |          |      |
+  .----doc-----.  exe  buildfile
+  |     |      |
+legal  man  manifest
+        |
+       man<N>
+\
+
+While target types replace (potentially variable) extensions, there still
+needs to be a mechanism for specifying them since in most cases targets have
+to be mapped to files. There are several ways this can be achieved.
+
+If a target type represents a file type with a well-established extension,
+then such an extension is normally used by default and we don't need to take
+any extra steps. For example the \c{h{\}} and \c{c{\}} target types for C
+header and source files default to the \c{.h} and \c{.c} extensions,
+respectively, and if our project follows this convention, then we can simply
+write:
+
+\
+exe{utility}: c{utility} h{utility}
+\
+
+And \c{c{utility\}} will be mapped to \c{utility.c} and \c{h{utility\}} \-
+to \c{utility.h}.
+
+There are two variants of this default extension case: fixed extension and
+customizable extension. A target type may choose to fix the default extension
+if it's a bad idea to deviate from the default extension. A good example of
+such a target is \c{man1{\}}, which fixes the default extension to be
+\c{.1}. More commonly, however, a target will have a default extension but
+will allow customizing it with the \c{extension} variable.
+
+A good example where extension customization is often required are the
+\c{hxx{\}} and \c{cxx{\}} target types for C++ header and source files, which
+default to the \c{.hxx} and \c{.cxx} extensions, respectively. If our project
+uses other extensions, for example, \c{.hpp} and \c{.cpp}, then we can adjust
+the defaults (typically done in \c{root.build}, after loading the \c{cxx}
+module):
+
+\
+hxx{*}: extension = hpp
+cxx{*}: extension = cpp
+\
+
+Then we can write:
+
+\
+exe{utility}: cxx{utility} hxx{utility}
+\
+
+And \c{cxx{utility\}} will be mapped to \c{utility.cpp} and \c{hxx{utility\}}
+\- to \c{utility.hpp}.
+
+What about \c{exe{utility\}}, where does its extension come from? This is an
+example of a target type with an extension that varies from platform to
+platform.  In such cases the extension is expected to be assigned by the rule
+that matches the target. In the above example, the link rule from the \c{cxx}
+module that matches updating \c{exe{utility\}} will assign a suitable
+extension based on the target platform of the C++ compiler that it was
+instructed to use.
+
+Finally, it is always possible to specify the file extension explicitly as
+part of the target name. For example:
+
+\
+exe{utility}: cxx{utility.cc} hxx{utility.hh}
+\
+
+This is normally only needed if the default extension is not appropriate or if
+the target type does not have a default extension, as is the case, for
+example, for the \l{#targets-types-file \c{file{\}}} and \l{#targets-types-doc
+\c{doc{\}}} target types. This mechanism can also be used to override the
+automatically derived extension. For example:
+
+\
+exe{($cxx.target.class == 'windows' ? utility.com : utility)}: ...
+\
+
+\N|If you need to specify a name that does not have an extension, then end it
+with a single dot. For example, for a header \c{utility} you would write
+\c{hxx{utility.\}}. If you need to specify a name with an actual trailing dot,
+then escape it with a double dot, for example, \c{hxx{utility..\}}.
+
+More generally, anywhere in a name, a double dot can be used to specify a dot
+that should not be considered the extension separator while a triple dot \-
+which should. For example, in \c{obja{foo.a.o\}} the extension is \c{.o} and
+if instead we wanted \c{.a.o} to be considered the extension, then we could
+rewrite it either as \c{obja{foo.a..o\}} or as \c{obja{foo...a.o\}}.|
+
+To derive a new target type in a \c{buildfile} we use the \c{define}
+directive. Such target types are project-local, meaning they cannot be
+exported to other projects. Typically this is used to provide a more
+meaningful name to a set of files and also avoid having to specify their
+extensions explicitly. Compare:
+
+\
+./: doc{README.md PACKAGE-README.md INSTALL.md}
+\
+
+To:
+
+\
+define md: doc
+doc{*}: extension = md
+
+./: md{README PACKAGE-README INSTALL}
+\
+
+
+\h2#targets-types-target|\c{target{\}}|
+
+The \c{target{\}} target type is a root of the target type hierarchy. It is
+abstract and is not commonly used directly, except perhaps in patterns (target
+type/pattern-specific variable, pattern rules).
+
+
+\h2#targets-types-alias|\c{alias{\}} and \c{dir{\}}|
+
+The \c{alias{\}} target type is used for non-file-based targets that serve as
+aliases for their prerequisite.
+
+\N|Alias targets in \c{build2} are roughly equivalent to phony targets in
+\c{make}.|
+
+For example:
+
+\
+alias{tests}: exe{test1 test2 test3}
+\
+
+\
+$ b test: alias{tests}
+\
+
+An \c{alias{\}} target can also serve as an \"action\" if supplied with an ad
+hoc recipe (or matched by an ad hoc pattern rule). For example:
+
+\
+alias{strip}: exe{hello}
+{{
+  diag strip $<
+  strip $path($<)
+}}
+\
+
+The \c{dir{\}} target type is a special kind of alias that represents a
+directory. Building it means building everything inside the directory. See
+\l{#intro-proj-struct Project Structure} for background.
+
+A target without a type that ends with a directory separator (\c{/}) is
+automatically treated as \c{dir{\}}. For example, the following two lines are
+equivalent:
+
+\
+./: exe{test1 test2}
+dir{./}: exe{test1 test2}
+\
+
+Omitting the target type in such situations is customary.
+
+
+\h2#targets-types-fsdir|\c{fsdir{\}}|
+
+The \c{fsdir{\}} target type represents a filesystem directory. Unlike
+\c{dir{\}} above, it is not an alias and listing an \c{fsdir{\}} directory as
+a prerequisite of a target will cause that directory to be created on
+\c{update} and removed on \c{clean}.
+
+While we usually don't need to list explicit \c{fsdir{\}} prerequisites for
+our targets, one situation where this is necessary is when the target resides
+in a subdirectory that does not correspond to an existing source directory. A
+typical example of this situation is placing object files into subdirectories.
+Compare:
+
+\
+obj{foo}: c{foo}
+sub/obj{bar}: c{bar} fsdir{sub/}
+\
+
+
+\h2#targets-types-mtime-path|\c{mtime_target{\}} and \c{path_target{\}}|
+
+The \c{mtime_target{\}} target type represents a target that uses modification
+times to determine if it is out of date. The \c{path_target{\}} target type
+represents a target that has a corresponding filesystem entry. It is derived
+from \c{mtime_target{\}} and uses the modification time of that filesystem
+entry to determine if the target is out of date.
+
+Both of these target types are abstract and are not commonly used directly,
+except perhaps in patterns (target type/pattern-specific variable, pattern
+rules).
+
+
+\h2#targets-types-group|\c{group{\}}|
+
+The \c{group{\}} target type represents a user-defined explicit target group,
+that is, a target that has multiple member targets that are all built together
+with a single recipe.
+
+Normally this target type is not used to declare targets or prerequisites but
+rather as a base of a derived group. If desired, such a derived group can be
+marked with an attribute as \"see-through\", meaning that when the group is
+listed as a prerequisite of a target, the matching rule \"sees\" its members,
+rather than the group itself. For example:
+
+\
+define [see_through] thrift_cxx: group
+\
+
+
+\h2#targets-types-file|\c{file{\}}|
+
+The \c{file{\}} target type represents a generic file. This target type is
+used as a base for most of the file-based targets and can also be used to
+declare targets and prerequisites when there are no more specific target
+types.
+
+A target or prerequisite without a target type is automatically treated as
+\c{file{\}}. However, omitting a target type in such situations is not
+customary.
+
+The \c{file{\}} target type has no default extension and one cannot be
+assigned with the \c{extension} variable. As a result, if a \c{file{\}} target
+has an extension, then it must be specified explicitly as part of the target
+name. For example:
+
+\
+./: file{example.conf}
+\
+
+\h2#targets-types-doc|\c{doc{\}}, \c{legal{\}}, and \c{man{\}}|
+
+The \c{doc{\}} target type represents a generic documentation file. It has
+semantics similar to \c{file{\}} (from which it derives): it can be used as a
+base or declare targets/prerequisites and there is no default extension.  One
+notable difference, however, is that \c{doc{\}} targets are by default
+installed into the \c{doc/} installation location (see \l{#module-install
+\c{install} Module}). For example:
+
+\
+./: doc{README.md ChangeLog.txt}
+\
+
+The \c{legal{\}} target type is derived from \c{doc{\}} and represents a legal
+documentation file, such as a license, copyright notice, authorship
+information, etc. The main purpose of having a separate target type like this
+is to help with installing licensing-related files into a different
+location. To this effect, \c{legal{\}} targets are installed into the
+\c{legal/} installation location, which by default is the same as \c{doc/} but
+can be customized. For example:
+
+\
+./: legal{COPYRIGHT LICENSE AUTHORS.md}
+\
+
+The \c{man{\}} target type is derived from \c{doc{\}} and represents a manual
+page. This target type requires an explicit extension specification and is
+installed into the \c{man/} installation location
+
+\N|If you are using the \c{man{\}} target type directly (instead of one of
+\c{man<N>{\}} described below), for example, to install a localized version of
+a man page, then you will likely need to adjust the installation location
+on the per target basis.|
+
+The \c{man<N>{\}} target types (where \c{<N>} is an integer between 1 and 9)
+are derived from \c{man{\}} and represent manual pages in the respective
+sections. These target types have fixed default extensions \c{.<N>} (but an
+explicit extension can still be specified, for example \c{man1{foo.1p\}}) and
+are installed into the \c{man<N>/} installation locations. For example:
+
+\
+./: man1{foo}
+\
+
+
+\h2#targets-types-exe|\c{exe{\}}|
+
+The \c{exe{\}} target type represents an executable file. Executables in
+\c{build2} appear in two distinct but sometimes overlapping contexts: We can
+build an executable target, for example from C source files. Or we can list an
+executable target as a prerequisite in order to execute it as part of a
+recipe. And sometimes this can be the same executable target. For example,
+one project may build an executable target that is a source code generator and
+another project may import this executable target and use it in its recipes in
+order to generate some source code.
+
+To support this semantics the \c{exe{\}} target type has a peculiar default
+extension logic. Specifically, if the \c{exe{\}} target is \"output\", then
+the extension is expected to be assigned by the matching rule according to the
+target platform for which this executable is built. But if it does not,
+then we fall back to no extension (for example, a script). If, however, the
+\c{exe{\}} target is \"input\" (that is, it's listed as a prerequisite and
+there is no corresponding \"output\" target), then the extension of the host
+platform is used as the default.
+
+In all these cases the extension can also be specified explicitly. This, for
+example, would be necessary if the executable were a batch file:
+
+\
+h{generate}: exe{generate.bat}
+{{
+   diag $< -> $>
+   $< -o $path($>)
+}}
+\
+
+Here, without the explicit extension, the \c{.exe} extension would have been
+used by default.
 
 
 \h1#module-config|\c{config} Module|
@@ -6841,6 +7203,116 @@ depends: libprint [3.0.0-b.2.1 3.0.0-b.3)
 
 \N{This chapter is a work in progress and is incomplete.}
 
+\h#module-bin-target-types|Binary Target Types|
+
+The following listing shows the hierarchy of the target types defined by the
+\c{bin} module while the following sections describe each target type in
+detail (\c{target{\}} and \c{file{\}} are standard target types defined by the
+\c{build2} core; see \l{#targets-types Target Types} for details).
+
+\
+                 target----------------.
+                   |                   |
+                  ...                  |
+                   |                   |
+ .---------------file------------.    lib
+ |      |      |     |     |     |    libul
+ |    libue  obje  bmie  hbmie  def   obj
+liba  libua  obja  bmia  hbmia        bmi
+libs  libus  objs  bmis  hbmis        hbmi
+\
+
+
+\h2#module-bin-target-types-lib|\c{lib{\}}, \c{liba{\}}, \c{libs{\}}|
+
+The \c{liba{\}} and \c{libs{\}} target types represent static (archive) and
+shared libraries, respectively.
+
+The \c{lib{\}} target type is a group with the \c{liba{\}} and/or \c{libs{\}}
+members. A rule that encounters a \c{lib{\}} prerequisite may pick a member
+appropriate for the target being built or it may build all the members
+according to the \c{bin.lib} variable. See \l{#intro-lib Library Exportation
+and Versioning} for background.
+
+The \c{lib*{\}} file extensions are normally automatically assigned by the
+matching rules based on the target platform.
+
+
+\h2#module-bin-target-types-libu|\c{libul{\}}, \c{libue{\}}, \c{libua{\}},
+\c{libus{\}}|
+
+The \c{libu*{\}} target types represent utility libraries. Utility libraries
+are static libraries with object files appropriate for linking an executable
+(\c{libue{\}}), static library (\c{libua{\}}), or shared library
+(\c{libus{\}}). Where possible, utility libraries are built in the
+\"thin archive\" mode.
+
+The \c{libul{\}} target type is a group with the \c{libua{\}} and/or
+\c{libus{\}} members. A rule that encounters a \c{libul{\}} prerequisite picks
+a member appropriate for the target being built.
+
+The \c{libu*{\}} file extensions are normally automatically assigned by the
+matching rules based on the target platform.
+
+
+\h2#module-bin-target-types-obj|\c{obj{\}}, \c{obje{\}}, \c{obja{\}},
+\c{objs{\}}|
+
+The \c{obj*{\}} target types represent object files appropriate for linking an
+executable (\c{obje{\}}), static library (\c{obja{\}}), or shared library
+(\c{objs{\}}).
+
+\N|In \c{build2} we use distinct object files for the three types of binaries
+(executable, static library, and shared library). The distinction between
+static and shared libraries is made to accommodate build differences such as
+the need for position-independent code (\c{-fPIC}) in shared libraries. While
+in most cases the same object file can be used for executables and static
+libraries, they are kept separate for consistency and generality.|
+
+The \c{obj{\}} target type is a group with the \c{obje{\}}, and/or
+\c{obja{\}}, and/or \c{objs{\}} members. A rule that encounters an \c{obj{\}}
+prerequisite picks a member appropriate for the target being built.
+
+The \c{obj*{\}} file extensions are normally automatically assigned by the
+matching rules based on the target platform.
+
+
+\h2#module-bin-target-types-bmi|\c{bmi{\}}, \c{bmie{\}}, \c{bmia{\}},
+\c{bmis{\}}|
+
+The \c{bmi*{\}} target types represent binary module interfaces (BMI) for
+C++20 named modules appropriate for linking an executable (\c{bmie{\}}),
+static library (\c{bmia{\}}), or shared library (\c{bmis{\}}).
+
+The \c{bmi{\}} target type is a group with the \c{bmie{\}}, and/or
+\c{bmia{\}}, and/or \c{bmis{\}} members. A rule that encounters an \c{bmi{\}}
+prerequisite picks a member appropriate for the target being built.
+
+The \c{bmi*{\}} file extensions are normally automatically assigned by the
+matching rules based on the target platform.
+
+
+\h2#module-bin-target-types-hbmi|\c{hbmi{\}}, \c{hbmie{\}}, \c{hbmia{\}},
+\c{hbmis{\}}|
+
+The \c{hbmi*{\}} target types represent binary module interfaces (BMI) for
+C++20 header units appropriate for linking an executable (\c{hbmie{\}}),
+static library (\c{hbmia{\}}), or shared library (\c{hbmis{\}}).
+
+The \c{hbmi{\}} target type is a group with the \c{hbmie{\}}, and/or
+\c{hbmia{\}}, and/or \c{hbmis{\}} members. A rule that encounters an
+\c{hbmi{\}} prerequisite picks a member appropriate for the target being
+built.
+
+The \c{hbmi*{\}} file extensions are normally automatically assigned by the
+matching rules based on the target platform.
+
+
+\h2#module-bin-target-types-def|\c{def{\}}|
+
+The \c{def{\}} target type represents Windows module definition files and has
+the fixed default extension \c{.def}.
+
 
 \h1#module-cc|\c{cc} Module|
 
@@ -6894,6 +7366,54 @@ $ b config.cxx=\"g++ -m32\"
 # Not OK: config.c=\"clang -stdlib=libc++\"
 $ b config.cxx=\"clang++ -stdlib=libc++\"
 \
+
+\h#cc-target-types|C-Common Target Types|
+
+The following listing shows the hierarchy of the target types defined by the
+\c{cc} module while the following sections describe each target type in detail
+(\c{file{\}} is a standard target type defined by the \c{build2} core; see
+\l{#targets-types Target Types} for details). Every \c{cc}-based module (such
+as \c{c} and \c{cxx}) will have these common target types defined in addition
+to the language-specific ones.
+
+\
+.--file--.
+|        |
+h       pc
+         |
+        pca
+        pcs
+\
+
+\N|While the \c{h{\}} target type represents a C header file, there is hardly
+a C-family compilation without a C header inclusion. As a result, this target
+types is defined by all \c{cc}-based modules.|
+
+For the description of the \c{h{\}} target type refer to \l{#c-target-types-c
+\c{c{\}}, \c{h{\}}} in the C module documentation.
+
+\h2#cc-target-types-pc|\c{pc{\}}, \c{pca{\}}, \c{pcs{\}}|
+
+The \c{pc*{\}} target types represent \c{pkg-config} files. The \c{pc{\}}
+target type represents the common file and has the fixed default extension
+\c{.pc}. The \c{pca{\}} and \c{pcs{\}} target types represent the static and
+shared files and have the fixed default extensions \c{.static.pc} and
+\c{.shared.pc}, respectively.
+
+\N|It is often required to use different options for consuming static and
+shared libraries. While there is the \c{Libs.private} and \c{Cflags.private}
+mechanism in \c{pkg-config}, its semantics is to append options to \c{Libs}
+and \c{Cflags} rather than to provide alternative options. And often the
+required semantics is to provide different options for static and shared
+libraries, such as to provide the macro which indicates whether linking static
+or shared in order to setup symbol exporting.
+
+As a result, in \c{build2} we produce separate \c{.pc} files for static and
+shared libraries in addition to the \"best effort\" common \c{.pc} file for
+compatibility with other build systems. Similarly, when consuming a library
+we first look for the \c{.static.pc} and \c{.shared.pc} files falling back
+to the common \c{.pc} if they are not available.|
+
 
 \h#cc-internal-scope|Compilation Internal Scope|
 
@@ -7316,6 +7836,34 @@ config.c.internal.scope
   c.internal.scope
 \
 
+\h#c-target-types|C Target Types|
+
+The following listing shows the hierarchy of the target types defined by the
+\c{c} module while the following sections describe each target type in detail
+(\c{file{\}} is a standard target type defined by the \c{build2} core; see
+\l{#targets-types Target Types} for details). See also \l{#cc-target-types
+C-Common Target Types} for target types defined by all the \c{cc}-based
+modules.
+
+\
+.--file--.
+|   |    |
+c   m    S
+h
+\
+
+The \c{m{\}} target type represents an Objective-C source file, see \l{c-objc
+Objective-C Compilation} for details.
+
+The \c{S{\}} target type represents an Assembler with C Preprocessor file, see
+\l{c-as-cpp Assembler with C Preprocessor Compilation} for details.
+
+\h2#c-target-types-c|\c{c{\}}, \c{h{\}}|
+
+The \c{c{\}} and \c{h{\}} target types represent C source and header files.
+They have the default extensions \c{.c} and \c{.h}, respectively, which can
+be customized with the \c{extension} variable.
+
 
 \h#c-objc|Objective-C Compilation|
 
@@ -7496,6 +8044,45 @@ config.cxx.translate_include
   cxx.translate_include
 \
 
+
+\h#cxx-target-types|C++ Target Types|
+
+The following listing shows the hierarchy of the target types defined by the
+\c{cxx} module while the following sections describe each target type in
+detail (\c{file{\}} is a standard target type defined by the \c{build2} core;
+see \l{#targets-types Target Types} for details). See also \l{#cc-target-types
+C-Common Target Types} for target types defined by all the \c{cc}-based
+modules.
+
+\
+ .--file--.
+ |        |
+cxx      mm
+hxx
+ixx
+txx
+mxx
+\
+
+The \c{mm{\}} target type represents an Objective-C++ source file, see
+\l{cxx-objcxx Objective-C++ Compilation} for details.
+
+\h2#cxx-target-types-cxx|\c{cxx{\}}, \c{hxx{\}}, \c{ixx{\}}, \c{txx{\}},
+\c{mxx{\}}|
+
+The \c{cxx{\}}, \c{hxx{\}}, \c{ixx{\}}, \c{txx{\}}, and \c{mxx{\}} target
+types represent C++ source, header, inline, template, and module interface
+files. They have the default extensions \c{.cxx}, \c{.hxx}, \c{.ixx},
+\c{.txx}, and \c{.mxx}, respectively, which can be customized with the
+\c{extension} variable. For example (normally done in \c{root.build}):
+
+\
+using cxx
+
+cxx{*}: extension = cpp
+hxx{*}: extension = hpp
+mxx{*}: extension = cppm
+\
 
 \h#cxx-modules|C++ Modules Support|
 
