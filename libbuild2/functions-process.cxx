@@ -450,12 +450,12 @@ namespace build2
 
     // $process.run(<prog>[ <args>...])
     //
-    // Run builtin or external program and return trimmed stdout.
+    // Run builtin or external program and return trimmed `stdout` output.
     //
     // Note that if the result of executing the program can be affected by
     // environment variables and this result can in turn affect the build
     // result, then such variables should be reported with the
-    // config.environment directive.
+    // `config.environment` directive.
     //
     // Note that this function is not pure and can only be called during the
     // load phase.
@@ -470,19 +470,20 @@ namespace build2
       return run_process (s, pp, strings ());
     };
 
-    // $process.run_regex(<prog>[ <args>...], <pat> [, <fmt>])
+    // $process.run_regex(<prog>[ <args>...], <pat>[, <fmt>])
     //
-    // Run builtin or external program and return stdout lines matched and
-    // optionally processed with regex.
+    // Run builtin or external program and return `stdout` output lines
+    // matched and optionally processed with a regular expression.
     //
     // Each line of stdout (including the customary trailing blank) is matched
     // (as a whole) against <pat> and, if successful, returned, optionally
-    // processed with <fmt>, as an element of a list.
+    // processed with <fmt>, as an element of a list. See the `$regex.*()`
+    // function family for details on regular expressions and format strings.
     //
     // Note that if the result of executing the program can be affected by
     // environment variables and this result can in turn affect the build
     // result, then such variables should be reported with the
-    // config.environment directive.
+    // `config.environment` directive.
     //
     // Note that this function is not pure and can only be called during the
     // load phase.

@@ -13,6 +13,12 @@ namespace build2
   {
     function_family f (m, "target_triplet");
 
+    // $string(<target-triplet>)
+    //
+    // Return the canonical (that is, without the `unknown` vendor component)
+    // target triplet string.
+    //
+
     // Note that we must handle NULL values (relied upon by the parser
     // to provide conversion semantics consistent with untyped values).
     //
@@ -21,6 +27,11 @@ namespace build2
       return t != nullptr ? t->string () : string ();
     };
 
+    // $representation(<target-triplet>)
+    //
+    // Return the complete target triplet string that always contains the
+    // vendor component.
+    //
     f["representation"] += [](target_triplet t)
     {
       return t.representation ();

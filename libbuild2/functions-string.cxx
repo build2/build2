@@ -39,6 +39,9 @@ namespace build2
   {
     function_family f (m, "string");
 
+    // Note: leave undocumented since there is no good reason for the user to
+    // call this function (which would be converting string to string).
+    //
     // Note that we must handle NULL values (relied upon by the parser
     // to provide conversion semantics consistent with untyped values).
     //
@@ -47,6 +50,9 @@ namespace build2
       return s != nullptr ? move (*s) : string ();
     };
 
+    // $string.icasecmp(<untyped>, <untyped>)
+    // $icasecmp(<string>, <string>)
+    //
     // Compare ASCII strings ignoring case and returning the boolean value.
     //
     f["icasecmp"] += [](string x, string y)
@@ -70,7 +76,10 @@ namespace build2
                        convert<string> (move (y))) == 0;
     };
 
-    // Trim.
+    // $string.trim(<untyped>)
+    // $trim(<string>)
+    //
+    // Trim leading and trailing whitespaces in a string.
     //
     f["trim"] += [](string s)
     {
@@ -82,7 +91,12 @@ namespace build2
       return names {name (trim (convert<string> (move (s))))};
     };
 
-    // Convert ASCII strings into lower/upper case.
+    // $string.lcase(<untyped>)
+    // $string.ucase(<untyped>)
+    // $lcase(<string>)
+    // $ucase(<string>)
+    //
+    // Convert ASCII string into lower/upper case.
     //
     f["lcase"] += [](string s)
     {
@@ -105,15 +119,13 @@ namespace build2
     };
 
     // $size(<strings>)
-    //
-    // Return the number of elements in the sequence.
-    //
-    f["size"] += [] (strings v) {return v.size ();};
-
     // $size(<string>)
     //
-    // Return the number of characters (bytes) in the string.
+    // First form: return the number of elements in the sequence.
     //
+    // Second form: return the number of characters (bytes) in the string.
+    //
+    f["size"] += [] (strings v) {return v.size ();};
     f["size"] += [] (string v) {return v.size ();};
 
     // $sort(<strings> [, <flags>])
@@ -122,9 +134,9 @@ namespace build2
     //
     // The following flags are supported:
     //
-    //   icase - sort ignoring case
+    //     icase - sort ignoring case
     //
-    //   dedup - in addition to sorting also remove duplicates
+    //     dedup - in addition to sorting also remove duplicates
     //
     f["sort"] += [](strings v, optional<names> fs)
     {
@@ -168,9 +180,9 @@ namespace build2
     //
     // The following flags are supported:
     //
-    //   icase - compare ignoring case
+    //     icase - compare ignoring case
     //
-    // See also $regex.find_{match,search}().
+    // See also `$regex.find_match()` and `$regex.find_search()`.
     //
     f["find"] += [](strings vs, value v, optional<names> fs)
     {
@@ -180,12 +192,12 @@ namespace build2
     // $find_index(<strings>, <string>[, <flags>])
     //
     // Return the index of the first element in the string sequence that
-    // is equal to the specified string or $size(<strings>) if none is
+    // is equal to the specified string or `$size(strings)` if none is
     // found.
     //
     // The following flags are supported:
     //
-    //   icase - compare ignoring case
+    //     icase - compare ignoring case
     //
     f["find_index"] += [](strings vs, value v, optional<names> fs)
     {

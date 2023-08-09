@@ -115,8 +115,9 @@ namespace build2
     target,  // Target and target type/pattern-specific.
     prereq   // Prerequisite-specific.
 
-    // Note: remember to update the visibility attribute parsing if adding
-    //       any new values here.
+    // Note: remember to update the visibility attribute parsing if adding any
+    //       new values here. As well as the $builtin.visibility() function
+    //       documentation.
   };
 
   // VC14 reports ambiguity but seems to work if we don't provide any.

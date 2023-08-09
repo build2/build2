@@ -15,6 +15,9 @@ namespace build2
 
     // $string(<bool>)
     //
+    // Convert a boolean value to a string literal `true` or `false`.
+    //
+
     // Note that we don't handle NULL values for this type since it has no
     // empty representation.
     //

@@ -69,6 +69,16 @@ namespace build2
     // $string(<int64>)
     // $string(<uint64>[, <base>[, <width>]])
     //
+    // Convert an integer to a string. For unsigned integers we can specify
+    // the desired base and width. For example:
+    //
+    //     x = [uint64] 0x0000ffff
+    //
+    //     c.poptions += "-DOFFSET=$x"                 # -DOFFSET=65535
+    //     c.poptions += "-DOFFSET=$string($x, 16)"    # -DOFFSET=0xffff
+    //     c.poptions += "-DOFFSET=$string($x, 16, 8)" # -DOFFSET=0x0000ffff
+    //
+
     // Note that we don't handle NULL values for these type since they have no
     // empty representation.
     //
@@ -82,9 +92,10 @@ namespace build2
     // $integer_sequence(<begin>, <end>[, <step>])
     //
     // Return the list of uint64 integers starting from <begin> (including) to
-    // <end> (excluding) with the specified <step> or 1 if unspecified. If
+    // <end> (excluding) with the specified <step> or `1` if unspecified. If
     // <begin> is greater than <end>, empty list is returned.
     //
+
     // Note that currently negative numbers are not supported but this could
     // be handled if required (e.g., by returning int64s in this case).
     //
@@ -123,7 +134,7 @@ namespace build2
     //
     // The following flags are supported:
     //
-    //   dedup - in addition to sorting also remove duplicates
+    //     dedup - in addition to sorting also remove duplicates
     //
     f["sort"] += [](int64s v, optional<names> fs)
     {
@@ -164,7 +175,7 @@ namespace build2
     // $find_index(<ints>, <int>)
     //
     // Return the index of the first element in the integer sequence that is
-    // equal to the specified integer or $size(<ints>) if none is found.
+    // equal to the specified integer or `$size(ints)` if none is found.
     //
     f["find_index"] += [](int64s vs, value v)
     {

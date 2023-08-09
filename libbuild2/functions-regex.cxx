@@ -588,16 +588,16 @@ namespace build2
     //
     // Match a value of an arbitrary type against the regular expression.
     // Convert the value to string prior to matching. Return the boolean value
-    // unless return_subs flag is specified (see below), in which case return
-    // names (NULL if no match).
+    // unless `return_subs` flag is specified (see below), in which case
+    // return names (or `null` if no match).
     //
     // The following flags are supported:
     //
-    // icase       - match ignoring case
+    //     icase       - match ignoring case
     //
-    // return_subs - return names (rather than boolean), that contain
-    //               sub-strings that match the marked sub-expressions and
-    //               NULL if no match
+    //     return_subs - return names (rather than boolean), that contain
+    //                   sub-strings that match the marked sub-expressions
+    //                   and null if no match
     //
     f[".match"] += [](value v, string re, optional<names> flags)
     {
@@ -616,7 +616,7 @@ namespace build2
     //
     // The following flags are supported:
     //
-    // icase - match ignoring case
+    //     icase - match ignoring case
     //
     f[".find_match"] += [](names ns, string re, optional<names> flags)
     {
@@ -631,13 +631,13 @@ namespace build2
     // $regex.filter_match(<vals>, <pat> [, <flags>])
     // $regex.filter_out_match(<vals>, <pat> [, <flags>])
     //
-    // Return elements of a list that match (filter) or do not match
-    // (filter_out) the regular expression. Convert the elements to strings
+    // Return elements of a list that match (`filter`) or do not match
+    // (`filter_out`) the regular expression. Convert the elements to strings
     // prior to matching.
     //
     // The following flags are supported:
     //
-    // icase - match ignoring case
+    //     icase - match ignoring case
     //
     f[".filter_match"] += [](names ns, string re, optional<names> flags)
     {
@@ -669,23 +669,23 @@ namespace build2
     //
     // Determine if there is a match between the regular expression and some
     // part of a value of an arbitrary type. Convert the value to string prior
-    // to searching. Return the boolean value unless return_match or
-    // return_subs flag is specified (see below) in which case return names
-    // (NULL if no match).
+    // to searching. Return the boolean value unless `return_match` or
+    // `return_subs` flag is specified (see below) in which case return names
+    // (`null` if no match).
     //
     // The following flags are supported:
     //
-    // icase        - match ignoring case
+    //     icase        - match ignoring case
     //
-    // return_match - return names (rather than boolean), that contain a
-    //                sub-string that matches the whole regular expression and
-    //                NULL if no match
+    //     return_match - return names (rather than boolean), that contain a
+    //                    sub-string that matches the whole regular expression
+    //                    and null if no match
     //
-    // return_subs  - return names (rather than boolean), that contain
-    //                sub-strings that match the marked sub-expressions and
-    //                NULL if no match
+    //     return_subs  - return names (rather than boolean), that contain
+    //                    sub-strings that match the marked sub-expressions
+    //                    and null if no match
     //
-    // If both return_match and return_subs flags are specified then the
+    // If both `return_match` and `return_subs` flags are specified then the
     // sub-string that matches the whole regular expression comes first.
     //
     f[".search"] += [](value v, string re, optional<names> flags)
@@ -706,7 +706,7 @@ namespace build2
     //
     // The following flags are supported:
     //
-    // icase - match ignoring case
+    //     icase - match ignoring case
     //
     f[".find_search"] += [](names ns, string re, optional<names> flags)
     {
@@ -723,13 +723,13 @@ namespace build2
     // $regex.filter_search(<vals>, <pat> [, <flags>])
     // $regex.filter_out_search(<vals>, <pat> [, <flags>])
     //
-    // Return elements of a list for which there is a match (filter) or no
-    // match (filter_out) between the regular expression and some part of the
-    // element. Convert the elements to strings prior to matching.
+    // Return elements of a list for which there is a match (`filter`) or no
+    // match (`filter_out`) between the regular expression and some part of
+    // the element. Convert the elements to strings prior to matching.
     //
     // The following flags are supported:
     //
-    // icase - match ignoring case
+    //     icase - match ignoring case
     //
     f[".filter_search"] += [](names ns, string re, optional<names> flags)
     {
@@ -763,19 +763,17 @@ namespace build2
     // string. Convert the value to string prior to matching. The result value
     // is always untyped, regardless of the argument type.
     //
-    // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see libbutl/regex.hxx for details).
-    //
     // The following flags are supported:
     //
-    // icase             - match ignoring case
+    //     icase             - match ignoring case
     //
-    // format_first_only - only replace the first match
+    //     format_first_only - only replace the first match
     //
-    // format_no_copy    - do not copy unmatched value parts into the result
+    //     format_no_copy    - do not copy unmatched value parts into the
+    //                         result
     //
-    // If both format_first_only and format_no_copy flags are specified then
-    // the result will only contain the replacement of the first match.
+    // If both `format_first_only` and `format_no_copy` flags are specified
+    // then the result will only contain the replacement of the first match.
     //
     f[".replace"] += [](value v, string re, string fmt, optional<names> flags)
     {
@@ -793,21 +791,21 @@ namespace build2
     // $regex.replace_lines(<val>, <pat>, <fmt> [, <flags>])
     //
     // Convert the value to string, parse it into lines and for each line
-    // apply the $regex.replace() function with the specified pattern, format,
-    // and flags. If the format argument is NULL, omit the "all-NULL"
-    // replacements for the matched lines from the result. Return unmatched
-    // lines and line replacements as a name list unless return_lines flag is
-    // specified (see below), in which case return a single multi-line simple
-    // name value.
+    // apply the `$regex.replace()` function with the specified pattern,
+    // format, and flags. If the format argument is `null`, omit the
+    // "all-`null`" replacements for the matched lines from the result. Return
+    // unmatched lines and line replacements as a `name` list unless
+    // `return_lines` flag is specified (see below), in which case return a
+    // single multi-line simple `name` value.
     //
-    // The following flags are supported in addition to the $regex.replace()
-    // function flags:
+    // The following flags are supported in addition to the `$regex.replace()`
+    // function's flags:
     //
-    // return_lines - return the simple name (rather than a name list)
-    //                containing the unmatched lines and line replacements
-    //                separated with newlines.
+    //     return_lines - return the simple name (rather than a name list)
+    //                    containing the unmatched lines and line replacements
+    //                    separated with newlines.
     //
-    // Note that if format_no_copy is specified, unmatched lines are not
+    // Note that if `format_no_copy` is specified, unmatched lines are not
     // copied either.
     //
     f[".replace_lines"] += [](value v,
@@ -836,19 +834,17 @@ namespace build2
     //
     // Split a value of an arbitrary type into a list of unmatched value parts
     // and replacements of the matched parts, omitting empty ones (unless the
-    // format_copy_empty flag is specified). Convert the value to string prior
-    // to matching.
-    //
-    // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see libbutl/regex.hxx for details).
+    // `format_copy_empty` flag is specified). Convert the value to string
+    // prior to matching.
     //
     // The following flags are supported:
     //
-    // icase             - match ignoring case
+    //     icase             - match ignoring case
     //
-    // format_no_copy    - do not copy unmatched value parts into the result
+    //     format_no_copy    - do not copy unmatched value parts into the
+    //                         result
     //
-    // format_copy_empty - copy empty elements into the result
+    //     format_copy_empty - copy empty elements into the result
     //
     f[".split"] += [](value v, string re, string fmt, optional<names> flags)
     {
@@ -868,24 +864,22 @@ namespace build2
     // Replace matched parts in a list of elements using the regex format
     // string. Convert the elements to strings prior to matching. The result
     // value is untyped and contains concatenation of transformed non-empty
-    // elements (unless the format_copy_empty flag is specified) optionally
+    // elements (unless the `format_copy_empty` flag is specified) optionally
     // separated with a delimiter.
-    //
-    // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see libbutl/regex.hxx for details).
     //
     // The following flags are supported:
     //
-    // icase             - match ignoring case
+    //     icase             - match ignoring case
     //
-    // format_first_only - only replace the first match
+    //     format_first_only - only replace the first match
     //
-    // format_no_copy    - do not copy unmatched value parts into the result
+    //     format_no_copy    - do not copy unmatched value parts into the
+    //                         result
     //
-    // format_copy_empty - copy empty elements into the result
+    //     format_copy_empty - copy empty elements into the result
     //
-    // If both format_first_only and format_no_copy flags are specified then
-    // the result will be a concatenation of only the first match
+    // If both `format_first_only` and `format_no_copy` flags are specified
+    // then the result will be a concatenation of only the first match
     // replacements.
     //
     f[".merge"] += [](names ns,
@@ -923,23 +917,21 @@ namespace build2
     // Replace matched parts of each element in a list using the regex format
     // string. Convert the elements to strings prior to matching. Return a
     // list of transformed elements, omitting the empty ones (unless the
-    // format_copy_empty flag is specified).
-    //
-    // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see libbutl/regex.hxx for details).
+    // `format_copy_empty` flag is specified).
     //
     // The following flags are supported:
     //
-    // icase             - match ignoring case
+    //     icase             - match ignoring case
     //
-    // format_first_only - only replace the first match
+    //     format_first_only - only replace the first match
     //
-    // format_no_copy    - do not copy unmatched value parts into the result
+    //     format_no_copy    - do not copy unmatched value parts into the
+    //                         result
     //
-    // format_copy_empty - copy empty elements into the result
+    //     format_copy_empty - copy empty elements into the result
     //
-    // If both format_first_only and format_no_copy flags are specified then
-    // the result elements will only contain the replacement of the first
+    // If both `format_first_only` and `format_no_copy` flags are specified
+    // then the result elements will only contain the replacement of the first
     // match.
     //
     f[".apply"] += [](names ns, string re, string fmt, optional<names> flags)

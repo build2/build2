@@ -151,23 +151,30 @@ namespace build2
     // on prerequisite names. They also won't always return the same result as
     // if we were interrogating an actual target (e.g., the directory may be
     // relative). Plus we now have functions that can only be called on
-    // targets (see below).
+    // targets (see functions-target.cxx).
     //
-    function_family fn (m, "name");
+    function_family f (m, "name");
 
+    // Note: let's leave this undocumented for now since it's not often needed
+    // and is a can of worms.
+    //
     // Note that we must handle NULL values (relied upon by the parser
     // to provide conversion semantics consistent with untyped values).
     //
-    fn["string"] += [](name* n)
+    f["string"] += [](name* n)
     {
       return n != nullptr ? to_string (move (*n)) : string ();
     };
 
-    fn["name"] += [](const scope* s, name n)
+    // $name(<names>)
+    //
+    // Return the name of a target (or a list of names for a list of targets).
+    //
+    f["name"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.value;
     };
-    fn["name"] += [](const scope* s, names ns)
+    f["name"] += [](const scope* s, names ns)
     {
       small_vector<string, 1> r;
 
@@ -185,14 +192,18 @@ namespace build2
                              make_move_iterator (r.end ())));
     };
 
-    // Note: returns NULL if extension is unspecified (default) and empty if
-    // specified as no extension.
+    // $extension(<name>)
     //
-    fn["extension"] += [](const scope* s, name n)
+    // Return the extension of a target.
+    //
+    // Note that this function returns `null` if the extension is unspecified
+    // (default) and empty string if it's specified as no extension.
+    //
+    f["extension"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).second;
     };
-    fn["extension"] += [](const scope* s, names ns)
+    f["extension"] += [](const scope* s, names ns)
     {
       // Note: can't do multiple due to NULL semantics.
       //
@@ -207,11 +218,16 @@ namespace build2
       return to_target_name (s, move (n), o).second;
     };
 
-    fn["directory"] += [](const scope* s, name n)
+    // $directory(<names>)
+    //
+    // Return the directory of a target (or a list of directories for a list
+    // of targets).
+    //
+    f["directory"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.dir;
     };
-    fn["directory"] += [](const scope* s, names ns)
+    f["directory"] += [](const scope* s, names ns)
     {
       small_vector<dir_path, 1> r;
 
@@ -229,11 +245,16 @@ namespace build2
                                make_move_iterator (r.end ())));
     };
 
-    fn["target_type"] += [](const scope* s, name n)
+    // $target_type(<names>)
+    //
+    // Return the target type name of a target (or a list of target type names
+    // for a list of targets).
+    //
+    f["target_type"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.type;
     };
-    fn["target_type"] += [](const scope* s, names ns)
+    f["target_type"] += [](const scope* s, names ns)
     {
       small_vector<string, 1> r;
 
@@ -251,13 +272,15 @@ namespace build2
                              make_move_iterator (r.end ())));
     };
 
-    // Note: returns NULL if no project specified.
+    // $project(<name>)
     //
-    fn["project"] += [](const scope* s, name n)
+    // Return the project of a target or `null` if not project-qualified.
+    //
+    f["project"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.proj;
     };
-    fn["project"] += [](const scope* s, names ns)
+    f["project"] += [](const scope* s, names ns)
     {
       // Note: can't do multiple due to NULL semantics.
       //
@@ -278,11 +301,11 @@ namespace build2
     // this is a dynamic type check that takes into account target type
     // inheritance.
     //
-    fn["is_a"] += [](const scope* s, name n, names t)
+    f["is_a"] += [](const scope* s, name n, names t)
     {
       return is_a (s, move (n), name (), move (t));
     };
-    fn["is_a"] += [](const scope* s, names ns, names t)
+    f["is_a"] += [](const scope* s, names ns, names t)
     {
       auto i (ns.begin ());
 
@@ -298,15 +321,15 @@ namespace build2
     // $filter(<names>, <target-types>)
     // $filter_out(<names>, <target-types>)
     //
-    // Return names with target types which are-a (filter) or not are-a
-    // (filter_out) one of <target-types>. See $is_a() for background.
+    // Return names with target types which are-a (`filter`) or not are-a
+    // (`filter_out`) one of <target-types>. See `$is_a()` for background.
     //
-    fn["filter"] += [](const scope* s, names ns, names ts)
+    f["filter"] += [](const scope* s, names ns, names ts)
     {
       return filter (s, move (ns), move (ts), false /* out */);
     };
 
-    fn["filter_out"] += [](const scope* s, names ns, names ts)
+    f["filter_out"] += [](const scope* s, names ns, names ts)
     {
       return filter (s, move (ns), move (ts), true /* out */);
     };
@@ -315,7 +338,7 @@ namespace build2
     //
     // Return the number of elements in the sequence.
     //
-    fn["size"] += [] (names ns)
+    f["size"] += [] (names ns)
     {
       size_t n (0);
 
@@ -329,15 +352,15 @@ namespace build2
       return n;
     };
 
-    // $sort(<names> [, <flags>])
+    // $sort(<names>[, <flags>])
     //
     // Sort names in ascending order.
     //
     // The following flags are supported:
     //
-    //   dedup - in addition to sorting also remove duplicates
+    //     dedup - in addition to sorting also remove duplicates
     //
-    fn["sort"] += [] (names ns, optional<names> fs)
+    f["sort"] += [] (names ns, optional<names> fs)
     {
       //@@ TODO: shouldn't we do this in a pair-aware manner?
 
@@ -353,7 +376,7 @@ namespace build2
     //
     // Return true if the name sequence contains the specified name.
     //
-    fn["find"] += [](names vs, names v)
+    f["find"] += [](names vs, names v)
     {
       //@@ TODO: shouldn't we do this in a pair-aware manner?
 
@@ -364,93 +387,14 @@ namespace build2
     // $find_index(<names>, <name>)
     //
     // Return the index of the first element in the name sequence that is
-    // equal to the specified name or $size(<names>) if none is found.
+    // equal to the specified name or `$size(names)` if none is found.
     //
-    fn["find_index"] += [](names vs, names v)
+    f["find_index"] += [](names vs, names v)
     {
       //@@ TODO: shouldn't we do this in a pair-aware manner?
 
       auto i (find (vs.begin (), vs.end (), convert<name> (move (v))));
       return i != vs.end () ? i - vs.begin () : vs.size ();
-    };
-
-    // Functions that can be called only on real targets.
-    //
-    function_family ft (m, "target");
-
-    // Note that while this function is not technically pure, we don't mark it
-    // as such since it can only be called (normally form a recipe) after the
-    // target has been matched, meaning that this target is a prerequisite and
-    // therefore this impurity has been accounted for.
-    //
-    ft["path"] += [](const scope* s, names ns)
-    {
-      if (s == nullptr)
-        fail << "target.path() called out of scope";
-
-      // Most of the time we will have a single target so optimize for that.
-      //
-      small_vector<path, 1> r;
-
-      for (auto i (ns.begin ()); i != ns.end (); ++i)
-      {
-        name& n (*i), o;
-        const target& t (to_target (*s, move (n), move (n.pair ? *++i : o)));
-
-        if (const auto* pt = t.is_a<path_target> ())
-        {
-          const path& p (pt->path ());
-
-          if (&p != &empty_path)
-            r.push_back (p);
-          else
-            fail << "target " << t << " path is not assigned";
-        }
-        else
-          fail << "target " << t << " is not path-based";
-      }
-
-      // We want the result to be path if we were given a single target and
-      // paths if multiple (or zero). The problem is, we cannot distinguish it
-      // based on the argument type (e.g., name vs names) since passing an
-      // out-qualified single target requires two names.
-      //
-      if (r.size () == 1)
-        return value (move (r[0]));
-
-      return value (paths (make_move_iterator (r.begin ()),
-                           make_move_iterator (r.end ())));
-    };
-
-    // This one can only be called on a single target since we don't support
-    // containers of process_path's (though we probably could).
-    //
-    // Note that while this function is not technically pure, we don't mark it
-    // as such for the same reasons as $path() above.
-    //
-    ft["process_path"] += [](const scope* s, names ns)
-    {
-      if (s == nullptr)
-        fail << "target.process_path() called out of scope";
-
-      if (ns.empty () || ns.size () != (ns[0].pair ? 2 : 1))
-        fail << "target.process_path() expects single target";
-
-      name o;
-      const target& t (
-        to_target (*s, move (ns[0]), move (ns[0].pair ? ns[1] : o)));
-
-      if (const auto* et = t.is_a<exe> ())
-      {
-        process_path r (et->process_path ());
-
-        if (r.empty ())
-          fail << "target " << t << " path is not assigned";
-
-        return r;
-      }
-      else
-        fail << "target " << t << " is not process_path-based" << endf;
     };
 
     // Name-specific overloads from builtins.

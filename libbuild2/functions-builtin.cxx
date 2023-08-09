@@ -37,10 +37,16 @@ namespace build2
   {
     function_family f (m, "builtin");
 
-    // Note that we may want to extend the scope argument to a more general
-    // notion of "lookup context" (scope, target, prerequisite).
+    // $defined(<variable>)
+    //
+    // Return true if the specified variable is defined in the calling scope or
+    // any outer scopes.
     //
     // Note that this function is not pure.
+    //
+
+    // Note that we may want to extend the scope argument to a more general
+    // notion of "lookup context" (scope, target, prerequisite).
     //
     f.insert ("defined", false) += [](const scope* s, names name)
     {
@@ -50,7 +56,17 @@ namespace build2
       return (*s)[convert<string> (move (name))].defined ();
     };
 
-    // Return variable visibility if it has been entered and NULL otherwise.
+    // $visibility(<variable>)
+    //
+    // Return variable visibility if it is known and `null` otherwise.
+    //
+    // Possible visibility value are:
+    //
+    //     global  -- all outer scopes
+    //     project -- this project (no outer projects)
+    //     scope   -- this scope (no outer scopes)
+    //     target  -- target and target type/pattern-specific
+    //     prereq  -- prerequisite-specific
     //
     // Note that this function is not pure.
     //
@@ -67,16 +83,36 @@ namespace build2
               : nullopt);
     };
 
+    // $type(<value>)
+    //
+    // Return the type name of the value or empty string if untyped.
+    //
     f["type"] += [](value* v) {return v->type != nullptr ? v->type->name : "";};
+
+    // $null(<value>)
+    //
+    // Return true if the value is `null`.
+    //
     f["null"] += [](value* v) {return v->null;};
+
+    // $empty(<value>)
+    //
+    // Return true if the value is empty.
+    //
     f["empty"] += [](value* v)  {return v->null || v->empty ();};
 
+    // Leave this one undocumented for now since it's unclear why would anyone
+    // want to use it currently (we don't yet have any function composition
+    // facilities).
+    //
     f["identity"] += [](value* v) {return move (*v);};
 
-    // Quote a value returning its string representation. If escape is true,
-    // then also escape (with a backslash) the quote characters being added
-    // (this is useful if the result will be re-parsed, for example as a
-    // Testscript command line).
+    // $quote(<value>[, <escape>])
+    //
+    // Quote the value returning its string representation. If <escape> is
+    // true, then also escape (with a backslash) the quote characters being
+    // added (this is useful if the result will be re-parsed, for example as a
+    // script command line).
     //
     f["quote"] += [](value* v, optional<value> escape)
     {
@@ -94,13 +130,13 @@ namespace build2
       return os.str ();
     };
 
-    // getenv
+    // $getenv(<name>)
     //
-    // Return NULL if the environment variable is not set, untyped value
-    // otherwise.
+    // Get the value of the environment variable. Return `null` if the
+    // environment variable is not set.
     //
     // Note that if the build result can be affected by the variable being
-    // queried, then it should be reported with the config.environment
+    // queried, then it should be reported with the `config.environment`
     // directive.
     //
     // Note that this function is not pure.

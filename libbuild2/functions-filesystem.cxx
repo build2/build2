@@ -103,14 +103,16 @@ namespace build2
 
     function_family f (m, "filesystem");
 
-    // $path_search(<pattern> [, <start-dir>])
+    // $path_search(<pattern>[, <start-dir>])
     //
-    // Return filesystem paths that match the pattern. If the pattern is an
-    // absolute path, then the start directory is ignored (if present).
-    // Otherwise, the start directory must be specified and be absolute.
+    // Return filesystem paths that match the shell-like wildcard pattern. If
+    // the pattern is an absolute path, then the start directory is ignored
+    // (if present). Otherwise, the start directory must be specified and be
+    // absolute.
     //
     // Note that this function is not pure.
     //
+
     // @@ In the future we may want to add a flag that controls the
     //    dangling/inaccessible treatment.
     //

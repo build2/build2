@@ -198,8 +198,15 @@ namespace build2
   {
     function_family f (m, "path", &path_thunk);
 
-    // string
+    // $string(<paths>)
     //
+    // Return the traditional string representation of a path (or a list of
+    // string representations for a list of paths). In particular, for
+    // directory paths, the traditional representation does not include the
+    // trailing directory separator (except for the POSIX root directory). See
+    // `$representation()` below for the precise string representation.
+    //
+
     // Note that we must handle NULL values (relied upon by the parser
     // to provide conversion semantics consistent with untyped values).
     //
@@ -224,7 +231,12 @@ namespace build2
       return r;
     };
 
-    // posix_string
+    // $posix_string(<paths>)
+    // $path.posix_string(<untyped>)
+    //
+    // Return the traditional string representation of a path (or a list of
+    // string representations for a list of paths) using the POSIX directory
+    // separators (forward slashes).
     //
     f["posix_string"] += [](path p)     {return posix_string (move (p));};
     f["posix_string"] += [](dir_path p) {return posix_string (move (p));};
@@ -259,7 +271,13 @@ namespace build2
       return ns;
     };
 
-    // representation
+    // $representation(<paths>)
+    //
+    // Return the precise string representation of a path (or a list of string
+    // representations for a list of paths). In particular, for directory
+    // paths, the precise representation includes the trailing directory
+    // separator. See `$string()` above for the traditional string
+    // representation.
     //
     f["representation"] += [](path p) {return move (p).representation ();};
 
@@ -279,7 +297,12 @@ namespace build2
       return r;
     };
 
-    // posix_representation
+    // $posix_representation(<paths>)
+    // $path.posix_representation(<untyped>)
+    //
+    // Return the precise string representation of a path (or a list of string
+    // representations for a list of paths) using the POSIX directory
+    // separators (forward slashes).
     //
     f["posix_representation"] += [](path p)
     {
@@ -321,8 +344,14 @@ namespace build2
       return ns;
     };
 
-    // canonicalize
+    // $canonicalize(<paths>)
+    // $path.canonicalize(<untyped>)
     //
+    // Canonicalize the path (or list of paths) by converting all the
+    // directory separators to the canonical form for the host platform. Note
+    // that multiple directory separators are not collapsed.
+    //
+
     // @@ TODO: add ability to specify alternative separator.
     //
     f["canonicalize"] += [](path p)     {p.canonicalize (); return p;};
@@ -358,7 +387,13 @@ namespace build2
       return ns;
     };
 
-    // normalize
+    // $normalize(<paths>)
+    // $path.normalize(<untyped>)
+    //
+    // Normalize the path (or list of paths) by collapsing the `.` and `..`
+    // components if possible, collapsing multiple directory separators, and
+    // converting all the directory separators to the canonical form for the
+    // host platform.
     //
     f["normalize"] += [](path p)     {p.normalize (); return p;};
     f["normalize"] += [](dir_path p) {p.normalize (); return p;};
@@ -393,7 +428,16 @@ namespace build2
       return ns;
     };
 
-    // actualize
+    // $actualize(<paths>)
+    // $path.actualize(<untyped>)
+    //
+    // Actualize the path (or list of paths) by first normalizing it and then
+    // for host platforms with case-insensitive filesystems obtaining the
+    // actual spelling of the path.
+    //
+    // Note that only an absolute path can be actualized. If a path component
+    // does not exist, then its (and all subsequent) spelling is
+    // unchanged. This is a potentially expensive operation.
     //
     // Note that this function is not pure.
     //
@@ -434,11 +478,12 @@ namespace build2
       return ns;
     };
 
-    // $directory(<path>)
     // $directory(<paths>)
+    // $path.directory(<untyped>)
     //
-    // Return the directory part of the path or empty path if there is no
-    // directory. Directory of a root directory is an empty path.
+    // Return the directory part of a path (or a list of directory parts for a
+    // list of paths) or an empty path if there is no directory. A directory of
+    // a root directory is an empty path.
     //
     f["directory"] += &path::directory;
 
@@ -472,11 +517,12 @@ namespace build2
       return ns;
     };
 
-    // $root_directory(<path>)
     // $root_directory(<paths>)
+    // $path.root_directory(<untyped>)
     //
-    // Return the root directory of the path or empty path if the directory is
-    // not absolute.
+    // Return the root directory of a path (or a list of root directories for
+    // a list of paths) or an empty path if the specified path is not
+    // absolute.
     //
     f["root_directory"] += &path::root_directory;
 
@@ -510,17 +556,22 @@ namespace build2
       return ns;
     };
 
-    // $leaf(<path>)
+    // $leaf(<paths>)
+    // $path.leaf(<untyped>)
+    // $leaf(<paths>, <dir-path>)
+    // $path.leaf(<untyped>, <dir-path>)
+    //
+    // First form (one argument): return the last component of a path (or a
+    // list of last components for a list of paths).
+    //
+    // Second form (two arguments): return a path without the specified
+    // directory part (or a list of paths without the directory part for a
+    // list of paths). Return an empty path if the paths are the same. Issue
+    // diagnostics and fail if the directory is not a prefix of the
+    // path. Note: expects both paths to be normalized.
     //
     f["leaf"] += &path::leaf;
 
-    // $leaf(<path>, <dir-path>)
-    // $leaf(<paths>, <dir-path>)
-    //
-    // Return the path without the specified directory part. Return empty path
-    // if the paths are the same. Issue diagnostics and fail if the directory
-    // is not a prefix of the path. Note: expects both paths to be normalized.
-    //
     f["leaf"] += [](path p, dir_path d)
     {
       return leaf (p, move (d));
@@ -556,13 +607,13 @@ namespace build2
       return ns;
     };
 
-    // $relative(<path>, <dir-path>)
     // $relative(<paths>, <dir-path>)
+    // $path.relative(<untyped>, <dir-path>)
     //
-    // Return a path relative to the specified directory that is equivalent to
-    // the specified path. Issue diagnostics and fail if a relative path
-    // cannot be derived (for example, paths are on different drives on
-    // Windows).
+    // Return the path relative to the specified directory that is equivalent
+    // to the specified path (or a list of relative paths for a list of
+    // specified paths). Issue diagnostics and fail if a relative path cannot
+    // be derived (for example, paths are on different drives on Windows).
     //
     f["relative"] += [](path p, dir_path d)
     {
@@ -599,7 +650,11 @@ namespace build2
       return ns;
     };
 
-    // base
+    // $base(<paths>)
+    // $path.base(<untyped>)
+    //
+    // Return the base part (without the extension) of a path (or a list of
+    // base parts for a list of paths).
     //
     f["base"] += &path::base;
 
@@ -633,7 +688,11 @@ namespace build2
       return ns;
     };
 
-    // extension
+    // $extension(<path>)
+    // $path.extension(<untyped>)
+    //
+    // Return the extension part (without the dot) of a path or empty string
+    // if there is no extension.
     //
     f["extension"] += &extension;
 
@@ -643,32 +702,29 @@ namespace build2
     };
 
     // $size(<paths>)
-    // $size(<dir_paths>)
+    // $size(<path>)
     //
-    // Return the number of elements in the sequence.
+    // First form: return the number of elements in the paths sequence.
+    //
+    // Second form: return the number of characters (bytes) in the path. Note
+    // that for `dir_path` the result does not include the trailing directory
+    // separator (except for the POSIX root directory).
+    //
     //
     f["size"] += [] (paths v) {return v.size ();};
     f["size"] += [] (dir_paths v) {return v.size ();};
 
-    // $size(<path>)
-    // $size(<dir_path>)
-    //
-    // Return the number of characters (bytes) in the path. Note that for
-    // dir_path the result does not include the trailing directory separator
-    // (except for the POSIX root directory).
-    //
     f["size"] += [] (path v) {return v.size ();};
     f["size"] += [] (dir_path v) {return v.size ();};
 
-    // $sort(<paths> [, <flags>])
-    // $sort(<dir_paths> [, <flags>])
+    // $sort(<paths>[, <flags>])
     //
-    // Sort paths in ascending order. Note that on hosts with a case-
-    // insensitive filesystem the order is case-insensitive.
+    // Sort paths in ascending order. Note that on host platforms with a
+    // case-insensitive filesystem the order is case-insensitive.
     //
     // The following flags are supported:
     //
-    //   dedup - in addition to sorting also remove duplicates
+    //     dedup - in addition to sorting also remove duplicates
     //
     f["sort"] += [](paths v, optional<names> fs)
     {
@@ -691,11 +747,10 @@ namespace build2
     };
 
     // $find(<paths>, <path>)
-    // $find(<dir_paths>, <dir_path>)
     //
-    // Return true if the path sequence contains the specified path. Note that
-    // on hosts with a case-insensitive filesystem the comparison is
-    // case-insensitive.
+    // Return true if the paths sequence contains the specified path. Note
+    // that on host platforms with a case-insensitive filesystem the
+    // comparison is case-insensitive.
     //
     f["find"] += [](paths vs, value v)
     {
@@ -710,12 +765,11 @@ namespace build2
     };
 
     // $find_index(<paths>, <path>)
-    // $find_index(<dir_paths>, <dir_path>)
     //
-    // Return the index of the first element in the path sequence that is
-    // equal to the specified path or $size(<paths>) if none is found. Note
-    // that on hosts with a case-insensitive filesystem the comparison is
-    // case-insensitive.
+    // Return the index of the first element in the paths sequence that is
+    // equal to the specified path or `$size(paths)` if none is found. Note
+    // that on host platforms with a case-insensitive filesystem the
+    // comparison is case-insensitive.
     //
     f["find_index"] += [](paths vs, value v)
     {
@@ -729,34 +783,36 @@ namespace build2
       return i != vs.end () ? i - vs.begin () : vs.size ();
     };
 
-    // $path.match(<val>, <pat> [, <start>])
+    // $path.match(<entry>, <pattern>[, <start-dir>])
     //
-    // Match a filesystem entry name against a name pattern (both are strings),
-    // or a filesystem entry path against a path pattern. For the latter case
-    // the start directory may also be required (see below). The semantics of
-    // the pattern and name/entry arguments is determined according to the
+    // Match a filesystem entry name against a name pattern (both are
+    // strings), or a filesystem entry path against a path pattern. For the
+    // latter case the start directory may also be required (see below). The
+    // pattern is a shell-like wildcard pattern. The semantics of the
+    // <pattern> and <entry> arguments is determined according to the
     // following rules:
     //
-    // - The arguments must be of the string or path types, or be untyped.
+    // 1. The arguments must be of the string or path types, or be untyped.
     //
-    // - If one of the arguments is typed, then the other one must be of the
-    //   same type or be untyped. In the later case, an untyped argument is
-    //   converted to the type of the other argument.
+    // 2. If one of the arguments is typed, then the other one must be of the
+    // same type or be untyped. In the later case, an untyped argument is
+    // converted to the type of the other argument.
     //
-    // - If both arguments are untyped and the start directory is specified,
-    //   then the arguments are converted to the path type.
+    // 3. If both arguments are untyped and the start directory is specified,
+    // then the arguments are converted to the path type.
     //
-    // - If both arguments are untyped and the start directory is not
-    //   specified, then, if one of the arguments is syntactically a path (the
-    //   value contains a directory separator), convert them to the path type,
-    //   otherwise to the string type (match as names).
+    // 4. If both arguments are untyped and the start directory is not
+    // specified, then, if one of the arguments is syntactically a path (the
+    // value contains a directory separator), then they are converted to the
+    // path type, otherwise -- to the string type (match as names).
     //
-    // If pattern and entry paths are both either absolute or relative and
-    // non-empty, and the first pattern component is not a self-matching
-    // wildcard (doesn't contain ***), then the start directory is not
-    // required, and is ignored if specified. Otherwise, the start directory
-    // must be specified and be an absolute path.
+    // If pattern and entry paths are both either absolute or relative and not
+    // empty, and the first pattern component is not a self-matching wildcard
+    // (doesn't contain `***`), then the start directory is not required, and
+    // is ignored if specified. Otherwise, the start directory must be
+    // specified and be an absolute path.
     //
+
     // Name matching.
     //
     f[".match"] += [](string name, string pattern)

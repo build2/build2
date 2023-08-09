@@ -359,6 +359,7 @@ namespace build2
   void process_path_functions (function_map&);   // functions-process-path.cxx
   void regex_functions (function_map&);          // functions-regex.cxx
   void string_functions (function_map&);         // functions-string.cxx
+  void target_functions (function_map&);         // functions-target.cxx
   void target_triplet_functions (function_map&); // functions-target-triplet.cxx
   void project_name_functions (function_map&);   // functions-target-triplet.cxx
 
@@ -375,6 +376,7 @@ namespace build2
     process_path_functions (m);
     regex_functions (m);
     string_functions (m);
+    target_functions (m);
     target_triplet_functions (m);
     project_name_functions (m);
   }
