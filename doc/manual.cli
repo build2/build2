@@ -3613,8 +3613,9 @@ info $path.directory($src_base)         # $src_base
 info $path.base($path.leaf($src_base))  # foo
 \
 
-Note that functions in \c{build2} are \i{pure} in a sense that they do not
-alter the build state in any way.
+Note that the majority of functions in \c{build2} are \i{pure} in a sense that
+they do not alter the build state in any way (see \l{#functions Functions} for
+details).
 
 \N|Functions in \c{build2} are currently defined either by the build system
 core or build system modules and are implemented in C++. In the future it will
@@ -5510,369 +5511,6 @@ configuration header into two, one public and installed while the other
 private.|
 
 
-
-\h1#attributes|Attributes|
-
-\N{This chapter is a work in progress and is incomplete.}
-
-The only currently recognized target attribute is \c{rule_hint} which
-specifies the rule hint. Rule hints can be used to resolve ambiguity when
-multiple rules match the same target as well as to override an unambiguous
-match. For example, the following rule hint makes sure our executable is
-linked with the C++ compiler even though it only has C sources:
-
-\
-[rule_hint=cxx] exe{hello}: c{hello}
-\
-
-
-\h1#name-patterns|Name Patterns|
-
-For convenience, in certain contexts, names can be generated with shell-like
-wildcard patterns. A name is a \i{name pattern} if its value contains one or
-more unquoted wildcard characters or character sequences. For example:
-
-\
-./: */                     # All (immediate) subdirectories
-exe{hello}: {hxx cxx}{**}  # All C++ header/source files.
-pattern = '*.txt'          # Literal '*.txt'.
-\
-
-Pattern-based name generation is not performed in certain contexts.
-Specifically, it is not performed in target names where it is interpreted
-as a pattern for target type/pattern-specific variable assignments. For
-example.
-
-\
-s = *.txt             # Variable assignment (performed).
-./: cxx{*}            # Prerequisite names (performed).
-cxx{*}: dist = false  # Target pattern (not performed).
-\
-
-In contexts where it is performed, it can be inhibited with quoting, for
-example:
-
-\
-pat = 'foo*bar'
-./: cxx{'foo*bar'}
-\
-
-The following wildcards are recognized:
-
-\
-*     - match any number of characters (including zero)
-?     - match any single character
-[...] - match a character with a bracket expression
-\
-
-\N|Currently only literal character and range bracket expressions are
-supported. Specifically, no character or equivalence classes, etc., are
-supported nor the special characters backslash-escaping. See the \"Pattern
-Matching Notation\" section in the POSIX \"Shell Command Language\"
-specification for details.|
-
-Note that some wildcard characters may have special meaning in certain
-contexts. For instance, \c{[} at the beginning of a value will be interpreted
-as the start of the attribute list while \c{?} and \c{[} in the eval context
-are part of the ternary operator and value subscript, respectively. In such
-cases the character will need to be escaped in order to be treated as a
-wildcard, for example:
-
-\
-x = \[1-9]-foo.txt
-y = (foo.\?xx)
-z = ($foo\[123].txt)
-\
-
-If a pattern ends with a directory separator, then it only matches
-directories. Otherwise, it only matches files. Matches that start with a dot
-(\c{.}) are automatically ignored unless the pattern itself also starts with
-this character.
-
-In addition to the above wildcards, \c{**} and \c{***} are recognized as
-wildcard sequences. If a pattern contains \c{**}, then it is matched just like
-\c{*} but in all the subdirectories, recursively, but excluding directories
-that contain the \c{.buildignore} file. The \c{***} wildcard behaves like
-\c{**} but also matches the start directory itself. For example:
-
-\
-exe{hello}: cxx{**}  # All C++ source files recursively.
-\
-
-A group-enclosed (\c{{\}}) pattern value may be followed by
-inclusion/exclusion patterns/matches. A subsequent value is treated as an
-inclusion or exclusion if it starts with a literal, unquoted plus (\c{+}) or
-minus (\c{-}) sign, respectively. In this case the remaining group values, if
-any, must all be inclusions or exclusions. If the second value doesn't start
-with a plus or minus, then all the group values are considered independent
-with leading pluses and minuses not having any special meaning. For regularity
-as well as to allow patterns without wildcards, the first pattern can also
-start with the plus sign. For example:
-
-\
-exe{hello}: cxx{f* -foo}            # Exclude foo if exists.
-exe{hello}: cxx{f* +bar}            # Include bar if exists.
-exe{hello}: cxx{f* -fo?}            # Exclude foo and fox if exist.
-exe{hello}: cxx{f* +b* -foo -bar}   # Exclude foo and bar if exist.
-exe{hello}: cxx{+f* +b* -foo -bar}  # Same as above.
-exe{hello}: cxx{+foo}               # Pattern without wildcards.
-exe{hello}: cxx{f* b* -z*}          # Names matching three patterns.
-\
-
-Inclusions and exclusions are applied in the order specified and only to the
-result produced up to that point. The order of names in the result is
-unspecified. However, it is guaranteed not to contain duplicates. The first
-pattern and the following inclusions/exclusions must be consistent with
-regards to the type of filesystem entry they match. That is, they should all
-match either files or directories. For example:
-
-\
-exe{hello}: cxx{f* -foo +*oo}  # Exclusion has no effect.
-exe{hello}: cxx{f* +*oo}       # Ok, no duplicates.
-./: {*/ -build}                # Error: exclusion not a directory.
-\
-
-As a more realistic example, let's say we want to exclude source files that
-reside in the \c{test/} directories (and their subdirectories) anywhere in the
-tree. This can be achieved with the following pattern:
-
-\
-exe{hello}: cxx{** -***/test/**}
-\
-
-Similarly, if we wanted to exclude all source files that have the \c{-test}
-suffix:
-
-\
-exe{hello}: cxx{** -**-test}
-\
-
-In contrast, the following pattern only excludes such files from the top
-directory:
-
-\
-exe{hello}: cxx{** -*-test}
-\
-
-If many inclusions or exclusions need to be specified, then an
-inclusion/exclusion group can be used. For example:
-
-\
-exe{hello}: cxx{f* -{foo bar}}
-exe{hello}: cxx{+{f* b*} -{foo bar}}
-\
-
-This is particularly useful if you would like to list the names to include or
-exclude in a variable. For example, this is how we can exclude certain files
-from compilation but still include them as ordinary file prerequisites (so
-that they are still included into the source distribution):
-
-\
-exc = foo.cxx bar.cxx
-exe{hello}: cxx{+{f* b*} -{$exc}} file{$exc}
-\
-
-If we want to specify our pattern in a variable, then we have to use the
-explicit inclusion syntax, for example:
-
-\
-pat = 'f*'
-exe{hello}: cxx{+$pat} # Pattern match.
-exe{hello}: cxx{$pat}  # Literal 'f*'.
-
-pat = '+f*'
-exe{hello}: cxx{$pat}  # Literal '+f*'.
-
-inc = 'f*'  'b*'
-exc = 'f*o' 'b*r'
-exe{hello}: cxx{+{$inc} -{$exc}}
-\
-
-One common situation that calls for exclusions is auto-generated source
-code. Let's say we have auto-generated command line parser in \c{options.hxx}
-and \c{options.cxx}. Because of the in/out of source builds, our name pattern
-may or may not find these files. Note, however, that we cannot just include
-them as non-pattern prerequisites. We also have to exclude them from the
-pattern match since otherwise we may end up with duplicate prerequisites. As a
-result, this is how we have to handle this case provided we want to continue
-using patterns to find other, non-generated source files:
-
-\
-exe{hello}: {hxx cxx}{* -options} {hxx cxx}{options}
-\
-
-If all our auto-generated source files have a common prefix or suffix, then we
-can exclude them wholesale with a pattern. For example, if all our generated
-files end with the `-options` suffix:
-
-\
-exe{hello}: {hxx cxx}{** -**-options} {hxx cxx}{foo-options bar-options}
-\
-
-If the name pattern includes an absolute directory, then the pattern match is
-performed in that directory and the generated names include absolute
-directories as well. Otherwise, the pattern match is performed in the
-\i{pattern base} directory. In buildfiles this is \c{src_base} while on the
-command line \- the current working directory. In this case the generated
-names are relative to the base directory. For example, assuming we have the
-\c{foo.cxx} and \c{b/bar.cxx} source files:
-
-\
-exe{hello}: $src_base/cxx{**}  # $src_base/cxx{foo} $src_base/b/cxx{bar}
-exe{hello}:           cxx{**}  #           cxx{foo}           b/cxx{bar}
-\
-
-Pattern matching as well as inclusion/exclusion logic is target
-type-specific. If the name pattern does not contain a type, then the
-\c{dir{\}} type is assumed if the pattern ends with a directory separator and
-\c{file{\}} otherwise.
-
-For the \c{dir{\}} target type the trailing directory separator is added to
-the pattern and all the inclusion/exclusion patterns/matches that do not
-already end with one. Then the filesystem search is performed for matching
-directories. For example:
-
-\
-./: dir{* -build}  # Search for */, exclude build/.
-\
-
-For the \c{file{\}} and \c{file{\}}-based target types the default extension
-(if any) is added to the pattern and all the inclusion/exclusion
-patterns/matches that do not already contain an extension. Then the filesystem
-search is performed for matching files.
-
-For example, the \c{cxx{\}} target type obtains the default extension from the
-\c{extension} variable (see \l{#targets-types Target Types} for background).
-Assuming we have the following line in our \c{root.build}:
-
-\
-cxx{*}: extension = cxx
-\
-
-And the following in our \c{buildfile}:
-
-\
-exe{hello}: {cxx}{* -foo -bar.cxx}
-\
-
-The pattern match will first search for all the files matching the \c{*.cxx}
-pattern in \c{src_base} and then exclude \c{foo.cxx} and \c{bar.cxx} from the
-result. Note also that target type-specific decorations are removed from the
-result. So in the above example if the pattern match produces \c{baz.cxx},
-then the prerequisite name is \c{cxx{baz\}}, not \c{cxx{baz.cxx\}}.
-
-If the name generation cannot be performed because the base directory is
-unknown, target type is unknown, or the target type is not directory or
-file-based, then the name pattern is returned as is (that is, as an ordinary
-name). Project-qualified names are never considered to be patterns.
-
-
-\h1#variables|Variables|
-
-\N{This chapter is a work in progress and is incomplete.}
-
-The following variable/value types can currently be used in \c{buildfiles}:
-
-\
-bool
-
-int64
-int64s
-
-uint64
-uint64s
-
-string
-strings
-
-path
-paths
-dir_path
-dir_paths
-
-name
-names
-name_pair
-
-project_name
-target_triplet
-\
-
-Note that while expansions in the target and prerequisite-specific assignments
-happen in the corresponding target and prerequisite contexts, respectively,
-for type/pattern-specific assignments they happen in the scope context. Plus,
-a type/pattern-specific prepend/append is applied at the time of expansion for
-the actual target. For example:
-
-\
-x = s
-
-file{foo}:              # target
-{
-  x += t    # s t
-  y = $x y  # s t y
-}
-
-file{foo}: file{bar}    # prerequisite
-{
-  x += p    # x t p
-  y = $x y  # x t p y
-}
-
-file{b*}:               # type/pattern
-{
-  x += w   # <append w>
-  y = $x w # <assign s w>
-}
-
-x = S
-
-info $(file{bar}: x) # S w
-info $(file{bar}: y) # s w
-\
-
-
-\h1#directives|Directives|
-
-\N{This chapter is a work in progress and is incomplete.}
-
-\h#directives-define|\c{define}|
-
-\
-define <derived>: <base>
-\
-
-Define a new target type \c{<derived>} by inheriting from existing target type
-\c{<base>}. See \l{#targets-types Target Types} for details.
-
-
-\h#directives-include|\c{include}|
-
-\
-include <file>
-include <directory>
-\
-
-Load the specified file (the first form) or \c{buildfile} in the specified
-directory (the second form). In both cases the file is loaded in the scope
-corresponding to its directory. Subsequent inclusions of the same file are
-automatically ignored. See also \l{#directives-source \c{source}}.
-
-
-\h#directives-source|\c{source}|
-
-
-\
-source <file>
-\
-
-Load the specified file in the current scope as if its contents were copied
-and pasted in place of the \c{source} directive. Note that subsequent sourcing
-of the same file in the same scope are not automatically ignored.  See also
-\l{#directives-include \c{include}}.
-
-
-
 \h1#targets|Targets and Target Types|
 
 \N{This chapter is a work in progress and is incomplete.}
@@ -6230,6 +5868,550 @@ h{generate}: exe{generate.bat}
 
 Here, without the explicit extension, the \c{.exe} extension would have been
 used by default.
+
+
+\h1#variables|Variables|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+The following variable/value types can currently be used in \c{buildfiles}:
+
+\
+bool
+
+int64
+int64s
+
+uint64
+uint64s
+
+string
+strings
+
+path
+paths
+dir_path
+dir_paths
+
+name
+names
+name_pair
+
+project_name
+target_triplet
+\
+
+Note that while expansions in the target and prerequisite-specific assignments
+happen in the corresponding target and prerequisite contexts, respectively,
+for type/pattern-specific assignments they happen in the scope context. Plus,
+a type/pattern-specific prepend/append is applied at the time of expansion for
+the actual target. For example:
+
+\
+x = s
+
+file{foo}:              # target
+{
+  x += t    # s t
+  y = $x y  # s t y
+}
+
+file{foo}: file{bar}    # prerequisite
+{
+  x += p    # x t p
+  y = $x y  # x t p y
+}
+
+file{b*}:               # type/pattern
+{
+  x += w   # <append w>
+  y = $x w # <assign s w>
+}
+
+x = S
+
+info $(file{bar}: x) # S w
+info $(file{bar}: y) # s w
+\
+
+
+\h1#functions|Functions|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+
+Functions in \c{build2} are organized into families, such as the
+\c{$string.*()} family for manipulating strings or \c{$regex.*()} for working
+with regular expressions. Most functions are pure and those that are not,
+such as \c{$builtin.getenv()}, are explicitly documented as such.
+
+Some functions, such as from the \c{$regex.*()} family, can only be called
+fully qualified with their family name. For example:
+
+\
+if $regex.match($name, '(.+)-(.+)')
+  ...
+\
+
+While other functions can be called without explicit qualification. For
+example:
+
+\
+path = $getenv('PATH')
+\
+
+There are also functions that can be called unqualified only for certain types
+of arguments (this fact will be reflected in their synopsis and/or
+documentation). Note, however, that every function can always be called
+qualified.
+"
+
+// $builtin.*()
+//
+"
+\h#functions-builtin|Builtin Functions|
+
+The \c{$builtin.*()} function family contains fundamental \c{build2}
+functions.
+"
+source <functions-builtin.cli>;
+
+// $string.*()
+//
+"
+\h#functions-string|String Functions|
+"
+source <functions-string.cli>;
+
+
+// $integer.*()
+//
+"
+\h#functions-integer|Integer Functions|
+"
+source <functions-integer.cli>;
+
+
+// $bool.*()
+//
+"
+\h#functions-bool|Bool Functions|
+"
+source <functions-bool.cli>;
+
+
+// $path.*()
+//
+"
+\h#functions-path|Path Functions|
+
+The \c{$path.*()} function family contains function that manipulating
+filesystem paths.
+"
+source <functions-path.cli>;
+
+
+// $name.*()
+//
+"
+\h#functions-name|Name Functions|
+
+The \c{$name.*()} function family contains function that operate on target and
+prerequisite names. See also the \l{#functions-target \c{$target.*()} function
+family} for functions that operate on actual targets.
+"
+source <functions-name.cli>;
+
+
+// $target.*()
+//
+"
+\h#functions-target|Target Functions|
+
+The \c{$target.*()} function family contains function that operate on
+targets. See also the \l{#functions-name \c{$name.*()} function family} for
+functions that operate on target (and prerequisite) names.
+"
+source <functions-target.cli>;
+
+
+// $regex.*()
+//
+"
+\h#functions-regex|Regex Functions|
+
+The \c{$regex.*()} function family contains function that provide
+comprehensive regular expression matching and substitution facilities. The
+supported regular expression flavor is ECMAScript (more specifically,
+ECMA-262-based C++11 regular expressions).
+
+In the \c{$regex.*()} functions the substitution escape sequences in the
+format string (the \ci{fmt} argument) are extended with a subset of the Perl
+escape sequences: \c{\\n}, \c{\\u}, \c{\\l}, \c{\\U}, \c{\\L}, \c{\\E},
+\c{\\1} ... \c{\\9}, and \c{\\\\}. Note that the standard ECMAScript escape
+sequences (\c{$1}, \c{$2}, \c{$&}, etc) are still supported.
+
+Note that functions from the \c{$regex.*()} family can only be called fully
+qualified with their family name. For example:
+
+\
+if $regex.match($name, '(.+)-(.+)')
+  ...
+\
+
+"
+source <functions-regex.cli>;
+
+
+// $process.*()
+//
+"
+\h#functions-process|Process Functions|
+"
+source <functions-process.cli>;
+
+
+// $filesystem.*()
+//
+"
+\h#functions-filesystem|Filesystem Functions|
+"
+source <functions-filesystem.cli>;
+
+
+// $project_name.*()
+//
+"
+\h#functions-project_name|Project Name Functions|
+
+The \c{$project_name.*()} function family contains function that operate on
+the \c{project_name} type.
+"
+source <functions-project-name.cli>;
+
+
+// $process_path.*()
+//
+"
+\h#functions-process-path|Process Path Functions|
+
+The \c{$process_path.*()} function family contains function that operate on
+the \c{process_path} type and its extended \c{process_path_ex} variant. These
+types describe a path to an executable that, if necessary, has been found in
+\c{PATH}, completed with an extension, etc. The \c{process_path_ex} variant
+includes additional metadata, such as the stable process name for diagnostics
+and the executable checksum for change tracking.
+"
+source <functions-process-path.cli>;
+
+
+// $target_triplet.*()
+//
+"
+\h#functions-target-triplet|Target Triplet Functions|
+
+The \c{$target_triplet.*()} function family contains function that operate on
+the \c{target_triplet} type that represents the ubiquitous
+\c{\i{cpu}-\i{vendor}-\i{os}} target platform triplet.
+"
+source <functions-target-triplet.cli>;
+
+
+"
+\h1#directives|Directives|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+\h#directives-define|\c{define}|
+
+\
+define <derived>: <base>
+\
+
+Define a new target type \c{<derived>} by inheriting from existing target type
+\c{<base>}. See \l{#targets-types Target Types} for details.
+
+
+\h#directives-include|\c{include}|
+
+\
+include <file>
+include <directory>
+\
+
+Load the specified file (the first form) or \c{buildfile} in the specified
+directory (the second form). In both cases the file is loaded in the scope
+corresponding to its directory. Subsequent inclusions of the same file are
+automatically ignored. See also \l{#directives-source \c{source}}.
+
+
+\h#directives-source|\c{source}|
+
+
+\
+source <file>
+\
+
+Load the specified file in the current scope as if its contents were copied
+and pasted in place of the \c{source} directive. Note that subsequent sourcing
+of the same file in the same scope are not automatically ignored.  See also
+\l{#directives-include \c{include}}.
+
+
+\h1#attributes|Attributes|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+The only currently recognized target attribute is \c{rule_hint} which
+specifies the rule hint. Rule hints can be used to resolve ambiguity when
+multiple rules match the same target as well as to override an unambiguous
+match. For example, the following rule hint makes sure our executable is
+linked with the C++ compiler even though it only has C sources:
+
+\
+[rule_hint=cxx] exe{hello}: c{hello}
+\
+
+
+\h1#name-patterns|Name Patterns|
+
+For convenience, in certain contexts, names can be generated with shell-like
+wildcard patterns. A name is a \i{name pattern} if its value contains one or
+more unquoted wildcard characters or character sequences. For example:
+
+\
+./: */                     # All (immediate) subdirectories
+exe{hello}: {hxx cxx}{**}  # All C++ header/source files.
+pattern = '*.txt'          # Literal '*.txt'.
+\
+
+Pattern-based name generation is not performed in certain contexts.
+Specifically, it is not performed in target names where it is interpreted
+as a pattern for target type/pattern-specific variable assignments. For
+example.
+
+\
+s = *.txt             # Variable assignment (performed).
+./: cxx{*}            # Prerequisite names (performed).
+cxx{*}: dist = false  # Target pattern (not performed).
+\
+
+In contexts where it is performed, it can be inhibited with quoting, for
+example:
+
+\
+pat = 'foo*bar'
+./: cxx{'foo*bar'}
+\
+
+The following wildcards are recognized:
+
+\
+*     - match any number of characters (including zero)
+?     - match any single character
+[...] - match a character with a bracket expression
+\
+
+\N|Currently only literal character and range bracket expressions are
+supported. Specifically, no character or equivalence classes, etc., are
+supported nor the special characters backslash-escaping. See the \"Pattern
+Matching Notation\" section in the POSIX \"Shell Command Language\"
+specification for details.|
+
+Note that some wildcard characters may have special meaning in certain
+contexts. For instance, \c{[} at the beginning of a value will be interpreted
+as the start of the attribute list while \c{?} and \c{[} in the eval context
+are part of the ternary operator and value subscript, respectively. In such
+cases the character will need to be escaped in order to be treated as a
+wildcard, for example:
+
+\
+x = \[1-9]-foo.txt
+y = (foo.\?xx)
+z = ($foo\[123].txt)
+\
+
+If a pattern ends with a directory separator, then it only matches
+directories. Otherwise, it only matches files. Matches that start with a dot
+(\c{.}) are automatically ignored unless the pattern itself also starts with
+this character.
+
+In addition to the above wildcards, \c{**} and \c{***} are recognized as
+wildcard sequences. If a pattern contains \c{**}, then it is matched just like
+\c{*} but in all the subdirectories, recursively, but excluding directories
+that contain the \c{.buildignore} file. The \c{***} wildcard behaves like
+\c{**} but also matches the start directory itself. For example:
+
+\
+exe{hello}: cxx{**}  # All C++ source files recursively.
+\
+
+A group-enclosed (\c{{\}}) pattern value may be followed by
+inclusion/exclusion patterns/matches. A subsequent value is treated as an
+inclusion or exclusion if it starts with a literal, unquoted plus (\c{+}) or
+minus (\c{-}) sign, respectively. In this case the remaining group values, if
+any, must all be inclusions or exclusions. If the second value doesn't start
+with a plus or minus, then all the group values are considered independent
+with leading pluses and minuses not having any special meaning. For regularity
+as well as to allow patterns without wildcards, the first pattern can also
+start with the plus sign. For example:
+
+\
+exe{hello}: cxx{f* -foo}            # Exclude foo if exists.
+exe{hello}: cxx{f* +bar}            # Include bar if exists.
+exe{hello}: cxx{f* -fo?}            # Exclude foo and fox if exist.
+exe{hello}: cxx{f* +b* -foo -bar}   # Exclude foo and bar if exist.
+exe{hello}: cxx{+f* +b* -foo -bar}  # Same as above.
+exe{hello}: cxx{+foo}               # Pattern without wildcards.
+exe{hello}: cxx{f* b* -z*}          # Names matching three patterns.
+\
+
+Inclusions and exclusions are applied in the order specified and only to the
+result produced up to that point. The order of names in the result is
+unspecified. However, it is guaranteed not to contain duplicates. The first
+pattern and the following inclusions/exclusions must be consistent with
+regards to the type of filesystem entry they match. That is, they should all
+match either files or directories. For example:
+
+\
+exe{hello}: cxx{f* -foo +*oo}  # Exclusion has no effect.
+exe{hello}: cxx{f* +*oo}       # Ok, no duplicates.
+./: {*/ -build}                # Error: exclusion not a directory.
+\
+
+As a more realistic example, let's say we want to exclude source files that
+reside in the \c{test/} directories (and their subdirectories) anywhere in the
+tree. This can be achieved with the following pattern:
+
+\
+exe{hello}: cxx{** -***/test/**}
+\
+
+Similarly, if we wanted to exclude all source files that have the \c{-test}
+suffix:
+
+\
+exe{hello}: cxx{** -**-test}
+\
+
+In contrast, the following pattern only excludes such files from the top
+directory:
+
+\
+exe{hello}: cxx{** -*-test}
+\
+
+If many inclusions or exclusions need to be specified, then an
+inclusion/exclusion group can be used. For example:
+
+\
+exe{hello}: cxx{f* -{foo bar}}
+exe{hello}: cxx{+{f* b*} -{foo bar}}
+\
+
+This is particularly useful if you would like to list the names to include or
+exclude in a variable. For example, this is how we can exclude certain files
+from compilation but still include them as ordinary file prerequisites (so
+that they are still included into the source distribution):
+
+\
+exc = foo.cxx bar.cxx
+exe{hello}: cxx{+{f* b*} -{$exc}} file{$exc}
+\
+
+If we want to specify our pattern in a variable, then we have to use the
+explicit inclusion syntax, for example:
+
+\
+pat = 'f*'
+exe{hello}: cxx{+$pat} # Pattern match.
+exe{hello}: cxx{$pat}  # Literal 'f*'.
+
+pat = '+f*'
+exe{hello}: cxx{$pat}  # Literal '+f*'.
+
+inc = 'f*'  'b*'
+exc = 'f*o' 'b*r'
+exe{hello}: cxx{+{$inc} -{$exc}}
+\
+
+One common situation that calls for exclusions is auto-generated source
+code. Let's say we have auto-generated command line parser in \c{options.hxx}
+and \c{options.cxx}. Because of the in/out of source builds, our name pattern
+may or may not find these files. Note, however, that we cannot just include
+them as non-pattern prerequisites. We also have to exclude them from the
+pattern match since otherwise we may end up with duplicate prerequisites. As a
+result, this is how we have to handle this case provided we want to continue
+using patterns to find other, non-generated source files:
+
+\
+exe{hello}: {hxx cxx}{* -options} {hxx cxx}{options}
+\
+
+If all our auto-generated source files have a common prefix or suffix, then we
+can exclude them wholesale with a pattern. For example, if all our generated
+files end with the `-options` suffix:
+
+\
+exe{hello}: {hxx cxx}{** -**-options} {hxx cxx}{foo-options bar-options}
+\
+
+If the name pattern includes an absolute directory, then the pattern match is
+performed in that directory and the generated names include absolute
+directories as well. Otherwise, the pattern match is performed in the
+\i{pattern base} directory. In buildfiles this is \c{src_base} while on the
+command line \- the current working directory. In this case the generated
+names are relative to the base directory. For example, assuming we have the
+\c{foo.cxx} and \c{b/bar.cxx} source files:
+
+\
+exe{hello}: $src_base/cxx{**}  # $src_base/cxx{foo} $src_base/b/cxx{bar}
+exe{hello}:           cxx{**}  #           cxx{foo}           b/cxx{bar}
+\
+
+Pattern matching as well as inclusion/exclusion logic is target
+type-specific. If the name pattern does not contain a type, then the
+\c{dir{\}} type is assumed if the pattern ends with a directory separator and
+\c{file{\}} otherwise.
+
+For the \c{dir{\}} target type the trailing directory separator is added to
+the pattern and all the inclusion/exclusion patterns/matches that do not
+already end with one. Then the filesystem search is performed for matching
+directories. For example:
+
+\
+./: dir{* -build}  # Search for */, exclude build/.
+\
+
+For the \c{file{\}} and \c{file{\}}-based target types the default extension
+(if any) is added to the pattern and all the inclusion/exclusion
+patterns/matches that do not already contain an extension. Then the filesystem
+search is performed for matching files.
+
+For example, the \c{cxx{\}} target type obtains the default extension from the
+\c{extension} variable (see \l{#targets-types Target Types} for background).
+Assuming we have the following line in our \c{root.build}:
+
+\
+cxx{*}: extension = cxx
+\
+
+And the following in our \c{buildfile}:
+
+\
+exe{hello}: {cxx}{* -foo -bar.cxx}
+\
+
+The pattern match will first search for all the files matching the \c{*.cxx}
+pattern in \c{src_base} and then exclude \c{foo.cxx} and \c{bar.cxx} from the
+result. Note also that target type-specific decorations are removed from the
+result. So in the above example if the pattern match produces \c{baz.cxx},
+then the prerequisite name is \c{cxx{baz\}}, not \c{cxx{baz.cxx\}}.
+
+If the name generation cannot be performed because the base directory is
+unknown, target type is unknown, or the target type is not directory or
+file-based, then the name pattern is returned as is (that is, as an ordinary
+name). Project-qualified names are never considered to be patterns.
 
 
 \h1#module-config|\c{config} Module|

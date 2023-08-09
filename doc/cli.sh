@@ -93,6 +93,13 @@ function xhtml_to_ps () # <from> <to> [<html2ps-options>]
 
 function compile_doc () # <file> <prefix> <suffix>
 {
+  local file="$1"
+  shift
+  local prefix="$1"
+  shift
+  local suffix="$1"
+  shift
+
   cli -I .. \
 -v version="$(echo "$version" | sed -e 's/^\([^.]*\.[^.]*\).*/\1/')" \
 -v date="$date" \
@@ -106,11 +113,12 @@ function compile_doc () # <file> <prefix> <suffix>
 --link-regex '%bdep([-.].+)%../../bdep/doc/bdep$1%' \
 --link-regex '%testscript(#.+)?%build2-testscript-manual.xhtml$1%' \
 --link-regex '%build2(#.+)?%build2-build-system-manual.xhtml$1%' \
---output-prefix "$2" \
---output-suffix "$3" \
-"$1"
+--output-prefix "$prefix" \
+--output-suffix "$suffix" \
+"${@}" \
+"$file"
 
-  local n="$2$(basename -s .cli $1)$3"
+  local n="$prefix$(basename -s .cli $file)$suffix"
 
   xhtml_to_ps "$n.xhtml" "$n-a4.ps" -f doc.html2ps:a4.html2ps
   ps2pdf14 -sPAPERSIZE=a4 -dOptimize=true -dEmbedAllFonts=true "$n-a4.ps" "$n-a4.pdf"
@@ -119,7 +127,13 @@ function compile_doc () # <file> <prefix> <suffix>
   ps2pdf14 -sPAPERSIZE=letter -dOptimize=true -dEmbedAllFonts=true "$n-letter.ps" "$n-letter.pdf"
 }
 
-compile_doc manual.cli 'build2-build-system-'
+# @@ TODO: replace -I. with $out_base and get rid of backlinking once
+#          migrated to reciped.
+#
+# Note: we have to manually map \h to h2 since we break the doc string.
+#
+b update: alias{functions}
+compile_doc manual.cli 'build2-build-system-' '' --html-heading-map h=h2 -I .
 compile_doc testscript.cli 'build2-' '-manual'
 
 # Generate INSTALL in ../

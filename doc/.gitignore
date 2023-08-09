@@ -3,3 +3,7 @@ b.1
 build2-*-manual.xhtml
 *.ps
 *.pdf
+
+# Auto-extracted documentation.
+#
+functions-*.cli

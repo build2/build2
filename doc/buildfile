@@ -11,8 +11,285 @@ xhtml{*}: extension = xhtml
     css{common pre-box man} \
     file{man-*}
 
+# @@ TODO: why no testscript manual?
+
 ./: doc{build2-build-system-manual*}     \
     css{code-box common doc pre-box toc} \
     file{manual.cli doc-* *.html2ps}
 
 ./: file{cli.sh}
+
+# The build2 function documentation format for auto-extraction.
+#
+# Each listed .cxx file is expected to provide functions for one function
+# family. In order to plug a new family/file, perform the following steps:
+#
+# 1. List the corresponding functions-<family>.cxx file stem below.
+# 2. Add a section and source the generated .cli file in manual.cli.
+#
+# The functions-<family>.cxx file is expected to contain one or more comments
+# in the following form:
+#
+# // <synopsis-line>+
+# // <blank-line>
+# // (<paragraph-line>+|<code-block-line>+
+# // <blank-line>)+
+#
+# That is, the comment starts with one or more synopsis lines followed by a
+# blank line followed by a mixture of text paragraphs and/or preformatted code
+# blocks separated by blank lines. The comment must be terminated with a blank
+# line. See functions-regex.cxx for comprehensive examples.
+#
+# The synopsis line should be in the form:
+#
+# // $[<family>.]<name>(...)
+#
+# Each synopsis line may or may not be be qualified with <family>. The rule is
+# as follows: If the function can only be called qualified, then the synopsis
+# should contains a single qualified line. If the function can be called
+# unqualified, then the synopsis should contains a single unqualified line.
+# If some signatures can be called unqualifed while some -- only qualified,
+# then there should be both qualified and unqualified lines. Note that there
+# can also be functions with different <name>s in a single synopsis block.
+#
+# The text paragraphs may contain `...` and <...> fragments which are
+# translated to \c{} and \ci{}, respectively. Note that these fragments cannot
+# span multiple lines.
+#
+# The preformatted code blocks must be indented four spaces (not counting
+# the space after //).
+#
+# There is problem with distinguishing blanks within a code block and a blank
+# that separates the code block from the subsequent paragraph (or another code
+# block). Strictly speaking, such a blank should be indented with four spaces
+# but trailing spaces at the end of the line are generally frowned upon and in
+# our code should be automatically zapped on save.
+#
+# So what we are going to do is treat a single blank line between two code
+# lines as belonging to the code block rather than separating two code
+# blocks. The latter can be achieved with a double blank line. Note that this
+# means we cannot have double blank lines within a code block.
+
+# @@ TODO: using file{.cli}, change to cli{} once switch to ad hoc recipes.
+# @@ TODO: get rid of backlink below once switch to ad hoc recipes.
+
+for ff: functions-builtin        \
+        functions-string         \
+        functions-integer        \
+        functions-bool           \
+        functions-path           \
+        functions-name           \
+        functions-target         \
+        functions-regex          \
+        functions-process        \
+        functions-filesystem     \
+        functions-project-name   \
+        functions-process-path   \
+        functions-target-triplet
+{
+  alias{functions}: file{$(ff).cli}: $src_root/libbuild2/cxx{$ff}
+  file{$(ff).cli}: backlink = true # @@ TMP until migrate to recipe (see cli.sh)
+}
+
+file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
+{{
+  diag doc $< -> $>
+
+  i = $path($<) # Input.
+  o = $path($>) # Output.
+
+  # Extract the family name.
+  #
+  family = $regex.replace($name($<), 'functions-(.+)', '\1')
+  family = $regex.replace($family, '-', '_')
+
+  echo "// Auto-extracted from $leaf($i) for \$$(family).*\(\)" >$o
+
+  # The overall plan is as follows: read the file line by line recognizing the
+  # function documentation comments and maintaining the parsing state.
+  #
+  # Parsing state, one of:
+  #
+  # none -- outside of a documentation comment
+  # syno -- inside synopsis
+  # para -- inside text
+  # code -- inside preformatted code block
+  # blnk -- blank line separating synopsis/para/code
+  #
+  s = none # Current state.
+  p = none # Previous state.
+
+  ln = [uint64] 0 # Line number.
+  for -n l <=$i
+    ln += 1
+
+    # Look for a C++ comments and extract its text.
+    #
+    t = $regex.match($l, '\s*// ?(.*)', return_subs)
+
+    # Note that when writing the output we use the "leading blank line" rather
+    # than trailing approach. That is, we write the blank before starting the
+    # next block rather than after.
+
+    if ($t == [null])
+      if ($s != 'none')
+        if ($s != 'blnk')
+          exit "$i:$ln: blank line expected after description"
+        end
+
+        # Close delayed code block (see below for details).
+        #
+        if ($p == 'code')
+          echo "\\" >>$o # end code
+        end
+
+        echo "\"" >>$o # end cli doc string
+      end
+
+      p = $s
+      s = 'none'
+    else
+      # This is a comment. What we do next depends on which state we are in.
+      #
+      if ($s == 'none' || $s == 'syno')
+        p = $s
+
+        # See if this is a synopsys line.
+        #
+        if $regex.match($t, '\$.+\(.+\)')
+          if ($s == 'none')
+            synopsis = [strings] # Accumulate synopsis lines.
+            s = 'syno'
+          end
+
+          synopsis += $t
+        elif ($s == 'syno')
+          if ($t != '')
+            exit "$i:$ln: blank line expected after synopsis"
+          end
+
+          echo "$\n\"" >>$o # start cli doc string
+
+          # Write the heading. Use the first function name as id.
+          #
+          # Note that while the functions in the synopsis could be
+          # unqualified, in the heading we always write them qualified. We
+          # also have to suppress duplicates since the same function can be
+          # mentioned in the synopsis both qualified and unqualified.
+          #
+          id = [null]
+          hs = [strings]
+          for t: $synopsis
+            t = $regex.replace($t, '\$(.+)\(.+\)', '\1')  # Extract func name.
+            f = $regex.match($t, '(.+)\..+', return_subs) # Extract family.
+
+            if ($f == [null])
+              t = "$(family).$t" # Qualify.
+            elif ($f != $family)
+              exit "$i:$ln: function family in $t does not match $family"
+            end
+
+            if ($id == [null]) # First.
+              id = $regex.replace($t, '\.', '-')
+            end
+
+            # Suppress duplicates.
+            #
+            if! $find($hs, $t)
+              hs += $t
+            end
+          end
+
+          h = $regex.merge($hs, '(.+)', '\\c{$\1()}', ', ')
+
+          echo "\\h2#functions-$id|$h|$\n" >>$o # heading
+
+          echo "\\" >>$o # start synopsis
+          for t: $synopsis
+            echo $t >>$o # synopsis line
+          end
+          echo "\\" >>$o # end synopsis
+
+          s = 'blnk'
+        end
+      else # para|code|blnk
+        # See if this is a code line.
+        #
+	c = $regex.match($t, '    (.+)', return_subs)
+
+        if ($c != [null])
+          # Code line.
+          #
+          if ($s == 'para')
+            exit "$i:$ln: blank line expected before code block"
+          end
+
+          # Treat a single blank line between two code lines as belonging to
+          # the code block rather than separating two code blocks (see above
+          # for details).
+          #
+          if ($s == 'blnk')
+            if ($p == 'code')
+              echo '' >>$o # continue code, write preceding blank
+              s = 'code'
+            else
+              echo "$\n\\" >>$o # start code
+            end
+          end
+
+          echo $regex.replace($c, '"', '\\"') >>$o # write code line
+
+          p = $s
+          s = 'code'
+        elif ($t != '')
+          # Paragraph line.
+          #
+          if ($s == 'code')
+            exit "$i:$ln: blank line expected after code block"
+          end
+
+	  # Close delayed code block (see above for details).
+          #
+          if ($p == 'code')
+            echo "\\" >>$o # end code
+          end
+
+          if ($s == 'blnk')
+            echo '' >>$o # start para
+          end
+
+          t = $regex.replace($t, '\\', '\\\\') # Escape backslashed
+          t = $regex.replace($t, '"', '\\"')   # Escape double quotes.
+
+          # Convert `` to \c{} and <> to \ci{}.
+          #
+          t = $regex.replace($t, '`([^`]+)`', '\\c{\1}')
+          t = $regex.replace($t, '<([^\s<>]+)>', '\\ci{\1}')
+
+          echo $t >>$o # write para line
+
+          p = $s
+          s = 'para'
+        else
+          # Blank line.
+          #
+
+          # Note that we delay closing the code block in case this blank line
+          # is followed by another code line (and is therefore treated as
+          # belonging to the code block; see above for details).
+          #
+          if ($s != 'code' && $p == 'code')
+            echo "\\" >>$o # end code
+          end
+
+          #if ($s == 'para')
+            # end para
+          #end
+
+          p = $s
+          s = 'blnk'
+        end
+      end
+    end
+  end
+}}

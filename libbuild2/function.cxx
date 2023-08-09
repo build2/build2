@@ -348,6 +348,8 @@ namespace build2
 
   // Static-initialize the function map and populate with builtin functions.
   //
+  // NOTE: remember to also arrange for automatic documentation extraction in
+  //       doc/buildfile!
 
   void bool_functions (function_map&);           // functions-bool.cxx
   void builtin_functions (function_map&);        // functions-builtin.cxx
