@@ -350,7 +350,7 @@ namespace build2
     };
 
     // Note that we include S{} here because .S files can include each other.
-    // (And maybe from inline assember instrcutions?)
+    // (And maybe from inline assembler instructions?)
     //
     static const target_type* const inc[] =
     {
@@ -358,6 +358,7 @@ namespace build2
       &c::static_type,
       &m::static_type,
       &S::static_type,
+      &c_inc::static_type,
       nullptr
     };
 

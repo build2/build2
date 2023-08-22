@@ -80,6 +80,19 @@ namespace build2
       target_type::flag::none
     };
 
+    const target_type c_inc::static_type
+    {
+      "c_inc",
+      &cc::static_type,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      target_type::flag::none
+    };
+
     extern const char pc_ext[] = "pc"; // VC14 rejects constexpr.
     const target_type pc::static_type
     {

@@ -100,6 +100,25 @@ namespace build2
       static const target_type static_type;
     };
 
+    // This is an abstract base target for deriving additional targets that
+    // can be #include'd in C translation units (the same rationale for having
+    // it here as for c{} above). In particular, only such targets will be
+    // considered to reverse-lookup extensions to target types (see
+    // dyndep_rule::map_extension() for background).
+    //
+    class LIBBUILD2_CC_SYMEXPORT c_inc: public cc
+    {
+    public:
+      c_inc (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
+
+    public:
+      static const target_type static_type;
+    };
+
     // pkg-config file targets.
     //
     class LIBBUILD2_CC_SYMEXPORT pc: public file // .pc (common)

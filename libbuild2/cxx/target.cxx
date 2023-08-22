@@ -90,5 +90,18 @@ namespace build2
       &file_search,
       target_type::flag::none
     };
+
+    const target_type cxx_inc::static_type
+    {
+      "cxx_inc",
+      &cc::static_type,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      target_type::flag::none
+    };
   }
 }

@@ -7,7 +7,6 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/target.hxx>
 #include <libbuild2/cc/target.hxx>
 
 #include <libbuild2/cxx/export.hxx>
@@ -96,6 +95,25 @@ namespace build2
     {
     public:
       mm (context& c, dir_path d, dir_path o, string n)
+        : cc (c, move (d), move (o), move (n))
+      {
+        dynamic_type = &static_type;
+      }
+
+    public:
+      static const target_type static_type;
+    };
+
+    // This is an abstract base target for deriving additional targets (for
+    // example, Qt moc{}) that can be #include'd in C++ translation units. In
+    // particular, only such targets will be considered to reverse-lookup
+    // extensions to target types (see dyndep_rule::map_extension() for
+    // background).
+    //
+    class LIBBUILD2_CXX_SYMEXPORT cxx_inc: public cc::cc
+    {
+    public:
+      cxx_inc (context& c, dir_path d, dir_path o, string n)
         : cc (c, move (d), move (o), move (n))
       {
         dynamic_type = &static_type;
