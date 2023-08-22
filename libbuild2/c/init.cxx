@@ -424,6 +424,7 @@ namespace build2
 
         c::static_type,
         nullptr,        // No C modules yet.
+        c_inc::static_type,
         hdr,
         inc
       };

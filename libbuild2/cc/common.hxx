@@ -223,6 +223,7 @@ namespace build2
       //
       const target_type& x_src; // Source target type (c{}, cxx{}).
       const target_type* x_mod; // Module target type (mxx{}), if any.
+      const target_type& x_inc; // Includable base target type (e.g., c_inc{}).
       const target_type* x_obj; // Objective-X target type (m{}, mm{}).
       const target_type* x_asp; // Assembler with CPP target type (S{}).
 
@@ -250,7 +251,7 @@ namespace build2
       // (excluding h{} except for C). Keep them in the most likely to appear
       // order with the "real header" first and terminated with NULL.
       //
-      const target_type* const* x_hdr;
+      const target_type* const* x_hdrs;
 
       // Check if an object (target, prerequisite, etc) is a header.
       //
@@ -258,7 +259,7 @@ namespace build2
       bool
       x_header (const T& t, bool c_hdr = true) const
       {
-        for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
+        for (const target_type* const* ht (x_hdrs); *ht != nullptr; ++ht)
           if (t.is_a (**ht))
             return true;
 
@@ -269,7 +270,7 @@ namespace build2
       // extensions to target types. Keep them in the most likely to appear
       // order and terminate with NULL.
       //
-      const target_type* const* x_inc;
+      const target_type* const* x_incs;
 
       // Aggregate-like constructor with from-base support.
       //
@@ -297,8 +298,9 @@ namespace build2
             size_t sle, size_t she,
             const target_type& src,
             const target_type* mod,
-            const target_type* const* hdr,
-            const target_type* const* inc)
+            const target_type& inc,
+            const target_type* const* hdrs,
+            const target_type* const* incs)
           : config_data (cd),
             x_compile (compile),
             x_link (link),
@@ -318,8 +320,9 @@ namespace build2
             sys_lib_dirs_mode (slm), sys_hdr_dirs_mode (shm),
             sys_mod_dirs_mode (smm),
             sys_lib_dirs_extra (sle), sys_hdr_dirs_extra (she),
-            x_src (src), x_mod (mod), x_obj (nullptr), x_asp (nullptr),
-            x_hdr (hdr), x_inc (inc) {}
+            x_src (src), x_mod (mod), x_inc (inc),
+            x_obj (nullptr), x_asp (nullptr),
+            x_hdrs (hdrs), x_incs (incs) {}
     };
 
     class LIBBUILD2_CC_SYMEXPORT common: public data

@@ -483,8 +483,8 @@ namespace build2
 
         // For a header unit we check the "real header" plus the C header.
         //
-        if (ut == unit_type::module_header ? p.is_a (**x_hdr) || p.is_a<h> () :
-            ut == unit_type::module_intf   ? p.is_a (*x_mod)                  :
+        if (ut == unit_type::module_header ? p.is_a (**x_hdrs) || p.is_a<h> () :
+            ut == unit_type::module_intf   ? p.is_a (*x_mod)                   :
             p.is_a (x_src)                        ||
             (x_asp != nullptr && p.is_a (*x_asp)) ||
             (x_obj != nullptr && p.is_a (*x_obj)))
@@ -3091,7 +3091,7 @@ namespace build2
       //    single "version" of a header. Seems reasonable.
       //
       // Note also that while it would have been nice to have a unified cc
-      // cache, the map_extension() call is passed x_inc which is module-
+      // cache, the map_extension() call is passed x_incs which is module-
       // specific. In other words, we may end up mapping the same header to
       // two different targets depending on whether it is included from, say,
       // C or C++ translation unit. We could have used a unified cache for
@@ -3155,7 +3155,7 @@ namespace build2
                 fp, cache, norm,
                 [this] (const scope& bs, const string& n, const string& e)
                 {
-                  return map_extension (bs, n, e, x_inc);
+                  return map_extension (bs, n, e, x_incs);
                 },
                 h::static_type,
                 [this, &d] (action a, const scope& bs, const target& t)

@@ -436,9 +436,12 @@ namespace build2
           r.seen_lib = true;
         }
         // Some other c-common header/source (say C++ in a C rule) other than
-        // a C header (we assume everyone can hanle that).
+        // a C header (we assume everyone can hanle that) or some other
+        // #include'able target.
         //
-        else if (p.is_a<cc> () && !(x_header (p, true /* c_hdr */)))
+        else if (p.is_a<cc> ()                     &&
+                 !(x_header (p, true /* c_hdr */)) &&
+                 !p.is_a (x_inc) && !p.is_a<c_inc> ())
         {
           r.seen_cc = true;
           break;

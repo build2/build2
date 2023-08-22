@@ -1331,7 +1331,7 @@ namespace build2
         // We treat headers outside of any project as C headers (see
         // enter_header() for details).
         //
-        parse_headers (ipc, h::static_type /* **x_hdr */, x, prs);
+        parse_headers (ipc, h::static_type /* **x_hdrs */, x, prs);
         parse_headers (ipc, h::static_type, "c", prs);
       }
 
@@ -2266,7 +2266,7 @@ namespace build2
                     move (pp),
                     symexport});
               }
-              else if (pt->is_a (**x_hdr) || pt->is_a<h> ())
+              else if (pt->is_a (**this->x_hdrs) || pt->is_a<h> ())
               {
                 if (cast_false<bool> ((*pt)[c_importable]))
                 {

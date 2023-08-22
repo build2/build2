@@ -994,14 +994,14 @@ namespace build2
             install_path (rs, tt, dir_path ("include"));
         };
 
-        // Note: module (x_mod) is in x_hdr.
+        // Note: module (x_mod) is in x_hdrs.
         //
-        for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
+        for (const target_type* const* ht (x_hdrs); *ht != nullptr; ++ht)
           insert_hdr (**ht);
 
         // Also register the C header for C-derived languages.
         //
-        if (*x_hdr != &h::static_type)
+        if (*x_hdrs != &h::static_type)
           insert_hdr (h::static_type);
 
         rs.insert_target_type<pc> ();

@@ -899,6 +899,7 @@ namespace build2
 
         cxx::static_type,
         modules ? &mxx::static_type : nullptr,
+        cxx_inc::static_type,
         hdr,
         inc
       };
