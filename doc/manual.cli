@@ -2663,7 +2663,8 @@ subproject, or from an installation directory.
 \N|Importation of an installed library will work even if it is not a
 \c{build2} project. Besides finding the library itself, the link rule will
 also try to locate its \c{pkg-config(1)} file and, if present, extract
-additional compile/link flags from it. The link rule also automatically
+additional compile/link flags from it (see \l{#cc-import-installed Importation
+of Installed Libraries} for details). The link rule also automatically
 produces \c{pkg-config(1)} files for libraries that it installs.|
 
 \N|A common problem with importing and using third-party C/C++ libraries is
@@ -7580,21 +7581,8 @@ The \c{pc*{\}} target types represent \c{pkg-config} files. The \c{pc{\}}
 target type represents the common file and has the fixed default extension
 \c{.pc}. The \c{pca{\}} and \c{pcs{\}} target types represent the static and
 shared files and have the fixed default extensions \c{.static.pc} and
-\c{.shared.pc}, respectively.
-
-\N|It is often required to use different options for consuming static and
-shared libraries. While there is the \c{Libs.private} and \c{Cflags.private}
-mechanism in \c{pkg-config}, its semantics is to append options to \c{Libs}
-and \c{Cflags} rather than to provide alternative options. And often the
-required semantics is to provide different options for static and shared
-libraries, such as to provide the macro which indicates whether linking static
-or shared in order to setup symbol exporting.
-
-As a result, in \c{build2} we produce separate \c{.pc} files for static and
-shared libraries in addition to the \"best effort\" common \c{.pc} file for
-compatibility with other build systems. Similarly, when consuming a library
-we first look for the \c{.static.pc} and \c{.shared.pc} files falling back
-to the common \c{.pc} if they are not available.|
+\c{.shared.pc}, respectively. See \l{#cc-import-installed Importation of
+Installed Libraries} for background.
 
 
 \h#cc-internal-scope|Compilation Internal Scope|
@@ -7788,6 +7776,125 @@ order to work, code that uses such a DLL should be able to import the symbols
 without explicit \c{__declspec(dllimport)} declarations. This works thanks
 to the symbol auto-importing support in Windows linkers. Note, however, that
 auto-importing only works for functions and not for global variables.
+
+
+\h#cc-import-installed|Importation of Installed Libraries|
+
+As discussed in \l{#intro-import Target Importation}, search for installed
+C/C++ libraries is seamlessly integrated into the general target importation
+mechanism. This section provides more details on the installed library search
+semantics and \c{pkg-config} integration. These details can be particularly
+useful when dealing with libraries that were not built with \c{build2} and
+which often use idiosyncratic \c{pkg-config} file names.
+
+The \c{cc}-based modules use the common installed library search
+implementation with the following semantics. To illustrate the finer points,
+we assume the following import:
+
+\
+import libs = libbar%lib{Xfoo}
+\
+
+\ol|
+
+\li|First, the ordered list of library search directories is obtained by
+combining two lists: the lists of the compiler's system library search
+directories (extracted, for example, with \c{-print-search-dirs} GCC/Clang
+options) and the list of user library search directories (specified, for
+example, with the \c{-L} options in \c{*.loptions}).
+
+The key property of this combined list is that it matches the search semantics
+that would be used by the compiler to find libraries specifies with the \c{-l}
+option during linking.|
+
+\li|Given the list obtained in the previous step, a library binary (shared
+and/or static library) is searched for in the correct order and using the
+target platform-appropriate library prefix and extension (for example, \c{lib}
+prefix and the \c{.so}/\c{.a} extensions if targeting Linux).
+
+For example (continuing with the above import and assuming Linux), each
+directory will be checked for the presence of \c{libXfoo.so} and \c{libXfoo.a}
+(where the \c{Xfoo} stem is the imported target name).
+
+If only shared or static binary is found in a given directory, nor further
+directories are checked for the missing variant. Instead, the missing
+variant is assumed to be unavailable.
+
+If neither a shared nor static library is found in a given directory, then
+the it is also checked for the presence of the corresponding \c{pkg-config}
+file as in the following step. If such a file is found, then the library is
+assumed to be \i{binless} (header-only, etc).|
+
+\li|If a static and/or shared library is found (or if looking for a binless
+library), the corresponding \c{pkg-config} subdirectory (normally just
+\c{pkgconfig/}) is searched for the library's \c{.pc} file.
+
+More precisely, we first look for the \c{.static.pc} file for a static
+library and for the \c{.shared.pc} file for a shared library falling back
+to the common \c{.pc} if they don't exist.
+
+\N|It is often required to use different options for consuming static and
+shared libraries. While there is the \c{Libs.private} and \c{Cflags.private}
+mechanism in \c{pkg-config}, its semantics is to append options to \c{Libs}
+and \c{Cflags} rather than to provide alternative options. And often the
+required semantics is to provide different options for static and shared
+libraries, such as to provide the macro which indicates whether linking static
+or shared in order to setup symbol exporting.
+
+As a result, in \c{build2} we produce separate \c{.pc} files for static and
+shared libraries in addition to the \"best effort\" common \c{.pc} file for
+compatibility with other build systems. Similarly, when consuming a library
+we first look for the \c{.static.pc} and \c{.shared.pc} files falling back
+to the common \c{.pc} if they are not available.|
+
+To deal with idiosyncrasies in \c{pkg-config} file names, the following base
+names are tried in order, where \ci{name} is the imported target name
+(\c{Xfoo} in the above import), \ci{proj} is the imported project name
+(\c{libbar} in the above import), and \ci{ext} is one of the above-mentioned
+\c{pkg-config} extensions (\c{static.pc}, \c{shared.pc}, or \c{pc}). The
+concrete name tried for the above import is shown in parenthesis as an
+example.
+
+\ol|
+
+\li|\c{lib\i{name}.\i{ext}} (\c{libXfoo.pc})|
+
+\li|\c{\i{name}.\i{ext}} (\c{Xfoo.pc})|
+
+\li|lowercase \c{lib\i{name}.\i{ext}} (\c{libxfoo.pc})|
+
+\li|lowercase \c{\i{name}.\i{ext}} (\c{xfoo.pc})|
+
+\li|\c{\i{proj}.\i{ext}} (\c{libbar.pc}; this test is omitted if not project-qualified)||
+
+||
+
+In particular, the last try (for \c{\i{proj}.\i{ext}}) serves as an escape
+hatch for cases where the \c{.pc} file name does not have anything to do with
+the names of library binaries. The canonical example of this is \c{zlib} which
+names its library binaries \c{libz.so}/\c{libz.a} while its \c{.pc} file \-
+\c{zlib.pc}. To be able to import \c{zlib} that was not built with \c{build2},
+we have to use the following import:
+
+\
+import libs = zlib%lib{z}
+\
+
+Note also that these complex rules (which are unfortunately necessary to deal
+with the lack of any consistency in \c{.pc} file naming) can sometimes produce
+surprising interactions. For example, it may appear that a clearly incorrect
+import nevertheless appears to somehow work, as in the following example:
+
+\
+import libs = zlib%lib{znonsense}
+\
+
+What happens here is that while no library binary is found, \c{zlib.pc} is
+found and as a result the library ends up being considered binless with the
+\c{-lz} (that is found in the \c{Libs} value of \c{zlib.pc}) treated as a
+prerequisite library, resolved using the above algorithm, and linked. In other
+words, in this case we end up with a binless library \c{lib{znonsense\}} that
+depends on \c{lib{z\}} instead of a single \c{lib{z\}} library.
 
 
 \h#cc-gcc|GCC Compiler Toolchain|
