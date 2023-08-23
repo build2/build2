@@ -971,7 +971,16 @@ namespace build2
       rs.root_extra->amalgamation = nullptr;
       rs.root_extra->subprojects = nullptr;
 
+      // See GH issue #322.
+      //
+#if 0
       assert (!aovr || aovr->empty ());
+#else
+      if (!(!aovr || aovr->empty ()))
+        fail << "amalgamation directory " << *aovr << " specified for simple "
+             << "project " << src_root <<
+          info << "see https://github.com/build2/build2/issues/322 for details";
+#endif
     }
     // We assume that bootstrap out cannot load this file explicitly. It
     // feels wrong to allow this since that makes the whole bootstrap
