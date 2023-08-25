@@ -7780,7 +7780,7 @@ auto-importing only works for functions and not for global variables.
 
 \h#cc-import-installed|Importation of Installed Libraries|
 
-As discussed in \l{#intro-import Target Importation}, search for installed
+As discussed in \l{#intro-import Target Importation}, searching for installed
 C/C++ libraries is seamlessly integrated into the general target importation
 mechanism. This section provides more details on the installed library search
 semantics and \c{pkg-config} integration. These details can be particularly
@@ -7804,7 +7804,7 @@ options) and the list of user library search directories (specified, for
 example, with the \c{-L} options in \c{*.loptions}).
 
 The key property of this combined list is that it matches the search semantics
-that would be used by the compiler to find libraries specifies with the \c{-l}
+that would be used by the compiler to find libraries specified with the \c{-l}
 option during linking.|
 
 \li|Given the list obtained in the previous step, a library binary (shared
@@ -7816,12 +7816,12 @@ For example (continuing with the above import and assuming Linux), each
 directory will be checked for the presence of \c{libXfoo.so} and \c{libXfoo.a}
 (where the \c{Xfoo} stem is the imported target name).
 
-If only shared or static binary is found in a given directory, nor further
+If only a shared or static binary is found in a given directory, no further
 directories are checked for the missing variant. Instead, the missing
 variant is assumed to be unavailable.
 
 If neither a shared nor static library is found in a given directory, then
-the it is also checked for the presence of the corresponding \c{pkg-config}
+it is also checked for the presence of the corresponding \c{pkg-config}
 file as in the following step. If such a file is found, then the library is
 assumed to be \i{binless} (header-only, etc).|
 
@@ -7838,7 +7838,7 @@ shared libraries. While there is the \c{Libs.private} and \c{Cflags.private}
 mechanism in \c{pkg-config}, its semantics is to append options to \c{Libs}
 and \c{Cflags} rather than to provide alternative options. And often the
 required semantics is to provide different options for static and shared
-libraries, such as to provide the macro which indicates whether linking static
+libraries, such as to provide a macro which indicates whether linking static
 or shared in order to setup symbol exporting.
 
 As a result, in \c{build2} we produce separate \c{.pc} files for static and
