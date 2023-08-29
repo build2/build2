@@ -3231,7 +3231,7 @@ configuration inheritance. As an example, let's configure the above bundled
 \
 $ b configure: hello/ config.cxx=clang++ config.cxx.coptions=-g
 
-$ b tree
+$ tree
 hello/
 ├── build/
 │   ├── config.build
