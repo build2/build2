@@ -3,9 +3,10 @@
 
 #include <libbuild2/diagnostics.hxx>
 
-#include <cstring> // strcmp(), strchr(), memcpy()
+#include <cstring> // strchr(), memcpy()
 #include <cstdlib> // getenv()
 
+#include <libbutl/fdstream.hxx>   // fdterm_color()
 #include <libbutl/process-io.hxx>
 
 #include <libbuild2/scope.hxx>
@@ -30,7 +31,7 @@ namespace build2
   bool diag_no_line = false;
   bool diag_no_column = false;
 
-  optional<const char*> stderr_term = nullopt;
+  bool stderr_term = false;
   bool stderr_term_color = false;
 
   void
@@ -50,29 +51,38 @@ namespace build2
     diag_color_option = c;
     diag_no_line = nl;
     diag_no_column = nc;
+    stderr_term = st;
 
     if (st)
     {
-      stderr_term = std::getenv ("TERM");
-
-      stderr_term_color =
+      // @@ TMP: eventually we want to enable on Windows by default.
+      //
 #ifdef _WIN32
-        // For now we disable color on Windows since it's unclear if/where/how
-        // it is supported. Maybe one day someone will figure this out.
-        //
-        false
-#else
-        // This test was lifted from GCC (Emacs shell sets TERM=dumb).
-        //
-        *stderr_term != nullptr && strcmp (*stderr_term, "dumb") != 0
+      if (c && *c)
+      {
 #endif
-        ;
+        stderr_term_color = fdterm_color (stderr_fd (), !c || *c /* enable */);
+
+        // If the user specified --diag-color on POSIX we will trust the color
+        // is supported (e.g., wrong TERM value, etc).
+        //
+        if (!stderr_term_color && c && *c)
+        {
+#ifdef _WIN32
+          fail << "unable to enable diagnostics color support for stderr";
+#else
+          stderr_term_color = true;
+#endif
+        }
+
+#ifdef _WIN32
+      }
+      else
+        stderr_term_color = false;
+#endif
     }
     else
-    {
-      stderr_term = nullopt;
       stderr_term_color = false;
-    }
   }
 
   // Stream verbosity.

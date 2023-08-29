@@ -149,11 +149,9 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern bool diag_no_line;   // --no-line
   LIBBUILD2_SYMEXPORT extern bool diag_no_column; // --no-column
 
-  // If stderr is not a terminal, then the value is absent (so can be used as
-  // bool). Otherwise, it is the value of the TERM environment variable (which
-  // can be NULL).
+  // True if stderr is a terminal.
   //
-  LIBBUILD2_SYMEXPORT extern optional<const char*> stderr_term;
+  LIBBUILD2_SYMEXPORT extern bool stderr_term;
 
   // True if the color can be used on the stderr terminal.
   //

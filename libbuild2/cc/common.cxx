@@ -1618,9 +1618,35 @@ namespace build2
       {
       case compiler_class::msvc:
         {
-          // Note: see init_diag logic if enabling anything here (probably
-          // need an "override disable" mode or some such).
+          // MSVC has the /diagnostics: option which has an undocumented value
+          // `color`. It's unclear from which version of MSVC this value is
+          // supported, but it works in 17.0, so let's start from there.
           //
+          // Note that there is currently no way to disable color in the MSVC
+          // diagnostics specifically (the /diagnostics:* option values are
+          // cumulative and there doesn't seem to be a `color-` value). This
+          // is probably not a big deal since one can just disable the color
+          // globally (--no-diag-color).
+          //
+          // Note that clang-cl appears to use -fansi-escape-codes. See GH
+          // issue #312 for background.
+          //
+          if (show_diag_color ())
+          {
+            if (cvariant.empty () &&
+                (cmaj > 19 || (cmaj == 19 && cmin >= 30)))
+            {
+              // Check for the prefix in case /diagnostics:color- gets added
+              // eventually.
+              //
+              if (!find_option_prefixes ({"/diagnostics:color",
+                                          "-diagnostics:color"}, args))
+              {
+                args.push_back ("/diagnostics:color");
+              }
+            }
+          }
+
           break;
         }
       case compiler_class::gcc:
@@ -1628,13 +1654,18 @@ namespace build2
           // Enable/disable diagnostics color unless a custom option is
           // specified.
           //
-          // Supported from GCC 4.9 and (at least) from Clang 3.5. Clang
-          // supports -f[no]color-diagnostics in addition to the GCC's
-          // spelling.
+          // Supported from GCC 4.9 (8.1 on Windows) and (at least) from Clang
+          // 3.5. Clang supports -f[no]color-diagnostics in addition to the
+          // GCC's spelling.
           //
-          if (ctype == compiler_type::gcc   ? cmaj > 4 || (cmaj == 4 && cmin >= 9) :
-              ctype == compiler_type::clang ? cmaj > 3 || (cmaj == 3 && cmin >= 5) :
-              false)
+          if (
+#ifndef _WIN32
+            ctype == compiler_type::gcc   ? cmaj > 4 || (cmaj == 4 && cmin >= 9) :
+#else
+            ctype == compiler_type::gcc   ? cmaj > 8 || (cmaj == 8 && cmin >= 1) :
+#endif
+            ctype == compiler_type::clang ? cmaj > 3 || (cmaj == 3 && cmin >= 5) :
+            false)
           {
             if (!(find_option_prefix ("-fdiagnostics-color", args)        ||
                   find_option        ("-fno-diagnostics-color", args)     ||
