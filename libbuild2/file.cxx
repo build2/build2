@@ -1716,10 +1716,10 @@ namespace build2
 
         dr << "\n  ";
 
-        if (const value& v = *l)
+        if (l)
         {
           storage.clear ();
-          auto ns (reverse (v, storage, true /* reduce */));
+          auto ns (reverse (*l, storage, true /* reduce */));
 
           if (f == "multiline")
           {
