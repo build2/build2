@@ -1148,6 +1148,31 @@ namespace build2
               s->path_mtime (move (f), mt);
             }
           }
+          else if (!ext && tsys == "darwin")
+          {
+            // Besides .dylib, Mac OS now also has "text-based stub libraries"
+            // that use the .tbd extension. They appear to be similar to
+            // Windows import libraries and contain information such as the
+            // location of the .dylib library, its symbols, etc. For example,
+            // there is /Library/.../MacOSX13.3.sdk/usr/lib/libsqlite3.tbd
+            // which points to /usr/lib/libsqlite3.dylib (but which itself is
+            // invisible/inaccessible, presumably for security).
+            //
+            // Note that for now we are treating the .tbd library as the
+            // shared library but could probably do the more elaborate dance
+            // with ad hoc members like on Windows if really necessary.
+            //
+            se = string ("tbd");
+            f = f.base (); // Remove .dylib.
+            f += ".tbd";
+            mt = mtime (f);
+
+            if (mt != timestamp_nonexistent)
+            {
+              insert_library (ctx, s, name, d, ld, se, exist, trace);
+              s->path_mtime (move (f), mt);
+            }
+          }
         }
 
         // liba
