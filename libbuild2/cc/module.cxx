@@ -357,6 +357,8 @@ namespace build2
 #  ifdef __APPLE__
     static const dir_path a_usr_inc (
       "/Library/Developer/CommandLineTools/SDKs/MacOSX*.sdk/usr/include");
+    static const dir_path a_usr_lib (
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX*.sdk/usr/lib");
 #  endif
 #endif
 
@@ -693,15 +695,28 @@ namespace build2
         //
         // Is Apple's /usr/include.
         //
-        if (!ui && !uli)
+        // Also, it appears neither Clang nor GCC report MacOSX*.sdk/usr/lib
+        // with -print-search-dirs but they do search in there. So we add it
+        // to our list if we see MacOSX*.sdk/usr/include.
+        //
+        auto aui (find_if (hs.begin (), hs.end (),
+                           [] (const dir_path& d)
+                           {
+                             return path_match (d, a_usr_inc);
+                           }));
+
+        if (aui != hs.end ())
         {
-          for (const dir_path& d: hs)
+          if (!ui)
+            ui = true;
+
+          if (find_if (ls.begin (), ls.end (),
+                       [] (const dir_path& d)
+                       {
+                         return path_match (d, a_usr_lib);
+                       }) == ls.end ())
           {
-            if (path_match (d, a_usr_inc))
-            {
-              ui = true;
-              break;
-            }
+            ls.push_back (aui->directory () /= "lib");
           }
         }
 #endif
