@@ -82,6 +82,71 @@ namespace build2
     }
 #endif
 
+    // Parse color/semicolon-separated list of search directories (from
+    // -print-search-dirs output, environment variables).
+    //
+    static void
+    parse_search_dirs (const string& v, dir_paths& r,
+                       const char* what, const char* what2 = "")
+    {
+      // Now the fun part: figuring out which delimiter is used. Normally it
+      // is ':' but on Windows it is ';' (or can be; who knows for sure). Also
+      // note that these paths are absolute (or should be). So here is what we
+      // are going to do: first look for ';'. If found, then that's the
+      // delimiter. If not found, then there are two cases: it is either a
+      // single Windows path or the delimiter is ':'. To distinguish these two
+      // cases we check if the path starts with a Windows drive.
+      //
+      char d (';');
+      string::size_type e (v.find (d));
+
+      if (e == string::npos &&
+          (v.size () < 2 || v[0] == '/' || v[1] != ':'))
+      {
+        d = ':';
+        e = v.find (d);
+      }
+
+      // Now chop it up. We already have the position of the first delimiter
+      // (if any).
+      //
+      for (string::size_type b (0);; e = v.find (d, (b = e + 1)))
+      {
+        dir_path d;
+        try
+        {
+          string ds (v, b, (e != string::npos ? e - b : e));
+
+          // Skip empty entries (sometimes found in random MinGW toolchains).
+          //
+          if (!ds.empty ())
+          {
+#ifdef _WIN32
+            if (path_traits::is_separator (ds[0]))
+              add_current_drive (ds);
+#endif
+            d = dir_path (move (ds));
+
+            if (d.relative ())
+              throw invalid_path (move (d).string ());
+
+            d.normalize ();
+          }
+        }
+        catch (const invalid_path& e)
+        {
+          fail << "invalid directory '" << e.path << "'" << " in "
+               << what << what2;
+        }
+
+        if (!d.empty () && find (r.begin (), r.end (), d) == r.end ())
+          r.push_back (move (d));
+
+        if (e == string::npos)
+          break;
+      }
+    }
+
     // Extract system header search paths from GCC (gcc/g++) or compatible
     // (Clang, Intel) using the `-v -E </dev/null` method.
     //
@@ -92,14 +157,15 @@ namespace build2
     // do this is to run the compiler twice.
     //
     pair<dir_paths, size_t> config_module::
-    gcc_header_search_dirs (const process_path& xc, scope& rs) const
+    gcc_header_search_dirs (const compiler_info& xi, scope& rs) const
     {
       dir_paths r;
 
       // Note also that any -I and similar that we may specify on the command
-      // line are factored into the output.
+      // line are factored into the output. As well as the CPATH, etc.,
+      // environment variable values.
       //
-      cstrings args {xc.recall_string ()};
+      cstrings args {xi.path.recall_string ()};
       append_options (args, rs, x_mode);
 
       // Compile as.
@@ -123,7 +189,7 @@ namespace build2
       args.push_back ("-");
       args.push_back (nullptr);
 
-      process_env env (xc);
+      process_env env (xi.path);
 
       // For now let's assume that all the platforms other than Windows
       // recognize LC_ALL.
@@ -240,7 +306,7 @@ namespace build2
     // (Clang, Intel) using the -print-search-dirs option.
     //
     pair<dir_paths, size_t> config_module::
-    gcc_library_search_dirs (const process_path& xc, scope& rs) const
+    gcc_library_search_dirs (const compiler_info& xi, scope& rs) const
     {
       // The output of -print-search-dirs are a bunch of lines that start with
       // "<name>: =" where name can be "install", "programs", or "libraries".
@@ -267,12 +333,12 @@ namespace build2
       gcc_extract_library_search_dirs (cast<strings> (rs[x_mode]), r);
       size_t rn (r.size ());
 
-      cstrings args {xc.recall_string ()};
+      cstrings args {xi.path.recall_string ()};
       append_options (args, rs, x_mode);
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);
 
-      process_env env (xc);
+      process_env env (xi.path);
 
       // For now let's assume that all the platforms other than Windows
       // recognize LC_ALL.
@@ -330,62 +396,16 @@ namespace build2
         fail << "unable to extract " << x_lang << " compiler system library "
              << "search paths";
 
-      // Now the fun part: figuring out which delimiter is used. Normally it
-      // is ':' but on Windows it is ';' (or can be; who knows for sure). Also
-      // note that these paths are absolute (or should be). So here is what we
-      // are going to do: first look for ';'. If found, then that's the
-      // delimiter. If not found, then there are two cases: it is either a
-      // single Windows path or the delimiter is ':'. To distinguish these two
-      // cases we check if the path starts with a Windows drive.
+      parse_search_dirs (l, r, args[0], " -print-search-dirs output");
+
+      // While GCC incorporates the LIBRARY_PATH environment variable value
+      // into the -print-search-dirs output, Clang does not. Also, unlike GCC,
+      // it appears to consider such paths last.
       //
-      char d (';');
-      string::size_type e (l.find (d));
-
-      if (e == string::npos &&
-          (l.size () < 2 || l[0] == '/' || l[1] != ':'))
+      if (xi.id.type == compiler_type::clang)
       {
-        d = ':';
-        e = l.find (d);
-      }
-
-      // Now chop it up. We already have the position of the first delimiter
-      // (if any).
-      //
-      for (string::size_type b (0);; e = l.find (d, (b = e + 1)))
-      {
-        dir_path d;
-        try
-        {
-          string ds (l, b, (e != string::npos ? e - b : e));
-
-          // Skip empty entries (sometimes found in random MinGW toolchains).
-          //
-          if (!ds.empty ())
-          {
-#ifdef _WIN32
-            if (path_traits::is_separator (ds[0]))
-              add_current_drive (ds);
-#endif
-
-            d = dir_path (move (ds));
-
-            if (d.relative ())
-              throw invalid_path (move (d).string ());
-
-            d.normalize ();
-          }
-        }
-        catch (const invalid_path& e)
-        {
-          fail << "invalid directory '" << e.path << "'" << " in "
-               << args[0] << " -print-search-dirs output";
-        }
-
-        if (!d.empty () && find (r.begin (), r.end (), d) == r.end ())
-          r.emplace_back (move (d));
-
-        if (e == string::npos)
-          break;
+        if (optional<string> v = getenv ("LIBRARY_PATH"))
+          parse_search_dirs (*v, r, "LIBRARY_PATH environment variable");
       }
 
       return make_pair (move (r), rn);

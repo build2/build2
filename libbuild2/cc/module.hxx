@@ -115,18 +115,18 @@ namespace build2
       // Defined in gcc.cxx.
       //
       pair<dir_paths, size_t>
-      gcc_header_search_dirs (const process_path&, scope&) const;
+      gcc_header_search_dirs (const compiler_info&, scope&) const;
 
       pair<dir_paths, size_t>
-      gcc_library_search_dirs (const process_path&, scope&) const;
+      gcc_library_search_dirs (const compiler_info&, scope&) const;
 
       // Defined in msvc.cxx.
       //
       pair<dir_paths, size_t>
-      msvc_header_search_dirs (const process_path&, scope&) const;
+      msvc_header_search_dirs (const compiler_info&, scope&) const;
 
       pair<dir_paths, size_t>
-      msvc_library_search_dirs (const process_path&, scope&) const;
+      msvc_library_search_dirs (const compiler_info&, scope&) const;
     };
 
     class LIBBUILD2_CC_SYMEXPORT module: public build2::module,

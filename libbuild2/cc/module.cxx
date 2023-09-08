@@ -613,10 +613,10 @@ namespace build2
           switch (xi.class_)
           {
           case compiler_class::gcc:
-            lib_dirs = gcc_library_search_dirs (xi.path, rs);
+            lib_dirs = gcc_library_search_dirs (xi, rs);
             break;
           case compiler_class::msvc:
-            lib_dirs = msvc_library_search_dirs (xi.path, rs);
+            lib_dirs = msvc_library_search_dirs (xi, rs);
             break;
           }
         }
@@ -630,10 +630,10 @@ namespace build2
           switch (xi.class_)
           {
           case compiler_class::gcc:
-            hdr_dirs = gcc_header_search_dirs (xi.path, rs);
+            hdr_dirs = gcc_header_search_dirs (xi, rs);
             break;
           case compiler_class::msvc:
-            hdr_dirs = msvc_header_search_dirs (xi.path, rs);
+            hdr_dirs = msvc_header_search_dirs (xi, rs);
             break;
           }
         }

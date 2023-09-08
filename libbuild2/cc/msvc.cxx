@@ -345,7 +345,7 @@ namespace build2
     // Extract system header search paths from MSVC.
     //
     pair<dir_paths, size_t> config_module::
-    msvc_header_search_dirs (const process_path&, scope& rs) const
+    msvc_header_search_dirs (const compiler_info&, scope& rs) const
     {
       // MSVC doesn't have any built-in paths and all of them either come from
       // the INCLUDE environment variable or are specified explicitly on the
@@ -373,7 +373,7 @@ namespace build2
     // Extract system library search paths from MSVC.
     //
     pair<dir_paths, size_t> config_module::
-    msvc_library_search_dirs (const process_path&, scope& rs) const
+    msvc_library_search_dirs (const compiler_info&, scope& rs) const
     {
       // MSVC doesn't seem to have any built-in paths and all of them either
       // come from the LIB environment variable or are specified explicitly on
