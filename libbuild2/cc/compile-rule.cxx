@@ -946,7 +946,9 @@ namespace build2
         //
         // Note: ut is still unrefined.
         //
-        if (ut == unit_type::module_intf && cast_true<bool> (t[b_binless]))
+        if ((ut == unit_type::module_intf      ||
+             ut == unit_type::module_intf_part ||
+             ut == unit_type::module_impl_part) && cast_true<bool> (t[b_binless]))
         {
           // The module interface unit can be the same as an implementation
           // (e.g., foo.mxx and foo.cxx) which means obj*{} targets could
@@ -7759,7 +7761,10 @@ namespace build2
       //
       // @@ MODPART: Clang (all of this is probably outdated).
       //
-      if (ctype == compiler_type::clang && ut == unit_type::module_intf)
+      if (ctype == compiler_type::clang     &&
+         (ut == unit_type::module_intf      ||
+          ut == unit_type::module_intf_part ||
+          ut == unit_type::module_impl_part))
       {
         // Adjust the command line. First discard everything after -o then
         // build the new "tail".
