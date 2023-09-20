@@ -126,10 +126,19 @@ namespace build2
     virtual recipe
     apply (action, target&, match_extra&) const override;
 
-    file_rule () {}
+    // While this rule expects an mtime_target-based target, sometimes it's
+    // necessary to register it for something less specific (normally target)
+    // in order to achieve the desired rule matching priority (see the dist
+    // and config modules for an example). For such cases this rule can be
+    // instructed to check the type and only match if it's mtime_target-based.
+    //
+    file_rule (bool match_type = false): match_type_ (match_type) {}
 
-    static const file_rule instance;
+    static const file_rule instance; // Note: does not match the target type.
     static const build2::rule_match rule_match;
+
+  private:
+    bool match_type_;
   };
 
   class LIBBUILD2_SYMEXPORT alias_rule: public simple_rule

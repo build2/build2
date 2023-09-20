@@ -95,6 +95,9 @@ namespace build2
   {
     tracer trace ("file_rule::match");
 
+    if (match_type_ && !t.is_a<mtime_target> ())
+      return false;
+
     // While strictly speaking we should check for the file's existence
     // for every action (because that's the condition for us matching),
     // for some actions this is clearly a waste. Say, perform_clean: we

@@ -23,6 +23,8 @@ namespace build2
 {
   namespace test
   {
+    static const file_rule file_rule_ (true /* check_type */);
+
     void
     boot (scope& rs, const location&, module_boot_extra& extra)
     {
@@ -300,18 +302,18 @@ namespace build2
       {
         default_rule& dr (m);
 
-        // Note: register for mtime_target to take priority over the fallback
-        // rule below.
-        //
-        rs.insert_rule<target>       (perform_test_id, "test", dr);
-        rs.insert_rule<mtime_target> (perform_test_id, "test", dr);
-        rs.insert_rule<alias>        (perform_test_id, "test", dr);
+        rs.insert_rule<target> (perform_test_id, "test", dr);
+        rs.insert_rule<alias>  (perform_test_id, "test", dr);
 
         // Register the fallback file rule for the update-for-test operation,
         // similar to update.
         //
-        rs.global_scope ().insert_rule<mtime_target> (
-          perform_test_id, "test.file", file_rule::instance);
+        // Note: use target instead of anything more specific (such as
+        // mtime_target) in order not to take precedence over the "test" rule
+        // above.
+        //
+        rs.global_scope ().insert_rule<target> (
+          perform_test_id, "test.file", file_rule_);
       }
 
       return true;

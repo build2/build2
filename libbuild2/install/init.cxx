@@ -396,6 +396,9 @@ namespace build2
         // Note: use mtime_target (instead of target) to take precedence over
         // the fallback file rules below.
         //
+        // @@ We could fix this by checking the target type in file_rule,
+        //    similar to build2::file_rule.
+        //
         bs.insert_rule<mtime_target> (perform_install_id,   "install.group", gr);
         bs.insert_rule<mtime_target> (perform_uninstall_id, "install.group", gr);
 
@@ -403,7 +406,7 @@ namespace build2
         // operation, similar to update.
         //
         // @@ Hm, it's a bit fuzzy why we would be updating-for-install
-        //    something outside of any project..?
+        //    something outside of any project?
         //
         scope& gs (rs.global_scope ());
 

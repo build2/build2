@@ -26,6 +26,8 @@ namespace build2
 {
   namespace config
   {
+    static const file_rule file_rule_ (true /* check_type */);
+
     void
     functions (function_map&); // functions.cxx
 
@@ -712,21 +714,23 @@ namespace build2
 
       // Register alias and fallback rule for the configure meta-operation.
       //
-      // We need this rule for out-of-any-project dependencies (for example,
-      // libraries imported from /usr/lib). We are registering it on the
-      // global scope similar to builtin rules.
-      //
-      // See a similar rule in the dist module.
-      //
-      rs.global_scope ().insert_rule<mtime_target> (
-        configure_id, 0, "config.file", file_rule::instance);
-
       rs.insert_rule<alias> (configure_id, 0, "config.alias", alias_rule::instance);
 
       // This allows a custom configure rule while doing nothing by default.
       //
       rs.insert_rule<target> (configure_id, 0, "config.noop", noop_rule::instance);
-      rs.insert_rule<file> (configure_id, 0, "config.noop", noop_rule::instance);
+
+      // We need this rule for out-of-any-project dependencies (for example,
+      // libraries imported from /usr/lib). We are registering it on the
+      // global scope similar to builtin rules.
+      //
+      // Note: use target instead of anything more specific (such as
+      // mtime_target) in order not to take precedence over the rules above.
+      //
+      // See a similar rule in the dist module.
+      //
+      rs.global_scope ().insert_rule<target> (
+        configure_id, 0, "config.file", file_rule_);
 
       return true;
     }
