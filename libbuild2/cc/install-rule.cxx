@@ -339,7 +339,7 @@ namespace build2
 
       bool st (t.is_a<libue> () || t.is_a<libus> ()); // Target needs shared.
       bool at (t.is_a<libua> () || t.is_a<libus> ()); // Target needs static.
-      assert (at || at);
+      assert (st || at);
 
       if ((st && (p.is_a<libx> () || p.is_a<libs> ())) ||
           (at && (p.is_a<libx> () || p.is_a<liba> ())))
