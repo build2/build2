@@ -683,7 +683,11 @@ namespace build2
             }
             else if (tclass == "macos")
             {
-              if (l == "-lSystem")
+              // Note that Mac OS has libiconv in /usr/lib/ which only comes
+              // in the shared variant. So we treat it as system.
+              //
+              if (l == "-lSystem" ||
+                  l == "-liconv")
                 continue;
             }
             else if (tclass == "bsd")
