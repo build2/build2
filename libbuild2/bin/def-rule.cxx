@@ -417,6 +417,8 @@ namespace build2
         // we will try to recognize C/C++ identifiers plus the special symbols
         // that we need to export (e.g., vtable).
         //
+        // Note that it looks like rdata should not be declared DATA. It is
+        // known to break ??_7 (vtable) exporting (see GH issue 315).
         //
         for (const string& s: syms.r)
         {
@@ -424,7 +426,7 @@ namespace build2
               (s[0] == '?' && s[1] != '?') || // C++
               s.compare (0, 4, "??_7") == 0)  // vtable
           {
-            os << "  " << strip (s) << " DATA\n";
+            os << "  " << strip (s) << '\n';
           }
         }
       }
@@ -495,6 +497,12 @@ namespace build2
         // special symbols. Instead of trying to filter them out case by case,
         // we will try to recognize C/C++ identifiers plus the special symbols
         // that we need to export (e.g., vtable and typeinfo).
+        //
+        // For the description of GNU binutils .def format, see:
+        //
+        // https://sourceware.org/binutils/docs/binutils/def-file-format.html
+        //
+        // @@ Maybe CONSTANT is more appropriate than DATA?
         //
         for (const string& s: syms.r)
         {
