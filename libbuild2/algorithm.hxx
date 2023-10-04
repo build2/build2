@@ -383,12 +383,6 @@ namespace build2
   LIBBUILD2_SYMEXPORT void
   match_only_sync (action, const target&);
 
-  // As above but without incrementing the target's dependents count. Should
-  // be executed with execute_direct_*().
-  //
-  target_state
-  match_direct_sync (action, const target&, bool fail = true);
-
   // Start asynchronous match. Return target_state::postponed if the
   // asynchronous operation has been started and target_state::busy if the
   // target has already been busy. Regardless of the result, match_complete()
@@ -409,6 +403,17 @@ namespace build2
 
   pair<bool, target_state>
   match_complete (action, const target&, unmatch);
+
+  // As above but without incrementing the target's dependents count. Should
+  // be executed with execute_direct_*().
+  //
+  // For async, call match_async() followed by match_direct_complete().
+  //
+  target_state
+  match_direct_sync (action, const target&, bool fail = true);
+
+  target_state
+  match_direct_complete (action, const target&, bool fail = true);
 
   // Apply the specified recipe directly and without incrementing the
   // dependency counts. The target must be locked.

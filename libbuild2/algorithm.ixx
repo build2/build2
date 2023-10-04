@@ -427,19 +427,6 @@ namespace build2
     return r;
   }
 
-  inline target_state
-  match_direct_sync (action a, const target& t, bool fail)
-  {
-    assert (t.ctx.phase == run_phase::match);
-
-    target_state r (match_impl (a, t, 0, nullptr).second);
-
-    if (r == target_state::failed && fail)
-      throw failed ();
-
-    return r;
-  }
-
   inline pair<bool, target_state>
   try_match_sync (action a, const target& t, bool fail)
   {
@@ -528,6 +515,25 @@ namespace build2
   match_complete (action a, const target& t, unmatch um)
   {
     return match_sync (a, t, um);
+  }
+
+  inline target_state
+  match_direct_sync (action a, const target& t, bool fail)
+  {
+    assert (t.ctx.phase == run_phase::match);
+
+    target_state r (match_impl (a, t, 0, nullptr).second);
+
+    if (r == target_state::failed && fail)
+      throw failed ();
+
+    return r;
+  }
+
+  inline target_state
+  match_direct_complete (action a, const target& t, bool fail)
+  {
+    return match_direct_sync (a, t, fail);
   }
 
   // Clear rule match-specific target data.
