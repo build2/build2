@@ -589,7 +589,8 @@ namespace build2
     prerequisites () const;
 
     // Swap-in a list of prerequisites. Return false if unsuccessful (i.e.,
-    // someone beat us to it). Note that it can be called on const target.
+    // someone beat us to it), in which case the passed prerequisites are
+    // not moved. Note that it can be called on const target.
     //
     bool
     prerequisites (prerequisites_type&&) const;

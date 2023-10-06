@@ -658,7 +658,7 @@ namespace build2
 
   // As above, but update all the targets in prerequisite_targets that have
   // the specified mask in prerequisite_target::include. Return true if any of
-  // them have changed.
+  // them have changed. If mask is 0, then update all the targets.
   //
   // Note that this function spoils prerequisite_target::data (which is used
   // for temporary storage). But it resets data to 0 once done.

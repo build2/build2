@@ -2808,7 +2808,7 @@ namespace build2
 
     for (prerequisite_target& p: pts)
     {
-      if ((p.include & mask) != 0)
+      if (mask == 0 || (p.include & mask) != 0)
       {
         if (p.target != nullptr)
         {
@@ -2855,7 +2855,7 @@ namespace build2
 #if 0
     for (prerequisite_target& p: pts)
     {
-      if ((p.include & mask) != 0 && p.data != 0)
+      if ((mask == 0 || (p.include & mask) != 0) && p.data != 0)
       {
         const target& pt (*p.target);
 
@@ -2890,7 +2890,7 @@ namespace build2
 
     for (prerequisite_target& p: pts)
     {
-      if ((p.include & mask) != 0 && p.data != 0)
+      if ((mask == 0 || (p.include & mask) != 0) && p.data != 0)
       {
         execute_direct_async (a, *p.target, busy, tc);
       }
@@ -2902,7 +2902,7 @@ namespace build2
     //
     for (prerequisite_target& p: pts)
     {
-      if ((p.include & mask) != 0 && p.data != 0)
+      if ((mask == 0 || (p.include & mask) != 0) && p.data != 0)
       {
         const target& pt (*p.target);
         target_state ns (execute_complete (a, pt));
