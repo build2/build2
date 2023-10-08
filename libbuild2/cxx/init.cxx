@@ -449,7 +449,17 @@ namespace build2
               if (modules.value)
               {
                 prepend ("-D__cpp_modules=201704"); // p0629r0
-                mode.push_back ("-fmodules-ts"); // For the hack to work.
+
+                // -fmodules-ts is removed in clang/llvm 17 and deprecated in
+                // clang/llvm 16. We still hold onto it for now, as some
+                // distributions (e.g., Debian) still ship earlier versions.
+                //
+                // See also:
+                // https://github.com/llvm/llvm-project/commit/612f3ac
+                //
+                if (mj < 17)
+                  mode.push_back ("-fmodules-ts"); // For the hack to work.
+
                 modules = true;
               }
 
