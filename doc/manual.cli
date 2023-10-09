@@ -2902,7 +2902,16 @@ recursively. And when the library is installed, this information is carried
 over to its \c{pkg-config(1)} file.
 
 \N|Similar to the \c{c.*} and \c{cc.*} sets discussed earlier, there are also
-\c{c.export.*} and \c{cc.export.*} sets.|
+\c{c.export.*} and \c{cc.export.*} sets.
+
+Note, however, that there is no \c{*.export.coptions} since a library imposing
+compilation options on its consumers is bad practice (too coarse-grained, does
+not compose, etc). Instead, the recommended approach is to specify in the
+library documentation that it expects its consumers to use a certain
+compilation option. And if your library is unusable without exporting a
+compilation option and you are sure benefits outweigh the drawbacks, then you
+can specify it as part of \c{*.export.poptions} (it is still a good idea to
+prominently document this).|
 
 Here are the parts relevant to the library metadata protocol in the above
 \c{buildfile}:
@@ -3000,7 +3009,12 @@ memory.
 
 Note also that this only applies to shared libraries. In case of static
 libraries, both interface and implementation dependencies are always linked,
-recursively.|
+recursively. Specifically, when linking a shared library, only libraries
+specified in its \c{*.export.libs} are linked. While when linking a static
+library, all its library prerequisites as well as those specified in
+\c{*.libs} are linked. Note that \c{*.export.libs} is not used when linking a
+static library since it is naturally assumed that all such libraries are also
+specified as library prerequisites or in \c{*.libs}.|
 
 The remaining lines in the library metadata fragment are:
 
@@ -3058,6 +3072,16 @@ theoretically, it is possible to have a library that has a binless static and
 a binary-ful (\i{binful}) shared variants. Note also that binless libraries
 can depend on binful libraries and are fully supported where the
 \c{pkg-config(1)} functionality is concerned.
+
+One counter-intuitive aspect of having a binless library that depends on a
+system binful library, for example, \c{-lm}, is that you still have to specify
+the system library in both \c{*.export.libs} and \c{*.libs} because the latter
+is used when linking the static variant of the binless library. For example:
+
+\
+cxx.libs = -lm
+lib{hello}: cxx.export.libs = -lm
+\
 
 If you are creating a new library with \l{bdep-new(1)} and are certain that it
 will always be binless and in all configurations, then you can produce a
