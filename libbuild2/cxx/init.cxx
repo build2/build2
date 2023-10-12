@@ -457,7 +457,7 @@ namespace build2
                 // See also:
                 // https://github.com/llvm/llvm-project/commit/612f3ac
                 //
-                if (mj < 17)
+                if (mj < 16)
                   mode.push_back ("-fmodules-ts"); // For the hack to work.
 
                 modules = true;
