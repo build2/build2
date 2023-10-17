@@ -15,11 +15,20 @@ using namespace butl;
 
 namespace build2
 {
-  // rule (vtable)
+  // rule
   //
   rule::
   ~rule ()
   {
+  }
+
+  void rule::
+  reapply (action, target&, match_extra&) const
+  {
+    // Unless the rule overrode cur_options, this function should never get
+    // called. And if it did, then it should override this function.
+    //
+    assert (false);
   }
 
   const target* rule::

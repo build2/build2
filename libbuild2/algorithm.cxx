@@ -448,7 +448,7 @@ namespace build2
 
     auto match = [a, &t, &me] (const adhoc_rule& r, bool fallback) -> bool
     {
-      me.init (fallback);
+      me.reinit (fallback);
 
       if (auto* f = (a.outer ()
                      ? t.ctx.current_outer_oif
@@ -756,7 +756,7 @@ namespace build2
               if (&ru == skip)
                 continue;
 
-              me.init (oi == 0 /* fallback */);
+              me.reinit (oi == 0 /* fallback */);
               {
                 auto df = make_diag_frame (
                   [a, &t, &n](const diag_record& dr)

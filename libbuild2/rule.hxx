@@ -34,6 +34,10 @@ namespace build2
   // implementations. It is also a way for us to later pass more information
   // without breaking source compatibility.
   //
+  // A rule may support match options and if such a rule is rematched with
+  // different options, then reapply() is called. See
+  // match_extra::{cur,new}_options for background and details.
+  //
   struct match_extra;
 
   class LIBBUILD2_SYMEXPORT rule
@@ -44,6 +48,9 @@ namespace build2
 
     virtual recipe
     apply (action, target&, match_extra&) const = 0;
+
+    virtual void
+    reapply (action, target&, match_extra&) const;
 
     rule () = default;
 

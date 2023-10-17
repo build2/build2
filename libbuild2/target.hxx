@@ -180,6 +180,29 @@ namespace build2
     bool locked;   // Normally true (see adhoc_rule::match() for background).
     bool fallback; // True if matching a fallback rule (see match_rule()).
 
+    // Match options.
+    //
+    // On initial match()/apply(), cur_options is initialized to ~0 (all
+    // options enabled) and the matching rule is expected to override it with
+    // new_options in match() (if it matches). This way a rule that does not
+    // support any match options does not need to do anything. On rematch in
+    // the reapply() call, cur_options are the currently enabled options and
+    // new_options are the newly requested options. Here the rule is expected
+    // to factor new_options to cur_options as appropriate. Note also that on
+    // rematch, if current options already include new options, then no call
+    // to reapply() is made. This, in particular, means that a rule that does
+    // not adjust cur_options in match() will never get a reapply() call
+    // (because all the options are enabled from the start).
+    //
+    // @@ TODO: clear already enabled options from new_options on rematch.
+    //
+    // @@ TODO doc
+    //
+    uint64_t cur_options;
+    uint64_t new_options;
+
+    static const uint64_t all_options = ~uint64_t (0);
+
     // Auxiliary data storage.
     //
     // A rule (whether matches or not) may use this pad to pass data between
@@ -249,10 +272,12 @@ namespace build2
     //
   public:
     explicit
-    match_extra (bool l = true, bool f = false): locked (l), fallback (f) {}
+    match_extra (bool l = true, bool f = false)
+        : locked (l), fallback (f),
+          cur_options (all_options), new_options (0) {}
 
     void
-    init (bool fallback);
+    reinit (bool fallback);
 
     // Force freeing of the dynamically-allocated memory.
     //

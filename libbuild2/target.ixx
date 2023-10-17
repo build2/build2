@@ -136,10 +136,13 @@ namespace build2
   // match_extra
   //
   inline void match_extra::
-  init (bool f)
+  reinit (bool f)
   {
+    //assert (locked);
     clear_data ();
     fallback = f;
+    cur_options = all_options;
+    new_options = 0;
   }
 
   inline void match_extra::
