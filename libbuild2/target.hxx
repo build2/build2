@@ -178,7 +178,96 @@ namespace build2
   struct match_extra
   {
     bool locked;   // Normally true (see adhoc_rule::match() for background).
-    bool fallback; // True if matching a fallback rule (see match_rule()).
+    bool fallback; // True if matching a fallback rule (see match_rule_impl()).
+
+    // When matching a rule, the caller may wish to request a subset of the
+    // full functionality of performing the operation on the target. This is
+    // achieved with match options.
+    //
+    // Since the match caller normally has no control over which rule will be
+    // matched, the options are not specific to a particular rule. Rather,
+    // options are defined for performing a specific operation on a specific
+    // target type and would normally be part of the target type semantics.
+    // To put it another way, when a rule matches a target of certain type for
+    // certain operation, there is an expectation of certain semantics, some
+    // parts of which could be made optional.
+    //
+    // As a concrete example, consider installing libs{}, which traditionally
+    // has two parts: runtime (normally just the versioned shared library) and
+    // build-time (non-versioned symlinks, pkg-config files, headers, etc).
+    // The option to install only the runtime files is part of the bin::libs{}
+    // semantics, not of, say, cc::install_rule.
+    //
+    // The match options are specified as a uint64_t mask, which means there
+    // can be a maximum of 64 options per operation/target type. Options are
+    // opt-out rather than opt-in. That is, by default, all the options are
+    // enabled unless the match caller explicitly opted out of some
+    // functionality. Even if the caller opted out, there is no guarantee that
+    // the matching rule will honor this request (for example, because it is a
+    // user-provided ad hoc recipe). To put it another way, support for
+    // options is a quality of implementation matter.
+    //
+    // From the rule implementation's point view, match options are handled as
+    // follows: On initial match()/apply(), cur_options is initialized to ~0
+    // (all options enabled) and the matching rule is expected to override it
+    // with new_options in apply() (note that match() should no base any
+    // decisions on new_options since they may change between match() and
+    // apply()). This way a rule that does not support any match options does
+    // not need to do anything. Subsequent match calls may add new options
+    // which causes a rematch that manifests in the rule's reapply() call. In
+    // reapply(), cur_options are the currently enabled options and
+    // new_options are the newly requested options. Here the rule is expected
+    // to factor new_options to cur_options as appropriate. Note also that on
+    // rematch, if current options already include new options, then no call
+    // to reapply() is made. This, in particular, means that a rule that does
+    // not adjust cur_options in match() will never get a reapply() call
+    // (because all the options are enabled from the start). If a rematch is
+    // triggered after the rule has already been executed, an error is issued.
+    // This means that match options are not usable for operation/target types
+    // that could plausibly be executed during match. In particular, using
+    // match options for update and clean operations is a bad idea (update of
+    // pretty much any target can happen during match as a result of a tool
+    // update while clean might have to be performed during match to provide
+    // the mirror semantics).
+    //
+    // Note also that with rematches the assumption that in the match phase
+    // after matching the target we can MT-safely examine its state (such as
+    // its prerequisite_targets) no longer holds since such state could be
+    // modified during a rematch. As a result, if the target type specifies
+    // options for a certain operation, then you should not rely on this
+    // assumption for targets of this type during this operation.
+    //
+    // A rule that supports match options must also be prepared to handle the
+    // apply() call with new_options set to 0, for example, by using a
+    // minimally supported set of options instead. While 0 usually won't be
+    // passed by the match caller, this value is passed in the following
+    // circumstances:
+    //
+    //   - match to resolve group (resolve_group())
+    //   - match to resolve members (resolve_members())
+    //   - match of ad hoc group via one of its ad hoc members
+    //
+    // When it comes to match options specified for group members, the
+    // semantics differs between explicit and ad hoc groups. For explicit
+    // groups, the standard semantics described above applies and the group's
+    // reapply() function will be called both for the group itself as well as
+    // for its members and its the responsibility of the rule to decide what
+    // to do with the two sets of options (e.g., factor member's options into
+    // group's options, etc). For ad hoc groups, members are not matched to a
+    // rule but to the group_recipe directly (so there cannot be a call to
+    // reapply()). Currently, ad hoc group members cannot have options (more
+    // precisely, their options should always be ~0). An alternative semantics
+    // where the group rule is called to translate member options to group
+    // options may be implemented in the future (see match_impl_impl() for
+    // details).
+    //
+    // Note: match options are currently not exposed in Buildscript ad hoc
+    // recipes/rules (but are in C++).
+    //
+    uint64_t cur_options;
+    uint64_t new_options;
+
+    static constexpr uint64_t all_options = ~uint64_t (0);
 
     // Auxiliary data storage.
     //
@@ -245,14 +334,16 @@ namespace build2
 
     // Implementation details.
     //
-    // NOTE: see match_rule() in algorithms.cxx if changing anything here.
+    // NOTE: see match_rule_impl() in algorithms.cxx if changing anything here.
     //
   public:
     explicit
-    match_extra (bool l = true, bool f = false): locked (l), fallback (f) {}
+    match_extra (bool l = true, bool f = false)
+        : locked (l), fallback (f),
+          cur_options (all_options), new_options (0) {}
 
     void
-    init (bool fallback);
+    reinit (bool fallback);
 
     // Force freeing of the dynamically-allocated memory.
     //
@@ -764,7 +855,11 @@ namespace build2
       //
       mutable atomic_count dependents {0};
 
-      // Match state storage between the match() and apply() calls.
+      // Match state storage between the match() and apply() calls with only
+      // the *_options members extended to reapply().
+      //
+      // Note: in reality, cur_options are used beyong (re)apply() as an
+      // implementation detail.
       //
       build2::match_extra match_extra;
 
@@ -2190,7 +2285,7 @@ namespace build2
   // in C++, instead deriving from mtime_target directly and using a custom
   // members layout more appropriate for the group's semantics. To put it
   // another way, a group-based target should only be matched by an ad hoc
-  // recipe/rule (see match_rule() in algorithms.cxx for details).
+  // recipe/rule (see match_rule_impl() in algorithms.cxx for details).
   //
   class LIBBUILD2_SYMEXPORT group: public mtime_target
   {

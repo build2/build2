@@ -15,11 +15,20 @@ using namespace butl;
 
 namespace build2
 {
-  // rule (vtable)
+  // rule
   //
   rule::
   ~rule ()
   {
+  }
+
+  void rule::
+  reapply (action, target&, match_extra&) const
+  {
+    // Unless the rule overrode cur_options, this function should never get
+    // called. And if it did, then it should override this function.
+    //
+    assert (false);
   }
 
   const target* rule::
@@ -37,7 +46,7 @@ namespace build2
   sub_match (const string& n, operation_id o,
              action a, target& t, match_extra& me) const
   {
-    // First check for an ad hoc recipe (see match_rule() for details).
+    // First check for an ad hoc recipe (see match_rule_impl() for details).
     //
     if (!t.adhoc_recipes.empty ())
     {

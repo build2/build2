@@ -363,25 +363,34 @@ namespace build2
   // to be unchanged after match. If it is unmatch::safe, then unmatch the
   // target if it is safe (this includes unchanged or if we know that someone
   // else will execute this target). Return true in first half of the pair if
-  // unmatch succeeded. Always throw if failed.
+  // unmatch succeeded. Always throw if failed. Note that unmatching may not
+  // play well with options -- if unmatch succeeds, the options that have been
+  // passed to match will not be cleared.
   //
   enum class unmatch {none, unchanged, safe};
 
   target_state
-  match_sync (action, const target&, bool fail = true);
+  match_sync (action, const target&,
+              uint64_t options = match_extra::all_options,
+              bool fail = true);
 
   pair<bool, target_state>
-  try_match_sync (action, const target&, bool fail = true);
+  try_match_sync (action, const target&,
+                  uint64_t options = match_extra::all_options,
+                  bool fail = true);
 
   pair<bool, target_state>
-  match_sync (action, const target&, unmatch);
+  match_sync (action, const target&,
+              unmatch,
+              uint64_t options = match_extra::all_options);
 
   // As above but only match the target (unless already matched) without
   // applying the match (which is normally done with match_sync()). You will
   // most likely regret using this function.
   //
   LIBBUILD2_SYMEXPORT void
-  match_only_sync (action, const target&);
+  match_only_sync (action, const target&,
+                   uint64_t options = match_extra::all_options);
 
   // Start asynchronous match. Return target_state::postponed if the
   // asynchronous operation has been started and target_state::busy if the
@@ -393,16 +402,23 @@ namespace build2
   // failed. Otherwise, throw the failed exception if keep_going is false and
   // return target_state::failed otherwise.
   //
+  // Note: same options must be passed to match_async() and match_complete().
+  //
   target_state
   match_async (action, const target&,
                size_t start_count, atomic_count& task_count,
+               uint64_t options = match_extra::all_options,
                bool fail = true);
 
   target_state
-  match_complete (action, const target&, bool fail = true);
+  match_complete (action, const target&,
+                  uint64_t options = match_extra::all_options,
+                  bool fail = true);
 
   pair<bool, target_state>
-  match_complete (action, const target&, unmatch);
+  match_complete (action, const target&,
+                  unmatch,
+                  uint64_t options = match_extra::all_options);
 
   // As above but without incrementing the target's dependents count. Should
   // be executed with execute_direct_*().
@@ -410,22 +426,34 @@ namespace build2
   // For async, call match_async() followed by match_direct_complete().
   //
   target_state
-  match_direct_sync (action, const target&, bool fail = true);
+  match_direct_sync (action, const target&,
+                     uint64_t options = match_extra::all_options,
+                     bool fail = true);
 
   target_state
-  match_direct_complete (action, const target&, bool fail = true);
+  match_direct_complete (action, const target&,
+                         uint64_t options = match_extra::all_options,
+                         bool fail = true);
 
   // Apply the specified recipe directly and without incrementing the
   // dependency counts. The target must be locked.
   //
+  // Note that there will be no way to rematch on options change (since there
+  // is no rule), so passing anything other than all_options is most likely a
+  // bad idea.
+  //
   void
-  match_recipe (target_lock&, recipe);
+  match_recipe (target_lock&,
+                recipe,
+                uint64_t options = match_extra::all_options);
 
   // Match (but do not apply) the specified rule directly and without
   // incrementing the dependency counts. The target must be locked.
   //
   void
-  match_rule (target_lock&, const rule_match&);
+  match_rule (target_lock&,
+              const rule_match&,
+              uint64_t options = match_extra::all_options);
 
   // Match a "delegate rule" from withing another rules' apply() function
   // avoiding recursive matches (thus the third argument). Unless try_match is
@@ -434,7 +462,10 @@ namespace build2
   // See also the companion execute_delegate().
   //
   recipe
-  match_delegate (action, target&, const rule&, bool try_match = false);
+  match_delegate (action, target&,
+                  const rule&,
+                  uint64_t options = match_extra::all_options,
+                  bool try_match = false);
 
   // Incrementing the dependency counts of the specified target.
   //
@@ -446,10 +477,39 @@ namespace build2
   // and inner_recipe.
   //
   target_state
-  match_inner (action, const target&);
+  match_inner (action, const target&,
+               uint64_t options = match_extra::all_options);
 
   pair<bool, target_state>
-  match_inner (action, const target&, unmatch);
+  match_inner (action, const target&,
+               unmatch,
+               uint64_t options = match_extra::all_options);
+
+  // Re-match with new options a target that has already been matched with one
+  // of the match_*() functions. Note that natually you cannot rematch a
+  // target that you have unmatched.
+  //
+  // Note also that there is no way to check if the rematch is unnecessary
+  // (i.e., because the target is already matched with this option) because
+  // that would require MT-safety considerations (since there could be a
+  // concurrent rematch). Instead, you should rematch unconditionally and if
+  // the option is already present, it will be a cheap noop.
+  //
+  target_state
+  rematch_sync (action, const target&,
+                uint64_t options,
+                bool fail = true);
+
+  target_state
+  rematch_async (action, const target&,
+                 size_t start_count, atomic_count& task_count,
+                 uint64_t options,
+                 bool fail = true);
+
+  target_state
+  rematch_complete (action, const target&,
+                    uint64_t options,
+                    bool fail = true);
 
   // The standard prerequisite search and match implementations. They call
   // search() (unless a custom is provided) and then match() (unless custom

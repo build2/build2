@@ -214,7 +214,9 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT target_lock
-  lock_impl (action, const target&, optional<scheduler::work_queue>);
+  lock_impl (action, const target&,
+             optional<scheduler::work_queue>,
+             uint64_t = 0);
 
   LIBBUILD2_SYMEXPORT void
   unlock_impl (action, target&, size_t);
@@ -392,16 +394,18 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT const rule_match*
-  match_rule (action, target&,
-              const rule* skip,
-              bool try_match = false,
-              match_extra* = nullptr);
+  match_rule_impl (action, target&,
+                   uint64_t options,
+                   const rule* skip,
+                   bool try_match = false,
+                   match_extra* = nullptr);
 
   LIBBUILD2_SYMEXPORT recipe
   apply_impl (action, target&, const rule_match&);
 
   LIBBUILD2_SYMEXPORT pair<bool, target_state>
   match_impl (action, const target&,
+              uint64_t options,
               size_t, atomic_count*,
               bool try_match = false);
 
@@ -413,11 +417,11 @@ namespace build2
   }
 
   inline target_state
-  match_sync (action a, const target& t, bool fail)
+  match_sync (action a, const target& t, uint64_t options, bool fail)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_state r (match_impl (a, t, 0, nullptr).second);
+    target_state r (match_impl (a, t, options, 0, nullptr).second);
 
     if (r != target_state::failed)
       match_inc_dependents (a, t);
@@ -428,12 +432,12 @@ namespace build2
   }
 
   inline pair<bool, target_state>
-  try_match_sync (action a, const target& t, bool fail)
+  try_match_sync (action a, const target& t, uint64_t options, bool fail)
   {
     assert (t.ctx.phase == run_phase::match);
 
     pair<bool, target_state> r (
-      match_impl (a, t, 0, nullptr, true /* try_match */));
+      match_impl (a, t, options, 0, nullptr, true /* try_match */));
 
     if (r.first)
     {
@@ -447,11 +451,11 @@ namespace build2
   }
 
   inline pair<bool, target_state>
-  match_sync (action a, const target& t, unmatch um)
+  match_sync (action a, const target& t, unmatch um, uint64_t options)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_state s (match_impl (a, t, 0, nullptr).second);
+    target_state s (match_impl (a, t, options, 0, nullptr).second);
 
     if (s == target_state::failed)
       throw failed ();
@@ -492,12 +496,13 @@ namespace build2
   inline target_state
   match_async (action a, const target& t,
                size_t sc, atomic_count& tc,
+               uint64_t options,
                bool fail)
   {
     context& ctx (t.ctx);
 
     assert (ctx.phase == run_phase::match);
-    target_state r (match_impl (a, t, sc, &tc).second);
+    target_state r (match_impl (a, t, options, sc, &tc).second);
 
     if (r == target_state::failed && fail && !ctx.keep_going)
       throw failed ();
@@ -506,23 +511,23 @@ namespace build2
   }
 
   inline target_state
-  match_complete (action a, const target& t, bool fail)
+  match_complete (action a, const target& t, uint64_t options, bool fail)
   {
-    return match_sync (a, t, fail);
+    return match_sync (a, t, options, fail);
   }
 
   inline pair<bool, target_state>
-  match_complete (action a, const target& t, unmatch um)
+  match_complete (action a, const target& t, unmatch um, uint64_t options)
   {
-    return match_sync (a, t, um);
+    return match_sync (a, t, um, options);
   }
 
   inline target_state
-  match_direct_sync (action a, const target& t, bool fail)
+  match_direct_sync (action a, const target& t, uint64_t options, bool fail)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_state r (match_impl (a, t, 0, nullptr).second);
+    target_state r (match_impl (a, t, options, 0, nullptr).second);
 
     if (r == target_state::failed && fail)
       throw failed ();
@@ -531,12 +536,14 @@ namespace build2
   }
 
   inline target_state
-  match_direct_complete (action a, const target& t, bool fail)
+  match_direct_complete (action a, const target& t,
+                         uint64_t options,
+                         bool fail)
   {
-    return match_direct_sync (a, t, fail);
+    return match_direct_sync (a, t, options, fail);
   }
 
-  // Clear rule match-specific target data.
+  // Clear rule match-specific target data (except match_extra).
   //
   inline void
   clear_target (action a, target& t)
@@ -605,12 +612,16 @@ namespace build2
   }
 
   inline void
-  match_recipe (target_lock& l, recipe r)
+  match_recipe (target_lock& l, recipe r, uint64_t options)
   {
     assert (l.target != nullptr                &&
-            l.offset != target::offset_matched &&
+            l.offset < target::offset_matched  &&
             l.target->ctx.phase == run_phase::match);
 
+    match_extra& me ((*l.target)[l.action].match_extra);
+
+    me.reinit (false /* fallback */);
+    me.cur_options = options; // Already applied, so cur_, not new_options.
     clear_target (l.action, *l.target);
     set_rule (l, nullptr); // No rule.
     set_recipe (l, move (r));
@@ -618,47 +629,82 @@ namespace build2
   }
 
   inline void
-  match_rule (target_lock& l, const rule_match& r)
+  match_rule (target_lock& l, const rule_match& r, uint64_t options)
   {
     assert (l.target != nullptr                &&
-            l.offset != target::offset_matched &&
+            l.offset < target::offset_matched  &&
             l.target->ctx.phase == run_phase::match);
 
+    match_extra& me ((*l.target)[l.action].match_extra);
+
+    me.reinit (false /* fallback */);
+    me.new_options = options;
     clear_target (l.action, *l.target);
     set_rule (l, &r);
     l.offset = target::offset_matched;
   }
 
   inline recipe
-  match_delegate (action a, target& t, const rule& dr, bool try_match)
+  match_delegate (action a, target& t,
+                  const rule& dr,
+                  uint64_t options,
+                  bool try_match)
   {
     assert (t.ctx.phase == run_phase::match);
 
     // Note: we don't touch any of the t[a] state since that was/will be set
     // for the delegating rule.
     //
-    const rule_match* r (match_rule (a, t, &dr, try_match));
+    const rule_match* r (match_rule_impl (a, t, options, &dr, try_match));
     return r != nullptr ? apply_impl (a, t, *r) : empty_recipe;
   }
 
   inline target_state
-  match_inner (action a, const target& t)
+  match_inner (action a, const target& t, uint64_t options)
   {
     // In a sense this is like any other dependency.
     //
     assert (a.outer ());
-    return match_sync (a.inner_action (), t);
+    return match_sync (a.inner_action (), t, options);
   }
 
   inline pair<bool, target_state>
-  match_inner (action a, const target& t, unmatch um)
+  match_inner (action a, const target& t, unmatch um, uint64_t options)
   {
     assert (a.outer ());
-    return match_sync (a.inner_action (), t, um);
+    return match_sync (a.inner_action (), t, um, options);
+  }
+
+  // Note: rematch is basically normal match but without the counts increment,
+  // so we just delegate to match_direct_*().
+  //
+  inline target_state
+  rematch_sync (action a, const target& t,
+                uint64_t options,
+                bool fail)
+  {
+    return match_direct_sync (a, t, options, fail);
+  }
+
+  inline target_state
+  rematch_async (action a, const target& t,
+                 size_t start_count, atomic_count& task_count,
+                 uint64_t options,
+                 bool fail)
+  {
+    return match_async (a, t, start_count, task_count, options, fail);
+  }
+
+  inline target_state
+  rematch_complete (action a, const target& t,
+                    uint64_t options,
+                    bool fail)
+  {
+    return match_direct_complete (a, t, options, fail);
   }
 
   LIBBUILD2_SYMEXPORT void
-  resolve_group_impl (action, const target&, target_lock&&);
+  resolve_group_impl (target_lock&&);
 
   inline const target*
   resolve_group (action a, const target& t)
@@ -678,7 +724,7 @@ namespace build2
         // then unlock and return.
         //
         if (t.group == nullptr && l.offset < target::offset_tried)
-          resolve_group_impl (a, t, move (l));
+          resolve_group_impl (move (l));
 
         break;
       }

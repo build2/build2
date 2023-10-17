@@ -330,7 +330,10 @@ namespace build2
           const target& t (ts[i].as<target> ());
           l5 ([&]{trace << diag_doing (a, t);});
 
-          target_state s (match_async (a, t, 0, task_count, false));
+          target_state s (match_async (a, t,
+                                       0, task_count,
+                                       match_extra::all_options,
+                                       false /* fail */));
 
           // Bail out if the target has failed and we weren't instructed to
           // keep going.
@@ -382,7 +385,9 @@ namespace build2
           //
           for (const target* pt: p.prerequisite_targets)
           {
-            target_state s (match_direct_sync (a, *pt, false /* fail */));
+            target_state s (match_direct_sync (a, *pt,
+                                               match_extra::all_options,
+                                               false /* fail */));
 
             if (s == target_state::failed)
             {
@@ -419,7 +424,7 @@ namespace build2
         target_state s;
         if (j < i)
         {
-          s = match_complete (a, t, false);
+          s = match_complete (a, t, match_extra::all_options, false /* fail */);
 
           if (posthoc_fail)
             s = /*t.state[a].state =*/ target_state::failed;

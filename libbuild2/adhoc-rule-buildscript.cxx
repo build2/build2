@@ -301,7 +301,9 @@ namespace build2
     //
     if (const group* g = t.group != nullptr ? t.group->is_a<group> () : nullptr)
     {
-      match_sync (a, *g);
+      // Note: this looks very similar to how we handle ad hoc group members.
+      //
+      match_sync (a, *g, 0 /* options */);
       return group_recipe; // Execute the group's recipe.
     }
 

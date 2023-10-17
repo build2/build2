@@ -3021,7 +3021,7 @@ namespace build2
     {
       assert (pk.scope != nullptr);
 
-      // Note: similar to/inspired by match_rule().
+      // Note: similar to/inspired by match_rule_impl().
       //
       // Search scopes outwards, stopping at the project root.
       //

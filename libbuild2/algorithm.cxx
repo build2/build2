@@ -232,8 +232,14 @@ namespace build2
 
   // If the work_queue is absent, then we don't wait.
   //
+  // While already applied or executed targets are normally not locked, if
+  // options contain any bits that are not already in cur_options, then the
+  // target is locked even in these states.
+  //
   target_lock
-  lock_impl (action a, const target& ct, optional<scheduler::work_queue> wq)
+  lock_impl (action a, const target& ct,
+             optional<scheduler::work_queue> wq,
+             uint64_t options)
   {
     context& ctx (ct.ctx);
 
@@ -248,7 +254,8 @@ namespace build2
     size_t appl (b + target::offset_applied);
     size_t busy (b + target::offset_busy);
 
-    atomic_count& task_count (ct[a].task_count);
+    const target::opstate& cs (ct[a]);
+    atomic_count& task_count (cs.task_count);
 
     while (!task_count.compare_exchange_strong (
              e,
@@ -281,9 +288,10 @@ namespace build2
         e = ctx.sched->wait (busy - 1, task_count, u, *wq);
       }
 
-      // We don't lock already applied or executed targets.
+      // We don't lock already applied or executed targets unless there
+      // are new options.
       //
-      if (e >= appl)
+      if (e >= appl && (cs.match_extra.cur_options & options) == options)
         return target_lock {a, nullptr, e - b, false};
     }
 
@@ -304,12 +312,7 @@ namespace build2
       offset = target::offset_touched;
     }
     else
-    {
       offset = e - b;
-      assert (offset == target::offset_touched ||
-              offset == target::offset_tried   ||
-              offset == target::offset_matched);
-    }
 
     return target_lock {a, &t, offset, first};
   }
@@ -448,7 +451,7 @@ namespace build2
 
     auto match = [a, &t, &me] (const adhoc_rule& r, bool fallback) -> bool
     {
-      me.init (fallback);
+      me.reinit (fallback);
 
       if (auto* f = (a.outer ()
                      ? t.ctx.current_outer_oif
@@ -550,10 +553,11 @@ namespace build2
   // Return the matching rule or NULL if no match and try_match is true.
   //
   const rule_match*
-  match_rule (action a, target& t,
-              const rule* skip,
-              bool try_match,
-              match_extra* pme)
+  match_rule_impl (action a, target& t,
+                   uint64_t options,
+                   const rule* skip,
+                   bool try_match,
+                   match_extra* pme)
   {
     using fallback_rule = adhoc_rule_pattern::fallback_rule;
 
@@ -566,6 +570,12 @@ namespace build2
     {
       return dynamic_cast<const fallback_rule*> (&r.second.get ());
     };
+
+    // Note: we copy the options value to me.new_options after successfully
+    // matching the rule to make sure rule::match() implementations don't rely
+    // on it.
+    //
+    match_extra& me (pme == nullptr ? t[a].match_extra : *pme);
 
     if (const target* g = t.group)
     {
@@ -580,6 +590,8 @@ namespace build2
         {
           const rule_match* r (g->state[a].rule);
           assert (r != nullptr); // Shouldn't happen with dyn_members.
+
+          me.new_options = options;
           return r;
         }
 
@@ -587,8 +599,8 @@ namespace build2
       }
 
       // If this is a member of group-based target, then first try to find a
-      // matching ad hoc recipe/rule by matching (to an ad hoc recipe/rule) the
-      // group but applying to the member. See adhoc_rule::match() for
+      // matching ad hoc recipe/rule by matching (to an ad hoc recipe/rule)
+      // the group but applying to the member. See adhoc_rule::match() for
       // background, including for why const_cast should be safe.
       //
       // To put it another way, if a group is matched by an ad hoc
@@ -603,10 +615,16 @@ namespace build2
         // We cannot init match_extra from the target if it's unlocked so use
         // a temporary (it shouldn't be modified if unlocked).
         //
-        match_extra me (false /* locked */);
-        if (const rule_match* r = match_rule (
-              a, const_cast<target&> (*g), skip, true /* try_match */, &me))
+        match_extra gme (false /* locked */);
+        if (const rule_match* r = match_rule_impl (a, const_cast<target&> (*g),
+                                                   0 /* options */,
+                                                   skip,
+                                                   true /* try_match */,
+                                                   &gme))
+        {
+          me.new_options = options;
           return r;
+        }
 
         // Fall through to normal match of the member.
       }
@@ -620,8 +638,6 @@ namespace build2
     if (const scope* rs = bs.root_scope ())
       penv = auto_project_env (*rs);
 
-    match_extra& me (pme == nullptr ? t[a].match_extra : *pme);
-
     // First check for an ad hoc recipe.
     //
     // Note that a fallback recipe is preferred over a non-fallback rule.
@@ -629,7 +645,10 @@ namespace build2
     if (!t.adhoc_recipes.empty ())
     {
       if (const rule_match* r = match_adhoc_recipe (a, t, me))
+      {
+        me.new_options = options;
         return r;
+      }
     }
 
     // If this is an outer operation (Y-for-X), then we look for rules
@@ -744,8 +763,9 @@ namespace build2
                 }
               }
 
-              // Skip non-ad hoc rules if the target is not locked (see
-              // above).
+              // Skip non-ad hoc rules if the target is not locked (see above;
+              // note that in this case match_extra is a temporary which we
+              // can reinit).
               //
               if (!me.locked && !adhoc_rule_match (*r))
                 continue;
@@ -756,7 +776,7 @@ namespace build2
               if (&ru == skip)
                 continue;
 
-              me.init (oi == 0 /* fallback */);
+              me.reinit (oi == 0 /* fallback */);
               {
                 auto df = make_diag_frame (
                   [a, &t, &n](const diag_record& dr)
@@ -825,7 +845,10 @@ namespace build2
               }
 
               if (!ambig)
+              {
+                me.new_options = options;
                 return r;
+              }
               else
                 dr << info << "use rule hint to disambiguate this match";
             }
@@ -938,8 +961,37 @@ namespace build2
 
     recipe re (ar != nullptr ? f (*ar, a, t, me) : ru.apply (a, t, me));
 
-    me.free ();
+    me.free (); // Note: cur_options are still in use.
     return re;
+  }
+
+  static void
+  reapply_impl (action a,
+                target& t,
+                const pair<const string, reference_wrapper<const rule>>& m)
+  {
+    const scope& bs (t.base_scope ());
+
+    // Reapply rules in project environment.
+    //
+    auto_project_env penv;
+    if (const scope* rs = bs.root_scope ())
+      penv = auto_project_env (*rs);
+
+    const rule& ru (m.second);
+    match_extra& me (t[a].match_extra);
+
+    auto df = make_diag_frame (
+      [a, &t, &m](const diag_record& dr)
+      {
+        if (verb != 0)
+          dr << info << "while reapplying rule " << m.first << " to "
+             << diag_do (a, t);
+      });
+
+    // Note: for now no adhoc_reapply().
+    //
+    ru.reapply (a, t, me);
   }
 
   // If anything goes wrong, set target state to failed and return false.
@@ -1029,10 +1081,24 @@ namespace build2
   // the first half of the result.
   //
   static pair<bool, target_state>
-  match_impl (target_lock& l,
-              bool step = false,
-              bool try_match = false)
+  match_impl_impl (target_lock& l,
+                   uint64_t options,
+                   bool step = false,
+                   bool try_match = false)
   {
+    // With regards to options, the semantics that we need to achieve for each
+    // target::offeset_*:
+    //
+    // tried      -- nothing to do (no match)
+    // touched    -- set to new_options
+    // matched    -- add to new_options
+    // applied    -- reapply if any new options
+    // executed   -- check and fail if any new options
+    // busy       -- postpone until *_complete() call
+    //
+    // Note that if options is 0 (see resolve_{members,group}_impl()), then
+    // all this can be skipped.
+
     assert (l.target != nullptr);
 
     action a (l.action);
@@ -1045,16 +1111,35 @@ namespace build2
       //
       if (t.adhoc_group_member ())
       {
-        assert (!step);
-
-        const target& g (*t.group);
-
         // It feels natural to "convert" this call to the one for the group,
         // including the try_match part. Semantically, we want to achieve the
         // following:
         //
         // [try_]match (a, g);
         // match_recipe (l, group_recipe);
+        //
+        // Currently, ad hoc group members cannot have options. An alternative
+        // semantics could be to call the goup's rule to translate member
+        // options to group options and then (re)match the group with that.
+        // The implementation of this semantics could look like this:
+        //
+        // 1. Lock the group.
+        // 2. If not already offset_matched, do one step to get the rule.
+        // 3. Call the rule to translate options.
+        // 4. Continue matching the group passing the translated options.
+        // 5. Keep track of member options in member's cur_options to handle
+        //    member rematches (if already offset_{applied,executed}).
+        //
+        // Note: see also similar semantics but for explicit groups in
+        // adhoc-rule-*.cxx.
+
+        assert (!step && options == match_extra::all_options);
+
+        const target& g (*t.group);
+
+        // What should we do with options? After some rumination it fells most
+        // natural to treat options for the group and for its ad hoc member as
+        // the same entity ... or not.
         //
         auto df = make_diag_frame (
           [a, &t](const diag_record& dr)
@@ -1063,14 +1148,22 @@ namespace build2
               dr << info << "while matching group rule to " << diag_do (a, t);
           });
 
-        pair<bool, target_state> r (match_impl (a, g, 0, nullptr, try_match));
+        pair<bool, target_state> r (
+          match_impl (a, g, 0 /* options */, 0, nullptr, try_match));
 
         if (r.first)
         {
           if (r.second != target_state::failed)
           {
+            // Note: in particular, passing all_options makes sure we will
+            // never re-lock this member if already applied/executed.
+            //
             match_inc_dependents (a, g);
-            match_recipe (l, group_recipe);
+            match_recipe (l, group_recipe, match_extra::all_options);
+
+            // Note: no need to call match_posthoc() since an ad hoc member
+            // has no own prerequisites and the group's ones will be matched
+            // by the group.
           }
         }
         else
@@ -1103,7 +1196,8 @@ namespace build2
           //
           clear_target (a, t);
 
-          const rule_match* r (match_rule (a, t, nullptr, try_match));
+          const rule_match* r (
+            match_rule_impl (a, t, options, nullptr, try_match));
 
           assert (l.offset != target::offset_tried); // Should have failed.
 
@@ -1125,11 +1219,50 @@ namespace build2
         // Fall through.
       case target::offset_matched:
         {
+          // Add any new options.
+          //
+          s.match_extra.new_options |= options;
+
           // Apply.
           //
           set_recipe (l, apply_impl (a, t, *s.rule));
           l.offset = target::offset_applied;
+
+          if (t.has_group_prerequisites ()) // Ok since already matched.
+          {
+            if (!match_posthoc (a, t))
+              s.state = target_state::failed;
+          }
+
           break;
+        }
+      case target::offset_applied:
+        {
+          // Reapply if any new options.
+          //
+          match_extra& me (s.match_extra);
+          me.new_options = options & ~me.cur_options; // Clear existing.
+          assert (me.new_options != 0); // Otherwise should not have locked.
+
+          // Feels like this can only be a logic bug since to end up with a
+          // subset of options requires a rule (see match_extra for details).
+          //
+          assert (s.rule != nullptr);
+
+          reapply_impl (a, t, *s.rule);
+          break;
+        }
+      case target::offset_executed:
+        {
+          // Diagnose new options after execute.
+          //
+          match_extra& me (s.match_extra);
+          assert ((me.cur_options & options) != options); // Otherwise no lock.
+
+          fail << "change of match options after " << diag_do (a, t)
+               << " has been executed" <<
+            info << "executed options 0x" << hex << me.cur_options <<
+            info << "requested options 0x" << hex << options << endf;
         }
       default:
         assert (false);
@@ -1137,13 +1270,16 @@ namespace build2
     }
     catch (const failed&)
     {
+      s.state = target_state::failed;
+      l.offset = target::offset_applied;
+    }
+
+    if (s.state == target_state::failed)
+    {
       // As a sanity measure clear the target data since it can be incomplete
       // or invalid (mark()/unmark() should give you some ideas).
       //
       clear_target (a, t);
-
-      s.state = target_state::failed;
-      l.offset = target::offset_applied;
     }
 
     return make_pair (true, s.state);
@@ -1153,10 +1289,9 @@ namespace build2
   // the first half of the result.
   //
   pair<bool, target_state>
-  match_impl (action a,
-              const target& ct,
-              size_t start_count,
-              atomic_count* task_count,
+  match_impl (action a, const target& ct,
+              uint64_t options,
+              size_t start_count, atomic_count* task_count,
               bool try_match)
   {
     // If we are blocking then work our own queue one task at a time. The
@@ -1178,30 +1313,16 @@ namespace build2
                  ct,
                  task_count == nullptr
                  ? optional<scheduler::work_queue> (scheduler::work_none)
-                 : nullopt));
+                 : nullopt,
+                 options));
 
     if (l.target != nullptr)
     {
-      assert (l.offset < target::offset_applied); // Shouldn't lock otherwise.
-
       if (try_match && l.offset == target::offset_tried)
         return make_pair (false, target_state::unknown);
 
       if (task_count == nullptr)
-      {
-        pair<bool, target_state> r (match_impl (l, false /*step*/, try_match));
-
-        if (r.first                            &&
-            r.second != target_state::failed   &&
-            l.offset == target::offset_applied &&
-            ct.has_group_prerequisites ()) // Already matched.
-        {
-          if (!match_posthoc (a, *l.target))
-            r.second = target_state::failed;
-        }
-
-        return r;
-      }
+        return match_impl_impl (l, options, false /* step */, try_match);
 
       // Pass "disassembled" lock since the scheduler queue doesn't support
       // task destruction.
@@ -1211,12 +1332,18 @@ namespace build2
       // Also pass our diagnostics and lock stacks (this is safe since we
       // expect the caller to wait for completion before unwinding its stack).
       //
+      // Note: pack captures and arguments a bit to reduce the storage space
+      // requrements.
+      //
+      bool first (ld.first);
+
       if (ct.ctx.sched->async (
             start_count,
             *task_count,
-            [a, try_match] (const diag_frame* ds,
-                            const target_lock* ls,
-                            target& t, size_t offset, bool first)
+            [a, try_match, first] (const diag_frame* ds,
+                                   const target_lock* ls,
+                                   target& t, size_t offset,
+                                   uint64_t options)
             {
               // Switch to caller's diag and lock stacks.
               //
@@ -1230,24 +1357,15 @@ namespace build2
                   // Note: target_lock must be unlocked within the match phase.
                   //
                   target_lock l {a, &t, offset, first}; // Reassemble.
-
-                  pair<bool, target_state> r (
-                    match_impl (l, false /* step */, try_match));
-
-                  if (r.first                            &&
-                      r.second != target_state::failed   &&
-                      l.offset == target::offset_applied &&
-                      t.has_group_prerequisites ()) // Already matched.
-                    match_posthoc (a, t);
+                  match_impl_impl (l, options, false /* step */, try_match);
                 }
               }
               catch (const failed&) {} // Phase lock failure.
             },
             diag_frame::stack (),
             target_lock::stack (),
-            ref (*ld.target),
-            ld.offset,
-            ld.first))
+            ref (*ld.target), ld.offset,
+            options))
         return make_pair (true, target_state::postponed); // Queued.
 
       // Matched synchronously, fall through.
@@ -1266,16 +1384,28 @@ namespace build2
   }
 
   void
-  match_only_sync (action a, const target& t)
+  match_only_sync (action a, const target& t, uint64_t options)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_lock l (lock_impl (a, t, scheduler::work_none));
+    target_lock l (lock_impl (a, t, scheduler::work_none, options));
 
-    if (l.target != nullptr && l.offset < target::offset_matched)
+    if (l.target != nullptr)
     {
-      if (match_impl (l, true /* step */).second == target_state::failed)
-        throw failed ();
+      if (l.offset != target::offset_matched)
+      {
+        if (match_impl_impl (l,
+                             options,
+                             true /* step */).second == target_state::failed)
+          throw failed ();
+      }
+      else
+      {
+        // If the target is already matched, then we need to add any new
+        // options but not call apply() (thus cannot use match_impl_impl()).
+        //
+        (*l.target)[a].match_extra.new_options |= options;
+      }
     }
   }
 
@@ -1299,10 +1429,10 @@ namespace build2
       {
         // Match (locked).
         //
-        if (match_impl (l, true /* step */).second == target_state::failed)
+        if (match_impl_impl (l,
+                             0 /* options */,
+                             true /* step */).second == target_state::failed)
           throw failed ();
-
-        // Note: only matched so no call to match_posthoc().
 
         if ((r = g.group_members (a)).members != nullptr)
           break;
@@ -1314,14 +1444,8 @@ namespace build2
       {
         // Apply (locked).
         //
-        pair<bool, target_state> s (match_impl (l, true /* step */));
-
-        if (s.second != target_state::failed &&
-            g.has_group_prerequisites ()) // Already matched.
-        {
-          if (!match_posthoc (a, *l.target))
-            s.second = target_state::failed;
-        }
+        pair<bool, target_state> s (
+          match_impl_impl (l, 0 /* options */, true /* step */));
 
         if (s.second == target_state::failed)
           throw failed ();
@@ -1435,21 +1559,15 @@ namespace build2
   // Note: lock is a reference to avoid the stacking overhead.
   //
   void
-  resolve_group_impl (action a, const target& t, target_lock&& l)
+  resolve_group_impl (target_lock&& l)
   {
-    assert (a.inner ());
+    assert (l.action.inner ());
 
     pair<bool, target_state> r (
-      match_impl (l, true /* step */, true /* try_match */));
-
-    if (r.first                            &&
-        r.second != target_state::failed   &&
-        l.offset == target::offset_applied &&
-        t.has_group_prerequisites ()) // Already matched.
-    {
-      if (!match_posthoc (a, *l.target))
-        r.second = target_state::failed;
-    }
+      match_impl_impl (l,
+                       0 /* options */,
+                       true /* step */,
+                       true /* try_match */));
 
     l.unlock ();
 

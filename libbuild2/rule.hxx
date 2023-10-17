@@ -34,6 +34,10 @@ namespace build2
   // implementations. It is also a way for us to later pass more information
   // without breaking source compatibility.
   //
+  // A rule may support match options and if such a rule is rematched with
+  // different options, then reapply() is called. See
+  // match_extra::{cur,new}_options for background and details.
+  //
   struct match_extra;
 
   class LIBBUILD2_SYMEXPORT rule
@@ -44,6 +48,9 @@ namespace build2
 
     virtual recipe
     apply (action, target&, match_extra&) const = 0;
+
+    virtual void
+    reapply (action, target&, match_extra&) const;
 
     rule () = default;
 
@@ -265,8 +272,8 @@ namespace build2
     // is a pattern and returns true otherwise.
     //
     // Note also that in case of a member of a group-based target, match() is
-    // called on the group while apply() on the member (see match_rule() in
-    // algorithms.cxx for details). This means that match() may be called
+    // called on the group while apply() on the member (see match_rule_impl()
+    // in algorithms.cxx for details). This means that match() may be called
     // without having the target locked and as a result match() should (unless
     // known to only match a non-group) treat the target as const and only
     // rely on immutable information (type, name, etc) since the group could
