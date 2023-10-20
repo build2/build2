@@ -214,7 +214,9 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT target_lock
-  lock_impl (action, const target&, optional<scheduler::work_queue>);
+  lock_impl (action, const target&,
+             optional<scheduler::work_queue>,
+             uint64_t = 0);
 
   LIBBUILD2_SYMEXPORT void
   unlock_impl (action, target&, size_t);
@@ -393,6 +395,7 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT const rule_match*
   match_rule (action, target&,
+              uint64_t options,
               const rule* skip,
               bool try_match = false,
               match_extra* = nullptr);
@@ -630,14 +633,17 @@ namespace build2
   }
 
   inline recipe
-  match_delegate (action a, target& t, const rule& dr, bool try_match)
+  match_delegate (action a, target& t,
+                  const rule& dr,
+                  bool try_match,
+                  uint64_t options)
   {
     assert (t.ctx.phase == run_phase::match);
 
     // Note: we don't touch any of the t[a] state since that was/will be set
     // for the delegating rule.
     //
-    const rule_match* r (match_rule (a, t, &dr, try_match));
+    const rule_match* r (match_rule (a, t, options, &dr, try_match));
     return r != nullptr ? apply_impl (a, t, *r) : empty_recipe;
   }
 

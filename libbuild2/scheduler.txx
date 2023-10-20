@@ -64,8 +64,8 @@ namespace build2
         new (&td->data) task {
           &task_count,
           start_count,
-          decay_copy (forward<F> (f)),
-          typename task::args_type (decay_copy (forward<A> (a))...)};
+          typename task::args_type (decay_copy (forward<A> (a))...),
+          decay_copy (forward<F> (f))};
 
         td->thunk = &task_thunk<F, A...>;
 

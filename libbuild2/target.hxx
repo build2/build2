@@ -184,15 +184,22 @@ namespace build2
     //
     // On initial match()/apply(), cur_options is initialized to ~0 (all
     // options enabled) and the matching rule is expected to override it with
-    // new_options in match() (if it matches). This way a rule that does not
-    // support any match options does not need to do anything. On rematch in
-    // the reapply() call, cur_options are the currently enabled options and
-    // new_options are the newly requested options. Here the rule is expected
-    // to factor new_options to cur_options as appropriate. Note also that on
-    // rematch, if current options already include new options, then no call
-    // to reapply() is made. This, in particular, means that a rule that does
-    // not adjust cur_options in match() will never get a reapply() call
-    // (because all the options are enabled from the start).
+    // new_options in apply() (note that match() should no base any decisions
+    // on new_options since they may change between match() and apply()). This
+    // way a rule that does not support any match options does not need to do
+    // anything. On rematch in the reapply() call, cur_options are the
+    // currently enabled options and new_options are the newly requested
+    // options. Here the rule is expected to factor new_options to cur_options
+    // as appropriate. Note also that on rematch, if current options already
+    // include new options, then no call to reapply() is made. This, in
+    // particular, means that a rule that does not adjust cur_options in
+    // match() will never get a reapply() call (because all the options are
+    // enabled from the start).
+    //
+    // Note: options are currently not supported in ad hoc recipes/rules.
+    //
+    // @@ We could use 0 new_options (which otherwise don't make sense) for
+    //    match for the purpose of resolving members?
     //
     // @@ TODO: clear already enabled options from new_options on rematch.
     //
@@ -789,7 +796,11 @@ namespace build2
       //
       mutable atomic_count dependents {0};
 
-      // Match state storage between the match() and apply() calls.
+      // Match state storage between the match() and apply() calls with only
+      // the *_options members extended to reapply().
+      //
+      // Note: in reality, cur_options are used beyong (re)apply() as an
+      // implementation detail.
       //
       build2::match_extra match_extra;
 

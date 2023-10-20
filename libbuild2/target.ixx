@@ -138,7 +138,6 @@ namespace build2
   inline void match_extra::
   reinit (bool f)
   {
-    //assert (locked);
     clear_data ();
     fallback = f;
     cur_options = all_options;

@@ -434,7 +434,10 @@ namespace build2
   // See also the companion execute_delegate().
   //
   recipe
-  match_delegate (action, target&, const rule&, bool try_match = false);
+  match_delegate (action, target&,
+                  const rule&,
+                  bool try_match = false,
+                  uint64_t options = match_extra::all_options);
 
   // Incrementing the dependency counts of the specified target.
   //

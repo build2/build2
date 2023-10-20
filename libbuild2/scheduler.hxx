@@ -555,8 +555,8 @@ namespace build2
 
       atomic_count* task_count;
       size_t start_count;
-      func_type func;
       args_type args;
+      func_type func;
 
       template <size_t... i>
       void
@@ -685,7 +685,11 @@ namespace build2
     //
     struct task_data
     {
-      alignas (std::max_align_t) unsigned char data[sizeof (void*) * 8];
+      static const size_t data_size = (sizeof (void*) == 4
+                                       ? sizeof (void*) * 16
+                                       : sizeof (void*) * 8);
+
+      alignas (std::max_align_t) unsigned char data[data_size];
       void (*thunk) (scheduler&, lock&, void*);
     };
 
