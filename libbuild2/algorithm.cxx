@@ -1150,6 +1150,10 @@ namespace build2
           {
             match_inc_dependents (a, g);
             match_recipe (l, group_recipe);
+
+            // Note: no need to call match_posthoc() since an ad hoc member
+            // has no own prerequisites and the group's ones will be matched
+            // by the group.
           }
         }
         else
@@ -1213,6 +1217,13 @@ namespace build2
           //
           set_recipe (l, apply_impl (a, t, *s.rule));
           l.offset = target::offset_applied;
+
+          if (t.has_group_prerequisites ()) // Ok since already matched.
+          {
+            if (!match_posthoc (a, t))
+              s.state = target_state::failed;
+          }
+
           break;
         }
       case target::offset_applied:
@@ -1249,13 +1260,16 @@ namespace build2
     }
     catch (const failed&)
     {
+      s.state = target_state::failed;
+      l.offset = target::offset_applied;
+    }
+
+    if (s.state == target_state::failed)
+    {
       // As a sanity measure clear the target data since it can be incomplete
       // or invalid (mark()/unmark() should give you some ideas).
       //
       clear_target (a, t);
-
-      s.state = target_state::failed;
-      l.offset = target::offset_applied;
     }
 
     return make_pair (true, s.state);
@@ -1302,23 +1316,7 @@ namespace build2
         return make_pair (false, target_state::unknown);
 
       if (task_count == nullptr)
-      {
-        bool applied (l.offset == target::offset_applied);
-
-        pair<bool, target_state> r (
-          match_impl_impl (l, options, false /* step */, try_match));
-
-        if (r.first                                          &&
-            r.second != target_state::failed                 &&
-            (!applied && l.offset == target::offset_applied) &&
-            ct.has_group_prerequisites ()) // Already matched.
-        {
-          if (!match_posthoc (a, *l.target))
-            r.second = target_state::failed;
-        }
-
-        return r;
-      }
+        return match_impl_impl (l, options, false /* step */, try_match);
 
       // Pass "disassembled" lock since the scheduler queue doesn't support
       // task destruction.
@@ -1353,17 +1351,7 @@ namespace build2
                   // Note: target_lock must be unlocked within the match phase.
                   //
                   target_lock l {a, &t, offset, first}; // Reassemble.
-
-                  bool applied (l.offset == target::offset_applied);
-
-                  pair<bool, target_state> r (
-                    match_impl_impl (l, options, false /* step */, try_match));
-
-                  if (r.first                                          &&
-                      r.second != target_state::failed                 &&
-                      (!applied && l.offset == target::offset_applied) &&
-                      t.has_group_prerequisites ()) // Already matched.
-                    match_posthoc (a, t);
+                  match_impl_impl (l, options, false /* step */, try_match);
                 }
               }
               catch (const failed&) {} // Phase lock failure.
@@ -1442,8 +1430,6 @@ namespace build2
                              true /* step */).second == target_state::failed)
           throw failed ();
 
-        // Note: only matched so no call to match_posthoc().
-
         if ((r = g.group_members (a)).members != nullptr)
           break;
 
@@ -1456,13 +1442,6 @@ namespace build2
         //
         pair<bool, target_state> s (
           match_impl_impl (l, 0 /* options */, true /* step */));
-
-        if (s.second != target_state::failed &&
-            g.has_group_prerequisites ()) // Already matched.
-        {
-          if (!match_posthoc (a, *l.target))
-            s.second = target_state::failed;
-        }
 
         if (s.second == target_state::failed)
           throw failed ();
@@ -1576,24 +1555,15 @@ namespace build2
   // Note: lock is a reference to avoid the stacking overhead.
   //
   void
-  resolve_group_impl (action a, const target& t, target_lock&& l)
+  resolve_group_impl (target_lock&& l)
   {
-    assert (a.inner ());
+    assert (l.action.inner ());
 
     pair<bool, target_state> r (
       match_impl_impl (l,
                        0 /* options */,
                        true /* step */,
                        true /* try_match */));
-
-    if (r.first                            &&
-        r.second != target_state::failed   &&
-        l.offset == target::offset_applied &&
-        t.has_group_prerequisites ()) // Already matched.
-    {
-      if (!match_posthoc (a, *l.target))
-        r.second = target_state::failed;
-    }
 
     l.unlock ();
 

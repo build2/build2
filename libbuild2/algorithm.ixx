@@ -664,7 +664,7 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT void
-  resolve_group_impl (action, const target&, target_lock&&);
+  resolve_group_impl (target_lock&&);
 
   inline const target*
   resolve_group (action a, const target& t)
@@ -684,7 +684,7 @@ namespace build2
         // then unlock and return.
         //
         if (t.group == nullptr && l.offset < target::offset_tried)
-          resolve_group_impl (a, t, move (l));
+          resolve_group_impl (move (l));
 
         break;
       }
