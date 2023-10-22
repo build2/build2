@@ -178,7 +178,7 @@ namespace build2
   struct match_extra
   {
     bool locked;   // Normally true (see adhoc_rule::match() for background).
-    bool fallback; // True if matching a fallback rule (see match_rule()).
+    bool fallback; // True if matching a fallback rule (see match_rule_impl()).
 
     // When matching a rule, the caller may wish to request a subset of the
     // full functionality of performing the operation on the target. This is
@@ -327,7 +327,7 @@ namespace build2
 
     // Implementation details.
     //
-    // NOTE: see match_rule() in algorithms.cxx if changing anything here.
+    // NOTE: see match_rule_impl() in algorithms.cxx if changing anything here.
     //
   public:
     explicit
@@ -2278,7 +2278,7 @@ namespace build2
   // in C++, instead deriving from mtime_target directly and using a custom
   // members layout more appropriate for the group's semantics. To put it
   // another way, a group-based target should only be matched by an ad hoc
-  // recipe/rule (see match_rule() in algorithms.cxx for details).
+  // recipe/rule (see match_rule_impl() in algorithms.cxx for details).
   //
   class LIBBUILD2_SYMEXPORT group: public mtime_target
   {

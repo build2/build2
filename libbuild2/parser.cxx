@@ -2180,7 +2180,8 @@ namespace build2
                   fail (l) << "project " << *root_ << " does not support "
                            << "operation " << ctx->operation_table[oi];
 
-                // Note: for now always inner (see match_rule() for details).
+                // Note: for now always inner (see match_rule_impl() for
+                // details).
                 //
                 action a (mi, oi);
 

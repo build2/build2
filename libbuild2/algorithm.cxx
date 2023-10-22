@@ -553,11 +553,11 @@ namespace build2
   // Return the matching rule or NULL if no match and try_match is true.
   //
   const rule_match*
-  match_rule (action a, target& t,
-              uint64_t options,
-              const rule* skip,
-              bool try_match,
-              match_extra* pme)
+  match_rule_impl (action a, target& t,
+                   uint64_t options,
+                   const rule* skip,
+                   bool try_match,
+                   match_extra* pme)
   {
     using fallback_rule = adhoc_rule_pattern::fallback_rule;
 
@@ -616,11 +616,11 @@ namespace build2
         // a temporary (it shouldn't be modified if unlocked).
         //
         match_extra gme (false /* locked */);
-        if (const rule_match* r = match_rule (a, const_cast<target&> (*g),
-                                              0 /* options */,
-                                              skip,
-                                              true /* try_match */,
-                                              &gme))
+        if (const rule_match* r = match_rule_impl (a, const_cast<target&> (*g),
+                                                   0 /* options */,
+                                                   skip,
+                                                   true /* try_match */,
+                                                   &gme))
         {
           me.new_options = options; // Currently unused but maybe in future.
           return r;
@@ -1195,7 +1195,7 @@ namespace build2
           clear_target (a, t);
 
           const rule_match* r (
-            match_rule (a, t, options, nullptr, try_match));
+            match_rule_impl (a, t, options, nullptr, try_match));
 
           assert (l.offset != target::offset_tried); // Should have failed.
 

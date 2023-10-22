@@ -863,7 +863,8 @@ namespace build2
     // whether someone will execute such a member.
     //
     // So instead we now just link the member up to the group and rely on the
-    // special semantics in match_rule() for groups with the dyn_members flag.
+    // special semantics in match_rule_impl() for groups with the dyn_members
+    // flag.
     //
     assert ((g.type ().flags & target_type::flag::dyn_members) ==
             target_type::flag::dyn_members);
@@ -884,7 +885,8 @@ namespace build2
 
     // We don't need to match the group recipe directy from ad hoc
     // recipes/rules due to the special semantics for explicit group members
-    // in match_rule(). This is what skip_match is for.
+    // in match_rule_impl(). This is what skip_match is for.
+    //
     if (l.second)
     {
       l.first.group = &g;

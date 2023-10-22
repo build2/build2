@@ -394,11 +394,11 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT const rule_match*
-  match_rule (action, target&,
-              uint64_t options,
-              const rule* skip,
-              bool try_match = false,
-              match_extra* = nullptr);
+  match_rule_impl (action, target&,
+                   uint64_t options,
+                   const rule* skip,
+                   bool try_match = false,
+                   match_extra* = nullptr);
 
   LIBBUILD2_SYMEXPORT recipe
   apply_impl (action, target&, const rule_match&);
@@ -643,7 +643,7 @@ namespace build2
     // Note: we don't touch any of the t[a] state since that was/will be set
     // for the delegating rule.
     //
-    const rule_match* r (match_rule (a, t, options, &dr, try_match));
+    const rule_match* r (match_rule_impl (a, t, options, &dr, try_match));
     return r != nullptr ? apply_impl (a, t, *r) : empty_recipe;
   }
 

@@ -46,7 +46,7 @@ namespace build2
   sub_match (const string& n, operation_id o,
              action a, target& t, match_extra& me) const
   {
-    // First check for an ad hoc recipe (see match_rule() for details).
+    // First check for an ad hoc recipe (see match_rule_impl() for details).
     //
     if (!t.adhoc_recipes.empty ())
     {
