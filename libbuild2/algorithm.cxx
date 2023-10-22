@@ -1111,10 +1111,6 @@ namespace build2
       //
       if (t.adhoc_group_member ())
       {
-        assert (!step);
-
-        const target& g (*t.group);
-
         // It feels natural to "convert" this call to the one for the group,
         // including the try_match part. Semantically, we want to achieve the
         // following:
@@ -1122,15 +1118,25 @@ namespace build2
         // [try_]match (a, g);
         // match_recipe (l, group_recipe);
         //
+        // Currently, ad hoc group members cannot have options. An alternative
+        // semantics could be to call the goup's rule to translate member
+        // options to group options and then (re)match the group with that.
+        // The implementation of this semantics could look like this:
+        //
+        // 1. Lock the group.
+        // 2. If not already offset_matched, do one step to get the rule.
+        // 3. Call the rule to translate options.
+        // 4. Continue matching the group passing the translated options.
+        // 5. Keep track of member options in member's cur_options to handle
+        //    member rematches (if already offset_{applied,executed}).
+
+        assert (!step && options == match_extra::all_options);
+
+        const target& g (*t.group);
+
         // What should we do with options? After some rumination it fells most
         // natural to treat options for the group and for its ad hoc member as
         // the same entity ... or not.
-        //
-        // @@ But we cannot reapply them if options change since there is
-        //    no rule! Feels easiest to just assume no options for now? Or
-        //    member options are group options (won't then still need
-        //    reapply() support via member). Need to keep KISS for now so
-        //    that don't need to deal with _applied/_executed!
         //
         auto df = make_diag_frame (
           [a, &t](const diag_record& dr)
@@ -1139,15 +1145,17 @@ namespace build2
               dr << info << "while matching group rule to " << diag_do (a, t);
           });
 
-        // @@ TODO: unclear what to do about options here.
-        // @@ TODO: this could also be _applied/_executed, theoretically.
-
         pair<bool, target_state> r (match_impl (a, g, 0, nullptr, try_match));
 
         if (r.first)
         {
           if (r.second != target_state::failed)
           {
+            // Note: in particular, this makes sure we will never re-lock this
+            // member if already applied/executed.
+            //
+            s.match_extra.cur_options = match_extra::all_options;
+
             match_inc_dependents (a, g);
             match_recipe (l, group_recipe);
 

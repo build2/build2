@@ -180,30 +180,82 @@ namespace build2
     bool locked;   // Normally true (see adhoc_rule::match() for background).
     bool fallback; // True if matching a fallback rule (see match_rule()).
 
-    // Match options.
+    // When matching a rule, the caller may wish to request a subset of the
+    // full functionality of performing the operation on the target. This is
+    // achieved with match options.
     //
-    // On initial match()/apply(), cur_options is initialized to ~0 (all
-    // options enabled) and the matching rule is expected to override it with
-    // new_options in apply() (note that match() should no base any decisions
-    // on new_options since they may change between match() and apply()). This
-    // way a rule that does not support any match options does not need to do
-    // anything. On rematch in the reapply() call, cur_options are the
-    // currently enabled options and new_options are the newly requested
-    // options. Here the rule is expected to factor new_options to cur_options
-    // as appropriate. Note also that on rematch, if current options already
-    // include new options, then no call to reapply() is made. This, in
-    // particular, means that a rule that does not adjust cur_options in
-    // match() will never get a reapply() call (because all the options are
-    // enabled from the start).
+    // Since the match caller normally has no control over which rule will be
+    // matched, the options are not specific to a particular rule. Rather,
+    // options are defined for performing a specific operation on a specific
+    // target type and would normally be part of the target type semantics.
+    // To put it another way, when a rule matches a target of certain type for
+    // certain operation, there is an expectaion of certain semantics, some
+    // parts of which could be made optional.
     //
-    // Note: options are currently not supported in ad hoc recipes/rules.
+    // As a concrete example, consider installing libs{}, which traditionally
+    // has two parts: runtime (normally just the versioned shared library) and
+    // build-time (non-versioned symlinks, pkg-config files, headers, etc).
+    // The option to install only the runtime files is part of the bin::libs{}
+    // semantics, not of, say, cc::install_rule.
     //
-    // @@ We could use 0 new_options (which otherwise don't make sense) for
-    //    match for the purpose of resolving members?
+    // The match options are specified as a uint64_t mask, which means there
+    // can be a maximum of 64 options per operation/target type. Options are
+    // opt-out rather than opt-in. That is, by default, all the options are
+    // enabled unless the match caller explicitly opted out of some
+    // functionality. Even if the caller opted out, there is no guarantee that
+    // the matching rule will honor this request (for example, because it is a
+    // user-provided ad hoc recipe). To put it another way, support for
+    // options is a quality of implementation matter.
     //
-    // @@ TODO: clear already enabled options from new_options on rematch.
+    // From the rule implementation's point view, match options are handled as
+    // follows: On initial match()/apply(), cur_options is initialized to ~0
+    // (all options enabled) and the matching rule is expected to override it
+    // with new_options in apply() (note that match() should no base any
+    // decisions on new_options since they may change between match() and
+    // apply()). This way a rule that does not support any match options does
+    // not need to do anything. Subsequent match calls may add new options
+    // which causes a rematch that manifests in the rule's reapply() call. In
+    // reapply(), cur_options are the currently enabled options and
+    // new_options are the newly requested options. Here the rule is expected
+    // to factor new_options to cur_options as appropriate. Note also that on
+    // rematch, if current options already include new options, then no call
+    // to reapply() is made. This, in particular, means that a rule that does
+    // not adjust cur_options in match() will never get a reapply() call
+    // (because all the options are enabled from the start). If a rematch is
+    // triggered after the rule has already been executed, an error is issued.
+    // This means that match options are not usable for operation/target types
+    // that could plausibly be executed during match. In particular, using
+    // match options for update and clean operations is a bad idea (update of
+    // pretty much any target can happen during match as a result of a tool
+    // update while clean might have to be performed during match to provide
+    // the mirro semantics).
     //
-    // @@ TODO doc
+    // A rule that supports match options must also be prepared to handle the
+    // apply() call with new_options set to 0, for example, by using a
+    // minimally supported set of options instead. While 0 usually won't be
+    // passed by the match caller, this value is passed in the following
+    // circumstances:
+    //
+    //   - match to resolve group (resolve_group())
+    //   - match to resolve members (resolve_members())
+    //   - match of ad hoc group via one of its ad hoc members
+    //
+    // When it comes to match options specified for group members, the
+    // semantics differs between explicit and ad hoc groups. For explicit
+    // groups, the standard semantics described above applies and the group's
+    // reapply() function will be called both for the group itself as well as
+    // for its members and its the responsibility of the rule to decide what
+    // to do with the two sets of options (e.g., factor member's options into
+    // group's options, etc). For ad hoc groups, members are not matched to a
+    // rule but to the group_recipe directly (so there cannot be a call to
+    // reapply()). Currently, ad hoc group members cannot have options (more
+    // precisely, their options should always be ~0). An alternative semantics
+    // where the group rule is called to translate member options to group
+    // options may be implemented in the future (see match_impl_impl() for
+    // details).
+    //
+    // Note: match options are currently not exposed in Buildscript ad hoc
+    // recipes/rules (but are in C++).
     //
     uint64_t cur_options;
     uint64_t new_options;
