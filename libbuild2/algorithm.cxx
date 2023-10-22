@@ -1151,13 +1151,11 @@ namespace build2
         {
           if (r.second != target_state::failed)
           {
-            // Note: in particular, this makes sure we will never re-lock this
-            // member if already applied/executed.
+            // Note: in particular, passing all_options makes sure we will
+            // never re-lock this member if already applied/executed.
             //
-            s.match_extra.cur_options = match_extra::all_options;
-
             match_inc_dependents (a, g);
-            match_recipe (l, group_recipe);
+            match_recipe (l, group_recipe, match_extra::all_options);
 
             // Note: no need to call match_posthoc() since an ad hoc member
             // has no own prerequisites and the group's ones will be matched

@@ -539,7 +539,7 @@ namespace build2
     return match_direct_sync (a, t, fail);
   }
 
-  // Clear rule match-specific target data.
+  // Clear rule match-specific target data (except match_extra).
   //
   inline void
   clear_target (action a, target& t)
@@ -608,12 +608,16 @@ namespace build2
   }
 
   inline void
-  match_recipe (target_lock& l, recipe r)
+  match_recipe (target_lock& l, recipe r, uint64_t o)
   {
     assert (l.target != nullptr                &&
-            l.offset != target::offset_matched &&
+            l.offset < target::offset_matched  &&
             l.target->ctx.phase == run_phase::match);
 
+    match_extra& me ((*l.target)[l.action].match_extra);
+
+    me.reinit (false /* fallback */);
+    me.cur_options = o; // Already applied, so cur_, not new_options.
     clear_target (l.action, *l.target);
     set_rule (l, nullptr); // No rule.
     set_recipe (l, move (r));
@@ -621,12 +625,16 @@ namespace build2
   }
 
   inline void
-  match_rule (target_lock& l, const rule_match& r)
+  match_rule (target_lock& l, const rule_match& r, uint64_t o)
   {
     assert (l.target != nullptr                &&
-            l.offset != target::offset_matched &&
+            l.offset < target::offset_matched  &&
             l.target->ctx.phase == run_phase::match);
 
+    match_extra& me ((*l.target)[l.action].match_extra);
+
+    me.reinit (false /* fallback */);
+    me.new_options = o;
     clear_target (l.action, *l.target);
     set_rule (l, &r);
     l.offset = target::offset_matched;

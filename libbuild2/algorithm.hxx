@@ -418,14 +418,22 @@ namespace build2
   // Apply the specified recipe directly and without incrementing the
   // dependency counts. The target must be locked.
   //
+  // Note that there will be no way to rematch on options change (since there
+  // is no rule), so passing anything other than all_options is most likely a
+  // bad idea.
+  //
   void
-  match_recipe (target_lock&, recipe);
+  match_recipe (target_lock&,
+                recipe,
+                uint64_t options = match_extra::all_options);
 
   // Match (but do not apply) the specified rule directly and without
   // incrementing the dependency counts. The target must be locked.
   //
   void
-  match_rule (target_lock&, const rule_match&);
+  match_rule (target_lock&,
+              const rule_match&,
+              uint64_t options = match_extra::all_options);
 
   // Match a "delegate rule" from withing another rules' apply() function
   // avoiding recursive matches (thus the third argument). Unless try_match is
