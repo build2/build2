@@ -70,6 +70,9 @@ namespace build2
     virtual recipe
     apply (action, target&, match_extra&) const override;
 
+    virtual void
+    reapply (action, target&, match_extra&) const override;
+
     adhoc_cxx_rule (string, const location&, size_t,
                     uint64_t ver,
                     optional<string> sep);

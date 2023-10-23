@@ -591,7 +591,7 @@ namespace build2
           const rule_match* r (g->state[a].rule);
           assert (r != nullptr); // Shouldn't happen with dyn_members.
 
-          me.new_options = options; // Currently unused but maybe in future.
+          me.new_options = options;
           return r;
         }
 
@@ -622,7 +622,7 @@ namespace build2
                                                    true /* try_match */,
                                                    &gme))
         {
-          me.new_options = options; // Currently unused but maybe in future.
+          me.new_options = options;
           return r;
         }
 
@@ -1129,6 +1129,9 @@ namespace build2
         // 4. Continue matching the group passing the translated options.
         // 5. Keep track of member options in member's cur_options to handle
         //    member rematches (if already offset_{applied,executed}).
+        //
+        // Note: see also similar semantics but for explicit groups in
+        // adhoc-rule-*.cxx.
 
         assert (!step && options == match_extra::all_options);
 

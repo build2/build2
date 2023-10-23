@@ -691,10 +691,20 @@ namespace build2
                           ? t.group->is_a<group> ()
                           : nullptr))
     {
-      match_sync (a, *g);
+      // @@ Hm, this looks very similar to how we handle ad hoc group members.
+      //    Shouldn't impl be given a chance to translate options or some
+      //    such?
+      //
+      match_sync (a, *g, 0 /* options */);
       return group_recipe; // Execute the group's recipe.
     }
 
     return impl.load (memory_order_relaxed)->apply (a, t, me);
+  }
+
+  void adhoc_cxx_rule::
+  reapply (action a, target& t, match_extra& me) const
+  {
+    return impl.load (memory_order_relaxed)->reapply (a, t, me);
   }
 }
