@@ -363,7 +363,9 @@ namespace build2
   // to be unchanged after match. If it is unmatch::safe, then unmatch the
   // target if it is safe (this includes unchanged or if we know that someone
   // else will execute this target). Return true in first half of the pair if
-  // unmatch succeeded. Always throw if failed.
+  // unmatch succeeded. Always throw if failed. Note that unmatching doesn't
+  // play well with options -- if unmatch succeeds, the options that have been
+  // passed to match will not be cleared.
   //
   enum class unmatch {none, unchanged, safe};
 
@@ -482,6 +484,26 @@ namespace build2
   match_inner (action, const target&,
                unmatch,
                uint64_t options = match_extra::all_options);
+
+  // Re-match with new options a target that has already been matched with one
+  // of the match_*() functions. Note that natually you cannot rematch a
+  // target that you have unmatched.
+  //
+  target_state
+  rematch_sync (action, const target&,
+                uint64_t options,
+                bool fail = true);
+
+  target_state
+  rematch_async (action, const target&,
+                 uint64_t options,
+                 size_t start_count, atomic_count& task_count,
+                 bool fail = true);
+
+  target_state
+  rematch_complete (action, const target&,
+                    uint64_t options,
+                    bool fail = true);
 
   // The standard prerequisite search and match implementations. They call
   // search() (unless a custom is provided) and then match() (unless custom

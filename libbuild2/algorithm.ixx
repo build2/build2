@@ -675,6 +675,34 @@ namespace build2
     return match_sync (a.inner_action (), t, um, options);
   }
 
+  // Note: rematch is basically normal match but without the counts increment,
+  // so we just delegate to match_direct_*().
+  //
+  inline target_state
+  rematch_sync (action a, const target& t,
+                uint64_t options,
+                bool fail)
+  {
+    return match_direct_sync (a, t, fail, options);
+  }
+
+  inline target_state
+  rematch_async (action a, const target& t,
+                 uint64_t options,
+                 size_t start_count, atomic_count& task_count,
+                 bool fail)
+  {
+    return match_async (a, t, start_count, task_count, fail, options);
+  }
+
+  inline target_state
+  rematch_complete (action a, const target& t,
+                    uint64_t options,
+                    bool fail)
+  {
+    return match_direct_complete (a, t, fail, options);
+  }
+
   LIBBUILD2_SYMEXPORT void
   resolve_group_impl (target_lock&&);
 
