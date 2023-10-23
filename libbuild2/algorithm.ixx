@@ -417,7 +417,7 @@ namespace build2
   }
 
   inline target_state
-  match_sync (action a, const target& t, bool fail, uint64_t options)
+  match_sync (action a, const target& t, uint64_t options, bool fail)
   {
     assert (t.ctx.phase == run_phase::match);
 
@@ -432,7 +432,7 @@ namespace build2
   }
 
   inline pair<bool, target_state>
-  try_match_sync (action a, const target& t, bool fail, uint64_t options)
+  try_match_sync (action a, const target& t, uint64_t options, bool fail)
   {
     assert (t.ctx.phase == run_phase::match);
 
@@ -496,8 +496,8 @@ namespace build2
   inline target_state
   match_async (action a, const target& t,
                size_t sc, atomic_count& tc,
-               bool fail,
-               uint64_t options)
+               uint64_t options,
+               bool fail)
   {
     context& ctx (t.ctx);
 
@@ -511,9 +511,9 @@ namespace build2
   }
 
   inline target_state
-  match_complete (action a, const target& t, bool fail, uint64_t options)
+  match_complete (action a, const target& t, uint64_t options, bool fail)
   {
-    return match_sync (a, t, fail, options);
+    return match_sync (a, t, options, fail);
   }
 
   inline pair<bool, target_state>
@@ -523,7 +523,7 @@ namespace build2
   }
 
   inline target_state
-  match_direct_sync (action a, const target& t, bool fail, uint64_t options)
+  match_direct_sync (action a, const target& t, uint64_t options, bool fail)
   {
     assert (t.ctx.phase == run_phase::match);
 
@@ -537,10 +537,10 @@ namespace build2
 
   inline target_state
   match_direct_complete (action a, const target& t,
-                         bool fail,
-                         uint64_t options)
+                         uint64_t options,
+                         bool fail)
   {
-    return match_direct_sync (a, t, fail, options);
+    return match_direct_sync (a, t, options, fail);
   }
 
   // Clear rule match-specific target data (except match_extra).
@@ -612,7 +612,7 @@ namespace build2
   }
 
   inline void
-  match_recipe (target_lock& l, recipe r, uint64_t o)
+  match_recipe (target_lock& l, recipe r, uint64_t options)
   {
     assert (l.target != nullptr                &&
             l.offset < target::offset_matched  &&
@@ -621,7 +621,7 @@ namespace build2
     match_extra& me ((*l.target)[l.action].match_extra);
 
     me.reinit (false /* fallback */);
-    me.cur_options = o; // Already applied, so cur_, not new_options.
+    me.cur_options = options; // Already applied, so cur_, not new_options.
     clear_target (l.action, *l.target);
     set_rule (l, nullptr); // No rule.
     set_recipe (l, move (r));
@@ -629,7 +629,7 @@ namespace build2
   }
 
   inline void
-  match_rule (target_lock& l, const rule_match& r, uint64_t o)
+  match_rule (target_lock& l, const rule_match& r, uint64_t options)
   {
     assert (l.target != nullptr                &&
             l.offset < target::offset_matched  &&
@@ -638,7 +638,7 @@ namespace build2
     match_extra& me ((*l.target)[l.action].match_extra);
 
     me.reinit (false /* fallback */);
-    me.new_options = o;
+    me.new_options = options;
     clear_target (l.action, *l.target);
     set_rule (l, &r);
     l.offset = target::offset_matched;
@@ -647,8 +647,8 @@ namespace build2
   inline recipe
   match_delegate (action a, target& t,
                   const rule& dr,
-                  bool try_match,
-                  uint64_t options)
+                  uint64_t options,
+                  bool try_match)
   {
     assert (t.ctx.phase == run_phase::match);
 
@@ -683,16 +683,16 @@ namespace build2
                 uint64_t options,
                 bool fail)
   {
-    return match_direct_sync (a, t, fail, options);
+    return match_direct_sync (a, t, options, fail);
   }
 
   inline target_state
   rematch_async (action a, const target& t,
-                 uint64_t options,
                  size_t start_count, atomic_count& task_count,
+                 uint64_t options,
                  bool fail)
   {
-    return match_async (a, t, start_count, task_count, fail, options);
+    return match_async (a, t, start_count, task_count, options, fail);
   }
 
   inline target_state
@@ -700,7 +700,7 @@ namespace build2
                     uint64_t options,
                     bool fail)
   {
-    return match_direct_complete (a, t, fail, options);
+    return match_direct_complete (a, t, options, fail);
   }
 
   LIBBUILD2_SYMEXPORT void

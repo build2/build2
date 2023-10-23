@@ -371,13 +371,13 @@ namespace build2
 
   target_state
   match_sync (action, const target&,
-              bool fail = true,
-              uint64_t options = match_extra::all_options);
+              uint64_t options = match_extra::all_options,
+              bool fail = true);
 
   pair<bool, target_state>
   try_match_sync (action, const target&,
-                  bool fail = true,
-                  uint64_t options = match_extra::all_options);
+                  uint64_t options = match_extra::all_options,
+                  bool fail = true);
 
   pair<bool, target_state>
   match_sync (action, const target&,
@@ -407,13 +407,13 @@ namespace build2
   target_state
   match_async (action, const target&,
                size_t start_count, atomic_count& task_count,
-               bool fail = true,
-               uint64_t options = match_extra::all_options);
+               uint64_t options = match_extra::all_options,
+               bool fail = true);
 
   target_state
   match_complete (action, const target&,
-                  bool fail = true,
-                  uint64_t options = match_extra::all_options);
+                  uint64_t options = match_extra::all_options,
+                  bool fail = true);
 
   pair<bool, target_state>
   match_complete (action, const target&,
@@ -427,13 +427,13 @@ namespace build2
   //
   target_state
   match_direct_sync (action, const target&,
-                     bool fail = true,
-                     uint64_t options = match_extra::all_options);
+                     uint64_t options = match_extra::all_options,
+                     bool fail = true);
 
   target_state
   match_direct_complete (action, const target&,
-                         bool fail = true,
-                         uint64_t options = match_extra::all_options);
+                         uint64_t options = match_extra::all_options,
+                         bool fail = true);
 
   // Apply the specified recipe directly and without incrementing the
   // dependency counts. The target must be locked.
@@ -464,8 +464,8 @@ namespace build2
   recipe
   match_delegate (action, target&,
                   const rule&,
-                  bool try_match = false,
-                  uint64_t options = match_extra::all_options);
+                  uint64_t options = match_extra::all_options,
+                  bool try_match = false);
 
   // Incrementing the dependency counts of the specified target.
   //
@@ -496,8 +496,8 @@ namespace build2
 
   target_state
   rematch_async (action, const target&,
-                 uint64_t options,
                  size_t start_count, atomic_count& task_count,
+                 uint64_t options,
                  bool fail = true);
 
   target_state
