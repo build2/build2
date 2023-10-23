@@ -368,20 +368,27 @@ namespace build2
   enum class unmatch {none, unchanged, safe};
 
   target_state
-  match_sync (action, const target&, bool fail = true);
+  match_sync (action, const target&,
+              bool fail = true,
+              uint64_t options = match_extra::all_options);
 
   pair<bool, target_state>
-  try_match_sync (action, const target&, bool fail = true);
+  try_match_sync (action, const target&,
+                  bool fail = true,
+                  uint64_t options = match_extra::all_options);
 
   pair<bool, target_state>
-  match_sync (action, const target&, unmatch);
+  match_sync (action, const target&,
+              unmatch,
+              uint64_t options = match_extra::all_options);
 
   // As above but only match the target (unless already matched) without
   // applying the match (which is normally done with match_sync()). You will
   // most likely regret using this function.
   //
   LIBBUILD2_SYMEXPORT void
-  match_only_sync (action, const target&);
+  match_only_sync (action, const target&,
+                   uint64_t options = match_extra::all_options);
 
   // Start asynchronous match. Return target_state::postponed if the
   // asynchronous operation has been started and target_state::busy if the
@@ -393,16 +400,23 @@ namespace build2
   // failed. Otherwise, throw the failed exception if keep_going is false and
   // return target_state::failed otherwise.
   //
+  // Note: same options must be passed to match_async() and match_complete().
+  //
   target_state
   match_async (action, const target&,
                size_t start_count, atomic_count& task_count,
-               bool fail = true);
+               bool fail = true,
+               uint64_t options = match_extra::all_options);
 
   target_state
-  match_complete (action, const target&, bool fail = true);
+  match_complete (action, const target&,
+                  bool fail = true,
+                  uint64_t options = match_extra::all_options);
 
   pair<bool, target_state>
-  match_complete (action, const target&, unmatch);
+  match_complete (action, const target&,
+                  unmatch,
+                  uint64_t options = match_extra::all_options);
 
   // As above but without incrementing the target's dependents count. Should
   // be executed with execute_direct_*().
@@ -410,10 +424,14 @@ namespace build2
   // For async, call match_async() followed by match_direct_complete().
   //
   target_state
-  match_direct_sync (action, const target&, bool fail = true);
+  match_direct_sync (action, const target&,
+                     bool fail = true,
+                     uint64_t options = match_extra::all_options);
 
   target_state
-  match_direct_complete (action, const target&, bool fail = true);
+  match_direct_complete (action, const target&,
+                         bool fail = true,
+                         uint64_t options = match_extra::all_options);
 
   // Apply the specified recipe directly and without incrementing the
   // dependency counts. The target must be locked.
@@ -457,10 +475,13 @@ namespace build2
   // and inner_recipe.
   //
   target_state
-  match_inner (action, const target&);
+  match_inner (action, const target&,
+               uint64_t options = match_extra::all_options);
 
   pair<bool, target_state>
-  match_inner (action, const target&, unmatch);
+  match_inner (action, const target&,
+               unmatch,
+               uint64_t options = match_extra::all_options);
 
   // The standard prerequisite search and match implementations. They call
   // search() (unless a custom is provided) and then match() (unless custom

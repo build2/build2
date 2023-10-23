@@ -1145,7 +1145,8 @@ namespace build2
               dr << info << "while matching group rule to " << diag_do (a, t);
           });
 
-        pair<bool, target_state> r (match_impl (a, g, 0, nullptr, try_match));
+        pair<bool, target_state> r (
+          match_impl (a, g, 0 /* options */, 0, nullptr, try_match));
 
         if (r.first)
         {
@@ -1285,15 +1286,11 @@ namespace build2
   // the first half of the result.
   //
   pair<bool, target_state>
-  match_impl (action a,
-              const target& ct,
-              size_t start_count,
-              atomic_count* task_count,
+  match_impl (action a, const target& ct,
+              uint64_t options,
+              size_t start_count, atomic_count* task_count,
               bool try_match)
   {
-
-    uint64_t options (match_extra::all_options); // @@ TMP
-
     // If we are blocking then work our own queue one task at a time. The
     // logic here is that we may have already queued other tasks before this
     // one and there is nothing bad (except a potentially deep stack trace)
@@ -1384,11 +1381,9 @@ namespace build2
   }
 
   void
-  match_only_sync (action a, const target& t)
+  match_only_sync (action a, const target& t, uint64_t options)
   {
     assert (t.ctx.phase == run_phase::match);
-
-    uint64_t options (match_extra::all_options); // @@ TMP
 
     target_lock l (lock_impl (a, t, scheduler::work_none, options));
 

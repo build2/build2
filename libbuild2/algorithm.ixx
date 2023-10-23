@@ -405,6 +405,7 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT pair<bool, target_state>
   match_impl (action, const target&,
+              uint64_t options,
               size_t, atomic_count*,
               bool try_match = false);
 
@@ -416,11 +417,11 @@ namespace build2
   }
 
   inline target_state
-  match_sync (action a, const target& t, bool fail)
+  match_sync (action a, const target& t, bool fail, uint64_t options)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_state r (match_impl (a, t, 0, nullptr).second);
+    target_state r (match_impl (a, t, options, 0, nullptr).second);
 
     if (r != target_state::failed)
       match_inc_dependents (a, t);
@@ -431,12 +432,12 @@ namespace build2
   }
 
   inline pair<bool, target_state>
-  try_match_sync (action a, const target& t, bool fail)
+  try_match_sync (action a, const target& t, bool fail, uint64_t options)
   {
     assert (t.ctx.phase == run_phase::match);
 
     pair<bool, target_state> r (
-      match_impl (a, t, 0, nullptr, true /* try_match */));
+      match_impl (a, t, options, 0, nullptr, true /* try_match */));
 
     if (r.first)
     {
@@ -450,11 +451,11 @@ namespace build2
   }
 
   inline pair<bool, target_state>
-  match_sync (action a, const target& t, unmatch um)
+  match_sync (action a, const target& t, unmatch um, uint64_t options)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_state s (match_impl (a, t, 0, nullptr).second);
+    target_state s (match_impl (a, t, options, 0, nullptr).second);
 
     if (s == target_state::failed)
       throw failed ();
@@ -495,12 +496,13 @@ namespace build2
   inline target_state
   match_async (action a, const target& t,
                size_t sc, atomic_count& tc,
-               bool fail)
+               bool fail,
+               uint64_t options)
   {
     context& ctx (t.ctx);
 
     assert (ctx.phase == run_phase::match);
-    target_state r (match_impl (a, t, sc, &tc).second);
+    target_state r (match_impl (a, t, options, sc, &tc).second);
 
     if (r == target_state::failed && fail && !ctx.keep_going)
       throw failed ();
@@ -509,23 +511,23 @@ namespace build2
   }
 
   inline target_state
-  match_complete (action a, const target& t, bool fail)
+  match_complete (action a, const target& t, bool fail, uint64_t options)
   {
-    return match_sync (a, t, fail);
+    return match_sync (a, t, fail, options);
   }
 
   inline pair<bool, target_state>
-  match_complete (action a, const target& t, unmatch um)
+  match_complete (action a, const target& t, unmatch um, uint64_t options)
   {
-    return match_sync (a, t, um);
+    return match_sync (a, t, um, options);
   }
 
   inline target_state
-  match_direct_sync (action a, const target& t, bool fail)
+  match_direct_sync (action a, const target& t, bool fail, uint64_t options)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    target_state r (match_impl (a, t, 0, nullptr).second);
+    target_state r (match_impl (a, t, options, 0, nullptr).second);
 
     if (r == target_state::failed && fail)
       throw failed ();
@@ -534,9 +536,11 @@ namespace build2
   }
 
   inline target_state
-  match_direct_complete (action a, const target& t, bool fail)
+  match_direct_complete (action a, const target& t,
+                         bool fail,
+                         uint64_t options)
   {
-    return match_direct_sync (a, t, fail);
+    return match_direct_sync (a, t, fail, options);
   }
 
   // Clear rule match-specific target data (except match_extra).
@@ -656,19 +660,19 @@ namespace build2
   }
 
   inline target_state
-  match_inner (action a, const target& t)
+  match_inner (action a, const target& t, uint64_t options)
   {
     // In a sense this is like any other dependency.
     //
     assert (a.outer ());
-    return match_sync (a.inner_action (), t);
+    return match_sync (a.inner_action (), t, options);
   }
 
   inline pair<bool, target_state>
-  match_inner (action a, const target& t, unmatch um)
+  match_inner (action a, const target& t, unmatch um, uint64_t options)
   {
     assert (a.outer ());
-    return match_sync (a.inner_action (), t, um);
+    return match_sync (a.inner_action (), t, um, options);
   }
 
   LIBBUILD2_SYMEXPORT void
