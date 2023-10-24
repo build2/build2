@@ -38,20 +38,11 @@ namespace build2
       // Less obvious: we also want to install a static library prerequisite
       // of a library (since it could be referenced from its .pc file, etc).
       //
-      // This is also the place were we make sure we don't install static
-      // library prerequisites of an executable (we cannot do it later, where
-      // we handle headers, because we may need to resolve the member).
-      // However, there is a nuance: we still have to update such static
-      // libraries in order to signal that they are being built for install.
-      //
       // Note: for now we assume these prerequisites never come from see-
       // through groups.
       //
       // Note: we install ad hoc prerequisites by default.
       //
-      if (a.operation () != update_id && t.is_a<exe> () && p.is_a<liba> ())
-        return nullptr;
-
       otype ot (link_type (t).type);
 
       // Note: at least one must be true since we only register this rule for
@@ -71,13 +62,7 @@ namespace build2
         // link. For libu*{} we want the "see through" logic.
         //
         if (const libx* l = pt->is_a<libx> ())
-        {
           pt = link_member (*l, a, link_info (t.base_scope (), ot));
-
-          if (a.operation () != update_id &&
-              t.is_a<exe> () && pt->is_a<liba> ())
-            return nullptr;
-        }
 
         // Note: not redundant since we are returning a member.
         //
@@ -332,9 +317,6 @@ namespace build2
       // above. In particular, here we use libue/libua/libus{} as proxies for
       // exe/liba/libs{} there.
       //
-      if (a.operation () != update_id && t.is_a<libue> () && p.is_a<liba> ())
-        return nullptr;
-
       otype ot (link_type (t).type);
 
       bool st (t.is_a<libue> () || t.is_a<libus> ()); // Target needs shared.
@@ -347,13 +329,7 @@ namespace build2
         const target* pt (&search (t, p));
 
         if (const libx* l = pt->is_a<libx> ())
-        {
           pt = link_member (*l, a, link_info (t.base_scope (), ot));
-
-          if (a.operation () != update_id &&
-              t.is_a<libue> () && pt->is_a<liba> ())
-            return nullptr;
-        }
 
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
           return is == nullptr || pt->in (*is) ? pt : nullptr;

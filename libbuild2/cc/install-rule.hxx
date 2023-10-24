@@ -24,8 +24,7 @@ namespace build2
     //
     // 1. Signal to the link rule that this is update for install.
     //
-    // 2. Custom filtering of prerequisites (e.g., headers and static
-    //    libraries of an exe{}).
+    // 2. Custom filtering of prerequisites (e.g., headers of an exe{}).
     //
     // 3. Extra un/installation (e.g., libs{} symlinks).
     //
