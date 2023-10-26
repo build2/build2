@@ -1593,7 +1593,7 @@ namespace build2
   }
 
   const fsdir*
-  inject_fsdir (action a, target& t, bool prereq, bool parent)
+  inject_fsdir_impl (target& t, bool prereq, bool parent)
   {
     tracer trace ("inject_fsdir");
 
@@ -1614,6 +1614,7 @@ namespace build2
     // subprojects (e.g., tests/).
     //
     const fsdir* r (nullptr);
+
     if (rs != nullptr && !d.sub (rs->src_path ()))
     {
       l6 ([&]{trace << d << " for " << t;});
@@ -1641,12 +1642,34 @@ namespace build2
       }
     }
 
+    return r;
+  }
+
+  const fsdir*
+  inject_fsdir (action a, target& t, bool prereq, bool parent)
+  {
+    const fsdir* r (inject_fsdir_impl (t, prereq, parent));
+
     if (r != nullptr)
     {
       // Make it ad hoc so that it doesn't end up in prerequisite_targets
       // after execution.
       //
       match_sync (a, *r);
+      t.prerequisite_targets[a].emplace_back (r, include_type::adhoc);
+    }
+
+    return r;
+  }
+
+  const fsdir*
+  inject_fsdir_direct (action a, target& t, bool prereq, bool parent)
+  {
+    const fsdir* r (inject_fsdir_impl (t, prereq, parent));
+
+    if (r != nullptr)
+    {
+      match_direct_sync (a, *r);
       t.prerequisite_targets[a].emplace_back (r, include_type::adhoc);
     }
 

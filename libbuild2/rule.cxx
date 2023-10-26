@@ -366,6 +366,8 @@ namespace build2
     // Don't fail if we couldn't remove the directory because it is not empty
     // (or is current working directory). In this case rmdir() will issue a
     // warning when appropriate.
+
+    // The same code as in perform_clean_direct() below.
     //
     target_state ts (rmdir (t.dir, t, t.ctx.current_diag_noise ? 1 : 2)
                      ? target_state::changed
@@ -375,6 +377,23 @@ namespace build2
       ts |= reverse_execute_prerequisites (a, t);
 
     return ts;
+  }
+
+  void fsdir_rule::
+  perform_clean_direct (action a, const target& t)
+  {
+    // The same code as in perform_clean() above.
+    //
+    rmdir (t.dir, t, t.ctx.current_diag_noise ? 1 : 2);
+
+    // Then clean the parent directory. If present, it is always first.
+    //
+    const target* p (t.prerequisite_targets[a].empty ()
+                     ? nullptr
+                     : t.prerequisite_targets[a][0]);
+
+    if (p != nullptr && p->is_a<fsdir> ())
+      perform_clean_direct (a, *p);
   }
 
   const fsdir_rule fsdir_rule::instance;

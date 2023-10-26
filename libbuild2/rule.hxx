@@ -178,6 +178,9 @@ namespace build2
     static void
     perform_update_direct (action, const target&);
 
+    static void
+    perform_clean_direct (action, const target&);
+
     fsdir_rule () {}
     static const fsdir_rule instance;
   };

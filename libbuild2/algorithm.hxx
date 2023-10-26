@@ -565,9 +565,9 @@ namespace build2
   // Inject dependency on the target's directory fsdir{}, unless it is in the
   // src tree or is outside of any project (say, for example, an installation
   // directory). If the parent argument is true, then inject the parent
-  // directory of a target that is itself a directory (name is empty). Return
-  // the injected target or NULL. Normally this function is called from the
-  // rule's apply() function.
+  // directory of a target that is itself a directory (name is empty). Match
+  // and return the injected target or NULL. Normally this function is called
+  // from the rule's apply() function.
   //
   // As an extension, unless prereq is false, this function will also search
   // for an existing fsdir{} prerequisite for the directory and if one exists,
@@ -576,6 +576,12 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT const fsdir*
   inject_fsdir (action, target&, bool prereq = true, bool parent = true);
+
+  // As above, but match the injected fsdir{} target directly (that is,
+  // without incrementing the dependency counts).
+  //
+  LIBBUILD2_SYMEXPORT const fsdir*
+  inject_fsdir_direct (action, target&, bool prereq = true, bool parent = true);
 
   // Execute the action on target, assuming a rule has been matched and the
   // recipe for this action has been set. This is the synchrounous executor
