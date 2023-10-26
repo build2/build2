@@ -1125,6 +1125,9 @@ namespace build2
         //
         if (install_loaded)
         {
+          // Note: we rely quite heavily in these rule implementations that
+          // these are the only target types they are registered for.
+
           const install_rule&  ir (*this);
 
           r.insert<exe>  (perform_install_id,   x_install, ir);

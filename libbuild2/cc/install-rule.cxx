@@ -24,13 +24,16 @@ namespace build2
     install_rule (data&& d, const link_rule& l)
         : common (move (d)), link_ (l) {}
 
-    const target* install_rule::
+    pair<const target*, uint64_t> install_rule::
     filter (const scope* is,
-            action a, const target& t, prerequisite_iterator& i) const
+            action a, const target& t, prerequisite_iterator& i,
+            match_extra& me) const
     {
       // NOTE: see libux_install_rule::filter() if changing anything here.
 
       const prerequisite& p (i->prerequisite);
+
+      uint64_t options (match_extra::all_options);
 
       // If this is a shared library prerequisite, install it as long as it is
       // in the installation scope.
@@ -64,23 +67,58 @@ namespace build2
         if (const libx* l = pt->is_a<libx> ())
           pt = link_member (*l, a, link_info (t.base_scope (), ot));
 
-        // Note: not redundant since we are returning a member.
+
+        // Note: not redundant since we could be returning a member.
         //
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
-          return is == nullptr || pt->in (*is) ? pt : nullptr;
+        {
+          // Adjust match options.
+          //
+          if (a.operation () != update_id)
+          {
+            if (t.is_a<exe> ())
+              options = lib::option_install_runtime;
+            else
+            {
+              // This is a library prerequisite of a library target and
+              // runtime-only begets runtime-only.
+              //
+              if (me.cur_options == lib::option_install_runtime)
+                options = lib::option_install_runtime;
+            }
+          }
+
+          return make_pair (is == nullptr || pt->in (*is) ? pt : nullptr,
+                            options);
+        }
 
         // See through to libu*{} members. Note that we are always in the same
         // project (and thus amalgamation).
         //
         if (pt->is_a<libux> ())
-          return pt;
+        {
+          // Adjust match options (similar to above).
+          //
+          if (a.operation () != update_id && !pt->is_a<libue> ())
+          {
+            if (t.is_a<exe> ())
+              options = lib::option_install_runtime;
+            else
+            {
+              if (me.cur_options == lib::option_install_runtime)
+                options = lib::option_install_runtime;
+            }
+          }
+
+          return make_pair (pt, options);
+        }
       }
 
       // The rest of the tests only succeed if the base filter() succeeds.
       //
-      const target* pt (file_rule::filter (is, a, t, p));
+      const target* pt (file_rule::filter (is, a, t, p, me).first);
       if (pt == nullptr)
-        return pt;
+        return make_pair (pt, options);
 
       // Don't install executable's prerequisite headers and module
       // interfaces.
@@ -115,7 +153,7 @@ namespace build2
         }
 
         if (pt == nullptr)
-          return pt;
+          return make_pair (pt, options);
       }
 
       // Here is a problem: if the user spells the obj*/bmi*{} targets
@@ -145,16 +183,16 @@ namespace build2
           {
             pt = t.is_a<exe> ()
               ? nullptr
-              : file_rule::filter (is, a, *pt, pm.prerequisite);
+              : file_rule::filter (is, a, *pt, pm.prerequisite, me).first;
             break;
           }
         }
 
         if (pt == nullptr)
-          return pt;
+          return make_pair (pt, options);
       }
 
-      return pt;
+      return make_pair (pt, options);
     }
 
     bool install_rule::
@@ -172,6 +210,7 @@ namespace build2
     struct install_match_data
     {
       build2::recipe        recipe;
+      uint64_t              options; // Match options.
       link_rule::libs_paths libs_paths;
 
       target_state
@@ -182,12 +221,31 @@ namespace build2
     };
 
     recipe install_rule::
-    apply (action a, target& t) const
+    apply (action a, target& t, match_extra& me) const
     {
-      recipe r (file_rule::apply_impl (a, t));
+      // Handle match options.
+      //
+      // Do it before calling apply_impl() since we need this information
+      // in the filter() callbacks.
+      //
+      if (a.operation () != update_id)
+      {
+        if (!t.is_a<exe> ())
+        {
+          if (me.new_options == 0)
+            me.new_options = lib::option_install_runtime; // Minimum we can do.
+
+          me.cur_options = me.new_options;
+        }
+      }
+
+      recipe r (file_rule::apply_impl (a, t, me));
 
       if (r == nullptr)
+      {
+        me.cur_options = match_extra::all_options; // Noop for all options.
         return noop_recipe;
+      }
 
       if (a.operation () == update_id)
       {
@@ -217,11 +275,17 @@ namespace build2
         {
           if (!f->path ().empty ()) // Not binless.
           {
+            // Note: we could omit deriving the paths if cur_options doesn't
+            // have the buildtime option. But then we would have to duplicate
+            // this code in reapply() below (where this bit could be added).
+            // So let's keep it simple if a bit inefficient for now.
+            //
             const string* p (cast_null<string> (t["bin.lib.prefix"]));
             const string* s (cast_null<string> (t["bin.lib.suffix"]));
 
             return install_match_data {
               move (r),
+              me.cur_options,
               link_.derive_libs_paths (*f,
                                        p != nullptr ? p->c_str (): nullptr,
                                        s != nullptr ? s->c_str (): nullptr)};
@@ -232,6 +296,41 @@ namespace build2
       return r;
     }
 
+    void install_rule::
+    reapply (action a, target& t, match_extra& me) const
+    {
+      assert (a.operation () != update_id && !t.is_a<exe> ());
+
+      text << "REMATCH " << t
+           << ' ' << me.cur_options
+           << ' ' << me.new_options; // @@ TMP
+
+      // If we are rematched with the buildtime option, propagate it to our
+      // prerequisite libraries.
+      //
+      if ((me.new_options & lib::option_install_buildtime) != 0)
+      {
+        for (const target* pt: t.prerequisite_targets[a])
+        {
+          if (pt != nullptr && (pt->is_a<liba> ()  || pt->is_a<libs> () ||
+                                pt->is_a<libua> () || pt->is_a<libus> ()))
+            rematch_sync (a, *pt, lib::option_install_buildtime);
+        }
+      }
+
+      // @@ TODO: match additional prerequisites if required.
+
+      me.cur_options |= me.new_options;
+
+      // Update options in install_match_data.
+      //
+      if (file* f = t.is_a<libs> ())
+      {
+        if (!f->path ().empty ()) // Not binless.
+          t.data<install_match_data> (a).options = me.cur_options;
+      }
+    }
+
     bool install_rule::
     install_extra (const file& t, const install_dir& id) const
     {
@@ -239,28 +338,33 @@ namespace build2
 
       if (t.is_a<libs> ())
       {
-        // Here we may have a bunch of symlinks that we need to install.
-        //
-        const scope& rs (t.root_scope ());
-        auto& lp (t.data<install_match_data> (perform_install_id).libs_paths);
+        const auto& md (t.data<install_match_data> (perform_install_id));
 
-        auto ln = [&t, &rs, &id] (const path& f, const path& l)
+        if ((md.options & lib::option_install_buildtime) != 0)
         {
-          install_l (rs, id, l.leaf (), t, f.leaf (), 2 /* verbosity */);
-          return true;
-        };
+          // Here we may have a bunch of symlinks that we need to install.
+          //
+          const scope& rs (t.root_scope ());
+          const link_rule::libs_paths& lp (md.libs_paths);
 
-        const path& lk (lp.link);
-        const path& ld (lp.load);
-        const path& so (lp.soname);
-        const path& in (lp.interm);
+          auto ln = [&t, &rs, &id] (const path& f, const path& l)
+          {
+            install_l (rs, id, l.leaf (), t, f.leaf (), 2 /* verbosity */);
+            return true;
+          };
 
-        const path* f (lp.real);
+          const path& lk (lp.link);
+          const path& ld (lp.load);
+          const path& so (lp.soname);
+          const path& in (lp.interm);
 
-        if (!in.empty ()) {r = ln (*f, in) || r; f = &in;}
-        if (!so.empty ()) {r = ln (*f, so) || r; f = &so;}
-        if (!ld.empty ()) {r = ln (*f, ld) || r; f = &ld;}
-        if (!lk.empty ()) {r = ln (*f, lk) || r;         }
+          const path* f (lp.real);
+
+          if (!in.empty ()) {r = ln (*f, in) || r; f = &in;}
+          if (!so.empty ()) {r = ln (*f, so) || r; f = &so;}
+          if (!ld.empty ()) {r = ln (*f, ld) || r; f = &ld;}
+          if (!lk.empty ()) {r = ln (*f, lk) || r;         }
+        }
       }
 
       return r;
@@ -273,27 +377,32 @@ namespace build2
 
       if (t.is_a<libs> ())
       {
-        // Here we may have a bunch of symlinks that we need to uninstall.
-        //
-        const scope& rs (t.root_scope ());
-        auto& lp (t.data<install_match_data> (perform_uninstall_id).libs_paths);
+        const auto& md (t.data<install_match_data> (perform_uninstall_id));
 
-        auto rm = [&rs, &id] (const path& f, const path& l)
+        if ((md.options & lib::option_install_buildtime) != 0)
         {
-          return uninstall_l (rs, id, l.leaf (), f.leaf (), 2 /* verbosity */);
-        };
+          // Here we may have a bunch of symlinks that we need to uninstall.
+          //
+          const scope& rs (t.root_scope ());
+          const link_rule::libs_paths& lp (md.libs_paths);
 
-        const path& lk (lp.link);
-        const path& ld (lp.load);
-        const path& so (lp.soname);
-        const path& in (lp.interm);
+          auto rm = [&rs, &id] (const path& f, const path& l)
+          {
+            return uninstall_l (rs, id, l.leaf (), f.leaf (), 2 /* verbosity */);
+          };
 
-        const path* f (lp.real);
+          const path& lk (lp.link);
+          const path& ld (lp.load);
+          const path& so (lp.soname);
+          const path& in (lp.interm);
 
-        if (!in.empty ()) {r = rm (*f, in) || r; f = &in;}
-        if (!so.empty ()) {r = rm (*f, so) || r; f = &so;}
-        if (!ld.empty ()) {r = rm (*f, ld) || r; f = &ld;}
-        if (!lk.empty ()) {r = rm (*f, lk) || r;         }
+          const path* f (lp.real);
+
+          if (!in.empty ()) {r = rm (*f, in) || r; f = &in;}
+          if (!so.empty ()) {r = rm (*f, so) || r; f = &so;}
+          if (!ld.empty ()) {r = rm (*f, ld) || r; f = &ld;}
+          if (!lk.empty ()) {r = rm (*f, lk) || r;         }
+        }
       }
 
       return r;
@@ -305,13 +414,16 @@ namespace build2
     libux_install_rule (data&& d, const link_rule& l)
         : common (move (d)), link_ (l) {}
 
-    const target* libux_install_rule::
+    pair<const target*, uint64_t> libux_install_rule::
     filter (const scope* is,
-            action a, const target& t, prerequisite_iterator& i) const
+            action a, const target& t, prerequisite_iterator& i,
+            match_extra& me) const
     {
       using file_rule = install::file_rule;
 
       const prerequisite& p (i->prerequisite);
+
+      uint64_t options (match_extra::all_options);
 
       // The "see through" semantics that should be parallel to install_rule
       // above. In particular, here we use libue/libua/libus{} as proxies for
@@ -332,15 +444,42 @@ namespace build2
           pt = link_member (*l, a, link_info (t.base_scope (), ot));
 
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
-          return is == nullptr || pt->in (*is) ? pt : nullptr;
+        {
+          if (a.operation () != update_id)
+          {
+            if (t.is_a<libue> ())
+              options = lib::option_install_runtime;
+            else
+            {
+              if (me.cur_options == lib::option_install_runtime)
+                options = lib::option_install_runtime;
+            }
+          }
+
+          return make_pair (is == nullptr || pt->in (*is) ? pt : nullptr,
+                            options);
+        }
 
         if (pt->is_a<libux> ())
-          return pt;
+        {
+          if (a.operation () != update_id && !pt->is_a<libue> ())
+          {
+            if (t.is_a<libue> ())
+              options = lib::option_install_runtime;
+            else
+            {
+              if (me.cur_options == lib::option_install_runtime)
+                options = lib::option_install_runtime;
+            }
+          }
+
+          return make_pair (pt, options);
+        }
       }
 
-      const target* pt (file_rule::instance.filter (is, a, t, p));
+      const target* pt (file_rule::instance.filter (is, a, t, p, me).first);
       if (pt == nullptr)
-        return pt;
+        return make_pair (pt, options);
 
       auto header_source = [this] (const auto& p)
       {
@@ -366,7 +505,7 @@ namespace build2
         }
 
         if (pt == nullptr)
-          return pt;
+          return make_pair (pt, options);
       }
 
       bool g (false);
@@ -382,16 +521,17 @@ namespace build2
           {
             pt = t.is_a<libue> ()
               ? nullptr
-              : file_rule::instance.filter (is, a, *pt, pm.prerequisite);
+              : file_rule::instance.filter (
+                  is, a, *pt, pm.prerequisite, me).first;
             break;
           }
         }
 
         if (pt == nullptr)
-          return pt;
+          return make_pair (pt, options);
       }
 
-      return pt;
+      return make_pair (pt, options);
     }
 
     bool libux_install_rule::
@@ -402,6 +542,52 @@ namespace build2
       //
       return link_.sub_match (x_link, update_id, a, t, me) &&
         alias_rule::match (a, t);
+    }
+
+    recipe libux_install_rule::
+    apply (action a, target& t, match_extra& me) const
+    {
+      if (a.operation () != update_id)
+      {
+        if (!t.is_a<libue> ())
+        {
+          if (me.new_options == 0)
+            me.new_options = lib::option_install_runtime;
+
+          me.cur_options = me.new_options;
+        }
+      }
+
+      return alias_rule::apply (a, t, me);
+    }
+
+    void libux_install_rule::
+    reapply (action a, target& t, match_extra& me) const
+    {
+      assert (a.operation () != update_id && !t.is_a<libue> ());
+
+      text << "REMATCH " << t
+           << ' ' << me.cur_options
+           << ' ' << me.new_options; // @@ TMP
+
+      // If we are rematched with the buildtime option, propagate it to our
+      // prerequisite libraries.
+      //
+      // @@ Also libux?
+      //
+      if ((me.new_options & lib::option_install_buildtime) != 0)
+      {
+        for (const target* pt: t.prerequisite_targets[a])
+        {
+          if (pt != nullptr && (pt->is_a<liba> ()  || pt->is_a<libs> () ||
+                                pt->is_a<libua> () || pt->is_a<libus> ()))
+            rematch_sync (a, *pt, lib::option_install_buildtime);
+        }
+      }
+
+      // @@ TODO: match additional prerequisites if required.
+
+      me.cur_options |= me.new_options;
     }
   }
 }

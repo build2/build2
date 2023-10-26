@@ -71,24 +71,27 @@ namespace build2
       return true;
     }
 
-    const target* alias_rule::
+    pair<const target*, uint64_t> alias_rule::
     filter (const scope* is,
-            action a, const target& t, prerequisite_iterator& i) const
+            action a, const target& t, prerequisite_iterator& i,
+            match_extra& me) const
     {
       assert (i->member == nullptr);
-      return filter (is, a, t, i->prerequisite);
+      return filter (is, a, t, i->prerequisite, me);
     }
 
-    const target* alias_rule::
+    pair<const target*, uint64_t> alias_rule::
     filter (const scope* is,
-            action, const target& t, const prerequisite& p) const
+            action, const target& t, const prerequisite& p,
+            match_extra&) const
     {
       const target& pt (search (t, p));
-      return is == nullptr || pt.in (*is) ? &pt : nullptr;
+      return make_pair (is == nullptr || pt.in (*is) ? &pt : nullptr,
+                        match_extra::all_options);
     }
 
     recipe alias_rule::
-    apply (action a, target& t) const
+    apply (action a, target& t, match_extra& me) const
     {
       tracer trace ("install::alias_rule::apply");
 
@@ -125,7 +128,9 @@ namespace build2
         if (!is)
           is = a.operation () != update_id ? install_scope (t) : nullptr;
 
-        const target* pt (filter (*is, a, t, i));
+        pair<const target*, uint64_t> fr (filter (*is, a, t, i, me));
+
+        const target* pt (fr.first);
         if (pt == nullptr)
         {
           l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
@@ -150,12 +155,14 @@ namespace build2
           continue;
         }
 
+        uint64_t options (fr.second);
+
         // If this is not a file-based target (e.g., a target group such as
         // libu{}) then ignore it if there is no rule to install.
         //
         if (pt->is_a<file> ())
-          match_sync (a, *pt);
-        else if (!try_match_sync (a, *pt).first)
+          match_sync (a, *pt, options);
+        else if (!try_match_sync (a, *pt, options).first)
         {
           l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
           pt = nullptr;
@@ -168,39 +175,11 @@ namespace build2
       return default_recipe;
     }
 
-    // fsdir_rule
-    //
-    const fsdir_rule fsdir_rule::instance;
-
-    bool fsdir_rule::
-    match (action, target&) const
+    recipe alias_rule::
+    apply (action, target&) const
     {
-      // We always match.
-      //
-      // Note that we are called both as the outer part during the update-for-
-      // un/install pre-operation and as the inner part during the un/install
-      // operation itself.
-      //
-      return true;
-    }
-
-    recipe fsdir_rule::
-    apply (action a, target& t) const
-    {
-      // If this is outer part of the update-for-un/install, delegate to the
-      // default fsdir rule. Otherwise, this is a noop (we don't install
-      // fsdir{}).
-      //
-      // For now we also assume we don't need to do anything for prerequisites
-      // (the only sensible prerequisite of fsdir{} is another fsdir{}).
-      //
-      if (a.operation () == update_id)
-      {
-        match_inner (a, t);
-        return inner_recipe;
-      }
-      else
-        return noop_recipe;
+      assert (false); // Never called.
+      return nullptr;
     }
 
     // group_rule
@@ -220,10 +199,13 @@ namespace build2
       return &m;
     }
 
-    const target* group_rule::
+    pair<const target*, uint64_t> group_rule::
     filter (const scope* is,
-            action, const target& t, const prerequisite& p) const
+            action, const target& t, const prerequisite& p,
+            match_extra&) const
     {
+      pair<const target*, uint64_t> r (nullptr, match_extra::all_options);
+
       // The same logic as in file_rule::filter() below.
       //
       if (p.is_a<exe> ())
@@ -232,15 +214,18 @@ namespace build2
 
         if (p.vars.empty () ||
             cast_empty<path> (p.vars[var_install (rs)]).string () != "true")
-          return nullptr;
+          return r;
       }
 
       const target& pt (search (t, p));
-      return is == nullptr || pt.in (*is) ? &pt : nullptr;
+      if (is == nullptr || pt.in (*is))
+        r.first = &pt;
+
+      return r;
     }
 
     recipe group_rule::
-    apply (action a, target& t) const
+    apply (action a, target& t, match_extra& me) const
     {
       tracer trace ("install::group_rule::apply");
 
@@ -298,7 +283,7 @@ namespace build2
 
       // Delegate to the base rule.
       //
-      return alias_rule::apply (a, t);
+      return alias_rule::apply (a, t, me);
     }
 
 
@@ -315,18 +300,22 @@ namespace build2
       return true;
     }
 
-    const target* file_rule::
+    pair<const target*, uint64_t> file_rule::
     filter (const scope* is,
-            action a, const target& t, prerequisite_iterator& i) const
+            action a, const target& t, prerequisite_iterator& i,
+            match_extra& me) const
     {
       assert (i->member == nullptr);
-      return filter (is, a, t, i->prerequisite);
+      return filter (is, a, t, i->prerequisite, me);
     }
 
-    const target* file_rule::
+    pair<const target*, uint64_t> file_rule::
     filter (const scope* is,
-            action, const target& t, const prerequisite& p) const
+            action, const target& t, const prerequisite& p,
+            match_extra&) const
     {
+      pair<const target*, uint64_t> r (nullptr, match_extra::all_options);
+
       // See also group_rule::filter() with identical semantics.
       //
       if (p.is_a<exe> ())
@@ -340,22 +329,32 @@ namespace build2
         //
         if (p.vars.empty () ||
             cast_empty<path> (p.vars[var_install (rs)]).string () != "true")
-          return nullptr;
+          return r;
       }
 
       const target& pt (search (t, p));
-      return is == nullptr || pt.in (*is) ? &pt : nullptr;
+      if (is == nullptr || pt.in (*is))
+        r.first = &pt;
+
+      return r;
     }
 
     recipe file_rule::
-    apply (action a, target& t) const
+    apply (action a, target& t, match_extra& me) const
     {
-      recipe r (apply_impl (a, t));
+      recipe r (apply_impl (a, t, me));
       return r != nullptr ? move (r) : noop_recipe;
     }
 
     recipe file_rule::
-    apply_impl (action a, target& t) const
+    apply (action, target&) const
+    {
+      assert (false); // Never called.
+      return nullptr;
+    }
+
+    recipe file_rule::
+    apply_impl (action a, target& t, match_extra& me) const
     {
       tracer trace ("install::file_rule::apply");
 
@@ -438,8 +437,9 @@ namespace build2
         if (!is)
           is = a.operation () != update_id ? install_scope (t) : nullptr;
 
-        const target* pt (filter (*is, a, t, i));
+        pair<const target*, uint64_t> fr (filter (*is, a, t, i, me));
 
+        const target* pt (fr.first);
         if (pt == nullptr)
         {
           l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
@@ -458,6 +458,8 @@ namespace build2
           continue;
         }
 
+        uint64_t options (fr.second);
+
         if (pt->is_a<file> ())
         {
           // If the matched rule returned noop_recipe, then the target state
@@ -466,10 +468,15 @@ namespace build2
           // when updating static installable content (headers, documentation,
           // etc).
           //
-          if (match_sync (a, *pt, unmatch::unchanged).first)
+          // Regarding options, the expectation here is that they are not used
+          // for the update operation. And for install/uninstall, if they are
+          // used, then they don't effect whether the target is unchanged. All
+          // feels reasonable.
+          //
+          if (match_sync (a, *pt, unmatch::unchanged, options).first)
             pt = nullptr;
         }
-        else if (!try_match_sync (a, *pt).first)
+        else if (!try_match_sync (a, *pt, options).first)
         {
           l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
           pt = nullptr;
@@ -1565,6 +1572,41 @@ namespace build2
       r |= reverse_execute_prerequisites (a, t);
 
       return r;
+    }
+
+    // fsdir_rule
+    //
+    const fsdir_rule fsdir_rule::instance;
+
+    bool fsdir_rule::
+    match (action, target&) const
+    {
+      // We always match.
+      //
+      // Note that we are called both as the outer part during the update-for-
+      // un/install pre-operation and as the inner part during the un/install
+      // operation itself.
+      //
+      return true;
+    }
+
+    recipe fsdir_rule::
+    apply (action a, target& t) const
+    {
+      // If this is outer part of the update-for-un/install, delegate to the
+      // default fsdir rule. Otherwise, this is a noop (we don't install
+      // fsdir{}).
+      //
+      // For now we also assume we don't need to do anything for prerequisites
+      // (the only sensible prerequisite of fsdir{} is another fsdir{}).
+      //
+      if (a.operation () == update_id)
+      {
+        match_inner (a, t);
+        return inner_recipe;
+      }
+      else
+        return noop_recipe;
     }
   }
 }
