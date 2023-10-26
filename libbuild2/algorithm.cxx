@@ -2727,6 +2727,8 @@ namespace build2
   bool
   update_during_match (tracer& trace, action a, const target& t, timestamp ts)
   {
+    // NOTE: see also clean_during_match() if changing anything here.
+
     assert (a == perform_update_id);
 
     // Note: this function is used to make sure header dependencies are up to
@@ -2798,6 +2800,11 @@ namespace build2
                                      action a, target& t,
                                      uintptr_t mask)
   {
+    // NOTE: see also clean_during_match_prerequisites() if changing anything
+    //       here.
+
+    assert (a == perform_update_id);
+
     prerequisite_targets& pts (t.prerequisite_targets[a]);
 
     // On the first pass detect and handle unchanged tragets. Note that we
@@ -2911,6 +2918,179 @@ namespace build2
         if (ns != os && ns != target_state::unchanged)
         {
           l6 ([&]{trace << "updated " << pt
+                        << "; old state " << os
+                        << "; new state " << ns;});
+          r = true;
+        }
+
+        p.data = 0;
+      }
+    }
+#endif
+
+    return r;
+  }
+
+  bool
+  clean_during_match (tracer& trace, action a, const target& t)
+  {
+    // Let's keep this as close to update_during_match() semantically as
+    // possible until we see a clear reason to deviate.
+
+    assert (a == perform_clean_id);
+
+    target_state os (t.matched_state (a));
+
+    if (os == target_state::unchanged)
+      return false;
+    else
+    {
+      target_state ns;
+      if (os != target_state::changed)
+      {
+        phase_switch ps (t.ctx, run_phase::execute);
+        ns = execute_direct_sync (a, t);
+      }
+      else
+        ns = os;
+
+      if (ns != os && ns != target_state::unchanged)
+      {
+        l6 ([&]{trace << "cleaned " << t
+                      << "; old state " << os
+                      << "; new state " << ns;});
+        return true;
+      }
+      else
+        return false;
+    }
+  }
+
+  bool
+  clean_during_match_prerequisites (tracer& trace,
+                                    action a, target& t,
+                                    uintptr_t mask)
+  {
+    // Let's keep this as close to update_during_match_prerequisites()
+    // semantically as possible until we see a clear reason to deviate.
+    //
+    // Currently the only substantial change is the reverse iteration order.
+
+    assert (a == perform_clean_id);
+
+    prerequisite_targets& pts (t.prerequisite_targets[a]);
+
+    // On the first pass detect and handle unchanged tragets. Note that we
+    // have to do it in a separate pass since we cannot call matched_state()
+    // once we've switched the phase.
+    //
+    size_t n (0);
+
+    for (prerequisite_target& p: pts)
+    {
+      if (mask == 0 || (p.include & mask) != 0)
+      {
+        if (p.target != nullptr)
+        {
+          const target& pt (*p.target);
+
+          target_state os (pt.matched_state (a));
+
+          if (os != target_state::unchanged)
+          {
+            ++n;
+            p.data = static_cast<uintptr_t> (os);
+            continue;
+          }
+        }
+
+        p.data = 0;
+      }
+    }
+
+    // If all unchanged, we are done.
+    //
+    if (n == 0)
+      return false;
+
+    // Provide additional information on what's going on.
+    //
+    auto df = make_diag_frame (
+      [&t](const diag_record& dr)
+      {
+        if (verb != 0)
+          dr << info << "while cleaning during match prerequisites of "
+             << "target " << t;
+      });
+
+    context& ctx (t.ctx);
+
+    phase_switch ps (ctx, run_phase::execute);
+
+    bool r (false);
+
+    // @@ Maybe we should optimize for n == 1? Maybe we should just call
+    //    smarter clean_during_match() in this case?
+    //
+#if 0
+    for (prerequisite_target& p: reverse_iterate (pts))
+    {
+      if ((mask == 0 || (p.include & mask) != 0) && p.data != 0)
+      {
+        const target& pt (*p.target);
+
+        target_state os (static_cast<target_state> (p.data));
+        target_state ns (execute_direct_sync (a, pt));
+
+        if (ns != os && ns != target_state::unchanged)
+        {
+          l6 ([&]{trace << "cleaned " << pt
+                        << "; old state " << os
+                        << "; new state " << ns;});
+          r = true;
+        }
+
+        p.data = 0;
+      }
+    }
+#else
+
+    // Start asynchronous execution of prerequisites. Similar logic to
+    // straight_execute_members().
+    //
+    // Note that the target's task count is expected to be busy (since this
+    // function is called during match). And there don't seem to be any
+    // problems in using it for execute.
+    //
+    atomic_count& tc (t[a].task_count);
+
+    size_t busy (ctx.count_busy ());
+
+    wait_guard wg (ctx, busy, tc);
+
+    for (prerequisite_target& p: reverse_iterate (pts))
+    {
+      if ((mask == 0 || (p.include & mask) != 0) && p.data != 0)
+      {
+        execute_direct_async (a, *p.target, busy, tc);
+      }
+    }
+
+    wg.wait ();
+
+    // Finish execution and process the result.
+    //
+    for (prerequisite_target& p: reverse_iterate (pts))
+    {
+      if ((mask == 0 || (p.include & mask) != 0) && p.data != 0)
+      {
+        const target& pt (*p.target);
+        target_state ns (execute_complete (a, pt));
+        target_state os (static_cast<target_state> (p.data));
+
+        if (ns != os && ns != target_state::unchanged)
+        {
+          l6 ([&]{trace << "cleaned " << pt
                         << "; old state " << os
                         << "; new state " << ns;});
           r = true;

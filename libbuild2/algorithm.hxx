@@ -649,7 +649,8 @@ namespace build2
   //
   // Note that such a target must still be updated normally during the execute
   // phase in order to keep the dependency counts straight (at which point the
-  // target state/timestamp will be re-incorporated into the result).
+  // target state/timestamp will be re-incorporated into the result). Unless
+  // it was matched direct.
   //
   LIBBUILD2_SYMEXPORT bool
   update_during_match (tracer&,
@@ -665,6 +666,20 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT bool
   update_during_match_prerequisites (
+    tracer&,
+    action, target&,
+    uintptr_t mask = prerequisite_target::include_udm);
+
+  // Equivalent functions for clean. Note that if possible you should leave
+  // cleaning to normal execute and these functions should only be used in
+  // special cases where this is not possible.
+  //
+  LIBBUILD2_SYMEXPORT bool
+  clean_during_match (tracer&,
+                      action, const target&);
+
+  LIBBUILD2_SYMEXPORT bool
+  clean_during_match_prerequisites (
     tracer&,
     action, target&,
     uintptr_t mask = prerequisite_target::include_udm);
