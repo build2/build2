@@ -189,7 +189,7 @@ namespace build2
     // options are defined for performing a specific operation on a specific
     // target type and would normally be part of the target type semantics.
     // To put it another way, when a rule matches a target of certain type for
-    // certain operation, there is an expectaion of certain semantics, some
+    // certain operation, there is an expectation of certain semantics, some
     // parts of which could be made optional.
     //
     // As a concrete example, consider installing libs{}, which traditionally
@@ -228,7 +228,14 @@ namespace build2
     // match options for update and clean operations is a bad idea (update of
     // pretty much any target can happen during match as a result of a tool
     // update while clean might have to be performed during match to provide
-    // the mirro semantics).
+    // the mirror semantics).
+    //
+    // Note also that with rematches the assumption that in the match phase
+    // after matching the target we can MT-safely examine its state (such as
+    // its prerequisite_targets) no longer holds since such state could be
+    // modified during a rematch. As a result, if the target type specifies
+    // options for a certain operation, then you should not rely on this
+    // assumption for targets of this type during this operation.
     //
     // A rule that supports match options must also be prepared to handle the
     // apply() call with new_options set to 0, for example, by using a
@@ -260,7 +267,7 @@ namespace build2
     uint64_t cur_options;
     uint64_t new_options;
 
-    static const uint64_t all_options = ~uint64_t (0);
+    static constexpr uint64_t all_options = ~uint64_t (0);
 
     // Auxiliary data storage.
     //

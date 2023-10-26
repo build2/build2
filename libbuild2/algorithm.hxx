@@ -363,7 +363,7 @@ namespace build2
   // to be unchanged after match. If it is unmatch::safe, then unmatch the
   // target if it is safe (this includes unchanged or if we know that someone
   // else will execute this target). Return true in first half of the pair if
-  // unmatch succeeded. Always throw if failed. Note that unmatching doesn't
+  // unmatch succeeded. Always throw if failed. Note that unmatching may not
   // play well with options -- if unmatch succeeds, the options that have been
   // passed to match will not be cleared.
   //
@@ -488,6 +488,12 @@ namespace build2
   // Re-match with new options a target that has already been matched with one
   // of the match_*() functions. Note that natually you cannot rematch a
   // target that you have unmatched.
+  //
+  // Note also that there is no way to check if the rematch is unnecessary
+  // (i.e., because the target is already matched with this option) because
+  // that would require MT-safety considerations (since there could be a
+  // concurrent rematch). Instead, you should rematch unconditionally and if
+  // the option is already present, it will be a cheap noop.
   //
   target_state
   rematch_sync (action, const target&,

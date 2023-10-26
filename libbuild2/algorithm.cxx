@@ -1241,8 +1241,8 @@ namespace build2
           // Reapply if any new options.
           //
           match_extra& me (s.match_extra);
-          assert ((me.cur_options & options) != options); // Otherwise no lock.
-          me.new_options = options;
+          me.new_options = options & ~me.cur_options; // Clear existing.
+          assert (me.new_options != 0); // Otherwise should not have locked.
 
           // Feels like this can only be a logic bug since to end up with a
           // subset of options requires a rule (see match_extra for details).
