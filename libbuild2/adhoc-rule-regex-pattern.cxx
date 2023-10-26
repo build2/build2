@@ -86,7 +86,9 @@ namespace build2
         tt = n.untyped () ? &file::static_type : s.find_target_type (n.type);
 
         if (tt == nullptr)
-          fail (loc) << "unknown target type " << n.type;
+          fail (loc) << "unknown target type " << n.type <<
+            info << "perhaps the module that defines this target type is "
+                 << "not loaded by project " << *s.root_scope ();
       }
 
       bool e (n.pattern                                 &&

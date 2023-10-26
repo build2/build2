@@ -931,7 +931,9 @@ namespace build2
                                     : scope_->find_target_type (n.type));
 
           if (ttype == nullptr)
-            fail (nloc) << "unknown target type " << n.type;
+            fail (nloc) << "unknown target type " << n.type <<
+              info << "perhaps the module that defines this target type is "
+                   << "not loaded by project " << *scope_->root_scope ();
 
           f (t, tt, nullopt, n.pattern, ttype, move (n.value), nloc);
         };
@@ -1359,7 +1361,9 @@ namespace build2
               : scope_->find_target_type (n.type);
 
             if (ttype == nullptr)
-              fail (nloc) << "unknown target type " << n.type;
+              fail (nloc) << "unknown target type " << n.type <<
+                info << "perhaps the module that defines this target type is "
+                     << "not loaded by project " << *scope_->root_scope ();
 
             if (!gns.empty ())
             {
@@ -2773,7 +2777,9 @@ namespace build2
       optional<string>& e (rp.second);
 
       if (t == nullptr)
-        fail (ploc) << "unknown target type " << n.type;
+        fail (ploc) << "unknown target type " << n.type <<
+          info << "perhaps the module that defines this target type is "
+               << "not loaded by project " << *scope_->root_scope ();
 
       if (t->factory == nullptr)
         fail (ploc) << "abstract target type " << t->name << "{}";
@@ -4339,7 +4345,9 @@ namespace build2
       const target_type* bt (scope_->find_target_type (bn));
 
       if (bt == nullptr)
-        fail (t) << "unknown target type " << bn;
+        fail (t) << "unknown target type " << bn <<
+          info << "perhaps the module that defines this target type is "
+               << "not loaded by project " << *scope_->root_scope ();
 
       // The derive_target_type() call below does not produce a non-abstract
       // type if passed an abstract base. So we ban this for now (it's unclear
