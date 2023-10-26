@@ -455,9 +455,9 @@ namespace build2
     }
 
     recipe install_rule::
-    apply (action a, target& t) const
+    apply (action a, target& t, match_extra& me) const
     {
-      recipe r (file_rule::apply_impl (a, t));
+      recipe r (file_rule::apply_impl (a, t, me));
 
       if (r == nullptr)
         return noop_recipe;

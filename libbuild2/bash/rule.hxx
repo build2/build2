@@ -74,7 +74,7 @@ namespace build2
       match (action, target&) const override;
 
       virtual recipe
-      apply (action, target&) const override;
+      apply (action, target&, match_extra&) const override;
 
     protected:
       const in_rule& in_;

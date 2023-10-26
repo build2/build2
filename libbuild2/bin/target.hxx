@@ -412,6 +412,21 @@ namespace build2
       virtual group_view
       group_members (action) const override;
 
+      // Match options for the install operation on the liba{}/libs{} and
+      // libua{}/libus{} target types (note: not lib{}/libul{} nor libue{}).
+      //
+      // If only install_runtime option is specified, then only install the
+      // runtime files omitting everything buildtime (headers, pkg-config
+      // files, shared library version-related symlinks, etc).
+      //
+      // Note that it's either runtime-only or runtime and buildtime (i.e.,
+      // everything), so match with install_all instead of install_buildtime
+      // (the latter is only useful in the rule implementations).
+      //
+      static constexpr uint64_t option_install_runtime   = 0x01;
+      static constexpr uint64_t option_install_buildtime = 0x02;
+      static constexpr uint64_t option_install_all = match_extra::all_options;
+
     public:
       static const target_type static_type;
     };

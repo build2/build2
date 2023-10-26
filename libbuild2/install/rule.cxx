@@ -71,26 +71,44 @@ namespace build2
       return true;
     }
 
-    const target* alias_rule::
+    pair<const target*, uint64_t> alias_rule::
     filter (const scope* is,
-            action a, const target& t, prerequisite_iterator& i) const
+            action a, const target& t, prerequisite_iterator& i,
+            match_extra& me) const
     {
       assert (i->member == nullptr);
-      return filter (is, a, t, i->prerequisite);
+      return filter (is, a, t, i->prerequisite, me);
     }
 
-    const target* alias_rule::
+    pair<const target*, uint64_t> alias_rule::
     filter (const scope* is,
-            action, const target& t, const prerequisite& p) const
+            action, const target& t, const prerequisite& p,
+            match_extra&) const
     {
       const target& pt (search (t, p));
-      return is == nullptr || pt.in (*is) ? &pt : nullptr;
+      return make_pair (is == nullptr || pt.in (*is) ? &pt : nullptr,
+                        match_extra::all_options);
     }
 
     recipe alias_rule::
-    apply (action a, target& t) const
+    apply (action a, target& t, match_extra& me) const
+    {
+      return apply_impl (a, t, me);
+    }
+
+    recipe alias_rule::
+    apply (action, target&) const
+    {
+      assert (false); // Never called.
+      return nullptr;
+    }
+
+    recipe alias_rule::
+    apply_impl (action a, target& t, match_extra& me, bool reapply) const
     {
       tracer trace ("install::alias_rule::apply");
+
+      assert (!reapply || a.operation () != update_id);
 
       // Pass-through to our installable prerequisites.
       //
@@ -102,6 +120,8 @@ namespace build2
       auto pms (group_prerequisite_members (a, t, members_mode::never));
       for (auto i (pms.begin ()), e (pms.end ()); i != e; ++i)
       {
+        // NOTE: see essentially the same logic in reapply_impl() below.
+        //
         const prerequisite& p (i->prerequisite);
 
         // Ignore excluded.
@@ -125,13 +145,17 @@ namespace build2
         if (!is)
           is = a.operation () != update_id ? install_scope (t) : nullptr;
 
-        const target* pt (filter (*is, a, t, i));
+        pair<const target*, uint64_t> fr (filter (*is, a, t, i, me));
+
+        const target* pt (fr.first);
+        uint64_t options (fr.second);
+
+        lookup l;
+
         if (pt == nullptr)
         {
           l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
-          continue;
         }
-
         // Check if this prerequisite is explicitly "not installable", that
         // is, there is the 'install' variable and its value is false.
         //
@@ -143,64 +167,108 @@ namespace build2
         //
         // Note: not the same as lookup_install() above.
         //
-        auto l ((*pt)[var_install (*p.scope.root_scope ())]);
-        if (l && cast<path> (l).string () == "false")
+        else if ((l = (*pt)[var_install (*p.scope.root_scope ())]) &&
+                 cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
-          continue;
+          pt = nullptr;
         }
-
         // If this is not a file-based target (e.g., a target group such as
         // libu{}) then ignore it if there is no rule to install.
         //
-        if (pt->is_a<file> ())
-          match_sync (a, *pt);
-        else if (!try_match_sync (a, *pt).first)
+        else if (pt->is_a<file> ())
+        {
+          match_sync (a, *pt, options);
+        }
+        else if (!try_match_sync (a, *pt, options).first)
         {
           l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
           pt = nullptr;
         }
 
-        if (pt != nullptr)
-          pts.push_back (prerequisite_target (pt, pi));
+        if (pt != nullptr || reapply)
+        {
+          // Use auxiliary data for a NULL entry to distinguish between
+          // filtered out (1) and ignored for other reasons (0).
+          //
+          pts.push_back (
+            prerequisite_target (pt, pi, fr.first == nullptr ? 1 : 0));
+        }
       }
 
       return default_recipe;
     }
 
-    // fsdir_rule
-    //
-    const fsdir_rule fsdir_rule::instance;
-
-    bool fsdir_rule::
-    match (action, target&) const
+    void alias_rule::
+    reapply_impl (action a, target& t, match_extra& me) const
     {
-      // We always match.
-      //
-      // Note that we are called both as the outer part during the update-for-
-      // un/install pre-operation and as the inner part during the un/install
-      // operation itself.
-      //
-      return true;
-    }
+      tracer trace ("install::alias_rule::reapply");
 
-    recipe fsdir_rule::
-    apply (action a, target& t) const
-    {
-      // If this is outer part of the update-for-un/install, delegate to the
-      // default fsdir rule. Otherwise, this is a noop (we don't install
-      // fsdir{}).
+      assert (a.operation () != update_id);
+
+      optional<const scope*> is;
+
+      // Iterate over prerequisites and prerequisite targets in parallel.
       //
-      // For now we also assume we don't need to do anything for prerequisites
-      // (the only sensible prerequisite of fsdir{} is another fsdir{}).
-      //
-      if (a.operation () == update_id)
+      auto& pts (t.prerequisite_targets[a]);
+      size_t j (0), n (pts.size ()), en (0);
+
+      auto pms (group_prerequisite_members (a, t, members_mode::never));
+      for (auto i (pms.begin ()), e (pms.end ());
+           i != e && j != n;
+           ++i, ++j, ++en)
       {
-        match_inner (a, t);
-        return inner_recipe;
+        // The same logic as in apply() above except that we skip
+        // prerequisites that were not filtered out.
+        //
+        const prerequisite& p (i->prerequisite);
+
+        include_type pi (include (a, t, p));
+        if (!pi)
+          continue;
+
+        if (p.proj)
+          continue;
+
+        prerequisite_target& pto (pts[j]);
+
+        if (pto.target != nullptr || pto.data == 0)
+          continue;
+
+        if (!is)
+          is = a.operation () != update_id ? install_scope (t) : nullptr;
+
+        pair<const target*, uint64_t> fr (filter (*is, a, t, i, me));
+
+        const target* pt (fr.first);
+        uint64_t options (fr.second);
+
+        lookup l;
+
+        if (pt == nullptr)
+        {
+          l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
+        }
+        else if ((l = (*pt)[var_install (*p.scope.root_scope ())]) &&
+                 cast<path> (l).string () == "false")
+        {
+          l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
+          pt = nullptr;
+        }
+        else if (pt->is_a<file> ())
+        {
+          match_sync (a, *pt, options);
+        }
+        else if (!try_match_sync (a, *pt, options).first)
+        {
+          l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
+          pt = nullptr;
+        }
+
+        pto = prerequisite_target (pt, pi, fr.first == nullptr ? 1 : 0);
       }
-      else
-        return noop_recipe;
+
+      assert (en == n); // Did not call apply() with true for reapply?
     }
 
     // group_rule
@@ -214,16 +282,19 @@ namespace build2
         alias_rule::match (a, t);
     }
 
-    const target* group_rule::
-    filter (action, const target&, const target& m) const
+    bool group_rule::
+    filter (action, const target&, const target&) const
     {
-      return &m;
+      return true;
     }
 
-    const target* group_rule::
+    pair<const target*, uint64_t> group_rule::
     filter (const scope* is,
-            action, const target& t, const prerequisite& p) const
+            action, const target& t, const prerequisite& p,
+            match_extra&) const
     {
+      pair<const target*, uint64_t> r (nullptr, match_extra::all_options);
+
       // The same logic as in file_rule::filter() below.
       //
       if (p.is_a<exe> ())
@@ -232,15 +303,18 @@ namespace build2
 
         if (p.vars.empty () ||
             cast_empty<path> (p.vars[var_install (rs)]).string () != "true")
-          return nullptr;
+          return r;
       }
 
       const target& pt (search (t, p));
-      return is == nullptr || pt.in (*is) ? &pt : nullptr;
+      if (is == nullptr || pt.in (*is))
+        r.first = &pt;
+
+      return r;
     }
 
     recipe group_rule::
-    apply (action a, target& t) const
+    apply (action a, target& t, match_extra& me) const
     {
       tracer trace ("install::group_rule::apply");
 
@@ -265,17 +339,16 @@ namespace build2
         auto& pts (t.prerequisite_targets[a]);
         for (size_t i (0); i != gv.count; ++i)
         {
-          const target* m (gv.members[i]);
+          const target* mt (gv.members[i]);
 
-          if (m == nullptr)
+          if (mt == nullptr)
             continue;
 
           // Let a customized rule have its say.
           //
-          const target* mt (filter (a, t, *m));
-          if (mt == nullptr)
+          if (!filter (a, t, *mt))
           {
-            l5 ([&]{trace << "ignoring " << *m << " (filtered out)";});
+            l5 ([&]{trace << "ignoring " << *mt << " (filtered out)";});
             continue;
           }
 
@@ -298,7 +371,7 @@ namespace build2
 
       // Delegate to the base rule.
       //
-      return alias_rule::apply (a, t);
+      return alias_rule::apply (a, t, me);
     }
 
 
@@ -315,18 +388,28 @@ namespace build2
       return true;
     }
 
-    const target* file_rule::
-    filter (const scope* is,
-            action a, const target& t, prerequisite_iterator& i) const
+    bool file_rule::
+    filter (action, const target&, const target&) const
     {
-      assert (i->member == nullptr);
-      return filter (is, a, t, i->prerequisite);
+      return true;
     }
 
-    const target* file_rule::
+    pair<const target*, uint64_t> file_rule::
     filter (const scope* is,
-            action, const target& t, const prerequisite& p) const
+            action a, const target& t, prerequisite_iterator& i,
+            match_extra& me) const
     {
+      assert (i->member == nullptr);
+      return filter (is, a, t, i->prerequisite, me);
+    }
+
+    pair<const target*, uint64_t> file_rule::
+    filter (const scope* is,
+            action, const target& t, const prerequisite& p,
+            match_extra&) const
+    {
+      pair<const target*, uint64_t> r (nullptr, match_extra::all_options);
+
       // See also group_rule::filter() with identical semantics.
       //
       if (p.is_a<exe> ())
@@ -340,24 +423,36 @@ namespace build2
         //
         if (p.vars.empty () ||
             cast_empty<path> (p.vars[var_install (rs)]).string () != "true")
-          return nullptr;
+          return r;
       }
 
       const target& pt (search (t, p));
-      return is == nullptr || pt.in (*is) ? &pt : nullptr;
+      if (is == nullptr || pt.in (*is))
+        r.first = &pt;
+
+      return r;
     }
 
     recipe file_rule::
-    apply (action a, target& t) const
+    apply (action a, target& t, match_extra& me) const
     {
-      recipe r (apply_impl (a, t));
+      recipe r (apply_impl (a, t, me));
       return r != nullptr ? move (r) : noop_recipe;
     }
 
     recipe file_rule::
-    apply_impl (action a, target& t) const
+    apply (action, target&) const
+    {
+      assert (false); // Never called.
+      return nullptr;
+    }
+
+    recipe file_rule::
+    apply_impl (action a, target& t, match_extra& me, bool reapply) const
     {
       tracer trace ("install::file_rule::apply");
+
+      assert (!reapply || a.operation () != update_id);
 
       // Note that we are called both as the outer part during the update-for-
       // un/install pre-operation and as the inner part during the un/install
@@ -415,6 +510,8 @@ namespace build2
       auto pms (group_prerequisite_members (a, t, members_mode::never));
       for (auto i (pms.begin ()), e (pms.end ()); i != e; ++i)
       {
+        // NOTE: see essentially the same logic in reapply_impl() below.
+        //
         const prerequisite& p (i->prerequisite);
 
         // Ignore excluded.
@@ -438,27 +535,30 @@ namespace build2
         if (!is)
           is = a.operation () != update_id ? install_scope (t) : nullptr;
 
-        const target* pt (filter (*is, a, t, i));
+        pair<const target*, uint64_t> fr (filter (*is, a, t, i, me));
+
+        const target* pt (fr.first);
+        uint64_t options (fr.second);
+
+        lookup l;
 
         if (pt == nullptr)
         {
           l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
-          continue;
         }
-
+        //
         // See if we were explicitly instructed not to touch this target (the
         // same semantics as in alias_rule).
         //
         // Note: not the same as lookup_install() above.
         //
-        auto l ((*pt)[var_install (*p.scope.root_scope ())]);
-        if (l && cast<path> (l).string () == "false")
+        else if ((l = (*pt)[var_install (*p.scope.root_scope ())]) &&
+                 cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
-          continue;
+          pt = nullptr;
         }
-
-        if (pt->is_a<file> ())
+        else if (pt->is_a<file> ())
         {
           // If the matched rule returned noop_recipe, then the target state
           // is set to unchanged as an optimization. Use this knowledge to
@@ -466,17 +566,28 @@ namespace build2
           // when updating static installable content (headers, documentation,
           // etc).
           //
-          if (match_sync (a, *pt, unmatch::unchanged).first)
+          // Regarding options, the expectation here is that they are not used
+          // for the update operation. And for install/uninstall, if they are
+          // used, then they don't effect whether the target is unchanged. All
+          // feels reasonable.
+          //
+          if (match_sync (a, *pt, unmatch::unchanged, options).first)
             pt = nullptr;
         }
-        else if (!try_match_sync (a, *pt).first)
+        else if (!try_match_sync (a, *pt, options).first)
         {
           l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
           pt = nullptr;
         }
 
-        if (pt != nullptr)
-          pts.push_back (prerequisite_target (pt, pi));
+        if (pt != nullptr || reapply)
+        {
+          // Use auxiliary data for a NULL entry to distinguish between
+          // filtered out (1) and ignored for other reasons (0).
+          //
+          pts.push_back (
+            prerequisite_target (pt, pi, fr.first == nullptr ? 1 : 0));
+        }
       }
 
 #if 1
@@ -500,6 +611,79 @@ namespace build2
             : perform_uninstall (a, t);
         };
       }
+    }
+
+    void file_rule::
+    reapply_impl (action a, target& t, match_extra& me) const
+    {
+      tracer trace ("install::file_rule::reapply");
+
+      assert (a.operation () != update_id);
+
+      optional<const scope*> is;
+
+      // Iterate over prerequisites and prerequisite targets in parallel.
+      //
+      auto& pts (t.prerequisite_targets[a]);
+      size_t j (0), n (pts.size ()), en (0);
+
+      auto pms (group_prerequisite_members (a, t, members_mode::never));
+      for (auto i (pms.begin ()), e (pms.end ());
+           i != e && j != n;
+           ++i, ++j, ++en)
+      {
+        // The same logic as in apply() above except that we skip
+        // prerequisites that were not filtered out.
+        //
+        const prerequisite& p (i->prerequisite);
+
+        include_type pi (include (a, t, p));
+        if (!pi)
+          continue;
+
+        if (p.proj)
+          continue;
+
+        prerequisite_target& pto (pts[j]);
+
+        if (pto.target != nullptr || pto.data == 0)
+          continue;
+
+        if (!is)
+          is = a.operation () != update_id ? install_scope (t) : nullptr;
+
+        pair<const target*, uint64_t> fr (filter (*is, a, t, i, me));
+
+        const target* pt (fr.first);
+        uint64_t options (fr.second);
+
+        lookup l;
+
+        if (pt == nullptr)
+        {
+          l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
+        }
+        else if ((l = (*pt)[var_install (*p.scope.root_scope ())]) &&
+                 cast<path> (l).string () == "false")
+        {
+          l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
+          pt = nullptr;
+        }
+        else if (pt->is_a<file> ())
+        {
+          if (match_sync (a, *pt, unmatch::unchanged, options).first)
+            pt = nullptr;
+        }
+        else if (!try_match_sync (a, *pt, options).first)
+        {
+          l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
+          pt = nullptr;
+        }
+
+        pto = prerequisite_target (pt, pi, fr.first == nullptr ? 1 : 0);
+      }
+
+      assert (en == n); // Did not call apply() with true for reapply?
     }
 
     target_state file_rule::
@@ -1160,6 +1344,8 @@ namespace build2
       //
       target_state r (straight_execute_prerequisites (a, t));
 
+      bool fr (filter (a, t, t));
+
       // Then installable ad hoc group members, if any.
       //
       for (const target* m (t.adhoc_member);
@@ -1170,10 +1356,13 @@ namespace build2
         {
           if (!mf->path ().empty () && mf->mtime () != timestamp_nonexistent)
           {
-            if (const path* p = lookup_install<path> (*mf, "install"))
+            if (filter (a, t, *mf))
             {
-              install_target (*mf, *p, tp.empty () ? 1 : 2);
-              r |= target_state::changed;
+              if (const path* p = lookup_install<path> (*mf, "install"))
+              {
+                install_target (*mf, *p, !fr || tp.empty () ? 1 : 2);
+                r |= target_state::changed;
+              }
             }
           }
         }
@@ -1182,7 +1371,7 @@ namespace build2
       // Finally install the target itself (since we got here we know the
       // install variable is there).
       //
-      if (!tp.empty ())
+      if (fr && !tp.empty ())
       {
         install_target (t, cast<path> (t[var_install (rs)]), 1);
         r |= target_state::changed;
@@ -1534,7 +1723,9 @@ namespace build2
       //
       target_state r (target_state::unchanged);
 
-      if (!tp.empty ())
+      bool fr (filter (a, t, t));
+
+      if (fr && !tp.empty ())
         r |= uninstall_target (t, cast<path> (t[var_install (rs)]), 1);
 
       // Then installable ad hoc group members, if any. To be anally precise,
@@ -1549,12 +1740,15 @@ namespace build2
         {
           if (!mf->path ().empty () && mf->mtime () != timestamp_nonexistent)
           {
-            if (const path* p = lookup_install<path> (*m, "install"))
+            if (filter (a, t, *mf))
             {
-              r |= uninstall_target (
-                *mf,
-                *p,
-                tp.empty () || r != target_state::changed ? 1 : 2);
+              if (const path* p = lookup_install<path> (*m, "install"))
+              {
+                r |= uninstall_target (
+                  *mf,
+                  *p,
+                  !fr || tp.empty () || r != target_state::changed ? 1 : 2);
+              }
             }
           }
         }
@@ -1565,6 +1759,41 @@ namespace build2
       r |= reverse_execute_prerequisites (a, t);
 
       return r;
+    }
+
+    // fsdir_rule
+    //
+    const fsdir_rule fsdir_rule::instance;
+
+    bool fsdir_rule::
+    match (action, target&) const
+    {
+      // We always match.
+      //
+      // Note that we are called both as the outer part during the update-for-
+      // un/install pre-operation and as the inner part during the un/install
+      // operation itself.
+      //
+      return true;
+    }
+
+    recipe fsdir_rule::
+    apply (action a, target& t) const
+    {
+      // If this is outer part of the update-for-un/install, delegate to the
+      // default fsdir rule. Otherwise, this is a noop (we don't install
+      // fsdir{}).
+      //
+      // For now we also assume we don't need to do anything for prerequisites
+      // (the only sensible prerequisite of fsdir{} is another fsdir{}).
+      //
+      if (a.operation () == update_id)
+      {
+        match_inner (a, t);
+        return inner_recipe;
+      }
+      else
+        return noop_recipe;
     }
   }
 }

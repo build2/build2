@@ -25,10 +25,15 @@ namespace build2
       match (action, target&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise.
+      // target otherwise. In the latter case, return the match options that
+      // should be used for this prerequisite (use match_extra::all_options
+      // and not 0 if no match options are needed).
       //
       // The default implementation ignores prerequsites that are outside of
       // the installation scope (see install_scope() for details).
+      //
+      // The default implementation always returns match_extra::all_options.
+      // The match_extra argument is not used by the default implementation.
       //
       // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.
@@ -36,31 +41,44 @@ namespace build2
       using prerequisite_iterator =
         prerequisite_members_range<group_prerequisites>::iterator;
 
-      virtual const target*
+      virtual pair<const target*, uint64_t>
       filter (const scope*,
-              action, const target&, prerequisite_iterator&) const;
+              action, const target&, prerequisite_iterator&,
+              match_extra&) const;
 
-      virtual const target*
-      filter (const scope*, action, const target&, const prerequisite&) const;
+      virtual pair<const target*, uint64_t>
+      filter (const scope*,
+              action, const target&, const prerequisite&,
+              match_extra&) const;
 
+      // Note: rule::apply() override (with match_extra).
+      //
       virtual recipe
-      apply (action, target&) const override;
+      apply (action, target&, match_extra&) const override;
+
+      // Implementation of apply().
+      //
+      // If the implementation may call reapply_impl(), then the reapply
+      // argument to apply_impl() must be true. Note that in this case, the
+      // *_impl() functions use the prerequisite_target::data member for own
+      // housekeeping.
+      //
+      recipe
+      apply_impl (action, target&, match_extra&, bool reapply = false) const;
+
+      // Implementation of reapply() that re-tries prerequisites that have
+      // been filtered out during the reapply() call. Note that currently not
+      // supported for update, only for install/uninstall.
+      //
+      void
+      reapply_impl (action, target&, match_extra&) const;
 
       alias_rule () {}
       static const alias_rule instance;
-    };
 
-    class fsdir_rule: public simple_rule
-    {
-    public:
-      virtual bool
-      match (action, target&) const override;
-
+    private:
       virtual recipe
-      apply (action, target&) const override;
-
-      fsdir_rule () {}
-      static const fsdir_rule instance;
+      apply (action, target&) const override; // Dummy simple_rule override.
     };
 
     // In addition to the alias rule's semantics, this rule sees through to
@@ -80,28 +98,26 @@ namespace build2
       virtual bool
       match (action, target&) const override;
 
-      // Return NULL if this group member should be ignored and pointer to its
-      // target otherwise.
+      // Return false if this group member should be ignored and true
+      // otherwise. Note that this filter is called during apply().
       //
       // The default implementation accepts all members.
       //
-      virtual const target*
+      virtual bool
       filter (action, const target&, const target& group_member) const;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise.
+      // target otherwise. The same semantics as in file_rule below.
       //
-      // The same semantics as in file_rule below.
-      //
+      virtual pair<const target*, uint64_t>
+      filter (const scope*,
+              action, const target&, const prerequisite&,
+              match_extra&) const override;
+
       using alias_rule::filter; // "Unhide" to make Clang happy.
 
-      virtual const target*
-      filter (const scope*,
-              action, const target&,
-              const prerequisite&) const override;
-
       virtual recipe
-      apply (action, target&) const override;
+      apply (action, target&, match_extra&) const override;
 
       group_rule (bool sto): see_through_only (sto) {}
       static const group_rule instance;
@@ -117,8 +133,21 @@ namespace build2
       virtual bool
       match (action, target&) const override;
 
+      // Return false if this ad hoc group member should be ignored and true
+      // otherwise. Note that this filter is called during execute and only
+      // for install/uninstall (and not update). For generality, it is also
+      // (first) called  on the target itself (can be detected by comparing
+      // the second and third arguments).
+      //
+      // The default implementation accepts all members.
+      //
+      virtual bool
+      filter (action, const target&, const target& adhoc_group_member) const;
+
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise.
+      // target otherwise. In the latter case, return the match options that
+      // should be used for this prerequisite (use match_extra::all_options
+      // and not 0 if no match options are needed).
       //
       // The default implementation ignores prerequsites that are outside of
       // the installation scope (see install_scope() for details). It also
@@ -130,27 +159,47 @@ namespace build2
       //
       // exe{foo}: exe{bar}: install = true # foo runs bar
       //
+      // The default implementation always returns match_extra::all_options.
+      // The match_extra argument is not used by the default implementation.
+      //
       // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.
       //
       using prerequisite_iterator =
         prerequisite_members_range<group_prerequisites>::iterator;
 
-      virtual const target*
+      virtual pair<const target*, uint64_t>
       filter (const scope*,
-              action, const target&, prerequisite_iterator&) const;
+              action, const target&, prerequisite_iterator&,
+              match_extra&) const;
 
-      virtual const target*
-      filter (const scope*, action, const target&, const prerequisite&) const;
+      virtual pair<const target*, uint64_t>
+      filter (const scope*,
+              action, const target&, const prerequisite&,
+              match_extra&) const;
 
+      // Note: rule::apply() override (with match_extra).
+      //
       virtual recipe
-      apply (action, target&) const override;
+      apply (action, target&, match_extra&) const override;
 
-      // Implementation of apply() that returns empty_recipe if the target is
-      // not installable.
+      // Implementation of apply() that returns empty_recipe (i.e., NULL) if
+      // the target is not installable.
+      //
+      // If the implementation may call reapply_impl(), then the reapply
+      // argument to apply_impl() must be true. Note that in this case, the
+      // *_impl() functions use the prerequisite_target::data member for own
+      // housekeeping.
       //
       recipe
-      apply_impl (action, target&) const;
+      apply_impl (action, target&, match_extra&, bool reapply = false) const;
+
+      // Implementation of reapply() that re-tries prerequisites that have
+      // been filtered out during the reapply() call. Note that currently not
+      // supported for update, only for install/uninstall.
+      //
+      void
+      reapply_impl (action, target&, match_extra&) const;
 
       static target_state
       perform_update (action, const target&);
@@ -288,6 +337,23 @@ namespace build2
 
       static const file_rule instance;
       file_rule () {}
+
+    private:
+      virtual recipe
+      apply (action, target&) const override; // Dummy simple_rule override.
+    };
+
+    class fsdir_rule: public simple_rule
+    {
+    public:
+      virtual bool
+      match (action, target&) const override;
+
+      virtual recipe
+      apply (action, target&) const override;
+
+      fsdir_rule () {}
+      static const fsdir_rule instance;
     };
   }
 }
