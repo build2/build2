@@ -259,7 +259,9 @@ namespace build2
         }
       }
 
-      recipe r (file_rule::apply_impl (a, t, me));
+      recipe r (file_rule::apply_impl (
+                  a, t, me,
+                  me.cur_options != match_extra::all_options /* reapply */));
 
       if (r == nullptr)
       {
@@ -326,26 +328,34 @@ namespace build2
            << ' ' << me.cur_options
            << ' ' << me.new_options; // @@ TMP
 
-      // If we are rematched with the buildtime option, propagate it to our
-      // prerequisite libraries.
-      //
-      if ((me.new_options & lib::option_install_buildtime) != 0)
-      {
-        for (const target* pt: t.prerequisite_targets[a])
-        {
-          if (pt != nullptr && (pt->is_a<liba> ()  || pt->is_a<libs> () ||
-                                pt->is_a<libua> () || pt->is_a<libus> ()))
-            rematch_sync (a, *pt, lib::option_install_buildtime);
-        }
-      }
-
-      // @@ TODO: match additional prerequisites if required.
-
       me.cur_options |= me.new_options;
 
       // We also need to update options in install_match_data.
       //
       t.data<install_match_data> (a).options = me.cur_options;
+
+      if ((me.new_options & lib::option_install_buildtime) != 0)
+      {
+        // If we are rematched with the buildtime option, propagate it to our
+        // prerequisite libraries.
+        //
+        for (const target* pt: t.prerequisite_targets[a])
+        {
+          if (pt != nullptr && (pt->is_a<liba> ()  || pt->is_a<libs> () ||
+                                pt->is_a<libua> () || pt->is_a<libus> ()))
+          {
+            // Go for all options instead of just install_buildtime to avoid
+            // any further relocking/reapply (we only support runtime-only or
+            // everything).
+            //
+            rematch_sync (a, *pt, match_extra::all_options);
+          }
+        }
+
+        // Also match any additional prerequisites (e.g., headers).
+        //
+        file_rule::reapply_impl (a, t, me);
+      }
     }
 
     bool install_rule::

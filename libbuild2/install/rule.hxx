@@ -167,8 +167,20 @@ namespace build2
       // Implementation of apply() that returns empty_recipe (i.e., NULL) if
       // the target is not installable.
       //
+      // If the implementation may call reapply_impl(), then the reapply
+      // argument to apply_impl() must be true. Note that in this case, the
+      // *_impl() functions use the prerequisite_target::data member for own
+      // housekeeping.
+      //
       recipe
-      apply_impl (action, target&, match_extra&) const;
+      apply_impl (action, target&, match_extra&, bool reapply = false) const;
+
+      // Implementation of reapply() that re-tries prerequisites that have
+      // been filtered out during the reapply() call. Note that currently not
+      // supported for update, only for install/uninstall.
+      //
+      void
+      reapply_impl (action, target&, match_extra&) const;
 
       static target_state
       perform_update (action, const target&);
