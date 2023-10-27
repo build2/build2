@@ -102,7 +102,6 @@ namespace build2
         if (const libx* l = pt->is_a<libx> ())
           pt = link_member (*l, a, link_info (t.base_scope (), ot));
 
-
         // Note: not redundant since we could be returning a member.
         //
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
@@ -155,8 +154,8 @@ namespace build2
       if (pt == nullptr)
         return make_pair (pt, options);
 
-      // Don't install executable's prerequisite headers and module
-      // interfaces.
+      // Don't install executable's or runtime-only library's prerequisite
+      // headers and module interfaces.
       //
       // Note that if they come from a group, then we assume the entire
       // group is not to be installed.
@@ -173,7 +172,9 @@ namespace build2
                 (x_obj != nullptr && p.is_a (*x_obj)));
       };
 
-      if (t.is_a<exe> ())
+      if (t.is_a<exe> () ||
+          (a.operation () != update_id &&
+           me.cur_options == lib::option_install_runtime))
       {
         if (header_source (p))
           pt = nullptr;
@@ -517,7 +518,9 @@ namespace build2
                 (x_obj != nullptr && p.is_a (*x_obj)));
       };
 
-      if (t.is_a<libue> ())
+      if (t.is_a<libue> () ||
+          (a.operation () != update_id &&
+           me.cur_options == lib::option_install_runtime))
       {
         if (header_source (p))
           pt = nullptr;
