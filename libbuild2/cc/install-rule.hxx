@@ -36,6 +36,9 @@ namespace build2
     public:
       install_rule (data&&, const link_rule&);
 
+      virtual bool
+      filter (action, const target&, const target&) const override;
+
       virtual pair<const target*, uint64_t>
       filter (const scope*,
               action, const target&, prerequisite_iterator&,
@@ -70,12 +73,13 @@ namespace build2
     // through them in case they depend on stuff that we need to install
     // (e.g., headers). Note that we use the alias_rule as a base.
     //
-    class LIBBUILD2_CC_SYMEXPORT libux_install_rule:
-      public install::alias_rule,
-      virtual common
+    class LIBBUILD2_CC_SYMEXPORT libux_install_rule: public install::alias_rule,
+                                                     virtual common
     {
     public:
       libux_install_rule (data&&, const link_rule&);
+
+      // Note: utility libraries currently have no ad hoc members.
 
       virtual pair<const target*, uint64_t>
       filter (const scope*,

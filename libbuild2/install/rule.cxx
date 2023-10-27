@@ -193,10 +193,10 @@ namespace build2
         alias_rule::match (a, t);
     }
 
-    const target* group_rule::
-    filter (action, const target&, const target& m) const
+    bool group_rule::
+    filter (action, const target&, const target&) const
     {
-      return &m;
+      return true;
     }
 
     pair<const target*, uint64_t> group_rule::
@@ -250,17 +250,16 @@ namespace build2
         auto& pts (t.prerequisite_targets[a]);
         for (size_t i (0); i != gv.count; ++i)
         {
-          const target* m (gv.members[i]);
+          const target* mt (gv.members[i]);
 
-          if (m == nullptr)
+          if (mt == nullptr)
             continue;
 
           // Let a customized rule have its say.
           //
-          const target* mt (filter (a, t, *m));
-          if (mt == nullptr)
+          if (!filter (a, t, *mt))
           {
-            l5 ([&]{trace << "ignoring " << *m << " (filtered out)";});
+            l5 ([&]{trace << "ignoring " << *mt << " (filtered out)";});
             continue;
           }
 
@@ -297,6 +296,12 @@ namespace build2
       // We always match, even if this target is not installable (so that we
       // can ignore it; see apply()).
       //
+      return true;
+    }
+
+    bool file_rule::
+    filter (action, const target&, const target&) const
+    {
       return true;
     }
 
@@ -1177,10 +1182,13 @@ namespace build2
         {
           if (!mf->path ().empty () && mf->mtime () != timestamp_nonexistent)
           {
-            if (const path* p = lookup_install<path> (*mf, "install"))
+            if (filter (a, t, *mf))
             {
-              install_target (*mf, *p, tp.empty () ? 1 : 2);
-              r |= target_state::changed;
+              if (const path* p = lookup_install<path> (*mf, "install"))
+              {
+                install_target (*mf, *p, tp.empty () ? 1 : 2);
+                r |= target_state::changed;
+              }
             }
           }
         }
@@ -1556,12 +1564,15 @@ namespace build2
         {
           if (!mf->path ().empty () && mf->mtime () != timestamp_nonexistent)
           {
-            if (const path* p = lookup_install<path> (*m, "install"))
+            if (filter (a, t, *mf))
             {
-              r |= uninstall_target (
-                *mf,
-                *p,
-                tp.empty () || r != target_state::changed ? 1 : 2);
+              if (const path* p = lookup_install<path> (*m, "install"))
+              {
+                r |= uninstall_target (
+                  *mf,
+                  *p,
+                  tp.empty () || r != target_state::changed ? 1 : 2);
+              }
             }
           }
         }

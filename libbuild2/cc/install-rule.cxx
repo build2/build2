@@ -24,6 +24,41 @@ namespace build2
     install_rule (data&& d, const link_rule& l)
         : common (move (d)), link_ (l) {}
 
+    // Wrap the file_rule's recipe into a data-carrying recipe.
+    //
+    struct install_match_data
+    {
+      build2::recipe        recipe;
+      uint64_t              options; // Match options.
+      link_rule::libs_paths libs_paths;
+
+      target_state
+      operator() (action a, const target& t)
+      {
+        return recipe (a, t);
+      }
+    };
+
+    bool install_rule::
+    filter (action a, const target& t, const target& m) const
+    {
+      if (!t.is_a<exe> ())
+      {
+        // If runtime-only, filter out all known buildtime member types.
+        //
+        const auto& md (t.data<install_match_data> (a));
+
+        if ((md.options & lib::option_install_buildtime) == 0)
+        {
+          if (m.is_a<pc> () || // pkg-config files.
+              m.is_a<libi> ()) // Import library.
+            return false;
+        }
+      }
+
+      return true;
+    }
+
     pair<const target*, uint64_t> install_rule::
     filter (const scope* is,
             action a, const target& t, prerequisite_iterator& i,
@@ -205,21 +240,6 @@ namespace build2
         file_rule::match (a, t);
     }
 
-    // Wrap the file_rule's recipe into a data-carrying recipe.
-    //
-    struct install_match_data
-    {
-      build2::recipe        recipe;
-      uint64_t              options; // Match options.
-      link_rule::libs_paths libs_paths;
-
-      target_state
-      operator() (action a, const target& t)
-      {
-        return recipe (a, t);
-      }
-    };
-
     recipe install_rule::
     apply (action a, target& t, match_extra& me) const
     {
@@ -267,13 +287,15 @@ namespace build2
       }
       else // install or uninstall
       {
-        // Derive shared library paths and cache them in the target's aux
-        // storage if we are un/installing (used in the *_extra() functions
-        // below).
-        //
-        if (file* f = t.is_a<libs> ())
+        file* ls;
+        if ((ls = t.is_a<libs> ()) || t.is_a<liba> ())
         {
-          if (!f->path ().empty ()) // Not binless.
+          // Derive shared library paths and cache them in the target's aux
+          // storage if we are un/installing (used in the *_extra() functions
+          // below).
+          //
+          link_rule::libs_paths lsp;
+          if (ls != nullptr && !ls->path ().empty ()) // Not binless.
           {
             // Note: we could omit deriving the paths if cur_options doesn't
             // have the buildtime option. But then we would have to duplicate
@@ -283,13 +305,12 @@ namespace build2
             const string* p (cast_null<string> (t["bin.lib.prefix"]));
             const string* s (cast_null<string> (t["bin.lib.suffix"]));
 
-            return install_match_data {
-              move (r),
-              me.cur_options,
-              link_.derive_libs_paths (*f,
-                                       p != nullptr ? p->c_str (): nullptr,
-                                       s != nullptr ? s->c_str (): nullptr)};
+            lsp = link_.derive_libs_paths (*ls,
+                                           p != nullptr ? p->c_str (): nullptr,
+                                           s != nullptr ? s->c_str (): nullptr);
           }
+
+          return install_match_data {move (r), me.cur_options, move (lsp)};
         }
       }
 
@@ -322,13 +343,9 @@ namespace build2
 
       me.cur_options |= me.new_options;
 
-      // Update options in install_match_data.
+      // We also need to update options in install_match_data.
       //
-      if (file* f = t.is_a<libs> ())
-      {
-        if (!f->path ().empty ()) // Not binless.
-          t.data<install_match_data> (a).options = me.cur_options;
-      }
+      t.data<install_match_data> (a).options = me.cur_options;
     }
 
     bool install_rule::

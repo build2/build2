@@ -81,12 +81,12 @@ namespace build2
       virtual bool
       match (action, target&) const override;
 
-      // Return NULL if this group member should be ignored and pointer to its
-      // target otherwise.
+      // Return false if this group member should be ignored and true
+      // otherwise. Note that this filter is called during apply().
       //
       // The default implementation accepts all members.
       //
-      virtual const target*
+      virtual bool
       filter (action, const target&, const target& group_member) const;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
@@ -115,6 +115,15 @@ namespace build2
     public:
       virtual bool
       match (action, target&) const override;
+
+      // Return false if this ad hoc group member should be ignored and true
+      // otherwise. Note that this filter is called during execute and only
+      // for install/uninstall (and not update).
+      //
+      // The default implementation accepts all members.
+      //
+      virtual bool
+      filter (action, const target&, const target& adhoc_group_member) const;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise. In the latter case, return the match options that
