@@ -70,6 +70,11 @@ namespace build2
 
       uint64_t options (match_extra::all_options);
 
+      otype ot (link_type (t).type);
+
+      // @@ TMP: drop eventually.
+      //
+#if 0
       // If this is a shared library prerequisite, install it as long as it is
       // in the installation scope.
       //
@@ -81,7 +86,6 @@ namespace build2
       //
       // Note: we install ad hoc prerequisites by default.
       //
-      otype ot (link_type (t).type);
 
       // Note: at least one must be true since we only register this rule for
       // exe{}, and lib[as]{} (this makes sure the following if-condition will
@@ -147,6 +151,61 @@ namespace build2
           return make_pair (pt, options);
         }
       }
+#else
+      // Note that at first it may seem like we don't need to install static
+      // library prerequisites of executables. But such libraries may still
+      // have prerequisites that are needed at runtime (say, some data files).
+      // So we install all libraries as long as they are in the installation
+      // scope and deal with runtime vs buildtime distiction using match
+      // options.
+      //
+      // Note: for now we assume these prerequisites never come from see-
+      // through groups.
+      //
+      // Note: we install ad hoc prerequisites by default.
+      //
+      if (p.is_a<libx> () || p.is_a<libs> () || p.is_a<liba> ())
+      {
+        const target* pt (&search (t, p));
+
+        // If this is the lib{}/libu*{} group, pick a member which we would
+        // link. For libu*{} we want the "see through" logic.
+        //
+        if (const libx* l = pt->is_a<libx> ())
+          pt = link_member (*l, a, link_info (t.base_scope (), ot));
+
+        // Adjust match options.
+        //
+        if (a.operation () != update_id)
+        {
+          if (t.is_a<exe> ())
+            options = lib::option_install_runtime;
+          else
+          {
+            // This is a library prerequisite of a library target and
+            // runtime-only begets runtime-only.
+            //
+            if (me.cur_options == lib::option_install_runtime)
+              options = lib::option_install_runtime;
+          }
+        }
+
+        // Note: not redundant since we could be returning a member.
+        //
+        if (pt->is_a<libs> () || pt->is_a<liba> ())
+        {
+          return make_pair (is == nullptr || pt->in (*is) ? pt : nullptr,
+                            options);
+        }
+        else // libua{} or libus{}
+        {
+          // See through to libu*{} members. Note that we are always in the
+          // same project (and thus amalgamation).
+          //
+          return make_pair (pt, options);
+        }
+      }
+#endif
 
       // The rest of the tests only succeed if the base filter() succeeds.
       //
@@ -453,12 +512,16 @@ namespace build2
 
       uint64_t options (match_extra::all_options);
 
+      otype ot (link_type (t).type);
+
       // The "see through" semantics that should be parallel to install_rule
       // above. In particular, here we use libue/libua/libus{} as proxies for
       // exe/liba/libs{} there.
       //
-      otype ot (link_type (t).type);
 
+      // @@ TMP: drop eventually.
+      //
+#if 0
       bool st (t.is_a<libue> () || t.is_a<libus> ()); // Target needs shared.
       bool at (t.is_a<libua> () || t.is_a<libus> ()); // Target needs static.
       assert (st || at);
@@ -504,6 +567,34 @@ namespace build2
           return make_pair (pt, options);
         }
       }
+#else
+      if (p.is_a<libx> () || p.is_a<libs> () || p.is_a<liba> ())
+      {
+        const target* pt (&search (t, p));
+
+        if (const libx* l = pt->is_a<libx> ())
+          pt = link_member (*l, a, link_info (t.base_scope (), ot));
+
+        if (a.operation () != update_id)
+        {
+          if (t.is_a<libue> ())
+            options = lib::option_install_runtime;
+          else
+          {
+            if (me.cur_options == lib::option_install_runtime)
+              options = lib::option_install_runtime;
+          }
+        }
+
+        if (pt->is_a<libs> () || pt->is_a<liba> ())
+        {
+          return make_pair (is == nullptr || pt->in (*is) ? pt : nullptr,
+                            options);
+        }
+        else
+          return make_pair (pt, options);
+      }
+#endif
 
       const target* pt (file_rule::instance.filter (is, a, t, p, me).first);
       if (pt == nullptr)
