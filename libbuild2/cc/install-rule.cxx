@@ -44,14 +44,15 @@ namespace build2
     {
       if (!t.is_a<exe> ())
       {
-        // If runtime-only, filter out all known buildtime member types.
+        // If runtime-only, filter out all known buildtime target types.
         //
         const auto& md (t.data<install_match_data> (a));
 
         if ((md.options & lib::option_install_buildtime) == 0)
         {
-          if (m.is_a<pc> () || // pkg-config files.
-              m.is_a<libi> ()) // Import library.
+          if (m.is_a<liba> () || // Staic library.
+              m.is_a<pc> ()   || // pkg-config file.
+              m.is_a<libi> ())   // Import library.
             return false;
         }
       }

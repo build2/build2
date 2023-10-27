@@ -1255,6 +1255,8 @@ namespace build2
       //
       target_state r (straight_execute_prerequisites (a, t));
 
+      bool fr (filter (a, t, t));
+
       // Then installable ad hoc group members, if any.
       //
       for (const target* m (t.adhoc_member);
@@ -1269,7 +1271,7 @@ namespace build2
             {
               if (const path* p = lookup_install<path> (*mf, "install"))
               {
-                install_target (*mf, *p, tp.empty () ? 1 : 2);
+                install_target (*mf, *p, !fr || tp.empty () ? 1 : 2);
                 r |= target_state::changed;
               }
             }
@@ -1280,7 +1282,7 @@ namespace build2
       // Finally install the target itself (since we got here we know the
       // install variable is there).
       //
-      if (!tp.empty ())
+      if (fr && !tp.empty ())
       {
         install_target (t, cast<path> (t[var_install (rs)]), 1);
         r |= target_state::changed;
@@ -1632,7 +1634,9 @@ namespace build2
       //
       target_state r (target_state::unchanged);
 
-      if (!tp.empty ())
+      bool fr (filter (a, t, t));
+
+      if (fr && !tp.empty ())
         r |= uninstall_target (t, cast<path> (t[var_install (rs)]), 1);
 
       // Then installable ad hoc group members, if any. To be anally precise,
@@ -1654,7 +1658,7 @@ namespace build2
                 r |= uninstall_target (
                   *mf,
                   *p,
-                  tp.empty () || r != target_state::changed ? 1 : 2);
+                  !fr || tp.empty () || r != target_state::changed ? 1 : 2);
               }
             }
           }

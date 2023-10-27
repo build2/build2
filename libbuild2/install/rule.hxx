@@ -118,7 +118,9 @@ namespace build2
 
       // Return false if this ad hoc group member should be ignored and true
       // otherwise. Note that this filter is called during execute and only
-      // for install/uninstall (and not update).
+      // for install/uninstall (and not update). For generality, it is also
+      // (first) called  on the target itself (can be detected by comparing
+      // the second and third arguments).
       //
       // The default implementation accepts all members.
       //
