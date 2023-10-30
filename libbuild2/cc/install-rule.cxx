@@ -680,7 +680,8 @@ namespace build2
         }
       }
 
-      return alias_rule::apply (a, t, me);
+      return alias_rule::apply_impl (
+        a, t, me, me.cur_options != match_extra::all_options /* reapply */);
     }
 
     void libux_install_rule::
@@ -692,11 +693,8 @@ namespace build2
            << ' ' << me.cur_options
            << ' ' << me.new_options; // @@ TMP
 
-      // If we are rematched with the buildtime option, propagate it to our
-      // prerequisite libraries.
-      //
-      // @@ Also libux?
-      //
+      me.cur_options |= me.new_options;
+
       if ((me.new_options & lib::option_install_buildtime) != 0)
       {
         for (const target* pt: t.prerequisite_targets[a])
@@ -705,11 +703,9 @@ namespace build2
                                 pt->is_a<libua> () || pt->is_a<libus> ()))
             rematch_sync (a, *pt, match_extra::all_options);
         }
+
+        alias_rule::reapply_impl (a, t, me);
       }
-
-      // @@ TODO: match additional prerequisites if required.
-
-      me.cur_options |= me.new_options;
     }
   }
 }

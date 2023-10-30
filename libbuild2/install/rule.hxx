@@ -56,6 +56,23 @@ namespace build2
       virtual recipe
       apply (action, target&, match_extra&) const override;
 
+      // Implementation of apply().
+      //
+      // If the implementation may call reapply_impl(), then the reapply
+      // argument to apply_impl() must be true. Note that in this case, the
+      // *_impl() functions use the prerequisite_target::data member for own
+      // housekeeping.
+      //
+      recipe
+      apply_impl (action, target&, match_extra&, bool reapply = false) const;
+
+      // Implementation of reapply() that re-tries prerequisites that have
+      // been filtered out during the reapply() call. Note that currently not
+      // supported for update, only for install/uninstall.
+      //
+      void
+      reapply_impl (action, target&, match_extra&) const;
+
       alias_rule () {}
       static const alias_rule instance;
 
