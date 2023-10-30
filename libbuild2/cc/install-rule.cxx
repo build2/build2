@@ -703,7 +703,7 @@ namespace build2
         {
           if (pt != nullptr && (pt->is_a<liba> ()  || pt->is_a<libs> () ||
                                 pt->is_a<libua> () || pt->is_a<libus> ()))
-            rematch_sync (a, *pt, lib::option_install_buildtime);
+            rematch_sync (a, *pt, match_extra::all_options);
         }
       }
 
