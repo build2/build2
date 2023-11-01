@@ -363,11 +363,6 @@ namespace build2
           link_rule::libs_paths lsp;
           if (ls != nullptr && !ls->path ().empty ()) // Not binless.
           {
-            // Note: we could omit deriving the paths if cur_options doesn't
-            // have the buildtime option. But then we would have to duplicate
-            // this code in reapply() below (where this bit could be added).
-            // So let's keep it simple if a bit inefficient for now.
-            //
             const string* p (cast_null<string> (t["bin.lib.prefix"]));
             const string* s (cast_null<string> (t["bin.lib.suffix"]));
 
@@ -468,30 +463,33 @@ namespace build2
       {
         const auto& md (t.data<install_match_data> (perform_install_id));
 
+        // Here we may have a bunch of symlinks that we need to install.
+        //
+        // Note that for runtime-only install we only omit the name that is
+        // used for linking (e.g., libfoo.so).
+        //
+        const scope& rs (t.root_scope ());
+        const link_rule::libs_paths& lp (md.libs_paths);
+
+        auto ln = [&t, &rs, &id] (const path& f, const path& l)
+        {
+          install_l (rs, id, l.leaf (), t, f.leaf (), 2 /* verbosity */);
+          return true;
+        };
+
+        const path& lk (lp.link);
+        const path& ld (lp.load);
+        const path& so (lp.soname);
+        const path& in (lp.interm);
+
+        const path* f (lp.real);
+
+        if (!in.empty ()) {r = ln (*f, in) || r; f = &in;}
+        if (!so.empty ()) {r = ln (*f, so) || r; f = &so;}
+        if (!ld.empty ()) {r = ln (*f, ld) || r; f = &ld;}
         if ((md.options & lib::option_install_buildtime) != 0)
         {
-          // Here we may have a bunch of symlinks that we need to install.
-          //
-          const scope& rs (t.root_scope ());
-          const link_rule::libs_paths& lp (md.libs_paths);
-
-          auto ln = [&t, &rs, &id] (const path& f, const path& l)
-          {
-            install_l (rs, id, l.leaf (), t, f.leaf (), 2 /* verbosity */);
-            return true;
-          };
-
-          const path& lk (lp.link);
-          const path& ld (lp.load);
-          const path& so (lp.soname);
-          const path& in (lp.interm);
-
-          const path* f (lp.real);
-
-          if (!in.empty ()) {r = ln (*f, in) || r; f = &in;}
-          if (!so.empty ()) {r = ln (*f, so) || r; f = &so;}
-          if (!ld.empty ()) {r = ln (*f, ld) || r; f = &ld;}
-          if (!lk.empty ()) {r = ln (*f, lk) || r;         }
+          if (!lk.empty ()) {r = ln (*f, lk) || r;}
         }
       }
 
@@ -507,29 +505,29 @@ namespace build2
       {
         const auto& md (t.data<install_match_data> (perform_uninstall_id));
 
+        // Here we may have a bunch of symlinks that we need to uninstall.
+        //
+        const scope& rs (t.root_scope ());
+        const link_rule::libs_paths& lp (md.libs_paths);
+
+        auto rm = [&rs, &id] (const path& f, const path& l)
+        {
+          return uninstall_l (rs, id, l.leaf (), f.leaf (), 2 /* verbosity */);
+        };
+
+        const path& lk (lp.link);
+        const path& ld (lp.load);
+        const path& so (lp.soname);
+        const path& in (lp.interm);
+
+        const path* f (lp.real);
+
+        if (!in.empty ()) {r = rm (*f, in) || r; f = &in;}
+        if (!so.empty ()) {r = rm (*f, so) || r; f = &so;}
+        if (!ld.empty ()) {r = rm (*f, ld) || r; f = &ld;}
         if ((md.options & lib::option_install_buildtime) != 0)
         {
-          // Here we may have a bunch of symlinks that we need to uninstall.
-          //
-          const scope& rs (t.root_scope ());
-          const link_rule::libs_paths& lp (md.libs_paths);
-
-          auto rm = [&rs, &id] (const path& f, const path& l)
-          {
-            return uninstall_l (rs, id, l.leaf (), f.leaf (), 2 /* verbosity */);
-          };
-
-          const path& lk (lp.link);
-          const path& ld (lp.load);
-          const path& so (lp.soname);
-          const path& in (lp.interm);
-
-          const path* f (lp.real);
-
-          if (!in.empty ()) {r = rm (*f, in) || r; f = &in;}
-          if (!so.empty ()) {r = rm (*f, so) || r; f = &so;}
-          if (!ld.empty ()) {r = rm (*f, ld) || r; f = &ld;}
-          if (!lk.empty ()) {r = rm (*f, lk) || r;         }
+          if (!lk.empty ()) {r = rm (*f, lk) || r;}
         }
       }
 
