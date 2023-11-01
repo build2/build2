@@ -269,6 +269,15 @@ namespace build2
 
     static constexpr uint64_t all_options = ~uint64_t (0);
 
+    // The list of post hoc prerequisite targets for this target. Only not
+    // NULL in rule::apply_posthoc() and rule::reapply() functions and only if
+    // there are post hoc prerequisites. Primarily useful for adjusting match
+    // options for post hoc prerequisites (but can also be used to blank some
+    // of them out).
+    //
+    vector<context::posthoc_target::prerequisite_target>*
+      posthoc_prerequisite_targets;
+
     // Auxiliary data storage.
     //
     // A rule (whether matches or not) may use this pad to pass data between
@@ -340,7 +349,8 @@ namespace build2
     explicit
     match_extra (bool l = true, bool f = false)
         : locked (l), fallback (f),
-          cur_options (all_options), new_options (0) {}
+          cur_options (all_options), new_options (0),
+          posthoc_prerequisite_targets (nullptr) {}
 
     void
     reinit (bool fallback);

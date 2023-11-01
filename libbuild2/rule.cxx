@@ -23,6 +23,11 @@ namespace build2
   }
 
   void rule::
+  apply_posthoc (action, target&, match_extra&) const
+  {
+  }
+
+  void rule::
   reapply (action, target&, match_extra&) const
   {
     // Unless the rule overrode cur_options, this function should never get

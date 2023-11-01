@@ -432,9 +432,15 @@ namespace build2
     //
     struct posthoc_target
     {
+      struct prerequisite_target
+      {
+        const build2::target* target;
+        uint64_t              match_options;
+      };
+
       build2::action                          action;
       reference_wrapper<const build2::target> target;
-      vector<const build2::target*>           prerequisite_targets;
+      vector<prerequisite_target>             prerequisite_targets;
     };
 
     list<posthoc_target> current_posthoc_targets;

@@ -360,11 +360,14 @@ namespace build2
       bool posthoc_fail (false);
       if (!ctx.current_posthoc_targets.empty () && (!fail || ctx.keep_going))
       {
+        using posthoc_target = context::posthoc_target;
+        using posthoc_prerequisite_target = posthoc_target::prerequisite_target;
+
         // Note that on each iteration we may end up with new entries at the
         // back. Since we start and end each iteration in serial execution, we
         // don't need to mess with the mutex.
         //
-        for (const context::posthoc_target& p: ctx.current_posthoc_targets)
+        for (const posthoc_target& p: ctx.current_posthoc_targets)
         {
           action a (p.action); // May not be the same as argument action.
           const target& t (p.target);
@@ -383,18 +386,21 @@ namespace build2
           //
           // @@ PERF: match in parallel (need match_direct_async(), etc).
           //
-          for (const target* pt: p.prerequisite_targets)
+          for (const posthoc_prerequisite_target& pt: p.prerequisite_targets)
           {
-            target_state s (match_direct_sync (a, *pt,
-                                               match_extra::all_options,
-                                               false /* fail */));
-
-            if (s == target_state::failed)
+            if (pt.target != nullptr)
             {
-              posthoc_fail = true;
+              target_state s (match_direct_sync (a, *pt.target,
+                                                 pt.match_options,
+                                                 false /* fail */));
 
-              if (!ctx.keep_going)
-                break;
+              if (s == target_state::failed)
+              {
+                posthoc_fail = true;
+
+                if (!ctx.keep_going)
+                  break;
+              }
             }
           }
 
@@ -495,7 +501,10 @@ namespace build2
     bool posthoc_fail (false);
     auto execute_posthoc = [&ctx, &posthoc_fail] ()
     {
-      for (const context::posthoc_target& p: ctx.current_posthoc_targets)
+      using posthoc_target = context::posthoc_target;
+      using posthoc_prerequisite_target = posthoc_target::prerequisite_target;
+
+      for (const posthoc_target& p: ctx.current_posthoc_targets)
       {
         action a (p.action); // May not be the same as argument action.
         const target& t (p.target);
@@ -509,16 +518,20 @@ namespace build2
           });
 
 #if 0
-        for (const target* pt: p.prerequisite_targets)
+        for (const posthoc_prerequisite_target& pt: p.prerequisite_targets)
         {
-          target_state s (execute_direct_sync (a, *pt, false /* fail */));
-
-          if (s == target_state::failed)
+          if (pt.target != nullptr)
           {
-            posthoc_fail = true;
+            target_state s (
+              execute_direct_sync (a, *pt.target, false /* fail */));
 
-            if (!ctx.keep_going)
-              break;
+            if (s == target_state::failed)
+            {
+              posthoc_fail = true;
+
+              if (!ctx.keep_going)
+                break;
+            }
           }
         }
 #else
@@ -528,16 +541,20 @@ namespace build2
         atomic_count tc (0);
         wait_guard wg (ctx, tc);
 
-        for (const target* pt: p.prerequisite_targets)
+        for (const posthoc_prerequisite_target& pt: p.prerequisite_targets)
         {
-          target_state s (execute_direct_async (a, *pt, 0, tc, false /*fail*/));
-
-          if (s == target_state::failed)
+          if (pt.target != nullptr)
           {
-            posthoc_fail = true;
+            target_state s (
+              execute_direct_async (a, *pt.target, 0, tc, false /*fail*/));
 
-            if (!ctx.keep_going)
-              break;
+            if (s == target_state::failed)
+            {
+              posthoc_fail = true;
+
+              if (!ctx.keep_going)
+                break;
+            }
           }
         }
 
@@ -545,18 +562,21 @@ namespace build2
 
         // Process the result.
         //
-        for (const target* pt: p.prerequisite_targets)
+        for (const posthoc_prerequisite_target& pt: p.prerequisite_targets)
         {
-          // Similar to below, no need to wait.
-          //
-          target_state s (pt->executed_state (a, false /* fail */));
-
-          if (s == target_state::failed)
+          if (pt.target != nullptr)
           {
-            // Note: no need to keep going.
+            // Similar to below, no need to wait.
             //
-            posthoc_fail = true;
-            break;
+            target_state s (pt.target->executed_state (a, false /* fail */));
+
+            if (s == target_state::failed)
+            {
+              // Note: no need to keep going.
+              //
+              posthoc_fail = true;
+              break;
+            }
           }
         }
 #endif

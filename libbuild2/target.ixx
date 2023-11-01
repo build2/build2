@@ -142,6 +142,7 @@ namespace build2
     fallback = f;
     cur_options = all_options;
     new_options = 0;
+    posthoc_prerequisite_targets = nullptr;
   }
 
   inline void match_extra::
