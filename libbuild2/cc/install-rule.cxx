@@ -405,11 +405,13 @@ namespace build2
     void install_rule::
     reapply (action a, target& t, match_extra& me) const
     {
+      tracer trace ("cc::install_rule::reapply");
+
       assert (a.operation () != update_id && !t.is_a<exe> ());
 
-      text << "REMATCH " << t
-           << ' ' << me.cur_options
-           << ' ' << me.new_options; // @@ TMP
+      l6 ([&]{trace << "rematching " << t
+                    << ", current options " << me.cur_options
+                    << ", new options " << me.new_options;});
 
       me.cur_options |= me.new_options;
 
@@ -746,11 +748,13 @@ namespace build2
     void libux_install_rule::
     reapply (action a, target& t, match_extra& me) const
     {
+      tracer trace ("cc::linux_install_rule::reapply");
+
       assert (a.operation () != update_id && !t.is_a<libue> ());
 
-      text << "REMATCH " << t
-           << ' ' << me.cur_options
-           << ' ' << me.new_options; // @@ TMP
+      l6 ([&]{trace << "rematching " << t
+                    << ", current options " << me.cur_options
+                    << ", new options " << me.new_options;});
 
       me.cur_options |= me.new_options;
 
