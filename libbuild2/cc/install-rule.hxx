@@ -55,6 +55,9 @@ namespace build2
       apply (action, target&, match_extra&) const override;
 
       virtual void
+      apply_posthoc (action, target&, match_extra&) const override;
+
+      virtual void
       reapply (action, target&, match_extra&) const override;
 
       virtual bool
@@ -95,6 +98,9 @@ namespace build2
 
       virtual recipe
       apply (action, target&, match_extra&) const override;
+
+      virtual void
+      apply_posthoc (action, target&, match_extra&) const override;
 
       virtual void
       reapply (action, target&, match_extra&) const override;
