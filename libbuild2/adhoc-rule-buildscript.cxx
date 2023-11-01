@@ -843,7 +843,7 @@ namespace build2
     }
 
     if (dir != nullptr)
-      fsdir_rule::perform_update_direct (a, t);
+      fsdir_rule::perform_update_direct (a, *dir);
 
     // Because the depdb preamble can access $<, we have to blank out all the
     // ad hoc prerequisites. Since we will still need them later, we "move"

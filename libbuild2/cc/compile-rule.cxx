@@ -1145,7 +1145,7 @@ namespace build2
           // this can very well be happening in parallel. But that's not a
           // problem since fsdir{}'s update is idempotent.
           //
-          fsdir_rule::perform_update_direct (a, t);
+          fsdir_rule::perform_update_direct (a, *dir);
         }
 
         // Note: the leading '@' is reserved for the module map prefix (see

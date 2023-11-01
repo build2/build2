@@ -189,10 +189,10 @@ namespace build2
     // of fsdir{} without the overhead of switching to the execute phase.
     //
     static void
-    perform_update_direct (action, const target&);
+    perform_update_direct (action, const fsdir&);
 
     static void
-    perform_clean_direct (action, const target&);
+    perform_clean_direct (action, const fsdir&);
 
     fsdir_rule () {}
     static const fsdir_rule instance;

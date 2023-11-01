@@ -352,16 +352,17 @@ namespace build2
   }
 
   void fsdir_rule::
-  perform_update_direct (action a, const target& t)
+  perform_update_direct (action a, const fsdir& t)
   {
     // First create the parent directory. If present, it is always first.
     //
-    const target* p (t.prerequisite_targets[a].empty ()
-                     ? nullptr
-                     : t.prerequisite_targets[a][0]);
-
-    if (p != nullptr && p->is_a<fsdir> ())
-      perform_update_direct (a, *p);
+    if (const target* p = (t.prerequisite_targets[a].empty ()
+                           ? nullptr
+                           : t.prerequisite_targets[a][0]))
+    {
+      if (const fsdir* fp = p->is_a<fsdir> ())
+        perform_update_direct (a, *fp);
+    }
 
     // The same code as in perform_update() above.
     //
@@ -394,7 +395,7 @@ namespace build2
   }
 
   void fsdir_rule::
-  perform_clean_direct (action a, const target& t)
+  perform_clean_direct (action a, const fsdir& t)
   {
     // The same code as in perform_clean() above.
     //
@@ -402,12 +403,13 @@ namespace build2
 
     // Then clean the parent directory. If present, it is always first.
     //
-    const target* p (t.prerequisite_targets[a].empty ()
-                     ? nullptr
-                     : t.prerequisite_targets[a][0]);
-
-    if (p != nullptr && p->is_a<fsdir> ())
-      perform_clean_direct (a, *p);
+    if (const target* p = (t.prerequisite_targets[a].empty ()
+                           ? nullptr
+                           : t.prerequisite_targets[a][0]))
+    {
+      if (const fsdir* fp = p->is_a<fsdir> ())
+        perform_clean_direct (a, *fp);
+    }
   }
 
   const fsdir_rule fsdir_rule::instance;
