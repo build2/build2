@@ -34,6 +34,9 @@ namespace build2
   // implementations. It is also a way for us to later pass more information
   // without breaking source compatibility.
   //
+  // A rule may adjust post hoc prerequisites by overriding apply_posthoc().
+  // See match_extra::posthoc_prerequisite_targets for background and details.
+  //
   // A rule may support match options and if such a rule is rematched with
   // different options, then reapply() is called. See
   // match_extra::{cur,new}_options for background and details.
@@ -48,6 +51,9 @@ namespace build2
 
     virtual recipe
     apply (action, target&, match_extra&) const = 0;
+
+    virtual void
+    apply_posthoc (action, target&, match_extra&) const;
 
     virtual void
     reapply (action, target&, match_extra&) const;

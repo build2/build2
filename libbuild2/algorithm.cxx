@@ -966,6 +966,37 @@ namespace build2
   }
 
   static void
+  apply_posthoc_impl (
+    action a, target& t,
+    const pair<const string, reference_wrapper<const rule>>& m,
+    context::posthoc_target& pt)
+  {
+    const scope& bs (t.base_scope ());
+
+    // Apply rules in project environment.
+    //
+    auto_project_env penv;
+    if (const scope* rs = bs.root_scope ())
+      penv = auto_project_env (*rs);
+
+    const rule& ru (m.second);
+    match_extra& me (t[a].match_extra);
+    me.posthoc_prerequisite_targets = &pt.prerequisite_targets;
+
+    auto df = make_diag_frame (
+      [a, &t, &m](const diag_record& dr)
+      {
+        if (verb != 0)
+          dr << info << "while applying rule " << m.first << " to "
+             << diag_do (a, t) << " for post hoc prerequisites";
+      });
+
+    // Note: for now no adhoc_apply_posthoc().
+    //
+    ru.apply_posthoc (a, t, me);
+  }
+
+  static void
   reapply_impl (action a,
                 target& t,
                 const pair<const string, reference_wrapper<const rule>>& m)
@@ -980,6 +1011,7 @@ namespace build2
 
     const rule& ru (m.second);
     match_extra& me (t[a].match_extra);
+    // Note: me.posthoc_prerequisite_targets carried over.
 
     auto df = make_diag_frame (
       [a, &t, &m](const diag_record& dr)
@@ -994,11 +1026,15 @@ namespace build2
     ru.reapply (a, t, me);
   }
 
-  // If anything goes wrong, set target state to failed and return false.
+  // If anything goes wrong, set target state to failed and return nullopt.
+  // Otherwise return the pointer to the new posthoc_target entry if any post
+  // hoc prerequisites were present or NULL otherwise. Note that the returned
+  // entry is stable (because we use a list) and should only be accessed
+  // during the match phase if the holding the target lock.
   //
   // Note: must be called while holding target_lock.
   //
-  static bool
+  static optional<context::posthoc_target*>
   match_posthoc (action a, target& t)
   {
     // The plan is to, while holding the lock, search and collect all the post
@@ -1024,11 +1060,18 @@ namespace build2
     // In the end, matching (and execution) "inline" (i.e., as we match/
     // execute the corresponding target) appears to be unworkable in the
     // face of cycles.
-
+    //
+    // Note also that this delayed match also helps with allowing the rule to
+    // adjust match options of post hoc prerequisites without needing the
+    // rematch support (see match_extra::posthoc_prerequisites).
+    //
     // @@ Anything we need to do for group members (see through)? Feels quite
     //    far-fetched.
     //
-    vector<const target*> pts;
+    using posthoc_target = context::posthoc_target;
+    using posthoc_prerequisite_target = posthoc_target::prerequisite_target;
+
+    vector<posthoc_prerequisite_target> pts;
     try
     {
       for (const prerequisite& p: group_prerequisites (t))
@@ -1053,14 +1096,17 @@ namespace build2
             }
           }
 
-          pts.push_back (&search (t, p)); // May fail.
+          pts.push_back (
+            posthoc_prerequisite_target {
+              &search (t, p), // May fail.
+              match_extra::all_options});
         }
       }
     }
     catch (const failed&)
     {
       t.state[a].state = target_state::failed;
-      return false;
+      return nullopt;
     }
 
     if (!pts.empty ())
@@ -1068,11 +1114,11 @@ namespace build2
       context& ctx (t.ctx);
 
       mlock l (ctx.current_posthoc_targets_mutex);
-      ctx.current_posthoc_targets.push_back (
-        context::posthoc_target {a, t, move (pts)});
+      ctx.current_posthoc_targets.push_back (posthoc_target {a, t, move (pts)});
+      return &ctx.current_posthoc_targets.back (); // Stable.
     }
 
-    return true;
+    return nullptr;
   }
 
   // If step is true then perform only one step of the match/apply sequence.
@@ -1230,7 +1276,20 @@ namespace build2
 
           if (t.has_group_prerequisites ()) // Ok since already matched.
           {
-            if (!match_posthoc (a, t))
+            if (optional<context::posthoc_target*> p = match_posthoc (a, t))
+            {
+              if (*p != nullptr)
+              {
+                // It would have been more elegant to do this before calling
+                // apply_impl() and then expose the post hoc prerequisites to
+                // apply(). The problem is the group may not be resolved until
+                // the call to apply(). And so we resort to the separate
+                // apply_posthoc() function.
+                //
+                apply_posthoc_impl (a, t, *s.rule, **p);
+              }
+            }
+            else
               s.state = target_state::failed;
           }
 
