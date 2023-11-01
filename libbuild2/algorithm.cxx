@@ -3137,7 +3137,14 @@ namespace build2
     // Let's keep this as close to update_during_match() semantically as
     // possible until we see a clear reason to deviate.
 
-    assert (a == perform_clean_id);
+    // We have a problem with fsdir{}: if the directory is not empty because
+    // there are other targets that depend on it and we execute it here and
+    // now, it will not remove the directory (because it's not yet empty) but
+    // will cause the target to be in the executed state, which means that
+    // when other targets try to execute it, it will be a noop and the
+    // directory will be left behind.
+
+    assert (a == perform_clean_id && !t.is_a<fsdir> ());
 
     target_state os (t.matched_state (a));
 
@@ -3193,6 +3200,8 @@ namespace build2
         if (p.target != nullptr)
         {
           const target& pt (*p.target);
+
+          assert (!pt.is_a<fsdir> ()); // See above.
 
           target_state os (pt.matched_state (a));
 

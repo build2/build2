@@ -482,7 +482,7 @@ namespace build2
         // cannot change their mind).
         //
         if ((s == target_state::unchanged && t.group == nullptr) ||
-            t[a].dependents.load (memory_order_consume) != 0)
+            t[a].dependents.load (memory_order_relaxed) != 0)
           return make_pair (true, s);
 
         break;

@@ -354,6 +354,8 @@ namespace build2
   void fsdir_rule::
   perform_update_direct (action a, const fsdir& t)
   {
+    assert (t.ctx.phase == run_phase::match);
+
     // First create the parent directory. If present, it is always first.
     //
     if (const target* p = (t.prerequisite_targets[a].empty ()
@@ -397,18 +399,29 @@ namespace build2
   void fsdir_rule::
   perform_clean_direct (action a, const fsdir& t)
   {
+    assert (t.ctx.phase == run_phase::match);
+
     // The same code as in perform_clean() above.
     //
-    rmdir (t.dir, t, t.ctx.current_diag_noise ? 1 : 2);
-
-    // Then clean the parent directory. If present, it is always first.
+    // Except that if there are other dependens of this fsdir{} then this will
+    // likely be a noop (because the directory won't be empty) and it makes
+    // sense to just defer cleaning to such other dependents. See
+    // clean_during_match() for backgound. This is similar logic as in
+    // unmatch::safe.
     //
-    if (const target* p = (t.prerequisite_targets[a].empty ()
-                           ? nullptr
-                           : t.prerequisite_targets[a][0]))
+    if (t[a].dependents.load (memory_order_relaxed) == 0)
     {
-      if (const fsdir* fp = p->is_a<fsdir> ())
-        perform_clean_direct (a, *fp);
+      rmdir (t.dir, t, t.ctx.current_diag_noise ? 1 : 2);
+
+      // Then clean the parent directory. If present, it is always first.
+      //
+      if (const target* p = (t.prerequisite_targets[a].empty ()
+                             ? nullptr
+                             : t.prerequisite_targets[a][0]))
+      {
+        if (const fsdir* fp = p->is_a<fsdir> ())
+          perform_clean_direct (a, *fp);
+      }
     }
   }
 

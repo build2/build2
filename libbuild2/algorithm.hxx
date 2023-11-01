@@ -740,6 +740,11 @@ namespace build2
   // cleaning to normal execute and these functions should only be used in
   // special cases where this is not possible.
   //
+  // Note also that neither function should be called on fsdir{} since it's
+  // hard to guarantee such an execution won't be too early (see the
+  // implementation for details). If you do need to clean fsdir{} during
+  // match, use fsdir_rule::perform_clean_direct() instead.
+  //
   LIBBUILD2_SYMEXPORT bool
   clean_during_match (tracer&,
                       action, const target&);
