@@ -18,6 +18,9 @@ namespace build2
   {
     using namespace bin;
 
+    using posthoc_prerequisite_target =
+      context::posthoc_target::prerequisite_target;
+
     // install_rule
     //
     install_rule::
@@ -376,6 +379,30 @@ namespace build2
     }
 
     void install_rule::
+    apply_posthoc (action a, target& t, match_extra& me) const
+    {
+      // Similar semantics to filter() above for shared libraries specified as
+      // post hoc prerequisites (e.g., plugins).
+      //
+      if (a.operation () != update_id)
+      {
+        for (posthoc_prerequisite_target& p: *me.posthoc_prerequisite_targets)
+        {
+          if (p.target != nullptr && p.target->is_a<libs> ())
+          {
+            if (t.is_a<exe> ())
+              p.match_options = lib::option_install_runtime;
+            else
+            {
+              if (me.cur_options == lib::option_install_runtime)
+                p.match_options = lib::option_install_runtime;
+            }
+          }
+        }
+      }
+    }
+
+    void install_rule::
     reapply (action a, target& t, match_extra& me) const
     {
       tracer trace ("cc::install_rule::reapply");
@@ -407,6 +434,19 @@ namespace build2
             // everything).
             //
             rematch_sync (a, *pt, match_extra::all_options);
+          }
+        }
+
+        // Also to post hoc.
+        //
+        if (me.posthoc_prerequisite_targets != nullptr)
+        {
+          for (posthoc_prerequisite_target& p: *me.posthoc_prerequisite_targets)
+          {
+            if (p.target != nullptr && p.target->is_a<libs> ())
+            {
+              p.match_options = match_extra::all_options;
+            }
           }
         }
 
@@ -685,6 +725,27 @@ namespace build2
     }
 
     void libux_install_rule::
+    apply_posthoc (action a, target& t, match_extra& me) const
+    {
+      if (a.operation () != update_id)
+      {
+        for (posthoc_prerequisite_target& p: *me.posthoc_prerequisite_targets)
+        {
+          if (p.target != nullptr && p.target->is_a<libs> ())
+          {
+            if (t.is_a<libue> ())
+              p.match_options = lib::option_install_runtime;
+            else
+            {
+              if (me.cur_options == lib::option_install_runtime)
+                p.match_options = lib::option_install_runtime;
+            }
+          }
+        }
+      }
+    }
+
+    void libux_install_rule::
     reapply (action a, target& t, match_extra& me) const
     {
       tracer trace ("cc::linux_install_rule::reapply");
@@ -704,6 +765,17 @@ namespace build2
           if (pt != nullptr && (pt->is_a<liba> ()  || pt->is_a<libs> () ||
                                 pt->is_a<libua> () || pt->is_a<libus> ()))
             rematch_sync (a, *pt, match_extra::all_options);
+        }
+
+        if (me.posthoc_prerequisite_targets != nullptr)
+        {
+          for (posthoc_prerequisite_target& p: *me.posthoc_prerequisite_targets)
+          {
+            if (p.target != nullptr && p.target->is_a<libs> ())
+            {
+              p.match_options = match_extra::all_options;
+            }
+          }
         }
 
         alias_rule::reapply_impl (a, t, me);
