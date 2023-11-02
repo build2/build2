@@ -55,6 +55,31 @@
   $* <'print $empty([bool] false)' >'false'  : bool
 }
 
+: first-second
+:
+{
+  $* <'print $first(a@1)'     >'a'                            : first
+  $* <'print $second(a@1)'    >'1'                            : second
+
+  $* <'print $first(@1)'     >'{}'                            : first-empty
+  $* <'print $second(a@)'    >'{}'                            : second-empty
+
+  $* <'print $first(1)'     >'[null]'                         : first-null
+  $* <'print $second(a)'    >'[null]'                         : second-null
+
+  $* <'print $first(1, true)'     >'1'                        : first-all
+  $* <'print $second(a, true)'    >'a'                        : second-all
+
+  $* <'print $first(0 a@1 b@2 c@ 4)'     >'a b c'             : firsts
+  $* <'print $second(z a@1 b@2 @3 d)'    >'1 2 3'             : seconds
+
+  $* <'print $first(0 a@1 b@2 c@ 4, true)'     >'0 a b c 4'   : firsts-all
+  $* <'print $second(z a@1 b@2 @3 d, true)'    >'z 1 2 3 d'   : seconds-all
+
+  $* <'print $first([name_pair] a@1)'     >'a'                : first-typed
+  $* <'print $second([name_pair] a@1)'    >'1'                : second-typed
+}
+
 : identity
 :
 {

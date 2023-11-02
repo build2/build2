@@ -101,6 +101,64 @@ namespace build2
     //
     f["empty"] += [](value* v)  {return v->null || v->empty ();};
 
+
+    // $first(<value>[, <not_pair>])
+    // $second(<value>[, <not_pair>])
+    //
+    // Return the first or the second half of a pair, respectively. If a value
+    // is not a pair, then return `null` unless the <not_pair> argument is
+    // `true`, in which case return the non-pair value.
+    //
+    // If multiple pairs are specified, then return the list of first/second
+    // halfs. If an element is not a pair, then omit it from the resulting
+    // list unless the <not_pair> argument is `true`, in which case add the
+    // non-pair element to the list.
+    //
+    f["first"] += [] (names ns, optional<value> not_pair)
+    {
+      // @@ TODO: would be nice to return typed half if passed typed value.
+
+      bool np (not_pair && convert<bool> (move (*not_pair)));
+
+      names r;
+      for (auto i (ns.begin ()), e (ns.end ()); i != e; )
+      {
+        name& f (*i++);
+        name* s (f.pair ? &*i++ : nullptr);
+
+        if (s != nullptr || np)
+        {
+          f.pair = '\0';
+          r.push_back (move (f));
+        }
+        else if (ns.size () == 1)
+          return value (nullptr); // Single non-pair.
+      }
+
+      return value (move (r));
+    };
+
+    f["second"] += [] (names ns, optional<value> not_pair)
+    {
+      bool np (not_pair && convert<bool> (move (*not_pair)));
+
+      names r;
+      for (auto i (ns.begin ()), e (ns.end ()); i != e; )
+      {
+        name& f (*i++);
+        name* s (f.pair ? &*i++ : nullptr);
+
+        if (s != nullptr)
+          r.push_back (move (*s));
+        else if (np)
+          r.push_back (move (f));
+        else if (ns.size () == 1)
+          return value (nullptr); // Single non-pair.
+      }
+
+      return value (move (r));
+    };
+
     // Leave this one undocumented for now since it's unclear why would anyone
     // want to use it currently (we don't yet have any function composition
     // facilities).
@@ -110,7 +168,7 @@ namespace build2
     // $quote(<value>[, <escape>])
     //
     // Quote the value returning its string representation. If <escape> is
-    // true, then also escape (with a backslash) the quote characters being
+    // `true`, then also escape (with a backslash) the quote characters being
     // added (this is useful if the result will be re-parsed, for example as a
     // script command line).
     //
