@@ -8422,7 +8422,7 @@ namespace build2
                          << "name";
 
             if (n.typed ())
-              fail (loc) << "concatenating " << what << " contains type";
+              fail (loc) << "concatenating " << what << " contains target type";
 
             if (!n.dir.empty ())
             {
