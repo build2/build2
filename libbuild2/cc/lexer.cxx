@@ -214,7 +214,7 @@ namespace build2
                   // #line <integer> [<string literal>] ...
                   // #     <integer> [<string literal>] ...
                   //
-                  // Also diagnose #include while at it.
+                  // Also diagnose #include while at it if preprocessed.
                   //
                   if (!(c >= '0' && c <= '9'))
                   {
@@ -222,10 +222,13 @@ namespace build2
 
                     if (t.type == type::identifier)
                     {
-                      if (t.value == "include")
-                        fail (l) << "unexpected #include directive";
-                      else if (t.value != "line")
+                      if (t.value != "line")
+                      {
+                        if (preprocessed_ && t.value == "include")
+                          fail (l) << "unexpected #include directive";
+
                         continue;
+                      }
                     }
                     else
                       continue;

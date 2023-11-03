@@ -65,7 +65,7 @@ namespace build2
           is.open (fddup (stdin_fd ()));
         }
 
-        lexer l (is, in);
+        lexer l (is, in, true /* preprocessed */);
 
         // No use printing eos since we will either get it or loop forever.
         //

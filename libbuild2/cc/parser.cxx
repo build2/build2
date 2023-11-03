@@ -17,7 +17,7 @@ namespace build2
     void parser::
     parse (ifdstream& is, const path_name& in, unit& u)
     {
-      lexer l (is, in);
+      lexer l (is, in, true /* preprocessed */);
       l_ = &l;
       u_ = &u;
 

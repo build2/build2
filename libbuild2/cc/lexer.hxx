@@ -12,6 +12,8 @@
 
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/cc/export.hxx>
+
 namespace build2
 {
   namespace cc
@@ -20,13 +22,15 @@ namespace build2
     // sequence of tokens returned is similar to what a real C/C++ compiler
     // would see from its preprocessor.
     //
-    // The input is a (partially-)preprocessed translation unit that may still
-    // contain comments, line continuations, and preprocessor directives such
-    // as #line, #pragma, but not #include (which is diagnosed). Currently,
-    // all preprocessor directives except #line are ignored and no values are
-    // saved from literals. The #line directive (and its shorthand notation)
-    // is recognized to provide the logical token location. Note that the
-    // modules-related pseudo-directives are not recognized or handled.
+    // The input is a potentially (partially-)preprocessed translation unit
+    // that may still contain comments, line continuations, and preprocessor
+    // directives such as #line and #pragma. If the input is said to be
+    // (partially-)preprocessed then #include directives are diagnosed.
+    // Currently, all preprocessor directives except #line are ignored and no
+    // values are saved from literals. The #line directive (and its shorthand
+    // notation) is recognized to provide the logical token location. Note
+    // that the modules-related pseudo-directives are not recognized or
+    // handled.
     //
     // While at it we also calculate the checksum of the input ignoring
     // comments, whitespaces, etc. This is used to detect changes that do not
@@ -80,15 +84,19 @@ namespace build2
 
     // Output the token value in a format suitable for diagnostics.
     //
-    ostream&
+    LIBBUILD2_CC_SYMEXPORT ostream&
     operator<< (ostream&, const token&);
 
-    class lexer: protected butl::char_scanner<>
+    class LIBBUILD2_CC_SYMEXPORT lexer: protected butl::char_scanner<>
     {
     public:
-      lexer (ifdstream& is, const path_name& name)
+      // If preprocessed is true, then assume the input is at least partially
+      // preprocessed and therefore should not contain #include directives.
+      //
+      lexer (ifdstream& is, const path_name& name, bool preprocessed)
           : char_scanner (is, false /* crlf */),
             name_ (name),
+            preprocessed_ (preprocessed),
             fail ("error", &name_),
             log_file_ (name)
       {
@@ -173,6 +181,8 @@ namespace build2
 
     private:
       const path_name& name_;
+      bool preprocessed_;
+
       const fail_mark fail;
 
       // Logical file and line as set by the #line directives. Note that the
