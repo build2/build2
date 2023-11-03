@@ -293,7 +293,8 @@ namespace build2
             action, const target& t, const prerequisite& p,
             match_extra&) const
     {
-      pair<const target*, uint64_t> r (nullptr, match_extra::all_options);
+      const uint64_t options (match_extra::all_options); // No definition.
+      pair<const target*, uint64_t> r (nullptr, options);
 
       // The same logic as in file_rule::filter() below.
       //
@@ -408,7 +409,8 @@ namespace build2
             action, const target& t, const prerequisite& p,
             match_extra&) const
     {
-      pair<const target*, uint64_t> r (nullptr, match_extra::all_options);
+      const uint64_t options (match_extra::all_options); // No definition.
+      pair<const target*, uint64_t> r (nullptr, options);
 
       // See also group_rule::filter() with identical semantics.
       //
