@@ -221,14 +221,16 @@ namespace build2
     // rematch, if current options already include new options, then no call
     // to reapply() is made. This, in particular, means that a rule that does
     // not adjust cur_options in match() will never get a reapply() call
-    // (because all the options are enabled from the start). If a rematch is
-    // triggered after the rule has already been executed, an error is issued.
-    // This means that match options are not usable for operation/target types
-    // that could plausibly be executed during match. In particular, using
-    // match options for update and clean operations is a bad idea (update of
-    // pretty much any target can happen during match as a result of a tool
-    // update while clean might have to be performed during match to provide
-    // the mirror semantics).
+    // (because all the options are enabled from the start). Note that
+    // cur_options should only be modfied in apply() or reapply().
+    //
+    // If a rematch is triggered after the rule has already been executed, an
+    // error is issued.  This means that match options are not usable for
+    // operation/target types that could plausibly be executed during
+    // match. In particular, using match options for update and clean
+    // operations is a bad idea (update of pretty much any target can happen
+    // during match as a result of a tool update while clean might have to be
+    // performed during match to provide the mirror semantics).
     //
     // Note also that with rematches the assumption that in the match phase
     // after matching the target we can MT-safely examine its state (such as
@@ -264,10 +266,12 @@ namespace build2
     // Note: match options are currently not exposed in Buildscript ad hoc
     // recipes/rules (but are in C++).
     //
+    static constexpr uint64_t all_options = ~uint64_t (0);
+
     uint64_t cur_options;
     uint64_t new_options;
 
-    static constexpr uint64_t all_options = ~uint64_t (0);
+    atomic<uint64_t> cur_options_; // Implementation detail (see lock_impl()).
 
     // The list of post hoc prerequisite targets for this target. Only not
     // NULL in rule::apply_posthoc() and rule::reapply() functions and only if

@@ -622,6 +622,7 @@ namespace build2
 
     me.reinit (false /* fallback */);
     me.cur_options = options; // Already applied, so cur_, not new_options.
+    me.cur_options_.store (me.cur_options, memory_order_relaxed);
     clear_target (l.action, *l.target);
     set_rule (l, nullptr); // No rule.
     set_recipe (l, move (r));

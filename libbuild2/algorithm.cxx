@@ -291,7 +291,12 @@ namespace build2
       // We don't lock already applied or executed targets unless there
       // are new options.
       //
-      if (e >= appl && (cs.match_extra.cur_options & options) == options)
+      // Note: we don't have the lock yet so we must use atomic cur_options.
+      // We also have to re-check this once we've grabbed the lock.
+      //
+      if (e >= appl &&
+          (cs.match_extra.cur_options_.load (memory_order_relaxed) & options)
+          == options)
         return target_lock {a, nullptr, e - b, false};
     }
 
@@ -312,7 +317,21 @@ namespace build2
       offset = target::offset_touched;
     }
     else
+    {
+      // Re-check the options if already applied or worse.
+      //
+      if (e >= appl && (s.match_extra.cur_options & options) == options)
+      {
+        // Essentially unlock_impl().
+        //
+        task_count.store (e, memory_order_release);
+        ctx.sched->resume (task_count);
+
+        return target_lock {a, nullptr, e - b, false};
+      }
+
       offset = e - b;
+    }
 
     return target_lock {a, &t, offset, first};
   }
@@ -962,6 +981,7 @@ namespace build2
     recipe re (ar != nullptr ? f (*ar, a, t, me) : ru.apply (a, t, me));
 
     me.free (); // Note: cur_options are still in use.
+    me.cur_options_.store (me.cur_options, memory_order_relaxed);
     return re;
   }
 
@@ -1024,6 +1044,7 @@ namespace build2
     // Note: for now no adhoc_reapply().
     //
     ru.reapply (a, t, me);
+    me.cur_options_.store (me.cur_options, memory_order_relaxed);
   }
 
   // If anything goes wrong, set target state to failed and return nullopt.
