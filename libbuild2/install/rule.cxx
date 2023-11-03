@@ -86,8 +86,8 @@ namespace build2
             match_extra&) const
     {
       const target& pt (search (t, p));
-      return make_pair (is == nullptr || pt.in (*is) ? &pt : nullptr,
-                        match_extra::all_options);
+      const uint64_t options (match_extra::all_options); // No definition.
+      return make_pair (is == nullptr || pt.in (*is) ? &pt : nullptr, options);
     }
 
     recipe alias_rule::
