@@ -6893,7 +6893,8 @@ namespace build2
           //
 #if 0
           // In Clang the module implementation's unit .pcm is special and
-          // must be "loaded".
+          // must be "loaded". Note: not anymore, not from Clang 16 and is
+          // deprecated in 17.
           //
           if (ut == unit_type::module_impl)
           {
@@ -6926,17 +6927,9 @@ namespace build2
             const file& f (pt->as<file> ());
             string s (relative (f.path ()).string ());
 
-            // In Clang the module implementation's unit .pcm is special and
-            // must be "loaded".
-            //
-            if (ut == unit_type::module_impl && i == ms.start)
-              s.insert (0, "-fmodule-file=");
-            else
-            {
-              s.insert (0, 1, '=');
-              s.insert (0, cast<string> (f.state[a].vars[c_module_name]));
-              s.insert (0, "-fmodule-file=");
-            }
+            s.insert (0, 1, '=');
+            s.insert (0, cast<string> (f.state[a].vars[c_module_name]));
+            s.insert (0, "-fmodule-file=");
 
             stor.push_back (move (s));
           }

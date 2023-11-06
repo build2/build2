@@ -433,6 +433,8 @@ namespace build2
             }
           case compiler_type::clang:
             {
+              // @@ TMP: revise
+              //
               // At the time of this writing, support for C++20 modules in
               // Clang is incomplete. And starting with Clang 9 (Apple Clang
               // 11.0.3), they are enabled by default in the C++2a mode which
@@ -448,8 +450,16 @@ namespace build2
               //
               if (modules.value)
               {
+                if (mj < 16)
+                {
+                  fail << "support for C++ modules requires Clang 16 or later" <<
+                    info << "C++ compiler is " << ci.signature <<
+                    info << "required by " << project (rs) << '@' << rs;
+                }
+
+                // See https://github.com/llvm/llvm-project/issues/71364
+                //
                 prepend ("-D__cpp_modules=201704"); // p0629r0
-                mode.push_back ("-fmodules-ts"); // For the hack to work.
                 modules = true;
               }
 
