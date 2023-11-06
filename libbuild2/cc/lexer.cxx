@@ -1111,21 +1111,18 @@ namespace build2
                 if (eos (c))
                   fail (p) << "unterminated comment";
 
-                if (c == '*' && (c = peek ()) == '/')
+                if (c == '*')
                 {
-                  get (c);
-                  break;
+                  if ((c = peek ()) == '/')
+                  {
+                    get (c);
+                    break;
+                  }
                 }
-
-                if (c != '*' && c != '\\')
+                else
                 {
                   // Direct buffer scan.
                   //
-                  // Note that we should call get() prior to the direct buffer
-                  // scan (see butl::char_scanner for details).
-                  //
-                  get (c);
-
                   const char* b (gptr_);
                   const char* e (egptr_);
                   const char* p (b);
