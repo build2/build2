@@ -243,17 +243,25 @@ namespace build2
     assert (ctx.phase == run_phase::match ||
             ctx.phase == run_phase::execute);
 
-    size_t c (state[a].task_count.load (mo));
+    const opstate& s (state[a]);
+    size_t c (s.task_count.load (mo));
     size_t b (ctx.count_base ()); // Note: cannot do (c - b)!
 
     if (ctx.phase == run_phase::match)
     {
-      // While it will normally be applied, it could also be already executed.
+      // While it will normally be applied, it could also be already executed
+      // or being relocked to reapply match options (see lock_impl() for
+      // background).
       //
-      // Note that we can't do >= offset_applied since offset_busy means it is
-      // being matched.
+      // Note that we can't just do >= offset_applied since offset_busy can
+      // also mean it is being matched.
       //
-      return c == (b + offset_applied) || c == (b + offset_executed);
+      // See also matched_state_impl(), mtime() for similar logic.
+      //
+      return (c == (b + offset_applied)  ||
+              c == (b + offset_executed) ||
+              (c >= (b + offset_busy)    &&
+               s.match_extra.cur_options_.load (memory_order_relaxed) != 0));
     }
     else
     {
@@ -308,11 +316,15 @@ namespace build2
       return make_pair (false, target_state::unknown);
     else
     {
-      // Normally applied but can also be already executed. Note that in the
-      // latter case we are guaranteed to be synchronized since we are in the
-      // match phase.
+      // The same semantics as in target::matched(). Note that in the executed
+      // case we are guaranteed to be synchronized since we are in the match
+      // phase.
       //
-      assert (c == (b + offset_applied) || c == (b + offset_executed));
+      assert (c == (b + offset_applied)  ||
+              c == (b + offset_executed) ||
+              (c >= (b + offset_busy)    &&
+               s.match_extra.cur_options_.load (memory_order_relaxed) != 0));
+
       return make_pair (true, (group_state (a) ? group->state[a] : s).state);
     }
   }

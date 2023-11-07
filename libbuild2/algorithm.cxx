@@ -311,8 +311,15 @@ namespace build2
     {
       // First lock for this operation.
       //
+      // Note that we use 0 match_extra::cur_options_ as an indication of not
+      // being applied yet. In particular, in the match phase, this is used to
+      // distinguish between the "busy because not applied yet" and "busy
+      // because relocked to reapply match options" cases. See
+      // target::matched() for details.
+      //
       s.rule = nullptr;
       s.dependents.store (0, memory_order_release);
+      s.match_extra.cur_options_.store (0, memory_order_relaxed);
 
       offset = target::offset_touched;
     }
@@ -981,6 +988,7 @@ namespace build2
     recipe re (ar != nullptr ? f (*ar, a, t, me) : ru.apply (a, t, me));
 
     me.free (); // Note: cur_options are still in use.
+    assert (me.cur_options != 0); // Match options cannot be 0 after apply().
     me.cur_options_.store (me.cur_options, memory_order_relaxed);
     return re;
   }
@@ -1044,6 +1052,7 @@ namespace build2
     // Note: for now no adhoc_reapply().
     //
     ru.reapply (a, t, me);
+    assert (me.cur_options != 0); // Match options cannot be 0 after reapply().
     me.cur_options_.store (me.cur_options, memory_order_relaxed);
   }
 
@@ -1352,6 +1361,12 @@ namespace build2
     {
       s.state = target_state::failed;
       l.offset = target::offset_applied;
+
+      // Make sure we don't relock a failed target.
+      //
+      match_extra& me (s.match_extra);
+      me.cur_options = match_extra::all_options;
+      me.cur_options_.store (me.cur_options, memory_order_relaxed);
     }
 
     if (s.state == target_state::failed)

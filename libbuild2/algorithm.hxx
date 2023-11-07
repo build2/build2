@@ -440,7 +440,7 @@ namespace build2
   //
   // Note that there will be no way to rematch on options change (since there
   // is no rule), so passing anything other than all_options is most likely a
-  // bad idea.
+  // bad idea. Passing 0 for options is illegal.
   //
   void
   match_recipe (target_lock&,

@@ -614,7 +614,8 @@ namespace build2
   inline void
   match_recipe (target_lock& l, recipe r, uint64_t options)
   {
-    assert (l.target != nullptr                &&
+    assert (options != 0                       &&
+            l.target != nullptr                &&
             l.offset < target::offset_matched  &&
             l.target->ctx.phase == run_phase::match);
 

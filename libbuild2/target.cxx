@@ -1004,15 +1004,19 @@ namespace build2
     case run_phase::load: break;
     case run_phase::match:
       {
-        // Similar logic to matched_state_impl().
+        // Similar logic to target::matched().
         //
         const opstate& s (state[action () /* inner */]);
 
-        // Note: already synchronized.
-        size_t c (s.task_count.load (memory_order_relaxed));
+        // Note: use acquire for group_state().
+        //
+        size_t c (s.task_count.load (memory_order_acquire));
         size_t b (ctx.count_base ()); // Note: cannot do (c - b)!
 
-        if (c != (b + offset_applied) && c != (b + offset_executed))
+        if (!(c == (b + offset_applied)  ||
+              c == (b + offset_executed) ||
+              (c >= (b + offset_busy)    &&
+               s.match_extra.cur_options_.load (memory_order_relaxed) != 0)))
           break;
       }
       // Fall through.

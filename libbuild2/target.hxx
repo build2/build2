@@ -249,6 +249,8 @@ namespace build2
     //   - match to resolve members (resolve_members())
     //   - match of ad hoc group via one of its ad hoc members
     //
+    // Note that the 0 cur_options value is illegal.
+    //
     // When it comes to match options specified for group members, the
     // semantics differs between explicit and ad hoc groups. For explicit
     // groups, the standard semantics described above applies and the group's
