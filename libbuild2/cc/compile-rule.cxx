@@ -3606,16 +3606,6 @@ namespace build2
 
           // Some compile options (e.g., -std, -m) affect the preprocessor.
           //
-          // Currently Clang supports importing "header modules" even when in
-          // the TS mode. And "header modules" support macros which means
-          // imports have to be resolved during preprocessing. Which poses a
-          // bit of a chicken and egg problem for us. For now, the workaround
-          // is to remove the -fmodules-ts option when preprocessing. Hopefully
-          // there will be a "pure modules" mode at some point.
-          //
-          // @@ MODHDR Clang: should be solved with the dynamic module mapper
-          //    if/when Clang supports it?
-          //
 
           // Don't treat warnings as errors.
           //
@@ -3708,8 +3698,7 @@ namespace build2
             }
           case compiler_class::gcc:
             {
-              append_options (args, cmode,
-                              cmode.size () - (modules && clang ? 1 : 0));
+              append_options (args, cmode, cmode.size ());
               append_sys_hdr_options (args); // Extra system header dirs (last).
 
               // If not gen, then stderr is discarded.
@@ -6885,11 +6874,7 @@ namespace build2
           if (ms.start == 0)
             return;
 
-          // Clang embeds module file references so we only need to specify
-          // our direct imports.
-          //
-          // If/when we get the ability to specify the mapping in a file, we
-          // will pass the whole list.
+          // If/when we get the ability to specify the mapping in a file.
           //
 #if 0
           // In Clang the module implementation's unit .pcm is special and
@@ -6910,9 +6895,16 @@ namespace build2
           s.insert (0, "-fmodule-file-map=@=");
           stor.push_back (move (s));
 #else
+          // Clang embeds module file references so we only need to specify
+          // our direct imports. @@ TMP: note anymore, clean up.
+          //
           auto& pts (t.prerequisite_targets[a]);
           for (size_t i (ms.start),
+#if 0
                  n (ms.copied != 0 ? ms.copied : pts.size ());
+#else
+                 n (pts.size ());
+#endif
                i != n;
                ++i)
           {
@@ -6942,9 +6934,7 @@ namespace build2
             return;
 
           auto& pts (t.prerequisite_targets[a]);
-          for (size_t i (ms.start), n (pts.size ());
-               i != n;
-               ++i)
+          for (size_t i (ms.start), n (pts.size ()); i != n; ++i)
           {
             const target* pt (pts[i]);
 

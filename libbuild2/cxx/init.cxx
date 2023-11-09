@@ -433,20 +433,15 @@ namespace build2
             }
           case compiler_type::clang:
             {
-              // @@ TMP: revise
+              // Things (command line options, semantics) changed quite a bit
+              // around Clang 16 so we don't support anything earlier than
+              // that (it's not practically usable anyway).
               //
-              // At the time of this writing, support for C++20 modules in
-              // Clang is incomplete. And starting with Clang 9 (Apple Clang
-              // 11.0.3), they are enabled by default in the C++2a mode which
-              // breaks the way we set things up for partial preprocessing;
-              // see this post for details:
-              //
-              // http://lists.llvm.org/pipermail/cfe-dev/2019-October/063637.html
-              //
-              // As a result, for now, we only enable modules if forced with
-              // explicit cxx.features.modules=true.
-              //
-              // Also see Clang modules support hack in cc::compile.
+              // Clang enable modules by default in c++20 or later but they
+              // don't yet (as of Clang 18) define __cpp_modules. When they
+              // do, we can consider enabling modules by default on our side.
+              // For now, we only enable modules if forced with explicit
+              // cxx.features.modules=true.
               //
               if (modules.value)
               {
@@ -459,7 +454,7 @@ namespace build2
 
                 // See https://github.com/llvm/llvm-project/issues/71364
                 //
-                prepend ("-D__cpp_modules=201704"); // p0629r0
+                prepend ("-D__cpp_modules=201907L");
                 modules = true;
               }
 
