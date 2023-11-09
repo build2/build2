@@ -205,15 +205,13 @@ $* test clean <<EOI
 :
 : Test global module fragment/leading module marker (module;).
 :
-if ($cxx.id != 'msvc') # Disabled for MSVC due to issue 845845.
+if ($cxx.id != 'msvc') # Disabled for MSVC due to issue 845845. @@ TMP revise
 {
 cat <<EOI >=g.hxx;
 void g ();
 EOI
 cat <<EOI >=core.mxx;
-#if __cpp_modules >= 201810
 module;
-#endif
 
 #include "g.hxx"
 EOI

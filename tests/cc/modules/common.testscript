@@ -21,7 +21,8 @@ cxx.std = experimental
 cxx.features.symexport = true
 
 # @@ TMP revise
-if ($cxx.id == 'gcc')
+if ($cxx.id == 'gcc' || \
+    ($cxx.id.type == 'clang' && $cxx.version.major >= 16))
   cxx.features.modules = true
 
 using cxx
@@ -38,7 +39,7 @@ if ($cxx.target.class == 'windows')
 exe{*}: test = true
 EOI
 
-# Determine if we have modules and header units support.
+# Determine if we have named modules and header units support.
 #
 +$* noop <<EOI | set modules
 print $cxx.features.modules
@@ -49,8 +50,10 @@ print ($cxx.features.modules && $cxx.id == 'gcc')
 EOI
 
 # @@ TMP: modules support is broken in MinGW GCC (not just symexport).
+# @@ TMP: try modules with Clang on Windows (symexport is likely broken).
 #
-if ($cxx.target.class == 'windows' && $cxx.id == 'gcc')
+if ($cxx.target.class == 'windows' && \
+    ($cxx.id == 'gcc' || $cxx.id.type == 'clang'))
   modules = false
   headers = false
 end
