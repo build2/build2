@@ -1944,7 +1944,7 @@ namespace build2
             if (!src)
               fail << "synthesized dependency for prerequisite " << p
                    << " would be incompatible with existing target " << *pt <<
-                info << "no existing c/" << x_lang << " source prerequisite" <<
+                info << "no existing C/" << x_lang << " source prerequisite" <<
                 info << "specify corresponding " << rtt.name << "{} "
                    << "dependency explicitly";
 
