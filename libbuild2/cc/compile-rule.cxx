@@ -7074,7 +7074,8 @@ namespace build2
       // If we are building a module interface or partition, then the target
       // is bmi*{} and it may have an ad hoc obj*{} member. For header units
       // there is no obj*{} (see the corresponding add_adhoc_member() call in
-      // apply()).
+      // apply()). For named modules there may be no obj*{} if this is a
+      // sidebuild (obj*{} is already in the library binary).
       //
       path relm;
       path relo;
@@ -7237,7 +7238,7 @@ namespace build2
           // Note also that what we are doing here appears to be incompatible
           // with PCH (/Y* options) and /Gm (minimal rebuild).
           //
-          // @@ MOD: TODO deal with absent relo.
+          // @@ MOD: TODO deal with absent relo (sidebuild).
           //
           if (find_options ({"/Zi", "/ZI", "-Zi", "-ZI"}, args))
           {
@@ -7492,8 +7493,6 @@ namespace build2
               }
             case compiler_type::clang:
               {
-                // @@ MOD TODO: deal with absent relo.
-
                 relm = relative (tp);
 
                 args.push_back ("-o");
@@ -7501,7 +7500,7 @@ namespace build2
                 args.push_back ("--precompile");
 
                 // Without this option Clang's .pcm will reference source
-                // files.  In our case this file may be transient (.ii). Plus,
+                // files. In our case this file may be transient (.ii). Plus,
                 // it won't play nice with distributed compilation.
                 //
                 args.push_back ("-Xclang");
@@ -7742,15 +7741,22 @@ namespace build2
       // Clang's module compilation requires two separate compiler
       // invocations.
       //
-      // @@ MODPART: Clang (all of this is probably outdated).
+      // Note that if relo is empty, then there is no need for an object file
+      // (sidebuild).
       //
-      if (ctype == compiler_type::clang     &&
-         (ut == unit_type::module_intf      ||
-          ut == unit_type::module_intf_part ||
-          ut == unit_type::module_impl_part))
+      if (ctype == compiler_type::clang      &&
+         (ut == unit_type::module_intf       ||
+          ut == unit_type::module_intf_part  ||
+          ut == unit_type::module_impl_part) &&
+          !relo.empty ())
       {
         // Adjust the command line. First discard everything after -o then
         // build the new "tail".
+        //
+        // Note that Clang will warn about unused command line options like
+        // -I. Feels like it's easier to just suppress the warning than to
+        // recreate the command line from scratch. Hopefully this will go away
+        // once we switch to -fmodule-output.
         //
         args.resize (out_i + 1);
         args.push_back (relo.string ().c_str ()); // Produce .o.
