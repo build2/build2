@@ -2531,6 +2531,15 @@ namespace build2
         // potentially different versions so compile with -v to see which one
         // gets picked up).
         //
+        // Also, lately, we started seeing __LIBCPP_VERSION values like 15.0.6
+        // or 16.0.2 which would suggest the base is 15.0.5 or 16.0.1. But
+        // that assumption did not check out with the actual usage. For
+        // example, vanilla Clang 16 should no longer require -fmodules-ts but
+        // the Apple's version (that is presumably based on it) still does. So
+        // the theory here is that Apple upgrades to newer libc++ while
+        // keeping the old compiler. Which means we must be more conservative
+        // and assume something like 15.0.6 is still 14-based.
+        //
         // Note that this is Apple Clang version and not XCode version.
         //
         // 4.2    -> 3.2svn
@@ -2551,17 +2560,16 @@ namespace build2
         // 12.0.5 -> 10.0 (yes, seriously!)
         // 13.0.0 -> 11.0
         // 13.1.6 -> 12.0
-        // 14.0.0 -> 12.0   (__LIBCPP_VERSION=130000)
-        // 14.0.3 -> 15.0.5 (__LIBCPP_VERSION=150006)
-        // 15.0.0 -> 16.0.1 (__LIBCPP_VERSION=160002)
+        // 14.0.0 -> 12.0 (__LIBCPP_VERSION=130000)
+        // 14.0.3 -> 14.0 (__LIBCPP_VERSION=150006)
+        // 15.0.0 -> 15.0 (__LIBCPP_VERSION=160002)
         //
         uint64_t mj (var_ver->major);
         uint64_t mi (var_ver->minor);
         uint64_t pa (var_ver->patch);
 
-
-        if      (mj >= 15)                          {mj = 16; mi = 0; pa = 1;}
-        else if (mj == 14 && (mi > 0 || pa >= 3))   {mj = 15; mi = 0; pa = 5;}
+        if      (mj >= 15)                          {mj = 15; mi = 0; pa = 0;}
+        else if (mj == 14 && (mi > 0 || pa >= 3))   {mj = 14; mi = 0; pa = 0;}
         else if (mj == 14 || (mj == 13 && mi >= 1)) {mj = 12; mi = 0; pa = 0;}
         else if (mj == 13)                          {mj = 11; mi = 0; pa = 0;}
         else if (mj == 12 && (mi > 0 || pa >= 5))   {mj = 10; mi = 0; pa = 0;}
