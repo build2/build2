@@ -7123,7 +7123,9 @@ namespace build2
       small_vector<string, 2> header_args; // Header unit options storage.
       small_vector<string, 2> module_args; // Module options storage.
 
+#if 0
       size_t out_i (0);  // Index of the -o option.
+#endif
 
       switch (cclass)
       {
@@ -7451,9 +7453,11 @@ namespace build2
           append_header_options (env, args, header_args, a, t, md, md.dd);
           append_module_options (env, args, module_args, a, t, md, md.dd);
 
+#if 0
           // Note: the order of the following options is relied upon below.
           //
           out_i = args.size (); // Index of the -o option.
+#endif
 
           if (ut == unit_type::module_intf      ||
               ut == unit_type::module_intf_part ||
@@ -7493,8 +7497,12 @@ namespace build2
               }
             case compiler_type::clang:
               {
+                assert (ut != unit_type::module_header);
+
                 relm = relative (tp);
 
+                // @@ TMP: cleanup (see also the second invocation below).
+#if 0
                 args.push_back ("-o");
                 args.push_back (relm.string ().c_str ());
                 args.push_back ("--precompile");
@@ -7506,6 +7514,29 @@ namespace build2
                 args.push_back ("-Xclang");
                 args.push_back ("-fmodules-embed-all-files");
 
+#else
+                // Without this option Clang's .pcm will reference source
+                // files. In our case this file may be transient (.ii). Plus,
+                // it won't play nice with distributed compilation.
+                //
+                args.push_back ("-Xclang");
+                args.push_back ("-fmodules-embed-all-files");
+
+                if (relo.empty ())
+                {
+                  args.push_back ("-o");
+                  args.push_back (relm.string ().c_str ());
+                  args.push_back ("--precompile");
+                }
+                else
+                {
+                  out1 = "-fmodule-output=" + relm.string ();
+                  args.push_back (out1.c_str ());
+                  args.push_back ("-o");
+                  args.push_back (relo.string ().c_str ());
+                  args.push_back ("-c");
+                }
+#endif
                 break;
               }
             case compiler_type::msvc:
@@ -7738,6 +7769,9 @@ namespace build2
       if (ptmp && verb >= 3)
         md.psrc.temporary = true;
 
+      // @@ TMP: cleanup (see also --precompile option above and out_i).
+      //
+#if 0
       // Clang's module compilation requires two separate compiler
       // invocations.
       //
@@ -7800,6 +7834,7 @@ namespace build2
           rm.cancel ();
         }
       }
+#endif
 
       timestamp now (system_clock::now ());
 
