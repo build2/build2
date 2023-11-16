@@ -1037,7 +1037,7 @@ namespace build2
     executed_state_impl (action) const;
 
     // Return true if the state comes from the group. Target must be at least
-    // matched.
+    // matched except for ad hoc group members during the execute phase.
     //
     bool
     group_state (action) const;

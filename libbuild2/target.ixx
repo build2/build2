@@ -273,9 +273,6 @@ namespace build2
     }
   }
 
-  LIBBUILD2_SYMEXPORT target_state
-  group_action (action, const target&); // <libbuild2/algorithm.hxx>
-
   inline bool target::
   group_state (action a) const
   {
@@ -289,6 +286,19 @@ namespace build2
     // @@ Hm, I wonder why not just return s.recipe_group_action now that we
     //    cache it.
     //
+
+    // This special hack allows us to do things like query an ad hoc member's
+    // state or mtime without matching/executing the member, only the group.
+    // Requiring matching/executing the member would be too burdensome and
+    // this feels harmless (ad hoc membership cannot be changed during the
+    // execute phase).
+    //
+    // Note: this test must come first since the member may not be matched and
+    // thus its state uninitialized.
+    //
+    if (ctx.phase == run_phase::execute && adhoc_group_member ())
+      return true;
+
     const opstate& s (state[a]);
 
     if (s.state == target_state::group)
