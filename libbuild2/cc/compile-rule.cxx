@@ -7511,6 +7511,9 @@ namespace build2
                 // files. In our case this file may be transient (.ii). Plus,
                 // it won't play nice with distributed compilation.
                 //
+                // Note that this sort of appears to be the default from Clang
+                // 17, but not quite, see llvm-project issued #72383.
+                //
                 args.push_back ("-Xclang");
                 args.push_back ("-fmodules-embed-all-files");
 
@@ -7518,6 +7521,9 @@ namespace build2
                 // Without this option Clang's .pcm will reference source
                 // files. In our case this file may be transient (.ii). Plus,
                 // it won't play nice with distributed compilation.
+                //
+                // Note that this sort of appears to be the default from Clang
+                // 17, but not quite, see llvm-project issued #72383.
                 //
                 args.push_back ("-Xclang");
                 args.push_back ("-fmodules-embed-all-files");
