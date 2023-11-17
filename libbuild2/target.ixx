@@ -769,6 +769,8 @@ namespace build2
   inline bool mtime_target::
   newer (timestamp mt, target_state s) const
   {
+    assert (s != target_state::unknown); // Should be executed.
+
     timestamp mp (mtime ());
 
     // What do we do if timestamps are equal? This can happen, for example,
