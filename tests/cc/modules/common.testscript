@@ -21,8 +21,12 @@ cxx.std = experimental
 cxx.features.symexport = true
 
 # @@ TMP revise
+#
+# Note: there are some issues with enabling modules in Apple Clang 15 so
+# for now we only test vanilla Clang.
+#
 if ($cxx.id == 'gcc' || \
-    ($cxx.id.type == 'clang' && $cxx.version.major >= 16))
+    ($cxx.id == 'clang' && $cxx.version.major >= 16))
   cxx.features.modules = true
 
 using cxx
@@ -50,7 +54,7 @@ print ($cxx.features.modules && $cxx.id == 'gcc')
 EOI
 
 # @@ TMP: modules support is broken in MinGW GCC (not just symexport).
-# @@ TMP: try modules with Clang on Windows (symexport is likely broken).
+# @@ TMP: try modules with Clang on Windows (symexport seems to work).
 #
 if ($cxx.target.class == 'windows' && \
     ($cxx.id == 'gcc' || $cxx.id.type == 'clang'))
