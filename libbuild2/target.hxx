@@ -782,12 +782,14 @@ namespace build2
 
     // If target_only is true, then only look in target and its target group
     // without continuing in scopes. As an optimization, the caller can also
-    // pass the base scope of the target, if already known.
+    // pass the base scope of the target, if already known. If locked is true,
+    // assume the targets mutex is locked.
     //
     pair<lookup_type, size_t>
     lookup_original (const variable&,
                      bool target_only = false,
-                     const scope* bs = nullptr) const;
+                     const scope* bs = nullptr,
+                     bool locked = false) const;
 
     // Return a value suitable for assignment. See scope for details.
     //
@@ -802,6 +804,10 @@ namespace build2
     value&
     append (const variable&);
 
+    // As above but assume the targets mutex is locked.
+    //
+    value&
+    append_locked (const variable&);
 
     // Rule hints.
     //

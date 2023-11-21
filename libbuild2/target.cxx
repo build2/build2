@@ -143,7 +143,8 @@ namespace build2
   pair<lookup, size_t> target::
   lookup_original (const variable& var,
                    bool target_only,
-                   const scope* bs) const
+                   const scope* bs,
+                   bool locked) const
   {
     pair<lookup_type, size_t> r (lookup_type (), 0);
 
@@ -204,9 +205,14 @@ namespace build2
     {
       if (!target_only)
       {
-        target_key tk (key ());
-        target_key g1k (g1 != nullptr ? g1->key () : target_key {});
-        target_key g2k (g2 != nullptr ? g2->key () : target_key {});
+        auto key = [locked] (const target* t)
+        {
+          return locked ? t->key_locked () : t->key ();
+        };
+
+        target_key tk (key (this));
+        target_key g1k (g1 != nullptr ? key (g1) : target_key {});
+        target_key g2k (g2 != nullptr ? key (g2) : target_key {});
 
         if (bs == nullptr)
           bs = &base_scope ();
@@ -235,6 +241,22 @@ namespace build2
     // applied.
     //
     auto l (lookup_original (var).first);
+
+    if (l.defined () && l.belongs (*this)) // Existing var in this target.
+      return vars.modify (l); // Ok since this is original.
+
+    value& r (assign (var)); // NULL.
+
+    if (l.defined ())
+      r = *l; // Copy value (and type) from the outer scope.
+
+    return r;
+  }
+
+  value& target::
+  append_locked (const variable& var)
+  {
+    auto l (lookup_original (var, false, nullptr, true /* locked */).first);
 
     if (l.defined () && l.belongs (*this)) // Existing var in this target.
       return vars.modify (l); // Ok since this is original.
