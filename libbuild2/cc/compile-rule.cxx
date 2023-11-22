@@ -6328,9 +6328,14 @@ namespace build2
 
         if (m.score <= match_max (in))
         {
-          const string& mn (cast<string> (bt->state[a].vars[c_module_name]));
+          // If the extraction of the module information for this BMI failed
+          // and we have deferred failure to compiler diagnostics, then there
+          // will be no module name assigned. It would have been better to
+          // make sure that's the cause, but that won't be easy.
+          //
+          const string* mn (cast_null<string> (bt->state[a].vars[c_module_name]));
 
-          if (in != mn)
+          if (mn != nullptr && in != *mn)
           {
             // Note: matched, so the group should be resolved.
             //
@@ -6344,7 +6349,7 @@ namespace build2
                 fail (relative (src))
                   << "failed to correctly guess module name from " << p <<
                   info << "guessed: " << in <<
-                  info << "actual:  " << mn <<
+                  info << "actual:  " << *mn <<
                   info << "consider adjusting module interface file names or" <<
                   info << "consider specifying module name with " << x
                   << ".module_name";
@@ -6372,12 +6377,15 @@ namespace build2
             if (et == nullptr)
               continue; // Unresolved (std.*).
 
-            const string& mn (cast<string> (et->state[a].vars[c_module_name]));
+            // As above (deferred failure).
+            //
+            const string* mn (cast_null<string> (et->state[a].vars[c_module_name]));
 
-            if (find_if (imports.begin (), imports.end (),
-                         [&mn] (const module_import& i)
+            if (mn != nullptr &&
+                find_if (imports.begin (), imports.end (),
+                         [mn] (const module_import& i)
                          {
-                           return i.name == mn;
+                           return i.name == *mn;
                          }) == imports.end ())
             {
               pts.push_back (et);
@@ -6388,10 +6396,10 @@ namespace build2
               // but it's probably not worth it if we have a small string
               // optimization.
               //
-              import_type t (mn.find (':') != string::npos
+              import_type t (mn->find (':') != string::npos
                              ? import_type::module_part
                              : import_type::module_intf);
-              imports.push_back (module_import {t, mn, true, 0});
+              imports.push_back (module_import {t, *mn, true, 0});
             }
           }
         }
