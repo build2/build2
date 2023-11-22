@@ -228,11 +228,13 @@ namespace build2
       //
       auto header_source = [this] (const auto& p)
       {
-        return (x_header (p)   ||
-                p.is_a (x_src) ||
-                (x_mod != nullptr && p.is_a (*x_mod)) ||
-                (x_asp != nullptr && p.is_a (*x_asp)) ||
-                (x_obj != nullptr && p.is_a (*x_obj)));
+        return (x_header (p)                                   ||
+                p.is_a (x_src)                                 ||
+                p.is_a (c::static_type)                        ||
+                p.is_a (S::static_type)                        ||
+                (x_mod != nullptr && p.is_a (*x_mod))          ||
+                (x_obj != nullptr && (p.is_a (*x_obj)          ||
+                                      p.is_a (m::static_type))));
       };
 
       if (t.is_a<exe> () ||
@@ -643,11 +645,13 @@ namespace build2
 
       auto header_source = [this] (const auto& p)
       {
-        return (x_header (p)   ||
-                p.is_a (x_src) ||
-                (x_mod != nullptr && p.is_a (*x_mod)) ||
-                (x_asp != nullptr && p.is_a (*x_asp)) ||
-                (x_obj != nullptr && p.is_a (*x_obj)));
+        return (x_header (p)                                   ||
+                p.is_a (x_src)                                 ||
+                p.is_a (c::static_type)                        ||
+                p.is_a (S::static_type)                        ||
+                (x_mod != nullptr && p.is_a (*x_mod))          ||
+                (x_obj != nullptr && (p.is_a (*x_obj)          ||
+                                      p.is_a (m::static_type))));
       };
 
       if (t.is_a<libue> () ||

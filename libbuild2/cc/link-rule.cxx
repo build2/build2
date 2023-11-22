@@ -299,7 +299,7 @@ namespace build2
         {
           r.seen_x = true;
         }
-        else if (p.is_a<c> ()                       ||
+        else if (p.is_a<c> () || p.is_a<S> ()       ||
                  (x_obj != nullptr && p.is_a<m> ()) ||
                  // Header-only C library.
                  (library && p.is_a<h> ()))
@@ -1008,9 +1008,8 @@ namespace build2
             //
 #if 1
             if (!um)
-              um = (p.is_a (x_src) || p.is_a<c> ()                          ||
+              um = (p.is_a (x_src) || p.is_a<c> () || p.is_a<S> ()          ||
                     (x_mod != nullptr && p.is_a (*x_mod))                   ||
-                    (x_asp != nullptr && p.is_a (*x_asp))                   ||
                     (x_obj != nullptr && (p.is_a (*x_obj) || p.is_a<m> ())) ||
                     x_header (p, true));
 #endif
@@ -1041,8 +1040,7 @@ namespace build2
         bool hdr (false);
 
         if (mod                                                   ||
-            p.is_a (x_src) || p.is_a<c> ()                        ||
-            (x_asp != nullptr && p.is_a (*x_asp))                 ||
+            p.is_a (x_src) || p.is_a<c> () || p.is_a<S> ()        ||
             (x_obj != nullptr && (p.is_a (*x_obj) || p.is_a<m> ())))
         {
           binless = binless && (mod ? user_binless : false);
@@ -1911,8 +1909,7 @@ namespace build2
               //
               if (mod
                   ? p1.is_a (*x_mod)
-                  : (p1.is_a (x_src) || p1.is_a<c> ()                        ||
-                     (x_asp != nullptr && p1.is_a (*x_asp))                  ||
+                  : (p1.is_a (x_src) || p1.is_a<c> () || p1.is_a<S> ()       ||
                      (x_obj != nullptr && (p1.is_a (*x_obj) || p1.is_a<m> ()))))
               {
                 src = true;
@@ -1930,7 +1927,7 @@ namespace build2
                     p.is_a (x_src)                        ||
                     (x_asp != nullptr && p.is_a (*x_asp)) ||
                     (x_obj != nullptr && p.is_a (*x_obj))) && x_header (p1)) ||
-                  ((p.is_a<c> () ||
+                  ((p.is_a<c> () || p.is_a<S> () ||
                     (x_obj != nullptr && p.is_a<m> ())) && p1.is_a<h> ()))
                 continue;
 
@@ -2073,8 +2070,7 @@ namespace build2
         {
           if (mod
               ? p1.is_a (*x_mod)
-              : (p1.is_a (x_src) || p1.is_a<c> ()                         ||
-                 (x_asp != nullptr && p1.is_a (*x_asp))                   ||
+              : (p1.is_a (x_src) || p1.is_a<c> () || p1.is_a<S> ()        ||
                  (x_obj != nullptr && (p1.is_a (*x_obj) || p1.is_a<m> ()))))
           {
             // Searching our own prerequisite is ok, p1 must already be
