@@ -185,12 +185,14 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern const string build_version_interface;
 
   // Whether running installed build as well as the library installation
-  // directory (only if installed, empty otherwise) and the exported buildfile
-  // installation directory (only if configured, empty otherwise).
+  // directory (only if installed, empty otherwise), the exported buildfile
+  // installation directory (only if configured, empty otherwise), and data
+  // installation directory (only if installed, src_root otherwise).
   //
   LIBBUILD2_SYMEXPORT extern const bool build_installed;
   LIBBUILD2_SYMEXPORT extern const dir_path build_install_lib; // $install.lib
   LIBBUILD2_SYMEXPORT extern const dir_path build_install_buildfile; // $install.buildfile
+  LIBBUILD2_SYMEXPORT extern const dir_path build_install_data; // $install.data
 
   // --[no-]mtime-check
   //

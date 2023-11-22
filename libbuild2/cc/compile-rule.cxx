@@ -5626,6 +5626,9 @@ namespace build2
     {
       tracer trace (x, "compile_rule::search_modules");
 
+      context& ctx (bs.ctx);
+      const scope& rs (*bs.root_scope ());
+
       // NOTE: currently we don't see header unit imports (they are handled by
       //       extract_headers() and are not in imports).
 
@@ -5689,10 +5692,10 @@ namespace build2
       // module (or partition) component. Failed that, we will match `format`
       // to `print` because the last character (`t`) is the same.
       //
-      // For std.* modules we only accept non-fuzzy matches (think std.core vs
-      // some core.mxx). And if such a module is unresolved, then we assume it
-      // is pre-built and will be found by some other means (e.g., VC's
-      // IFCPATH).
+      // For std.* modules we only accept non-fuzzy matches (think std.compat
+      // vs some compat.mxx). And if such a module is unresolved, then we
+      // assume it is pre-built and will be found by some other means (e.g.,
+      // VC's IFCPATH).
       //
       // Note also that we handle module partitions the same as submodules. In
       // other words, for matching, `.` and `:` are treated the same.
@@ -5899,6 +5902,7 @@ namespace build2
       // so we actually don't need to pass any extra options (unless things
       // get moved) but they still need access to the BMIs (and things will
       // most likely have to be done differenly for distributed compilation).
+      // @@ Note: no longer the case for Clang either.
       //
       // So the revised plan: on the off chance that some implementation will
       // do it differently we will continue maintaing the imported/re-exported
@@ -6044,7 +6048,15 @@ namespace build2
               continue;
 
             if (const target** p = check_exact (*n))
-              *p = &this->make_module_sidebuild (a, bs, l, *pt, *n); // GCC 4.9
+            {
+              // It seems natural to build a BMI type that corresponds to the
+              // library type. After all, this is where the object file part
+              // of the BMI is going to come from (unless it's a module
+              // interface-only library).
+              //
+              *p = &this->make_module_sidebuild (
+                a, bs, &l, link_type (l).type, *pt, *n).first; // GCC 4.9
+            }
           }
           // Note that in prerequisite targets we will have the libux{}
           // members, not the group.
@@ -6059,112 +6071,194 @@ namespace build2
         }
       };
 
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+      // Pre-resolve std modules in an ad hoc way for certain compilers.
+      //
+      // @@ TODO: cache x_stdlib value.
+      //
+      if (ctype == compiler_type::clang &&
+          cmaj >= 17                    &&
+          cast<string> (rs[x_stdlib]) == "libc++")
       {
-        if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
-          continue;
+        // Similar logic to check_exact() above.
+        //
+        done = true;
 
-        const target* pt (p.load ()); // Should be cached for libraries.
-
-        if (pt != nullptr)
+        for (size_t i (0); i != n; ++i)
         {
-          const file* lt (nullptr);
+          module_import& m (imports[i]);
 
-          if (const libx* l = pt->is_a<libx> ())
-            lt = link_member (*l, a, li);
-          else if (pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ())
-            lt = &pt->as<file> ();
-
-          // If this is a library, check its bmi{}s and mxx{}s.
-          //
-          if (lt != nullptr)
+          if (m.name == "std")
           {
-            find (*lt, find);
+            // Find or insert std.cppm (similar code to pkgconfig.cxx).
+            //
+            // Note: build_install_data is absolute and normalized.
+            //
+            const target& mt (
+              ctx.targets.insert_locked (
+                *x_mod,
+                (dir_path (build_install_data) /= "libbuild2") /= "cc",
+                dir_path (),
+                "std",
+                "cppm",
+                target_decl::implied,
+                trace).first);
 
-            if (done)
-              break;
+            // Which output type should we use, static or shared? The correct
+            // way would be to detect whether static or shared version of
+            // libc++ is to be linked and use the corresponding type. And we
+            // could do that by searching for -static-libstdc++ in loption
+            // (and no, it's not -static-libc++).
+            //
+            // But, looking at the object file produced from std.cppm, it only
+            // contains one symbol, the static object initializer. And this is
+            // unlikely to change since all other non-inline/template symbols
+            // should be in libc++. So feels like it's not worth the trouble
+            // and one variant should be good enough for both cases. Let's use
+            // the shared one for less surprising diagnostics (as in, "why are
+            // you linking obje{} to a shared library?")
+            //
+            // (Of course, theoretically, std.cppm could detect via a macro
+            // whether it's being compiled with -fPIC or not and do things
+            // differently, but this seems far-fetched).
+            //
+            pair<target&, ulock> tl (
+              this->make_module_sidebuild (
+                a, bs, nullptr, otype::s, mt, m.name)); // GCC 4.9
 
-            continue;
+            if (tl.second.owns_lock ())
+            {
+              value& v (tl.first.append_locked (x_coptions));
+
+              if (v.null)
+                v = strings {};
+
+              v.as<strings> ().push_back ("-Wno-reserved-module-identifier");
+
+              tl.second.unlock ();
+            }
+
+            pts[start + i].target = &tl.first;
+            m.score = match_max (m.name) + 1;
+            continue; // Scan the rest to detect if all done.
           }
 
-          // Fall through.
+          done = false;
         }
+      }
 
-        // While it would have been even better not to search for a target, we
-        // need to get hold of the corresponding mxx{} (unlikely but possible
-        // for bmi{} to have a different name).
-        //
-        // While we want to use group_prerequisite_members() below, we cannot
-        // call resolve_group() since we will be doing it "speculatively" for
-        // modules that we may use but also for modules that may use us. This
-        // quickly leads to deadlocks. So instead we are going to perform an
-        // ad hoc group resolution.
-        //
-        const target* pg;
-        if (p.is_a<bmi> ())
-        {
-          pg = pt != nullptr ? pt : &p.search (t);
-          pt = &search (t, btt, p.key ()); // Same logic as in picking obj*{}.
-        }
-        else if (p.is_a (btt))
-        {
-          pg = &search (t, bmi::static_type, p.key ());
-          if (pt == nullptr) pt = &p.search (t);
-        }
-        else
-          continue;
-
-        // Find the mxx{} prerequisite and extract its "file name" for the
-        // fuzzy match unless the user specified the module name explicitly.
-        //
-        for (prerequisite_member p:
-               prerequisite_members (a, t, group_prerequisites (*pt, pg)))
+      // Go over prerequisites and try to resolve imported modules with them.
+      //
+      if (!done)
+      {
+        for (prerequisite_member p: group_prerequisite_members (a, t))
         {
           if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
             continue;
 
-          if (p.is_a (*x_mod))
+          const target* pt (p.load ()); // Should be cached for libraries.
+
+          if (pt != nullptr)
           {
-            // Check for an explicit module name. Only look for an existing
-            // target (which means the name can only be specified on the
-            // target itself, not target type/pattern-spec).
+            const file* lt (nullptr);
+
+            if (const libx* l = pt->is_a<libx> ())
+              lt = link_member (*l, a, li);
+            else if (pt->is_a<liba> () ||
+                     pt->is_a<libs> () ||
+                     pt->is_a<libux> ())
+              lt = &pt->as<file> ();
+
+            // If this is a library, check its bmi{}s and mxx{}s.
             //
-            const target* t (p.search_existing ());
-            const string* n (t != nullptr
-                             ? cast_null<string> (t->vars[c_module_name])
-                             : nullptr);
-            if (n != nullptr)
+            if (lt != nullptr)
             {
-              if (const target** p = check_exact (*n))
-                *p = pt;
+              find (*lt, find);
+
+              if (done)
+                break;
+
+              continue;
             }
-            else
-            {
-              // Fuzzy match.
-              //
-              string f;
 
-              // Add the directory part if it is relative. The idea is to
-              // include it into the module match, say hello.core vs
-              // hello/mxx{core}.
-              //
-              // @@ MOD: Why not for absolute? Good question. What if it
-              // contains special components, say, ../mxx{core}?
-              //
-              const dir_path& d (p.dir ());
-
-              if (!d.empty () && d.relative ())
-                f = d.representation (); // Includes trailing slash.
-
-              f += p.name ();
-              check_fuzzy (pt, f);
-            }
-            break;
+            // Fall through.
           }
-        }
 
-        if (done)
-          break;
+          // While it would have been even better not to search for a target,
+          // we need to get hold of the corresponding mxx{} (unlikely but
+          // possible for bmi{} to have a different name).
+          //
+          // While we want to use group_prerequisite_members() below, we
+          // cannot call resolve_group() since we will be doing it
+          // "speculatively" for modules that we may use but also for modules
+          // that may use us. This quickly leads to deadlocks. So instead we
+          // are going to perform an ad hoc group resolution.
+          //
+          const target* pg;
+          if (p.is_a<bmi> ())
+          {
+            pg = pt != nullptr ? pt : &p.search (t);
+            pt = &search (t, btt, p.key ()); // Same logic as in picking obj*{}.
+          }
+          else if (p.is_a (btt))
+          {
+            pg = &search (t, bmi::static_type, p.key ());
+            if (pt == nullptr) pt = &p.search (t);
+          }
+          else
+            continue;
+
+          // Find the mxx{} prerequisite and extract its "file name" for the
+          // fuzzy match unless the user specified the module name explicitly.
+          //
+          for (prerequisite_member p:
+                 prerequisite_members (a, t, group_prerequisites (*pt, pg)))
+          {
+            if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+              continue;
+
+            if (p.is_a (*x_mod))
+            {
+              // Check for an explicit module name. Only look for an existing
+              // target (which means the name can only be specified on the
+              // target itself, not target type/pattern-spec).
+              //
+              const target* t (p.search_existing ());
+              const string* n (t != nullptr
+                               ? cast_null<string> (t->vars[c_module_name])
+                               : nullptr);
+              if (n != nullptr)
+              {
+                if (const target** p = check_exact (*n))
+                  *p = pt;
+              }
+              else
+              {
+                // Fuzzy match.
+                //
+                string f;
+
+                // Add the directory part if it is relative. The idea is to
+                // include it into the module match, say hello.core vs
+                // hello/mxx{core}.
+                //
+                // @@ MOD: Why not for absolute? Good question. What if it
+                // contains special components, say, ../mxx{core}?
+                //
+                const dir_path& d (p.dir ());
+
+                if (!d.empty () && d.relative ())
+                  f = d.representation (); // Includes trailing slash.
+
+                f += p.name ();
+                check_fuzzy (pt, f);
+              }
+              break;
+            }
+          }
+
+          if (done)
+            break;
+        }
       }
 
       // Diagnose unresolved modules.
@@ -6421,13 +6515,18 @@ namespace build2
       return pair<dir_path, const scope&> (move (pd), *as);
     }
 
-    // Synthesize a dependency for building a module binary interface on
-    // the side.
+    // Synthesize a dependency for building a module binary interface of a
+    // library on the side. If library is missing, then assume it's some
+    // ad hoc/system library case (in which case we assume it's binless,
+    // for now).
     //
-    const file& compile_rule::
+    // The return value semantics is as in target_set::insert_locked().
+    //
+    pair<target&, ulock> compile_rule::
     make_module_sidebuild (action a,
                            const scope& bs,
-                           const file& lt,
+                           const file* lt,
+                           otype ot,
                            const target& mt,
                            const string& mn) const
     {
@@ -6448,24 +6547,20 @@ namespace build2
                  back_inserter (mf),
                  [] (char c) {return c == '.' ? '-' : c == ':' ? '+' : c;});
 
-      // It seems natural to build a BMI type that corresponds to the library
-      // type. After all, this is where the object file part of the BMI is
-      // going to come from (unless it's a module interface-only library).
-      //
-      const target_type& tt (compile_types (link_type (lt).type).bmi);
+      const target_type& tt (compile_types (ot).bmi);
 
       // Store the BMI target in the subproject root. If the target already
       // exists then we assume all this is already done (otherwise why would
       // someone have created such a target).
       //
-      if (const file* bt = bs.ctx.targets.find<file> (
+      if (const target* bt = bs.ctx.targets.find (
             tt,
             pd,
             dir_path (), // Always in the out tree.
             mf,
             nullopt,     // Use default extension.
             trace))
-        return *bt;
+        return pair<target&, ulock> (const_cast<target&> (*bt), ulock ());
 
       prerequisites ps;
       ps.push_back (prerequisite (mt));
@@ -6478,19 +6573,22 @@ namespace build2
       //
       // Note: lt is matched and so the group is resolved.
       //
-      ps.push_back (prerequisite (lt));
-      for (prerequisite_member p: group_prerequisite_members (a, lt))
+      if (lt != nullptr)
       {
-        // Ignore update=match.
-        //
-        lookup l;
-        if (include (a, lt, p, &l) != include_type::normal) // Excluded/ad hoc.
-          continue;
-
-        if (p.is_a<libx> () ||
-            p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> ())
+        ps.push_back (prerequisite (*lt));
+        for (prerequisite_member p: group_prerequisite_members (a, *lt))
         {
-          ps.push_back (p.as_prerequisite ());
+          // Ignore update=match.
+          //
+          lookup l;
+          if (include (a, *lt, p, &l) != include_type::normal) // Excluded/ad hoc.
+            continue;
+
+          if (p.is_a<libx> () ||
+              p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> ())
+          {
+            ps.push_back (p.as_prerequisite ());
+          }
         }
       }
 
@@ -6503,22 +6601,22 @@ namespace build2
                 target_decl::implied,
                 trace,
                 true /* skip_find */));
-      file& bt (p.first.as<file> ());
 
       // Note that this is racy and someone might have created this target
       // while we were preparing the prerequisite list.
       //
       if (p.second)
       {
-        bt.prerequisites (move (ps));
+        p.first.prerequisites (move (ps));
 
         // Unless this is a binless library, we don't need the object file
         // (see config_data::b_binless for details).
         //
-        bt.vars.assign (b_binless) = (lt.mtime () == timestamp_unreal);
+        p.first.vars.assign (b_binless) = (lt == nullptr ||
+                                           lt->mtime () == timestamp_unreal);
       }
 
-      return bt;
+      return p;
     }
 
     // Synthesize a dependency for building a header unit binary interface on

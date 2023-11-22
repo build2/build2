@@ -18,6 +18,10 @@ namespace build2
 #ifdef BUILD2_INSTALL_BUILDFILE
   const dir_path build_install_buildfile (BUILD2_INSTALL_BUILDFILE);
 #endif
+
+#ifdef BUILD2_INSTALL_DATA
+  const dir_path build_install_data (BUILD2_INSTALL_DATA);
+#endif
 }
 
 #endif

@@ -156,8 +156,9 @@ namespace build2
       pair<dir_path, const scope&>
       find_modules_sidebuild (const scope&) const;
 
-      const file&
-      make_module_sidebuild (action, const scope&, const file&,
+      pair<target&, ulock>
+      make_module_sidebuild (action, const scope&,
+                             const file*, otype,
                              const target&, const string&) const;
 
       const file&

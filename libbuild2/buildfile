@@ -222,6 +222,17 @@ if ($install.root != [null])
       $directory($install.resolve($install.buildfile)), '\\', '\\\\')\"
   #\
 
+  # Data directory or src_root if not installed.
+  #
+  # Note: normalized in both cases.
+  #
+  {obja objs}{utility-installed}: cxx.poptions += \
+    -DBUILD2_INSTALL_DATA=\"$regex.replace(\
+      $install.resolve($install.data), '\\', '\\\\')\"
+
+  {obja objs}{utility-uninstalled}: cxx.poptions += \
+    -DBUILD2_INSTALL_DATA=\"$regex.replace(\
+      $src_root, '\\', '\\\\')\"
 }
 
 if ($cxx.target.class != 'windows')

@@ -1036,7 +1036,7 @@ namespace build2
               target_decl::implied,
               trace));
 
-          target& mt (tl.first);
+          file& mt (tl.first.as<file> ());
 
           // If the target already exists, then setting its variables is not
           // MT-safe. So currently we only do it if we have the lock (and thus
@@ -1054,6 +1054,7 @@ namespace build2
           //
           if (tl.second.owns_lock ())
           {
+            mt.path (move (mp));
             mt.vars.assign (c_module_name) = move (mn);
 
             // Set module properties. Note that if unspecified we should still
@@ -1124,7 +1125,7 @@ namespace build2
               target_decl::implied,
               trace));
 
-          target& ht (tl.first);
+          file& ht (tl.first.as<file> ());
 
           // If the target already exists, then setting its variables is not
           // MT-safe. So currently we only do it if we have the lock (and thus
@@ -1133,6 +1134,7 @@ namespace build2
           //
           if (tl.second.owns_lock ())
           {
+            ht.path (move (hp));
             ht.vars.assign (c_importable) = true;
             tl.second.unlock ();
           }
