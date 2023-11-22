@@ -2526,12 +2526,12 @@ namespace build2
         // https://gist.github.com/yamaya/2924292
         //
         // Specifically, we now look in the libc++'s __config file for the
-        // __LIBCPP_VERSION and use the previous version as a conservative
-        // estimate (NOTE that there could be multiple __config files with
+        // _LIBCPP_VERSION and use the previous version as a conservative
+        // estimate (NOTE: that there could be multiple __config files with
         // potentially different versions so compile with -v to see which one
         // gets picked up).
         //
-        // Also, lately, we started seeing __LIBCPP_VERSION values like 15.0.6
+        // Also, lately, we started seeing _LIBCPP_VERSION values like 15.0.6
         // or 16.0.2 which would suggest the base is 15.0.5 or 16.0.1. But
         // that assumption did not check out with the actual usage. For
         // example, vanilla Clang 16 should no longer require -fmodules-ts but
@@ -2562,9 +2562,9 @@ namespace build2
         // 12.0.5 -> 10.0 (yes, seriously!)
         // 13.0.0 -> 11.0
         // 13.1.6 -> 12.0
-        // 14.0.0 -> 12.0 (__LIBCPP_VERSION=130000)
-        // 14.0.3 -> 15.0 (__LIBCPP_VERSION=150006)
-        // 15.0.0 -> 16.0 (__LIBCPP_VERSION=160002)
+        // 14.0.0 -> 12.0 (_LIBCPP_VERSION=130000)
+        // 14.0.3 -> 15.0 (_LIBCPP_VERSION=150006)
+        // 15.0.0 -> 16.0 (_LIBCPP_VERSION=160002)
         //
         uint64_t mj (var_ver->major);
         uint64_t mi (var_ver->minor);

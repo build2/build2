@@ -7761,7 +7761,7 @@ namespace build2
             // In Apple Clang this warning/option are absent in 14.0.3 (which
             // is said to be based on vanilla Clang 15.0.5) for some reason
             // (let's hope it's because they patched it out rather than due to
-            // a misleading __LIBCPP_VERSION value).
+            // a misleading _LIBCPP_VERSION value).
             //
             if (ctype == compiler_type::clang &&
                 cmaj >= (cvariant != "apple" ? 15 : 16))
