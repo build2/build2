@@ -6138,7 +6138,7 @@ namespace build2
                 (dir_path (build_install_data) /= "libbuild2") /= "cc",
                 dir_path (),
                 "std",
-                "cppm",
+                string ("cppm"), // For C++14 during bootstrap.
                 target_decl::implied,
                 trace).first);
 
