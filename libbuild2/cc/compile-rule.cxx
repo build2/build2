@@ -5664,7 +5664,7 @@ namespace build2
       // So, the fuzzy match: the idea is that each match gets a score, the
       // number of characters in the module name that got matched. A match
       // with the highest score is used. And we use the (length + 1) for a
-      // match against an actual module name.
+      // match against an actual (extracted) module name.
       //
       // Actually, the scoring system is a bit more elaborate than that.
       // Consider module name core.window and two files, window.mxx and
@@ -5708,7 +5708,7 @@ namespace build2
         // PPPPABBBB
         //
         // Where PPPP is the primary score, A is the A) score, and BBBB is
-        // the B) scope described above. Zero signifies no match.
+        // the B) score described above. Zero signifies no match.
         //
         // We use decimal instead of binary packing to make it easier for the
         // human to separate fields in the trace messages, during debugging,
@@ -5814,6 +5814,31 @@ namespace build2
         if (!match)
           return 0;
 
+        // Here is another corner case, the module is async_simple:IOExecutor
+        // and the file names are:
+        //
+        // IOExecutor.mxx
+        // SimpleIOExecutor.mxx
+        //
+        // The above implementation treats the latter as better because
+        // `Simple` in SimpleIOExecutor matches `simple` in async_simple. It's
+        // unclear what we can do about it without potentially breaking other
+        // legitimate cases (think Boost_Simple:IOExecutor). Maybe we could
+        // boost the exact partition name match score, similar to the exact
+        // module match, as some sort of a heuristics? Let's try.
+        //
+        if (fi == 0 && mi != 0 && m[mi - 1] == ':')
+        {
+          // Pretend we matched one short of the next module component. This
+          // way AsyncSimpleIOExecutor.mxx would still be a better match.
+          //
+          while (--mi != 0 && m[mi - 1] != '.')
+            ;
+
+          msep = (mi != 0); // For uncount logic below.
+          mi++; // One short.
+        }
+
         // "Uncount" real separators.
         //
         if (fsep) fi++;
@@ -5841,6 +5866,20 @@ namespace build2
 
         return ps * 100000 + as * 10000 + bs;
       };
+
+#if 0
+      assert (match ("IOExecutor",       "async_simple:IOExecutor") >
+              match ("SimpleIOExecutor", "async_simple:IOExecutor"));
+
+      assert (match ("IOExecutor",            "async_simple:IOExecutor") <
+              match ("AsyncSimpleIOExecutor", "async_simple:IOExecutor"));
+
+      assert (match ("IOExecutor",       "x.async_simple:IOExecutor") >
+              match ("SimpleIOExecutor", "x.async_simple:IOExecutor"));
+
+      assert (match ("IOExecutor",            "x.async_simple:IOExecutor") <
+              match ("AsyncSimpleIOExecutor", "x.async_simple:IOExecutor"));
+#endif
 
       auto& pts (t.prerequisite_targets[a]);
       size_t start (pts.size ()); // Index of the first to be added.
