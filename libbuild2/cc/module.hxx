@@ -17,6 +17,7 @@
 #include <libbuild2/cc/compile-rule.hxx>
 #include <libbuild2/cc/link-rule.hxx>
 #include <libbuild2/cc/install-rule.hxx>
+#include <libbuild2/cc/predefs-rule.hxx>
 
 #include <libbuild2/cc/export.hxx>
 
@@ -134,7 +135,8 @@ namespace build2
                                          public link_rule,
                                          public compile_rule,
                                          public install_rule,
-                                         public libux_install_rule
+                                         public libux_install_rule,
+                                         public predefs_rule
     {
     public:
       explicit
@@ -143,7 +145,8 @@ namespace build2
             link_rule (move (d)),
             compile_rule (move (d), rs),
             install_rule (move (d), *this),
-            libux_install_rule (move (d), *this) {}
+            libux_install_rule (move (d), *this),
+            predefs_rule (move (d)) {}
 
       void
       init (scope&,

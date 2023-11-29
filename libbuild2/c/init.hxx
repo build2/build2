@@ -19,13 +19,15 @@ namespace build2
     //
     // Submodules:
     //
-    // `c.guess`  -- registers and sets some variables.
-    // `c.config` -- loads c.guess and sets more variables.
-    // `c`        -- loads c.config and registers target types and rules.
-    // `c.objc`   -- registers m{} target type and enables Objective-C
-    //               compilation. Must be loaded after c.
-    // `c.as-cpp` -- registers S{} target type and enables Assembler with
-    //               C preprocessor compilation. Must be loaded after c.
+    // `c.guess`   -- registers and sets some variables.
+    // `c.config`  -- loads c.guess and sets more variables.
+    // `c`         -- loads c.config and registers target types and rules.
+    // `c.objc`    -- registers m{} target type and enables Objective-C
+    //                compilation. Must be loaded after c.
+    // `c.as-cpp`  -- registers S{} target type and enables Assembler with
+    //                C preprocessor compilation. Must be loaded after c.
+    // `c.predefs` -- registers rule for generating a C header with
+    //                predefined compiler macros. Must be loaded after c.
     //
     extern "C" LIBBUILD2_C_SYMEXPORT const module_functions*
     build2_c_load ();

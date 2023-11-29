@@ -957,16 +957,53 @@ namespace build2
       return true;
     }
 
+    bool
+    predefs_init (scope& rs,
+                  scope& bs,
+                  const location& loc,
+                  bool,
+                  bool,
+                  module_init_extra&)
+    {
+      tracer trace ("cxx::predefs_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "cxx.predefs module must be loaded in project root";
+
+      module* mod (rs.find_module<module> ("cxx"));
+
+      if (mod == nullptr)
+        fail (loc) << "cxx.predefs module must be loaded after cxx module";
+
+      // Register the cxx.predefs rule.
+      //
+      // Why invent a separate module instead of just always registering it in
+      // the cxx module? The reason is performance: this rule will be called
+      // for every C++ header.
+      //
+      cc::predefs_rule& r (*mod);
+
+      rs.insert_rule<hxx> (perform_update_id,   r.rule_name, r);
+      rs.insert_rule<hxx> (perform_clean_id,    r.rule_name, r);
+      rs.insert_rule<hxx> (configure_update_id, r.rule_name, r);
+
+      return true;
+    }
+
     static const module_functions mod_functions[] =
     {
       // NOTE: don't forget to also update the documentation in init.hxx if
       //       changing anything here.
 
-      {"cxx.guess",  nullptr, guess_init},
-      {"cxx.config", nullptr, config_init},
-      {"cxx.objcxx", nullptr, objcxx_init},
-      {"cxx",        nullptr, init},
-      {nullptr,      nullptr, nullptr}
+      {"cxx.guess",   nullptr, guess_init},
+      {"cxx.config",  nullptr, config_init},
+      {"cxx.objcxx",  nullptr, objcxx_init},
+      {"cxx.predefs", nullptr, predefs_init},
+      {"cxx",         nullptr, init},
+      {nullptr,       nullptr, nullptr}
     };
 
     const module_functions*

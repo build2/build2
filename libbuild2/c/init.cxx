@@ -479,11 +479,11 @@ namespace build2
 
     bool
     as_cpp_init (scope& rs,
-                scope& bs,
-                const location& loc,
-                bool,
-                bool,
-                module_init_extra&)
+                 scope& bs,
+                 const location& loc,
+                 bool,
+                 bool,
+                 module_init_extra&)
     {
       tracer trace ("c::as_cpp_init");
       l5 ([&]{trace << "for " << bs;});
@@ -513,17 +513,54 @@ namespace build2
       return true;
     }
 
+    bool
+    predefs_init (scope& rs,
+                  scope& bs,
+                  const location& loc,
+                  bool,
+                  bool,
+                  module_init_extra&)
+    {
+      tracer trace ("c::predefs_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "c.predefs module must be loaded in project root";
+
+      module* mod (rs.find_module<module> ("c"));
+
+      if (mod == nullptr)
+        fail (loc) << "c.predefs module must be loaded after c module";
+
+      // Register the c.predefs rule.
+      //
+      // Why invent a separate module instead of just always registering it in
+      // the c module? The reason is performance: this rule will be called for
+      // every C header.
+      //
+      cc::predefs_rule& r (*mod);
+
+      rs.insert_rule<h> (perform_update_id,   r.rule_name, r);
+      rs.insert_rule<h> (perform_clean_id,    r.rule_name, r);
+      rs.insert_rule<h> (configure_update_id, r.rule_name, r);
+
+      return true;
+    }
+
     static const module_functions mod_functions[] =
     {
       // NOTE: don't forget to also update the documentation in init.hxx if
       //       changing anything here.
 
-      {"c.guess",  nullptr, guess_init},
-      {"c.config", nullptr, config_init},
-      {"c.objc",   nullptr, objc_init},
-      {"c.as-cpp", nullptr, as_cpp_init},
-      {"c",        nullptr, init},
-      {nullptr,    nullptr, nullptr}
+      {"c.guess",   nullptr, guess_init},
+      {"c.config",  nullptr, config_init},
+      {"c.objc",    nullptr, objc_init},
+      {"c.as-cpp",  nullptr, as_cpp_init},
+      {"c.predefs", nullptr, predefs_init},
+      {"c",         nullptr, init},
+      {nullptr,     nullptr, nullptr}
     };
 
     const module_functions*

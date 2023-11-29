@@ -1151,6 +1151,8 @@ namespace build2
         // Note: the leading '@' is reserved for the module map prefix (see
         // extract_modules()) and no other line must start with it.
         //
+        // NOTE: see also the predefs rule if changing anything here.
+        //
         depdb dd (tp + ".d");
 
         // First should come the rule name/version.
@@ -3639,6 +3641,8 @@ namespace build2
 
               // See perform_update() for details on the choice of options.
               //
+              // NOTE: see also the predefs rule if adding anything here.
+              //
               {
                 bool sc (find_option_prefixes (
                            {"/source-charset:", "-source-charset:"}, args));
@@ -3707,6 +3711,8 @@ namespace build2
                 append_diag_color_options (args);
 
               // See perform_update() for details on the choice of options.
+              //
+              // NOTE: see also the predefs rule if adding anything here.
               //
               if (!find_option_prefix ("-finput-charset=", args))
                 args.push_back ("-finput-charset=UTF-8");
