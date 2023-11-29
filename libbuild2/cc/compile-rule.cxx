@@ -3719,8 +3719,7 @@ namespace build2
 
               if (ctype == compiler_type::clang && tsys == "win32-msvc")
               {
-                initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
-                if (!find_options (os, cmode) && !find_options (os, args))
+                if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
                 {
                   args.push_back ("-D_MT");
                   args.push_back ("-D_DLL");
@@ -5231,8 +5230,7 @@ namespace build2
 
               if (ctype == compiler_type::clang && tsys == "win32-msvc")
               {
-                initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
-                if (!find_options (os, cmode) && !find_options (os, args))
+                if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
                 {
                   args.push_back ("-D_MT");
                   args.push_back ("-D_DLL");
@@ -7532,8 +7530,7 @@ namespace build2
                 // either -nostdlib or -nostartfiles is specified. Let's do
                 // the same.
                 //
-                initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
-                if (!find_options (os, cmode) && !find_options (os, args))
+                if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
                 {
                   args.push_back ("-D_MT");
                   args.push_back ("-D_DLL");
