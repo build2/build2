@@ -3698,7 +3698,7 @@ namespace build2
             }
           case compiler_class::gcc:
             {
-              append_options (args, cmode, cmode.size ());
+              append_options (args, cmode);
               append_sys_hdr_options (args); // Extra system header dirs (last).
 
               // If not gen, then stderr is discarded.
@@ -5150,8 +5150,6 @@ namespace build2
           case compiler_class::msvc: werror = "/WX";     break;
           }
 
-          bool clang (ctype == compiler_type::clang);
-
           append_options (args, t, c_coptions, werror);
           append_options (args, t, x_coptions, werror);
 
@@ -5214,8 +5212,7 @@ namespace build2
             }
           case compiler_class::gcc:
             {
-              append_options (args, cmode,
-                              cmode.size () - (modules && clang ? 1 : 0));
+              append_options (args, cmode);
               append_sys_hdr_options (args);
 
               // Note: no append_diag_color_options() call since the
