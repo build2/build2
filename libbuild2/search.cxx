@@ -15,7 +15,9 @@ using namespace butl;
 namespace build2
 {
   const target*
-  search_existing_target (context& ctx, const prerequisite_key& pk)
+  search_existing_target (context& ctx,
+                          const prerequisite_key& pk,
+                          bool out_only)
   {
     tracer trace ("search_existing_target");
 
@@ -39,9 +41,10 @@ namespace build2
 
     // Prerequisite's out directory can be one of the following:
     //
-    // empty    This means out is undetermined and we simply search for a
-    //          target that is in the out tree which happens to be indicated
-    //          by an empty value, so we can just pass this as is.
+    // empty    This means out is undetermined and we search for a target
+    //          first in the out tree (which happens to be indicated by an
+    //          empty value, so we can just pass this as is) and if not
+    //          found, then in the src tree (unless suppressed).
     //
     // absolute This is the "final" value that doesn't require any processing
     //          and we simply use it as is.
@@ -73,6 +76,27 @@ namespace build2
 
     const target* t (
       ctx.targets.find (*tk.type, d, o, *tk.name, tk.ext, trace));
+
+    // Try in the src tree.
+    //
+    if (t == nullptr             &&
+        !out_only                &&
+        tk.out->empty ()         &&
+        tk.dir->relative ()      &&
+        !pk.scope->out_eq_src ())
+    {
+      o = move (d);
+
+      d = pk.scope->src_path ();
+
+      if (!tk.dir->empty ())
+      {
+        d /= *tk.dir;
+        d.normalize ();
+      }
+
+      t = ctx.targets.find (*tk.type, d, o, *tk.name, tk.ext, trace);
+    }
 
     if (t != nullptr)
       l5 ([&]{trace << "existing target " << *t

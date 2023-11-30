@@ -6262,9 +6262,9 @@ namespace build2
               // target (which means the name can only be specified on the
               // target itself, not target type/pattern-spec).
               //
-              const target* t (p.search_existing ());
-              const string* n (t != nullptr
-                               ? cast_null<string> (t->vars[c_module_name])
+              const target* mt (p.search_existing ());
+              const string* n (mt != nullptr
+                               ? cast_null<string> (mt->vars[c_module_name])
                                : nullptr);
               if (n != nullptr)
               {

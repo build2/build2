@@ -1166,15 +1166,21 @@ namespace build2
     // The default behavior is to look for an existing target in the
     // prerequisite's directory scope.
     //
-    return search_existing_target (t.ctx, pk);
+    // Note that it would be reasonable to assume that such a target can only
+    // be found in the out tree (targets that can be in the src tree should
+    // use file_search()). But omitting the src search will make it hard to
+    // keep search() (which calls this) and search_existing() (which does not)
+    // consistent.
+    //
+    return search_existing_target (t.ctx, pk, false /* out_only */);
   }
 
   const target*
   file_search (const target& t, const prerequisite_key& pk)
   {
-    // First see if there is an existing target.
+    // First see if there is an existing target in the out or src tree.
     //
-    if (const target* e = search_existing_target (t.ctx, pk))
+    if (const target* e = search_existing_target (t.ctx, pk, false /*out_only*/))
       return e;
 
     // Then look for an existing file in the src tree.
@@ -1335,7 +1341,9 @@ namespace build2
     // is pull its prerequisites. And they are handy to use as metadata
     // carriers.
     //
-    const target* e (search_existing_target (t.ctx, pk));
+    // Doesn't feel like an alias in the src tree makes much sense.
+    //
+    const target* e (search_existing_target (t.ctx, pk, true /* out_only */));
 
     if (e == nullptr || !(operator>= (e->decl, target_decl::implied)))
       fail << "no explicit target for " << pk;
@@ -1451,7 +1459,9 @@ namespace build2
     // The first step is like in alias_search(): looks for an existing target
     // (but unlike alias, no implied, think `test/: install=false`).
     //
-    const target* e (search_existing_target (t.ctx, pk));
+    // Likewise, dir{} in the src tree doesn't make much sense.
+    //
+    const target* e (search_existing_target (t.ctx, pk, true /* out_only */));
 
     if (e != nullptr && e->decl == target_decl::real)
       return e;
@@ -1500,7 +1510,7 @@ namespace build2
       // phase.
       //
       if (e == nullptr)
-        e = search_existing_target (t.ctx, pk);
+        e = search_existing_target (t.ctx, pk, true);
 
       if (e != nullptr && e->decl == target_decl::real)
         retest = true;
@@ -1545,7 +1555,7 @@ namespace build2
     if (retest)
     {
       if (e == nullptr)
-        e = search_existing_target (t.ctx, pk);
+        e = search_existing_target (t.ctx, pk, true);
 
       if (e != nullptr && e->decl == target_decl::real)
         return e;

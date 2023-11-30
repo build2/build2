@@ -96,7 +96,7 @@ namespace build2
   {
     return pk.proj
       ? import_existing (ctx, pk)
-      : search_existing_target (ctx, pk);
+      : search_existing_target (ctx, pk, false /*out_only*/); // @@ TODO
   }
 
   const target&
@@ -104,7 +104,7 @@ namespace build2
   {
     assert (ctx.phase == run_phase::load || ctx.phase == run_phase::match);
 
-    if (const target* pt = search_existing_target (ctx, pk))
+    if (const target* pt = search_existing_target (ctx, pk, true /*out_only*/))
       return *pt;
 
     return create_new_target (ctx, pk);
@@ -115,7 +115,7 @@ namespace build2
   {
     assert (ctx.phase == run_phase::load || ctx.phase == run_phase::match);
 
-    if (const target* pt = search_existing_target (ctx, pk))
+    if (const target* pt = search_existing_target (ctx, pk, true /*out_only*/))
       return {const_cast<target&> (*pt), ulock ()};
 
     return create_new_target_locked (ctx, pk);
@@ -176,16 +176,12 @@ namespace build2
     }
 
     bool q (cn.qualified ());
-
-    // @@ OUT: for now we assume the prerequisite's out is undetermined.
-    //         Would need to pass a pair of names.
-    //
     prerequisite_key pk {
       n.proj, {tt, &n.dir, q ? &empty_dir_path : &out, &n.value, ext}, &s};
 
     return q
       ? import_existing (s.ctx, pk)
-      : search_existing_target (s.ctx, pk);
+      : search_existing_target (s.ctx, pk, false /*out_only*/); // @@ TODO
   }
 
   const target*
