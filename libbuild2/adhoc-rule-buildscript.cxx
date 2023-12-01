@@ -2336,9 +2336,34 @@ namespace build2
 
     context& ctx (t.ctx);
 
-    execute_prerequisites (a, t);
+    target_state ts (target_state::unchanged);
 
-    if (!ctx.dry_run || verb != 0)
+    if (ctx.current_mode == execution_mode::first)
+      ts |= straight_execute_prerequisites (a, t);
+
+    bool exec (!ctx.dry_run || verb != 0);
+
+    // Special handling for fsdir{} (which is the recommended if somewhat
+    // hackish way to represent directory symlinks). See fsdir_rule for
+    // background.
+    //
+    // @@ Note that because there is no depdb, we cannot detect the target
+    //    directory change (or any other changes in the script).
+    //
+    if (exec                                              &&
+        (a == perform_update_id || a == perform_clean_id) &&
+        t.is_a<fsdir> ())
+    {
+      // For update we only want to skip if it's a directory. For clean we
+      // want to (try) to clean up any filesystem entry, including a dangling
+      // symlink.
+      //
+      exec = a == perform_update_id
+        ? !exists (t.dir, true /* ignore_errors */)
+        : build2::entry_exists (t.dir, false /* follow_symlinks */);
+    }
+
+    if (exec)
     {
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -2394,9 +2419,14 @@ namespace build2
 
         p.execute_body (rs, bs, e, script, r, !exec_diag /* enter */);
       }
+
+      ts |= target_state::changed;
     }
 
-    return target_state::changed;
+    if (ctx.current_mode == execution_mode::last)
+      ts |= reverse_execute_prerequisites (a, t);
+
+    return ts;
   }
 
   void adhoc_buildscript_rule::

@@ -43,6 +43,14 @@ namespace build2
               }
             }
           }
+          else if (const fsdir* fd = env.target.is_a<fsdir> ())
+          {
+            // Compare ignoring the trailing directory separator.
+            //
+            if (path_traits::compare (i->path.string (),
+                                      fd->dir.string ()) == 0)
+              m = fd;
+          }
           else
           {
             for (m = &env.target; m != nullptr; m = m->adhoc_member)
