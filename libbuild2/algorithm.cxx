@@ -54,19 +54,21 @@ namespace build2
   const target&
   search (const target& t, const prerequisite_key& pk)
   {
-    assert (t.ctx.phase == run_phase::match);
+    context& ctx (t.ctx);
+
+    assert (ctx.phase == run_phase::match);
 
     // If this is a project-qualified prerequisite, then this is import's
     // business (phase 2).
     //
     if (pk.proj)
-      return import2 (t.ctx, pk);
+      return import2 (ctx, pk);
 
-    if (const target* pt = pk.tk.type->search (t, pk))
+    if (const target* pt = pk.tk.type->search (ctx, &t, pk))
       return *pt;
 
     if (pk.tk.out->empty ())
-      return create_new_target (t.ctx, pk);
+      return create_new_target (ctx, pk);
 
     // If this is triggered, then you are probably not passing scope to
     // search() (which leads to search_existing_file() being skipped).
@@ -77,13 +79,15 @@ namespace build2
   pair<target&, ulock>
   search_locked (const target& t, const prerequisite_key& pk)
   {
-    assert (t.ctx.phase == run_phase::match && !pk.proj);
+    context& ctx (t.ctx);
 
-    if (const target* pt = pk.tk.type->search (t, pk))
+    assert (ctx.phase == run_phase::match && !pk.proj);
+
+    if (const target* pt = pk.tk.type->search (ctx, &t, pk))
       return {const_cast<target&> (*pt), ulock ()};
 
     if (pk.tk.out->empty ())
-      return create_new_target_locked (t.ctx, pk);
+      return create_new_target_locked (ctx, pk);
 
     // If this is triggered, then you are probably not passing scope to
     // search() (which leads to search_existing_file() being skipped).
@@ -96,7 +100,7 @@ namespace build2
   {
     return pk.proj
       ? import_existing (ctx, pk)
-      : search_existing_target (ctx, pk, false /*out_only*/); // @@ TODO
+      : pk.tk.type->search (ctx, nullptr /* existing */, pk);
   }
 
   const target&
@@ -181,7 +185,7 @@ namespace build2
 
     return q
       ? import_existing (s.ctx, pk)
-      : search_existing_target (s.ctx, pk, false /*out_only*/); // @@ TODO
+      : tt->search (s.ctx, nullptr /* existing */, pk);
   }
 
   const target*

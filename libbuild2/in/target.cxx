@@ -10,7 +10,7 @@ namespace build2
   namespace in
   {
     static const target*
-    in_search (const target& xt, const prerequisite_key& cpk)
+    in_search (context& ctx, const target* xt, const prerequisite_key& cpk)
     {
       // If we have no extension then derive it from our target. Then delegate
       // to file_search().
@@ -18,7 +18,7 @@ namespace build2
       prerequisite_key pk (cpk);
       optional<string>& e (pk.tk.ext);
 
-      if (!e)
+      if (!e && xt != nullptr)
       {
         // Why is the extension, say, .h.in and not .in (with .h being in the
         // name)? While this is mostly academic (in this case things will work
@@ -28,16 +28,16 @@ namespace build2
         //
         // See also the low verbosity tidying up code in the rule.
         //
-        if (const file* t = xt.is_a<file> ())
+        if (const file* t = xt->is_a<file> ())
         {
           const string& te (t->derive_extension ());
           e = te + (te.empty () ? "" : ".") + "in";
         }
         else
-          fail << "prerequisite " << pk << " for a non-file target " << xt;
+          fail << "prerequisite " << pk << " for a non-file target " << *xt;
       }
 
-      return file_search (xt, pk);
+      return file_search (ctx, xt, pk);
     }
 
     static bool

@@ -2708,7 +2708,7 @@ namespace build2
         const char* cpu (msvc_cpu (tt.cpu));
 
         // Come up with the system library search paths. Ideally we would want
-        // to extract this from Clang and -print-search-paths would have been
+        // to extract this from Clang and -print-search-dirs would have been
         // the natural way for Clang to report it. But no luck.
         //
         lib_dirs = msvc_lib (mi, x_mo, cpu);

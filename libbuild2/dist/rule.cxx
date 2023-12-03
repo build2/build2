@@ -87,7 +87,7 @@ namespace build2
             // Note: see also similar code in match_postponed() below.
             //
             const prerequisite_key& k (p.key ());
-            pt = k.tk.type->search (t, k);
+            pt = k.tk.type->search (t.ctx, &t, k);
 
             if (pt == nullptr)
             {
@@ -134,7 +134,7 @@ namespace build2
       const prerequisite& p (pp.prereq);
 
       const prerequisite_key& k (p.key ());
-      const target* pt (k.tk.type->search (t, k));
+      const target* pt (k.tk.type->search (t.ctx, &t, k));
 
       if (pt == nullptr)
       {

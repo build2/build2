@@ -2619,7 +2619,7 @@ namespace build2
                       string&, optional<string>&, const location&,
                       bool);
 
-  // Target print functions.
+  // Target print functions (target_type::print).
   //
 
   // Target type uses the extension but it is fixed and there is no use
@@ -2634,17 +2634,24 @@ namespace build2
   LIBBUILD2_SYMEXPORT bool
   target_print_1_ext_verb (ostream&, const target_key&, bool);
 
+  // Target search functions (target_type::search).
+  //
+
   // The default behavior, that is, look for an existing target in the
   // prerequisite's directory scope.
   //
-  LIBBUILD2_SYMEXPORT const target*
-  target_search (const target&, const prerequisite_key&);
-
-  // First look for an existing target as above. If not found, then look
-  // for an existing file in the target-type-specific list of paths.
+  // Note that this implementation assumes a target can only be found in the
+  // out tree (targets that can be in the src tree would normally use
+  // file_search() below).
   //
   LIBBUILD2_SYMEXPORT const target*
-  file_search (const target&, const prerequisite_key&);
+  target_search (context&, const target*, const prerequisite_key&);
+
+  // First look for an existing target both in out and src. If not found, then
+  // look for an existing file in src.
+  //
+  LIBBUILD2_SYMEXPORT const target*
+  file_search (context&, const target*, const prerequisite_key&);
 }
 
 #include <libbuild2/target.ixx>

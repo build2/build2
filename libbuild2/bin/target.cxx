@@ -374,7 +374,7 @@ namespace build2
       &target_extension_var<nullptr>,
       &target_pattern_var<nullptr>,
       nullptr,
-      &file_search,
+      &target_search, // Note: not _file(); don't look for an existing file.
       target_type::flag::none
     };
 
@@ -387,7 +387,7 @@ namespace build2
       &target_extension_var<nullptr>,
       &target_pattern_var<nullptr>,
       nullptr,
-      &file_search,
+      &target_search, // Note: not _file(); don't look for an existing file.
       target_type::flag::none
     };
 
@@ -452,7 +452,7 @@ namespace build2
       &target_extension_var<nullptr>,
       &target_pattern_var<nullptr>,
       nullptr,
-      &file_search,
+      &target_search, // Note: not _file(); don't look for an existing file.
       target_type::flag::none
     };
 

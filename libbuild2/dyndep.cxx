@@ -639,7 +639,7 @@ namespace build2
 #else
         prerequisite_key pk {nullopt, {tts[0], &d, &out, &n, move (e)}, s};
 
-        r = pk.tk.type->search (t, pk);
+        r = pk.tk.type->search (ctx, &t, pk);
 
         if (r == nullptr && pk.tk.out->empty ())
           r = &create_new_target (ctx, pk);

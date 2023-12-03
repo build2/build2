@@ -1147,6 +1147,8 @@ namespace build2
         {
           if (!qs)
           {
+            // This could be a script from src so search like a prerequisite.
+            //
             if (const target* t = search_existing (
                   ns[0], *scope_, ns[0].pair ? ns[1].dir : empty_dir_path))
             {

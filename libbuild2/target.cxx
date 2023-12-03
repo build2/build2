@@ -1161,31 +1161,27 @@ namespace build2
   //
 
   const target*
-  target_search (const target& t, const prerequisite_key& pk)
+  target_search (context& ctx, const target*, const prerequisite_key& pk)
   {
     // The default behavior is to look for an existing target in the
     // prerequisite's directory scope.
     //
-    // Note that it would be reasonable to assume that such a target can only
-    // be found in the out tree (targets that can be in the src tree should
-    // use file_search()). But omitting the src search will make it hard to
-    // keep search() (which calls this) and search_existing() (which does not)
-    // consistent.
-    //
-    return search_existing_target (t.ctx, pk, false /* out_only */);
+    return search_existing_target (ctx, pk, true /* out_only */);
   }
 
   const target*
-  file_search (const target& t, const prerequisite_key& pk)
+  file_search (context& ctx, const target* t, const prerequisite_key& pk)
   {
     // First see if there is an existing target in the out or src tree.
     //
-    if (const target* e = search_existing_target (t.ctx, pk, false /*out_only*/))
+    if (const target* e = search_existing_target (ctx,
+                                                  pk,
+                                                  false /* out_only */))
       return e;
 
     // Then look for an existing file in the src tree.
     //
-    return search_existing_file (t.ctx, pk);
+    return t != nullptr ? search_existing_file (ctx, pk) : nullptr;
   }
 
   extern const char target_extension_none_[] = "";
@@ -1332,10 +1328,12 @@ namespace build2
   // alias
   //
   static const target*
-  alias_search (const target& t, const prerequisite_key& pk)
+  alias_search (context& ctx, const target* t, const prerequisite_key& pk)
   {
     // For an alias we don't want to silently create a target since it will do
-    // nothing and it most likely not what the user intended.
+    // nothing and it most likely not what the user intended (but omit this
+    // check when searching for an existing target since presumably a new one
+    // won't be created in this case).
     //
     // But, allowing implied aliases seems harmless since all the alias does
     // is pull its prerequisites. And they are handy to use as metadata
@@ -1343,9 +1341,10 @@ namespace build2
     //
     // Doesn't feel like an alias in the src tree makes much sense.
     //
-    const target* e (search_existing_target (t.ctx, pk, true /* out_only */));
+    const target* e (search_existing_target (ctx, pk, true /* out_only */));
 
-    if (e == nullptr || !(operator>= (e->decl, target_decl::implied)))
+    if ((e == nullptr ||
+         !(operator>= (e->decl, target_decl::implied))) && t != nullptr)
       fail << "no explicit target for " << pk;
 
     return e;
@@ -1452,7 +1451,7 @@ namespace build2
   }
 
   static const target*
-  dir_search (const target& t, const prerequisite_key& pk)
+  dir_search (context& ctx, const target* t, const prerequisite_key& pk)
   {
     tracer trace ("dir_search");
 
@@ -1461,9 +1460,16 @@ namespace build2
     //
     // Likewise, dir{} in the src tree doesn't make much sense.
     //
-    const target* e (search_existing_target (t.ctx, pk, true /* out_only */));
+    const target* e (search_existing_target (ctx, pk, true /* out_only */));
 
     if (e != nullptr && e->decl == target_decl::real)
+      return e;
+
+    // The search for an existing target can also be done during execute so
+    // none of the below code applied. Note: return implied instead of NULL
+    // (to be consistent with search_new(), for example).
+    //
+    if (t == nullptr)
       return e;
 
     // If not found (or is implied), then try to load the corresponding
@@ -1499,18 +1505,18 @@ namespace build2
     //
     bool retest (false);
 
-    assert (t.ctx.phase == run_phase::match);
+    assert (ctx.phase == run_phase::match);
     {
       // Switch the phase to load.
       //
-      phase_switch ps (t.ctx, run_phase::load);
+      phase_switch ps (ctx, run_phase::load);
 
       // This is subtle: while we were fussing around another thread may have
       // loaded the buildfile. So re-test now that we are in an exclusive
       // phase.
       //
       if (e == nullptr)
-        e = search_existing_target (t.ctx, pk, true);
+        e = search_existing_target (ctx, pk, true);
 
       if (e != nullptr && e->decl == target_decl::real)
         retest = true;
@@ -1548,14 +1554,14 @@ namespace build2
       }
     }
 
-    assert (t.ctx.phase == run_phase::match);
+    assert (ctx.phase == run_phase::match);
 
     // If we loaded/implied the buildfile, examine the target again.
     //
     if (retest)
     {
       if (e == nullptr)
-        e = search_existing_target (t.ctx, pk, true);
+        e = search_existing_target (ctx, pk, true);
 
       if (e != nullptr && e->decl == target_decl::real)
         return e;
@@ -1680,7 +1686,7 @@ namespace build2
     nullptr,
 #endif
     nullptr,
-    &file_search,
+    &file_search, // Note: can also be a script in src.
     target_type::flag::none
   };
 

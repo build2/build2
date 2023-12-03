@@ -46,7 +46,7 @@ namespace build2
   }
 
   inline const target*
-  search_exsiting (context& ctx,
+  search_existing (context& ctx,
                    const target_type& tt,
                    const prerequisite_key& k)
   {

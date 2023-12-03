@@ -45,6 +45,9 @@ namespace build2
   const target&
   to_target (const scope& s, name&& n, name&& o)
   {
+    // Note: help the user out and search in both out and src like a
+    // prerequisite.
+    //
     if (const target* r = search_existing (n, s, o.dir))
       return *r;
 

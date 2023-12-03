@@ -79,7 +79,7 @@ namespace build2
   search_locked (const target&, const target_type&, const prerequisite_key&);
 
   const target*
-  search_exsiting (context&, const target_type&, const prerequisite_key&);
+  search_existing (context&, const target_type&, const prerequisite_key&);
 
   const target&
   search_new (context&, const target_type&, const prerequisite_key&);
@@ -166,13 +166,11 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target&
   search (const target&, name&&, const scope&, const target_type* = nullptr);
 
-  // Note: returns NULL for unknown target types. Note that unlike the above
-  // version, these ones can be called during the load and execute phases.
+  // Note: returns NULL for unknown target types. Note also that unlike the
+  // above version, these can be called during the load and execute phases.
   //
   LIBBUILD2_SYMEXPORT const target*
-  search_existing (const name&,
-                   const scope&,
-                   const dir_path& out = dir_path ());
+  search_existing (const name&, const scope&, const dir_path& out = dir_path ());
 
   LIBBUILD2_SYMEXPORT const target*
   search_existing (const names&, const scope&);

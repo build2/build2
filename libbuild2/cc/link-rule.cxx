@@ -96,7 +96,7 @@ namespace build2
             return false;
         }
 
-        if (const target* t = search_existing (n, bs, dir_path () /* out */))
+        if (const target* t = search_existing (n, bs))
         {
           // The same logic as in process_libraries().
           //

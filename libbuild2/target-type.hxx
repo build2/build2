@@ -93,7 +93,14 @@ namespace build2
     //
     bool (*print) (ostream&, const target_key&, bool name_only);
 
-    const target* (*search) (const target&, const prerequisite_key&);
+    // Target type-specific prerequisite to target search.
+    //
+    // If passed target is NULL, then only search for an existing target (and
+    // which can be performed during execute, not only match).
+    //
+    const target* (*search) (context&,
+                             const target*,
+                             const prerequisite_key&);
 
     // Target type flags.
     //

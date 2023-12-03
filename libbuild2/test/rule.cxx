@@ -1161,7 +1161,7 @@ namespace build2
             fail << "invalid test executable override: '" << *n << "'";
           else
           {
-            // Must be a target name.
+            // Must be a target name. Could be from src (e.g., a script).
             //
             // @@ OUT: what if this is a @-qualified pair of names?
             //

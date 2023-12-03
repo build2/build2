@@ -559,7 +559,7 @@ namespace build2
                 nullptr, /* default_extension */
                 &target_pattern_fix<wasm_ext>,
                 &target_print_0_ext_verb, // Fixed extension, no use printing.
-                &file_search,
+                &target_search, // Note: don't look for an existing file.
                 target_type::flag::none}));
 
           if (install_loaded)
@@ -955,7 +955,7 @@ namespace build2
               nullptr, /* default_extension */
               &target_pattern_fix<pdb_ext>,
               &target_print_0_ext_verb, // Fixed extension, no use printing.
-              &file_search,
+              &target_search, // Note: don't look for an existing file.
               target_type::flag::none}));
 
         if (cast_false<bool> (rs["install.loaded"]))

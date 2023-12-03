@@ -268,7 +268,7 @@ namespace build2
               v = path (n->dir);
             else
             {
-              // Must be a target name.
+              // Must be a target name. Could be from src (e.g., a script).
               //
               // @@ OUT: what if this is a @-qualified pair of names?
               //
