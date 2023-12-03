@@ -5,7 +5,7 @@
 
 #include <sstream>
 
-#include <libbutl/filesystem.hxx> // try_rm_file()
+#include <libbutl/filesystem.hxx> // try_rm_file(), path_entry()
 
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
@@ -1695,10 +1695,35 @@ namespace build2
     const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
     const path& tp (ft.path ());
 
+    // Support creating file symlinks using ad hoc recipes.
+    //
+    auto path_symlink = [&tp] ()
+    {
+      pair<bool, butl::entry_stat> r (
+        butl::path_entry (tp,
+                          false /* follow_symlinks */,
+                          true /* ignore_errors */));
+
+      return r.first && r.second.type == butl::entry_type::symlink;
+    };
+
     // Update prerequisites and determine if any of them render this target
     // out-of-date.
     //
-    timestamp mt (g == nullptr ? ft.load_mtime () : g->load_mtime (tp));
+    // If the file entry exists, check if its a symlink.
+    //
+    bool symlink (false);
+    timestamp mt;
+
+    if (g == nullptr)
+    {
+      mt = ft.load_mtime ();
+
+      if (mt != timestamp_nonexistent)
+        symlink = path_symlink ();
+    }
+    else
+      mt = g->load_mtime (tp);
 
     // This is essentially ps=execute_prerequisites(a, t, mt) which we
     // cannot use because we need to see ad hoc prerequisites.
@@ -1837,7 +1862,10 @@ namespace build2
 
     if (!depdb_preamble)
     {
-      if (dd.writing () || dd.mtime > mt)
+      // If this is a symlink, depdb mtime could be greater than the symlink
+      // target.
+      //
+      if (dd.writing () || (dd.mtime > mt && !symlink))
         update = true;
 
       if (!update)
@@ -1863,7 +1891,7 @@ namespace build2
 
     // Update if depdb mismatch.
     //
-    if (dd.writing () || dd.mtime > mt)
+    if (dd.writing () || (dd.mtime > mt && !symlink))
       update = true;
 
     dd.close ();
@@ -1894,16 +1922,34 @@ namespace build2
       if (r)
       {
         if (!ctx.dry_run)
-          dd.check_mtime (tp);
+        {
+          if (g == nullptr)
+            symlink = path_symlink ();
+
+          // Again, if this is a symlink, depdb mtime will be greater than
+          // the symlink target.
+          //
+          if (!symlink)
+            dd.check_mtime (tp);
+        }
       }
     }
 
     if (r || depdb_preamble)
       run.leave (env, script.end_loc);
 
+    // Symlinks don't play well with dry-run: we can't extract accurate target
+    // timestamp without creating the symlink. Overriding the dry-run doesn't
+    // seem to be an option since we don't know whether it will be a symlink
+    // until it's created. At least we are being pessimistic rather than
+    // optimistic here.
+    //
     (g == nullptr
      ? static_cast<const mtime_target&> (ft)
-     : static_cast<const mtime_target&> (*g)).mtime (system_clock::now ());
+     : static_cast<const mtime_target&> (*g)).mtime (
+       symlink
+       ? build2::mtime (tp)
+       : system_clock::now ());
 
     return target_state::changed;
   }
