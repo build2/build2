@@ -39,6 +39,12 @@ namespace build2
     if (rp.first != nullptr)
       n.type = rp.first->name;
 
+    if (n.value.empty () && (n.type == "dir" || n.type == "fsdir"))
+    {
+      n.value = n.dir.leaf ().string ();
+      n.dir.make_directory ();
+    }
+
     return make_pair (move (n), move (rp.second));
   }
 
