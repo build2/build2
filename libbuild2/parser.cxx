@@ -4427,7 +4427,7 @@ namespace build2
         // is not an option. So let's skip it.
         //
         if (taken)
-          skip_line (t, tt);
+          skip_line (t, tt); // Skip expression.
         else
         {
           if (tt == type::newline || tt == type::eos)
@@ -4489,6 +4489,10 @@ namespace build2
       }
       else if (!multi) // No lines in multi-curly if-else.
       {
+        if (tt == type::multi_lcbrace)
+          fail (t) << "expected " << k << "-line instead of " << t <<
+            info << "did you forget to specify % recipe header?";
+
         if (take)
         {
           if (!parse_clause (t, tt, true))
