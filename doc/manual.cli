@@ -8180,7 +8180,7 @@ be customized with the \c{extension} variable.
 
 \h#c-objc|Objective-C Compilation|
 
-The \c{c} module provides the \c{c.objc} submodules which can be loaded in
+The \c{c} module provides the \c{c.objc} submodule which can be loaded in
 order to register the \c{m{\}} target type and enable Objective-C compilation
 in the \c{C} compile rule. Note that \c{c.objc} must be loaded after the \c{c}
 module and while the \c{m{\}} target type is registered unconditionally,
@@ -8209,14 +8209,12 @@ automatically link any necessary Objective-C runtime library (such as
 
 \h#c-as-cpp|Assembler with C Preprocessor Compilation|
 
-The \c{c} module provides the \c{c.as-cpp} submodules which can be loaded in
+The \c{c} module provides the \c{c.as-cpp} submodule which can be loaded in
 order to register the \c{S{\}} target type and enable Assembler with C
 Preprocessor compilation in the \c{C} compile rule. Note that \c{c.as-cpp}
 must be loaded after the \c{c} module and while the \c{S{\}} target type is
 registered unconditionally, compilation is only enabled if the C compiler
-supports Assembler with C Preprocessor compilation.
-
-Typical usage:
+supports Assembler with C Preprocessor compilation. Typical usage:
 
 \
 # root.build
@@ -8288,6 +8286,46 @@ if $assembler
     c.coptions += -Wa,--no-pad-sections
   }
 }
+\
+
+\h#c-predefs|C Compiler Predefined Macro Extraction|
+
+The \c{c} module provides the \c{c.predefs} submodule which can be loaded in
+order to register a rule that generates a C header with predefined compiler
+macros. Note that the \c{c.predefs} module must be loaded after the \c{c}
+module and the rule will only match with an explicit rule hint. Typical usage:
+
+\
+# root.build
+#
+using c
+using c.predefs
+\
+
+\
+# buildfile
+#
+[rule_hint=c.predefs] h{predefs}:
+\
+
+Note also that the MSVC compiler only supports the predefined macro extraction
+starting from Visual Studio 2019 (16.0; \c{cl.exe} version 19.20). If support
+for earlier versions is required, then you will need to provide a fallback
+implementation appropriate for your project. For example:
+
+\
+[rule_hint=c.predefs] h{predefs}:
+% update
+if ($c.id == 'msvc' && \
+    ($c.version.major < 19 || \
+     ($c.version.major == 19 && $c.version.minor < 20)))
+{{
+  diag c-predefs $>
+
+  cat <<EOF >$path($>)
+  #define _WIN32
+  EOF
+}}
 \
 
 
@@ -9984,7 +10022,7 @@ purviews.
 
 \h#cxx-objcxx|Objective-C++ Compilation|
 
-The \c{cxx} module provides the \c{cxx.objcxx} submodules which can be loaded
+The \c{cxx} module provides the \c{cxx.objcxx} submodule which can be loaded
 in order to register the \c{mm{\}} target type and enable Objective-C++
 compilation in the \c{C++} compile rule. Note that \c{cxx.objcxx} must be
 loaded after the \c{cxx} module and while the \c{mm{\}} target type is
@@ -10009,6 +10047,49 @@ Note also that while there is support for linking Objective-C++ executables
 and libraries, this is done using the C++ compiler driver and no attempt is
 made to automatically link any necessary Objective-C runtime library (such as
 \c{-lobjc}).
+
+
+\h#cxx-predefs|C++ Compiler Predefined Macro Extraction|
+
+The \c{cxx} module provides the \c{cxx.predefs} submodule which can be loaded
+in order to register a rule that generates a C++ header with predefined
+compiler macros. Note that the \c{cxx.predefs} module must be loaded after the
+\c{cxx} module and the rule will only match with an explicit rule
+hint. Typical usage:
+
+\
+# root.build
+#
+using cxx
+using cxx.predefs
+\
+
+\
+# buildfile
+#
+[rule_hint=cxx.predefs] hxx{predefs}:
+\
+
+Note also that the MSVC compiler only supports the predefined macro extraction
+starting from Visual Studio 2019 (16.0; \c{cl.exe} version 19.20). If support
+for earlier versions is required, then you will need to provide a fallback
+implementation appropriate for your project. For example:
+
+\
+[rule_hint=cxx.predefs] hxx{predefs}:
+% update
+if ($cxx.id == 'msvc' && \
+    ($cxx.version.major < 19 || \
+     ($cxx.version.major == 19 && $cxx.version.minor < 20)))
+{{
+  diag c++-predefs $>
+
+  cat <<EOF >$path($>)
+  #define _WIN32
+  #define __cplusplus 201402L
+  EOF
+}}
+\
 
 
 \h1#module-in|\c{in} Module|
