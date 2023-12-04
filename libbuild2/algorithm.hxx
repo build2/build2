@@ -255,10 +255,10 @@ namespace build2
 
   // If the target is already applied (for this action) or executed, then no
   // lock is acquired. Otherwise, unless matched is true, the target must not
-  // be matched but not yet applied for this action (and if that's the case
-  // and matched is true, then you get a locked target that you should
-  // probably check for consistency, for exmaple, by comparing the matched
-  // rule).
+  // be in the matched but not yet applied state for this action (and if
+  // that's the case and matched is true, then you get a locked target that
+  // you should probably check for consistency, for example, by comparing the
+  // matched rule).
   //
   // @@ MT fuzzy: what if it is already in the desired state, why assert?
   //    Currently we only use it with match_recipe/rule() and if it is matched
