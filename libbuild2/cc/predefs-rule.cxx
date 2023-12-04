@@ -25,10 +25,33 @@ namespace build2
     bool predefs_rule::
     match (action, target&, const string& hint, match_extra&) const
     {
+      tracer trace (x, "predefs_rule::match");
+
       // We only match with an explicit hint (failed that, we will turn every
       // header into predefs).
       //
-      return hint == rule_name;
+      if (hint == rule_name)
+      {
+        // Don't match if unsupported compiler. In particular, this allows the
+        // user to provide a fallback rule.
+        //
+        switch (cclass)
+        {
+        case compiler_class::gcc: return true;
+        case compiler_class::msvc:
+          {
+            // Only MSVC 19.20 or later. Not tested with clang-cl.
+            //
+            if (cvariant.empty () && (cmaj > 19 || (cmaj == 19 && cmin >= 20)))
+              return true;
+
+            l4 ([&]{trace << "unsupported compiler/version";});
+            break;
+          }
+        }
+      }
+
+      return false;
     }
 
     recipe predefs_rule::
