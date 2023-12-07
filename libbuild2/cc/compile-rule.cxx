@@ -3686,6 +3686,8 @@ namespace build2
                   !find_option_prefixes ({"/EH", "-EH"}, args))
                 args.push_back ("/EHsc");
 
+              // NOTE: see similar code in search_modules().
+              //
               if (!find_option_prefixes ({"/MD", "/MT", "-MD", "-MT"}, args))
                 args.push_back ("/MD");
 
@@ -6114,9 +6116,10 @@ namespace build2
       //
       // @@ TODO: cache x_stdlib value.
       //
-      if (ctype == compiler_type::clang &&
-          cmaj >= 17                    &&
-          cast<string> (rs[x_stdlib]) == "libc++")
+      if ((ctype == compiler_type::msvc)          ||
+          (ctype == compiler_type::clang &&
+           cmaj >= 17                    &&
+           cast<string> (rs[x_stdlib]) == "libc++"))
       {
         // Similar logic to check_exact() above.
         //
@@ -6126,52 +6129,152 @@ namespace build2
         {
           module_import& m (imports[i]);
 
-          if (m.name == "std")
+          if (m.name == "std" || m.name == "std.compat")
           {
-            // Find or insert std.cppm (similar code to pkgconfig.cxx).
-            //
-            // Note: build_install_data is absolute and normalized.
-            //
-            const target& mt (
-              ctx.targets.insert_locked (
-                *x_mod,
-                (dir_path (build_install_data) /= "libbuild2") /= "cc",
-                dir_path (),
-                "std",
-                string ("cppm"), // For C++14 during bootstrap.
-                target_decl::implied,
-                trace).first);
+            otype ot;
+            const target* mt (nullptr);
 
-            // Which output type should we use, static or shared? The correct
-            // way would be to detect whether static or shared version of
-            // libc++ is to be linked and use the corresponding type. And we
-            // could do that by searching for -static-libstdc++ in loption
-            // (and no, it's not -static-libc++).
-            //
-            // But, looking at the object file produced from std.cppm, it only
-            // contains one symbol, the static object initializer. And this is
-            // unlikely to change since all other non-inline/template symbols
-            // should be in libc++. So feels like it's not worth the trouble
-            // and one variant should be good enough for both cases. Let's use
-            // the shared one for less surprising diagnostics (as in, "why are
-            // you linking obje{} to a shared library?")
-            //
-            // (Of course, theoretically, std.cppm could detect via a macro
-            // whether it's being compiled with -fPIC or not and do things
-            // differently, but this seems far-fetched).
-            //
+            switch (ctype)
+            {
+            case compiler_type::clang:
+              {
+                if (m.name != "std")
+                  fail << "module " << m.name << " not yet provided by libc++";
+
+                // Find or insert std.cppm (similar code to pkgconfig.cxx).
+                //
+                // Note: build_install_data is absolute and normalized.
+                //
+                mt = &ctx.targets.insert_locked (
+                  *x_mod,
+                  (dir_path (build_install_data) /= "libbuild2") /= "cc",
+                  dir_path (),
+                  "std",
+                  string ("cppm"), // For C++14 during bootstrap.
+                  target_decl::implied,
+                  trace).first;
+
+                // Which output type should we use, static or shared? The
+                // correct way would be to detect whether static or shared
+                // version of libc++ is to be linked and use the corresponding
+                // type. And we could do that by looking for -static-libstdc++
+                // in loption (and no, it's not -static-libc++).
+                //
+                // But, looking at the object file produced from std.cppm, it
+                // only contains one symbol, the static object initializer.
+                // And this is unlikely to change since all other non-inline
+                // or template symbols should be in libc++. So feels like it's
+                // not worth the trouble and one variant should be good enough
+                // for both cases. Let's use the shared one for less
+                // surprising diagnostics (as in, "why are you linking obje{}
+                // to a shared library?")
+                //
+                // (Of course, theoretically, std.cppm could detect via a
+                // macro whether it's being compiled with -fPIC or not and do
+                // things differently, but this seems far-fetched).
+                //
+                ot = otype::s;
+
+                break;
+              }
+            case compiler_type::msvc:
+              {
+                // For MSVC, the source files std.ixx and std.compat.ixx are
+                // found in the modules/ subdirectory which is a sibling of
+                // include/ in the MSVC toolset (and "that is a contract with
+                // customers" to quote one of the developers).
+                //
+                // The problem of course is that there are multiple system
+                // header search directories (for example, as specified in the
+                // INCLUDE environment variable) and which one of them is for
+                // the MSVC toolset is not specified. So what we are going to
+                // do is search for one of the well-known standard C++ headers
+                // and assume that the directory where we found it is the one
+                // we are looking for. Or we could look for something
+                // MSVC-specific like vcruntime.h.
+                //
+                dir_path modules;
+                if (optional<path> p = find_system_header (path ("vcruntime.h")))
+                {
+                  p->make_directory (); // Strip vcruntime.h.
+                  if (p->leaf () == path ("include")) // Sanity check.
+                  {
+                    modules = path_cast<dir_path> (move (p->make_directory ()));
+                    modules /= "modules";
+                  }
+                }
+
+                if (modules.empty ())
+                  fail << "unable to locate MSVC standard modules directory";
+
+                mt = &ctx.targets.insert_locked (
+                  *x_mod,
+                  move (modules),
+                  dir_path (),
+                  m.name,
+                  string ("ixx"), // For C++14 during bootstrap.
+                  target_decl::implied,
+                  trace).first;
+
+                // For MSVC it's easier to detect the runtime being used since
+                // it's specified with the compile options (/MT[d], /MD[d]).
+                //
+                // Similar semantics as in extract_headers() except here we
+                // use options visible from the root scope. Note that
+                // find_option_prefixes() looks in reverse, so look in the
+                // cmode, x_coptions, c_coptions order.
+                //
+                initializer_list<const char*> os {"/MD", "/MT", "-MD", "-MT"};
+
+                const string* o;
+                if ((o = find_option_prefixes (os, cmode))          != nullptr ||
+                    (o = find_option_prefixes (os, rs, x_coptions)) != nullptr ||
+                    (o = find_option_prefixes (os, rs, c_coptions)) != nullptr)
+                {
+                  ot = (*o)[2] == 'D' ? otype::s : otype::a;
+                }
+                else
+                  ot = otype::s; // The default is /MD.
+
+                break;
+              }
+            case compiler_type::gcc:
+            case compiler_type::icc:
+              assert (false);
+            };
+
             pair<target&, ulock> tl (
-              this->make_module_sidebuild (
-                a, bs, nullptr, otype::s, mt, m.name)); // GCC 4.9
+              this->make_module_sidebuild ( // GCC 4.9
+                a, bs, nullptr, ot, *mt, m.name));
 
             if (tl.second.owns_lock ())
             {
-              value& v (tl.first.append_locked (x_coptions));
+              // Special compile options for the std modules.
+              //
+              if (ctype == compiler_type::clang)
+              {
+                value& v (tl.first.append_locked (x_coptions));
 
-              if (v.null)
-                v = strings {};
+                if (v.null)
+                  v = strings {};
 
-              v.as<strings> ().push_back ("-Wno-reserved-module-identifier");
+                strings& cops (v.as<strings> ());
+
+                switch (ctype)
+                {
+                case compiler_type::clang:
+                  {
+                    cops.push_back ("-Wno-reserved-module-identifier");
+                    break;
+                  }
+                case compiler_type::msvc:
+                  // It appears nothing special is needed to compile MSVC
+                  // standard modules.
+                case compiler_type::gcc:
+                case compiler_type::icc:
+                  assert (false);
+                };
+              }
 
               tl.second.unlock ();
             }
