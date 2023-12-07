@@ -1404,6 +1404,10 @@ namespace build2
                 //
                 if (mt != timestamp_nonexistent)
                 {
+                  // Appended to by to_module_info() below.
+                  //
+                  tu.module_info.imports.clear ();
+
                   u = false;
                   md.touch = true;
                 }
@@ -5897,7 +5901,7 @@ namespace build2
       // promise. It has to do with module re-exporting (export import M;).
       // In this case (currently) all implementations simply treat it as a
       // shallow (from the BMI's point of view) reference to the module (or an
-      // implicit import, if you will). Do you see where it's going? Nowever
+      // implicit import, if you will). Do you see where it's going? Nowhere
       // good, that's right. This shallow reference means that the compiler
       // should be able to find BMIs for all the re-exported modules,
       // recursively. The good news is we are actually in a pretty good shape
@@ -6037,6 +6041,8 @@ namespace build2
               continue; // Scan the rest to detect if all done.
             }
           }
+          else
+            assert (name != m.name); // No duplicates.
 
           done = false;
         }
