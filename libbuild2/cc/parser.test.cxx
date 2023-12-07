@@ -44,7 +44,7 @@ namespace build2
         }
 
         parser p;
-        unit u (p.parse (is, in));
+        unit u (p.parse (is, in, compiler_id (compiler_type::gcc, "")));
 
         switch (u.type)
         {

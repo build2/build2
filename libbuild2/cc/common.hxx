@@ -165,6 +165,7 @@ namespace build2
       // Cached values for some commonly-used variables/values.
       //
 
+      const compiler_id& cid;       // x.id
       compiler_type ctype;          // x.id.type
       const string& cvariant;       // x.id.variant
       compiler_class cclass;        // x.class
@@ -278,8 +279,7 @@ namespace build2
             const char* compile,
             const char* link,
             const char* install,
-            compiler_type ct,
-            const string& cv,
+            const compiler_id& ci,
             compiler_class cl,
             uint64_t mj, uint64_t mi,
             uint64_t vmj, uint64_t vmi,
@@ -305,7 +305,7 @@ namespace build2
             x_compile (compile),
             x_link (link),
             x_install (install),
-            ctype (ct), cvariant (cv), cclass (cl),
+            cid (ci), ctype (ci.type), cvariant (ci.variant), cclass (cl),
             cmaj (mj), cmin (mi),
             cvmaj (vmj), cvmin (vmi),
             cpath (path), cmode (mode),

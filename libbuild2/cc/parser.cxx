@@ -15,8 +15,10 @@ namespace build2
     using type = token_type;
 
     void parser::
-    parse (ifdstream& is, const path_name& in, unit& u)
+    parse (ifdstream& is, const path_name& in, unit& u, const compiler_id& cid)
     {
+      cid_ = &cid;
+
       lexer l (is, in, true /* preprocessed */);
       l_ = &l;
       u_ = &u;
@@ -82,6 +84,12 @@ namespace build2
             // to call it __import) or it can have a special attribute (GCC
             // currently marks it with [[__translated]]).
             //
+            // Similarly, MSVC drops the `module;` marker and replaces all
+            // other `module` keywords with `__preprocessed_module`.
+            //
+            // Clang doesn't appear to rewrite anything, at least as of
+            // version 18.
+            //
             if (bb == 0 && t.first)
             {
               const string& id (t.value); // Note: tracks t.
@@ -102,7 +110,9 @@ namespace build2
                 // Fall through.
               }
 
-              if (id == "module")
+              if (id == "module" ||
+                  (cid_->type == compiler_type::msvc &&
+                   id == "__preprocessed_module"))
               {
                 location_value l (get_location (t));
                 l_->next (t);
@@ -113,7 +123,9 @@ namespace build2
                 else
                   n = false;
               }
-              else if (id == "import" /*|| id == "__import"*/)
+              else if (id == "import" /* ||
+                       (cid_->type == compiler_type::gcc &&
+                        id == "__import")*/)
               {
                 l_->next (t);
 
@@ -181,7 +193,7 @@ namespace build2
       //
       pair<string, bool> np (parse_module_name (t, true /* partition */));
 
-      // Should be {}-balanced.
+      // Skip attributes (should be {}-balanced).
       //
       for (;
            t.type != type::eos && t.type != type::semi && !t.first;
@@ -262,7 +274,7 @@ namespace build2
         return;
       }
 
-      // Should be {}-balanced.
+      // Skip attributes (should be {}-balanced).
       //
       for (;
            t.type != type::eos && t.type != type::semi && !t.first;

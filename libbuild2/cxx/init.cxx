@@ -388,28 +388,24 @@ namespace build2
           {
           case compiler_type::msvc:
             {
-              // While modules are supported in VC 15.0 (19.10), there is a
-              // bug in the separate interface/implementation unit support
-              // which makes them pretty much unusable. This has been fixed in
-              // 15.3 (19.11). And 15.5 (19.12) supports the `export module
-              // M;` syntax. And 16.4 (19.24) supports the global module
-              // fragment. And in 16.8 all the modules-related options have
-              // been changed. Seeing that the whole thing is unusable anyway,
-              // we disable it for 16.8 or later for now.
+              // Modules are enabled by default in /std:c++20 and
+              // /std:c++latest with both defining __cpp_modules to 201907
+              // (final C++20 module), at least as of 17.6 (LTS).
               //
-              if ((mj > 19 || (mj == 19 && mi >= (modules.value ? 10 : 12))) &&
-                  (mj < 19 || (mj == 19 && mi < 28) || modules.value))
+              // @@ Should we enable modules by default?
+              //
+              if (modules.value)
               {
-                prepend (
-                  mj > 19  || mi >= 24     ?
-                  "/D__cpp_modules=201810" : // p1103 (merged modules)
-                  mj == 19 || mi >= 12     ?
-                  "/D__cpp_modules=201704" : // p0629r0 (export module M;)
-                  "/D__cpp_modules=201703"); // n4647   (       module M;)
+                if (mj < 19 || (mj == 19 && mi < 36))
+                {
+                  fail << "support for C++ modules requires MSVC 17.6 or later" <<
+                    info << "C++ compiler is " << ci.signature <<
+                    info << "required by " << project (rs) << '@' << rs;
+                }
 
-                prepend ("/experimental:module");
                 modules = true;
               }
+
               break;
             }
           case compiler_type::gcc:
@@ -418,6 +414,10 @@ namespace build2
               // since GCC 11. And since we are not yet capable of supporting
               // generated headers via the mapper, we require the user to
               // explicitly request modules.
+              //
+              // @@ Actually, now that we pre-generate headers by default,
+              // this is probably no longer the reason. But GCC modules being
+              // unusable due to bugs is a reason enough.
               //
               if (mj >= 11 && modules.value)
               {
@@ -870,8 +870,7 @@ namespace build2
         "cxx.link",
         "cxx.install",
 
-        cm.x_info->id.type,
-        cm.x_info->id.variant,
+        cm.x_info->id,
         cm.x_info->class_,
         cm.x_info->version.major,
         cm.x_info->version.minor,

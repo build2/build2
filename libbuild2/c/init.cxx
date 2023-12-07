@@ -390,8 +390,7 @@ namespace build2
         "c.link",
         "c.install",
 
-        cm.x_info->id.type,
-        cm.x_info->id.variant,
+        cm.x_info->id,
         cm.x_info->class_,
         cm.x_info->version.major,
         cm.x_info->version.minor,

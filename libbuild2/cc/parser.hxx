@@ -10,6 +10,7 @@
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/cc/types.hxx>
+#include <libbuild2/cc/guess.hxx> // compiler_id
 
 namespace build2
 {
@@ -23,16 +24,19 @@ namespace build2
     class parser
     {
     public:
+      // The compiler_id argument should identify the compiler that has done
+      // the preprocessing.
+      //
       unit
-      parse (ifdstream& is, const path_name& n)
+      parse (ifdstream& is, const path_name& n, const compiler_id& cid)
       {
         unit r;
-        parse (is, n, r);
+        parse (is, n, r, cid);
         return r;
       }
 
       void
-      parse (ifdstream&, const path_name&, unit&);
+      parse (ifdstream&, const path_name&, unit&, const compiler_id&);
 
     private:
       void
@@ -54,6 +58,7 @@ namespace build2
       string checksum; // Translation unit checksum.
 
     private:
+      const compiler_id* cid_;
       lexer* l_;
       unit* u_;
 

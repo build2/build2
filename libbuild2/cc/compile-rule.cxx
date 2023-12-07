@@ -354,6 +354,35 @@ namespace build2
           case lang::c:   o1 = "/TC"; break;
           case lang::cxx: o1 = "/TP"; break;
           }
+
+          // Note: /interface and /internalPartition are in addition to /TP.
+          //
+          switch (md.type)
+          {
+          case unit_type::non_modular:
+          case unit_type::module_impl:
+            {
+              break;
+            }
+          case unit_type::module_intf:
+          case unit_type::module_intf_part:
+            {
+              o2 = "/interface";
+              break;
+            }
+          case unit_type::module_impl_part:
+            {
+              o2 = "/internalPartition";
+              break;
+            }
+          case unit_type::module_header:
+            {
+              //@@ MODHDR TODO: /exportHeader
+              assert (false);
+              break;
+            }
+          }
+
           break;
         }
       case compiler_class::gcc:
@@ -385,6 +414,7 @@ namespace build2
                 case lang::cxx: o2 = obj ? "objective-c++" : "c++"; break;
                 }
               }
+
               break;
             }
           case unit_type::module_intf:
@@ -424,9 +454,11 @@ namespace build2
               default:
                   assert (false);
               }
+
               break;
             }
           }
+
           break;
         }
       }
@@ -1456,24 +1488,6 @@ namespace build2
             extract_modules (a, bs, t, li,
                              tts, src,
                              md, move (tu.module_info), dd, u);
-
-            // Currently in VC module interface units must be compiled from
-            // the original source (something to do with having to detect and
-            // store header boundaries in the .ifc files).
-            //
-            // @@ MODHDR MSVC: should we do the same for header units? I guess
-            //    we will figure it out when MSVC supports header units.
-            //
-            // @@ TMP: probably outdated. Probably the same for partitions.
-            //
-            // @@ See also similar check in extract_headers(), existing entry
-            //    case.
-            //
-            if (ctype == compiler_type::msvc)
-            {
-              if (ut == unit_type::module_intf)
-                psrc.second = false;
-            }
           }
         }
 
@@ -4125,10 +4139,7 @@ namespace build2
               // If modules are enabled, then we keep the preprocessed output
               // around (see apply() for details).
               //
-              // See apply() for details on the extra MSVC check.
-              //
-              if (modules && (ctype != compiler_type::msvc ||
-                              md.type != unit_type::module_intf))
+              if (modules)
               {
                 result.first = ctx.fcache->create_existing (t.path () + pext);
                 result.second = true;
@@ -5361,7 +5372,7 @@ namespace build2
                         fdstream_mode::binary | fdstream_mode::skip);
 
           parser p;
-          p.parse (is, path_name (*sp), tu);
+          p.parse (is, path_name (*sp), tu, cid);
 
           is.close ();
 
@@ -5400,18 +5411,6 @@ namespace build2
 
                 ut = md.type;
                 mi.name = src.path ().string ();
-              }
-
-              // Prior to 15.5 (19.12) VC was not using the 'export module M;'
-              // syntax so we use the preprequisite type to distinguish
-              // between interface and implementation units.
-              //
-              // @@ TMP: probably outdated.
-              //
-              if (ctype == compiler_type::msvc && cmaj == 19 && cmin <= 11)
-              {
-                if (ut == unit_type::module_impl && src.is_a (*x_mod))
-                  ut = unit_type::module_intf;
               }
             }
 
@@ -6979,7 +6978,7 @@ namespace build2
     // options).
     //
     void compile_rule::
-    append_module_options (environment& env,
+    append_module_options (environment&,
                            cstrings& args,
                            small_vector<string, 2>& stor,
                            action a,
@@ -6989,8 +6988,6 @@ namespace build2
     {
       unit_type ut (md.type);
       const module_positions& ms (md.modules);
-
-      dir_path stdifc; // See the VC case below.
 
       switch (ctype)
       {
@@ -7079,6 +7076,9 @@ namespace build2
           if (ms.start == 0)
             return;
 
+          // MSVC requires a transitive set of interfaces, including
+          // implementation partitions.
+          //
           auto& pts (t.prerequisite_targets[a]);
           for (size_t i (ms.start), n (pts.size ()); i != n; ++i)
           {
@@ -7091,34 +7091,14 @@ namespace build2
             // of these are bmi's.
             //
             const file& f (pt->as<file> ());
+            string s (relative (f.path ()).string ());
 
-            // In VC std.* modules can only come from a single directory
-            // specified with the IFCPATH environment variable or the
-            // /module:stdIfcDir option.
-            //
-            if (std_module (cast<string> (f.state[a].vars[c_module_name])))
-            {
-              dir_path d (f.path ().directory ());
+            s.insert (0, 1, '=');
+            s.insert (0, cast<string> (f.state[a].vars[c_module_name]));
 
-              if (stdifc.empty ())
-              {
-                // Go one directory up since /module:stdIfcDir will look in
-                // either Release or Debug subdirectories. Keeping the result
-                // absolute feels right.
-                //
-                stor.push_back ("/module:stdIfcDir");
-                stor.push_back (d.directory ().string ());
-                stdifc = move (d);
-              }
-              else if (d != stdifc) // Absolute and normalized.
-                fail << "multiple std.* modules in different directories";
-            }
-            else
-            {
-              stor.push_back ("/module:reference");
-              stor.push_back (relative (f.path ()).string ());
-            }
+            stor.push_back (move (s));
           }
+
           break;
         }
       case compiler_type::icc:
@@ -7129,25 +7109,11 @@ namespace build2
       // into storage? Because of potential reallocations.
       //
       for (const string& a: stor)
-        args.push_back (a.c_str ());
+      {
+        if (ctype == compiler_type::msvc)
+          args.push_back ("/reference");
 
-      if (getenv ("IFCPATH"))
-      {
-        // VC's IFCPATH takes precedence over /module:stdIfcDir so unset it if
-        // we are using our own std modules. Note: IFCPATH saved in guess.cxx.
-        //
-        if (!stdifc.empty ())
-          env.push_back ("IFCPATH");
-      }
-      else if (stdifc.empty ())
-      {
-        // Add the VC's default directory (should be only one).
-        //
-        if (sys_mod_dirs != nullptr && !sys_mod_dirs->empty ())
-        {
-          args.push_back ("/module:stdIfcDir");
-          args.push_back (sys_mod_dirs->front ().string ().c_str ());
-        }
+        args.push_back (a.c_str ());
       }
     }
 
@@ -7386,9 +7352,8 @@ namespace build2
           // Note also that what we are doing here appears to be incompatible
           // with PCH (/Y* options) and /Gm (minimal rebuild).
           //
-          // @@ MOD: TODO deal with absent relo (sidebuild).
-          //
-          if (find_options ({"/Zi", "/ZI", "-Zi", "-ZI"}, args))
+          if (!relo.empty () &&
+              find_options ({"/Zi", "/ZI", "-Zi", "-ZI"}, args))
           {
             if (fc)
               args.push_back ("/Fd:");
@@ -7401,27 +7366,38 @@ namespace build2
             args.push_back (out1.c_str ());
           }
 
-          if (fc)
+          if (ut == unit_type::module_intf      ||
+              ut == unit_type::module_intf_part ||
+              ut == unit_type::module_impl_part ||
+              ut == unit_type::module_header)
           {
-            args.push_back ("/Fo:");
-            args.push_back (relo.string ().c_str ());
+            assert (ut != unit_type::module_header); // @@ MODHDR
+
+            relm = relative (tp);
+
+            args.push_back ("/ifcOutput");
+            args.push_back (relm.string ().c_str ());
+
+            if (relo.empty ())
+              args.push_back ("/ifcOnly");
+            else
+            {
+              args.push_back ("/Fo:");
+              args.push_back (relo.string ().c_str ());
+            }
           }
           else
           {
-            out = "/Fo" + relo.string ();
-            args.push_back (out.c_str ());
-          }
-
-          // @@ MODHDR MSVC
-          // @@ MODPART MSVC
-          //
-          if (ut == unit_type::module_intf)
-          {
-            relm = relative (tp);
-
-            args.push_back ("/module:interface");
-            args.push_back ("/module:output");
-            args.push_back (relm.string ().c_str ());
+            if (fc)
+            {
+              args.push_back ("/Fo:");
+              args.push_back (relo.string ().c_str ());
+            }
+            else
+            {
+              out = "/Fo" + relo.string ();
+              args.push_back (out.c_str ());
+            }
           }
 
           // Note: no way to indicate that the source if already preprocessed.
@@ -7642,7 +7618,7 @@ namespace build2
               }
             case compiler_type::clang:
               {
-                assert (ut != unit_type::module_header);
+                assert (ut != unit_type::module_header); // @@ MODHDR
 
                 relm = relative (tp);
 
