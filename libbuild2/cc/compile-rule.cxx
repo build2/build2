@@ -6137,7 +6137,7 @@ namespace build2
 
           if (m.name == "std" || m.name == "std.compat")
           {
-            otype ot;
+            otype ot (otype::e);
             const target* mt (nullptr);
 
             switch (ctype)
