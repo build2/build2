@@ -205,8 +205,6 @@ $* test clean <<EOI
 :
 : Test global module fragment/leading module marker (module;).
 :
-if ($cxx.id != 'msvc') # Disabled for MSVC due to issue 845845. @@ TMP revise
-{
 cat <<EOI >=g.hxx;
 void g ();
 EOI
@@ -220,7 +218,6 @@ ln -s ../core.cxx ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} {mxx cxx}{core}
   EOI
-}
 
 : re-export
 :
@@ -371,20 +368,28 @@ cat <<EOI >=core.mxx;
 
   export __symexport int f (int);
 
-  __symexport int g_impl (int i) {return i - 1;}
+  __symexport int g_impl (int i);
   export __symexport inline int g (int i) {return g_impl (i);}
+
+  export __symexport int v1 = 1;
+  export __symexport extern int v2;
   EOI
 ln -s ../core.cxx core-f.cxx;
 cat <<EOI >=core-g.cxx;
   module foo.core;
   int g_impl (int i) {return i - 1;}
+  int v = 1;
+  EOI
+cat <<EOI >=core-v.cxx;
+  module foo.core;
+  int v2 = -1;
   EOI
 cat <<EOI >=driver.cxx;
   import foo.core;
-  int main (int argc, char*[]) {return f (argc) + g (argc);}
+  int main (int argc, char*[]) {return f (argc) + g (argc) + v1 + v2;}
   EOI
 $* test clean <<EOI
   ./: lib{foo} exe{test} # Full build.
   exe{test}: cxx{driver} lib{foo}
-  lib{foo}: mxx{core} cxx{core-f} # @@ VC: core-g
+  lib{foo}: mxx{core} cxx{core-g core-f core-v}
   EOI
