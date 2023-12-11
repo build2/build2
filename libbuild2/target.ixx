@@ -769,7 +769,19 @@ namespace build2
   inline bool mtime_target::
   newer (timestamp mt, target_state s) const
   {
+#ifndef NDEBUG
+    // @@ TMP
+    //
+    if (s == target_state::unknown)
+    {
+      text << "unknown target_state in newer(): " << *this <<
+        info << "phase: " << ctx.phase;
+
+      terminate (true /* trace */);
+    }
+
     assert (s != target_state::unknown); // Should be executed.
+#endif
 
     timestamp mp (mtime ());
 
