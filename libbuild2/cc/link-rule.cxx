@@ -2265,6 +2265,29 @@ namespace build2
                      << "for install";
           }
 
+          auto newer = [&d, l] ()
+          {
+            // @@ Work around the unexecuted member for installed libraries
+            // issue (see search_library() for details).
+            //
+            // Note that the member may not even be matched, let alone
+            // executed, so we have to go through the group to detect this
+            // case (if the group is not matched, then the member got to be).
+            //
+#if 0
+            return l->newer (d.mt);
+#else
+            const target* g (l->group);
+            target_state s (g != nullptr                           &&
+                            g->matched (d.a, memory_order_acquire) &&
+                            g->state[d.a].rule == &file_rule::rule_match
+                            ? target_state::unchanged
+                            : l->executed_state (d.a));
+
+            return l->newer (d.mt, s);
+#endif
+          };
+
           if (d.li.type == otype::a)
           {
             // Linking a utility library to a static library.
@@ -2292,7 +2315,7 @@ namespace build2
             // Check if this library renders us out of date.
             //
             if (d.update != nullptr)
-              *d.update = *d.update || l->newer (d.mt);
+              *d.update = *d.update || newer ();
 
             for (const target* pt: l->prerequisite_targets[d.a])
             {
@@ -2331,7 +2354,7 @@ namespace build2
             // Check if this library renders us out of date.
             //
             if (d.update != nullptr)
-              *d.update = *d.update || l->newer (d.mt);
+              *d.update = *d.update || newer ();
 
             // On Windows a shared library is a DLL with the import library as
             // an ad hoc group member. MinGW though can link directly to DLLs
@@ -3497,7 +3520,7 @@ namespace build2
                                 &cs, &update, mt,
                                 bs, a, *f, la, p.data, li,
                                 for_install, true, true, &lc);
-              f = nullptr; // Timestamp checked by hash_libraries().
+              f = nullptr; // Timestamp checked by append_libraries().
             }
             else
             {

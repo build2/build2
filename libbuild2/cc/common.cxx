@@ -1472,7 +1472,7 @@ namespace build2
         // @@ TODO: we currently always reload pkgconfig for lt (and below).
         //
         mark_cc (*lt);
-        lt->mtime (mt);
+        lt->mtime (mt); // Note: problematic, see below for details.
 
         // We can only load metadata from here since we can only do this
         // during the load phase. But it's also possible that a racing match
@@ -1523,6 +1523,9 @@ namespace build2
         return l;
       };
 
+      target_lock al (lock (a));
+      target_lock sl (lock (s));
+
       target_lock ll (lock (lt));
 
       // Set lib{} group members to indicate what's available. Note that we
@@ -1549,9 +1552,6 @@ namespace build2
         else
           ll.unlock ();
       }
-
-      target_lock al (lock (a));
-      target_lock sl (lock (s));
 
       if (!al) a = nullptr;
       if (!sl) s = nullptr;
@@ -1586,6 +1586,34 @@ namespace build2
       if (s != nullptr) match_rule (sl, file_rule::rule_match);
       if (ll)
       {
+        // @@ Turns out this has a problem: file_rule won't match/execute
+        //    group members. So what happens is that if we have two installed
+        //    libraries, say lib{build2} that depends on lib{butl}, then
+        //    lib{build2} will have lib{butl} as a prerequisite and file_rule
+        //    that matches lib{build2} will update lib{butl} (also matched by
+        //    file_rule), but not its members. Later, someone (for example,
+        //    the newer() call in append_libraries()) will pick one of the
+        //    members assuming it is executed and things will go sideways.
+        //
+        //    For now we hacked around the issue but the long term solution is
+        //    probably to add to the bin module a special rule that is
+        //    registered on the global scope and matches the installed lib{}
+        //    targets. This rule will have to both update prerequisites like
+        //    the file_rule and group members like the lib_rule (or maybe it
+        //    can skip prerequisites since one of the member will do that; in
+        //    which case maybe we will be able to reuse lib_rule maybe with
+        //    the "all members" flag or some such). A few additional
+        //    notes/thoughts:
+        //
+        //    - Will be able to stop inheriting lib{} from mtime_target.
+        //
+        //    - Will need to register for perform_update/clean like in context
+        //      as well as for configure as in the config module (feels like
+        //      shouldn't need to register for dist).
+        //
+        //    - Will need to test batches, immediate import thoroughly (this
+        //      stuff is notoriously tricky to get right in all situations).
+        //
         match_rule (ll, file_rule::rule_match);
 
         // Also bless the library group with a "trust me it exists" timestamp.
@@ -1594,6 +1622,8 @@ namespace build2
         // won't match.
         //
         lt->mtime (mt);
+
+        ll.unlock (); // Unlock group before members, for good measure.
       }
 
       return r;

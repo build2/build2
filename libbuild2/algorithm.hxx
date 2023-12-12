@@ -434,7 +434,8 @@ namespace build2
                          bool fail = true);
 
   // Apply the specified recipe directly and without incrementing the
-  // dependency counts. The target must be locked.
+  // dependency counts. The target must be locked (and it remains locked
+  // after this function returns).
   //
   // Note that there will be no way to rematch on options change (since there
   // is no rule), so passing anything other than all_options is most likely a
@@ -446,7 +447,8 @@ namespace build2
                 uint64_t options = match_extra::all_options);
 
   // Match (but do not apply) the specified rule directly and without
-  // incrementing the dependency counts. The target must be locked.
+  // incrementing the dependency counts. The target must be locked (and it
+  // remains locked after this function returns).
   //
   void
   match_rule (target_lock&,
