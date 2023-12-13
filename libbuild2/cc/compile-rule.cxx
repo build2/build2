@@ -6070,10 +6070,18 @@ namespace build2
           //
           if (pt->is_a<bmix> ())
           {
-            const string& n (cast<string> (pt->state[a].vars[c_module_name]));
-
-            if (const target** p = check_exact (n))
-              *p = pt;
+            // If the extraction of the module information for this BMI failed
+            // and we have deferred failure to compiler diagnostics, then
+            // there will be no module name assigned. It would have been
+            // better to make sure that's the cause, but that won't be easy.
+            //
+            const string* n (cast_null<string> (
+                               pt->state[a].vars[c_module_name]));
+            if (n != nullptr)
+            {
+              if (const target** p = check_exact (*n))
+                *p = pt;
+            }
           }
           else if (pt->is_a (*x_mod))
           {
@@ -6082,7 +6090,8 @@ namespace build2
             // rule puts them into prerequisite_targets for us).
             //
             // The module names should be specified but if not assume
-            // something else is going on and ignore.
+            // something else is going on (like a deferred failure) and
+            // ignore.
             //
             // Note also that besides modules, prerequisite_targets may
             // contain libraries which are interface dependencies of this
@@ -6476,12 +6485,10 @@ namespace build2
 
         if (m.score <= match_max (in))
         {
-          // If the extraction of the module information for this BMI failed
-          // and we have deferred failure to compiler diagnostics, then there
-          // will be no module name assigned. It would have been better to
-          // make sure that's the cause, but that won't be easy.
+          // As above (deffered failure).
           //
-          const string* mn (cast_null<string> (bt->state[a].vars[c_module_name]));
+          const string* mn (
+            cast_null<string> (bt->state[a].vars[c_module_name]));
 
           if (mn != nullptr && in != *mn)
           {
