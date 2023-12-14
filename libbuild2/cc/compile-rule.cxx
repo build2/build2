@@ -5393,7 +5393,9 @@ namespace build2
             if (!modules)
             {
               if (ut != unit_type::non_modular || !mi.imports.empty ())
-                fail << "modules support required by " << src;
+                fail << "modules support required by " << src <<
+                  info << "consider enabling modules with "
+                       << x << ".features.modules=true in root.build";
             }
             else
             {
@@ -6573,6 +6575,10 @@ namespace build2
 
     // Find or create a modules sidebuild subproject returning its root
     // directory.
+    //
+    // @@ Could we omit creating a subproject if the sidebuild scope is the
+    //    project scope itself? This would speed up simple examples (and
+    //    potentially direct compilation that we may support).
     //
     pair<dir_path, const scope&> compile_rule::
     find_modules_sidebuild (const scope& rs) const

@@ -98,6 +98,7 @@ $* &test* <<EOI 2>>EOE != 0
   exe{test}: cxx{test}
   EOI
   error: modules support required by cxx{test}
+    info: consider enabling modules with cxx.features.modules=true in root.build
   EOE
 
 : all

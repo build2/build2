@@ -175,6 +175,10 @@ namespace build2
         i = mode.insert (i, move (o)) + 1;
       };
 
+      // Derive approximate __cplusplus value from the standard if possible.
+      //
+      optional<uint32_t> cplusplus;
+
       switch (cl)
       {
       case compiler_class::msvc:
@@ -204,6 +208,26 @@ namespace build2
           {
             if (v14_3)
               o = "/std:c++latest";
+
+            // According to the documentation:
+            //
+            // "The value of __cplusplus with the /std:c++latest option
+            // depends on the version of Visual Studio. It's always at least
+            // one higher than the highest supported __cplusplus standard
+            // value supported by your version of Visual Studio."
+            //
+            if (v16_11)
+              cplusplus = 202002 + 1;
+            else if (v16_0)
+              cplusplus = 201703 + 1;
+            else if (v14_3)
+              cplusplus = 201402 + 1;
+            else if (mj >= 19)
+              cplusplus = 201402;
+            else if (mj >= 16)
+              cplusplus = 201103;
+            else
+              cplusplus = 199711;
           }
           else if (latest)
           {
@@ -220,9 +244,24 @@ namespace build2
               o = "/std:c++17";
             else if (v14_3)
               o = "/std:c++latest";
+
+            if (v16_11)
+              cplusplus = 202002;
+            else if (v16_0)
+              cplusplus = 201703;
+            else if (v14_3)
+              cplusplus = 201402 + 1;
+            else if (mj >= 19)
+              cplusplus = 201402;
+            else if (mj >= 16)
+              cplusplus = 201103;
+            else
+              cplusplus = 199711;
           }
           else if (v == nullptr)
-            ;
+          {
+            // @@ TODO: map defaults to cplusplus for each version.
+          }
           else if (!stdcmp ("98") && !stdcmp ("03"))
           {
             bool sup (false);
@@ -230,10 +269,12 @@ namespace build2
             if      (stdcmp ("11", "0x")) // C++11 since VS2010/10.0.
             {
               sup = mj >= 16;
+              cplusplus = 201103;
             }
             else if (stdcmp ("14", "1y")) // C++14 since VS2015/14.0.
             {
               sup = mj >= 19;
+              cplusplus = 201402;
             }
             else if (stdcmp ("17", "1z")) // C++17 since VS2015/14.0u2.
             {
@@ -241,10 +282,12 @@ namespace build2
               //
               sup = (mj > 19 ||
                      (mj == 19 && (mi > 0 || (mi == 0 && p >= 23918))));
+              cplusplus = 201703;
             }
             else if (stdcmp ("20", "2a")) // C++20 since VS2019/16.11.
             {
               sup = v16_11;
+              cplusplus = 202002;
             }
 
             if (!sup)
@@ -263,6 +306,8 @@ namespace build2
               else if (stdcmp ("17", "1z")) o = "/std:c++latest";
             }
           }
+          else
+            cplusplus = 199711;
 
           if (!o.empty ())
             prepend (move (o));
@@ -288,11 +333,33 @@ namespace build2
             {
             case compiler_type::gcc:
               {
-                if      (mj >= 11)           o = "-std=c++23"; // 23
-                else if (mj >= 8)            o = "-std=c++2a"; // 20
-                else if (mj >= 5)            o = "-std=c++1z"; // 17
-                else if (mj == 4 && mi >= 8) o = "-std=c++1y"; // 14
-                else if (mj == 4 && mi >= 4) o = "-std=c++0x"; // 11
+                if (mj >= 11)
+                {
+                  o = "-std=c++23";
+                  cplusplus = 202302;
+                }
+                else if (mj >= 8)
+                {
+                  o = "-std=c++2a";
+                  cplusplus = 202002;
+                }
+                else if (mj >= 5)
+                {
+                  o = "-std=c++1z";
+                  cplusplus = 201703;
+                }
+                else if (mj == 4 && mi >= 8)
+                {
+                  o = "-std=c++1y";
+                  cplusplus = 201402;
+                }
+                else if (mj == 4 && mi >= 4)
+                {
+                  o = "-std=c++0x";
+                  cplusplus = 201103;
+                }
+                else
+                  cplusplus = 199711;
 
                 break;
               }
@@ -310,21 +377,56 @@ namespace build2
                 // MSVC.
                 //
 
-                if      (mj >= 13)                            o = "-std=c++2b";
-                else if (mj == 10 &&
-                         latest && tt.system == "win32-msvc") o = "-std=c++17";
-                else if (mj >= 5)                             o = "-std=c++2a";
-                else if (mj >  3 || (mj == 3 && mi >= 5))     o = "-std=c++1z";
-                else if (mj == 3 && mi >= 4)                  o = "-std=c++1y";
-                else     /* ??? */                            o = "-std=c++0x";
+                if (mj >= 13)
+                {
+                  o = "-std=c++2b";
+                  cplusplus = 202302;
+                }
+                else if (mj == 10 && latest && tt.system == "win32-msvc")
+                {
+                  o = "-std=c++17";
+                  cplusplus = 201703;
+                }
+                else if (mj >= 5)
+                {
+                  o = "-std=c++2a";
+                  cplusplus = 202002;
+                }
+                else if (mj >  3 || (mj == 3 && mi >= 5))
+                {
+                  o = "-std=c++1z";
+                  cplusplus = 201703;
+                }
+                else if (mj == 3 && mi >= 4)
+                {
+                  o = "-std=c++1y";
+                  cplusplus = 201402;
+                }
+                else /* ??? */
+                {
+                  o = "-std=c++0x";
+                  cplusplus = 201103;
+                }
 
                 break;
               }
             case compiler_type::icc:
               {
-                if      (mj >= 17)                         o = "-std=c++1z";
-                else if (mj >  15 || (mj == 15 && p >= 3)) o = "-std=c++1y";
-                else    /* ??? */                          o = "-std=c++0x";
+                if (mj >= 17)
+                {
+                  o = "-std=c++1z";
+                  cplusplus = 201703;
+                }
+                else if (mj >  15 || (mj == 15 && p >= 3))
+                {
+                  o = "-std=c++1y";
+                  cplusplus = 201402;
+                }
+                else /* ??? */
+                {
+                  o = "-std=c++0x";
+                  cplusplus = 201103;
+                }
 
                 break;
               }
@@ -333,24 +435,33 @@ namespace build2
             }
           }
           else if (v == nullptr)
-            ;
+          {
+            // @@ TODO: map defaults to cplusplus for each version.
+          }
           else
           {
             // Translate 11 to 0x, 14 to 1y, 17 to 1z, 20 to 2a, 23 to 2b, and
             // 26 to 2c for compatibility with older versions of the
             // compilers.
             //
+            // @@ TMP: update C++26 __cplusplus value once known.
+            //
             o = "-std=";
 
-            if      (stdcmp ("26", "2c")) o += "c++2c";
-            else if (stdcmp ("23", "2b")) o += "c++2b";
-            else if (stdcmp ("20", "2a")) o += "c++2a";
-            else if (stdcmp ("17", "1z")) o += "c++1z";
-            else if (stdcmp ("14", "1y")) o += "c++1y";
-            else if (stdcmp ("11", "0x")) o += "c++0x";
-            else if (stdcmp ("03")      ) o += "c++03";
-            else if (stdcmp ("98")      ) o += "c++98";
-            else o += *v; // In case the user specifies `gnu++NN` or some such.
+            if      (stdcmp ("26", "2c")) {o += "c++2c"; cplusplus = 202400;}
+            else if (stdcmp ("23", "2b")) {o += "c++2b"; cplusplus = 202302;}
+            else if (stdcmp ("20", "2a")) {o += "c++2a"; cplusplus = 202002;}
+            else if (stdcmp ("17", "1z")) {o += "c++1z"; cplusplus = 201703;}
+            else if (stdcmp ("14", "1y")) {o += "c++1y"; cplusplus = 201402;}
+            else if (stdcmp ("11", "0x")) {o += "c++0x"; cplusplus = 201103;}
+            else if (stdcmp ("03")      ) {o += "c++03"; cplusplus = 199711;}
+            else if (stdcmp ("98")      ) {o += "c++98"; cplusplus = 199711;}
+            else
+            {
+              o += *v; // In case the user specifies `gnu++NN` or some such.
+
+              // @@ TODO: can we still try to derive cplusplus value?
+            }
           }
 
           if (!o.empty ())
@@ -360,6 +471,8 @@ namespace build2
         }
       }
 
+      // Additional experimental options.
+      //
       if (experimental)
       {
         switch (ct)
@@ -379,90 +492,124 @@ namespace build2
         default:
           break;
         }
+      }
 
-        // Unless disabled by the user, try to enable C++ modules.
-        //
-        if (!modules.value || *modules.value)
+      // Unless disabled by the user, try to enable C++ modules.
+      //
+      // NOTE: see also diagnostics about modules support required in compile
+      //       rule.
+      //
+      if (!modules.value || *modules.value)
+      {
+        switch (ct)
         {
-          switch (ct)
+        case compiler_type::msvc:
           {
-          case compiler_type::msvc:
+            // Modules are enabled by default in /std:c++20 and
+            // /std:c++latest with both defining __cpp_modules to 201907
+            // (final C++20 module), at least as of 17.6 (LTS).
+            //
+            // @@ Should we enable modules by default? There are still some
+            // serious bugs, like inability to both `import std;` and
+            // `#include <string>` in the same translation unit (see Visual
+            // Studio issue #10541166).
+            //
+            if (modules.value)
             {
-              // Modules are enabled by default in /std:c++20 and
-              // /std:c++latest with both defining __cpp_modules to 201907
-              // (final C++20 module), at least as of 17.6 (LTS).
-              //
-              // @@ Should we enable modules by default?
-              //
-              if (modules.value)
+              if (cplusplus && *cplusplus < 202002)
               {
-                if (mj < 19 || (mj == 19 && mi < 36))
-                {
-                  fail << "support for C++ modules requires MSVC 17.6 or later" <<
-                    info << "C++ compiler is " << ci.signature <<
-                    info << "required by " << project (rs) << '@' << rs;
-                }
-
-                modules = true;
+                fail << "support for C++ modules requires C++20 or later" <<
+                  info << "standard in use is " << *cplusplus <<
+                  info << "required by " << project (rs) << '@' << rs;
               }
 
-              break;
-            }
-          case compiler_type::gcc:
-            {
-              // We use the module mapper support which is only available
-              // since GCC 11. And since we are not yet capable of supporting
-              // generated headers via the mapper, we require the user to
-              // explicitly request modules.
-              //
-              // @@ Actually, now that we pre-generate headers by default,
-              // this is probably no longer the reason. But GCC modules being
-              // unusable due to bugs is a reason enough.
-              //
-              if (mj >= 11 && modules.value)
+              if (mj < 19 || (mj == 19 && mi < 36))
               {
-                // Defines __cpp_modules:
-                //
-                // 11 -- 201810
-                //
-                prepend ("-fmodules-ts");
-                modules = true;
+                fail << "support for C++ modules requires MSVC 17.6 or later" <<
+                  info << "C++ compiler is " << ci.signature <<
+                  info << "required by " << project (rs) << '@' << rs;
               }
 
-              break;
+              modules = true;
             }
-          case compiler_type::clang:
-            {
-              // Things (command line options, semantics) changed quite a bit
-              // around Clang 16 so we don't support anything earlier than
-              // that (it's not practically usable anyway).
-              //
-              // Clang enable modules by default in c++20 or later but they
-              // don't yet (as of Clang 18) define __cpp_modules. When they
-              // do, we can consider enabling modules by default on our side.
-              // For now, we only enable modules if forced with explicit
-              // cxx.features.modules=true.
-              //
-              if (modules.value)
-              {
-                if (mj < 16)
-                {
-                  fail << "support for C++ modules requires Clang 16 or later" <<
-                    info << "C++ compiler is " << ci.signature <<
-                    info << "required by " << project (rs) << '@' << rs;
-                }
 
-                // See https://github.com/llvm/llvm-project/issues/71364
-                //
-                prepend ("-D__cpp_modules=201907L");
-                modules = true;
-              }
-
-              break;
-            }
-          case compiler_type::icc:
-            break; // No modules support yet.
+            break;
           }
+        case compiler_type::gcc:
+          {
+            // We use the module mapper support which is only available since
+            // GCC 11. And since we are not yet capable of supporting
+            // generated headers via the mapper, we require the user to
+            // explicitly request modules.
+            //
+            // @@ Actually, now that we pre-generate headers by default, this
+            // is probably no longer the reason. But GCC modules being
+            // unusable due to bugs is stil a reason.
+            //
+            if (modules.value)
+            {
+              if (cplusplus && *cplusplus < 202002)
+              {
+                fail << "support for C++ modules requires C++20 or later" <<
+                  info << "standard in use is " << *cplusplus <<
+                  info << "required by " << project (rs) << '@' << rs;
+              }
+
+              if (mj < 11)
+              {
+                fail << "support for C++ modules requires GCC 11 or later" <<
+                  info << "C++ compiler is " << ci.signature <<
+                  info << "required by " << project (rs) << '@' << rs;
+              }
+
+              // Defines __cpp_modules:
+              //
+              // 11 -- 201810
+              //
+              prepend ("-fmodules-ts");
+              modules = true;
+            }
+
+            break;
+          }
+        case compiler_type::clang:
+          {
+            // Things (command line options, semantics) changed quite a bit
+            // around Clang 16 so we don't support anything earlier than
+            // that (it's not practically usable anyway).
+            //
+            // Clang enable modules by default in c++20 or later but they
+            // don't yet (as of Clang 18) define __cpp_modules. When they
+            // do, we can consider enabling modules by default on our side.
+            // For now, we only enable modules if forced with explicit
+            // cxx.features.modules=true.
+            //
+            if (modules.value)
+            {
+              if (cplusplus && *cplusplus < 202002)
+              {
+                fail << "support for C++ modules requires C++20 or later" <<
+                  info << "standard in use is " << *cplusplus <<
+                  info << "required by " << project (rs) << '@' << rs;
+              }
+
+              if (mj < 16)
+              {
+                fail << "support for C++ modules requires Clang 16 or later" <<
+                  info << "C++ compiler is " << ci.signature <<
+                  info << "required by " << project (rs) << '@' << rs;
+              }
+
+              // See https://github.com/llvm/llvm-project/issues/71364
+              //
+              prepend ("-D__cpp_modules=201907L");
+              modules = true;
+            }
+
+            break;
+          }
+        case compiler_type::icc:
+          break; // No modules support yet.
         }
       }
 

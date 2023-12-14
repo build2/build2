@@ -25,11 +25,11 @@ cxx.features.symexport = true
 # Note: there are some issues with enabling modules in Apple Clang 15 so
 # for now we only test vanilla Clang.
 #
-if ($cxx.id == 'gcc'                                    || \
-    ($cxx.id == 'msvc' && ($cxx.version.major > 19 ||      \
-                           ($cxx.version.major == 19 &&    \
-                            $cxx.version.minor >= 36))) || \
-    ($cxx.id == 'clang' && $cxx.version.major >= 16))
+if (($cxx.id == 'gcc'   && $cxx.version.major >= 11)     || \
+    ($cxx.id == 'clang' && $cxx.version.major >= 16)     || \
+    ($cxx.id == 'msvc'  && ($cxx.version.major > 19 ||      \
+                            ($cxx.version.major == 19 &&    \
+                             $cxx.version.minor >= 36))))
   cxx.features.modules = true
 
 using cxx
