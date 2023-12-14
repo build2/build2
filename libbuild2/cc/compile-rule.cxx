@@ -7154,18 +7154,8 @@ namespace build2
           s.insert (0, "-fmodule-file-map=@=");
           stor.push_back (move (s));
 #else
-          // Clang embeds module file references so we only need to specify
-          // our direct imports. @@ TMP: note anymore, clean up.
-          //
           auto& pts (t.prerequisite_targets[a]);
-          for (size_t i (ms.start),
-#if 0
-                 n (ms.copied != 0 ? ms.copied : pts.size ());
-#else
-                 n (pts.size ());
-#endif
-               i != n;
-               ++i)
+          for (size_t i (ms.start), n (pts.size ()); i != n; ++i)
           {
             const target* pt (pts[i]);
 
@@ -7350,10 +7340,6 @@ namespace build2
       string out, out1;                    // Output options storage.
       small_vector<string, 2> header_args; // Header unit options storage.
       small_vector<string, 2> module_args; // Module options storage.
-
-#if 0
-      size_t out_i (0);  // Index of the -o option.
-#endif
 
       switch (cclass)
       {
@@ -7690,12 +7676,6 @@ namespace build2
           append_header_options (env, args, header_args, a, t, md, md.dd);
           append_module_options (env, args, module_args, a, t, md, md.dd);
 
-#if 0
-          // Note: the order of the following options is relied upon below.
-          //
-          out_i = args.size (); // Index of the -o option.
-#endif
-
           if (ut == unit_type::module_intf      ||
               ut == unit_type::module_intf_part ||
               ut == unit_type::module_impl_part ||
@@ -7738,23 +7718,6 @@ namespace build2
 
                 relm = relative (tp);
 
-                // @@ TMP: cleanup (see also the second invocation below).
-#if 0
-                args.push_back ("-o");
-                args.push_back (relm.string ().c_str ());
-                args.push_back ("--precompile");
-
-                // Without this option Clang's .pcm will reference source
-                // files. In our case this file may be transient (.ii). Plus,
-                // it won't play nice with distributed compilation.
-                //
-                // Note that this sort of appears to be the default from Clang
-                // 17, but not quite, see llvm-project issued #72383.
-                //
-                args.push_back ("-Xclang");
-                args.push_back ("-fmodules-embed-all-files");
-
-#else
                 // Without this option Clang's .pcm will reference source
                 // files. In our case this file may be transient (.ii). Plus,
                 // it won't play nice with distributed compilation.
@@ -7779,7 +7742,7 @@ namespace build2
                   args.push_back (relo.string ().c_str ());
                   args.push_back ("-c");
                 }
-#endif
+
                 break;
               }
             case compiler_type::msvc:
@@ -8011,73 +7974,6 @@ namespace build2
       //
       if (ptmp && verb >= 3)
         md.psrc.temporary = true;
-
-      // @@ TMP: cleanup (see also --precompile option above and out_i).
-      //
-#if 0
-      // Clang's module compilation requires two separate compiler
-      // invocations.
-      //
-      // Note that if relo is empty, then there is no need for an object file
-      // (sidebuild).
-      //
-      if (ctype == compiler_type::clang      &&
-         (ut == unit_type::module_intf       ||
-          ut == unit_type::module_intf_part  ||
-          ut == unit_type::module_impl_part) &&
-          !relo.empty ())
-      {
-        // Adjust the command line. First discard everything after -o then
-        // build the new "tail".
-        //
-        // Note that Clang will warn about unused command line options like
-        // -I. Feels like it's easier to just suppress the warning than to
-        // recreate the command line from scratch. Hopefully this will go away
-        // once we switch to -fmodule-output.
-        //
-        args.resize (out_i + 1);
-        args.push_back (relo.string ().c_str ()); // Produce .o.
-        args.push_back ("-c");                    // By compiling .pcm.
-        args.push_back ("-Wno-unused-command-line-argument");
-        args.push_back (relm.string ().c_str ());
-        args.push_back (nullptr);
-
-        if (verb >= 2)
-          print_process (args);
-
-        if (!ctx.dry_run)
-        {
-          // Remove the target file if this fails. If we don't do that, we
-          // will end up with a broken build that is up-to-date.
-          //
-          auto_rmfile rm (relm);
-
-          try
-          {
-            process pr (cpath,
-                        args,
-                        0, 2, diag_buffer::pipe (ctx),
-                        nullptr, // CWD
-                        env.empty () ? nullptr : env.data ());
-
-            diag_buffer dbuf (ctx, args[0], pr);
-            dbuf.read ();
-            run_finish (dbuf, args, pr, 1 /* verbosity */);
-          }
-          catch (const process_error& e)
-          {
-            error << "unable to execute " << args[0] << ": " << e;
-
-            if (e.child)
-              exit (1);
-
-            throw failed ();
-          }
-
-          rm.cancel ();
-        }
-      }
-#endif
 
       timestamp now (system_clock::now ());
 
