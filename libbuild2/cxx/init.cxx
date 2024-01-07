@@ -7,10 +7,12 @@
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/config/utility.hxx>
+#include <libbuild2/install/utility.hxx>
 
 #include <libbuild2/cc/guess.hxx>
 #include <libbuild2/cc/module.hxx>
 
+#include <libbuild2/cc/target.hxx> // pc*
 #include <libbuild2/cxx/target.hxx>
 
 #ifndef BUILD2_DEFAULT_CXX
@@ -617,6 +619,95 @@ namespace build2
       //set_feature (concepts);
     }
 
+    // See cc::data::x_{hdr,inc} for background.
+    //
+    static const target_type* const hdr[] =
+    {
+      &hxx::static_type,
+      &ixx::static_type,
+      &txx::static_type,
+      &mxx::static_type,
+      nullptr
+    };
+
+    // Note that we don't include S{} here because none of the files we
+    // compile can plausibly want to include .S. (Maybe in inline assembler
+    // instructions?)
+    //
+    static const target_type* const inc[] =
+    {
+      &hxx::static_type,
+      &h::static_type,
+      &ixx::static_type,
+      &txx::static_type,
+      &mxx::static_type,
+      &cxx::static_type,
+      &c::static_type,
+      &mm::static_type,
+      &m::static_type,
+      &cxx_inc::static_type,
+      &cc::c_inc::static_type,
+      nullptr
+    };
+
+    bool
+    types_init (scope& rs,
+                scope& bs,
+                const location& loc,
+                bool,
+                bool,
+                module_init_extra&)
+    {
+      tracer trace ("cxx::types_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "cxx.types module must be loaded in project root";
+
+      // Register target types and configure their "installability".
+      //
+      using namespace install;
+
+      bool install_loaded (cast_false<bool> (rs["install.loaded"]));
+
+      // Note: not registering mm{} (it is registered seperately by the
+      // respective optional .types submodule).
+      //
+      // Note: mxx{} is in hdr. @@ But maybe it shouldn't be...
+      //
+      rs.insert_target_type<cxx> ();
+
+      auto insert_hdr = [&rs, install_loaded] (const target_type& tt)
+      {
+        rs.insert_target_type (tt);
+
+        // Install headers into install.include.
+        //
+        if (install_loaded)
+          install_path (rs, tt, dir_path ("include"));
+      };
+
+      for (const target_type* const* ht (hdr); *ht != nullptr; ++ht)
+        insert_hdr (**ht);
+
+      // Also register the C header for C-derived languages.
+      //
+      insert_hdr (h::static_type);
+
+      // @@ PERF: maybe factor this to cc.types?
+      //
+      rs.insert_target_type<cc::pc> ();
+      rs.insert_target_type<cc::pca> ();
+      rs.insert_target_type<cc::pcs> ();
+
+      if (install_loaded)
+        install_path<cc::pc> (rs, dir_path ("pkgconfig"));
+
+      return true;
+    }
+
     static const char* const hinters[] = {"c", nullptr};
 
     // See cc::module for details on guess_init vs config_init.
@@ -948,35 +1039,6 @@ namespace build2
       return true;
     }
 
-    static const target_type* const hdr[] =
-    {
-      &hxx::static_type,
-      &ixx::static_type,
-      &txx::static_type,
-      &mxx::static_type,
-      nullptr
-    };
-
-    // Note that we don't include S{} here because none of the files we
-    // compile can plausibly want to include .S. (Maybe in inline assembler
-    // instructions?)
-    //
-    static const target_type* const inc[] =
-    {
-      &hxx::static_type,
-      &h::static_type,
-      &ixx::static_type,
-      &txx::static_type,
-      &mxx::static_type,
-      &cxx::static_type,
-      &c::static_type,
-      &mm::static_type,
-      &m::static_type,
-      &cxx_inc::static_type,
-      &cc::c_inc::static_type,
-      nullptr
-    };
-
     bool
     init (scope& rs,
           scope& bs,
@@ -1062,12 +1124,35 @@ namespace build2
     }
 
     bool
+    objcxx_types_init (scope& rs,
+                       scope& bs,
+                       const location& loc,
+                       bool,
+                       bool,
+                       module_init_extra&)
+    {
+      tracer trace ("cxx::objcxx_types_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "cxx.objcxx.types module must be loaded in project root";
+
+      // Register the mm{} target type.
+      //
+      rs.insert_target_type<mm> ();
+
+      return true;
+    }
+
+    bool
     objcxx_init (scope& rs,
                  scope& bs,
                  const location& loc,
                  bool,
                  bool,
-               module_init_extra&)
+                 module_init_extra&)
     {
       tracer trace ("cxx::objcxx_init");
       l5 ([&]{trace << "for " << bs;});
@@ -1090,7 +1175,7 @@ namespace build2
       //
       // Note: see similar code in the c module.
       //
-      rs.insert_target_type<mm> ();
+      load_module (rs, rs, "cxx.objcxx.types", loc);
 
       // Note that while Objective-C++ is supported by MinGW GCC, it's
       // unlikely Clang supports it when targeting MSVC or Emscripten. But
@@ -1144,12 +1229,14 @@ namespace build2
       // NOTE: don't forget to also update the documentation in init.hxx if
       //       changing anything here.
 
-      {"cxx.guess",   nullptr, guess_init},
-      {"cxx.config",  nullptr, config_init},
-      {"cxx.objcxx",  nullptr, objcxx_init},
-      {"cxx.predefs", nullptr, predefs_init},
-      {"cxx",         nullptr, init},
-      {nullptr,       nullptr, nullptr}
+      {"cxx.types",        nullptr, types_init},
+      {"cxx.guess",        nullptr, guess_init},
+      {"cxx.config",       nullptr, config_init},
+      {"cxx.objcxx.types", nullptr, objcxx_types_init},
+      {"cxx.objcxx",       nullptr, objcxx_init},
+      {"cxx.predefs",      nullptr, predefs_init},
+      {"cxx",              nullptr, init},
+      {nullptr,            nullptr, nullptr}
     };
 
     const module_functions*

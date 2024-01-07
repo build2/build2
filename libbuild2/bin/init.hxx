@@ -20,9 +20,11 @@ namespace build2
     // Submodules:
     //
     // `bin.vars`      -- registers some variables.
+    // `bin.types`     -- registers target types.
     // `bin.config`    -- loads bin.vars and sets some variables.
-    // `bin`           -- loads bin.config and registers target types and
-    //                    rules.
+    // `bin`           -- loads bin.{types,config} and registers rules and
+    //                    functions.
+    //
     // `bin.ar.config` -- loads bin.config and registers/sets more variables.
     // `bin.ar`        -- loads bin and bin.ar.config.
     //

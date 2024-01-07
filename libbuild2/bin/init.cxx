@@ -41,16 +41,19 @@ namespace build2
 
     bool
     vars_init (scope& rs,
-               scope&,
-               const location&,
-               bool first,
+               scope& bs,
+               const location& loc,
+               bool,
                bool,
                module_init_extra&)
     {
       tracer trace ("bin::vars_init");
       l5 ([&]{trace << "for " << rs;});
 
-      assert (first);
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "bin.vars module must be loaded in project root";
 
       // Enter variables.
       //
@@ -152,6 +155,68 @@ namespace build2
 
       vp.insert<map<optional<string>, string>> ("bin.lib.version");
       vp.insert<string>                        ("bin.lib.version_pattern");
+
+      return true;
+    }
+
+    bool
+    types_init (scope& rs,
+                scope& bs,
+                const location& loc,
+                bool,
+                bool,
+                module_init_extra&)
+    {
+      tracer trace ("bin::types_init");
+      l5 ([&]{trace << "for " << rs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "bin.types module must be loaded in project root";
+
+      // Register target types.
+      //
+      // Note that certain platform-specific and toolchain-specific types are
+      // registered in bin and bin.ld.
+      //
+      // Note also that it would make sense to configure their default
+      // "installability" here but that requires the knowledge of the platform
+      // in some cases. So we do it all in bin for now. One way to support
+      // both use-cases would be to detect if we are loaded after bin.guess
+      // and then decide whether to do it here or delay to bin.
+      //
+      // NOTE: remember to update the documentation if changing anything here!
+      //
+      rs.insert_target_type<obj>  ();
+      rs.insert_target_type<obje> ();
+      rs.insert_target_type<obja> ();
+      rs.insert_target_type<objs> ();
+
+      rs.insert_target_type<bmi>  ();
+      rs.insert_target_type<bmie> ();
+      rs.insert_target_type<bmia> ();
+      rs.insert_target_type<bmis> ();
+
+      rs.insert_target_type<hbmi>  ();
+      rs.insert_target_type<hbmie> ();
+      rs.insert_target_type<hbmia> ();
+      rs.insert_target_type<hbmis> ();
+
+      rs.insert_target_type<libul> ();
+      rs.insert_target_type<libue> ();
+      rs.insert_target_type<libua> ();
+      rs.insert_target_type<libus> ();
+
+      rs.insert_target_type<lib>  ();
+      rs.insert_target_type<liba> ();
+      rs.insert_target_type<libs> ();
+
+      // Register the def{} target type. Note that we do it here since it is
+      // input and can be specified unconditionally (i.e., not only when
+      // building for Windows).
+      //
+      rs.insert_target_type<def> ();
 
       return true;
     }
@@ -450,55 +515,21 @@ namespace build2
       tracer trace ("bin::init");
       l5 ([&]{trace << "for " << bs;});
 
-      // Load bin.config.
+      // Load bin.{config,types}.
       //
       load_module (rs, rs, "bin.config", loc, extra.hints);
+      load_module (rs, rs, "bin.types", loc);
 
       // Cache some config values we will be needing below.
       //
       const target_triplet& tgt (cast<target_triplet> (rs["bin.target"]));
 
-      // Register target types and configure their default "installability".
+      // Configure target type default "installability". Also register
+      // additional platform-specific types.
       //
       bool install_loaded (cast_false<bool> (rs["install.loaded"]));
       {
         using namespace install;
-
-        if (first)
-        {
-          // NOTE: remember to update the documentation if changing anything
-          //       here!
-          //
-          rs.insert_target_type<obj>  ();
-          rs.insert_target_type<obje> ();
-          rs.insert_target_type<obja> ();
-          rs.insert_target_type<objs> ();
-
-          rs.insert_target_type<bmi>  ();
-          rs.insert_target_type<bmie> ();
-          rs.insert_target_type<bmia> ();
-          rs.insert_target_type<bmis> ();
-
-          rs.insert_target_type<hbmi>  ();
-          rs.insert_target_type<hbmie> ();
-          rs.insert_target_type<hbmia> ();
-          rs.insert_target_type<hbmis> ();
-
-          rs.insert_target_type<libul> ();
-          rs.insert_target_type<libue> ();
-          rs.insert_target_type<libua> ();
-          rs.insert_target_type<libus> ();
-
-          rs.insert_target_type<lib>  ();
-          rs.insert_target_type<liba> ();
-          rs.insert_target_type<libs> ();
-
-          // Register the def{} target type. Note that we do it here since it
-          // is input and can be specified unconditionally (i.e., not only
-          // when building for Windows).
-          //
-          rs.insert_target_type<def> ();
-        }
 
         // Note: libu*{} members are not installable.
         //
@@ -549,6 +580,8 @@ namespace build2
 
         if (tgt.cpu == "wasm32" || tgt.cpu == "wasm64")
         {
+          // @@ TODO: shouldn't this be wrapped in if(first) somehow?
+
           const target_type& wasm (
             rs.derive_target_type(
               target_type {
@@ -945,6 +978,8 @@ namespace build2
 
       if (lid == "msvc")
       {
+        // @@ TODO: shouldn't this be wrapped in if(first) somehow?
+
         const target_type& pdb (
           rs.derive_target_type(
             target_type {
@@ -1219,6 +1254,7 @@ namespace build2
       //       changing anything here.
 
       {"bin.vars",      nullptr, vars_init},
+      {"bin.types",     nullptr, types_init},
       {"bin.config",    nullptr, config_init},
       {"bin.ar.config", nullptr, ar_config_init},
       {"bin.ar",        nullptr, ar_init},

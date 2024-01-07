@@ -6,9 +6,12 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/install/utility.hxx>
+
 #include <libbuild2/cc/guess.hxx>
 #include <libbuild2/cc/module.hxx>
 
+#include <libbuild2/cc/target.hxx> // pc*
 #include <libbuild2/c/target.hxx>
 
 #ifndef BUILD2_DEFAULT_C
@@ -152,6 +155,79 @@ namespace build2
           break;
         }
       }
+    }
+
+    // See cc::data::x_{hdr,inc} for background.
+    //
+    static const target_type* const hdr[] =
+    {
+      &h::static_type,
+      nullptr
+    };
+
+    // Note that we include S{} here because .S files can include each other.
+    // (And maybe from inline assembler instructions?)
+    //
+    static const target_type* const inc[] =
+    {
+      &h::static_type,
+      &c::static_type,
+      &m::static_type,
+      &S::static_type,
+      &c_inc::static_type,
+      nullptr
+    };
+
+    bool
+    types_init (scope& rs,
+                scope& bs,
+                const location& loc,
+                bool,
+                bool,
+                module_init_extra&)
+    {
+      tracer trace ("c::types_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "c.types module must be loaded in project root";
+
+      // Register target types and configure their "installability".
+      //
+      using namespace install;
+
+      bool install_loaded (cast_false<bool> (rs["install.loaded"]));
+
+      // Note: not registering m{} or S{} (they are registered seperately
+      // by the respective optional .types submodules).
+      //
+      rs.insert_target_type<c> ();
+
+      auto insert_hdr = [&rs, install_loaded] (const target_type& tt)
+      {
+        rs.insert_target_type (tt);
+
+        // Install headers into install.include.
+        //
+        if (install_loaded)
+          install_path (rs, tt, dir_path ("include"));
+      };
+
+      for (const target_type* const* ht (hdr); *ht != nullptr; ++ht)
+        insert_hdr (**ht);
+
+      // @@ PERF: maybe factor this to cc.types?
+      //
+      rs.insert_target_type<cc::pc> ();
+      rs.insert_target_type<cc::pca> ();
+      rs.insert_target_type<cc::pcs> ();
+
+      if (install_loaded)
+        install_path<cc::pc> (rs, dir_path ("pkgconfig"));
+
+      return true;
     }
 
     static const char* const hinters[] = {"cxx", nullptr};
@@ -343,25 +419,6 @@ namespace build2
       return true;
     }
 
-    static const target_type* const hdr[] =
-    {
-      &h::static_type,
-      nullptr
-    };
-
-    // Note that we include S{} here because .S files can include each other.
-    // (And maybe from inline assembler instructions?)
-    //
-    static const target_type* const inc[] =
-    {
-      &h::static_type,
-      &c::static_type,
-      &m::static_type,
-      &S::static_type,
-      &c_inc::static_type,
-      nullptr
-    };
-
     bool
     init (scope& rs,
           scope& bs,
@@ -435,6 +492,29 @@ namespace build2
     }
 
     bool
+    objc_types_init (scope& rs,
+                     scope& bs,
+                     const location& loc,
+                     bool,
+                     bool,
+                     module_init_extra&)
+    {
+      tracer trace ("c::objc_types_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "c.objc.types module must be loaded in project root";
+
+      // Register the m{} target type.
+      //
+      rs.insert_target_type<m> ();
+
+      return true;
+    }
+
+    bool
     objc_init (scope& rs,
                scope& bs,
                const location& loc,
@@ -463,7 +543,7 @@ namespace build2
       //
       // Note: see similar code in the cxx module.
       //
-      rs.insert_target_type<m> ();
+      load_module (rs, rs, "c.objc.types", loc);
 
       // Note that while Objective-C is supported by MinGW GCC, it's unlikely
       // Clang supports it when targeting MSVC or Emscripten. But let's keep
@@ -472,6 +552,29 @@ namespace build2
       if (mod->ctype == compiler_type::gcc ||
           mod->ctype == compiler_type::clang)
         mod->x_obj = &m::static_type;
+
+      return true;
+    }
+
+    bool
+    as_cpp_types_init (scope& rs,
+                       scope& bs,
+                       const location& loc,
+                       bool,
+                       bool,
+                       module_init_extra&)
+    {
+      tracer trace ("c::as_cpp_types_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (rs != bs)
+        fail (loc) << "c.as-cpp.types module must be loaded in project root";
+
+      // Register the S{} target type.
+      //
+      rs.insert_target_type<S> ();
 
       return true;
     }
@@ -503,7 +606,7 @@ namespace build2
       // C compiler is capable of compiling Assember with C preprocessor. But
       // we enable only if it is.
       //
-      rs.insert_target_type<S> ();
+      load_module (rs, rs, "c.as-cpp.types", loc);
 
       if (mod->ctype == compiler_type::gcc ||
           mod->ctype == compiler_type::clang)
@@ -553,13 +656,16 @@ namespace build2
       // NOTE: don't forget to also update the documentation in init.hxx if
       //       changing anything here.
 
-      {"c.guess",   nullptr, guess_init},
-      {"c.config",  nullptr, config_init},
-      {"c.objc",    nullptr, objc_init},
-      {"c.as-cpp",  nullptr, as_cpp_init},
-      {"c.predefs", nullptr, predefs_init},
-      {"c",         nullptr, init},
-      {nullptr,     nullptr, nullptr}
+      {"c.types",        nullptr, types_init},
+      {"c.guess",        nullptr, guess_init},
+      {"c.config",       nullptr, config_init},
+      {"c.objc.types",   nullptr, objc_types_init},
+      {"c.objc",         nullptr, objc_init},
+      {"c.as-cpp.types", nullptr, as_cpp_types_init},
+      {"c.as-cpp",       nullptr, as_cpp_init},
+      {"c.predefs",      nullptr, predefs_init},
+      {"c",              nullptr, init},
+      {nullptr,          nullptr, nullptr}
     };
 
     const module_functions*

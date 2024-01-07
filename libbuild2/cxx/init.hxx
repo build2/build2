@@ -19,13 +19,19 @@ namespace build2
     //
     // Submodules:
     //
-    // `cxx.guess`   -- registers and sets some variables.
-    // `cxx.config`  -- loads cxx.guess and sets more variables.
-    // `cxx`         -- loads cxx.config and registers target types and rules.
-    // `cxx.objcxx`  -- registers mm{} target type and enables Objective-C++
-    //                  compilation.
-    // `cxx.predefs` -- registers rule for generating a C++ header with
-    //                  predefined compiler macros. Must be loaded after cxx.
+    // `cxx.types`         -- registers target types.
+    // `cxx.guess`         -- registers and sets some variables.
+    // `cxx.config`        -- loads cxx.guess and sets more variables.
+    // `cxx`               -- loads cxx.{types,config} and registers rules
+    //                        and functions.
+    //
+    // `cxx.objcxx.types`  -- registers mm{} target type.
+    // `cxx.objcxx`        -- loads cxx.objcxx and enables Objective-C++
+    //                        compilation.
+    //
+    // `cxx.predefs`       -- registers rule for generating a C++ header with
+    //                        predefined compiler macros. Must be loaded after
+    //                        cxx.
     //
     extern "C" LIBBUILD2_CXX_SYMEXPORT const module_functions*
     build2_cxx_load ();

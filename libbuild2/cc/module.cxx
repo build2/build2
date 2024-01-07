@@ -11,10 +11,7 @@
 
 #include <libbuild2/bin/target.hxx>
 
-#include <libbuild2/cc/target.hxx> // pc*
-
 #include <libbuild2/config/utility.hxx>
-#include <libbuild2/install/utility.hxx>
 
 #include <libbuild2/cc/guess.hxx>
 
@@ -989,43 +986,7 @@ namespace build2
 
       // Register target types and configure their "installability".
       //
-      bool install_loaded (cast_false<bool> (rs["install.loaded"]));
-
-      {
-        using namespace install;
-
-        // Note: not registering x_obj or x_asp (they are registered
-        // seperately by the respective optional submodules).
-        //
-        rs.insert_target_type (x_src);
-
-        auto insert_hdr = [&rs, install_loaded] (const target_type& tt)
-        {
-          rs.insert_target_type (tt);
-
-          // Install headers into install.include.
-          //
-          if (install_loaded)
-            install_path (rs, tt, dir_path ("include"));
-        };
-
-        // Note: module (x_mod) is in x_hdrs.
-        //
-        for (const target_type* const* ht (x_hdrs); *ht != nullptr; ++ht)
-          insert_hdr (**ht);
-
-        // Also register the C header for C-derived languages.
-        //
-        if (*x_hdrs != &h::static_type)
-          insert_hdr (h::static_type);
-
-        rs.insert_target_type<pc> ();
-        rs.insert_target_type<pca> ();
-        rs.insert_target_type<pcs> ();
-
-        if (install_loaded)
-          install_path<pc> (rs, dir_path ("pkgconfig"));
-      }
+      load_module (rs, rs, (string (x) += ".types"), loc);
 
       // Register rules.
       //
@@ -1123,7 +1084,7 @@ namespace build2
         // them in case they depend on stuff that we need to install (see the
         // install rule implementations for details).
         //
-        if (install_loaded)
+        if (cast_false<bool> (rs["install.loaded"]))
         {
           // Note: we rely quite heavily in these rule implementations that
           // these are the only target types they are registered for.
