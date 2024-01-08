@@ -101,8 +101,8 @@ namespace build2
     scope&       global_scope () {return const_cast<scope&> (ctx.global_scope);}
     const scope& global_scope () const {return ctx.global_scope;}
 
-    // Return true if the specified root scope is a sub-scope of this root
-    // scope. Note that both scopes must be root.
+    // Return true if the specified root scope is a sub-scope of (but not the
+    // same as) this root scope. Note that both scopes must be root.
     //
     bool
     sub_root (const scope&) const;
