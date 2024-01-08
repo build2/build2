@@ -57,7 +57,7 @@ namespace build2
 
       // config.x
       //
-      strings mode;
+      strings omode; // Original mode.
       {
         // Normally we will have a persistent configuration and computing the
         // default value every time will be a waste. So try without a default
@@ -141,19 +141,31 @@ namespace build2
             fail << "invalid path '" << s << "' in " << config_x;
         }
 
-        mode.assign (++v.begin (), v.end ());
+        omode.assign (++v.begin (), v.end ());
 
         // Save original path/mode in *.config.path/mode.
         //
         rs.assign (x_c_path) = xc;
-        rs.assign (x_c_mode) = mode;
+        rs.assign (x_c_mode) = omode;
+
+        // Merge the configured mode options into user-specified (which must
+        // be done before loading the *.guess module).
+        //
+        // In particular, this ability to specify the compiler mode in a
+        // buildfile is useful in embedded development where the project may
+        // need to hardcode things like -target, -nostdinc, etc.
+        //
+        const strings& mode (cast<strings> (rs.assign (x_mode) += omode));
 
         // Figure out which compiler we are dealing with, its target, etc.
         //
         // Note that we could allow guess() to modify mode to support
         // imaginary options (such as /MACHINE for cl.exe). Though it's not
         // clear what cc.mode would contain (original or modified). Note that
-        // we are now folding *.std options into mode options.
+        // we are now adding *.std options into mode options.
+        //
+        // @@ But can't the language standard options alter things like search
+        //    directories?
         //
         x_info = &build2::cc::guess (
           ctx,
@@ -222,9 +234,10 @@ namespace build2
 
       // Assign values to variables that describe the compiler.
       //
+      // Note: x_mode is dealt with above.
+      //
       rs.assign (x_path) = process_path_ex (
         xi.path, x_name, xi.checksum, env_checksum);
-      const strings& xm (cast<strings> (rs.assign (x_mode) = move (mode)));
 
       rs.assign (x_id) = xi.id.string ();
       rs.assign (x_id_type) = to_string (xi.id.type);
@@ -282,8 +295,8 @@ namespace build2
         if (!xi.pattern.empty ())
           h.assign ("config.cc.pattern") = xi.pattern;
 
-        if (!xm.empty ())
-          h.assign ("config.cc.mode") = xm;
+        if (!omode.empty ())
+          h.assign ("config.cc.mode") = move (omode);
 
         h.assign (c_runtime) = xi.runtime;
         h.assign (c_stdlib) = xi.c_stdlib;
