@@ -202,6 +202,9 @@ namespace build2
       if (verb >= 3)
         print_process (env, args);
 
+      bool found_q (false); // Found `#include "..." ...` marker.
+      bool found_b (false); // Found `#include <...> ...` marker.
+
       // Open pipe to stderr, redirect stdin and stdout to /dev/null.
       //
       process pr (run_start (
@@ -222,7 +225,7 @@ namespace build2
         // End of search list.
         //
         // The exact text depends on the current locale. What we can rely on
-        // is the presence of the "#include <...>" substring in the "opening"
+        // is the presence of the "#include <...>" marker in the "opening"
         // line and the fact that the paths are indented with a single space
         // character, unlike the "closing" line.
         //
@@ -236,11 +239,15 @@ namespace build2
         // which we fail to normalize or stat. @@ Maybe this is a bit too
         // loose, especially compared to gcc_library_search_dirs()?
         //
-        string s;
-        for (bool found (false); getline (is, s); )
+        // Note that when there are no paths (e.g., because of -nostdinc),
+        // then GCC prints both #include markers while Clang -- only "...".
+        //
+        for (string s; getline (is, s); )
         {
-          if (!found)
-            found = s.find ("#include <...>") != string::npos;
+          if (!found_q)
+            found_q = s.find ("#include \"...\"") != string::npos;
+          else if (!found_b)
+            found_b = s.find ("#include <...>") != string::npos;
           else
           {
             if (s[0] != ' ')
@@ -292,10 +299,12 @@ namespace build2
         fail << "error reading " << x_lang << " compiler -v -E output";
       }
 
-      // It's highly unlikely not to have any system directories. More likely
-      // we misinterpreted the compiler output.
+      // Note that it's possible that we will have no system directories, for
+      // example, if the user specified -nostdinc. But we must have still seen
+      // at least one marker. Failed that we assume we misinterpreted the
+      // compiler output.
       //
-      if (r.empty ())
+      if (!found_b && !found_q)
         fail << "unable to extract " << x_lang << " compiler system header "
              << "search paths";
 
