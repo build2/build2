@@ -134,8 +134,13 @@ namespace build2
 
     // config directive result.
     //
-    vector<pair<lookup, string>> config_report; // Config value and format.
-    bool config_report_new = false;             // One of values is new.
+    struct config_report
+    {
+      project_name                 module;    // Reporting module name.
+      vector<pair<lookup, string>> values;    // Config value and format.
+      bool                         new_value; // One of values is new.
+    };
+    small_vector<config_report, 1> config_reports;
 
     // Misc utilities.
     //

@@ -3541,14 +3541,16 @@ namespace build2
     // which case it will be duplicating them in its root.build file). So
     // for now we allow this trusting the user knows what they are doing.
     //
-    string proj;
-    {
-      const project_name& n (named_project (*root_));
-
-      if (!n.empty ())
-        proj = n.variable ();
-    }
-
+    // There is another special case: a buildfile imported from another
+    // project. In this case we also allow <project> to be the imported
+    // project name in addition to importing. The thinking here is that an
+    // imported buildfile is in a sense like a module (may provide rules which
+    // may require configuration, etc) and should be able to use its own
+    // project name (which is often the corresponding tool name) in the
+    // configuration variables, just like modules. In this case we use the
+    // imported project name as the reporting module name (but which can
+    // be overridden with config.report.module attribute).
+    //
     const location loc (get_location (t));
 
     // We are now in the normal lexing mode and we let the lexer handle `?=`.
@@ -3565,6 +3567,11 @@ namespace build2
     bool nullable (false);
     optional<string> report;
     string report_var;
+
+    // Reporting module name. Empty means the config module reporting
+    // project's own configuration.
+    //
+    project_name report_module;
 
     for (auto i (as.begin ()); i != as.end (); )
     {
@@ -3596,6 +3603,20 @@ namespace build2
         try
         {
           report_var = convert<string> (move (i->value));
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (as.loc) << "invalid " << i->name << " attribute value: " << e;
+        }
+      }
+      else if (i->name == "config.report.module")
+      {
+        try
+        {
+          report_module = convert<project_name> (move (i->value));
+
+          if (!report)
+            report = string ("true");
         }
         catch (const invalid_argument& e)
         {
@@ -3653,24 +3674,117 @@ namespace build2
       // config prefix and the project substring.
       //
       {
-        diag_record dr;
-
-        if (!config)
-          dr << fail (t) << "configuration variable '" << name
-             << "' does not start with 'config.'";
-
-        if (!proj.empty ())
+        string proj;
         {
-          size_t p (name.find ('.' + proj));
+          const project_name& n (named_project (*root_));
 
-          if (p == string::npos                        ||
-              ((p += proj.size () + 1) != name.size () && // config.<proj>
-               name[p] != '.'))                           // config.<proj>.
+          if (!n.empty ())
+            proj = n.variable ();
+        }
+
+        diag_record dr;
+        do // Breakout loop.
+        {
+          if (!config)
           {
             dr << fail (t) << "configuration variable '" << name
-               << "' does not include project name";
+               << "' does not start with 'config.'";
+            break;
           }
+
+          auto match = [&name] (const string& proj)
+          {
+            size_t p (name.find ('.' + proj));
+            return (p != string::npos                        &&
+                    ((p += proj.size () + 1) == name.size () || // config.<proj>
+                     name[p] == '.'));                          // config.<proj>.
+          };
+
+          if (!proj.empty () && match (proj))
+            break;
+
+          // See if this buildfile belongs to a different project. If so, use
+          // the project name as the reporting module name.
+          //
+          if (path_->path != nullptr)
+          {
+            // Note: all sourced/included/imported paths are absolute and
+            // normalized.
+            //
+            const path& f (*path_->path);
+            dir_path d (f.directory ());
+
+            auto p (ctx->scopes.find (d)); // Note: never empty.
+            if (*p.first != &ctx->global_scope)
+            {
+              // The buildfile will most likely be in src which means we may
+              // end up with multiple scopes (see scope_map for background).
+              // First check if one of them is us. If not, then we can extract
+              // the project name from any one of them.
+              //
+              const scope& bs (**p.first); // Save.
+
+              for (; p.first != p.second; ++p.first)
+              {
+                if (root_ == (*p.first)->root_scope ())
+                  break;
+              }
+
+              if (p.first == p.second)
+              {
+                // Note: we expect the project itself to be named.
+                //
+                const project_name& n (project (*bs.root_scope ()));
+
+                if (!n.empty ())
+                {
+                  // If the buildfile comes from a different project, then
+                  // it's more likely to use the imported project's config
+                  // variables. So replace proj with that for diagnostics
+                  // below.
+                  //
+                  proj = n.variable ();
+
+                  if (*report != "false" && verb >= 2)
+                    report_module = n;
+                }
+              }
+            }
+            else
+            {
+              // If the buildfile is not in any project, then it could be
+              // installed.
+              //
+              // Per import2_buildfile(), exported buildfiles are installed
+              // into $install.buildfile/<proj>/....
+              //
+              const dir_path& id (build_install_buildfile);
+
+              if (!id.empty () && d.sub (id))
+              {
+                dir_path l (d.leaf (id));
+                if (!l.empty ())
+                {
+                  project_name n (*l.begin ());
+                  proj = n.variable ();
+
+                  if (*report != "false" && verb >= 2)
+                    report_module = move (n);
+                }
+              }
+            }
+          }
+
+          if (!proj.empty () && match (proj))
+            break;
+
+          // Note: only if proj not empty (see above).
+          //
+          if (!proj.empty ())
+            dr << fail (t) << "configuration variable '" << name
+               << "' does not include project name";
         }
+        while (false);
 
         if (!dr.empty ())
           dr << info << "expected variable name in the 'config[.**]."
@@ -3794,13 +3908,32 @@ namespace build2
     }
 
     // We will be printing the report at either level 2 (-v) or 3 (-V)
-    // depending on the final value of config_report_new.
+    // depending on the final value of config_report::new_value.
     //
-    // Note that for the config_report_new calculation we only incorporate
-    // variables that we are actually reporting.
+    // Note that for the config_report::new_value calculation we only
+    // incorporate variables that we are actually reporting.
     //
     if (*report != "false" && verb >= 2)
     {
+      // Find existing or insert new config_report entry for this module.
+      //
+      auto i (find_if (config_reports.begin (),
+                       config_reports.end (),
+                       [&report_module] (const config_report& r)
+                       {
+                         return r.module == report_module;
+                       }));
+
+      if (i == config_reports.end ())
+      {
+        config_reports.push_back (
+          config_report {move (report_module), {}, false});
+        i = config_reports.end () - 1;
+      }
+
+      auto& report_values (i->values);
+      bool& report_new_value (i->new_value);
+
       // We don't want to lookup the report variable value here since it's
       // most likely not set yet.
       //
@@ -3825,19 +3958,19 @@ namespace build2
         // multiple config directives to "probe" the value before calculating
         // the default; see lookup_config() for details).
         //
-        auto i (find_if (config_report.begin (),
-                         config_report.end (),
+        auto i (find_if (report_values.begin (),
+                         report_values.end (),
                          [&l] (const pair<lookup, string>& p)
                          {
                            return p.first.var == l.var;
                          }));
 
-        if (i == config_report.end ())
-          config_report.push_back (move (r));
+        if (i == report_values.end ())
+          report_values.push_back (move (r));
         else
           *i = move (r);
 
-        config_report_new = config_report_new || new_val;
+        report_new_value = report_new_value || new_val;
       }
     }
 
@@ -4142,9 +4275,9 @@ namespace build2
           ifdstream ifs (p);
 
           auto df = make_diag_frame (
-            [this, &loc] (const diag_record& dr)
+            [this, &p, &loc] (const diag_record& dr)
             {
-              dr << info (loc) << "imported from here";
+              dr << info (loc) << p << " imported from here";
             });
 
           // @@ Do we want to enter this buildfile? What's the harm (one

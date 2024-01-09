@@ -2529,9 +2529,9 @@ state identical to distributed.
 \h#intro-import|Target Importation|
 
 Recall that if we need to depend on a target defined in another \c{buildfile}
-within our project, then we simply include said \c{buildfile} and reference
-the target.  For example, if our \c{hello} included both an executable and a
-library in separate subdirectories next to each other:
+within our project, then we simply include the said \c{buildfile} and
+reference the target. For example, if our \c{hello} included both an
+executable and a library in separate subdirectories next to each other:
 
 \
 hello/
@@ -4802,6 +4802,9 @@ executable target in the \c{<project>%exe{<project>\}} form, the
 \c{config.<project>} variable is treated as an alias for
 \c{config.import.<project>.<project>.exe}.
 
+For an imported \c{buildfile}, \c{<project>} may refer to either the importing
+project or the project from which the said \c{buildfile} was imported.
+
 The build system core reserves \c{build} and \c{import} as the second
 component in configuration variables as well as \c{configured} as the third
 and subsequent components.|
@@ -5267,6 +5270,29 @@ config libhello@/tmp/libhello/
   woptions   -Wall -Wextra -Wno-extra -Werror
 \
 
+The \c{config.report.module} attribute can be used to override the reporting
+module name, that is, \c{config} in the \c{config\ libhello@/tmp/libhello/}
+line above. It is primarily useful in imported \c{buildfiles} that wish to
+report non-\c{config.*} variables under their own name. For example:
+
+\
+config [string] config.rtos.board
+
+# Load the board description and report key information such as the
+# capability revoker.
+#
+...
+revoker = ...
+
+config [config.report.module=rtos] revoker
+\
+
+\
+$ b config.rtos.board=ibex-safe-simulator -v
+rtos hello@/tmp/hello/
+  board      ibex-safe-simulator
+  revoker    hardware
+\
 
 \h#proj-config-propag|Configuration Propagation|
 
@@ -8572,7 +8598,7 @@ module implementation units appears reasonable and that's what we recommend.
 
 A module declaration (exporting or non-exporting) starts a \i{module purview}
 that extends until the end of the module translation unit. Any name declared
-in a module's purview \i{belongs} to said module. For example:
+in a module's purview \i{belongs} to the said module. For example:
 
 \
 #include <string>                // Not in purview.
@@ -8742,7 +8768,7 @@ say_hello (const std::string&);
 \
 
 One way to think of a re-export is \i{as if} an import of a module also
-\"injects\" all the imports said module re-exports, recursively. That's
+\"injects\" all the imports the said module re-exports, recursively. That's
 essentially how most compilers implement it.
 
 Module re-export is the mechanism for assembling bigger modules out of
@@ -10401,11 +10427,11 @@ by searching in the \c{PATH} environment variable.
 By convention, \c{bash} module libraries should use the \c{lib} name prefix,
 for example, \c{libhello}. If there is also a native library (that is, one
 written in C/C++) that provides the same functionality (or the \c{bash}
-library is a language binding for said library), then it is customary to add
-the \c{.bash} extension to the \c{bash} library name, for example,
+library is a language binding for the said library), then it is customary to
+add the \c{.bash} extension to the \c{bash} library name, for example,
 \c{libhello.bash}. Note that in this case the top-level subdirectory within
-the project is expected to be called without the \c{bash} extension,
-for example, \c{libhello}.
+the project is expected to be called without the \c{bash} extension, for
+example, \c{libhello}.
 
 Modules can be \i{private} or \i{public}. Private modules are implementation
 details of a specific project and are not expected to be imported from other

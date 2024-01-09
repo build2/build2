@@ -1636,12 +1636,17 @@ namespace build2
       init_modules (module_boot_init::after);
     }
 
-    // Print the project configuration report, similar to how we do it in
+    // Print the project configuration report(s), similar to how we do it in
     // build system modules.
     //
-    if (!p.config_report.empty () && verb >= (p.config_report_new ? 2 : 3))
+    const project_name* proj (nullptr); // Resolve lazily.
+    for (const parser::config_report& cr: p.config_reports)
     {
-      const project_name& proj (named_project (root)); // Can be empty.
+      if (verb < (cr.new_value ? 2 : 3))
+        continue;
+
+      if (proj == nullptr)
+        proj = &named_project (root); // Can be empty.
 
       // @@ TODO/MAYBE:
       //
@@ -1659,12 +1664,19 @@ namespace build2
       // config @/tmp/tests
       //   libhello.tests.remote true
       //
-      string stem (!proj.empty () ? '.' + proj.variable () + '.' : string ());
+      // If the module name is not empty then it means the config variables
+      // are from the imported project and so we use that for <project>.
+      //
+      string stem (!cr.module.empty ()
+                   ? '.' + cr.module.variable () + '.'
+                   : (!proj->empty ()
+                      ? '.' + proj->variable () + '.'
+                      : string ()));
 
       // Calculate max name length.
       //
       size_t pad (10);
-      for (const pair<lookup, string>& lf: p.config_report)
+      for (const pair<lookup, string>& lf: cr.values)
       {
         lookup l (lf.first);
 
@@ -1686,13 +1698,14 @@ namespace build2
       }
 
       // Use the special `config` module name (which doesn't have its own
-      // report) for project configuration.
+      // report) for project's own configuration.
       //
       diag_record dr (text);
-      dr << "config " << proj << '@' << root;
+      dr << (cr.module.empty () ? "config" : cr.module.string ().c_str ())
+         << ' ' << *proj << '@' << root;
 
       names storage;
-      for (const pair<lookup, string>& lf: p.config_report)
+      for (const pair<lookup, string>& lf: cr.values)
       {
         lookup l (lf.first);
         const string& f (lf.second);
