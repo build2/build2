@@ -3290,8 +3290,8 @@ namespace build2
             // Note that for assembler-with-cpp GCC currently forces full
             // preprocessing in (what appears to be) an attempt to paper over
             // a deeper issue (see GCC bug 109534). If/when that bug gets
-            // fixed, we can enable this on our side. Note also that Clang's
-            // -frewrite-includes appear to work correctly on such files.
+            // fixed, we can enable this on our side. Note that Clang's
+            // -frewrite-includes also has issues (see below).
             //
             if (!x_assembler_cpp (src))
               pp = "-fdirectives-only";
@@ -3304,7 +3304,16 @@ namespace build2
           // -frewrite-includes is available since Clang 3.2.0.
           //
           if (cmaj > 3 || (cmaj == 3 && cmin >= 2))
-            pp = "-frewrite-includes";
+          {
+            // While Clang's -frewrite-includes appears to work, there are
+            // some issues with correctly tracking location information
+            // (manifests itself as wrong line numbers in debug info, for
+            // example). The result also appears to reference the .Si file
+            // instead of the original source file for some reason.
+            //
+            if (!x_assembler_cpp (src))
+              pp = "-frewrite-includes";
+          }
 
           break;
         }
@@ -5093,6 +5102,18 @@ namespace build2
                 unit& tu) const
     {
       tracer trace (x, "compile_rule::parse_unit");
+
+      // Scanning .S files with our parser is hazardous since such files
+      // sometimes use `#`-style comments. Presumably real compilers just
+      // ignore them in some way, but it doesn't seem worth it to bother in
+      // our case. Also, the checksum calculation over assembler tokens feels
+      // iffy.
+      //
+      if (x_assembler_cpp (src))
+      {
+        tu.type = unit_type::non_modular;
+        return "";
+      }
 
       otype ot (li.type);
 
