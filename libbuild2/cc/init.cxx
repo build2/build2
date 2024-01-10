@@ -100,13 +100,19 @@ namespace build2
       vp.insert<strings> ("config.cc.loptions");
       vp.insert<strings> ("config.cc.aoptions");
       vp.insert<strings> ("config.cc.libs");
-      vp.insert<string>  ("config.cc.internal.scope");
+
+      vp.insert<string> ("config.cc.internal.scope");
+
+      vp.insert<bool> ("config.cc.reprocess"); // See cc.preprocess below.
+
+      vp.insert<abs_dir_path> ("config.cc.pkgconfig.sysroot");
 
       vp.insert<strings> ("cc.poptions");
       vp.insert<strings> ("cc.coptions");
       vp.insert<strings> ("cc.loptions");
       vp.insert<strings> ("cc.aoptions");
       vp.insert<strings> ("cc.libs");
+
       vp.insert<string>  ("cc.internal.scope");
       vp.insert<strings> ("cc.internal.libs");
 
@@ -177,7 +183,6 @@ namespace build2
 
       // Ability to disable using preprocessed output for compilation.
       //
-      vp.insert<bool> ("config.cc.reprocess");
       vp.insert<bool> ("cc.reprocess");
 
       // Register scope operation callback.
@@ -336,6 +341,15 @@ namespace build2
       //
       if (lookup l = lookup_config (rs, "config.cc.reprocess"))
         rs.assign ("cc.reprocess") = *l;
+
+      // config.cc.pkgconfig.sysroot
+      //
+      // Let's look it up instead of just marking for saving to make sure the
+      // path is valid.
+      //
+      // Note: save omitted.
+      //
+      lookup_config (rs, "config.cc.pkgconfig.sysroot");
 
       // Load the bin.config module.
       //

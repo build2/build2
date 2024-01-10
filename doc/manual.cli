@@ -7585,6 +7585,11 @@ config.cc.libs
 
 config.cc.internal.scope
   cc.internal.scope
+
+config.cc.reprocess
+  cc.reprocess
+
+config.cc.pkgconfig.sysroot
 \
 
 Note that the compiler mode options are \"cross-hinted\" between \c{config.c}
@@ -7945,6 +7950,50 @@ found and as a result the library ends up being considered binless with the
 prerequisite library, resolved using the above algorithm, and linked. In other
 words, in this case we end up with a binless library \c{lib{znonsense\}} that
 depends on \c{lib{z\}} instead of a single \c{lib{z\}} library.
+
+\h2#cc-import-installed-sysroot|Rewriting Installed Libraries System Root (sysroot)|
+
+Sometimes the installed libraries are moved to a different location after the
+installation. This is especially common in embedded development where the code
+is normally cross-compiled and the libraries for the target platform are
+placed into a host directory, called system root or \i{sysroot}, that doesn't
+match where these libraries were originally installed to. For example, the
+libraries might have been installed into \c{/usr/} but on the host machine
+they may reside in \c{/opt/target/usr/}. In this example, \c{/opt/target/} is
+the sysroot.
+
+While such relocations usually do not affect the library headers or binaries,
+they do break the \c{pkg-config}'s \c{.pc} files which often contain \c{-I}
+and \c{-L} options with absolute paths. Continue with the above example, a
+\c{.pc} file as originally installed may contain \c{-I/usr/include} and
+\c{-L/usr/lib} while now, that the libraries have been relocated to
+\c{/opt/target/}, they somehow need to be adjusted to
+\c{-I/opt/target/usr/include} and \c{-L/opt/target/usr/lib}.
+
+While it is possible (and perhaps correct) to accomplish this by fixing the
+\c{.pc} files to match the new location, it is not always possible or easy.
+As a result, \c{build2} provides a mechanism for automatically adjusting the
+system root in the \c{-I} and \c{-L} options extracted from \c{.pc} files.
+
+\N|This functionality is roughly equivalent to that provided with the
+\c{PKG_CONFIG_SYSROOT_DIR} environment variable by the \c{pkg-config}
+utility.|
+
+Specifically, the \c{config.cc.pkgconfig.sysroot} variable can be used to
+specify an alternative system root. When specified, all absolute paths in the
+\c{-I} and \c{-L} options that are not already in this directory will be
+rewritten to start with this sysroot.
+
+\N|Note that this mechanism is a workaround rather than a proper solution since
+it is limited to the \c{-I} and \c{-L} options. In particular, it does not
+handle any other options that may contain absolute paths nor \c{pkg-config}
+variables that may be queried.
+
+As a result, it should only be used for dealing with issues in third-party
+\c{.pc} files that do not handle relocation (for example, using the
+\c{${pcfiledir\}} built-in \c{pkg-config} variable). In particular, for
+\c{build2}-generated \c{.pc} files a \l{#install-reloc relocatable
+installation} should be used instead.|
 
 
 \h#cc-gcc|GCC Compiler Toolchain|

@@ -316,9 +316,15 @@ namespace build2
 
       assert (!ap.empty () || !sp.empty ());
 
-      // Append -I<dir> or -L<dir> option suppressing duplicates.
+      const scope& rs (*s.root_scope ());
+
+      const dir_path* sysroot (
+        cast_null<abs_dir_path> (rs["config.cc.pkgconfig.sysroot"]));
+
+      // Append -I<dir> or -L<dir> option suppressing duplicates. Also handle
+      // the sysroot rewrite.
       //
-      auto append_dir = [] (strings& ops, string&& o)
+      auto append_dir = [sysroot] (strings& ops, string&& o)
       {
         char c (o[1]);
 
@@ -336,6 +342,47 @@ namespace build2
         //
         //    Note that we do normalize -L paths in the usrd logic later
         //    (but not when setting as *.export.loptions).
+
+        if (sysroot != nullptr)
+        {
+          // Notes:
+          //
+          // - The path might not be absolute (we only rewrite absolute ones).
+          //
+          // - Do this before duplicate suppression since options in ops
+          //   already have the sysroot rewritten.
+          //
+          // - Check if the path already starts with sysroot since some .pc
+          //   files might already be in a good shape (e.g., because they use
+          //   ${pcfiledir} to support relocation properly).
+          //
+          const char* op (o.c_str () + 2);
+          size_t on (o.size () - 2);
+
+          if (path_traits::absolute (op, on))
+          {
+            const string& s (sysroot->string ());
+
+            const char* sp (s.c_str ());
+            size_t sn (s.size ());
+
+            if (!path_traits::sub (op, on, sp, sn)) // Already in sysroot.
+            {
+              // Find the first directory seperator that seperates the root
+              // component from the rest of the path (think /usr/include,
+              // c:\install\include). We need to replace the root component
+              // with sysroot. If there is no separator (say, -Ic:) or the
+              // path after the separator is empty (say, -I/), then we replace
+              // the entire path.
+              //
+              size_t p (path_traits::find_separator (o, 2));
+              if (p == string::npos || p + 1 == o.size ())
+                p = o.size ();
+
+              o.replace (2, p - 2, s);
+            }
+          }
+        }
 
         for (const string& x: ops)
         {
