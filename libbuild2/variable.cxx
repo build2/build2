@@ -877,7 +877,14 @@ namespace build2
 
         return abs_dir_path (move (d));
       }
-      catch (const invalid_path&) {} // Fall through.
+      catch (invalid_path& e)
+      {
+        // We moved from name so reconstruct the path. Let's always make it
+        // simple since we may not be able to construct dir_path. Should be
+        // good enough for diagnostics.
+        //
+        n.value = move (e.path);
+      }
     }
 
     throw_invalid_argument (n, r, "abs_dir_path");
