@@ -332,8 +332,8 @@ namespace build2
         vp["cc.export.libs"],
         vp["cc.export.impl_libs"],
 
-        vp["cc.pkconfig.include"],
-        vp["cc.pkconfig.lib"],
+        vp["cc.pkgconfig.include"],
+        vp["cc.pkgconfig.lib"],
 
         vp.insert_alias (vp["cc.stdlib"], "c.stdlib"), // Same as cc.stdlib.
 

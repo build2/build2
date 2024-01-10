@@ -2850,7 +2850,7 @@ namespace build2
       // (Re)generate pkg-config's .pc file. While the target itself might be
       // up-to-date from a previous run, there is no guarantee that .pc exists
       // or also up-to-date. So to keep things simple we just regenerate it
-      // unconditionally (and avoid doing so on uninstall; see pkconfig_save()
+      // unconditionally (and avoid doing so on uninstall; see pkgconfig_save()
       // for details).
       //
       // Also, if you are wondering why don't we just always produce this .pc,
@@ -2860,7 +2860,7 @@ namespace build2
       // There is a further complication: we may have no intention of
       // installing the library but still need to update it for install (see
       // install_scope() for background). In which case we may still not have
-      // the installation directories. We handle this in pkconfig_save() by
+      // the installation directories. We handle this in pkgconfig_save() by
       // skipping the generation of .pc files (and letting the install rule
       // complain if we do end up trying to install them).
       //

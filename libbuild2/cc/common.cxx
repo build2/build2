@@ -1351,7 +1351,7 @@ namespace build2
       // idea is that in .pc files that we generate, we copy those macros (or
       // custom ones) from *.export.poptions.
       //
-      // @@ Should we add .pc files as ad hoc members so pkconfig_save() can
+      // @@ Should we add .pc files as ad hoc members so pkgconfig_save() can
       // use their names when deriving -l-names (this would be especially
       // helpful for binless libraries to get hold of prefix/suffix, etc).
       //

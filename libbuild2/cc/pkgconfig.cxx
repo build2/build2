@@ -335,7 +335,7 @@ namespace build2
         //    normalize() may not be correct.
         //
         //    Note that we do normalize -L paths in the usrd logic later
-        //    (but not when seeting as *.export.loptions).
+        //    (but not when setting as *.export.loptions).
 
         for (const string& x: ops)
         {

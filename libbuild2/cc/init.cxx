@@ -120,8 +120,8 @@ namespace build2
       // files instead of the default install.{include,lib}. Relative paths
       // are resolved as install paths.
       //
-      vp.insert<dir_paths> ("cc.pkconfig.include");
-      vp.insert<dir_paths> ("cc.pkconfig.lib");
+      vp.insert<dir_paths> ("cc.pkgconfig.include");
+      vp.insert<dir_paths> ("cc.pkgconfig.lib");
 
       // Hint variables (not overridable).
       //
