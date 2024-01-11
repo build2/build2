@@ -685,6 +685,8 @@ namespace build2
   pair<const target_type*, optional<string>> scope::
   find_target_type (name& n, const location& loc, const target_type* tt) const
   {
+    // NOTE: see also functions-name.cxx:filter() if changing anything here.
+
     optional<string> ext;
 
     string& v (n.value);

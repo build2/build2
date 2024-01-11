@@ -131,7 +131,16 @@ namespace build2
       name& n (*i);
       bool p (n.pair);
 
-      const target_type* ntt (to_target_type (s, n, p ? *++i : name ()).first);
+      // to_target_type() splits the name into the target name and extension.
+      // While we could try to reconstitute it with combine_name(), there are
+      // murky corner cases (see the default_extension argument) which won't
+      // be easy to handle. So let's just make a copy. Looking at the
+      // implementation of scope::find_target_type(), we can optimize for the
+      // (common) typed case by only copying the type.
+      //
+      name c (n.typed () ? name (n.type, "") : n);
+
+      const target_type* ntt (to_target_type (s, c, p ? *++i : name ()).first);
       if (ntt == nullptr)
         fail << "unknown target type " << n.type << " in " << n;
 
@@ -376,7 +385,7 @@ namespace build2
       sort (ns.begin (), ns.end ());
 
       if (functions_sort_flags (move (fs)))
-        ns.erase (unique (ns.begin(), ns.end()), ns.end ());
+        ns.erase (unique (ns.begin (), ns.end ()), ns.end ());
 
       return ns;
     };
