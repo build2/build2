@@ -2778,9 +2778,24 @@ namespace build2
       optional<string>& e (rp.second);
 
       if (t == nullptr)
-        fail (ploc) << "unknown target type " << n.type <<
-          info << "perhaps the module that defines this target type is "
-               << "not loaded by project " << *scope_->root_scope ();
+      {
+        if (n.proj)
+        {
+          // If the target type is unknown then no phase 2 import (like
+          // rule-specific search) can possibly succeed so we can fail now and
+          // with a more accurate reason. See import2(names) for background.
+          //
+          diag_record dr;
+          dr << fail (ploc) << "unable to import target " << n;
+          import_suggest (dr, *n.proj, nullptr, string (), false);
+        }
+        else
+        {
+          fail (ploc) << "unknown target type " << n.type <<
+            info << "perhaps the module that defines this target type is "
+                 << "not loaded by project " << *scope_->root_scope ();
+        }
+      }
 
       if (t->factory == nullptr)
         fail (ploc) << "abstract target type " << t->name << "{}";

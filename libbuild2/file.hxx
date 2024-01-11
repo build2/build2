@@ -518,6 +518,17 @@ namespace build2
                bool metadata,
                const location&);
 
+  // Suggest appropriate ways to import the specified target (as type and
+  // name) from the specified project.
+  //
+  void
+  import_suggest (const diag_record&,
+                  const project_name&,
+                  const target_type*,
+                  const string& name,
+                  bool rule_hint,
+                  const char* qual = nullptr);
+
   // Create a build system project in the specified directory.
   //
   LIBBUILD2_SYMEXPORT void

@@ -376,15 +376,21 @@ namespace build2
     // directories.
     //
     pair<const target_type&, optional<string>>
-    find_prerequisite_type (name&, name&, const location&) const;
+    find_prerequisite_type (name&, name&,
+                            const location&,
+                            const target_type* tt = nullptr) const;
 
     // As above, but return a prerequisite key.
     //
     prerequisite_key
-    find_prerequisite_key (name&, name&, const location&) const;
+    find_prerequisite_key (name&, name&,
+                           const location&,
+                           const target_type* = nullptr) const;
 
     prerequisite_key
-    find_prerequisite_key (names&, const location&) const;
+    find_prerequisite_key (names&,
+                           const location&,
+                           const target_type* = nullptr) const;
 
     // Dynamically derive a new target type from an existing one. Return the
     // reference to the target type and an indicator of whether it was

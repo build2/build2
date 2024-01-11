@@ -97,7 +97,18 @@ namespace build2
 
     const target_type* ntt (to_target_type (s, n, o).first);
     if (ntt == nullptr)
+    {
+      // If this is an imported target and the target type is unknown, then
+      // it cannot possibly match one of the known types. We handle it like
+      // this instead of failing because the later failure (e.g., as a
+      // result of this target listed as prerequisite) will have more
+      // accurate diagnostics. See also filter() below.
+      //
+      if (n.proj)
+        return false;
+
       fail << "unknown target type " << n.type << " in " << n;
+    }
 
     return ntt->is_a (*tt);
   }
@@ -142,13 +153,24 @@ namespace build2
 
       const target_type* ntt (to_target_type (s, c, p ? *++i : name ()).first);
       if (ntt == nullptr)
-        fail << "unknown target type " << n.type << " in " << n;
+      {
+        // If this is an imported target and the target type is unknown, then
+        // it cannot possibly match one of the known types. We handle it like
+        // this instead of failing because the later failure (e.g., as a
+        // result of this target listed as prerequisite) will have more
+        // accurate diagnostics. See also is_a() above.
+        //
+        if (!n.proj)
+          fail << "unknown target type " << n.type << " in " << n;
+      }
 
-      if ((find_if (tts.begin (), tts.end (),
-                    [ntt] (const target_type* tt)
-                    {
-                      return ntt->is_a (*tt);
-                    }) != tts.end ()) != out)
+      if (ntt != nullptr
+          ? (find_if (tts.begin (), tts.end (),
+                      [ntt] (const target_type* tt)
+                      {
+                        return ntt->is_a (*tt);
+                      }) != tts.end ()) != out
+          : out)
       {
         r.push_back (move (n));
         if (p)

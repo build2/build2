@@ -2063,16 +2063,13 @@ namespace build2
                        &t);
   }
 
-  // Suggest appropriate ways to import the specified target (as type and
-  // name) from the specified project.
-  //
-  static void
+  void
   import_suggest (const diag_record& dr,
                   const project_name& pn,
                   const target_type* tt,
                   const string& tn,
                   bool rule_hint,
-                  const char* qual = nullptr)
+                  const char* qual)
   {
     string pv (pn.variable ());
 
@@ -2899,6 +2896,11 @@ namespace build2
   static names
   import2_buildfile (context&, names&&, bool, const location&);
 
+  static const target*
+  import2 (context&, const scope&, names&,
+           const string&, bool, const optional<string>&, bool,
+           const location&);
+
   pair<names, import_kind>
   import (scope& base,
           name tgt,
@@ -2971,7 +2973,7 @@ namespace build2
             // fallback case.
             //
             if (const target* t = import2 (ctx,
-                                           base.find_prerequisite_key (ns, loc),
+                                           base, ns,
                                            *ph2,
                                            opt && !r.second  /* optional */,
                                            nullopt           /* metadata */,
@@ -3168,6 +3170,8 @@ namespace build2
       return *t;
     }
 
+    // NOTE: see similar code in import2() below if changing anything here.
+
     if (opt || exist)
       return nullptr;
 
@@ -3183,6 +3187,57 @@ namespace build2
       import_suggest (dr, proj, &tt, *tk.name, meta && hint.empty ());
 
     dr << endf;
+  }
+
+  // As above but with scope/ns instead of pk. This version deals with the
+  // unknown target type case.
+  //
+  static const target*
+  import2 (context& ctx,
+           const scope& base, names& ns,
+           const string& hint,
+           bool opt,
+           const optional<string>& meta,
+           bool exist,
+           const location& loc)
+  {
+    // If we have a rule hint, then it's natural to expect this target type is
+    // known to the importing project. Ditto for project-less import.
+    //
+    const target_type* tt (nullptr);
+    if (hint.empty ())
+    {
+      size_t n;
+      if ((n = ns.size ()) != 0 && n == (ns[0].pair ? 2 : 1))
+      {
+        const name& n (ns.front ());
+
+        if (n.typed () && !n.proj->empty ())
+        {
+          tt = base.find_target_type (n.type);
+
+          if (tt == nullptr)
+          {
+            // A subset of code in the above version of import2().
+            //
+            if (opt || exist)
+              return nullptr;
+
+            diag_record dr;
+            dr << fail (loc) << "unable to import target " << ns;
+            import_suggest (dr, *n.proj, nullptr, string (), meta.has_value ());
+          }
+        }
+      }
+    }
+
+    return import2 (ctx,
+                    base.find_prerequisite_key (ns, loc, tt),
+                    hint,
+                    opt,
+                    meta,
+                    exist,
+                    loc);
   }
 
   static names
@@ -3323,7 +3378,7 @@ namespace build2
           // fallback case.
           //
           pt = import2 (ctx,
-                        base.find_prerequisite_key (ns, loc),
+                        base, ns,
                         *ph2,
                         opt && !r.second,
                         meta,

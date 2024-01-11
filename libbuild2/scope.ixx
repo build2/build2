@@ -158,9 +158,11 @@ namespace build2
   }
 
   inline prerequisite_key scope::
-  find_prerequisite_key (name& n, name& o, const location& loc) const
+  find_prerequisite_key (name& n, name& o,
+                         const location& loc,
+                         const target_type* tt) const
   {
-    auto p (find_prerequisite_type (n, o, loc));
+    auto p (find_prerequisite_type (n, o, loc, tt));
     return prerequisite_key {
       n.proj,
       {
