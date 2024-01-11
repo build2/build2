@@ -285,10 +285,12 @@ namespace build2
                     const target_type&,
                     dir_path dir,
                     dir_path out,
-                    string name);
+                    string name,
+                    optional<string> ext);
 
   // If the extension is specified then it is added to the member's target
-  // name.
+  // name as a second-level extension (the first-level extension, if any,
+  // comes from the target type).
   //
   target&
   add_adhoc_member (target&, const target_type&, const char* ext = nullptr);

@@ -364,8 +364,9 @@ namespace build2
                    ? "explicit target group member"
                    : "ad hoc target group member")));
 
-      // @@ TODO: what if name contains extension? Shouldn't we call
-      //          split_name()?
+      // @@ TODO: save location in constructor?
+      //
+      optional<string> ext (target::split_name (n, location ()));
 
       if (g != nullptr)
       {
@@ -384,7 +385,7 @@ namespace build2
                   move (d),
                   dir_path (), // Always in out.
                   move (n),
-                  nullptr /* ext */,
+                  ext ? &*ext : nullptr,
                   &bs));
 
         const target& t (l.first); // Note: non-const only if have lock.
@@ -432,7 +433,8 @@ namespace build2
           e.type,
           move (d),
           dir_path (), // Always in out.
-          move (n));
+          move (n),
+          move (ext));
       }
     }
   }

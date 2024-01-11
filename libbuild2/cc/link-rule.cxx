@@ -1695,7 +1695,8 @@ namespace build2
                                 fsdir::static_type,
                                 path_cast<dir_path> (t.path () + ".dlls"),
                                 t.out,
-                                string () /* name */));
+                                string () /* name */,
+                                nullopt /* ext */));
 
             // By default our backlinking logic will try to symlink the
             // directory and it can even be done on Windows using junctions.

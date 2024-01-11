@@ -364,7 +364,8 @@ namespace build2
                     const target_type& tt,
                     dir_path dir,
                     dir_path out,
-                    string n)
+                    string n,
+                    optional<string> ext)
   {
     tracer trace ("add_adhoc_member");
 
@@ -381,7 +382,7 @@ namespace build2
                                      move (dir),
                                      move (out),
                                      move (n),
-                                     nullopt /* ext     */,
+                                     move (ext),
                                      target_decl::implied,
                                      trace,
                                      true /* skip_find */));

@@ -374,7 +374,7 @@ namespace build2
       n += e;
     }
 
-    return add_adhoc_member (t, tt, t.dir, t.out, move (n));
+    return add_adhoc_member (t, tt, t.dir, t.out, move (n), nullopt /* ext */);
   }
 
   inline target*
