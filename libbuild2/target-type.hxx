@@ -201,18 +201,18 @@ namespace build2
       return type_map_.empty ();
     }
 
-    const target_type&
+    pair<reference_wrapper<const target_type>, bool>
     insert (const target_type& tt)
     {
-      type_map_.emplace (tt.name, target_type_ref (tt));
-      return tt;
+      auto r (type_map_.emplace (tt.name, target_type_ref (tt)));
+      return {r.second ? tt : r.first->second.get (), r.second};
     }
 
     template <typename T>
     const target_type&
     insert ()
     {
-      return insert (T::static_type);
+      return insert (T::static_type).first;
     }
 
     pair<reference_wrapper<const target_type>, bool>

@@ -320,7 +320,7 @@ namespace build2
     const target_type&
     insert_target_type (const target_type& tt)
     {
-      return root_extra->target_types.insert (tt);
+      return root_extra->target_types.insert (tt).first;
     }
 
     template <typename T>

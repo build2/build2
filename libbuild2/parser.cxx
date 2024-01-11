@@ -4429,50 +4429,51 @@ namespace build2
   parse_define (token& t, type& tt)
   {
     // define [<attrs>] <derived>: <base>
+    // define <alias> = <scope>/<type>
     //
     // See tests/define.
     //
     next_with_attributes (t, tt);
 
-    // Handle attributes.
-    //
     attributes_push (t, tt);
-
-    target_type::flag flags (target_type::flag::none);
-    {
-      attributes as (attributes_pop ());
-      const location& l (as.loc);
-
-      for (attribute& a: as)
-      {
-        const string& n (a.name);
-        value& v (a.value);
-
-        if      (n == "see_through") flags |= target_type::flag::see_through;
-        else if (n == "member_hint") flags |= target_type::flag::member_hint;
-        else
-          fail (l) << "unknown target type definition attribute " << n;
-
-        if (!v.null)
-          fail (l) << "unexpected value in attribute " << n;
-      }
-    }
+    attributes as (attributes_pop ());
 
     if (tt != type::word)
       fail (t) << "expected name instead of " << t << " in target type "
                << "definition";
 
-    string dn (move (t.value));
-    const location dnl (get_location (t));
-
-    if (next (t, tt) != type::colon)
-      fail (t) << "expected ':' instead of " << t << " in target type "
-               << "definition";
+    string n (move (t.value));
+    const location nl (get_location (t));
 
     next (t, tt);
 
-    if (tt == type::word)
+    if (tt == type::colon)
     {
+      // Handle attributes.
+      //
+      target_type::flag fs (target_type::flag::none);
+      {
+        const location& l (as.loc);
+
+        for (attribute& a: as)
+        {
+          const string& n (a.name);
+          value& v (a.value);
+
+          if      (n == "see_through") fs |= target_type::flag::see_through;
+          else if (n == "member_hint") fs |= target_type::flag::member_hint;
+          else
+            fail (l) << "unknown target type definition attribute " << n;
+
+          if (!v.null)
+            fail (l) << "unexpected value in attribute " << n;
+        }
+      }
+
+      if (next (t, tt) != type::word)
+        fail (t) << "expected name instead of " << t << " in target type "
+                 << "definition";
+
       // Target.
       //
       const string& bn (t.value);
@@ -4496,19 +4497,88 @@ namespace build2
       // currently also used on non-mtime-based targets, though what exactly
       // we will do in ad hoc recipes/rules in this case is fuzzy).
       //
-      if ((flags & target_type::flag::group) == target_type::flag::group &&
+      if ((fs & target_type::flag::group) == target_type::flag::group &&
           !bt->is_a<group> ())
         fail (t) << "base target type " << bn << " must be group for "
                  << "group-related attribute";
 
-      if (!root_->derive_target_type (move (dn), *bt, flags).second)
-        fail (dnl) << "target type " << dn << " already defined in this "
-                   << "project";
+      if (!root_->derive_target_type (move (n), *bt, fs).second)
+        fail (nl) << "target type " << n << " already defined in this project";
 
       next (t, tt); // Get newline.
     }
+    else if (tt == type::assign)
+    {
+      if (!as.empty ())
+        fail (as.loc) << "unexpected target type alias attribute";
+
+      // The rest should be a path-like target type. Parse it as names in
+      // the value mode to get variable expansion, etc.
+      //
+      mode (lexer_mode::value, '@');
+      next (t, tt);
+      const location tl (get_location (t));
+      names ns (
+        parse_names (t, tt, pattern_mode::ignore, "target type", nullptr));
+
+      name* tn (nullptr);
+      if (ns.size () == 1)
+      {
+        tn = &ns.front ();
+
+        if (tn->file ())
+        {
+          try
+          {
+            tn->canonicalize ();
+
+            if (tn->dir.absolute ())
+              tn->dir.normalize ();
+            else
+              tn = nullptr;
+          }
+          catch (const invalid_path&) {tn = nullptr;}
+          catch (const invalid_argument&) {tn = nullptr;}
+        }
+        else
+          tn = nullptr;
+      }
+
+      if (tn == nullptr)
+        fail (tl) << "expected scope-qualified target type instead of " << ns;
+
+      // If we got here, then tn->dir is the scope and tn->value is the target
+      // type.
+      //
+      const target_type* tt (nullptr);
+      if (const scope* rs = ctx->scopes.find_out (tn->dir).root_scope ())
+      {
+        tt = rs->find_target_type (tn->value);
+
+        if (tt == nullptr)
+          fail (tl) << "unknown target type " << tn->value << " in scope "
+                    << *rs;
+      }
+      else
+        fail (tl) << "unknown project scope " << tn->dir << " in scope"
+                  << "-qualified target type" <<
+          info << "did you forget to import the corresponding project?";
+
+      if (n != tn->value)
+        fail (nl) << "alias target type name " << n << " does not match "
+                  << tn->value;
+
+      // Note that this is potentially a shallow reference to a user-derived
+      // target type. Seeing that we only ever destory the entire graph, this
+      // should be ok.
+      //
+      auto p (root_->root_extra->target_types.insert (*tt));
+
+      if (!p.second && &p.first.get () != tt)
+        fail (nl) << "target type " << n << " already defined in this project";
+    }
     else
-      fail (t) << "expected name instead of " << t << " in target type "
+      fail (t) << "expected ':' or '=' instead of " << t << " in target type "
                << "definition";
 
     next_after_newline (t, tt);
