@@ -3181,7 +3181,7 @@ namespace build2
   source_buildfile (istream& is,
                     const path_name& in,
                     const location& loc,
-                    bool deft)
+                    optional<bool> deft)
   {
     tracer trace ("parser::source_buildfile", &path_);
 
@@ -3199,11 +3199,11 @@ namespace build2
     lexer_ = &l;
 
     target* odt;
-    if (deft)
-    {
+    if (!deft || *deft)
       odt = default_target_;
+
+    if (deft && *deft)
       default_target_ = nullptr;
-    }
 
     token t;
     type tt;
@@ -3213,13 +3213,14 @@ namespace build2
     if (tt != type::eos)
       fail (t) << "unexpected " << t;
 
-    if (deft)
+    if (deft && *deft)
     {
       if (stage_ != stage::boot && stage_ != stage::root)
         process_default_target (t, bf);
-
-      default_target_ = odt;
     }
+
+    if (!deft || *deft)
+      default_target_ = odt;
 
     lexer_ = ol;
     path_ = op;
@@ -3230,11 +3231,35 @@ namespace build2
   void parser::
   parse_source (token& t, type& tt)
   {
+    // source [<attrs>] <path>+
+    //
+
     // The rest should be a list of buildfiles. Parse them as names in the
-    // value mode to get variable expansion and directory prefixes.
+    // value mode to get variable expansion and directory prefixes. Also
+    // handle optional attributes.
     //
     mode (lexer_mode::value, '@');
-    next (t, tt);
+    next_with_attributes (t, tt);
+    attributes_push (t, tt);
+
+    bool nodt (false); // Source buildfile without default target semantics.
+    {
+      attributes as (attributes_pop ());
+      const location& l (as.loc);
+
+      for (const attribute& a: as)
+      {
+        const string& n (a.name);
+
+        if (n == "no_default_target")
+        {
+          nodt = true;
+        }
+        else
+          fail (l) << "unknown source directive attribute " << a;
+      }
+    }
+
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
               ? parse_names (t, tt, pattern_mode::expand, "path", nullptr)
@@ -3264,7 +3289,7 @@ namespace build2
         source_buildfile (ifs,
                           path_name (p),
                           get_location (t),
-                          false /* default_target */);
+                          nodt ? optional<bool> {} : false);
       }
       catch (const io_error& e)
       {
@@ -3278,6 +3303,9 @@ namespace build2
   void parser::
   parse_include (token& t, type& tt)
   {
+    // include <path>+
+    //
+
     tracer trace ("parser::parse_include", &path_);
 
     if (stage_ == stage::boot)
@@ -4072,6 +4100,7 @@ namespace build2
 
     bool meta (false); // Import with metadata.
     bool once (false); // Import buildfile once.
+    bool nodt (false); // Import buildfile without default target semantics.
     {
       attributes& as (attributes_top ());
       const location& l (as.loc);
@@ -4088,6 +4117,10 @@ namespace build2
               info << "consider using the import! directive instead";
 
           meta = true;
+        }
+        else if (n == "no_default_target")
+        {
+          nodt = true;
         }
         else if (n == "once")
         {
@@ -4213,8 +4246,15 @@ namespace build2
         if (meta)
           fail (loc) << "metadata requested for buildfile target " << n;
 
-        if (once && var != nullptr)
-          fail (loc) << "once importation requested with variable assignment";
+        if (var != nullptr)
+        {
+          if (once)
+            fail (loc) << "once importation requested with variable assignment";
+
+          if (nodt)
+            fail (loc) << "no_default_target importation requested with "
+                       << "variable assignment";
+        }
 
         if (ph2 && !ph2->empty ())
           fail (loc) << "rule hint specified for buildfile target " << n;
@@ -4223,6 +4263,10 @@ namespace build2
       {
         if (once)
           fail (loc) << "once importation requested for target " << n;
+
+        if (nodt)
+          fail (loc) << "no_default_target importation requested for target "
+                     << n;
 
         if (var == nullptr)
           fail (loc) << "variable assignment required to import target " << n;
@@ -4323,7 +4367,7 @@ namespace build2
           source_buildfile (ifs,
                             path_name (p),
                             loc,
-                            false /* default_target */);
+                            nodt ? optional<bool> {} : false);
         }
         catch (const io_error& e)
         {

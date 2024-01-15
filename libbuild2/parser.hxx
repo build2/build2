@@ -388,11 +388,17 @@ namespace build2
     // processing. If the specified path name has a real path, then also enter
     // it as a buildfile.
     //
+    // If default_target is nullopt, then disable the default target semantics
+    // as when loading boostrap.build or root.build. If it is false, then
+    // continue with the existing default_target value. If it is true, then
+    // start with a new default_value and call process_default_target() at
+    // the end.
+    //
     void
     source_buildfile (istream&,
                       const path_name&,
                       const location&,
-                      bool default_target);
+                      optional<bool> default_target);
 
     // The what argument is used in diagnostics (e.g., "expected <what>
     // instead of ...".
