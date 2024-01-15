@@ -421,6 +421,18 @@ namespace build2
 
       if (ops.match_only () && ops.load_only ())
         fail << "both --match-only and --load-only specified";
+
+      if (!ops.dump_specified ())
+      {
+        // Note: let's allow specifying --dump-format without --dump in case
+        // it comes from a default options file or some such.
+
+        if (ops.dump_target_specified ())
+          fail << "--dump-target requires --dump";
+
+        if (ops.dump_scope_specified ())
+          fail << "--dump-scope requires --dump";
+      }
     }
     catch (const cli::exception& e)
     {
