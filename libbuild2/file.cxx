@@ -2808,7 +2808,8 @@ namespace build2
         l5 ([&]{trace << "importing " << es;});
 
         // @@ Should we verify these are all unqualified names? Or maybe there
-        // is a use-case for the export stub to return a qualified name?
+        // is a use-case for the export stub to return a qualified name? E.g.,
+        // re-export?
         //
         names v;
         {
@@ -2893,6 +2894,27 @@ namespace build2
     }
   }
 
+  const target_type&
+  import_target_type (scope& root,
+                      const scope& iroot, const string& n,
+                      const location& l)
+  {
+    // NOTE: see similar code in parser::parse_define().
+
+    const target_type* tt (iroot.find_target_type (n));
+    if (tt == nullptr)
+      fail (l) << "unknown imported target type " << n << " in project "
+               << iroot;
+
+    auto p (root.root_extra->target_types.insert (*tt));
+
+    if (!p.second && &p.first.get () != tt)
+      fail (l) << "imported target type " << n << " already defined in project "
+               << root;
+
+    return *tt;
+  }
+
   static names
   import2_buildfile (context&, names&&, bool, const location&);
 
@@ -2901,7 +2923,7 @@ namespace build2
            const string&, bool, const optional<string>&, bool,
            const location&);
 
-  pair<names, import_kind>
+  import_result<scope>
   import (scope& base,
           name tgt,
           const optional<string>& ph2,
@@ -2931,7 +2953,10 @@ namespace build2
       import_result<target> r (
         import_direct (base, move (tgt), ph2, opt, metadata, loc));
 
-      return make_pair (move (r.name), r.kind);
+      return import_result<scope> {
+        r.target != nullptr ? r.target->base_scope ().root_scope () : nullptr,
+        move (r.name),
+        r.kind};
     }
 
     pair<name, optional<dir_path>> r (
@@ -2947,6 +2972,7 @@ namespace build2
     if (!r.second || r.second->empty ())
     {
       names ns;
+      const target* t (nullptr);
 
       if (r.first.empty ())
       {
@@ -2972,13 +2998,15 @@ namespace build2
             // This is tricky: we only want the optional semantics for the
             // fallback case.
             //
-            if (const target* t = import2 (ctx,
-                                           base, ns,
-                                           *ph2,
-                                           opt && !r.second  /* optional */,
-                                           nullopt           /* metadata */,
-                                           false             /* existing */,
-                                           loc))
+            t = import2 (ctx,
+                         base, ns,
+                         *ph2,
+                         opt && !r.second  /* optional */,
+                         nullopt           /* metadata */,
+                         false             /* existing */,
+                         loc);
+
+            if (t != nullptr)
             {
               // Note that here r.first was still project-qualified and we
               // have no choice but to call as_name(). This shouldn't cause
@@ -2994,18 +3022,20 @@ namespace build2
         }
       }
 
-      return make_pair (
+      return import_result<scope> {
+        t != nullptr ? t->base_scope ().root_scope () : nullptr,
         move (ns),
-        r.second.has_value () ? import_kind::adhoc : import_kind::fallback);
+        r.second.has_value () ? import_kind::adhoc : import_kind::fallback};
     }
 
     import_kind k (r.first.absolute ()
                    ? import_kind::adhoc
                    : import_kind::normal);
 
-    return make_pair (
-      import_load (base.ctx, move (r), false /* metadata */, loc).first,
-      k);
+    pair<names, const scope&> p (
+      import_load (base.ctx, move (r), false /* metadata */, loc));
+
+    return import_result<scope> {&p.second, move (p.first), k};
   }
 
   const target*
@@ -3339,6 +3369,8 @@ namespace build2
     context& ctx (base.ctx);
     assert (ctx.phase == run_phase::load);
 
+    scope& root (*base.root_scope ());
+
     // Use the original target name as metadata key.
     //
     auto meta (metadata ? optional<string> (tgt.value) : nullopt);
@@ -3346,6 +3378,7 @@ namespace build2
     names ns, rns;
     import_kind k;
     const target* pt (nullptr);
+    const scope* iroot (nullptr); // Imported root scope.
 
     pair<name, optional<dir_path>> r (
       import_search (new_value,
@@ -3400,6 +3433,8 @@ namespace build2
         // It's a bit fuzzy in which cases we end up here. So for now we keep
         // the original if it's absolute and call as_name() otherwise.
         //
+        // @@ TODO: resolve iroot or assume target type should be known?
+        //
         if (r.first.absolute ())
           rns.push_back (r.first);
 
@@ -3409,14 +3444,30 @@ namespace build2
     else
     {
       k = r.first.absolute () ? import_kind::adhoc : import_kind::normal;
-      rns = ns = import_load (base.ctx, move (r), metadata, loc).first;
+
+      pair<names, const scope&> p (
+        import_load (base.ctx, move (r), metadata, loc));
+
+      rns = ns = move (p.first);
+      iroot = &p.second;
     }
 
     if (pt == nullptr)
     {
+      // Import (more precisely, alias) the target type into this project
+      // if not known.
+      //
+      const target_type* tt (nullptr);
+      if (iroot != nullptr && !ns.empty ())
+      {
+        const name& n (ns.front ());
+        if (n.typed ())
+          tt = &import_target_type (root, *iroot, n.type, loc);
+      }
+
       // Similar logic to perform's search(). Note: modifies ns.
       //
-      target_key tk (base.find_target_key (ns, loc));
+      target_key tk (base.find_target_key (ns, loc, tt));
       pt = ctx.targets.find (tk, trace);
       if (pt == nullptr)
         fail (loc) << "unknown imported target " << tk;
@@ -3491,10 +3542,8 @@ namespace build2
         //
         if (const auto* e = cast_null<strings> (t.vars[pfx + ".environment"]))
         {
-          scope& rs (*base.root_scope ());
-
           for (const string& v: *e)
-            config::save_environment (rs, v);
+            config::save_environment (root, v);
         }
       }
       else
@@ -3512,7 +3561,7 @@ namespace build2
                      string () /* phase2 */,
                      opt,
                      false     /* metadata */,
-                     loc).first);
+                     loc).name);
 
     path p;
     if (!r.empty ()) // Optional not found.

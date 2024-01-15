@@ -792,9 +792,11 @@ namespace build2
   }
 
   pair<const target_type&, optional<string>> scope::
-  find_target_type (name& n, name& o, const location& loc) const
+  find_target_type (name& n, name& o,
+                    const location& loc,
+                    const target_type* tt) const
   {
-    auto r (find_target_type (n, loc));
+    auto r (find_target_type (n, loc, tt));
 
     if (r.first == nullptr)
       fail (loc) << "unknown target type " << n.type << " in " << n;
@@ -878,14 +880,16 @@ namespace build2
   }
 
   target_key scope::
-  find_target_key (names& ns, const location& loc) const
+  find_target_key (names& ns,
+                   const location& loc,
+                   const target_type* tt) const
   {
     if (size_t n = ns.size ())
     {
       if (n == (ns[0].pair ? 2 : 1))
       {
         name dummy;
-        return find_target_key (ns[0], n == 1 ? dummy : ns[1], loc);
+        return find_target_key (ns[0], n == 1 ? dummy : ns[1], loc, tt);
       }
     }
 

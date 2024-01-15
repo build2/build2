@@ -4226,12 +4226,15 @@ namespace build2
 
       // import() will check the name, if required.
       //
-      names r (import (*scope_,
-                       move (n),
-                       ph2 ? ph2 : bf ? optional<string> (string ()) : nullopt,
-                       opt,
-                       meta,
-                       loc).first);
+      import_result<scope> ir (
+        import (*scope_,
+                move (n),
+                ph2 ? ph2 : bf ? optional<string> (string ()) : nullopt,
+                opt,
+                meta,
+                loc));
+
+      names& r (ir.name);
 
       if (val != nullptr)
       {
@@ -4242,6 +4245,19 @@ namespace build2
         }
         else
         {
+          // Import (more precisely, alias) the target type into this project
+          // if not known.
+          //
+          // Note that if the result is ignored (val is NULL), then it's fair
+          // to assume this is not necessary.
+          //
+          if (const scope* iroot = ir.target)
+          {
+            const name& n (r.front ());
+            if (n.typed ())
+              import_target_type (*root_, *iroot, n.type, loc);
+          }
+
           if      (atype == type::assign)  val->assign  (move (r), var);
           else if (atype == type::prepend) val->prepend (move (r), var);
           else                             val->append  (move (r), var);
@@ -4518,7 +4534,8 @@ namespace build2
                  << "group-related attribute";
 
       if (!root_->derive_target_type (move (n), *bt, fs).second)
-        fail (nl) << "target type " << n << " already defined in this project";
+        fail (nl) << "target type " << n << " already defined in project "
+                  << *root_;
 
       next (t, tt); // Get newline.
     }
@@ -4564,6 +4581,8 @@ namespace build2
 
       // If we got here, then tn->dir is the scope and tn->value is the target
       // type.
+      //
+      // NOTE: see similar code in import_target_type().
       //
       const target_type* tt (nullptr);
       if (const scope* rs = ctx->scopes.find_out (tn->dir).root_scope ())

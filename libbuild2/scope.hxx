@@ -358,19 +358,25 @@ namespace build2
     // the out directory.
     //
     pair<const target_type&, optional<string>>
-    find_target_type (name&, name&, const location&) const;
+    find_target_type (name&, name&,
+                      const location&,
+                      const target_type* = nullptr) const;
 
     // As above, but return the result as a target key (with its members
     // shallow-pointing to processed parts in the two names).
     //
     target_key
-    find_target_key (name&, name&, const location&) const;
+    find_target_key (name&, name&,
+                     const location&,
+                     const target_type* = nullptr) const;
 
     // As above, but the names are passed as a vector. Issue appropriate
     // diagnostics if the wrong number of names is passed.
     //
     target_key
-    find_target_key (names&, const location&) const;
+    find_target_key (names&,
+                     const location&,
+                     const target_type* = nullptr) const;
 
     // Similar to the find_target_type() but does not complete relative
     // directories.
@@ -378,7 +384,7 @@ namespace build2
     pair<const target_type&, optional<string>>
     find_prerequisite_type (name&, name&,
                             const location&,
-                            const target_type* tt = nullptr) const;
+                            const target_type* = nullptr) const;
 
     // As above, but return a prerequisite key.
     //

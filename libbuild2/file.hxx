@@ -371,7 +371,18 @@ namespace build2
   //
   enum class import_kind {adhoc, normal, fallback};
 
-  LIBBUILD2_SYMEXPORT pair<names, import_kind>
+  template <typename T>
+  struct import_result
+  {
+    const T*    target; // Note: T can be imported target or imported scope.
+    names       name;
+    import_kind kind;
+  };
+
+  // Note that import_result<scope>::target may be NULL even if name is not
+  // empty (e.g, out of project target imported via phase 2).
+  //
+  LIBBUILD2_SYMEXPORT import_result<scope>
   import (scope& base,
           name,
           const optional<string>& phase2,
@@ -409,14 +420,6 @@ namespace build2
   //
   // Note: cannot be used to import buildfile targets (use import_buildfile()
   // instead).
-  //
-  template <typename T>
-  struct import_result
-  {
-    const T*    target;
-    names       name;
-    import_kind kind;
-  };
 
   // Print import_direct<exe>() result either as a target for a normal import
   // or as a process path for ad hoc and fallback imports. Normally used in
@@ -517,6 +520,16 @@ namespace build2
                pair<name, optional<dir_path>>,
                bool metadata,
                const location&);
+
+  // Import (more precisely, alias as if using the `define =` syntax) the
+  // target type from imported project (iroot) into this project (root). If
+  // the target type with this name is already defined in this project, then
+  // make sure it is the same as in the imported project.
+  //
+  LIBBUILD2_SYMEXPORT const target_type&
+  import_target_type (scope& root,
+                      const scope& iroot, const string&,
+                      const location&);
 
   // Suggest appropriate ways to import the specified target (as type and
   // name) from the specified project.
