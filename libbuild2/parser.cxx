@@ -324,7 +324,9 @@ namespace build2
     else
     {
       parse_clause (t, tt);
-      process_default_target (t, bf);
+
+      if (stage_ != stage::boot && stage_ != stage::root)
+        process_default_target (t, bf);
     }
 
     if (tt != type::eos)
@@ -3213,7 +3215,9 @@ namespace build2
 
     if (deft)
     {
-      process_default_target (t, bf);
+      if (stage_ != stage::boot && stage_ != stage::root)
+        process_default_target (t, bf);
+
       default_target_ = odt;
     }
 
