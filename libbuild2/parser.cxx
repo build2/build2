@@ -9523,7 +9523,9 @@ namespace build2
 
                 if (n.extension () == build_ext)
                 {
-                  // Similar to above, enter as real.
+                  // Enter as if found by search_existing_file(). Note that
+                  // entering it as real would cause file_rule not to match
+                  // for clean.
                   //
                   // Note that these targets may already be entered (for
                   // example, if already imported).
@@ -9536,7 +9538,7 @@ namespace build2
                                           : out_src (d, *root_)),
                                          n.base ().string (),
                                          build_ext,
-                                         target_decl::real,
+                                         target_decl::prereq_file,
                                          trace).first);
 
                   ct->prerequisites_.push_back (prerequisite (bf));
