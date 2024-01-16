@@ -2726,6 +2726,9 @@ namespace build2
       {
         name n;
 
+        if (src_root.empty ())
+          src_root = root->src_path ();
+
         n.dir = move (src_root);
         n.dir /= *altn ? alt_export_dir : std_export_dir;
         if (!tgt.dir.empty ())
@@ -2777,6 +2780,9 @@ namespace build2
       //
       if (cache_out_root.empty ())
         cache_out_root = out_root;
+
+      if (src_root.empty ())
+        src_root = root->src_path ();
 
       ts.assign (ctx.var_out_root) = move (out_root);
       ts.assign (ctx.var_src_root) = move (src_root);
