@@ -274,11 +274,15 @@ namespace build2
   //
   // Note that here and in find_adhoc_member() below (as well as in
   // perform_clean_extra()) we use target type (as opposed to, say, type and
-  // name) as the member's identity. This fits our current needs where every
+  // name) as the member's identity. This fits common needs where every
   // (rule-managed) ad hoc member has a unique target type and we have no need
   // for multiple members of the same type. This also allows us to support
   // things like changing the ad hoc member name by declaring it in a
-  // buildfile.
+  // buildfile. However, if this semantics is not appropriate, use the
+  // add_adhoc_member_identity() version below.
+  //
+  // Note that the current implementation asserts if the member target already
+  // exists but is not already a member.
   //
   LIBBUILD2_SYMEXPORT target&
   add_adhoc_member (target&,
@@ -308,6 +312,24 @@ namespace build2
   {
     return add_adhoc_member<T> (g, T::static_type, e);
   }
+
+  // Add an ad hoc member using the member identity (as opposed to only its
+  // type as in add_adhoc_member() above) to suppress diplicates. See also
+  // dyndep::inject_adhoc_group_member().
+  //
+  // Return the member target as well as an indication of whether it was added
+  // or was already a member. Fail if the member target already exists but is
+  // not a member since it's not possible to make it a member in an MT-safe
+  // manner.
+  //
+  LIBBUILD2_SYMEXPORT pair<target&, bool>
+  add_adhoc_member_identity (target&,
+                             const target_type&,
+                             dir_path dir,
+                             dir_path out,
+                             string name,
+                             optional<string> ext,
+                             const location& = location ());
 
   // Find an ad hoc member of the specified target type returning NULL if not
   // found.

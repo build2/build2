@@ -366,7 +366,9 @@ namespace build2
 
       // @@ TODO: save location in constructor?
       //
-      optional<string> ext (target::split_name (n, location ()));
+      location loc;
+
+      optional<string> ext (target::split_name (n, loc));
 
       if (g != nullptr)
       {
@@ -425,16 +427,14 @@ namespace build2
       }
       else
       {
-        // @@ TODO: currently this uses type as the ad hoc member identity.
-        //          Use inject_adhoc_group_member() variant?
-        //
-        add_adhoc_member (
+        add_adhoc_member_identity (
           t,
           e.type,
           move (d),
           dir_path (), // Always in out.
           move (n),
-          move (ext));
+          move (ext),
+          loc);
       }
     }
   }

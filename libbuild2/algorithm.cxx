@@ -400,6 +400,49 @@ namespace build2
     return *m;
   };
 
+  pair<target&, bool>
+  add_adhoc_member_identity (target& t,
+                             const target_type& tt,
+                             dir_path dir,
+                             dir_path out,
+                             string n,
+                             optional<string> ext,
+                             const location& loc)
+  {
+    // NOTE: see similar code in parser::enter_adhoc_members().
+
+    tracer trace ("add_adhoc_member_identity");
+
+    pair<target&, ulock> r (
+      t.ctx.targets.insert_locked (tt,
+                                   move (dir),
+                                   move (out),
+                                   move (n),
+                                   move (ext),
+                                   target_decl::implied,
+                                   trace,
+                                   true /* skip_find */));
+    target& m (r.first);
+
+    // Add as an ad hoc member at the end of the chain skipping duplicates.
+    //
+    const_ptr<target>* mp (&t.adhoc_member);
+    for (; *mp != nullptr; mp = &(*mp)->adhoc_member)
+    {
+      if (*mp == &m)
+        return {m, false};
+    }
+
+    if (!r.second)
+      fail (loc) << "target " << m << " already exists and cannot be made "
+                 << "ad hoc member of group " << t;
+
+    m.group = &t;
+    *mp = &m;
+
+    return {m, true};
+  }
+
   static bool
   trace_target (const target& t, const vector<name>& ns)
   {
