@@ -906,6 +906,28 @@ namespace build2
       new (&v.data_) map<K, V> (move (x));
   }
 
+  // json
+  //
+  inline bool value_traits<json_value>::
+  empty (const json_value& v)
+  {
+    if (!v.name)
+    {
+      switch (v.type)
+      {
+      case json_type::null:            return true;
+      case json_type::boolean:
+      case json_type::signed_number:
+      case json_type::unsigned_number: break;
+      case json_type::string:          return v.string.empty ();
+      case json_type::array:
+      case json_type::object:          return v.container.empty ();
+      }
+    }
+
+    return false;
+  }
+
   // variable_pool
   //
   inline const variable* variable_pool::

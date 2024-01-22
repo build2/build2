@@ -7,6 +7,11 @@
 
 #include <libbutl/path-pattern.hxx>
 
+#ifndef BUILD2_BOOTSTRAP
+#  include <libbutl/json/parser.hxx>
+#  include <libbutl/json/serializer.hxx>
+#endif
+
 #include <libbuild2/target.hxx>
 #include <libbuild2/diagnostics.hxx>
 
@@ -460,7 +465,7 @@ namespace build2
         m += "name '" + to_string (n) + '\'';
     }
 
-    throw invalid_argument (m);
+    throw invalid_argument (move (m));
   }
 
   // names
@@ -1473,6 +1478,292 @@ namespace build2
     nullptr,                         // No cast (cast data_ directly).
     &simple_compare<project_name>,
     &default_empty<project_name>
+  };
+
+  // json
+  //
+  json_value value_traits<json_value>::
+  convert (names&& ns)
+  {
+    auto to_string_value = [] (name& n, const char* what) -> string
+    {
+      if (n.typed () || n.qualified () || n.pattern)
+        throw_invalid_argument (n, nullptr, what);
+
+      string s;
+
+      if (n.simple ())
+        s.swap (n.value);
+      else
+      {
+        // Note that here we cannot assume what's in dir is really a path
+        // (think s/foo/bar/) so we have to reverse it exactly.
+        //
+        s = move (n.dir).representation (); // Move out of path.
+
+        if (!n.value.empty ())
+          s += n.value; // Separator is already there.
+      }
+
+      return s;
+    };
+
+    auto to_json_value = [] (name& n, const char* what) -> json_value
+    {
+      if (n.typed () || n.qualified () || n.pattern)
+        throw_invalid_argument (n, nullptr, what);
+
+      string s;
+
+      if (n.simple ())
+        s.swap (n.value);
+      else
+      {
+        // Note that here we cannot assume what's in dir is really a path
+        // (think s/foo/bar/) so we have to reverse it exactly.
+        //
+        s = move (n.dir).representation (); // Move out of path.
+
+        if (!n.value.empty ())
+          s += n.value; // Separator is already there.
+
+        // A path is always interpreted as a JSON string.
+        //
+        return json_value (move (s));
+      }
+
+      bool f;
+      if (s == "null")
+        return json_value ();
+      else if ((f = (s == "true")) || s == "false")
+        return json_value (f);
+      else if (s.find_first_not_of (
+                 "0123456789", (f = (s[0] == '-')) ? 1 : 0) == string::npos)
+      {
+        name n (move (s));
+        return f
+          ? json_value (value_traits<int64_t>::convert (n, nullptr))
+          : json_value (value_traits<uint64_t>::convert (n, nullptr));
+      }
+      else
+      {
+        // If this is not already a JSON string, array, or object, treat it as
+        // a string.
+        //
+        if (s[0] != '"')
+        {
+          // While the quote character must be first, `{` and `[` could be
+          // preceded with whitespaces.
+          //
+          size_t p (s.find_first_not_of (" \t\n\r"));
+
+          if (p == string::npos || (s[p] != '{' && s[p] != '['))
+          {
+            return json_value (move (s));
+          }
+        }
+
+        // Parse as valid JSON input.
+        //
+#ifndef BUILD2_BOOTSTRAP
+        using namespace butl::json;
+
+        try
+        {
+          parser p (s, empty_string /* name */);
+          return json_value (p);
+        }
+        catch (const invalid_json_input& e)
+        {
+          // @@ How can we communicate value, line/column, position?
+
+          string m ("invalid json value: ");
+          m += e.what ();
+
+          throw invalid_argument (move (m));
+        }
+#else
+        throw invalid_argument ("json parsing requested during bootstrap");
+#endif
+      }
+    };
+
+    size_t n (ns.size ());
+
+    if (n == 0)
+    {
+      return json_value (); // null
+    }
+    else if (n == 1)
+    {
+      return to_json_value (ns.front (), "json");
+    }
+    else
+    {
+      if (ns.front ().pair) // object
+      {
+        json_value r (json_type::object);
+        r.container.reserve (n / 2);
+
+        for (auto i (ns.begin ()); i != ns.end (); ++i)
+        {
+          if (!i->pair)
+            throw invalid_argument (
+              "pair expected in json member value '" + to_string (*i) + '\'');
+
+          // @@ Should we handle quoted member names?
+          //
+          string m (to_string_value (*i, "json member name"));
+          json_value v (to_json_value (*++i, "json member"));
+          v.name = move (m);
+
+          // @@ Override duplicates or fail?
+          //
+          r.container.push_back (move (v));
+        }
+
+        return r;
+      }
+      else // array
+      {
+        json_value r (json_type::array);
+        r.container.reserve (n);
+
+        for (name& n: ns)
+          r.container.push_back (to_json_value (n, "json array element"));
+
+        return r;
+      }
+    }
+  }
+
+  void value_traits<json_value>::
+  assign (value& v, json_value&& x)
+  {
+    if (v)
+      v.as<json_value> () = move (x);
+    else
+      new (&v.data_) json_value (move (x));
+  }
+
+  void value_traits<json_value>::
+  append (value& v, json_value&& x)
+  {
+    if (v)
+    {
+      json_value& p (v.as<json_value> ());
+
+      if (p.empty ())
+        p.swap (x);
+      else
+        p.insert (p.end (),
+                  make_move_iterator (x.begin ()),
+                  make_move_iterator (x.end ()));
+    }
+    else
+      new (&v.data_) json_value (move (x));
+  }
+
+  void value_traits<json_value>::
+  prepend (value& v, json_value&& x)
+  {
+    if (v)
+    {
+      json_value& p (v.as<json_value> ());
+
+      if (!p.empty ())
+        x.insert (x.end (),
+                  make_move_iterator (p.begin ()),
+                  make_move_iterator (p.end ()));
+
+      p.swap (x);
+    }
+    else
+      new (&v.data_) json_value (move (x));
+  }
+
+  void
+  json_value_assign (value& v, names&& ns, const variable*)
+  {
+    if (!v)
+    {
+      new (&v.data_) json_value ();
+      v.null = false;
+    }
+
+    v.as<json_value> ().assign (make_move_iterator (ns.begin ()),
+                             make_move_iterator (ns.end ()));
+  }
+
+  void
+  json_value_append (value& v, names&& ns, const variable*)
+  {
+    if (!v)
+    {
+      new (&v.data_) json_value ();
+      v.null = false;
+    }
+
+    auto& x (v.as<json_value> ());
+    x.insert (x.end (),
+              make_move_iterator (ns.begin ()),
+              make_move_iterator (ns.end ()));
+  }
+
+  void
+  json_value_prepend (value& v, names&& ns, const variable*)
+  {
+    if (!v)
+    {
+      new (&v.data_) json_value ();
+      v.null = false;
+    }
+
+    auto& x (v.as<json_value> ());
+    x.insert (x.begin (),
+              make_move_iterator (ns.begin ()),
+              make_move_iterator (ns.end ()));
+  }
+
+  static names_view
+  json_value_reverse (const value& v, names&, bool)
+  {
+    const auto& x (v.as<json_value> ());
+    return names_view (x.data (), x.size ());
+  }
+
+  static int
+  json_value_compare (const value& l, const value& r)
+  {
+    return vector_compare<name> (l, r);
+  }
+
+  const json_value value_traits<json_value>::empty_instance;
+
+  const char* const value_traits<json_value>::type_name = "json";
+
+  // Note that whether the json value is a container or not depends on its
+  // payload type. However, for our purposes it feels correct to assume it is
+  // a container rather than not with itself as the element type (see
+  // value_traits::{container, element_type} usage for details).
+  //
+  const value_type value_traits<json_value>::value_type
+  {
+    type_name,
+    sizeof (json_value),
+    nullptr,                               // No base.
+    true,                                  // Container.
+    &value_traits<json_value>::value_type, // Element (itself).
+    &default_dtor<json_value>,
+    &default_copy_ctor<json_value>,
+    &default_copy_assign<json_value>,
+    &cmdline_assign,
+    &cmdline_append,
+    &cmdline_prepend,
+    &cmdline_reverse,
+    nullptr,                           // No cast (cast data_ directly).
+    &cmdline_compare,
+    &default_empty<cmdline>
   };
 
   // cmdline

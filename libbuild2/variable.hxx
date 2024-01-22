@@ -15,6 +15,8 @@
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/json.hxx>
+
 #include <libbuild2/context.hxx>
 #include <libbuild2/target-type.hxx>
 #include <libbuild2/diagnostics.hxx>
@@ -1177,6 +1179,24 @@ namespace build2
 
     static const map<K, V> empty_instance;
     static const map_value_type<K, V> value_type;
+  };
+
+  // json
+  //
+  template <>
+  struct LIBBUILD2_SYMEXPORT value_traits<json_value>
+  {
+    static_assert (sizeof (json_value) <= value::size_, "insufficient space");
+
+    static json_value convert (names&&);
+    static void assign (value&, json_value&&);
+    static void append (value&, json_value&&);
+    static void prepend (value&, json_value&&);
+    static bool empty (const json_value&); // null or empty string|array|object
+
+    static const json_value empty_instance; // null
+    static const char* const type_name;
+    static const build2::value_type value_type;
   };
 
   // Canned command line to be re-lexed (used in {Build,Test}scripts).
