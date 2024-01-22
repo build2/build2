@@ -1646,6 +1646,9 @@ namespace build2
       new (&v.data_) json_value (move (x));
   }
 
+  // @@ TODO: ?
+  //
+  /*
   void value_traits<json_value>::
   append (value& v, json_value&& x)
   {
@@ -1681,22 +1684,35 @@ namespace build2
     else
       new (&v.data_) json_value (move (x));
   }
+  */
 
-  void
-  json_value_assign (value& v, names&& ns, const variable*)
+  static void
+  json_assign (value& v, names&& ns, const variable* var)
   {
-    if (!v)
-    {
-      new (&v.data_) json_value ();
-      v.null = false;
-    }
+    using traits = value_traits<json_value>;
 
-    v.as<json_value> ().assign (make_move_iterator (ns.begin ()),
-                             make_move_iterator (ns.end ()));
+    try
+    {
+      traits::assign (v, traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json value";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
   }
 
-  void
-  json_value_append (value& v, names&& ns, const variable*)
+  // @@ TODO: ?
+  /*
+  static void
+  json_append (value& v, names&& ns, const variable*)
   {
     if (!v)
     {
@@ -1710,8 +1726,8 @@ namespace build2
               make_move_iterator (ns.end ()));
   }
 
-  void
-  json_value_prepend (value& v, names&& ns, const variable*)
+  static void
+  json_prepend (value& v, names&& ns, const variable*)
   {
     if (!v)
     {
@@ -1724,18 +1740,18 @@ namespace build2
               make_move_iterator (ns.begin ()),
               make_move_iterator (ns.end ()));
   }
+  */
 
   static names_view
-  json_value_reverse (const value& v, names&, bool)
+  json_reverse (const value&, names& storage, bool)
   {
-    const auto& x (v.as<json_value> ());
-    return names_view (x.data (), x.size ());
+    return names_view (storage); // @@ TODO
   }
 
   static int
-  json_value_compare (const value& l, const value& r)
+  json_compare (const value& l, const value& r)
   {
-    return vector_compare<name> (l, r);
+    return l.as<json_value> ().compare (r.as<json_value> ());
   }
 
   const json_value value_traits<json_value>::empty_instance;
@@ -1757,13 +1773,13 @@ namespace build2
     &default_dtor<json_value>,
     &default_copy_ctor<json_value>,
     &default_copy_assign<json_value>,
-    &cmdline_assign,
-    &cmdline_append,
-    &cmdline_prepend,
-    &cmdline_reverse,
+    &json_assign,
+    nullptr, //&cmdline_append, @@
+    nullptr, //&cmdline_prepend, @@
+    &json_reverse,
     nullptr,                           // No cast (cast data_ directly).
-    &cmdline_compare,
-    &default_empty<cmdline>
+    &json_compare,
+    &default_empty<json_value>
   };
 
   // cmdline
@@ -1820,7 +1836,7 @@ namespace build2
       new (&v.data_) cmdline (move (x));
   }
 
-  void
+  static void
   cmdline_assign (value& v, names&& ns, const variable*)
   {
     if (!v)
@@ -1833,7 +1849,7 @@ namespace build2
                              make_move_iterator (ns.end ()));
   }
 
-  void
+  static void
   cmdline_append (value& v, names&& ns, const variable*)
   {
     if (!v)
@@ -1848,7 +1864,7 @@ namespace build2
               make_move_iterator (ns.end ()));
   }
 
-  void
+  static void
   cmdline_prepend (value& v, names&& ns, const variable*)
   {
     if (!v)

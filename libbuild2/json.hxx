@@ -26,9 +26,14 @@ namespace build2
   // string and value. The latter allows us to use the JSON value itself as an
   // element of a container.
   //
-  enum class json_type
+  // Note also that we don't assume that object members are in a sorted order
+  // (but do assume there are no duplicates). However, we could add an
+  // argument to signal that this is the case to speed up some functions, for
+  // example, compare().
+  //
+  enum class json_type: uint8_t
   {
-    null,
+    null, // Note: keep first for comparison.
     boolean,
     signed_number,
     unsigned_number,
@@ -222,6 +227,21 @@ namespace build2
       case json_type::object:          container.~container_type (); break;
       }
     }
+
+    // Note that values of different types are never equal, except for
+    // signed/unsigned numbers. Null is equal to null and is less than any
+    // other value. Arrays are compared lexicographically. Object members are
+    // considered in the lexicographically-compared name-ascending order (see
+    // RFC8785). An absent member is less than a present member (even if it's
+    // null).
+    //
+    // Note that while it doesn't make much sense to compare members to
+    // non-members, we allow it with a non-member always being less than a
+    // member (even if null), unless ignore_name is true, in which case member
+    // names are ignored.
+    //
+    int
+      compare (const json_value&, bool ignore_name = false) const;
   };
 
   // Throws invalid_json_output.

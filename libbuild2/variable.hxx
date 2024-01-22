@@ -1190,8 +1190,8 @@ namespace build2
 
     static json_value convert (names&&);
     static void assign (value&, json_value&&);
-    static void append (value&, json_value&&);
-    static void prepend (value&, json_value&&);
+    //static void append (value&, json_value&&);
+    //static void prepend (value&, json_value&&);
     static bool empty (const json_value&); // null or empty string|array|object
 
     static const json_value empty_instance; // null
