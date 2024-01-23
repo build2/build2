@@ -396,7 +396,12 @@ namespace build2
         //
         optional<location> computed_var_;
 
-        // True during pre-parsing when the pre-parse mode is temporarily
+        // True if we (rather than the base parser) turned on the pre-parse
+        // mode.
+        //
+        bool top_pre_parse_;
+
+        // True during top-pre-parsing when the pre-parse mode is temporarily
         // suspended to perform expansion.
         //
         bool pre_parse_suspended_ = false;

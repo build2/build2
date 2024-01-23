@@ -47,7 +47,7 @@ namespace build2
       {
         path_ = &pn;
 
-        pre_parse_ = true;
+        top_pre_parse_ = pre_parse_ = true;
 
         lexer l (is, *path_, line, lexer_mode::command_line);
         set_lexer (&l);
@@ -973,6 +973,11 @@ namespace build2
 
             if (!skip_diag)
             {
+              // Sanity check: we should not be suspending the pre-parse mode
+              // turned on by the base parser.
+              //
+              assert (top_pre_parse_);
+
               pre_parse_ = false; // Make parse_names() perform expansions.
               pre_parse_suspended_ = true;
             }
@@ -1547,7 +1552,7 @@ namespace build2
       {
         path_ = nullptr; // Set by replays.
 
-        pre_parse_ = false;
+        top_pre_parse_ = pre_parse_ = false;
 
         set_lexer (nullptr);
 
@@ -3397,6 +3402,12 @@ namespace build2
         {
           lookup r;
 
+          // Note that pre-parse can be switched on by the base parser even
+          // during execute.
+          //
+          if (!top_pre_parse_)
+            return r;
+
           // Add the variable name skipping special variables and suppressing
           // duplicates, unless the default variables change tracking is
           // canceled with `depdb clear`. While at it, check if the script
@@ -3479,7 +3490,10 @@ namespace build2
       void parser::
       lookup_function (string&& name, const location& loc)
       {
-        if (perform_update_ && file_based_ && !impure_func_)
+        // Note that pre-parse can be switched on by the base parser even
+        // during execute.
+        //
+        if (top_pre_parse_ && perform_update_ && file_based_ && !impure_func_)
         {
           const function_overloads* f (ctx->functions.find (name));
 
