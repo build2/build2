@@ -241,13 +241,31 @@ namespace build2
     // names are ignored.
     //
     int
-      compare (const json_value&, bool ignore_name = false) const;
+    compare (const json_value&, bool ignore_name = false) const;
   };
 
   // Throws invalid_json_output.
   //
   LIBBUILD2_SYMEXPORT void
   serialize (butl::json::buffer_serializer&, const json_value&);
+
+  inline bool
+  operator== (const json_value& x, const json_value& y) {return x.compare (y) == 0;}
+
+  inline bool
+  operator!= (const json_value& x, const json_value& y) {return !(x == y);}
+
+  inline bool
+  operator< (const json_value& x, const json_value& y) {return x.compare (y) < 0;}
+
+  inline bool
+  operator<= (const json_value& x, const json_value& y) {return x.compare (y) <= 0;}
+
+  inline bool
+  operator> (const json_value& x, const json_value& y) {return !(x <= y);}
+
+  inline bool
+  operator>= (const json_value& x, const json_value& y) {return !(x < y);}
 }
 
 #endif // LIBBUILD2_JSON_HXX

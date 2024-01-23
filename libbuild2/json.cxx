@@ -181,6 +181,8 @@ namespace build2
         container_type c; // For exception safety.
         while (*p.next () != event::end_object)
         {
+          // @@ Override duplicates or fail?
+
           string_type n (p.name ());
           json_value v (p);
           v.name = move (n);

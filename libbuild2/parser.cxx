@@ -5753,6 +5753,7 @@ namespace build2
       n == "dir_paths"      ? ptr (value_traits<dir_paths>::value_type)      :
       n == "names"          ? ptr (value_traits<vector<name>>::value_type)   :
       n == "cmdline"        ? ptr (value_traits<cmdline>::value_type)        :
+      n == "json"           ? ptr (value_traits<json_value>::value_type)     :
 
       nullptr;
   }

@@ -1743,9 +1743,81 @@ namespace build2
   */
 
   static names_view
-  json_reverse (const value&, names& storage, bool)
+  json_reverse (const value& x, names& ns, bool)
   {
-    return names_view (storage); // @@ TODO
+    const json_value& v (x.as<json_value> ());
+
+    switch (v.type)
+    {
+    case json_type::null:
+      {
+        // @@ Hm, it would be nice if this somehow got mapped to [null]/empty
+        //    but still be round-trippable to JSON null. Perhaps via type
+        //    hint?
+        //
+        ns.push_back (name ("null"));
+        break;
+      }
+    case json_type::boolean:
+      {
+        ns.push_back (name (v.boolean ? "true" : "false"));
+        break;
+      }
+    case json_type::signed_number:
+      {
+        ns.push_back (value_traits<int64_t>::reverse (v.signed_number));
+        break;
+      }
+    case json_type::unsigned_number:
+      {
+        ns.push_back (value_traits<uint64_t>::reverse (v.unsigned_number));
+        break;
+      }
+    case json_type::string:
+        // @@ Hm, it would be nice if this somehow got mapped to unquoted
+        //    string but still be round-trippable to JSON null. Perhaps via
+        //    type hint?
+        //
+        // @@ If not, optimize for case where no escaping/quoting required?
+        //
+    case json_type::array:
+    case json_type::object:
+      {
+        // Serialize as JSON output.
+        //
+        string o;
+
+#ifndef BUILD2_BOOTSTRAP
+        using namespace butl::json;
+
+        try
+        {
+          // Disable pretty-printing so that the output is all on the same
+          // line. While it's not going to be easy to read for larger JSON
+          // outputs, it will fit better into the existing model where none of
+          // the value representations use formatting newlines. If a pretty-
+          // printed representation is required, then the @@ function can be
+          // used to obtain it.
+          //
+          buffer_serializer s (o, 0 /* indentation */);
+          serialize (s, v);
+        }
+        catch (const invalid_json_output& e)
+        {
+          // @@ How can we communicate event, offset? But for that to be
+          //    useful we would also need to somehow also dump the value.
+          //
+          fail << "invalid json value: " << e;
+        }
+#else
+        fail << "json serialization requested during bootstrap";
+#endif
+        ns.push_back (name (move (o)));
+        break;
+      }
+    }
+
+    return ns;
   }
 
   static int
