@@ -397,11 +397,18 @@ namespace build2
         ops.push_back (move (o));
       };
 
-      // Extract --cflags and set them as lib?{}:export.poptions..
+      // Extract --cflags and set them as lib?{}:export.poptions returing the
+      // pointer to the set value. If [as]pops are not NULL, then only keep
+      // options that are present in both.
       //
-      auto parse_cflags = [&trace, this, &append_dir] (target& t,
-                                                       const pkgconfig& pc,
-                                                       bool la)
+      auto parse_cflags =[&trace,
+                          this,
+                          &append_dir] (target& t,
+                                        const pkgconfig& pc,
+                                        bool la,
+                                        const strings* apops = nullptr,
+                                        const strings* spops = nullptr)
+        -> const strings*
       {
         // Note that we normalize `-[IDU] <arg>` to `-[IDU]<arg>`.
         //
@@ -463,8 +470,30 @@ namespace build2
           // export stub and we shouldn't touch them.
           //
           if (p.second)
+          {
+            // If required, only keep common stuff. While removing the entries
+            // is not the most efficient way, it is simple.
+            //
+            if (apops != nullptr || spops != nullptr)
+            {
+              for (auto i (pops.begin ()); i != pops.end (); )
+              {
+                if ((apops != nullptr && find (
+                       apops->begin (), apops->end (), *i) == apops->end ()) ||
+                    (spops != nullptr && find (
+                       spops->begin (), spops->end (), *i) == spops->end ()))
+                  i = pops.erase (i);
+                else
+                  ++i;
+              }
+            }
+
             p.first = move (pops);
+            return &p.first.as<strings> ();
+          }
         }
+
+        return nullptr;
       };
 
       // Parse --libs into loptions/libs (interface and implementation). If
@@ -1345,14 +1374,26 @@ namespace build2
         false,
         &prs);
 
+      const strings* apops (nullptr);
       if (pa)
       {
-        parse_cflags (*at, apc, true);
+        apops = parse_cflags (*at, apc, true);
         parse_libs (*at, at->path ().empty (), apc, true, nullptr);
       }
 
+      const strings* spops (nullptr);
       if (ps)
-        parse_cflags (*st, spc, false);
+        spops = parse_cflags (*st, spc, false);
+
+      // Also set common poptions for the group. In particular, this makes
+      // sure $lib_poptions() in the "common interface" mode works for the
+      // installed libraries.
+      //
+      // Note that if there are no poptions set for either, then we cannot
+      // possibly have a common subset.
+      //
+      if (apops != nullptr || spops != nullptr)
+        parse_cflags (lt, ipc, false, apops, spops);
 
       // @@ TODO: we can now load cc.type if there is metadata (but need to
       //          return this rather than set, see search_library() for
