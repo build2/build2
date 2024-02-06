@@ -15,6 +15,8 @@
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/json.hxx>
+
 #include <libbuild2/context.hxx>
 #include <libbuild2/target-type.hxx>
 #include <libbuild2/diagnostics.hxx>
@@ -1199,6 +1201,65 @@ namespace build2
 
     static const map<K, V> empty_instance;
     static const map_value_type<K, V> value_type;
+  };
+
+  // json
+  //
+  // Note that we do not expose json_member as a value type instead
+  // representing it as an object with one member. While we could expose
+  // member (and reverse it as a pair since there is no valid JSON
+  // representation for a standalone member), this doesn't seem to buy us much
+  // but will cause complications (for example, in supporting append/prepend).
+  // On the other hand, representing a member as an object only requires a bit
+  // of what looks like harmless looseness in a few contexts (such as the
+  // $json.member_*() functions).
+  //
+  template <>
+  struct LIBBUILD2_SYMEXPORT value_traits<json_value>
+  {
+    static_assert (sizeof (json_value) <= value::size_, "insufficient space");
+
+    static json_value convert (names&&);
+    static void assign (value&, json_value&&);
+    static void append (value&, json_value&&);
+    static void prepend (value&, json_value&&);
+    static bool empty (const json_value&); // null or empty array/object
+
+    static const json_value empty_instance; // null
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
+  template <>
+  struct LIBBUILD2_SYMEXPORT value_traits<json_array>
+  {
+    static_assert (sizeof (json_array) <= value::size_, "insufficient space");
+
+    static json_array convert (names&&);
+    static void assign (value&, json_array&&);
+    static void append (value&, json_value&&); // Note: value, not array.
+    static void prepend (value&, json_value&&);
+    static bool empty (const json_array& v) {return v.array.empty ();}
+
+    static const json_array empty_instance; // empty array
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
+  template <>
+  struct LIBBUILD2_SYMEXPORT value_traits<json_object>
+  {
+    static_assert (sizeof (json_object) <= value::size_, "insufficient space");
+
+    static json_object convert (names&&);
+    static void assign (value&, json_object&&);
+    static void append (value&, json_value&&); // Note: value, not object.
+    static void prepend (value&, json_value&&);
+    static bool empty (const json_object& v) {return v.object.empty ();}
+
+    static const json_object empty_instance; // empty object
+    static const char* const type_name;
+    static const build2::value_type value_type;
   };
 
   // Canned command line to be re-lexed (used in {Build,Test}scripts).

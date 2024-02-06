@@ -355,6 +355,7 @@ namespace build2
   void builtin_functions (function_map&);        // functions-builtin.cxx
   void filesystem_functions (function_map&);     // functions-filesystem.cxx
   void integer_functions (function_map&);        // functions-integer.cxx
+  void json_functions (function_map&);           // functions-json.cxx
   void name_functions (function_map&);           // functions-name.cxx
   void path_functions (function_map&);           // functions-path.cxx
   void process_functions (function_map&);        // functions-process.cxx
@@ -365,6 +366,7 @@ namespace build2
   void target_triplet_functions (function_map&); // functions-target-triplet.cxx
   void project_name_functions (function_map&);   // functions-target-triplet.cxx
 
+
   void
   insert_builtin_functions (function_map& m)
   {
@@ -372,6 +374,7 @@ namespace build2
     builtin_functions (m);
     filesystem_functions (m);
     integer_functions (m);
+    json_functions (m);
     name_functions (m);
     path_functions (m);
     process_functions (m);

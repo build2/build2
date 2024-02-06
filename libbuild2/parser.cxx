@@ -5761,30 +5761,106 @@ namespace build2
   const value_type* parser::
   find_value_type (const scope*, const string& n)
   {
-    auto ptr = [] (const value_type& vt) {return &vt;};
+    switch (n[0])
+    {
+    case 'a':
+      {
+        if (n == "abs_dir_path") return &value_traits<abs_dir_path>::value_type;
+        break;
+      }
+    case 'b':
+      {
+        if (n == "bool") return &value_traits<bool>::value_type;
+        break;
+      }
+    case 'c':
+      {
+        if (n == "cmdline") return &value_traits<cmdline>::value_type;
+        break;
+      }
+    case 'd':
+      {
+        if (n.compare (0, 8, "dir_path") == 0)
+        {
+          if (n[8] == '\0') return &value_traits<dir_path>::value_type;
+          if (n[8] == 's' &&
+              n[9] == '\0') return &value_traits<dir_paths>::value_type;
+        }
+        break;
+      }
+    case 'i':
+      {
+        if (n.compare (0, 5, "int64") == 0)
+        {
+          if (n[5] == '\0') return &value_traits<int64_t>::value_type;
+          if (n[5] == 's' &&
+              n[6] == '\0') return &value_traits<int64s>::value_type;
+        }
+        break;
+      }
+    case 'j':
+      {
+        if (n.compare (0, 4, "json") == 0)
+        {
+          if (n[4] == '\0') return &value_traits<json_value>::value_type;
+          if (n == "json_array") return &value_traits<json_array>::value_type;
+          if (n == "json_object") return &value_traits<json_object>::value_type;
+        }
+        break;
+      }
+    case 'n':
+      {
+        if (n.compare (0, 4, "name") == 0)
+        {
+          if (n[4] == '\0') return &value_traits<name>::value_type;
+          if (n[4] == 's' &&
+              n[5] == '\0') return &value_traits<vector<name>>::value_type;
+          if (n == "name_pair") return &value_traits<name_pair>::value_type;
+        }
+        break;
+      }
 
-    return
-      n == "bool"           ? ptr (value_traits<bool>::value_type)           :
-      n == "int64"          ? ptr (value_traits<int64_t>::value_type)        :
-      n == "uint64"         ? ptr (value_traits<uint64_t>::value_type)       :
-      n == "string"         ? ptr (value_traits<string>::value_type)         :
-      n == "path"           ? ptr (value_traits<path>::value_type)           :
-      n == "dir_path"       ? ptr (value_traits<dir_path>::value_type)       :
-      n == "abs_dir_path"   ? ptr (value_traits<abs_dir_path>::value_type)   :
-      n == "name"           ? ptr (value_traits<name>::value_type)           :
-      n == "name_pair"      ? ptr (value_traits<name_pair>::value_type)      :
-      n == "target_triplet" ? ptr (value_traits<target_triplet>::value_type) :
-      n == "project_name"   ? ptr (value_traits<project_name>::value_type)   :
+    case 'p':
+      {
+        if (n.compare (0, 4, "path") == 0)
+        {
+          if (n[4] == '\0') return &value_traits<path>::value_type;
+          if (n[4] == 's' &&
+              n[5] == '\0') return &value_traits<paths>::value_type;
+        }
+        else if (n == "project_name") return &value_traits<project_name>::value_type;
+        break;
+      }
+    case 's':
+      {
+        if (n.compare (0, 6, "string") == 0)
+        {
+          if (n[6] == '\0') return &value_traits<string>::value_type;
+          if (n[6] == 's' &&
+              n[7] == '\0') return &value_traits<strings>::value_type;
+        }
+        break;
+      }
+    case 't':
+      {
+        if (n == "target_triplet") return &value_traits<target_triplet>::value_type;
+        break;
+      }
+    case 'u':
+      {
+        if (n.compare (0, 6, "uint64") == 0)
+        {
+          if (n[6] == '\0') return &value_traits<uint64_t>::value_type;
+          if (n[6] == 's' &&
+              n[7] == '\0') return &value_traits<uint64s>::value_type;
+        }
+        break;
+      }
+    default:
+      break;
+    }
 
-      n == "int64s"         ? ptr (value_traits<int64s>::value_type)         :
-      n == "uint64s"        ? ptr (value_traits<uint64s>::value_type)        :
-      n == "strings"        ? ptr (value_traits<strings>::value_type)        :
-      n == "paths"          ? ptr (value_traits<paths>::value_type)          :
-      n == "dir_paths"      ? ptr (value_traits<dir_paths>::value_type)      :
-      n == "names"          ? ptr (value_traits<vector<name>>::value_type)   :
-      n == "cmdline"        ? ptr (value_traits<cmdline>::value_type)        :
-
-      nullptr;
+    return nullptr;
   }
 
   void parser::

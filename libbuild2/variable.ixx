@@ -906,6 +906,113 @@ namespace build2
       new (&v.data_) map<K, V> (move (x));
   }
 
+  // json
+  //
+  inline bool value_traits<json_value>::
+  empty (const json_value& v)
+  {
+    // Note: should be consistent with $json.size().
+    //
+    switch (v.type)
+    {
+    case json_type::null:               return true;
+    case json_type::boolean:
+    case json_type::signed_number:
+    case json_type::unsigned_number:
+    case json_type::hexadecimal_number:
+    case json_type::string:             break;
+    case json_type::array:              return v.array.empty ();
+    case json_type::object:             return v.object.empty ();
+    }
+
+    return false;
+  }
+
+  inline void value_traits<json_value>::
+  assign (value& v, json_value&& x)
+  {
+    if (v)
+      v.as<json_value> () = move (x);
+    else
+      new (&v.data_) json_value (move (x));
+  }
+
+  inline void value_traits<json_value>::
+  append (value& v, json_value&& x)
+  {
+    if (v)
+      v.as<json_value> ().append (move (x));
+    else
+      new (&v.data_) json_value (move (x));
+  }
+
+  inline void value_traits<json_value>::
+  prepend (value& v, json_value&& x)
+  {
+    if (v)
+      v.as<json_value> ().prepend (move (x));
+    else
+      new (&v.data_) json_value (move (x));
+  }
+
+  // json_array
+  //
+  inline void value_traits<json_array>::
+  assign (value& v, json_array&& x)
+  {
+    if (v)
+      v.as<json_array> () = move (x);
+    else
+      new (&v.data_) json_array (move (x));
+  }
+
+  inline void value_traits<json_array>::
+  append (value& v, json_value&& x)
+  {
+    if (!v)
+      new (&v.data_) json_array ();
+
+    v.as<json_array> ().append (move (x));
+  }
+
+  inline void value_traits<json_array>::
+  prepend (value& v, json_value&& x)
+  {
+    if (!v)
+      new (&v.data_) json_array ();
+
+    v.as<json_array> ().prepend (move (x));
+  }
+
+  // json_object
+  //
+  inline void value_traits<json_object>::
+  assign (value& v, json_object&& x)
+  {
+    if (v)
+      v.as<json_object> () = move (x);
+    else
+      new (&v.data_) json_object (move (x));
+  }
+
+  inline void value_traits<json_object>::
+  append (value& v, json_value&& x)
+  {
+    if (!v)
+      new (&v.data_) json_object ();
+
+    v.as<json_object> ().append (move (x));
+  }
+
+  inline void value_traits<json_object>::
+  prepend (value& v, json_value&& x)
+  {
+    if (!v)
+      new (&v.data_) json_object ();
+
+    v.as<json_object> ().prepend (move (x));
+  }
+
   // variable_pool
   //
   inline const variable* variable_pool::

@@ -6113,6 +6113,29 @@ if $regex.match($name, '(.+)-(.+)')
 "
 source <functions-regex.cli>;
 
+// $json.*()
+//
+"
+\h#functions-json|JSON Functions|
+
+The \c{$json.*()} function family contains function that operate on the JSON
+types: \c{json}, \c{json_array}, and \c{json_object}. For example:
+
+\
+j = [json] one@1 two@abc three@([json] x@1 y@-1)
+
+for m: $j
+{
+  n = $member_name($m)
+  v = $member_value($m)
+
+  info $n $value_type($v) $v
+}
+\
+
+"
+source <functions-json.cli>;
+
 
 // $process.*()
 //

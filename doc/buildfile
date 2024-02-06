@@ -76,6 +76,7 @@ xhtml{*}: extension = xhtml
 for ff: functions-builtin        \
         functions-string         \
         functions-integer        \
+        functions-json           \
         functions-bool           \
         functions-path           \
         functions-name           \

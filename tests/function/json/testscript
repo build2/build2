@@ -1,0 +1,224 @@
+# file      : tests/function/json/testscript
+# license   : MIT; see accompanying LICENSE file
+
+# See also tests in type/json/.
+
+.include ../../common.testscript
+
+: type
+:
+$* <<EOI >>EOO
+print $value_type([json] )
+print $value_type([json] null)
+print $value_type([json] true)
+print $value_type([json] 123)
+print $value_type([json] -123)
+print $value_type([json] 123, true)
+print $value_type([json] -123, true)
+print $value_type([json] 1 2 3)
+print $value_type([json] one@1 two@2 three@3)
+
+j = [json] one@1 two@2 three@3
+i = [uint64] 1
+m = ($j[$i])
+print $value_type($j[$i])
+print $value_type($m)
+EOI
+null
+null
+boolean
+number
+number
+unsigned number
+signed number
+array
+object
+object
+object
+EOO
+
+: member
+:
+$* <<EOI >>EOO
+j = [json] one@1 two@2 three@3
+i = [uint64] 1
+m = ($j[$i])
+print $member_name($j[$i]) $member_value($j[$i])
+print $member_name($m) $member_value($m)
+for m: $j
+  print $member_name($m) $member_value($m)
+EOI
+two 2
+two 2
+one 1
+two 2
+three 3
+EOO
+
+: size
+:
+$* <<EOI >>EOO
+print $size([json] null)
+print $size([json] true)
+print $size([json] 123)
+print $size([json] abc)
+print $size([string] ([json] abc)) # @@ Should be 3 (quoted, type hint).
+print $size([json] 1 2 3)
+print $size([json] one@1 two@2 three@3)
+EOI
+0
+1
+1
+1
+5
+3
+3
+EOO
+
+: find
+:
+$* <<EOI >>EOO
+j = [json] 1 ([json] one@1 two@2) 2 true 3 null 4 abc -5 null ([json] 1 2 3)
+print $find_index($j, null)
+print $find_index($j, true)
+print $find_index($j, 3)
+print $find_index($j, 0x4)
+print $find_index($j, -5)
+print $find_index($j, abc)
+print $find_index($j, [json] 1 2 3)
+print $find_index($j, [json] two@2 one@1)
+print $find_index($j, [json] 1 2)
+print $find_index($j, [json] one@1)
+print $find_index($j, [json] one@1 two@2 three@3)
+print $find_index($j, [json] one@1 TWO@3)
+print $find_index($j, [json] one@1 two@3)
+EOI
+5
+3
+4
+6
+8
+7
+10
+1
+11
+11
+11
+11
+11
+EOO
+
+: parse
+:
+{
+  : basics
+  :
+  $* <<EOI >>EOO
+  print $json.parse('[123, "abc", {"one":1, "two":2}]')
+  EOI
+  [123,"abc",{"one":1,"two":2}]
+  EOO
+
+  : diagnostics-invalid-input
+  :
+  $* <<EOI 2>>EOE != 0
+  print $json.parse('{"one":, "two":2}]')
+  EOI
+  error: invalid json input: unexpected byte ',' in value
+    info: line 1, column 8, byte offset 8
+    <stdin>:1:8: info: while calling json.parse(<untyped>)
+  EOE
+
+  : diagnostics-duplicate-input
+  :
+  $* <<EOI 2>>EOE != 0
+  print $json.parse('{"one":1, "one":2}]')
+  EOI
+  error: invalid json input: duplicate object member 'one'
+    info: line 1, column 11, byte offset 15
+    <stdin>:1:8: info: while calling json.parse(<untyped>)
+  EOE
+}
+
+: serialize
+:
+{
+  : basics
+  :
+  $* <<EOI >>EOO
+  j = [json] 123 abc ([json] one@1 two@2)
+  print $json.serialize($j)
+  print $json.serialize($j, 0)
+  EOI
+  [
+    123,
+    "abc",
+    {
+      "one": 1,
+      "two": 2
+    }
+  ]
+  [123,"abc",{"one":1,"two":2}]
+  EOO
+
+  : diagnostics
+  :
+  if false
+  {
+    # This is not easy to trigger normally so we have a normally-disabled
+    # special hack in the $json.serialize() implementation to trigger this.
+    #
+    $* <<EOI 2>>EOE != 0
+    print $json.serialize([json] deadbeef)
+    EOI
+    error: invalid json value: invalid UTF-8 text
+      info: while serializing string value
+      info: offending byte offset 4
+      <stdin>:1:8: info: while calling json.serialize(json)
+    EOE
+  }
+
+}
+
+: load
+:
+{
+  : basics
+  :
+  cat <<EOI >=input.json;
+  {
+    "str":"abc",
+    "num":123,
+    "arr":[1, 2, 3],
+    "obj":{"one":1, "two":2, "three":3}
+  }
+  EOI
+  $* <<EOI >>EOO
+  j = $json.load(input.json)
+  for m: $j
+    print $member_name($m) $member_value($m)
+  EOI
+  str "abc"
+  num 123
+  arr [1,2,3]
+  obj {"one":1,"two":2,"three":3}
+  EOO
+
+  : diagnostics
+  :
+  cat <<EOI >=input.json;
+  {
+    "str":"abc",
+    "num":,
+    "arr":[1, 2, 3],
+    "obj":{"one":1, "two":2, "three":3}
+  }
+  EOI
+  $* <<EOI 2>>EOE != 0
+  j = $json.load(input.json)
+  EOI
+  input.json:3:9: error: invalid json input: unexpected byte ',' in value
+    info: byte offset 26
+    <stdin>:1:6: info: while calling json.load(<untyped>)
+  EOE
+}
