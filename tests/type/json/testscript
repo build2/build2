@@ -303,7 +303,7 @@
   print ($j[4])
   EOI
   2
-
+  [null]
   [null]
   EOO
 
@@ -316,7 +316,7 @@
   print ($j[five])
   EOI
   2
-
+  [null]
   [null]
   EOO
 
@@ -332,28 +332,36 @@
   : nested
   :
   $* <<EOI >>EOO
-  o = [json] one@([json] 1 2 ([json] a@3 b@4)) two@([json] x@x y@([json] 5 6))
+  o = [json] one@([json] 1 2 ([json] a@3 b@4) null) two@([json] x@x y@([json] 5 6))
   print ($o[one][1])
   print ($o[one][2][b])
   print ($o[two][y][1])
   print ($o[two][bogus][junk])
   print ($o[two][bogus][junk][garbage])
+  print ($o[one][3][junk]) # JSON null
+  print ($o[one][3][junk][garbage])
 
-  a = [json] ([json] one@1 two@([json] 2 3)) ([json] 4 5)
+  a = [json] ([json] one@1 two@([json] 2 3)) ([json] 4 5) null
   print ($a[0][one])
   print ($a[0][two][1])
   print ($a[1][1])
   print ($a[1][123][junk])
   print ($a[1][123][junk][garbage])
+  print ($a[2][junk]) # JSON null
+  print ($a[2][junk][garbage])
   EOI
   2
   4
   6
   [null]
   [null]
+  [null]
+  [null]
   1
   3
   5
+  [null]
+  [null]
   [null]
   [null]
   EOO
@@ -368,7 +376,7 @@
   print (([json] one@0xdecaf)[one])
   print (([json] one@abc)[one])
   EOI
-
+  [null]
   true
   123
   -123
@@ -435,7 +443,7 @@
   for v: ([json] null true 123 -123 0xdecaf abc)
     print $v
   EOI
-
+  [null]
   true
   123
   -123

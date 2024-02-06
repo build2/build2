@@ -1905,9 +1905,10 @@ namespace build2
     return l.as<json_value> ().compare (r.as<json_value> ());
   }
 
-  // Return null value if the index/name is out of range.
+  // Return the value as well as the indication of whether the index/name is
+  // in range.
   //
-  static value
+  static pair<value, bool>
   json_subscript_impl (const value& val, value* val_data,
                        uint64_t i, const string& n, bool index)
   {
@@ -1918,13 +1919,12 @@ namespace build2
     if (index)
     {
       if (i >= (jv.type == json_type::array  ? jv.array.size ()  :
-                jv.type == json_type::object ? jv.object.size () : 1))
-        return value ();
+                jv.type == json_type::object ? jv.object.size () :
+                jv.type == json_type::null   ? 0 : 1))
+        return make_pair (value (), false);
 
       switch (jv.type)
       {
-      case json_type::null:
-        return value (); // JSON null has no elements.
       case json_type::boolean:
       case json_type::signed_number:
       case json_type::unsigned_number:
@@ -1963,6 +1963,8 @@ namespace build2
                                : json_member (m));
           break;
         }
+      case json_type::null:
+        assert (false);
       }
     }
     else
@@ -1975,7 +1977,7 @@ namespace build2
                        }));
 
       if (i == jv.object.end ())
-        return value ();
+        return make_pair (value (), false);
 
       // Steal the member value if possible.
       //
@@ -1996,20 +1998,29 @@ namespace build2
     // @@ TODO: split this function into two (index/name) once get rid of this.
     //
 #if 1
+    value r;
     switch (jr.type)
     {
-    case json_type::null:               return value (names {});
-    case json_type::boolean:            return value (jr.boolean);
-    case json_type::signed_number:      return value (jr.signed_number);
+      // Seeing that we are reversing for consumption, it feels natural to
+      // reverse JSON null to our [null] rather than empty. This, in
+      // particular, helps nested subscript.
+      //
+#if 0
+    case json_type::null:               r = value (names {});          break;
+#else
+    case json_type::null:               r = value ();                  break;
+#endif
+    case json_type::boolean:            r = value (jr.boolean);        break;
+    case json_type::signed_number:      r = value (jr.signed_number);  break;
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number: return value (jr.unsigned_number);
-    case json_type::string:             return value (move (jr.string));
+    case json_type::hexadecimal_number: r = value (jr.unsigned_number); break;
+    case json_type::string:             r = value (move (jr.string));   break;
     case json_type::array:
-    case json_type::object:             break;
+    case json_type::object:             r = value (move (jr));          break;
     }
 #endif
 
-    return value (move (jr));
+    return make_pair (move (r), true);
   }
 
   static value
@@ -2081,7 +2092,7 @@ namespace build2
     }
 
     value r (jv != nullptr
-             ? json_subscript_impl (val, val_data, i, n, index)
+             ? json_subscript_impl (val, val_data, i, n, index).first
              : value ());
 
     // Typify null values so that we get called for nested subscripts.
@@ -2100,12 +2111,12 @@ namespace build2
     //
     for (uint64_t i (0);; ++i)
     {
-      value e (json_subscript_impl (val, nullptr, i, {}, true));
+      pair<value, bool> e (json_subscript_impl (val, nullptr, i, {}, true));
 
-      if (e.null)
+      if (!e.second)
         break;
 
-      f (move (e), i == 0);
+      f (move (e.first), i == 0);
     }
   }
 
