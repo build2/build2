@@ -5219,12 +5219,17 @@ namespace build2
 
     value val (parse_value_with_attributes (t, tt, pattern_mode::expand));
 
-    // If this value is a vector, then save its element type so that we
+    // If the value type provides custom iterate function, then use that (see
+    // value_type::iterate for details).
+    //
+    auto iterate (val.type != nullptr ? val.type->iterate : nullptr);
+
+    // If this value is a container, then save its element type so that we
     // can typify each element below.
     //
     const value_type* etype (nullptr);
 
-    if (val && val.type != nullptr)
+    if (!iterate && val && val.type != nullptr)
     {
       etype = val.type->element_type;
 
@@ -5284,33 +5289,45 @@ namespace build2
     if (!val)
       return;
 
-    names& ns (val.as<names> ());
-
-    if (ns.empty ())
-      return;
+    names* ns (nullptr);
+    if (!iterate)
+    {
+      ns = &val.as<names> ();
+      if (ns->empty ())
+        return;
+    }
 
     istringstream is (move (body));
 
-    for (auto i (ns.begin ()), e (ns.end ());; )
+    struct data
     {
-      // Set the variable value.
-      //
-      bool pair (i->pair);
-      names n;
-      n.push_back (move (*i));
-      if (pair) n.push_back (move (*++i));
-      value v (move (n));
+      const variable&   var;
+      const attributes& val_attrs;
+      uint64_t          line;
+      bool              block;
+      value&            lhs;
+      istringstream&    is;
 
-      if (etype != nullptr)
-        typify (v, *etype, &var);
+    } d {var, val_attrs, line, block, lhs, is};
+
+    function<void (value&&, bool first)> iteration =
+      [this, &d] (value&& v, bool first)
+    {
+      // Rewind the stream.
+      //
+      if (!first)
+      {
+        d.is.clear ();
+        d.is.seekg (0);
+      }
 
       // Inject element attributes.
       //
-      attributes_.push_back (val_attrs);
+      attributes_.push_back (d.val_attrs);
 
-      apply_value_attributes (&var, lhs, move (v), type::assign);
+      apply_value_attributes (&d.var, d.lhs, move (v), type::assign);
 
-      lexer l (is, *path_, line);
+      lexer l (d.is, *path_, d.line);
       lexer* ol (lexer_);
       lexer_ = &l;
 
@@ -5318,7 +5335,7 @@ namespace build2
       type tt;
       next (t, tt);
 
-      if (block)
+      if (d.block)
       {
         next (t, tt); // {
         next (t, tt); // <newline>
@@ -5326,20 +5343,33 @@ namespace build2
 
       parse_clause (t, tt);
 
-      if (tt != (block ? type::rcbrace : type::eos))
-        fail (t) << "expected name " << (block ? "or '}' " : "")
+      if (tt != (d.block ? type::rcbrace : type::eos))
+        fail (t) << "expected name " << (d.block ? "or '}' " : "")
                  << "instead of " << t;
 
       lexer_ = ol;
+    };
 
-      if (++i == e)
-        break;
+    if (!iterate)
+    {
+      for (auto b (ns->begin ()), i (b), e (ns->end ()); i != e; ++i)
+      {
+        // Set the variable value.
+        //
+        bool pair (i->pair);
+        names n;
+        n.push_back (move (*i));
+        if (pair) n.push_back (move (*++i));
+        value v (move (n));
 
-      // Rewind the stream.
-      //
-      is.clear ();
-      is.seekg (0);
+        if (etype != nullptr)
+          typify (v, *etype, &var);
+
+        iteration (move (v), i == b);
+      }
     }
+    else
+      iterate (val, iteration);
   }
 
   void parser::
@@ -8506,88 +8536,97 @@ namespace build2
 
           if (!pre_parse_)
           {
-            uint64_t j;
-            try
-            {
-              j = convert<uint64_t> (move (v));
-            }
-            catch (const invalid_argument& e)
-            {
-              fail (l)    << "invalid value subscript: " << e <<
-                info (bl) << "use the '\\[' escape sequence if this is a "
-                          << "wildcard pattern" << endf;
-            }
-
-            // Similar to expanding an undefined variable, we return NULL if
-            // the index is out of bounds.
+            // For type-specific subscript implementations we pass the
+            // subscript value as is.
             //
-            // Note that result may or may not point to result_data.
-            //
-            if (result->null)
-              result_data = value ();
-            else if (result->type == nullptr)
+            if (auto f = (result->type != nullptr
+                          ? result->type->subscript
+                          : nullptr))
             {
-              const names& ns (result->as<names> ());
-
-              // Pair-aware subscript.
-              //
-              names r;
-              for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
-              {
-                if (j == 0)
-                {
-                  r.push_back (*i);
-                  if (i->pair)
-                    r.push_back (*++i);
-                  break;
-                }
-
-                if (i->pair)
-                  ++i;
-              }
-
-              result_data = r.empty () ? value () : value (move (r));
+              result_data = f (*result, &result_data, move (v), l, bl);
             }
             else
             {
-              // Similar logic to parse_for().
-              //
-              // @@ Maybe we should invent type-aware subscript? Could also
-              //    be used for non-index subscripts (map keys etc).
-              //
-              const value_type* etype (result->type->element_type);
-
-              value val (result == &result_data
-                         ? value (move (result_data))
-                         : value (*result));
-
-              untypify (val, false /* reduce */);
-
-              names& ns (val.as<names> ());
-
-              // Pair-aware subscript.
-              //
-              names r;
-              for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
+              uint64_t j;
+              try
               {
-                bool p (i->pair);
-
-                if (j == 0)
-                {
-                  r.push_back (move (*i));
-                  if (p)
-                    r.push_back (move (*++i));
-                  break;
-                }
-
-                if (p)
-                  ++i;
+                j = convert<uint64_t> (move (v));
+              }
+              catch (const invalid_argument& e)
+              {
+                fail (l)    << "invalid value subscript: " << e <<
+                  info (bl) << "use the '\\[' escape sequence if this is a "
+                            << "wildcard pattern" << endf;
               }
 
-              result_data = r.empty () ? value () : value (move (r));
+              // Similar to expanding an undefined variable, we return NULL if
+              // the index is out of bounds.
+              //
+              // Note that result may or may not point to result_data.
+              //
+              if (result->null)
+                result_data = value ();
+              else if (result->type == nullptr)
+              {
+                const names& ns (result->as<names> ());
 
-              if (etype != nullptr)
-                typify (result_data, *etype, nullptr /* var */);
+                // Pair-aware subscript.
+                //
+                names r;
+                for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
+                {
+                  if (j == 0)
+                  {
+                    r.push_back (*i);
+                    if (i->pair)
+                      r.push_back (*++i);
+                    break;
+                  }
+
+                  if (i->pair)
+                    ++i;
+                }
+
+                result_data = r.empty () ? value () : value (move (r));
+              }
+              else
+              {
+                // Similar logic to parse_for().
+                //
+                const value_type* etype (result->type->element_type);
+
+                value val (result == &result_data
+                           ? value (move (result_data))
+                           : value (*result));
+
+                untypify (val, false /* reduce */);
+
+                names& ns (val.as<names> ());
+
+                // Pair-aware subscript.
+                //
+                names r;
+                for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
+                {
+                  bool p (i->pair);
+
+                  if (j == 0)
+                  {
+                    r.push_back (move (*i));
+                    if (p)
+                      r.push_back (move (*++i));
+                    break;
+                  }
+
+                  if (p)
+                    ++i;
+                }
+
+                result_data = r.empty () ? value () : value (move (r));
+
+                if (etype != nullptr)
+                  typify (result_data, *etype, nullptr /* var */);
+              }
             }
 
             result = &result_data;

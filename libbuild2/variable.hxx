@@ -99,6 +99,28 @@ namespace build2
     // If NULL, then the value is never empty.
     //
     bool (*const empty) (const value&);
+
+    // Custom subscript function. If NULL, then the generic implementation is
+    // used.
+    //
+    // Note that val can be NULL. If val_data points to val, then it can be
+    // moved from. The sloc and bloc arguments are the subscript and brace
+    // locations, respectively.
+    //
+    // Note: should normally be consistent with iterate.
+    //
+    value (*const subscript) (const value& val,
+                              value* val_data,
+                              value&& subscript,
+                              const location& sloc,
+                              const location& bloc);
+
+    // Custom iteration function. It should invoked the specified function for
+    // each element in order. If NULL, then the generic implementation is
+    // used. The passed value is never NULL.
+    //
+    void (*const iterate) (const value&,
+                           const function<void (value&&, bool first)>&);
   };
 
   // The order of the enumerators is arranged so that their integral values

@@ -664,7 +664,9 @@ namespace build2
     &vector_reverse<T>,
     nullptr,                          // No cast (cast data_ directly).
     &vector_compare<T>,
-    &default_empty<vector<T>>
+    &default_empty<vector<T>>,
+    nullptr,                          // Subscript.
+    nullptr                           // Iterate.
   };
 
   // vector<pair<K, V>> value
@@ -817,7 +819,9 @@ namespace build2
     &pair_vector_reverse<K, V>,
     nullptr,                     // No cast (cast data_ directly).
     &pair_vector_compare<K, V>,
-    &default_empty<vector<pair<K, V>>>
+    &default_empty<vector<pair<K, V>>>,
+    nullptr,                     // Subscript.
+    nullptr                      // Iterate.
   };
 
   // map<K, V> value
@@ -998,7 +1002,9 @@ namespace build2
     &map_reverse<K, V>,
     nullptr,             // No cast (cast data_ directly).
     &map_compare<K, V>,
-    &default_empty<map<K, V>>
+    &default_empty<map<K, V>>,
+    nullptr,             // Subscript.
+    nullptr              // Iterate.
   };
 
   // variable_cache

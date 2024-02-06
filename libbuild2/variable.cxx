@@ -460,7 +460,7 @@ namespace build2
         m += "name '" + to_string (n) + '\'';
     }
 
-    throw invalid_argument (m);
+    throw invalid_argument (move (m));
   }
 
   // names
@@ -506,7 +506,9 @@ namespace build2
     &simple_reverse<bool>,
     nullptr,              // No cast (cast data_ directly).
     nullptr,              // No compare (compare as POD).
-    nullptr               // Never empty.
+    nullptr,              // Never empty.
+    nullptr,              // Subscript.
+    nullptr               // Iterate.
   };
 
   // int64_t value
@@ -564,7 +566,9 @@ namespace build2
     &simple_reverse<int64_t>,
     nullptr,                          // No cast (cast data_ directly).
     nullptr,                          // No compare (compare as POD).
-    nullptr                           // Never empty.
+    nullptr,                          // Never empty.
+    nullptr,                          // Subscript.
+    nullptr                           // Iterate.
   };
 
   // uint64_t value
@@ -622,7 +626,9 @@ namespace build2
     &simple_reverse<uint64_t>,
     nullptr,                          // No cast (cast data_ directly).
     nullptr,                          // No compare (compare as POD).
-    nullptr                           // Never empty.
+    nullptr,                          // Never empty.
+    nullptr,                          // Subscript.
+    nullptr                           // Iterate.
   };
 
   // string value
@@ -717,7 +723,9 @@ namespace build2
     &simple_reverse<string>,
     nullptr,                      // No cast (cast data_ directly).
     &simple_compare<string>,
-    &default_empty<string>
+    &default_empty<string>,
+    nullptr,                      // Subscript.
+    nullptr                       // Iterate.
   };
 
   // path value
@@ -785,7 +793,9 @@ namespace build2
     &simple_reverse<path>,
     nullptr,                    // No cast (cast data_ directly).
     &simple_compare<path>,
-    &default_empty<path>
+    &default_empty<path>,
+    nullptr,                    // Subscript.
+    nullptr                     // Iterate.
   };
 
   // dir_path value
@@ -853,7 +863,9 @@ namespace build2
     &simple_reverse<dir_path>,
     nullptr,                        // No cast (cast data_ directly).
     &simple_compare<dir_path>,
-    &default_empty<dir_path>
+    &default_empty<dir_path>,
+    nullptr,                        // Subscript.
+    nullptr                         // Iterate.
   };
 
   // abs_dir_path value
@@ -909,7 +921,9 @@ namespace build2
     &simple_reverse<abs_dir_path>,
     nullptr,                             // No cast (cast data_ directly).
     &simple_compare<abs_dir_path>,
-    &default_empty<abs_dir_path>
+    &default_empty<abs_dir_path>,
+    nullptr,                             // Subscript.
+    nullptr                              // Iterate.
   };
 
   // name value
@@ -948,7 +962,9 @@ namespace build2
     &name_reverse,
     nullptr,                    // No cast (cast data_ directly).
     &simple_compare<name>,
-    &default_empty<name>
+    &default_empty<name>,
+    nullptr,                    // Subscript.
+    nullptr                     // Iterate.
   };
 
   // name_pair
@@ -1031,7 +1047,9 @@ namespace build2
     &name_pair_reverse,
     nullptr,                         // No cast (cast data_ directly).
     &simple_compare<name_pair>,
-    &default_empty<name_pair>
+    &default_empty<name_pair>,
+    nullptr,                         // Subscript.
+    nullptr                          // Iterate.
   };
 
   // process_path value
@@ -1186,7 +1204,9 @@ namespace build2
     &process_path_reverse,
     nullptr,                         // No cast (cast data_ directly).
     &simple_compare<process_path>,
-    &default_empty<process_path>
+    &default_empty<process_path>,
+    nullptr,                         // Subscript.
+    nullptr                          // Iterate.
   };
 
   // process_path_ex value
@@ -1385,7 +1405,9 @@ namespace build2
     &process_path_ex_reverse,
     nullptr,                         // No cast (cast data_ directly).
     &simple_compare<process_path>,   // For now compare as process_path.
-    &default_empty<process_path_ex>
+    &default_empty<process_path_ex>,
+    nullptr,                         // Subscript.
+    nullptr                          // Iterate.
   };
 
   // target_triplet value
@@ -1427,7 +1449,9 @@ namespace build2
     &simple_reverse<target_triplet>,
     nullptr,                         // No cast (cast data_ directly).
     &simple_compare<target_triplet>,
-    &default_empty<target_triplet>
+    &default_empty<target_triplet>,
+    nullptr,                         // Subscript.
+    nullptr                          // Iterate.
   };
 
   // project_name value
@@ -1472,7 +1496,9 @@ namespace build2
     &simple_reverse<project_name>,
     nullptr,                         // No cast (cast data_ directly).
     &simple_compare<project_name>,
-    &default_empty<project_name>
+    &default_empty<project_name>,
+    nullptr,                         // Subscript.
+    nullptr                          // Iterate.
   };
 
   // cmdline
@@ -1529,7 +1555,7 @@ namespace build2
       new (&v.data_) cmdline (move (x));
   }
 
-  void
+  static void
   cmdline_assign (value& v, names&& ns, const variable*)
   {
     if (!v)
@@ -1542,7 +1568,7 @@ namespace build2
                              make_move_iterator (ns.end ()));
   }
 
-  void
+  static void
   cmdline_append (value& v, names&& ns, const variable*)
   {
     if (!v)
@@ -1557,7 +1583,7 @@ namespace build2
               make_move_iterator (ns.end ()));
   }
 
-  void
+  static void
   cmdline_prepend (value& v, names&& ns, const variable*)
   {
     if (!v)
@@ -1605,7 +1631,9 @@ namespace build2
     &cmdline_reverse,
     nullptr,                           // No cast (cast data_ directly).
     &cmdline_compare,
-    &default_empty<cmdline>
+    &default_empty<cmdline>,
+    nullptr,                           // Subscript.
+    nullptr                            // Iterate.
   };
 
   // variable_pool
