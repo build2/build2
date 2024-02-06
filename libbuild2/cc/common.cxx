@@ -643,7 +643,7 @@ namespace build2
                          << " dependency " << *t << " is " << w <<
                     info << "mentioned in *.export." << (impl ? "impl_" : "")
                          << "libs of target " << l <<
-                    info << "is it a prerequisite of " << l << "?";
+                    info << "is it a prerequisite of " << l << "?" << endf;
                 }
 
                 // Process it recursively.

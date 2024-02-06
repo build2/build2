@@ -98,7 +98,7 @@ namespace build2
             v = false;
           else
             fail << "expected true or false instead of '" << string (s, 0, p)
-                 << "' in config.install.filter value";
+                 << "' in config.install.filter value" << endf;
 
           if (p != string::npos)
           {

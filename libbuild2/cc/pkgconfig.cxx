@@ -2008,7 +2008,8 @@ namespace build2
           }
           catch (const invalid_argument& e)
           {
-            fail << "invalid metadata version in library " << g << ": " << e;
+            fail << "invalid metadata version in library " << g << ": " << e
+                 << endf;
           }
 
           if (ver != 1)

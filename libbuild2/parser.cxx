@@ -8312,7 +8312,7 @@ namespace build2
               // get the variable name even during pre-parse. It should also
               // be faster.
               //
-              char c;
+              char c ('\0');
               if ((tt == type::word
                    ? path_traits::rfind_separator (t.value) == string::npos
                    : (c = special (t))) &&

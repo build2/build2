@@ -3514,7 +3514,7 @@ namespace build2
         catch (const invalid_argument& e)
         {
           fail (loc) << "invalid metadata version in imported target " << t
-                     << ": " << e;
+                     << ": " << e << endf;
         }
 
         if (ver != 1)

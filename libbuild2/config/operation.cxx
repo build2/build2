@@ -134,7 +134,8 @@ namespace build2
           bool r;
           if      (c.compare (p, 4 , "save") == 0) r = true;
           else if (c.compare (p, 4 , "drop") == 0) r = false;
-          else fail << "invalid config.config.persist action '" << c << "'";
+          else fail << "invalid config.config.persist action '" << c << "'"
+                    << endf;
 
           bool w (false);
           if ((p += 4) != c.size ())
