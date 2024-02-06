@@ -2080,9 +2080,16 @@ namespace build2
       }
     }
 
-    return (jv != nullptr
-            ? json_subscript_impl (val, val_data, i, n, index)
-            : value ());
+    value r (jv != nullptr
+             ? json_subscript_impl (val, val_data, i, n, index)
+             : value ());
+
+    // Typify null values so that we get called for nested subscripts.
+    //
+    if (r.null)
+      r.type = &value_traits<json_value>::value_type;
+
+    return r;
   }
 
   void json_iterate (const value& val,

@@ -8589,126 +8589,132 @@ namespace build2
 
         // Handle value subscript.
         //
-        if (tt == type::lsbrace && mode () == lexer_mode::eval)
+        if (mode () == lexer_mode::eval) // Note: not if(sub)!
         {
-          location bl (get_location (t));
-          next (t, tt); // `[`
-          mode (lexer_mode::subscript, '\0' /* pair */);
-          next (t, tt);
-
-          location l (get_location (t));
-          value v (
-            tt != type::rsbrace
-            ? parse_value (t, tt, pattern_mode::ignore, "value subscript")
-            : value (names ()));
-
-          if (tt != type::rsbrace)
+          while (tt == type::lsbrace)
           {
-            // Note: wildcard pattern should have `]` as well so no escaping
-            // suggestion.
-            //
-            fail (t) << "expected ']' instead of " << t;
-          }
+            location bl (get_location (t));
+            next (t, tt); // `[`
+            mode (lexer_mode::subscript, '\0' /* pair */);
+            next (t, tt);
 
-          if (!pre_parse_)
-          {
-            // For type-specific subscript implementations we pass the
-            // subscript value as is.
-            //
-            if (auto f = (result->type != nullptr
-                          ? result->type->subscript
-                          : nullptr))
+            location l (get_location (t));
+            value v (
+              tt != type::rsbrace
+              ? parse_value (t, tt, pattern_mode::ignore, "value subscript")
+              : value (names ()));
+
+            if (tt != type::rsbrace)
             {
-              result_data = f (*result, &result_data, move (v), l, bl);
+              // Note: wildcard pattern should have `]` as well so no escaping
+              // suggestion.
+              //
+              fail (t) << "expected ']' instead of " << t;
             }
-            else
+
+            if (!pre_parse_)
             {
-              uint64_t j;
-              try
-              {
-                j = convert<uint64_t> (move (v));
-              }
-              catch (const invalid_argument& e)
-              {
-                fail (l)    << "invalid value subscript: " << e <<
-                  info (bl) << "use the '\\[' escape sequence if this is a "
-                            << "wildcard pattern" << endf;
-              }
-
-              // Similar to expanding an undefined variable, we return NULL if
-              // the index is out of bounds.
+              // For type-specific subscript implementations we pass the
+              // subscript value as is.
               //
-              // Note that result may or may not point to result_data.
-              //
-              if (result->null)
-                result_data = value ();
-              else if (result->type == nullptr)
+              if (auto f = (result->type != nullptr
+                            ? result->type->subscript
+                            : nullptr))
               {
-                const names& ns (result->as<names> ());
-
-                // Pair-aware subscript.
-                //
-                names r;
-                for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
-                {
-                  if (j == 0)
-                  {
-                    r.push_back (*i);
-                    if (i->pair)
-                      r.push_back (*++i);
-                    break;
-                  }
-
-                  if (i->pair)
-                    ++i;
-                }
-
-                result_data = r.empty () ? value () : value (move (r));
+                result_data = f (*result, &result_data, move (v), l, bl);
               }
               else
               {
-                // Similar logic to parse_for().
-                //
-                const value_type* etype (result->type->element_type);
-
-                value val (result == &result_data
-                           ? value (move (result_data))
-                           : value (*result));
-
-                untypify (val, false /* reduce */);
-
-                names& ns (val.as<names> ());
-
-                // Pair-aware subscript.
-                //
-                names r;
-                for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
+                uint64_t j;
+                try
                 {
-                  bool p (i->pair);
-
-                  if (j == 0)
-                  {
-                    r.push_back (move (*i));
-                    if (p)
-                      r.push_back (move (*++i));
-                    break;
-                  }
-
-                  if (p)
-                    ++i;
+                  j = convert<uint64_t> (move (v));
+                }
+                catch (const invalid_argument& e)
+                {
+                  fail (l)    << "invalid value subscript: " << e <<
+                    info (bl) << "use the '\\[' escape sequence if this is a "
+                              << "wildcard pattern" << endf;
                 }
 
-                result_data = r.empty () ? value () : value (move (r));
+                // Similar to expanding an undefined variable, we return NULL
+                // if the index is out of bounds.
+                //
+                // Note that result may or may not point to result_data.
+                //
+                if (result->null)
+                  result_data = value ();
+                else if (result->type == nullptr)
+                {
+                  const names& ns (result->as<names> ());
 
-                if (etype != nullptr)
-                  typify (result_data, *etype, nullptr /* var */);
+                  // Pair-aware subscript.
+                  //
+                  names r;
+                  for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
+                  {
+                    if (j == 0)
+                    {
+                      r.push_back (*i);
+                      if (i->pair)
+                        r.push_back (*++i);
+                      break;
+                    }
+
+                    if (i->pair)
+                      ++i;
+                  }
+
+                  result_data = r.empty () ? value () : value (move (r));
+                }
+                else
+                {
+                  // Similar logic to parse_for().
+                  //
+                  const value_type* etype (result->type->element_type);
+
+                  value val (result == &result_data
+                             ? value (move (result_data))
+                             : value (*result));
+
+                  untypify (val, false /* reduce */);
+
+                  names& ns (val.as<names> ());
+
+                  // Pair-aware subscript.
+                  //
+                  names r;
+                  for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
+                  {
+                    bool p (i->pair);
+
+                    if (j == 0)
+                    {
+                      r.push_back (move (*i));
+                      if (p)
+                        r.push_back (move (*++i));
+                      break;
+                    }
+
+                    if (p)
+                      ++i;
+                  }
+
+                  result_data = r.empty () ? value () : value (move (r));
+
+                  if (etype != nullptr)
+                    typify (result_data, *etype, nullptr /* var */);
+                }
               }
+
+              result = &result_data;
             }
 
-            result = &result_data;
+            // See if we have another subscript.
+            //
+            enable_subscript ();
+            tt = peek ();
           }
-
-          tt = peek ();
         }
 
         if (pre_parse_)
