@@ -53,6 +53,9 @@
   $* <'print $empty(abc)'          >'false'  : name
   $* <'print $empty(abc cxx{foo})' >'false'  : names
   $* <'print $empty([bool] false)' >'false'  : bool
+  $* <'print $empty([json] null)'  >'true'   : json-null
+  $* <'print $empty([json] "[]")'  >'true'   : json-array
+  $* <'print $empty([json] "{}")'  >'true'   : json-object
 }
 
 : first-second

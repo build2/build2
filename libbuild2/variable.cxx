@@ -3,9 +3,15 @@
 
 #include <libbuild2/variable.hxx>
 
+#include <cstdio>  // snprintf()
 #include <cstring> // memcmp(), memcpy()
 
 #include <libbutl/path-pattern.hxx>
+
+#ifndef BUILD2_BOOTSTRAP
+#  include <libbutl/json/parser.hxx>
+#  include <libbutl/json/serializer.hxx>
+#endif
 
 #include <libbuild2/target.hxx>
 #include <libbuild2/diagnostics.hxx>
@@ -584,6 +590,8 @@ namespace build2
 
         if (!wspace (v[0]))
         {
+          // Note: see also similar code in to_json_value().
+          //
           int b (v[0] == '0' && (v[1] == 'x' || v[1] == 'X') ? 16 : 10);
 
           // May throw invalid_argument or out_of_range.
@@ -1499,6 +1507,924 @@ namespace build2
     &default_empty<project_name>,
     nullptr,                         // Subscript.
     nullptr                          // Iterate.
+  };
+
+  // json
+  //
+  static string
+  to_string_value (name& n, const char* what)
+  {
+    if (n.typed () || n.qualified () || n.pattern)
+      throw_invalid_argument (n, nullptr, what);
+
+    string s;
+
+    if (n.simple ())
+      s.swap (n.value);
+    else
+    {
+      // Note that here we cannot assume what's in dir is really a path (think
+      // s/foo/bar/) so we have to reverse it exactly.
+      //
+      s = move (n.dir).representation (); // Move out of path.
+
+      if (!n.value.empty ())
+        s += n.value; // Separator is already there.
+    }
+
+    return s;
+  }
+
+  static json_value
+  to_json_value (name& n, const char* what)
+  {
+    if (n.typed () || n.qualified () || n.pattern)
+      throw_invalid_argument (n, nullptr, what);
+
+    string s;
+
+    if (n.simple ())
+      s.swap (n.value);
+    else
+    {
+      // Note that here we cannot assume what's in dir is really a path (think
+      // s/foo/bar/) so we have to reverse it exactly.
+      //
+      s = move (n.dir).representation (); // Move out of path.
+
+      if (!n.value.empty ())
+        s += n.value; // Separator is already there.
+
+      // A path is always interpreted as a JSON string.
+      //
+      return json_value (move (s));
+    }
+
+    bool f;
+    if (s.empty ())
+      return json_value (string ());
+    if (s == "null")
+      return json_value ();
+    else if ((f = (s == "true")) || s == "false")
+      return json_value (f);
+    else if (s.find_first_not_of (
+               "0123456789", (f = (s[0] == '-')) ? 1 : 0) == string::npos)
+    {
+      name n (move (s));
+      return f
+        ? json_value (value_traits<int64_t>::convert (n, nullptr))
+        : json_value (value_traits<uint64_t>::convert (n, nullptr));
+    }
+    //
+    // Handle the hex notation similar to <uint64_t>::convert() (and JSON5).
+    //
+    else if (s[0] == '0'                  &&
+             (s[1] == 'x' || s[1] == 'X') &&
+             s.size () > 2                &&
+             s.find_first_not_of ("0123456789aAbBcCdDeEfF", 2) == string::npos)
+    {
+      return json_value (
+        value_traits<uint64_t>::convert (name (move (s)), nullptr),
+        true /* hex */);
+    }
+    else
+    {
+      // If this is not a JSON representation of string, array, or object,
+      // then treat it as a string.
+      //
+      // Note that the special `"`, `{`, and `[` characters could be preceded
+      // with whitespaces. Note: see similar test in json_object below.
+      //
+      size_t p (s.find_first_not_of (" \t\n\r"));
+
+      if (p == string::npos || (s[p] != '"' && s[p] != '{' && s[p] != '['))
+        return json_value (move (s));
+
+      // Parse as valid JSON input text.
+      //
+#ifndef BUILD2_BOOTSTRAP
+      try
+      {
+        json_parser p (s, nullptr /* name */);
+        return json_value (p);
+      }
+      catch (const invalid_json_input& e)
+      {
+        // Turned out printing line/column/offset can be misleading since we
+        // could be parsing a single name from a potential list of names.
+        // feels like without also printing the value this is of not much use.
+        //
+#if 0
+        string m ("invalid json input at line ");
+        m += to_string (e.line);
+        m += ", column ";
+        m += to_string (e.column);
+        m += ", byte offset ";
+        m += to_string (e.position);
+        m += ": ";
+        m += e.what ();
+#else
+        string m ("invalid json input: ");
+        m += e.what ();
+#endif
+        throw invalid_argument (move (m));
+      }
+#else
+      throw invalid_argument ("json parsing requested during bootstrap");
+#endif
+    }
+  }
+
+  json_value value_traits<json_value>::
+  convert (names&& ns)
+  {
+    size_t n (ns.size ());
+
+    if (n == 0)
+    {
+      // Note: this is the ([json] ) case, not ([json] ""). See also the
+      // relevant note in json_reverse() below.
+      //
+      return json_value (); // null
+    }
+    else if (n == 1)
+    {
+      return to_json_value (ns.front (), "json");
+    }
+    else
+    {
+      if (ns.front ().pair) // object
+      {
+        json_value r (json_type::object);
+        r.object.reserve (n / 2);
+
+        for (auto i (ns.begin ()); i != ns.end (); ++i)
+        {
+          if (!i->pair)
+            throw invalid_argument (
+              "expected pair in json member value '" + to_string (*i) + '\'');
+
+          // Note that we could support JSON-quoted member names but it's
+          // unclear why would someone want that (and if they do, they can
+          // always specify JSON text instead).
+          //
+          // @@ The empty pair value ([json] one@ ) which is currently empty
+          //    string is inconsistent with empty value ([json] ) above which
+          //    is null. Maybe we could distinguish the one@ and one@"" cases
+          //    via type hints?
+          //
+          string n (to_string_value (*i, "json member name"));
+          json_value v (to_json_value (*++i, "json member"));
+
+          // Check for duplicates. One can use append/prepend to merge.
+          //
+          if (find_if (r.object.begin (), r.object.end (),
+                       [&n] (const json_member& m)
+                       {
+                         return m.name == n;
+                       }) != r.object.end ())
+          {
+            throw invalid_argument (
+              "duplicate json object member '" + n + '\'');
+          }
+
+          r.object.push_back (json_member {move (n), move (v)});
+        }
+
+        return r;
+      }
+      else // array
+      {
+        json_value r (json_type::array);
+        r.array.reserve (n);
+
+        for (name& n: ns)
+        {
+          if (n.pair)
+            throw invalid_argument (
+              "unexpected pair in json array element value '" +
+              to_string (n) + '\'');
+
+          r.array.push_back (to_json_value (n, "json array element"));
+        }
+
+        return r;
+      }
+    }
+  }
+
+  static void
+  json_assign (value& v, names&& ns, const variable* var)
+  {
+    using traits = value_traits<json_value>;
+
+    try
+    {
+      traits::assign (v, traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json value";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  static void
+  json_append (value& v, names&& ns, const variable* var)
+  {
+    using traits = value_traits<json_value>;
+
+    try
+    {
+      traits::append (v, traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json value";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  static void
+  json_prepend (value& v, names&& ns, const variable* var)
+  {
+    using traits = value_traits<json_value>;
+
+    try
+    {
+      traits::prepend (v, traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json value";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  static names_view
+  json_reverse (const value& x, names& ns, bool)
+  {
+    const json_value& v (x.as<json_value> ());
+
+    switch (v.type)
+    {
+    case json_type::null:
+      {
+        // @@ Hm, it would be nice if this somehow got mapped to [null]/empty
+        //    but still be round-trippable to JSON null. Perhaps via type
+        //    hint?
+        //
+        //    But won't `print ([json] null)` printing nothing be
+        //    surprising. Also, it's not clear that mapping JSON null to out
+        //    [null] is a good idea since our [null] means "no value" while
+        //    JSON null means "null value".
+        //
+        //    Maybe the current semantics is the best: we map our [null] and
+        //    empty names to JSON null (naturally) but we always reverse JSON
+        //    null to the JSON "null" literal. Or maybe we could reverse it to
+        //    null but type-hint it that it's a spelling or [null]/empty.
+        //    Quite fuzzy, admittedly. In our model null values decay to empty
+        //    so JSON null decaying to "null" literal is strange. Let's try
+        //    and see how it goes. See also json_subscript_impl() below.
+        //
+#if 0
+        ns.push_back (name ("null"));
+#endif
+        break;
+      }
+    case json_type::boolean:
+      {
+        ns.push_back (name (v.boolean ? "true" : "false"));
+        break;
+      }
+    case json_type::signed_number:
+      {
+        ns.push_back (value_traits<int64_t>::reverse (v.signed_number));
+        break;
+      }
+    case json_type::unsigned_number:
+      {
+        ns.push_back (value_traits<uint64_t>::reverse (v.unsigned_number));
+        break;
+      }
+    case json_type::hexadecimal_number:
+      {
+        // Hexadecimal representation of 64-bit integers requires a maximum of
+        // 10 character (plus '\0'): 0xffffffff.
+        //
+        char buf[11];
+        snprintf (buf, sizeof (buf),
+                  "0x%llx",
+                  static_cast<unsigned long long> (v.unsigned_number));
+
+        ns.push_back (name (string (buf)));
+        break;
+      }
+    case json_type::string:
+        //
+        // @@ Hm, it would be nice if this somehow got mapped to unquoted
+        //    string but still be round-trippable to JSON value. Perhaps via
+        //    the type hint idea? This is pretty bad. See also subscript we
+        //    hacked around this somewhat.
+        //
+        //    Note that it may be tempting to fix this by only quoting strings
+        //    that would otherwise be mis-interpreted (null, true, all digits,
+        //    etc). But that would be worse: things would seem to work but
+        //    fall apart in the perhaps unlikely event of encountering one of
+        //    the problematic values. It is better to produce a consistent
+        //    result.
+        //
+    case json_type::array:
+    case json_type::object:
+      {
+        // Serialize as JSON output text.
+        //
+        string o;
+
+#ifndef BUILD2_BOOTSTRAP
+        try
+        {
+          // Disable pretty-printing so that the output is all on the same
+          // line. While it's not going to be easy to read for larger JSON
+          // outputs, it will fit better into the existing model where none of
+          // the value representations use formatting newlines. If a pretty-
+          // printed representation is required, then the $json.serialize()
+          // function can be used to obtain it.
+          //
+          json_buffer_serializer s (o, 0 /* indentation */);
+          v.serialize (s);
+        }
+        catch (const invalid_json_output& e)
+        {
+          // Note: the same diagnostics as in $json.serialize().
+          //
+          diag_record dr;
+          dr << fail << "invalid json value: " << e;
+
+          if (e.event)
+            dr << info << "while serializing " << to_string (*e.event);
+
+          if (e.offset != string::npos)
+            dr << info << "offending byte offset " << e.offset;
+        }
+#else
+        fail << "json serialization requested during bootstrap";
+#endif
+        ns.push_back (name (move (o)));
+        break;
+      }
+    }
+
+    return ns;
+  }
+
+  static int
+  json_compare (const value& l, const value& r)
+  {
+    return l.as<json_value> ().compare (r.as<json_value> ());
+  }
+
+  // Return null value if the index/name is out of range.
+  //
+  static value
+  json_subscript_impl (const value& val, value* val_data,
+                       uint64_t i, const string& n, bool index)
+  {
+    const json_value& jv (val.as<json_value> ());
+
+    json_value jr;
+
+    if (index)
+    {
+      if (i >= (jv.type == json_type::array  ? jv.array.size ()  :
+                jv.type == json_type::object ? jv.object.size () : 1))
+        return value ();
+
+      switch (jv.type)
+      {
+      case json_type::null:
+        return value (); // JSON null has no elements.
+      case json_type::boolean:
+      case json_type::signed_number:
+      case json_type::unsigned_number:
+      case json_type::hexadecimal_number:
+      case json_type::string:
+        {
+          // Steal the value if possible.
+          //
+          jr = (&val == val_data
+                ? json_value (move (const_cast<json_value&> (jv)))
+                : json_value (jv));
+          break;
+        }
+      case json_type::array:
+        {
+          // Steal the value if possible.
+          //
+          const json_value& r (jv.array[i]);
+          jr = (&val == val_data
+                ? json_value (move (const_cast<json_value&> (r)))
+                : json_value (r));
+          break;
+        }
+      case json_type::object:
+        {
+          // Represent as an object with one member.
+          //
+          new (&jr.object) json_value::object_type ();
+          jr.type = json_type::object;
+
+          // Steal the member if possible.
+          //
+          const json_member& m (jv.object[i]);
+          jr.object.push_back (&val == val_data
+                               ? json_member (move (const_cast<json_member&> (m)))
+                               : json_member (m));
+          break;
+        }
+      }
+    }
+    else
+    {
+      auto i (find_if (jv.object.begin (),
+                       jv.object.end (),
+                       [&n] (const json_member& m)
+                       {
+                         return m.name == n;
+                       }));
+
+      if (i == jv.object.end ())
+        return value ();
+
+      // Steal the member value if possible.
+      //
+      jr = (&val == val_data
+            ? json_value (move (const_cast<json_value&> (i->value)))
+            : json_value (i->value));
+    }
+
+    // @@ As a temporary work around for the lack of type hints (see
+    //    json_reverse() for background), reverse simple JSON values to the
+    //    corresponding fundamental type values. The thinking here is that
+    //    subscript (and iteration) is primarily meant for consumption (as
+    //    opposed to reverse() where it is used to build up values and thus
+    //    needs things to be fully reversible). Once we add type hints, then
+    //    this should become unnecessary and we should be able to just always
+    //    return json_value.
+    //
+    // @@ TODO: split this function into two (index/name) once get rid of this.
+    //
+#if 1
+    switch (jr.type)
+    {
+    case json_type::null:               return value (names {});
+    case json_type::boolean:            return value (jr.boolean);
+    case json_type::signed_number:      return value (jr.signed_number);
+    case json_type::unsigned_number:
+    case json_type::hexadecimal_number: return value (jr.unsigned_number);
+    case json_type::string:             return value (move (jr.string));
+    case json_type::array:
+    case json_type::object:             break;
+    }
+#endif
+
+    return value (move (jr));
+  }
+
+  static value
+  json_subscript (const value& val, value* val_data,
+                  value&& sub,
+                  const location& sloc,
+                  const location& bloc)
+  {
+    const json_value* jv (val.null ? nullptr : &val.as<json_value> ());
+
+    // For consistency with other places treat JSON null value as maybe
+    // missing array/object. In particular, we don't want to fail trying to
+    // lookup by-name on a null value which could have been an object.
+    //
+    if (jv != nullptr && jv->type == json_type::null)
+      jv = nullptr;
+
+    // Process subscript even if the value is null to make sure it is valid.
+    //
+    bool index;
+    uint64_t i (0);
+    string   n;
+
+    // Always interpret uint64-typed subscript as index even for objects.
+    // This can be used to, for example, to iterate with an index over object
+    // members.
+    //
+    if (!sub.null && sub.type == &value_traits<uint64_t>::value_type)
+    {
+      i = sub.as<uint64_t> ();
+      index = true;
+    }
+    else
+    {
+      // How we interpret the subscript depends on the JSON value type. For
+      // objects we treat it as a string (member name) and for everything else
+      // as an index.
+      //
+      // What if the value is null and we don't have a JSON type? In this case
+      // we treat as a string since a valid number is also a valid string.
+      //
+      try
+      {
+        if (jv == nullptr || jv->type == json_type::object)
+        {
+          n = convert<string> (move (sub));
+          index = false;
+        }
+        else
+        {
+          i = convert<uint64_t> (move (sub));
+          index = true;
+        }
+      }
+      catch (const invalid_argument& e)
+      {
+        // We will likely be trying to interpret a member name as an integer
+        // due to the incorrect value type so issue appropriate diagnostics.
+        //
+        diag_record dr;
+        dr << fail (sloc) << "invalid json value subscript: " << e;
+
+        if (jv != nullptr && jv->type != json_type::object)
+          dr << info << "json value type is " << jv->type;
+
+        dr << info (bloc) << "use the '\\[' escape sequence if this is a "
+                          << "wildcard pattern" << endf;
+      }
+    }
+
+    return (jv != nullptr
+            ? json_subscript_impl (val, val_data, i, n, index)
+            : value ());
+  }
+
+  void json_iterate (const value& val,
+                     const function<void (value&&, bool first)>& f)
+  {
+    // Implement in terms of subscript for consistency (in particular,
+    // iterating over simple values like number, string).
+    //
+    for (uint64_t i (0);; ++i)
+    {
+      value e (json_subscript_impl (val, nullptr, i, {}, true));
+
+      if (e.null)
+        break;
+
+      f (move (e), i == 0);
+    }
+  }
+
+  const json_value value_traits<json_value>::empty_instance;
+  const char* const value_traits<json_value>::type_name = "json";
+
+  // Note that whether the json value is a container or not depends on its
+  // payload type. However, for our purposes it feels correct to assume it is
+  // a container rather than not with itself as the element type (see
+  // value_traits::{container, element_type} usage for details).
+  //
+  const value_type value_traits<json_value>::value_type
+  {
+    type_name,
+    sizeof (json_value),
+    nullptr,                               // No base.
+    true,                                  // Container.
+    &value_traits<json_value>::value_type, // Element (itself).
+    &default_dtor<json_value>,
+    &default_copy_ctor<json_value>,
+    &default_copy_assign<json_value>,
+    &json_assign,
+    json_append,
+    json_prepend,
+    &json_reverse,
+    nullptr,                               // No cast (cast data_ directly).
+    &json_compare,
+    &default_empty<json_value>,
+    &json_subscript,
+    &json_iterate
+  };
+
+  // json_array
+  //
+  json_array value_traits<json_array>::
+  convert (names&& ns)
+  {
+    json_array r;
+
+    size_t n (ns.size ());
+    if (n == 0)
+      ; // Empty.
+    else if (n == 1)
+    {
+      // Tricky: this can still be JSON input text that is an array. And if
+      // it's not, then make it an element of an array.
+      //
+      json_value v (to_json_value (ns.front (), "json"));
+
+      if (v.type == json_type::array)
+        r.array = move (v.array);
+      else
+        r.array.push_back (move (v));
+    }
+    else
+    {
+      r.array.reserve (n);
+
+      for (name& n: ns)
+      {
+        if (n.pair)
+          throw invalid_argument (
+            "unexpected pair in json array element value '" +
+            to_string (n) + '\'');
+
+        r.array.push_back (to_json_value (n, "json array element"));
+      }
+    }
+
+    return r;
+  }
+
+  static void
+  json_array_assign (value& v, names&& ns, const variable* var)
+  {
+    using traits = value_traits<json_array>;
+
+    try
+    {
+      traits::assign (v, traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json array";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  static void
+  json_array_append (value& v, names&& ns, const variable* var)
+  {
+    using val_traits = value_traits<json_value>;
+    using arr_traits = value_traits<json_array>;
+
+    try
+    {
+      arr_traits::append (v, val_traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json array";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  static void
+  json_array_prepend (value& v, names&& ns, const variable* var)
+  {
+    using val_traits = value_traits<json_value>;
+    using arr_traits = value_traits<json_array>;
+
+    try
+    {
+      arr_traits::prepend (v, val_traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json array";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  const json_array value_traits<json_array>::empty_instance;
+  const char* const value_traits<json_array>::type_name = "json_array";
+
+  const value_type value_traits<json_array>::value_type
+  {
+    type_name,
+    sizeof (json_array),
+    &value_traits<json_value>::value_type, // Base (assuming direct cast works
+                                           // for both).
+    true,                                  // Container.
+    &value_traits<json_value>::value_type, // Element (json_value).
+    &default_dtor<json_array>,
+    &default_copy_ctor<json_array>,
+    &default_copy_assign<json_array>,
+    &json_array_assign,
+    &json_array_append,
+    &json_array_prepend,
+    &json_reverse,
+    nullptr,                               // No cast (cast data_ directly).
+    &json_compare,
+    &default_empty<json_array>,
+    &json_subscript,
+    &json_iterate
+  };
+
+  // json_object
+  //
+  json_object value_traits<json_object>::
+  convert (names&& ns)
+  {
+    json_object r;
+
+    size_t n (ns.size ());
+    if (n == 0)
+      ; // Empty.
+    else if (n == 1)
+    {
+      // Tricky: this can still be JSON input text that is an object. So do
+      // a similar check as in to_json_value() above.
+      //
+      name& n (ns.front ());
+
+      if (!n.simple () || n.pattern)
+        throw_invalid_argument (n, nullptr, "json object");
+
+      string& s (n.value);
+      size_t p (s.find_first_not_of (" \t\n\r"));
+
+      if (p == string::npos || s[p] != '{')
+      {
+        // Unlike for array above, we cannot turn any value into a member.
+        //
+        throw invalid_argument ("expected json object instead of '" + s + '\'');
+      }
+
+      json_value v (to_json_value (ns.front (), "json object"));
+      assert (v.type == json_type::object);
+      r.object = move (v.object);
+    }
+    else
+    {
+      r.object.reserve (n / 2);
+
+      for (auto i (ns.begin ()); i != ns.end (); ++i)
+      {
+        if (!i->pair)
+          throw invalid_argument (
+            "expected pair in json member value '" + to_string (*i) + '\'');
+
+        string n (to_string_value (*i, "json member name"));
+        json_value v (to_json_value (*++i, "json member"));
+
+        if (find_if (r.object.begin (), r.object.end (),
+                     [&n] (const json_member& m)
+                     {
+                       return m.name == n;
+                     }) != r.object.end ())
+        {
+          throw invalid_argument (
+            "duplicate json object member '" + n + '\'');
+        }
+
+        r.object.push_back (json_member {move (n), move (v)});
+      }
+    }
+
+    return r;
+  }
+
+  static void
+  json_object_assign (value& v, names&& ns, const variable* var)
+  {
+    using traits = value_traits<json_object>;
+
+    try
+    {
+      traits::assign (v, traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json object";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  static void
+  json_object_append (value& v, names&& ns, const variable* var)
+  {
+    using val_traits = value_traits<json_value>;
+    using obj_traits = value_traits<json_object>;
+
+    try
+    {
+      obj_traits::append (v, val_traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json object";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  static void
+  json_object_prepend (value& v, names&& ns, const variable* var)
+  {
+    using val_traits = value_traits<json_value>;
+    using obj_traits = value_traits<json_object>;
+
+    try
+    {
+      obj_traits::prepend (v, val_traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid json object";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  const json_object value_traits<json_object>::empty_instance;
+  const char* const value_traits<json_object>::type_name = "json_object";
+
+  const value_type value_traits<json_object>::value_type
+  {
+    type_name,
+    sizeof (json_object),
+    &value_traits<json_value>::value_type, // Base (assuming direct cast works
+                                           // for both).
+    true,                                  // Container.
+    &value_traits<json_value>::value_type, // Element (json_value).
+    &default_dtor<json_object>,
+    &default_copy_ctor<json_object>,
+    &default_copy_assign<json_object>,
+    &json_object_assign,
+    &json_object_append,
+    &json_object_prepend,
+    &json_reverse,
+    nullptr,                               // No cast (cast data_ directly).
+    &json_compare,
+    &default_empty<json_object>,
+    &json_subscript,
+    &json_iterate
   };
 
   // cmdline

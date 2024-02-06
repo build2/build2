@@ -1,0 +1,416 @@
+# file      : tests/type/json/testscript
+# license   : MIT; see accompanying LICENSE file
+
+# See also tests in function/json/.
+
+.include ../../common.testscript
+
+: basics
+:
+{
+  : empty-null
+  :
+  $* <<EOI >>EOO
+  print ([json, null] )
+  print ([json] null)
+  print ([json] )
+  print ([json] "")
+  print ([json_array] )
+  print ([json_object] )
+  print ([json] one@null)
+  print ([json] one@)      # @@ Would be more consistent if were null (type hints?)
+  print ([json] one@"")
+  EOI
+  [null]
+
+
+  ""
+  []
+  {}
+  {"one":null}
+  {"one":""}
+  {"one":""}
+  EOO
+
+  : reverse
+  :
+  $* <<EOI >>EOO
+  print ([json] null)
+  print ([json] true)
+  print ([json] 123)
+  print ([json] -123)
+  print ([json] 0xdecaf)
+  print ([json] abc) # @@ Ideally we would like this to be reversed unquoted.
+  print ([json] '"abc"') # @@ Ditto.
+  print (([json] abc)[0]) # @@ Workaround.
+  print ([json] dir/{file1 file2})
+  print ([json] '  ["dir/file1", "dir/file2"]  ')
+  print ([json] zero@null one@1 two@abc three@([json] x@123 y@-123) four@([json] null true))
+  print ([json] '{"zero":null,"one":1,"two":"abc","three":{"x":123,"y":-123},"four":[null,true]}')
+  EOI
+
+  true
+  123
+  -123
+  0xdecaf
+  "abc"
+  "abc"
+  abc
+  ["dir/file1","dir/file2"]
+  ["dir/file1","dir/file2"]
+  {"zero":null,"one":1,"two":"abc","three":{"x":123,"y":-123},"four":[null,true]}
+  {"zero":null,"one":1,"two":"abc","three":{"x":123,"y":-123},"four":[null,true]}
+  EOO
+
+
+  : hex
+  :
+  $* <<EOI >>EOO
+  print ([json] 0xffffFFFF)
+
+  # These should be in the hexadecimal notation once we switch to JSON5.
+  #
+  print ([json] 0x0 0x01 0xff 0xFFFF)
+  print ([json] ff@0xff FFFF@0xFFFF)
+
+  # @@ This should start working once we switch to type hints in subscript.
+  #
+  #j = [json] ff@0xff
+  #print $value_type($j[ff], true)
+  print 'hexadecimal number'
+  EOI
+  0xffffffff
+  [0,1,255,65535]
+  {"ff":255,"FFFF":65535}
+  hexadecimal number
+  EOO
+
+  : diagnostics-reverse-invalid
+  :
+  $* <<EOI 2>>EOE != 0
+  o = [json] '{"one":1, "two":}'
+  EOI
+  error: invalid json value in variable o: invalid json input: unexpected byte '}' in value
+  EOE
+
+  : diagnostics-duplicate-member
+  :
+  $* <<EOI 2>>EOE != 0
+  o = [json] one@1 one@2
+  EOI
+  error: invalid json value in variable o: duplicate json object member 'one'
+  EOE
+}
+
+: compare
+:
+{
+  : type
+  :
+  $* <<EOI >>EOO
+  print (([json] null) < ([json] true))
+  print (([json] true) < ([json] 0))
+  print (([json] 123)  < ([json] '"0"'))
+  print (([json] abc)  < ([json] xxx yyy))
+  print (([json] xxx yyy)  < ([json] xxx@null yyy@null))
+  EOI
+  true
+  true
+  true
+  true
+  true
+  EOO
+
+  : simple
+  :
+  $* <<EOI >>EOO
+  print (([json] false) == ([json] false))
+  print (([json] false) <  ([json] true))
+
+  print (([json] 123)  == ([json] 123))
+  print (([json] -123) == ([json] -123))
+  print (([json] 0xff) == ([json] 255))
+  print (([json] 0)    == ([json] -0))
+  print (([json] -1)   <  ([json] 0))
+  print (([json] 123)  <  ([json] 234))
+  print (([json] -234) <  ([json] -123))
+
+  print (([json] abc) == ([json] abc))
+  print (([json] abc) <  ([json] abz))
+  print (([json] abc) <  ([json] abcd))
+  EOI
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  EOO
+
+  : array
+  :
+  $* <<EOI >>EOO
+  print (([json] 1 2 3) == ([json] 1 2 3))
+  print (([json] 1 2 3) <  ([json] 1 2 4))
+  print (([json] 1 2 3) <  ([json] 1 2 3 4))
+  EOI
+  true
+  true
+  true
+  EOO
+
+  : object
+  :
+  $* <<EOI >>EOO
+  print (([json] one@1 two@2 three@3) == ([json] three@3 one@1 two@2))
+  print (([json] one@1 two@2 three@3) <  ([json] three@3 one@1 two@4))
+  print (([json] one@1       three@3) <  ([json] three@3 one@1 two@2))
+  EOI
+  true
+  true
+  true
+  EOO
+}
+
+: append-prepend
+:
+{
+  : array
+  :
+  $* <<EOI >'[0,1,2,3,4,5,6,7,8]'
+  a = [json] 2 3
+  a += 4
+  a += 5 6
+  a += [json] 7 8
+  a =+ [json] 0 1
+  print $a
+  EOI
+
+  : array-type
+  :
+  $* <<EOI >'[1,2,3,4,5]'
+  [json_array] a =
+  a += 1
+  a += 2 3
+  a += [json_array] 4 5 # @@ Should be possible to use json.
+  print $a
+  EOI
+
+  : object
+  :
+  $* <<EOI >'{"zero":0,"one":6,"two":8,"three":9,"four":4,"five":5,"seven":7}'
+  o = [json] one@1 two@2 three@3
+  o += four@4
+  o += five@5 one@6
+  o += [json] seven@7 two@8
+  o =+ [json] zero@0 three@9
+  print $o
+  EOI
+
+  : object-type
+  :
+  $* <<EOI >'{"one":1,"two":2,"three":3,"four":4,"five":5}'
+  [json_object] o =
+  o += one@1
+  o += two@2 three@3
+  o += [json_object] four@4 five@5 # @@ Should be possible to use json.
+  print $o
+  EOI
+
+  : boolean
+  :
+  $* <<EOI >>EOO
+  b = [json] false
+  b += [json] true
+  print $b
+  EOI
+  true
+  EOO
+
+  : number
+  :
+  $* <<EOI >>EOO
+  n = [json] -2
+  print $value_type($n, true) $n
+  n += 1
+  print $value_type($n, true) $n
+  n += 1
+  print $value_type($n, true) $n
+  n += 1
+  print $value_type($n, true) $n
+  n += [json] -1
+  print $value_type($n, true) $n
+  n += [json] -1
+  print $value_type($n, true) $n
+  EOI
+  signed number -2
+  signed number -1
+  unsigned number 0
+  unsigned number 1
+  unsigned number 0
+  signed number -1
+  EOO
+
+  : string
+  :
+  $* <<EOI >>EOO
+  s = [json] yyy
+  s += [json] zzz
+  s =+ [json] xxx
+  print $s
+  EOI
+  "xxxyyyzzz"
+  EOO
+
+  : invalid
+  :
+  $* <<EOI 2>>EOE != 0
+  a = [json] 1 2 3
+  s = [json] str
+  s += $a
+  print $s
+  EOI
+  error: invalid json value in variable s: unable to append array to string
+  EOE
+}
+
+: subscript
+:
+{
+  : null
+  :
+  $* <<EOI >>EOO
+  j = [json] null
+  print ($j[0])
+  print ($j[one])
+  EOI
+  [null]
+  [null]
+  EOO
+
+  : array
+  :
+  $* <<EOI >>EOO
+  j = [json] 1 2 3 null
+  print ($j[1])
+  print ($j[3])
+  print ($j[4])
+  EOI
+  2
+
+  [null]
+  EOO
+
+  : object-name
+  :
+  $* <<EOI >>EOO
+  j = [json] one@1 two@2 three@3 four@null
+  print ($j[two])
+  print ($j[four])
+  print ($j[five])
+  EOI
+  2
+
+  [null]
+  EOO
+
+  : object-index
+  :
+  $* <<EOI >>EOO
+  j = [json] one@1 two@2 three@3
+  print ($j[([uint64] 1)])
+  EOI
+  {"two":2}
+  EOO
+
+  : reverse
+  :
+  $* <<EOI >>EOO
+  print (([json] one@null)[one])
+  print (([json] one@true)[one])
+  print (([json] one@123)[one])
+  print (([json] one@-123)[one])
+  print (([json] one@0xdecaf)[one])
+  print (([json] one@abc)[one])
+  EOI
+
+  true
+  123
+  -123
+  912559
+  abc
+  EOO
+
+  : diagnostics-not-object
+  :
+  $* <<EOI 2>>EOE != 0
+  j = [json] 1 2 3
+  print ($j[one])
+  EOI
+  <stdin>:2:11: error: invalid json value subscript: invalid uint64 value 'one'
+    info: json value type is array
+    <stdin>:2:9: info: use the '\[' escape sequence if this is a wildcard pattern
+  EOE
+}
+
+: iteration
+:
+{
+  : null
+  :
+  $* <<EOI
+  for v: ([json] null)
+    print $v
+  EOI
+
+  : simple
+  :
+  $* <<EOI >>EOO
+  for v: ([json] 123)
+    print $v
+  EOI
+  123
+  EOO
+
+  : array
+  :
+  $* <<EOI >>EOO
+  for v: ([json] 1 2 3)
+    print $v
+  EOI
+  1
+  2
+  3
+  EOO
+
+  : object
+  :
+  $* <<EOI >>EOO
+  for v: ([json] one@1 two@2 three@3)
+    print $v
+  EOI
+  {"one":1}
+  {"two":2}
+  {"three":3}
+  EOO
+
+  : reverse
+  :
+  $* <<EOI >>EOO
+  for v: ([json] null true 123 -123 0xdecaf abc)
+    print $v
+  EOI
+
+  true
+  123
+  -123
+  912559
+  abc
+  EOO
+}
