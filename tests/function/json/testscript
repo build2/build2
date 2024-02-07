@@ -58,13 +58,13 @@ EOO
 : size
 :
 $* <<EOI >>EOO
-print $size([json] null)
-print $size([json] true)
-print $size([json] 123)
-print $size([json] abc)
+print $value_size([json] null)
+print $value_size([json] true)
+print $value_size([json] 123)
+print $value_size([json] abc)
 print $size([string] ([json] abc)) # @@ Should be 3 (quoted, type hint).
-print $size([json] 1 2 3)
-print $size([json] one@1 two@2 three@3)
+print $value_size([json] 1 2 3)
+print $value_size([json] one@1 two@2 three@3)
 EOI
 0
 1
@@ -79,19 +79,19 @@ EOO
 :
 $* <<EOI >>EOO
 j = [json] 1 ([json] one@1 two@2) 2 true 3 null 4 abc -5 null ([json] 1 2 3)
-print $find_index($j, null)
-print $find_index($j, true)
-print $find_index($j, 3)
-print $find_index($j, 0x4)
-print $find_index($j, -5)
-print $find_index($j, abc)
-print $find_index($j, [json] 1 2 3)
-print $find_index($j, [json] two@2 one@1)
-print $find_index($j, [json] 1 2)
-print $find_index($j, [json] one@1)
-print $find_index($j, [json] one@1 two@2 three@3)
-print $find_index($j, [json] one@1 TWO@3)
-print $find_index($j, [json] one@1 two@3)
+print $array_find_index($j, null)
+print $array_find_index($j, true)
+print $array_find_index($j, 3)
+print $array_find_index($j, 0x4)
+print $array_find_index($j, -5)
+print $array_find_index($j, abc)
+print $array_find_index($j, [json] 1 2 3)
+print $array_find_index($j, [json] two@2 one@1)
+print $array_find_index($j, [json] 1 2)
+print $array_find_index($j, [json] one@1)
+print $array_find_index($j, [json] one@1 two@2 three@3)
+print $array_find_index($j, [json] one@1 TWO@3)
+print $array_find_index($j, [json] one@1 two@3)
 EOI
 5
 3

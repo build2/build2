@@ -14,7 +14,7 @@ using namespace std;
 namespace build2
 {
   static size_t
-  find_index (const json_value& a, value v)
+  array_find_index (const json_value& a, value v)
   {
     if (a.type != json_type::array)
       fail << "expected json array instead of " << to_string (a.type)
@@ -97,7 +97,7 @@ namespace build2
       fail << "json object member expected instead of " << v.type << endf;
     };
 
-    // $size(<json>)
+    // $value_size(<json>)
     //
     // Return the size of a JSON value.
     //
@@ -109,7 +109,7 @@ namespace build2
     // string. To get the length call `$string.size()` instead by casting the
     // JSON value to the `string` value type.
     //
-    f["size"] += [] (json_value v) -> size_t
+    f["value_size"] += [] (json_value v) -> size_t
     {
       // Note: should be consistent with value_traits<json_value>::empty(),
       //       json_subscript().
@@ -129,24 +129,50 @@ namespace build2
       return 1;
     };
 
-    // $find(<json-array>, <json>)
+    // $array_size(<json-array>)
     //
-    // Return true if the JSON array contains the specified JSON value.
+    // Return the number of elements in the JSON array. If the JSON `null`
+    // value is passed instead, assume it is a missing array and return `0`.
     //
-    f["find"] += [](json_value a, value v)
+    f["array_size"] += [] (json_value a) -> size_t
     {
-      size_t i (find_index (a, move (v)));
+      if (a.type == json_type::null)
+        return 0;
+
+      if (a.type == json_type::array)
+        return a.array.size ();
+
+      fail << "expected json array instead of " << to_string (a.type) << endf;
+    };
+
+    // $array_find(<json-array>, <json>)
+    //
+    // Return true if the JSON array contains the specified JSON value. If the
+    // JSON `null` value is passed instead, assume it is a missing array and
+    // return `false`.
+    //
+    f["array_find"] += [] (json_value a, value v)
+    {
+      if (a.type == json_type::null)
+        return false;
+
+      size_t i (array_find_index (a, move (v)));
       return i != a.array.size (); // We now know it's an array.
     };
 
-    // $find_index(<json-array>, <json>)
+    // $array_find_index(<json-array>, <json>)
     //
     // Return the index of the first element in the JSON array that is equal
-    // to the specified JSON value or `$size(json-array)` if none is found.
+    // to the specified JSON value or `$array_size(<json-array>)` if none is
+    // found. If the JSON `null` value is passed instead, assume it is a
+    // missing array and return `0`.
     //
-    f["find_index"] += [](json_value a, value v)
+    f["array_find_index"] += [](json_value a, value v) -> size_t
     {
-      return find_index (a, move (v));
+      if (a.type == json_type::null)
+        return 0;
+
+      return array_find_index (a, move (v));
     };
 
 #ifndef BUILD2_BOOTSTRAP
