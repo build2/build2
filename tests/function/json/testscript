@@ -198,7 +198,7 @@ EOO
   for m: $j
     print $member_name($m) $member_value($m)
   EOI
-  str "abc"
+  str abc
   num 123
   arr [1,2,3]
   obj {"one":1,"two":2,"three":3}

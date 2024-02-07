@@ -1993,11 +1993,11 @@ namespace build2
     //    opposed to reverse() where it is used to build up values and thus
     //    needs things to be fully reversible). Once we add type hints, then
     //    this should become unnecessary and we should be able to just always
-    //    return json_value.
+    //    return json_value. See also $json.member_value() where we do the
+    //    same thing.
     //
     // @@ TODO: split this function into two (index/name) once get rid of this.
     //
-#if 1
     value r;
     switch (jr.type)
     {
@@ -2018,7 +2018,6 @@ namespace build2
     case json_type::array:
     case json_type::object:             r = value (move (jr));          break;
     }
-#endif
 
     return make_pair (move (r), true);
   }
