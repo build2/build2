@@ -37,6 +37,31 @@ object
 object
 EOO
 
+: size
+:
+$* <<EOI >>EOO
+print $value_size([json] null)
+print $value_size([json] true)
+print $value_size([json] 123)
+print $value_size([json] abc)
+print $size([string] ([json] abc)) # @@ Should be 3 (quoted, type hint).
+print $value_size([json] 1 2 3)
+print $value_size([json] one@1 two@2 three@3)
+
+print $array_size([json] 1 2 3)
+print $array_size([json] null)
+EOI
+0
+1
+1
+1
+5
+3
+3
+3
+0
+EOO
+
 : member
 :
 $* <<EOI >>EOO
@@ -55,24 +80,19 @@ two 2
 three 3
 EOO
 
-: size
+: names
 :
 $* <<EOI >>EOO
-print $value_size([json] null)
-print $value_size([json] true)
-print $value_size([json] 123)
-print $value_size([json] abc)
-print $size([string] ([json] abc)) # @@ Should be 3 (quoted, type hint).
-print $value_size([json] 1 2 3)
-print $value_size([json] one@1 two@2 three@3)
+j = [json] one@1 two@2 three@3
+for n: $object_names($j)
+  print $n ($j[$n])
+
+print $object_names([json] null)
 EOI
-0
-1
-1
-1
-5
-3
-3
+one 1
+two 2
+three 3
+
 EOO
 
 : find
@@ -92,6 +112,7 @@ print $array_find_index($j, [json] one@1)
 print $array_find_index($j, [json] one@1 two@2 three@3)
 print $array_find_index($j, [json] one@1 TWO@3)
 print $array_find_index($j, [json] one@1 two@3)
+print $array_find_index([json] null, 1)
 EOI
 5
 3
@@ -106,6 +127,7 @@ EOI
 11
 11
 11
+0
 EOO
 
 : parse

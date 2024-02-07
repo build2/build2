@@ -45,7 +45,39 @@ namespace build2
       return to_string (v.type, dn);
     };
 
-    // $member_name(<json>)
+    // $value_size(<json>)
+    //
+    // Return the size of a JSON value.
+    //
+    // The size of a `null` value is `0`. The sizes of simple values
+    // (`boolean`, `number`, and `string`) is `1`. The size of `array` and
+    // `object` values is the number of elements and members, respectively.
+    //
+    // Note that the size of a `string` JSON value is not the length of the
+    // string. To get the length call `$string.size()` instead by casting the
+    // JSON value to the `string` value type.
+    //
+    f["value_size"] += [] (json_value v) -> size_t
+    {
+      // Note: should be consistent with value_traits<json_value>::empty(),
+      //       json_subscript().
+      //
+      switch (v.type)
+      {
+      case json_type::null:               return 0;
+      case json_type::boolean:
+      case json_type::signed_number:
+      case json_type::unsigned_number:
+      case json_type::hexadecimal_number:
+      case json_type::string:             break;
+      case json_type::array:              return v.array.size ();
+      case json_type::object:             return v.object.size ();
+      }
+
+      return 1;
+    };
+
+    // $member_name(<json-member>)
     //
     // Return the name of a JSON object member.
     //
@@ -60,7 +92,7 @@ namespace build2
       fail << "json object member expected instead of " << v.type << endf;
     };
 
-    // $member_value(<json>)
+    // $member_value(<json-member>)
     //
     // Return the value of a JSON object member.
     //
@@ -97,36 +129,28 @@ namespace build2
       fail << "json object member expected instead of " << v.type << endf;
     };
 
-    // $value_size(<json>)
+    // $object_names(<json-object>)
     //
-    // Return the size of a JSON value.
+    // Return the list of names in the JSON object. If the JSON `null` is
+    // passed instead, assume it is a missing object and return an empty list.
     //
-    // The size of a `null` value is `0`. The sizes of simple values
-    // (`boolean`, `number`, and `string`) is `1`. The size of `array` and
-    // `object` values is the number of elements and members, respectively.
-    //
-    // Note that the size of a `string` JSON value is not the length of the
-    // string. To get the length call `$string.size()` instead by casting the
-    // JSON value to the `string` value type.
-    //
-    f["value_size"] += [] (json_value v) -> size_t
+    f["object_names"] += [] (json_value o)
     {
-      // Note: should be consistent with value_traits<json_value>::empty(),
-      //       json_subscript().
-      //
-      switch (v.type)
-      {
-      case json_type::null:               return 0;
-      case json_type::boolean:
-      case json_type::signed_number:
-      case json_type::unsigned_number:
-      case json_type::hexadecimal_number:
-      case json_type::string:             break;
-      case json_type::array:              return v.array.size ();
-      case json_type::object:             return v.object.size ();
-      }
+      names ns;
 
-      return 1;
+      if (o.type == json_type::null)
+        ;
+      else if (o.type == json_type::object)
+      {
+        ns.reserve (o.object.size ());
+
+        for (json_member& m: o.object)
+          ns.push_back (name (move (m.name)));
+      }
+      else
+        fail << "expected json object instead of " << to_string (o.type);
+
+      return ns;
     };
 
     // $array_size(<json-array>)
