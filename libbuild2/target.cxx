@@ -233,14 +233,14 @@ namespace build2
   }
 
   value& target::
-  append (const variable& var)
+  append (const variable& var, const scope* bs)
   {
     // Note: see also prerequisite::append() if changing anything here.
 
     // Note that here we want the original value without any overrides
     // applied.
     //
-    auto l (lookup_original (var).first);
+    auto l (lookup_original (var, false, bs).first);
 
     if (l.defined () && l.belongs (*this)) // Existing var in this target.
       return vars.modify (l); // Ok since this is original.
@@ -254,9 +254,9 @@ namespace build2
   }
 
   value& target::
-  append_locked (const variable& var)
+  append_locked (const variable& var, const scope* bs)
   {
-    auto l (lookup_original (var, false, nullptr, true /* locked */).first);
+    auto l (lookup_original (var, false, bs, true /* locked */).first);
 
     if (l.defined () && l.belongs (*this)) // Existing var in this target.
       return vars.modify (l); // Ok since this is original.

@@ -89,8 +89,14 @@ namespace build2
     prerequisite_target (const target_type* t, bool a = false, uintptr_t d = 0)
         : target (t), include (a ? include_adhoc : 0), data (d) {}
 
+    prerequisite_target (const target_type& t, bool a = false, uintptr_t d = 0)
+        : prerequisite_target (&t, a, d) {}
+
     prerequisite_target (const target_type* t, include_type a, uintptr_t d = 0)
         : prerequisite_target (t, a == include_type::adhoc, d) {}
+
+    prerequisite_target (const target_type& t, include_type a, uintptr_t d = 0)
+        : prerequisite_target (&t, a, d) {}
 
     const target_type* target;
 
@@ -799,15 +805,41 @@ namespace build2
     value&
     assign (const variable* var) {return vars.assign (var);} // For cached.
 
+    // Note: variable must already be entered.
+    //
+    value&
+    assign (const string& name)
+    {
+      return vars.assign (base_scope ().var_pool ().find (name));
+    }
+
     // Return a value suitable for appending. See scope for details.
     //
     value&
-    append (const variable&);
+    append (const variable&, const scope* bs = nullptr);
+
+    // Note: variable must already be entered.
+    //
+    value&
+    append (const string& name)
+    {
+      const scope& bs (base_scope ());
+      return append (*bs.var_pool ().find (name), &bs);
+    }
 
     // As above but assume the targets mutex is locked.
     //
     value&
-    append_locked (const variable&);
+    append_locked (const variable&, const scope* bs = nullptr);
+
+    // Note: variable must already be entered.
+    //
+    value&
+    append_locked (const string& name)
+    {
+      const scope& bs (base_scope ());
+      return append_locked (*bs.var_pool ().find (name), &bs);
+    }
 
     // Rule hints.
     //
