@@ -3,7 +3,6 @@
 
 #include <libbuild2/variable.hxx>
 
-#include <cstdio>  // snprintf()
 #include <cstring> // memcmp(), memcpy()
 
 #include <libbutl/path-pattern.hxx>
@@ -1830,15 +1829,7 @@ namespace build2
       }
     case json_type::hexadecimal_number:
       {
-        // Hexadecimal representation of 64-bit integers requires a maximum of
-        // 10 character (plus '\0'): 0xffffffff.
-        //
-        char buf[11];
-        snprintf (buf, sizeof (buf),
-                  "0x%llx",
-                  static_cast<unsigned long long> (v.unsigned_number));
-
-        ns.push_back (name (string (buf)));
+        ns.push_back (name (to_string (v.unsigned_number, 16)));
         break;
       }
     case json_type::string:

@@ -11,54 +11,18 @@ namespace build2
   extern bool
   functions_sort_flags (optional<names>); // functions-builtin.cxx
 
-  static const char hex_digits[] = "0123456789abcdef";
-
   static string
   to_string (uint64_t i, optional<value> base, optional<value> width)
   {
-    uint64_t b (base ? convert<uint64_t> (move (*base)) : 10);
+    int b (base ?
+           static_cast<int> (convert<uint64_t> (move (*base)))
+           : 10);
+
     size_t w (width
               ? static_cast<size_t> (convert<uint64_t> (move (*width)))
               : 0);
 
-    // One day we can switch to C++17 std::to_chars().
-    //
-    string r;
-    switch (b)
-    {
-    case 10:
-      {
-        r = to_string (i);
-        if (w > r.size ())
-          r.insert (0, w - r.size (), '0');
-        break;
-      }
-    case 16:
-      {
-        r.reserve (18);
-        r += "0x";
-
-        for (size_t j (64); j != 0; )
-        {
-          j -= 4;
-          size_t d ((i >> j) & 0x0f);
-
-          // Omit leading zeros but watch out for the i==0 corner case.
-          //
-          if (d != 0 || r.size () != 2 || j == 0)
-            r += hex_digits[d];
-        }
-
-        if (w > r.size () - 2)
-          r.insert (2, w - (r.size () - 2), '0');
-
-        break;
-      }
-    default:
-      throw invalid_argument ("unsupported base");
-    }
-
-    return r;
+    return (to_string (i, b, w));
   }
 
   void

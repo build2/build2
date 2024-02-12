@@ -86,6 +86,51 @@ namespace build2
 //
 namespace build2
 {
+  static const char hex_digits[] = "0123456789abcdef";
+
+  string
+  to_string (uint64_t i, int b, size_t w)
+  {
+    // One day we can switch to C++17 std::to_chars().
+    //
+    string r;
+    switch (b)
+    {
+    case 10:
+      {
+        r = to_string (i);
+        if (w > r.size ())
+          r.insert (0, w - r.size (), '0');
+        break;
+      }
+    case 16:
+      {
+        r.reserve (18);
+        r += "0x";
+
+        for (size_t j (64); j != 0; )
+        {
+          j -= 4;
+          size_t d ((i >> j) & 0x0f);
+
+          // Omit leading zeros but watch out for the i==0 corner case.
+          //
+          if (d != 0 || r.size () != 2 || j == 0)
+            r += hex_digits[d];
+        }
+
+        if (w > r.size () - 2)
+          r.insert (2, w - (r.size () - 2), '0');
+
+        break;
+      }
+    default:
+      throw invalid_argument ("unsupported base");
+    }
+
+    return r;
+  }
+
   void (*terminate) (bool);
 
   process_path argv0;

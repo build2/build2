@@ -52,9 +52,15 @@ namespace build2
   using std::make_shared;
   using std::make_move_iterator;
   using std::back_inserter;
-  using std::to_string;
   using std::stoul;
   using std::stoull;
+
+  using std::to_string;
+
+  // Currently only supports base 10 and 16. Note: adds `0x` if base 16.
+  //
+  LIBBUILD2_SYMEXPORT string
+  to_string (uint64_t, int base, size_t width = 0);
 
   // <libbutl/utility.hxx>
   //
