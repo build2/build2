@@ -265,7 +265,9 @@ namespace build2
     parse_if_else (token&, token_type&,
                    bool,
                    const function<void (
-                     token&, token_type&, bool, const string&)>&);
+                     token&, token_type&, bool, const string&)>&,
+                   const function<void (
+                     token&, token_type&, const string&)>&);
 
     void
     parse_switch (token&, token_type&);
@@ -274,7 +276,9 @@ namespace build2
     parse_switch (token&, token_type&,
                   bool,
                   const function<void (
-                    token&, token_type&, bool, const string&)>&);
+                    token&, token_type&, bool, const string&)>&,
+                  const function<void (
+                    token&, token_type&, const string&)>&);
 
     void
     parse_for (token&, token_type&);
@@ -617,9 +621,12 @@ namespace build2
     void
     process_default_target (token&, const buildfile*);
 
-    // Enter buildfile as a target.
+  private:
+    // Enter buildfile or buildfile-file like file (e.g., a recipe file) as a
+    // target.
     //
-    const buildfile&
+    template <typename T>
+    const T&
     enter_buildfile (const path&, optional<dir_path> out = nullopt);
 
     // Lexer.

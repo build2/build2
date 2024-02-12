@@ -1775,6 +1775,55 @@ namespace build2
     target_type::flag::none
   };
 
+  static const char*
+  buildscript_target_extension (const target_key& tk, const scope*)
+  {
+    // If the name is special 'buildscript', then there is no extension,
+    // otherwise it is .buildscript.
+    //
+    return *tk.name == "buildscript" ? "" : "buildscript";
+  }
+
+  static bool
+  buildscript_target_pattern (const target_type&,
+                             const scope&,
+                             string& v,
+                             optional<string>& e,
+                             const location& l,
+                             bool r)
+  {
+    if (r)
+    {
+      assert (e);
+      e = nullopt;
+    }
+    else
+    {
+      e = target::split_name (v, l);
+
+      if (!e && v != "buildscript")
+      {
+        e = "buildscript";
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  const target_type buildscript::static_type
+  {
+    "buildscript",
+    &file::static_type,
+    &target_factory<buildscript>,
+    &buildscript_target_extension,
+    nullptr,  /* default_extension */
+    &buildscript_target_pattern,
+    nullptr,
+    &file_search,
+    target_type::flag::none
+  };
+
   const target_type doc::static_type
   {
     "doc",

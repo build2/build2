@@ -406,7 +406,7 @@ alias{x}:
   echo
 }
 EOI
-<stdin>:3:1: error: expected recipe block instead of '{'
+<stdin>:3:1: error: expected recipe block or 'recipe' instead of '{'
 EOE
 
 : duplicate-action-single

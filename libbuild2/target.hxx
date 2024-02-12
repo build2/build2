@@ -2501,6 +2501,22 @@ namespace build2
     static const target_type static_type;
   };
 
+  // This target type is primarily used for files mentioned in the `recipe`
+  // directive.
+  //
+  class LIBBUILD2_SYMEXPORT buildscript: public file
+  {
+  public:
+    buildscript (context& c, dir_path d, dir_path o, string n)
+      : file (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
+
+  public:
+    static const target_type static_type;
+  };
+
   // Common documentation file target.
   //
   class LIBBUILD2_SYMEXPORT doc: public file

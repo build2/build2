@@ -311,7 +311,7 @@ namespace build2
       : auto_project_env ());
 
     const buildfile* bf (enter && path_->path != nullptr
-                         ? &enter_buildfile (*path_->path)
+                         ? &enter_buildfile<buildfile> (*path_->path)
                          : nullptr);
     token t;
     type tt;
@@ -345,7 +345,7 @@ namespace build2
                     ? out_src (name.path->directory (), rs)
                     : dir_path ());
 
-      enter_buildfile (*name.path, move (out));
+      enter_buildfile<buildfile> (*name.path, move (out));
     }
 
     parse_buildfile (is, name, &gs, ts, nullptr, nullptr, false /* enter */);
@@ -616,6 +616,12 @@ namespace build2
         else if (n == "config.environment")
         {
           f = &parser::parse_config_environment;
+        }
+        else if (n == "recipe")
+        {
+          // Valid only after recipe header (%).
+          //
+          fail (t) << n << " directive without % recipe header";
         }
 
         if (f != nullptr)
@@ -1917,7 +1923,7 @@ namespace build2
     // Parse a recipe chain.
     //
     // % [<attrs>] [<buildspec>]
-    // [if|if!|switch ...]
+    // [if|if!|switch|recipe ...]
     // {{ [<lang> ...]
     //   ...
     // }}
@@ -1994,7 +2000,131 @@ namespace build2
         attributes&                              as;
         buildspec&                               bs;
         const location&                          bsloc;
-      } d {ttype, name, recipes, first, clean, i, as, bs, bsloc};
+        function<void (string&&)>                parse_trailer;
+      } d {ttype, name, recipes, first, clean, i, as, bs, bsloc, {}};
+
+      d.parse_trailer = [this, &d] (string&& text)
+      {
+        if (d.first)
+        {
+          adhoc_rule& ar (*d.recipes.back ());
+
+          // Translate each buildspec entry into action and add it to the
+          // recipe entry.
+          //
+          const location& l (d.bsloc);
+
+          for (metaopspec& m: d.bs)
+          {
+            meta_operation_id mi (ctx->meta_operation_table.find (m.name));
+
+            if (mi == 0)
+              fail (l) << "unknown meta-operation " << m.name;
+
+            const meta_operation_info* mf (
+              root_->root_extra->meta_operations[mi]);
+
+            if (mf == nullptr)
+              fail (l) << "project " << *root_ << " does not support meta-"
+                       << "operation " << ctx->meta_operation_table[mi].name;
+
+            for (opspec& o: m)
+            {
+              operation_id oi;
+              if (o.name.empty ())
+              {
+                if (mf->operation_pre == nullptr)
+                  oi = update_id;
+                else
+                  // Calling operation_pre() to translate doesn't feel
+                  // appropriate here.
+                  //
+                  fail (l) << "default operation in recipe action" << endf;
+              }
+              else
+                oi = ctx->operation_table.find (o.name);
+
+              if (oi == 0)
+                fail (l) << "unknown operation " << o.name;
+
+              const operation_info* of (root_->root_extra->operations[oi]);
+
+              if (of == nullptr)
+                fail (l) << "project " << *root_ << " does not support "
+                         << "operation " << ctx->operation_table[oi];
+
+              // Note: for now always inner (see match_rule_impl() for
+              // details).
+              //
+              action a (mi, oi);
+
+              // Check for duplicates (local).
+              //
+              if (find_if (
+                    d.recipes.begin (), d.recipes.end (),
+                    [a] (const shared_ptr<adhoc_rule>& r)
+                    {
+                      auto& as (r->actions);
+                      return find (as.begin (), as.end (), a) != as.end ();
+                    }) != d.recipes.end ())
+              {
+                fail (l) << "duplicate " << mf->name << '(' << of->name
+                         << ") recipe";
+              }
+
+              ar.actions.push_back (a);
+            }
+          }
+
+          // Set the recipe text.
+          //
+          if (ar.recipe_text (
+                *scope_,
+                d.ttype != nullptr ? *d.ttype : target_->type (),
+                move (text),
+                d.as))
+            d.clean = true;
+
+          // Verify we have no unhandled attributes.
+          //
+          for (attribute& a: d.as)
+            fail (d.as.loc) << "unknown recipe attribute " << a << endf;
+        }
+
+        // Copy the recipe over to the target verifying there are no
+        // duplicates (global).
+        //
+        if (target_ != nullptr)
+        {
+          const shared_ptr<adhoc_rule>& r (d.recipes[d.i]);
+
+          for (const shared_ptr<adhoc_rule>& er: target_->adhoc_recipes)
+          {
+            auto& as (er->actions);
+
+            for (action a: r->actions)
+            {
+              if (find (as.begin (), as.end (), a) != as.end ())
+              {
+                const meta_operation_info* mf (
+                  root_->root_extra->meta_operations[a.meta_operation ()]);
+
+                const operation_info* of (
+                  root_->root_extra->operations[a.operation ()]);
+
+                fail (d.bsloc)
+                  << "duplicate " << mf->name << '(' << of->name
+                  << ") recipe for target " << *target_;
+              }
+            }
+          }
+
+          target_->adhoc_recipes.push_back (r);
+
+          // Note that "registration" of configure_* and dist_* actions
+          // (similar to ad hoc rules) is provided by match_adhoc_recipe().
+        }
+      };
 
       // Note that this function must be called at most once per iteration.
       //
@@ -2037,7 +2167,7 @@ namespace build2
             //    to rule_name.
 
             shared_ptr<adhoc_rule> ar;
-            if (!lang)
+            if (!lang || icasecmp (*lang, "buildscript") == 0)
             {
               // Buildscript
               //
@@ -2133,133 +2263,198 @@ namespace build2
         }
 
         if (!skip)
-        {
-          if (d.first)
-          {
-            adhoc_rule& ar (*d.recipes.back ());
-
-            // Translate each buildspec entry into action and add it to the
-            // recipe entry.
-            //
-            const location& l (d.bsloc);
-
-            for (metaopspec& m: d.bs)
-            {
-              meta_operation_id mi (ctx->meta_operation_table.find (m.name));
-
-              if (mi == 0)
-                fail (l) << "unknown meta-operation " << m.name;
-
-              const meta_operation_info* mf (
-                root_->root_extra->meta_operations[mi]);
-
-              if (mf == nullptr)
-                fail (l) << "project " << *root_ << " does not support meta-"
-                         << "operation " << ctx->meta_operation_table[mi].name;
-
-              for (opspec& o: m)
-              {
-                operation_id oi;
-                if (o.name.empty ())
-                {
-                  if (mf->operation_pre == nullptr)
-                    oi = update_id;
-                  else
-                    // Calling operation_pre() to translate doesn't feel
-                    // appropriate here.
-                    //
-                    fail (l) << "default operation in recipe action" << endf;
-                }
-                else
-                  oi = ctx->operation_table.find (o.name);
-
-                if (oi == 0)
-                  fail (l) << "unknown operation " << o.name;
-
-                const operation_info* of (root_->root_extra->operations[oi]);
-
-                if (of == nullptr)
-                  fail (l) << "project " << *root_ << " does not support "
-                           << "operation " << ctx->operation_table[oi];
-
-                // Note: for now always inner (see match_rule_impl() for
-                // details).
-                //
-                action a (mi, oi);
-
-                // Check for duplicates (local).
-                //
-                if (find_if (
-                      d.recipes.begin (), d.recipes.end (),
-                      [a] (const shared_ptr<adhoc_rule>& r)
-                      {
-                        auto& as (r->actions);
-                        return find (as.begin (), as.end (), a) != as.end ();
-                      }) != d.recipes.end ())
-                {
-                  fail (l) << "duplicate " << mf->name << '(' << of->name
-                           << ") recipe";
-                }
-
-                ar.actions.push_back (a);
-              }
-            }
-
-            // Set the recipe text.
-            //
-            if (ar.recipe_text (
-                  *scope_,
-                  d.ttype != nullptr ? *d.ttype : target_->type (),
-                  move (t.value),
-                  d.as))
-              d.clean = true;
-
-            // Verify we have no unhandled attributes.
-            //
-            for (attribute& a: d.as)
-              fail (d.as.loc) << "unknown recipe attribute " << a << endf;
-          }
-
-          // Copy the recipe over to the target verifying there are no
-          // duplicates (global).
-          //
-          if (target_ != nullptr)
-          {
-            const shared_ptr<adhoc_rule>& r (d.recipes[d.i]);
-
-            for (const shared_ptr<adhoc_rule>& er: target_->adhoc_recipes)
-            {
-              auto& as (er->actions);
-
-              for (action a: r->actions)
-              {
-                if (find (as.begin (), as.end (), a) != as.end ())
-                {
-                  const meta_operation_info* mf (
-                    root_->root_extra->meta_operations[a.meta_operation ()]);
-
-                  const operation_info* of (
-                    root_->root_extra->operations[a.operation ()]);
-
-                  fail (d.bsloc)
-                    << "duplicate " << mf->name << '(' << of->name
-                    << ") recipe for target " << *target_;
-                }
-              }
-            }
-
-            target_->adhoc_recipes.push_back (r);
-
-            // Note that "registration" of configure_* and dist_* actions
-            // (similar to ad hoc rules) is provided by match_adhoc_recipe().
-          }
-        }
+          d.parse_trailer (move (t.value));
 
         next (t, tt);
         assert (tt == type::multi_rcbrace);
 
         next (t, tt);                          // Newline.
         next_after_newline (t, tt, token (t)); // Should be on its own line.
+      };
+
+      auto parse_recipe_directive = [this, &d] (token& t, type& tt,
+                                                const string&)
+      {
+        // Parse recipe directive:
+        //
+        // recipe <lang> <file>
+        //
+        // Note that here <lang> is not optional.
+        //
+        // @@ We could guess <lang> from the extension.
+
+        // Use value mode to minimize the number of special characters.
+        //
+        mode (lexer_mode::value, '@');
+
+        // Parse <lang>.
+        //
+        if (next (t, tt) != type::word)
+          fail (t) << "expected recipe language instead of " << t;
+
+        location lloc (get_location (t));
+        string lang (t.value);
+        next (t, tt);
+
+        // Parse <file> as names to get variable expansion, etc.
+        //
+        location nloc (get_location (t));
+        names ns (parse_names (t, tt, pattern_mode::ignore, "file name"));
+
+        path file;
+        try
+        {
+          file = convert<path> (move (ns));
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (nloc) << "invalid recipe file path: " << e;
+        }
+
+        string text;
+        if (d.first)
+        {
+          // Source relative to the buildfile rather than src scope. In
+          // particular, this make sourcing from exported buildfiles work.
+          //
+          if (file.relative () && path_->path != nullptr)
+          {
+            // Note: all sourced/included/imported paths are absolute and
+            // normalized.
+            //
+            file = path_->path->directory () / file;
+          }
+
+          file.normalize ();
+
+          try
+          {
+            ifdstream ifs (file);
+            text = ifs.read_text ();
+          }
+          catch (const io_error& e)
+          {
+            fail (nloc) << "unable to read recipe file " << file << ": " << e;
+          }
+
+          shared_ptr<adhoc_rule> ar;
+          {
+            // This is expected to be the location of the opening multi-curly
+            // with the recipe body starting from the following line. So we
+            // need to fudge the line number a bit.
+            //
+            location loc (file, 0, 1);
+
+            if (icasecmp (lang, "buildscript") == 0)
+            {
+              // Buildscript
+              //
+              ar.reset (
+                new adhoc_buildscript_rule (
+                  d.name.empty () ? "<ad hoc buildscript recipe>" : d.name,
+                  loc,
+                  2)); // Use `{{` and `}}` for dump.
+
+              // Enter as buildfile-like so that it gets automatically
+              // distributed. Note: must be consistent with build/export/
+              // handling in process_default_target().
+              //
+              enter_buildfile<buildscript> (file);
+            }
+            else if (icasecmp (lang, "c++") == 0)
+            {
+              // C++
+              //
+              // We expect to find a C++ comment line with version and
+              // optional fragment separator before the first non-comment,
+              // non-blank line:
+              //
+              // // c++ <ver> [<sep>]
+              //
+              string s;
+              location sloc (file, 1, 1);
+              {
+                // @@ Line is inaccurate since we skip consecutive newlines!
+                //
+                size_t b (0), e (0);
+                for (; next_word (text, b, e, '\n', '\r'); sloc.line++)
+                {
+                  s.assign (text, b, e - b);
+
+                  if (!trim (s).empty ())
+                  {
+                    if (icasecmp (s, "// c++ ", 7) == 0)
+                      break;
+
+                    if (s[0] != '/' || s[1] != '/')
+                    {
+                      b = e;
+                      break;
+                    }
+                  }
+                }
+
+                if (b == e)
+                  fail (sloc) << "no '// c++ <version> [<separator>]' line";
+              }
+
+              uint64_t ver;
+              optional<string> sep;
+              {
+                size_t b (7), e (7);
+                if (next_word (s, b, e, ' ', '\t') == 0)
+                  fail (sloc) << "missing c++ recipe version" << endf;
+
+                try
+                {
+                  ver = convert<uint64_t> (build2::name (string (s, b, e - b)));
+                }
+                catch (const invalid_argument& e)
+                {
+                  fail (sloc) << "invalid c++ recipe version: " << e << endf;
+                }
+
+                if (next_word (s, b, e, ' ', '\t') != 0)
+                {
+                  sep = string (s, b, e - b);
+
+                  if (next_word (s, b, e, ' ', '\t') != 0)
+                    fail (sloc) << "junk after fragment separator";
+                }
+              }
+
+              ar.reset (
+                new adhoc_cxx_rule (
+                  d.name.empty () ? "<ad hoc c++ recipe>" : d.name,
+                  loc,
+                  2,  // Use `{{` and `}}` for dump.
+                  ver,
+                  move (sep)));
+
+              // Enter as buildfile-like so that it gets automatically
+              // distributed. Note: must be consistent with build/export/
+              // handling in process_default_target().
+              //
+              // While ideally we would want to use the cxx{} target type,
+              // it's defined in a seperate build system module (which may not
+              // even be loaded by this project, so even runtime lookup won't
+              // work). So we use file{} instead.
+              //
+              enter_buildfile<build2::file> (file);
+            }
+            else
+              fail (lloc) << "unknown recipe language '" << lang << "'";
+          }
+
+          assert (d.recipes[d.i] == nullptr);
+          d.recipes[d.i] = move (ar);
+        }
+        else
+          assert (d.recipes[d.i] != nullptr);
+
+        d.parse_trailer (move (text));
+
+        next_after_newline (t, tt);
       };
 
       bsloc = get_location (t); // Fallback location.
@@ -2319,7 +2514,7 @@ namespace build2
         expire_mode ();
         next_after_newline (t, tt, "recipe action");
 
-        // See if this is if-else or switch.
+        // See if this is if-else/switch or `recipe`.
         //
         // We want the keyword test similar to parse_clause() but we cannot do
         // it if replaying. So we skip it with understanding that if it's not
@@ -2337,12 +2532,19 @@ namespace build2
 
           if (n == "if" || n == "if!")
           {
-            parse_if_else (t, tt, true /* multi */, parse_block);
+            parse_if_else (t, tt, true /* multi */,
+                           parse_block, parse_recipe_directive);
             continue;
           }
           else if (n == "switch")
           {
-            parse_switch (t, tt, true /* multi */, parse_block);
+            parse_switch (t, tt, true /* multi */,
+                          parse_block, parse_recipe_directive);
+            continue;
+          }
+          else if (n == "recipe")
+          {
+            parse_recipe_directive (t, tt, "" /* kind */);
             continue;
           }
 
@@ -2350,7 +2552,7 @@ namespace build2
         }
 
         if (tt != type::multi_lcbrace)
-          fail (t) << "expected recipe block instead of " << t;
+          fail (t) << "expected recipe block or 'recipe' instead of " << t;
 
         // Fall through.
       }
@@ -3188,7 +3390,7 @@ namespace build2
     l5 ([&]{trace (loc) << "entering " << in;});
 
     const buildfile* bf (in.path != nullptr
-                         ? &enter_buildfile (*in.path)
+                         ? &enter_buildfile<buildfile> (*in.path)
                          : nullptr);
 
     const path_name* op (path_);
@@ -4680,14 +4882,17 @@ namespace build2
                    [this] (token& t, type& tt, bool s, const string& k)
                    {
                      return parse_clause_block (t, tt, s, k);
-                   });
+                   },
+                   {});
   }
 
   void parser::
   parse_if_else (token& t, type& tt,
                  bool multi,
                  const function<void (
-                   token&, type&, bool, const string&)>& parse_block)
+                   token&, type&, bool, const string&)>& parse_block,
+                 const function<void (
+                   token&, token_type&, const string&)>& parse_recipe_directive)
   {
     // Handle the whole if-else chain. See tests/if-else.
     //
@@ -4772,35 +4977,65 @@ namespace build2
         parse_block (t, tt, !take, k);
         taken = taken || take;
       }
-      else if (!multi) // No lines in multi-curly if-else.
+      else
       {
-        if (tt == type::multi_lcbrace)
-          fail (t) << "expected " << k << "-line instead of " << t <<
-            info << "did you forget to specify % recipe header?";
-
-        if (take)
+        // The only valid line in multi-curly if-else is `recipe`.
+        //
+        if (multi)
         {
-          if (!parse_clause (t, tt, true))
-            fail (t) << "expected " << k << "-line instead of " << t;
+          // Note that we cannot do the keyword test if we are replaying. So
+          // we skip it with the understanding that if it's not a keywords,
+          // then we wouldn't have gotten here on the replay.
+          //
+          if (tt == type::word &&
+              (replay_ == replay::play || keyword (t)) &&
+              t.value == "recipe")
+          {
+            if (take)
+            {
+              parse_recipe_directive (t, tt, k);
+              taken = true;
+            }
+            else
+            {
+              skip_line (t, tt);
 
-          taken = true;
+              if (tt == type::newline)
+                next (t, tt);
+            }
+          }
+          else
+            fail (t) << "expected " << k << "-block or 'recipe' instead of "
+                     << t;
         }
         else
         {
-          skip_line (t, tt);
+          if (tt == type::multi_lcbrace)
+            fail (t) << "expected " << k << "-line instead of " << t <<
+              info << "did you forget to specify % recipe header?";
 
-          if (tt == type::newline)
-            next (t, tt);
+          if (take)
+          {
+            if (!parse_clause (t, tt, true))
+              fail (t) << "expected " << k << "-line instead of " << t;
+
+            taken = true;
+          }
+          else
+          {
+            skip_line (t, tt);
+
+            if (tt == type::newline)
+              next (t, tt);
+          }
         }
       }
-      else
-        fail (t) << "expected " << k << "-block instead of " << t;
 
       // See if we have another el* keyword.
       //
       // Note that we cannot do the keyword test if we are replaying. So we
       // skip it with the understanding that if it's not a keywords, then we
-      // wouldn't have gotten here on the reply (see parse_recipe() for
+      // wouldn't have gotten here on the replay (see parse_recipe() for
       // details).
       //
       if (k != "else"      &&
@@ -4831,14 +5066,17 @@ namespace build2
                   [this] (token& t, type& tt, bool s, const string& k)
                   {
                     return parse_clause_block (t, tt, s, k);
-                  });
+                  },
+                  {});
   }
 
   void parser::
   parse_switch (token& t, type& tt,
                 bool multi,
                 const function<void (
-                  token&, type&, bool, const string&)>& parse_block)
+                  token&, type&, bool, const string&)>& parse_block,
+                const function<void (
+                  token&, token_type&, const string&)>& parse_recipe_directive)
   {
     // switch <value> [: <func> [<arg>]] [, <value>...]
     // {
@@ -4933,7 +5171,7 @@ namespace build2
     {
       // Note that we cannot do the keyword test if we are replaying. So we
       // skip it with the understanding that if it's not a keywords, then we
-      // wouldn't have gotten here on the reply (see parse_recipe() for
+      // wouldn't have gotten here on the replay (see parse_recipe() for
       // details). Note that this appears to mean that replay cannot be used
       // if we allow lines, only blocks. Consider:
       //
@@ -5139,25 +5377,49 @@ namespace build2
         parse_block (t, tt, !take, k);
         taken = taken || take;
       }
-      else if (!multi) // No lines in multi-curly if-else.
+      else
       {
-        if (take)
+        if (multi)
         {
-          if (!parse_clause (t, tt, true))
-            fail (t) << "expected " << k << "-line instead of " << t;
+          if (tt == type::word &&
+              (replay_ == replay::play || keyword (t)) &&
+              t.value == "recipe")
+          {
+            if (take)
+            {
+              parse_recipe_directive (t, tt, k);
+              taken = true;
+            }
+            else
+            {
+              skip_line (t, tt);
 
-          taken = true;
+              if (tt == type::newline)
+                next (t, tt);
+            }
+          }
+          else
+            fail (t) << "expected " << k << "-block or 'recipe' instead of "
+                     << t;
         }
         else
         {
-          skip_line (t, tt);
+          if (take)
+          {
+            if (!parse_clause (t, tt, true))
+              fail (t) << "expected " << k << "-line instead of " << t;
 
-          if (tt == type::newline)
-            next (t, tt);
+            taken = true;
+          }
+          else
+          {
+            skip_line (t, tt);
+
+            if (tt == type::newline)
+              next (t, tt);
+          }
         }
       }
-      else
-        fail (t) << "expected " << k << "-block instead of " << t;
     }
 
     if (tt != type::rcbrace)
@@ -9642,7 +9904,17 @@ namespace build2
               {
                 const path& n (e.path ());
 
-                if (n.extension () == build_ext)
+                // Besides the buildfile also export buildscript and C++ files
+                // that are used to provide recipe implementations (see
+                // parse_recipe() for details).
+                //
+                string e (n.extension ());
+                if (const target_type* tt = (
+                      e == build_ext     ? &buildfile::static_type   :
+                      e == "buildscript" ? &buildscript::static_type :
+                      e == "cxx" ||
+                      e == "cpp" ||
+                      e == "cc"          ? &file::static_type : nullptr))
                 {
                   // Enter as if found by search_existing_file(). Note that
                   // entering it as real would cause file_rule not to match
@@ -9652,13 +9924,13 @@ namespace build2
                   // example, if already imported).
                   //
                   const target& bf (
-                    ctx->targets.insert (buildfile::static_type,
+                    ctx->targets.insert (*tt,
                                          d,
                                          (root_->out_eq_src ()
                                           ? dir_path ()
                                           : out_src (d, *root_)),
                                          n.base ().string (),
-                                         build_ext,
+                                         move (e),
                                          target_decl::prereq_file,
                                          trace).first);
 
@@ -9696,7 +9968,7 @@ namespace build2
           // subdirectories inside export/. Essentially, we are arranging for
           // this:
           //
-          // build/export/buildfile{*}:
+          // build/export/file{*}:
           // {
           //   install = buildfile/
           //   install.subdirs = true
@@ -9705,7 +9977,7 @@ namespace build2
           if (cast_false<bool> (root_->vars["install.loaded"]))
           {
             enter_scope es (*this, dir_path (export_dir));
-            auto& vars (scope_->target_vars[buildfile::static_type]["*"]);
+            auto& vars (scope_->target_vars[file::static_type]["*"]);
 
             // @@ TODO: get cached variables from the module once we have one.
             //
@@ -9728,7 +10000,8 @@ namespace build2
     }
   }
 
-  const buildfile& parser::
+  template <typename T>
+  const T& parser::
   enter_buildfile (const path& p, optional<dir_path> out)
   {
     tracer trace ("parser::enter_buildfile", &path_);
@@ -9748,7 +10021,7 @@ namespace build2
       o = out_src (d, *root_);
     }
 
-    return ctx->targets.insert<buildfile> (
+    return ctx->targets.insert<T> (
       move (d),
       move (o),
       p.leaf ().base ().string (),
