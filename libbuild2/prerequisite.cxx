@@ -54,13 +54,13 @@ namespace build2
   }
 
   prerequisite::
-  prerequisite (const target_type& t)
+  prerequisite (const target_type& t, bool locked)
       : proj (nullopt),
         type (t.type ()),
         dir (t.dir),
         out (t.out),   // @@ If it's empty, then we treat as undetermined?
         name (t.name),
-        ext (to_ext (t.ext ())),
+        ext (to_ext (locked ? t.ext_locked () : t.ext ())),
         scope (t.base_scope ()),
         target (&t),
         vars (*this, false /* shared */)

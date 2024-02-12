@@ -97,10 +97,26 @@ namespace build2
           scope (s),
           vars (*this, false /* shared */) {}
 
-    // Make a prerequisite from a target.
+    prerequisite (const target_type_type& t,
+                  dir_path d,
+                  dir_path o,
+                  string n,
+                  optional<string> e,
+                  const scope_type& s)
+        : type (t),
+          dir (move (d)),
+          out (move (o)),
+          name (move (n)),
+          ext (move (e)),
+          scope (s),
+          vars (*this, false /* shared */) {}
+
+    // Make a prerequisite from a target. If the second argument is true,
+    // assume the targets mutex is locked (see ext_locked()/key_locked()
+    // for background).
     //
     explicit
-    prerequisite (const target_type&);
+    prerequisite (const target_type&, bool locked = false);
 
     // Note that the returned key "tracks" the prerequisite; that is, any
     // updates to the prerequisite's members will be reflected in the key.

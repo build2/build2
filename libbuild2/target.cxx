@@ -1424,8 +1424,7 @@ namespace build2
         if (e.type () == entry_type::directory)
         {
           r.push_back (
-            prerequisite (nullopt,
-                          dir::static_type,
+            prerequisite (dir::static_type,
                           dir_path (e.path ().representation ()), // Relative.
                           dir_path (), // In the out tree.
                           string (),
