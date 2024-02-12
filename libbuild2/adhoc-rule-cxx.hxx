@@ -36,11 +36,6 @@ namespace build2
     // cannot be injected as a real prerequisite since it's from a different
     // build context).
     //
-    // If pattern is not NULL then this recipe belongs to an ad hoc pattern
-    // rule and apply() may need to call the pattern's apply_*() functions if
-    // the pattern has any ad hoc group member substitutions or prerequisite
-    // substitutions/non-patterns, respectively.
-    //
     const location     recipe_loc;     // Buildfile location of the recipe.
     const target_state recipe_state;   // State of recipe library target.
     const adhoc_rule_pattern* pattern; // Ad hoc pattern rule of recipe.
@@ -57,6 +52,21 @@ namespace build2
     //
     virtual bool
     match (action, target&) const override;
+
+    using simple_rule::match; // Unhide the match_extra version.
+
+    // Either this version or the one with match_extra must be overridden.
+    //
+    // If the pattern member above is not NULL then this recipe belongs to an
+    // ad hoc pattern rule and the implementation may need to call the
+    // pattern's apply_*() functions if the pattern has any ad hoc group
+    // member substitutions or prerequisite substitutions/non-patterns,
+    // respectively.
+    //
+    virtual recipe
+    apply (action, target&) const override;
+
+    using simple_rule::apply; // Unhide the match_extra version.
   };
 
   // Note: not exported.

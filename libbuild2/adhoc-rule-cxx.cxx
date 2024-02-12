@@ -25,6 +25,13 @@ namespace build2
     return true;
   }
 
+  recipe cxx_rule_v1::
+  apply (action, target&) const
+  {
+    assert (false); // This (or the match_extra version) must be overriden.
+    return empty_recipe;
+  }
+
   // adhoc_cxx_rule
   //
   adhoc_cxx_rule::
@@ -698,6 +705,13 @@ namespace build2
       match_sync (a, *g, 0 /* options */);
       return group_recipe; // Execute the group's recipe.
     }
+
+    // Note that while we probably could call pattern's apply_group_members()
+    // here, apply_group_prerequisites() is normally called after adding
+    // prerequisites but before matching, which can only be done from the
+    // rule's implementation. Also, for apply_group_members(), there is the
+    // explicit group special case which may also require custom logic.
+    // So it feels best to leave both to the implementation.
 
     return impl.load (memory_order_relaxed)->apply (a, t, me);
   }
