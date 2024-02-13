@@ -141,6 +141,9 @@ namespace build2
 
     bool
     is_a (const char*) const; // Defined in target.cxx
+
+    target_type& operator= (target_type&&) = delete;
+    target_type& operator= (const target_type&) = delete;
   };
 
   inline bool

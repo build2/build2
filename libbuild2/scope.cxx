@@ -985,10 +985,17 @@ namespace build2
 
     // Note: copies flags.
     //
-    unique_ptr<target_type> dt (new target_type (base));
-    dt->base = &base;
-    dt->factory = &derived_tt_factory;
-    dt->flags |= flags;
+    unique_ptr<target_type> dt (
+      new target_type {
+        nullptr, // Will be patched in by insert() below.
+        &base,
+        &derived_tt_factory,
+        base.fixed_extension,
+        base.default_extension,
+        base.pattern,
+        base.print,
+        base.search,
+        base.flags | flags});
 
 #if 0
     // @@ We should probably inherit the fixed extension unless overriden with
@@ -1067,8 +1074,17 @@ namespace build2
   derive_target_type (const target_type& et)
   {
     assert (root_scope () == this);
-    unique_ptr<target_type> dt (new target_type (et));
-    dt->factory = &derived_tt_factory;
+    unique_ptr<target_type> dt (
+      new target_type {
+        nullptr, // Will be patched in by insert() below.
+        et.base,
+        &derived_tt_factory,
+        et.fixed_extension,
+        et.default_extension,
+        et.pattern,
+        et.print,
+        et.search,
+        et.flags});
     return root_extra->target_types.insert (et.name, move (dt)).first;
   }
 
