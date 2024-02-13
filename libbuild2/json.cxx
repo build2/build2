@@ -61,6 +61,17 @@ namespace build2
   const json_value null_json_value (json_type::null);
 
   [[noreturn]] void
+  json_as_throw (json_type t, json_type e)
+  {
+    string m;
+    m = "expected ";
+    m += to_string (e, true);
+    m += " instead of ";
+    m += to_string (t, true);
+    throw invalid_argument (move (m));
+  }
+
+  [[noreturn]] static void
   at_throw (json_type t, json_type e, bool index)
   {
     string m;
@@ -68,16 +79,16 @@ namespace build2
     if (t != e && t != json_type::null)
     {
       m = "expected ";
-      m += to_string (e);
+      m += to_string (e, true);
       m += " instead of ";
-      m += to_string (t);
+      m += to_string (t, true);
       throw invalid_argument (move (m));
     }
     else
     {
       m = index ? "index" : "name";
       m += " out of range in ";
-      m += to_string (e);
+      m += to_string (e, true);
       throw std::out_of_range (move (m));
     }
   }
@@ -106,6 +117,7 @@ namespace build2
     at_throw (type, json_type::array, true);
   }
 
+#if 0
   const json_value& json_value::
   operator[] (size_t index) const
   {
@@ -145,6 +157,7 @@ namespace build2
 
     at_throw (type, json_type::array, true);
   }
+#endif
 
   const json_value& json_value::
   at (const char* name) const
@@ -182,6 +195,40 @@ namespace build2
     at_throw (type, json_type::object, false);
   }
 
+  const json_value* json_value::
+  find (const char* name) const
+  {
+    if (type == json_type::object)
+    {
+      auto i (find_if (object.begin (), object.end (),
+                       [name] (const json_member& m)
+                       {
+                         return m.name == name;
+                       }));
+      return i != object.end () ? &i->value : nullptr;
+    }
+
+    at_throw (type, json_type::object, false);
+  }
+
+  json_value* json_value::
+  find (const char* name)
+  {
+    if (type == json_type::object)
+    {
+      auto i (find_if (object.begin (), object.end (),
+                       [name] (const json_member& m)
+                       {
+                         return m.name == name;
+                       }));
+
+      return i != object.end () ? &i->value : nullptr;
+    }
+
+    at_throw (type, json_type::object, false);
+  }
+
+#if 0
   const json_value& json_value::
   operator[] (const char* name) const
   {
@@ -229,6 +276,7 @@ namespace build2
 
     at_throw (type, json_type::object, false);
   }
+#endif
 
   int json_value::
   compare (const json_value& v) const noexcept
@@ -683,8 +731,8 @@ namespace build2
         p.line (),
         p.column (),
         p.position (),
-        string_type ("expected ") + to_string (*et) + " instead of " +
-        to_string (t));
+        string_type ("expected ") + to_string (*et, true) + " instead of " +
+        to_string (t, true));
     }
 
     switch (t)
@@ -782,8 +830,8 @@ namespace build2
       throw invalid_json_output (
         nullopt,
         invalid_json_output::error_code::invalid_value,
-        string_type ("expected ") + to_string (*et) + " instead of " +
-        to_string (type));
+        string_type ("expected ") + to_string (*et, true) + " instead of " +
+        to_string (type, true));
     }
 
     switch (type)

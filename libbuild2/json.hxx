@@ -87,6 +87,8 @@ namespace build2
 
     json_type type;
 
+    // Unchecked value access.
+    //
     union
     {
       bool           boolean;
@@ -97,6 +99,32 @@ namespace build2
       object_type    object;
     };
 
+    // Checked value access.
+    //
+    // If the type matches, return the corresponding member of the union.
+    // Otherwise throw std::invalid_argument.
+    //
+    bool  as_bool () const;
+    bool& as_bool ();
+
+    int64_t  as_int64 () const;
+    int64_t& as_int64 ();
+
+    uint64_t  as_uint64 () const;
+    uint64_t& as_uint64 ();
+
+    const string_type& as_string () const;
+    string_type&       as_string ();
+
+    const array_type& as_array () const;
+    array_type&       as_array ();
+
+    const object_type& as_object () const;
+    object_type&       as_object ();
+
+
+    // Construction.
+    //
     explicit
     json_value (json_type = json_type::null) noexcept;
 
@@ -161,7 +189,7 @@ namespace build2
     // position (filling any missing elements in between with nulls) and
     // returns that. All three functions throw std::invalid_argument if the
     // value is not an array or null with null treated as (missing) array
-    // rather than wrong value type (and with at() functons throwing
+    // rather than wrong value type (and with at() functions throwing
     // out_of_range in this case).
     //
     // Note that non-const operator[] will not only insert a new element but
@@ -174,8 +202,8 @@ namespace build2
     // can lead to inefficiencies or even undesirable semantics during
     // otherwise read-only access of a non-const object due to the potential
     // insertion of null values for missing array elements. As a result, it's
-    // recommended to alwas use a const reference for read-only access (or use
-    // the at() interface if this is deemed too easy to forget).
+    // recommended to always use a const reference for read-only access (or
+    // use the at() interface if this is deemed too easy to forget).
     //
     const json_value&
     at (size_t) const;
@@ -183,22 +211,25 @@ namespace build2
     json_value&
     at (size_t);
 
+#if 0
     const json_value&
     operator[] (size_t) const;
 
     json_value&
     operator[] (size_t);
+#endif
 
 
     // Object member access.
     //
     // If a member with the specified name is not found in the object, the
-    // at() functions throw std::out_of_range, the const operator[] returns
-    // null_json_value, and the non-const operator[] adds a new member with
-    // the specified name and null value and returns that value. All three
-    // functions throw std::invalid_argument if the value is not an array or
-    // null with null treated as (missing) object rather than wrong value type
-    // (and with at() functons throwing out_of_range in this case).
+    // at() functions throw std::out_of_range, the find() function returns
+    // NULL, the const operator[] returns null_json_value, and the non-const
+    // operator[] adds a new member with the specified name and null value and
+    // returns that value. All three functions throw std::invalid_argument if
+    // the value is not an object or null with null treated as (missing)
+    // object rather than wrong value type (and with at() functions throwing
+    // out_of_range in this case).
     //
     // Note that non-const operator[] will not only insert a new member but
     // will also turn the value it is called upon into object if it is null.
@@ -210,8 +241,8 @@ namespace build2
     // can lead to inefficiencies or even undesirable semantics during
     // otherwise read-only access of a non-const object due to the potential
     // insertion of null values for missing object members. As a result, it's
-    // recommended to alwas use a const reference for read-only access (or use
-    // the at() interface if this is deemed too easy to forget).
+    // recommended to always use a const reference for read-only access (or
+    // use the at() interface if this is deemed too easy to forget).
     //
     const json_value&
     at (const char*) const;
@@ -219,11 +250,19 @@ namespace build2
     json_value&
     at (const char*);
 
+    const json_value*
+    find (const char*) const;
+
+    json_value*
+    find (const char*);
+
+#if 0
     const json_value&
     operator[] (const char*) const;
 
     json_value&
     operator[] (const char*);
+#endif
 
     const json_value&
     at (const string_type&) const;
@@ -231,11 +270,19 @@ namespace build2
     json_value&
     at (const string_type&);
 
+    const json_value*
+    find (const string_type&) const;
+
+    json_value*
+    find (const string_type&);
+
+#if 0
     const json_value&
     operator[] (const string_type&) const;
 
     json_value&
     operator[] (const string_type&);
+#endif
 
     // Note that the moved-from value becomes JSON null value.
     //

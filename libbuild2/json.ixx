@@ -3,6 +3,119 @@
 
 namespace build2
 {
+  [[noreturn]] LIBBUILD2_SYMEXPORT void
+  json_as_throw (json_type actual, json_type expected);
+
+  inline bool json_value::
+  as_bool () const
+  {
+    if (type == json_type::boolean)
+      return boolean;
+
+    json_as_throw (type, json_type::boolean);
+  }
+
+  inline bool& json_value::
+  as_bool ()
+  {
+    if (type == json_type::boolean)
+      return boolean;
+
+    json_as_throw (type, json_type::boolean);
+  }
+
+  inline int64_t json_value::
+  as_int64 () const
+  {
+    if (type == json_type::signed_number)
+      return signed_number;
+
+    json_as_throw (type, json_type::signed_number);
+  }
+
+  inline int64_t& json_value::
+  as_int64 ()
+  {
+    if (type == json_type::signed_number)
+      return signed_number;
+
+    json_as_throw (type, json_type::signed_number);
+  }
+
+  inline uint64_t json_value::
+  as_uint64 () const
+  {
+    if (type == json_type::unsigned_number ||
+        type == json_type::hexadecimal_number)
+      return unsigned_number;
+
+    json_as_throw (type, json_type::unsigned_number);
+  }
+
+  inline uint64_t& json_value::
+  as_uint64 ()
+  {
+    if (type == json_type::unsigned_number ||
+        type == json_type::hexadecimal_number)
+      return unsigned_number;
+
+    json_as_throw (type, json_type::unsigned_number);
+  }
+
+  inline const string& json_value::
+  as_string () const
+  {
+    if (type == json_type::string)
+      return string;
+
+    json_as_throw (type, json_type::string);
+  }
+
+  inline string& json_value::
+  as_string ()
+  {
+    if (type == json_type::string)
+      return string;
+
+    json_as_throw (type, json_type::string);
+  }
+
+  inline const json_value::array_type& json_value::
+  as_array () const
+  {
+    if (type == json_type::array)
+      return array;
+
+    json_as_throw (type, json_type::array);
+  }
+
+  inline json_value::array_type& json_value::
+  as_array ()
+  {
+    if (type == json_type::array)
+      return array;
+
+    json_as_throw (type, json_type::array);
+  }
+
+  inline const json_value::object_type& json_value::
+  as_object () const
+  {
+    if (type == json_type::object)
+      return object;
+
+    json_as_throw (type, json_type::object);
+  }
+
+  inline json_value::object_type& json_value::
+  as_object ()
+  {
+    if (type == json_type::object)
+      return object;
+
+    json_as_throw (type, json_type::object);
+  }
+
   inline json_value::
   ~json_value () noexcept
   {
@@ -81,6 +194,19 @@ namespace build2
     return at (n.c_str ());
   }
 
+  inline const json_value* json_value::
+  find (const string_type& n) const
+  {
+    return find (n.c_str ());
+  }
+
+  inline json_value* json_value::
+  find (const string_type& n)
+  {
+    return find (n.c_str ());
+  }
+
+#if 0
   inline const json_value& json_value::
   operator[] (const string_type& n) const
   {
@@ -92,6 +218,7 @@ namespace build2
   {
     return operator[] (n.c_str ());
   }
+#endif
 
   inline json_value::
   json_value (json_value&& v) noexcept
