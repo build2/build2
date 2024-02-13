@@ -1903,16 +1903,18 @@ namespace build2
   }
 
   const fsdir*
-  inject_fsdir (action a, target& t, bool prereq, bool parent)
+  inject_fsdir (action a, target& t, bool match, bool prereq, bool parent)
   {
     const fsdir* r (inject_fsdir_impl (t, prereq, parent));
 
     if (r != nullptr)
     {
+      if (match)
+        match_sync (a, *r);
+
       // Make it ad hoc so that it doesn't end up in prerequisite_targets
       // after execution.
       //
-      match_sync (a, *r);
       t.prerequisite_targets[a].emplace_back (r, include_type::adhoc);
     }
 

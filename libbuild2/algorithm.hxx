@@ -650,8 +650,12 @@ namespace build2
   // src tree or is outside of any project (say, for example, an installation
   // directory). If the parent argument is true, then inject the parent
   // directory of a target that is itself a directory (name is empty). Match
-  // and return the injected target or NULL. Normally this function is called
-  // from the rule's apply() function.
+  // unless match is false and return the injected target or NULL. Normally
+  // this function is called from the rule's apply() function.
+  //
+  // The match=false semantics is useful when you wish to first collect all
+  // the prerequisites targets and then match them all as a separate step, for
+  // example, with match_members().
   //
   // As an extension, unless prereq is false, this function will also search
   // for an existing fsdir{} prerequisite for the directory and if one exists,
@@ -659,7 +663,10 @@ namespace build2
   // example, to place output into an otherwise non-existent directory.
   //
   LIBBUILD2_SYMEXPORT const fsdir*
-  inject_fsdir (action, target&, bool prereq = true, bool parent = true);
+  inject_fsdir (action, target&,
+                bool match = true,
+                bool prereq = true,
+                bool parent = true);
 
   // As above, but match the injected fsdir{} target directly (that is,
   // without incrementing the dependency counts).

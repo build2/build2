@@ -424,7 +424,7 @@ namespace build2
     // prerequisites injected by the pattern. So we have to handle this ad hoc
     // below.
     //
-    const fsdir* dir (inject_fsdir (a, t, false /* prereq */));
+    const fsdir* dir (inject_fsdir (a, t, true /*match*/, false /*prereq*/));
 
     // Match prerequisites.
     //
