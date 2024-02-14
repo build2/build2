@@ -1719,7 +1719,8 @@ namespace build2
   match_prerequisite_range (action a, target& t,
                             R&& r,
                             const S& ms,
-                            const scope* s)
+                            const scope* s,
+                            bool search_only)
   {
     auto& pts (t.prerequisite_targets[a]);
 
@@ -1740,7 +1741,10 @@ namespace build2
     // Start asynchronous matching of prerequisites. Wait with unlocked phase
     // to allow phase switching.
     //
-    wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
+    wait_guard wg (
+      search_only
+      ? wait_guard ()
+      : wait_guard (t.ctx, t.ctx.count_busy (), t[a].task_count, true));
 
     for (auto&& p: forward<R> (r))
     {
@@ -1760,9 +1764,14 @@ namespace build2
           (s != nullptr && !pt.target->in (*s)))
         continue;
 
-      match_async (a, *pt.target, t.ctx.count_busy (), t[a].task_count);
+      if (!search_only)
+        match_async (a, *pt.target, t.ctx.count_busy (), t[a].task_count);
+
       pts.push_back (move (pt));
     }
+
+    if (search_only)
+      return;
 
     wg.wait ();
 
@@ -1778,17 +1787,27 @@ namespace build2
   void
   match_prerequisites (action a, target& t,
                        const match_search& ms,
-                       const scope* s)
+                       const scope* s,
+                       bool search_only)
   {
-    match_prerequisite_range (a, t, group_prerequisites (t), ms, s);
+    match_prerequisite_range (a, t,
+                              group_prerequisites (t),
+                              ms,
+                              s,
+                              search_only);
   }
 
   void
   match_prerequisite_members (action a, target& t,
                               const match_search_member& msm,
-                              const scope* s)
+                              const scope* s,
+                              bool search_only)
   {
-    match_prerequisite_range (a, t, group_prerequisite_members (a, t), msm, s);
+    match_prerequisite_range (a, t,
+                              group_prerequisite_members (a, t),
+                              msm,
+                              s,
+                              search_only);
   }
 
   void

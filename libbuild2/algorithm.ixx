@@ -745,12 +745,16 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT void
-  match_prerequisites (action, target&, const match_search&, const scope*);
+  match_prerequisites (action, target&,
+                       const match_search&,
+                       const scope*,
+                       bool search_only);
 
   LIBBUILD2_SYMEXPORT void
   match_prerequisite_members (action, target&,
                               const match_search_member&,
-                              const scope*);
+                              const scope*,
+                              bool search_only);
 
   inline void
   match_prerequisites (action a, target& t, const match_search& ms)
@@ -761,7 +765,21 @@ namespace build2
       ms,
       (a.operation () != clean_id || t.is_a<alias> ()
        ? nullptr
-       : &t.root_scope ()));
+       : &t.root_scope ()),
+      false);
+  }
+
+  inline void
+  search_prerequisites (action a, target& t, const match_search& ms)
+  {
+    match_prerequisites (
+      a,
+      t,
+      ms,
+      (a.operation () != clean_id || t.is_a<alias> ()
+       ? nullptr
+       : &t.root_scope ()),
+      true);
   }
 
   inline void
@@ -769,7 +787,7 @@ namespace build2
                               const match_search_member& msm)
   {
     if (a.operation () != clean_id || t.is_a<alias> ())
-      match_prerequisite_members (a, t, msm, nullptr);
+      match_prerequisite_members (a, t, msm, nullptr, false);
     else
     {
       // Note that here we don't iterate over members even for see-through
@@ -777,7 +795,7 @@ namespace build2
       // optimization.
       //
       // @@ TMP: I wonder if this still holds for the new group semantics
-      //         we have in Qt automoc?
+      //         we have in Qt automoc? Also below.
       //
       match_search ms (
         msm
@@ -790,20 +808,62 @@ namespace build2
         }
         : match_search ());
 
-      match_prerequisites (a, t, ms, &t.root_scope ());
+      match_prerequisites (a, t, ms, &t.root_scope (), false);
+    }
+  }
+
+  inline void
+  search_prerequisite_members (action a, target& t,
+                              const match_search_member& msm)
+  {
+    if (a.operation () != clean_id || t.is_a<alias> ())
+      match_prerequisite_members (a, t, msm, nullptr, true);
+    else
+    {
+      // Note that here we don't iterate over members even for see-through
+      // groups since the group target should clean eveything up. A bit of an
+      // optimization.
+      //
+      // @@ TMP: I wonder if this still holds for the new group semantics
+      //         we have in Qt automoc? Also above.
+      //
+      match_search ms (
+        msm
+        ? [&msm] (action a,
+                  const target& t,
+                  const prerequisite& p,
+                  include_type i)
+        {
+          return msm (a, t, prerequisite_member {p, nullptr}, i);
+        }
+        : match_search ());
+
+      match_prerequisites (a, t, ms, &t.root_scope (), true);
     }
   }
 
   inline void
   match_prerequisites (action a, target& t, const scope& s)
   {
-    match_prerequisites (a, t, nullptr, &s);
+    match_prerequisites (a, t, nullptr, &s, false);
+  }
+
+  inline void
+  search_prerequisites (action a, target& t, const scope& s)
+  {
+    match_prerequisites (a, t, nullptr, &s, true);
   }
 
   inline void
   match_prerequisite_members (action a, target& t, const scope& s)
   {
-    match_prerequisite_members (a, t, nullptr, &s);
+    match_prerequisite_members (a, t, nullptr, &s, false);
+  }
+
+  inline void
+  search_prerequisite_members (action a, target& t, const scope& s)
+  {
+    match_prerequisite_members (a, t, nullptr, &s, true);
   }
 
   LIBBUILD2_SYMEXPORT target_state

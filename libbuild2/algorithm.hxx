@@ -563,6 +563,19 @@ namespace build2
   void
   match_prerequisites (action, target&, const match_search& = nullptr);
 
+  // As above but only do search. The match part can be performed later, for
+  // example, with the match_members() function below. The typical call
+  // sequence would be:
+  //
+  // inject_fsdir (a, t, false /* match */);
+  // search_prerequisite_members (a, t);            // Potentially with filter.
+  // pattern->apply_prerequisites (a, t, bs, me);   // If ad hoc pattern.
+  // <dependency synthesis>                         // Optional.
+  // match_members (a, t, t.prerequisite_targets[a]);
+  //
+  void
+  search_prerequisites (action, target&, const match_search& = nullptr);
+
   // As above but go into group members.
   //
   // Note that if we are cleaning, this function doesn't go into group
@@ -578,13 +591,23 @@ namespace build2
   match_prerequisite_members (action, target&,
                               const match_search_member& = nullptr);
 
+  void
+  search_prerequisite_members (action, target&,
+                               const match_search_member& = nullptr);
+
   // As above but omit prerequisites that are not in the specified scope.
   //
   void
   match_prerequisites (action, target&, const scope&);
 
   void
+  search_prerequisites (action, target&, const scope&);
+
+  void
   match_prerequisite_members (action, target&, const scope&);
+
+  void
+  search_prerequisite_members (action, target&, const scope&);
 
   // Match (already searched) members of a group or similar prerequisite-like
   // dependencies. Similar in semantics to match_prerequisites(). Any marked
