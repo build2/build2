@@ -2154,6 +2154,10 @@ namespace build2
       // Tricky: this can still be JSON input text that is an array. And if
       // it's not, then make it an element of an array.
       //
+      // @@ Hm, this is confusing: [json_array] a = null ! Maybe not? But then
+      //    this won't work: [json_array] a = ([json_array] null). Maybe
+      //    distinguish in assign?
+      //
       json_value v (to_json_value (ns.front (), "json"));
 
       if (v.type == json_type::array)
