@@ -1723,12 +1723,25 @@ namespace build2
   {
     auto& pts (t.prerequisite_targets[a]);
 
+    size_t i (pts.size ()); // Index of the first to be added.
+
+    // Avoid duplicating fsdir{} that may have already been injected by
+    // inject_fsdir() (in which case it is expected to be first).
+    //
+    const target* dir (nullptr);
+    if (i != 0)
+    {
+      const prerequisite_target& pt (pts.front ());
+
+      if (pt.target != nullptr && pt.adhoc () && pt.target->is_a<fsdir> ())
+        dir = pt.target;
+    }
+
     // Start asynchronous matching of prerequisites. Wait with unlocked phase
     // to allow phase switching.
     //
     wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
 
-    size_t i (pts.size ()); // Index of the first to be added.
     for (auto&& p: forward<R> (r))
     {
       // Ignore excluded.
@@ -1742,7 +1755,9 @@ namespace build2
                               ? ms (a, t, p, pi)
                               : prerequisite_target (&search (t, p), pi));
 
-      if (pt.target == nullptr || (s != nullptr && !pt.target->in (*s)))
+      if (pt.target == nullptr ||
+          pt.target == dir     ||
+          (s != nullptr && !pt.target->in (*s)))
         continue;
 
       match_async (a, *pt.target, t.ctx.count_busy (), t[a].task_count);
@@ -1905,6 +1920,10 @@ namespace build2
   const fsdir*
   inject_fsdir (action a, target& t, bool match, bool prereq, bool parent)
   {
+    auto& pts (t.prerequisite_targets[a]);
+
+    assert (!prereq || pts.empty ()); // This prerequisite target must be first.
+
     const fsdir* r (inject_fsdir_impl (t, prereq, parent));
 
     if (r != nullptr)
@@ -1915,7 +1934,7 @@ namespace build2
       // Make it ad hoc so that it doesn't end up in prerequisite_targets
       // after execution.
       //
-      t.prerequisite_targets[a].emplace_back (r, include_type::adhoc);
+      pts.emplace_back (r, include_type::adhoc);
     }
 
     return r;
@@ -1924,12 +1943,16 @@ namespace build2
   const fsdir*
   inject_fsdir_direct (action a, target& t, bool prereq, bool parent)
   {
+    auto& pts (t.prerequisite_targets[a]);
+
+    assert (!prereq || pts.empty ()); // This prerequisite target must be first.
+
     const fsdir* r (inject_fsdir_impl (t, prereq, parent));
 
     if (r != nullptr)
     {
       match_direct_sync (a, *r);
-      t.prerequisite_targets[a].emplace_back (r, include_type::adhoc);
+      pts.emplace_back (r, include_type::adhoc);
     }
 
     return r;

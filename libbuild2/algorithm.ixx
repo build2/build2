@@ -776,6 +776,9 @@ namespace build2
       // groups since the group target should clean eveything up. A bit of an
       // optimization.
       //
+      // @@ TMP: I wonder if this still holds for the new group semantics
+      //         we have in Qt automoc?
+      //
       match_search ms (
         msm
         ? [&msm] (action a,

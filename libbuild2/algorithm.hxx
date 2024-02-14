@@ -659,8 +659,13 @@ namespace build2
   //
   // As an extension, unless prereq is false, this function will also search
   // for an existing fsdir{} prerequisite for the directory and if one exists,
-  // return that (even if the target is in src tree). This can be used, for
-  // example, to place output into an otherwise non-existent directory.
+  // return that (even if the target is in the src tree). In this case, the
+  // injected fsdir{} (if any) must be the first prerequisite in this target's
+  // prerequisite_targets, which is relied upon by the match_prerequisite*()
+  // family of functons to suppress the duplicate addition.
+  //
+  // Note that the explicit fsdir{} prerquiste is used to place output into an
+  // otherwise non-existent (in src) directory.
   //
   LIBBUILD2_SYMEXPORT const fsdir*
   inject_fsdir (action, target&,
