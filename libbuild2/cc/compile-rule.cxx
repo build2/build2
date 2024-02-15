@@ -1085,7 +1085,8 @@ namespace build2
         {
           pt = &p.search (t);
 
-          if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
+          if (pt == dir ||
+              (a.operation () == clean_id && !pt->dir.sub (rs.out_path ())))
             continue;
         }
 

@@ -369,7 +369,8 @@ namespace build2
     // The implementation should append pattern prerequisites to
     // t.prerequisite_targets[a] but not match. It should set bit 2 in
     // prerequisite_target::include to indicate update=match and bit 3
-    // to indicate update=unmatch.
+    // to indicate update=unmatch. It should also avoid adding duplicate
+    // fsdir{} similar to the search_prerequisite*() functions.
     //
     virtual void
     apply_prerequisites (action, target&,

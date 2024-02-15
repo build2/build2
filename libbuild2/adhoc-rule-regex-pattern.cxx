@@ -452,6 +452,18 @@ namespace build2
 
     auto& pts (t.prerequisite_targets[a]);
 
+    // Avoid duplicating fsdir{} that may have already been injected by
+    // inject_fsdir() (in which case it is expected to be first).
+    //
+    const target* dir (nullptr);
+    if (!pts.empty ())
+    {
+      const prerequisite_target& pt (pts.front ());
+
+      if (pt.target != nullptr && pt.adhoc () && pt.target->is_a<fsdir> ())
+        dir = pt.target;
+    }
+
     for (const element& e: prereqs_)
     {
       // While it would be nice to avoid copying here, the semantics of
@@ -488,7 +500,7 @@ namespace build2
 
       const target& pt (search (t, move (n), *s, &e.type));
 
-      if (clean && !pt.in (*bs.root_scope ()))
+      if (&pt == dir || (clean && !pt.in (*bs.root_scope ())))
         continue;
 
       // @@ TODO: it could be handy to mark a prerequisite (e.g., a tool)

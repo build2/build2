@@ -912,7 +912,7 @@ namespace build2
       // for binless libraries since there could be other output (e.g., .pc
       // files).
       //
-      inject_fsdir (a, t);
+      const fsdir* dir (inject_fsdir (a, t));
 
       // Process prerequisites, pass 1: search and match prerequisite
       // libraries, search obj/bmi{} targets, and search targets we do rule
@@ -1201,6 +1201,12 @@ namespace build2
             }
 
             pt = &p.search (t);
+
+            if (pt == dir)
+            {
+              pt = nullptr;
+              continue;
+            }
           }
 
           if (skip (*pt))
