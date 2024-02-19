@@ -119,14 +119,16 @@ namespace build2
     };
 
     // $size(<strings>)
+    // $size(<string-map>)
     // $size(<string>)
     //
-    // First form: return the number of elements in the sequence.
+    // First two forms: return the number of elements in the sequence.
     //
-    // Second form: return the number of characters (bytes) in the string.
+    // Third form: return the number of characters (bytes) in the string.
     //
-    f["size"] += [] (strings v) {return v.size ();};
-    f["size"] += [] (string v) {return v.size ();};
+    f["size"] += [] (strings v)             {return v.size ();};
+    f["size"] += [] (map<string, string> v) {return v.size ();};
+    f["size"] += [] (string v)              {return v.size ();};
 
     // $sort(<strings> [, <flags>])
     //
@@ -202,6 +204,21 @@ namespace build2
     f["find_index"] += [](strings vs, value v, optional<names> fs)
     {
       return find_index (vs, move (v), move (fs));
+    };
+
+    // $keys(<string-map>)
+    //
+    // Return the list of keys in a string map.
+    //
+    // Note that the result is sorted in ascending order.
+    //
+    f["keys"] += [](map<string, string> v)
+    {
+      strings r;
+      r.reserve (v.size ());
+      for (pair<const string, string>& p: v)
+        r.push_back (p.first); // @@ PERF: use C++17 map::extract() to steal.
+      return r;
     };
 
     // String-specific overloads from builtins.

@@ -591,7 +591,7 @@ namespace build2
   }
 
   template <typename T>
-  static names_view
+  names_view
   vector_reverse (const value& v, names& s, bool)
   {
     auto& vv (v.as<vector<T>> ());
@@ -604,7 +604,7 @@ namespace build2
   }
 
   template <typename T>
-  static int
+  int
   vector_compare (const value& l, const value& r)
   {
     auto& lv (l.as<vector<T>> ());
@@ -637,6 +637,8 @@ namespace build2
     vector_value_type (value_type&& v)
         : value_type (move (v))
     {
+      // Note: vector<T> always has a convenience alias.
+      //
       type_name  = value_traits<T>::type_name;
       type_name += 's';
       name = type_name.c_str ();
@@ -706,7 +708,7 @@ namespace build2
   }
 
   template <typename K, typename V>
-  static names_view
+  names_view
   pair_vector_reverse (const value& v, names& s, bool)
   {
     auto& vv (v.as<vector<pair<K, V>>> ());
@@ -719,7 +721,7 @@ namespace build2
   }
 
   template <typename K, typename V>
-  static int
+  int
   pair_vector_compare (const value& l, const value& r)
   {
     auto& lv (l.as<vector<pair<K, V>>> ());
@@ -754,10 +756,13 @@ namespace build2
     pair_vector_value_type (value_type&& v)
         : value_type (move (v))
     {
-      type_name  = value_traits<K>::type_name;
-      type_name += '_';
+      // vector<pair<K,V>>
+      //
+      type_name  = "vector<pair<";
+      type_name += value_traits<K>::type_name;
+      type_name += ',';
       type_name += value_traits<V>::type_name;
-      type_name += "_pair_vector";
+      type_name += ">>";
       name = type_name.c_str ();
     }
   };
@@ -773,10 +778,13 @@ namespace build2
     pair_vector_value_type (value_type&& v)
         : value_type (move (v))
     {
-      type_name  = value_traits<K>::type_name;
-      type_name += "_optional_";
+      // vector<pair<K,optional<V>>>
+      //
+      type_name  = "vector<pair<";
+      type_name += value_traits<K>::type_name;
+      type_name += ",optional<";
       type_name += value_traits<V>::type_name;
-      type_name += "_pair_vector";
+      type_name += ">>>";
       name = type_name.c_str ();
     }
   };
@@ -789,11 +797,13 @@ namespace build2
     pair_vector_value_type (value_type&& v)
         : value_type (move (v))
     {
-      type_name  = "optional_";
+      // vector<pair<optional<K>,V>>
+      //
+      type_name  = "vector<pair<optional<";
       type_name += value_traits<K>::type_name;
-      type_name += '_';
+      type_name += ">,";
       type_name += value_traits<V>::type_name;
-      type_name += "_pair_vector";
+      type_name += ">>";
       name = type_name.c_str ();
     }
   };
@@ -847,7 +857,9 @@ namespace build2
                       "element",
                       var));
 
-      p.emplace (move (v.first), move (v.second));
+      // Poor man's emplace_or_assign().
+      //
+      p.emplace (move (v.first), V ()).first->second = move (v.second);
     }
   }
 
@@ -872,9 +884,7 @@ namespace build2
                       "element",
                       var));
 
-      // Poor man's emplace_or_assign().
-      //
-      p.emplace (move (v.first), V ()).first->second = move (v.second);
+      p.emplace (move (v.first), move (v.second));
     }
   }
 
@@ -889,7 +899,7 @@ namespace build2
   }
 
   template <typename K, typename V>
-  static names_view
+  names_view
   map_reverse (const value& v, names& s, bool)
   {
     auto& vm (v.as<map<K, V>> ());
@@ -902,7 +912,7 @@ namespace build2
   }
 
   template <typename K, typename V>
-  static int
+  int
   map_compare (const value& l, const value& r)
   {
     auto& lm (l.as<map<K, V>> ());
@@ -926,6 +936,59 @@ namespace build2
     return 0;
   }
 
+  // Note that unlike json_value, we don't provide index support for maps.
+  // There are two reasons for this: Firstly, consider map<uint64_t,...>.
+  // Secondly, even something like map<string,...> may contain integers as
+  // keys (in JSON, there is a strong convention for object member names not
+  // to be integers). Instead, we provide the $keys() function which allows
+  // one to implement an index-based access with a bit of overhead, if needed.
+  //
+  template <typename K, typename V>
+  value
+  map_subscript (const value& val, value* val_data,
+                 value&& sub,
+                 const location& sloc,
+                 const location& bloc)
+  {
+    // Process subscript even if the value is null to make sure it is valid.
+    //
+    K k;
+    try
+    {
+      k = convert<K> (move (sub));
+    }
+    catch (const invalid_argument& e)
+    {
+      fail (sloc) << "invalid " << value_traits<map<K, V>>::value_type.name
+                  << " value subscript: " << e <<
+        info (bloc) << "use the '\\[' escape sequence if this is a "
+                    << "wildcard pattern";
+    }
+
+    value r;
+    if (!val.null)
+    {
+      const auto& m (val.as<map<K, V>> ());
+      auto i (m.find (k));
+      if (i != m.end ())
+      {
+        // Steal the value if possible.
+        //
+        r = (&val == val_data
+             ? V (move (const_cast<V&> (i->second)))
+             : V (i->second));
+      }
+    }
+
+    // Typify null values so that type-specific subscript (e.g., for
+    // json_value) gets called for chained subscripts.
+    //
+    if (r.null)
+      r.type = &value_traits<V>::value_type;
+
+    return r;
+  }
+
   // Make sure these are static-initialized together. Failed that VC will make
   // sure it's done in the wrong order.
   //
@@ -937,11 +1000,15 @@ namespace build2
     map_value_type (value_type&& v)
         : value_type (move (v))
     {
-      type_name  = value_traits<K>::type_name;
-      type_name += '_';
+      // map<K,V>
+      //
+      type_name  = "map<";
+      type_name += value_traits<K>::type_name;
+      type_name += ',';
       type_name += value_traits<V>::type_name;
-      type_name += "_map";
+      type_name += '>';
       name = type_name.c_str ();
+      subscript = &map_subscript<K, V>;
     }
   };
 
@@ -956,11 +1023,15 @@ namespace build2
     map_value_type (value_type&& v)
         : value_type (move (v))
     {
-      type_name  = value_traits<K>::type_name;
-      type_name += "_optional_";
+      // map<K,optional<V>>
+      //
+      type_name  = "map<";
+      type_name += value_traits<K>::type_name;
+      type_name += ",optional<";
       type_name += value_traits<V>::type_name;
-      type_name += "_map";
+      type_name += ">>";
       name = type_name.c_str ();
+      // @@ TODO: subscript
     }
   };
 
@@ -972,18 +1043,38 @@ namespace build2
     map_value_type (value_type&& v)
         : value_type (move (v))
     {
-      type_name  = "optional_";
+      // map<optional<K>,V>
+      //
+      type_name  = "map<optional<";
       type_name += value_traits<K>::type_name;
-      type_name += '_';
+      type_name += ">,";
       type_name += value_traits<V>::type_name;
-      type_name += "_map";
+      type_name += '>';
       name = type_name.c_str ();
+      // @@ TODO: subscript
+    }
+  };
+
+  // Convenience aliases for certain map<T,T> cases.
+  //
+  template <>
+  struct map_value_type<string, string>: value_type
+  {
+    map_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      name = "string_map";
+      subscript = &map_subscript<string, string>;
     }
   };
 
   template <typename K, typename V>
   const map<K, V> value_traits<map<K, V>>::empty_instance;
 
+  // Note that custom iteration would be better (more efficient, return typed
+  // value), but we don't yet have pair<> as value type so we let the generic
+  // implementation return an untyped pair.
+  //
   template <typename K, typename V>
   const map_value_type<K, V>
   value_traits<map<K, V>>::value_type = build2::value_type // VC14 wants =
@@ -992,7 +1083,7 @@ namespace build2
     sizeof (map<K, V>),
     nullptr,             // No base.
     true,                // Container.
-    nullptr,             // No element (not named).
+    nullptr,             // No element (pair<> not a value type yet).
     &default_dtor<map<K, V>>,
     &default_copy_ctor<map<K, V>>,
     &default_copy_assign<map<K, V>>,
@@ -1003,7 +1094,7 @@ namespace build2
     nullptr,             // No cast (cast data_ directly).
     &map_compare<K, V>,
     &default_empty<map<K, V>>,
-    nullptr,             // Subscript.
+    nullptr,             // Subscript (patched in by map_value_type above).
     nullptr              // Iterate.
   };
 

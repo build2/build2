@@ -1,0 +1,65 @@
+# file      : tests/type/map/testscript
+# license   : MIT; see accompanying LICENSE file
+
+# See also tests in function/*/ (size(), keys()).
+
+.include ../../common.testscript
+
+: basics
+:
+$* <<EOI >>EOO
+m = [string_map] a@0 b@2 a@1
+print $m
+m += c@3 b@0
+print $m
+m =+ d@4 b@1
+print $m
+EOI
+a@1 b@2
+a@1 b@0 c@3
+a@1 b@0 c@3 d@4
+EOO
+
+: type
+:
+$* <<EOI >>EOO
+m = [string_map]
+print $type($m)
+EOI
+string_map
+EOO
+
+: subscript
+:
+$* <<EOI >>EOO
+m = [string_map] a@1 b@2 c@3
+print ($m[b])
+print ($m[z])
+EOI
+2
+[null]
+EOO
+
+: iteration
+:
+$* <<EOI >>EOO
+for p: [string_map] a@1 b@2 c@3
+  print $first($p) $second($p)
+EOI
+a 1
+b 2
+c 3
+EOO
+
+: iteration-index
+:
+$* <<EOI >>EOO
+m = [string_map] a@1 b@2 c@3
+k = $keys($m)
+for i: $integer_sequence(0, $size($k))
+  print $i ($k[$i]) ($m[($k[$i])]) # @@ TMP: nested subscript
+EOI
+0 a 1
+1 b 2
+2 c 3
+EOO

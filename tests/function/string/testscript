@@ -43,8 +43,10 @@
 : size
 :
 {
-  $* <'print $size([string] abc)' >'3' : basics
-  $* <'print $size([string] )'    >'0' : zero
+  $* <'print $size([string] abc)'             >'3' : basics
+  $* <'print $size([string] )'                >'0' : zero
+  $* <'print $size([strings] a b c)'          >'3' : strings
+  $* <'print $size([string_map] a@1 b@2 c@3)' >'3' : string_map
 }
 
 : find
@@ -62,3 +64,7 @@
   $* <'print $find_index([strings] x y z, Y)'        >'3' : basics-false
   $* <'print $find_index([strings] x y z, Y, icase)' >'1' : icase
 }
+
+: keys
+:
+$* <'print $keys([string_map] a@1 b@2 c@3)' >'a b c'

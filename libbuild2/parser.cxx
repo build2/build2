@@ -6090,7 +6090,8 @@ namespace build2
           if (n[4] == 's' &&
               n[5] == '\0') return &value_traits<paths>::value_type;
         }
-        else if (n == "project_name") return &value_traits<project_name>::value_type;
+        else if (n == "project_name")
+          return &value_traits<project_name>::value_type;
         break;
       }
     case 's':
@@ -6100,12 +6101,15 @@ namespace build2
           if (n[6] == '\0') return &value_traits<string>::value_type;
           if (n[6] == 's' &&
               n[7] == '\0') return &value_traits<strings>::value_type;
+          if (n == "string_map")
+            return &value_traits<map<string,string>>::value_type;
         }
         break;
       }
     case 't':
       {
-        if (n == "target_triplet") return &value_traits<target_triplet>::value_type;
+        if (n == "target_triplet")
+          return &value_traits<target_triplet>::value_type;
         break;
       }
     case 'u':
@@ -8972,7 +8976,7 @@ namespace build2
               result = &result_data;
             }
 
-            // See if we have another subscript.
+            // See if we have chained subscript.
             //
             enable_subscript ();
             tt = peek ();

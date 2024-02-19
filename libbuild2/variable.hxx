@@ -111,11 +111,11 @@ namespace build2
     //
     // Note: should normally be consistent with iterate.
     //
-    value (*const subscript) (const value& val,
-                              value* val_data,
-                              value&& subscript,
-                              const location& sloc,
-                              const location& bloc);
+    value (*/*const*/ subscript) (const value& val,
+                                  value* val_data,
+                                  value&& subscript,
+                                  const location& sloc,
+                                  const location& bloc);
 
     // Custom iteration function. It should invoked the specified function for
     // each element in order. If NULL, then the generic implementation is
@@ -1181,8 +1181,11 @@ namespace build2
   //
   // Either K or V can be optional<T> making the key or value optional.
   //
-  // Note that append/+= is non-overriding (like insert()) while prepend/=+
-  // is (like insert_or_assign()).
+  // Note that append/+= is overriding (like insert_or_assign()) while
+  // prepend/=+ is not (like insert()). In a sense, whatever appears last
+  // (from left to right) is kept, which is consistent with what we expect to
+  // happen when specifying the same key repeatedly in a representation (e.g.,
+  // a@0 a@1).
   //
   template <typename K, typename V>
   struct map_value_type;

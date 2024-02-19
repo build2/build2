@@ -1994,7 +1994,7 @@ namespace build2
     {
       // Seeing that we are reversing for consumption, it feels natural to
       // reverse JSON null to our [null] rather than empty. This, in
-      // particular, helps nested subscript.
+      // particular, helps chained subscript.
       //
 #if 0
     case json_type::null:               r = value (names {});          break;
@@ -2085,7 +2085,7 @@ namespace build2
              ? json_subscript_impl (val, val_data, i, n, index).first
              : value ());
 
-    // Typify null values so that we get called for nested subscripts.
+    // Typify null values so that we get called for chained subscripts.
     //
     if (r.null)
       r.type = &value_traits<json_value>::value_type;
