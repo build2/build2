@@ -853,6 +853,44 @@ namespace build2
       new (&v.data_) vector<pair<K, V>> (move (x));
   }
 
+  // set<T> value
+  //
+  template <typename T>
+  inline void value_traits<set<T>>::
+  assign (value& v, set<T>&& x)
+  {
+    if (v)
+      v.as<set<T>> () = move (x);
+    else
+      new (&v.data_) set<T> (move (x));
+  }
+
+  template <typename T>
+  inline void value_traits<set<T>>::
+  append (value& v, set<T>&& x)
+  {
+    if (v)
+    {
+      set<T>& p (v.as<set<T>> ());
+
+      if (p.empty ())
+        p.swap (x);
+      else
+        // Keys (being const) can only be copied.
+        //
+        p.insert (x.begin (), x.end ());
+    }
+    else
+      new (&v.data_) set<T> (move (x));
+  }
+
+  template <typename T>
+  inline void value_traits<set<T>>::
+  prepend (value& v, set<T>&& x)
+  {
+    append (v, move (x));
+  }
+
   // map<K, V> value
   //
   template <typename K, typename V>

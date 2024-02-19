@@ -1,0 +1,52 @@
+# file      : tests/type/set/testscript
+# license   : MIT; see accompanying LICENSE file
+
+# See also tests in function/*/ (size()).
+
+.include ../../common.testscript
+
+: basics
+:
+$* <<EOI >>EOO
+s = [string_set] a b a
+print $s
+s += c b
+print $s
+s =+ d b
+print $s
+EOI
+a b
+a b c
+a b c d
+EOO
+
+: type
+:
+$* <<EOI >>EOO
+s = [string_set]
+print $type($s)
+EOI
+string_set
+EOO
+
+: subscript
+:
+$* <<EOI >>EOO
+s = [string_set] a b c
+print ($s[b])
+print ($s[z])
+EOI
+true
+false
+EOO
+
+: iteration
+:
+$* <<EOI >>EOO
+for s: [string_set] a b c
+  print $s
+EOI
+a
+b
+c
+EOO

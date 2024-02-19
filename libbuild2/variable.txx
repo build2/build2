@@ -479,6 +479,7 @@ namespace build2
   convert (names&& ns)
   {
     vector<T> v;
+    v.reserve (ns.size ()); // Normally there won't be any pairs.
 
     // Similar to vector_append() below except we throw instead of issuing
     // diagnostics.
@@ -510,6 +511,8 @@ namespace build2
     vector<T>& p (v
                   ? v.as<vector<T>> ()
                   : *new (&v.data_) vector<T> ());
+
+    p.reserve (p.size () + ns.size ()); // Normally there won't be any pairs.
 
     // Convert each element to T while merging pairs.
     //
@@ -832,6 +835,226 @@ namespace build2
     &default_empty<vector<pair<K, V>>>,
     nullptr,                     // Subscript.
     nullptr                      // Iterate.
+  };
+
+  // set<T> value
+  //
+  template <typename T>
+  set<T> value_traits<set<T>>::
+  convert (names&& ns)
+  {
+    set<T> s;
+
+    // Similar to set_append() below except we throw instead of issuing
+    // diagnostics.
+    //
+    for (auto i (ns.begin ()); i != ns.end (); ++i)
+    {
+      name& n (*i);
+      name* r (nullptr);
+
+      if (n.pair)
+      {
+        r = &*++i;
+
+        if (n.pair != '@')
+          throw invalid_argument (
+            string ("invalid pair character: '") + n.pair + '\'');
+      }
+
+      s.insert (value_traits<T>::convert (move (n), r));
+    }
+
+    return s;
+  }
+
+  template <typename T>
+  void
+  set_append (value& v, names&& ns, const variable* var)
+  {
+    set<T>& s (v ? v.as<set<T>> () : *new (&v.data_) set<T> ());
+
+    // Convert each element to T while merging pairs.
+    //
+    for (auto i (ns.begin ()); i != ns.end (); ++i)
+    {
+      name& n (*i);
+      name* r (nullptr);
+
+      if (n.pair)
+      {
+        r = &*++i;
+
+        if (n.pair != '@')
+        {
+          diag_record dr (fail);
+
+          dr << "unexpected pair style for "
+             << value_traits<T>::value_type.name << " value "
+             << "'" << n << "'" << n.pair << "'" << *r << "'";
+
+          if (var != nullptr)
+            dr << " in variable " << var->name;
+        }
+      }
+
+      try
+      {
+        s.insert (value_traits<T>::convert (move (n), r));
+      }
+      catch (const invalid_argument& e)
+      {
+        diag_record dr (fail);
+
+        dr << e;
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+
+        dr << info << "while converting ";
+        if (n.pair)
+          dr << " element pair '" << n << "'@'" << *r << "'";
+        else
+          dr << " element '" << n << "'";
+      }
+    }
+  }
+
+  template <typename T>
+  void
+  set_assign (value& v, names&& ns, const variable* var)
+  {
+    if (v)
+      v.as<set<T>> ().clear ();
+
+    set_append<T> (v, move (ns), var);
+  }
+
+  template <typename T>
+  names_view
+  set_reverse (const value& v, names& s, bool)
+  {
+    auto& sv (v.as<set<T>> ());
+    s.reserve (sv.size ());
+
+    for (const T& x: sv)
+      s.push_back (value_traits<T>::reverse (x));
+
+    return s;
+  }
+
+  template <typename T>
+  int
+  set_compare (const value& l, const value& r)
+  {
+    auto& ls (l.as<set<T>> ());
+    auto& rs (r.as<set<T>> ());
+
+    auto li (ls.begin ()), le (ls.end ());
+    auto ri (rs.begin ()), re (rs.end ());
+
+    for (; li != le && ri != re; ++li, ++ri)
+      if (int r = value_traits<T>::compare (*li, *ri))
+        return r;
+
+    if (li == le && ri != re) // l shorter than r.
+      return -1;
+
+    if (ri == re && li != le) // r shorter than l.
+      return 1;
+
+    return 0;
+  }
+
+  // Map subscript to set::contains().
+  //
+  template <typename T>
+  value
+  set_subscript (const value& val, value*,
+                 value&& sub,
+                 const location& sloc,
+                 const location& bloc)
+  {
+    // Process subscript even if the value is null to make sure it is valid.
+    //
+    T k;
+    try
+    {
+      k = convert<T> (move (sub));
+    }
+    catch (const invalid_argument& e)
+    {
+      fail (sloc) << "invalid " << value_traits<set<T>>::value_type.name
+                  << " value subscript: " << e <<
+        info (bloc) << "use the '\\[' escape sequence if this is a "
+                    << "wildcard pattern";
+    }
+
+    bool r (false);
+    if (!val.null)
+    {
+      const auto& s (val.as<set<T>> ());
+      r = s.find (k) != s.end ();
+    }
+
+    return value (r);
+  }
+
+  // Make sure these are static-initialized together. Failed that VC will make
+  // sure it's done in the wrong order.
+  //
+  template <typename T>
+  struct set_value_type: value_type
+  {
+    string type_name;
+
+    set_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      // set<T>
+      //
+      type_name  = "set<";
+      type_name += value_traits<T>::type_name;
+      type_name += '>';
+      name = type_name.c_str ();
+    }
+  };
+
+  // Convenience aliases for certain set<T> cases.
+  //
+  template <>
+  struct set_value_type<string>: value_type
+  {
+    set_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      name = "string_set";
+    }
+  };
+
+  template <typename T>
+  const set<T> value_traits<set<T>>::empty_instance;
+
+  template <typename T>
+  const set_value_type<T>
+  value_traits<set<T>>::value_type = build2::value_type // VC14 wants =.
+  {
+    nullptr,                          // Patched above.
+    sizeof (set<T>),
+    nullptr,                          // No base.
+    true,                             // Container.
+    &value_traits<T>::value_type,     // Element type.
+    &default_dtor<set<T>>,
+    &default_copy_ctor<set<T>>,
+    &default_copy_assign<set<T>>,
+    &set_assign<T>,
+    &set_append<T>,
+    &set_append<T>,                   // Prepend the same as append.
+    &set_reverse<T>,
+    nullptr,                          // No cast (cast data_ directly).
+    &set_compare<T>,
+    &default_empty<set<T>>,
+    &set_subscript<T>,
+    nullptr                           // Iterate.
   };
 
   // map<K, V> value

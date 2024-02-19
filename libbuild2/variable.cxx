@@ -3292,6 +3292,8 @@ namespace build2
   template struct LIBBUILD2_DEFEXPORT
   value_traits<vector<pair<string, optional<bool>>>>;
 
+  template struct LIBBUILD2_DEFEXPORT value_traits<set<string>>;
+
   template struct LIBBUILD2_DEFEXPORT
   value_traits<map<string, string>>;
 

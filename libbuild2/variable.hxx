@@ -1177,6 +1177,26 @@ namespace build2
     static const pair_vector_value_type<K, V> value_type;
   };
 
+  // set<T>
+  //
+  template <typename T>
+  struct set_value_type;
+
+  template <typename T>
+  struct value_traits<set<T>>
+  {
+    static_assert (sizeof (set<T>) <= value::size_, "insufficient space");
+
+    static set<T> convert (names&&);
+    static void assign (value&, set<T>&&);
+    static void append (value&, set<T>&&);
+    static void prepend (value&, set<T>&&);
+    static bool empty (const set<T>& x) {return x.empty ();}
+
+    static const set<T> empty_instance;
+    static const set_value_type<T> value_type;
+  };
+
   // map<K, V>
   //
   // Either K or V can be optional<T> making the key or value optional.
@@ -1320,6 +1340,8 @@ namespace build2
 
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<vector<pair<string, optional<bool>>>>;
+
+  extern template struct LIBBUILD2_DECEXPORT value_traits<set<string>>;
 
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<map<string, string>>;

@@ -6101,6 +6101,7 @@ namespace build2
           if (n[6] == '\0') return &value_traits<string>::value_type;
           if (n[6] == 's' &&
               n[7] == '\0') return &value_traits<strings>::value_type;
+          if (n == "string_set") return &value_traits<set<string>>::value_type;
           if (n == "string_map")
             return &value_traits<map<string,string>>::value_type;
         }

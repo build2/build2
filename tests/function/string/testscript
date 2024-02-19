@@ -46,7 +46,8 @@
   $* <'print $size([string] abc)'             >'3' : basics
   $* <'print $size([string] )'                >'0' : zero
   $* <'print $size([strings] a b c)'          >'3' : strings
-  $* <'print $size([string_map] a@1 b@2 c@3)' >'3' : string_map
+  $* <'print $size([string_set] a b b)'       >'2' : string-set
+  $* <'print $size([string_map] a@1 b@2 b@3)' >'2' : string-map
 }
 
 : find

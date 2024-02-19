@@ -119,14 +119,16 @@ namespace build2
     };
 
     // $size(<strings>)
+    // $size(<string-set>)
     // $size(<string-map>)
     // $size(<string>)
     //
-    // First two forms: return the number of elements in the sequence.
+    // First three forms: return the number of elements in the sequence.
     //
-    // Third form: return the number of characters (bytes) in the string.
+    // Fourth form: return the number of characters (bytes) in the string.
     //
     f["size"] += [] (strings v)             {return v.size ();};
+    f["size"] += [] (set<string> v)         {return v.size ();};
     f["size"] += [] (map<string, string> v) {return v.size ();};
     f["size"] += [] (string v)              {return v.size ();};
 
