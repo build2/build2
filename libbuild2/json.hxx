@@ -170,16 +170,22 @@ namespace build2
     // values are incompatible. Note that for numbers this can also lead to
     // the change of the value type.
     //
-    // Append/prepend to an object overrides existing members. Append/prepend
-    // an array to an array splices in the array elements rather than adding
-    // an element of the array type.
+    // Append/prepend an array to an array splices in the array elements
+    // rather than adding an element of the array type.
+    //
+    // By default, append to an object overrides existing members while
+    // prepend does not. In a sense, whatever appears last is kept, which is
+    // consistent with what we expect to happen when specifying the same name
+    // repeatedly (provided it's not considered invalid) in a text
+    // representation (e.g., {"a":1,"a":2}). Position-wise, both append and
+    // prepend retain the positions of existing members with append inserting
+    // new ones at the end while prepend -- at the beginning.
     //
     void
-    append (json_value&&);
+    append (json_value&&, bool override = true);
 
     void
-    prepend (json_value&&);
-
+    prepend (json_value&&, bool override = false);
 
     // Array element access.
     //

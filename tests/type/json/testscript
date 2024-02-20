@@ -204,7 +204,7 @@
 
   : object
   :
-  $* <<EOI >'{"zero":0,"one":6,"two":8,"three":9,"four":4,"five":5,"seven":7}'
+  $* <<EOI >'{"zero":0,"one":6,"two":8,"three":3,"four":4,"five":5,"seven":7}'
   o = [json] one@1 two@2 three@3
   o += four@4
   o += five@5 one@6

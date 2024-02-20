@@ -1237,6 +1237,12 @@ namespace build2
   // of what looks like harmless looseness in a few contexts (such as the
   // $json.member_*() functions).
   //
+  // Note that similar to map, JSON object append/+= is overriding while
+  // prepend/=+ is not. In a sense, whatever appears last (from left to right)
+  // is kept, which is consistent with what we expect to happen when
+  // specifying the same name repeatedly (provided it's not considered
+  // invalid) in a representation (e.g., {"a":1,"a":2}).
+  //
   template <>
   struct LIBBUILD2_SYMEXPORT value_traits<json_value>
   {

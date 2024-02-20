@@ -511,7 +511,7 @@ namespace build2
   }
 
   void json_value::
-  append (json_value&& v)
+  append (json_value&& v, bool override)
   {
     if (type == json_type::null)
     {
@@ -584,10 +584,10 @@ namespace build2
                                {
                                  return m.name == o.name;
                                }));
-              if (i != object.end ())
-                i->value = move (m.value);
-              else
+              if (i == object.end ())
                 object.push_back (move (m));
+              else if (override)
+                i->value = move (m.value);
             }
           }
 
@@ -602,7 +602,7 @@ namespace build2
   }
 
   void json_value::
-  prepend (json_value&& v)
+  prepend (json_value&& v, bool override)
   {
     if (type == json_type::null)
     {
@@ -675,10 +675,10 @@ namespace build2
                                {
                                  return m.name == o.name;
                                }));
-              if (i != object.end ())
-                i->value = move (m.value);
-              else
+              if (i == object.end ())
                 object.insert (object.begin (), move (m));
+              else if (override)
+                i->value = move (m.value);
             }
           }
 
