@@ -629,6 +629,68 @@ namespace build2
     return 0;
   }
 
+  // Provide subscript for vector<T> for efficiency.
+  //
+  template <typename T>
+  value
+  vector_subscript (const value& val, value* val_data,
+                    value&& sub,
+                    const location& sloc,
+                    const location& bloc)
+  {
+    // Process subscript even if the value is null to make sure it is valid.
+    //
+    size_t i;
+    try
+    {
+      i = static_cast<size_t> (convert<uint64_t> (move (sub)));
+    }
+    catch (const invalid_argument& e)
+    {
+      fail (sloc) << "invalid " << value_traits<vector<T>>::value_type.name
+                  << " value subscript: " << e <<
+        info (bloc) << "use the '\\[' escape sequence if this is a "
+                    << "wildcard pattern";
+    }
+
+    value r;
+    if (!val.null)
+    {
+      const auto& v (val.as<vector<T>> ());
+      if (i < v.size ())
+      {
+        const T& e (v[i]);
+
+        // Steal the value if possible.
+        //
+        r = &val == val_data ? T (move (const_cast<T&> (e))) : T (e);
+      }
+    }
+
+    // Typify null values so that type-specific subscript (e.g., for
+    // json_value) gets called for chained subscripts.
+    //
+    if (r.null)
+      r.type = &value_traits<T>::value_type;
+
+    return r;
+  }
+
+  // Provide iterate for vector<T> for efficiency.
+  //
+  template <typename T>
+  void
+  vector_iterate (const value& val,
+                  const function<void (value&&, bool first)>& f)
+  {
+    const auto& v (val.as<vector<T>> ()); // Never NULL.
+
+    for (auto b (v.begin ()), i (b), e (v.end ()); i != e; ++i)
+    {
+      f (value (*i), i == b);
+    }
+  }
+
   // Make sure these are static-initialized together. Failed that VC will make
   // sure it's done in the wrong order.
   //
@@ -670,8 +732,8 @@ namespace build2
     nullptr,                          // No cast (cast data_ directly).
     &vector_compare<T>,
     &default_empty<vector<T>>,
-    nullptr,                          // Subscript.
-    nullptr                           // Iterate.
+    &vector_subscript<T>,
+    &vector_iterate<T>
   };
 
   // vector<pair<K, V>> value
@@ -999,6 +1061,21 @@ namespace build2
     return value (r);
   }
 
+  // Provide iterate for set<T> for efficiency.
+  //
+  template <typename T>
+  void
+  set_iterate (const value& val,
+               const function<void (value&&, bool first)>& f)
+  {
+    const auto& v (val.as<set<T>> ()); // Never NULL.
+
+    for (auto b (v.begin ()), i (b), e (v.end ()); i != e; ++i)
+    {
+      f (value (*i), i == b);
+    }
+  }
+
   // Make sure these are static-initialized together. Failed that VC will make
   // sure it's done in the wrong order.
   //
@@ -1054,7 +1131,7 @@ namespace build2
     &set_compare<T>,
     &default_empty<set<T>>,
     &set_subscript<T>,
-    nullptr                           // Iterate.
+    &set_iterate<T>
   };
 
   // map<K, V> value

@@ -1,0 +1,57 @@
+# file      : tests/type/vector/testscript
+# license   : MIT; see accompanying LICENSE file
+
+# See also tests in function/*/ (size(), find(), etc).
+
+.include ../../common.testscript
+
+: basics
+:
+$* <<EOI >>EOO
+v = [strings] b c
+print $v
+v += d
+print $v
+v =+ a
+print $v
+EOI
+b c
+b c d
+a b c d
+EOO
+
+: type
+:
+$* <<EOI >>EOO
+v = [strings]
+print $type($v)
+EOI
+strings
+EOO
+
+: subscript
+:
+$* <<EOI >>EOO
+v = [strings] a b c
+print ($v[1])
+print $type($v[1])
+print ($v[3])
+EOI
+b
+string
+[null]
+EOO
+
+: iteration
+:
+$* <<EOI >>EOO
+for s: [strings] a b c
+  print $type($s) $s
+
+for s: [strings, null]
+  fail bad
+EOI
+string a
+string b
+string c
+EOO

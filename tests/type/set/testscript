@@ -44,9 +44,12 @@ EOO
 :
 $* <<EOI >>EOO
 for s: [string_set] a b c
-  print $s
+  print $type($s) $s
+
+for s: [string_set, null]
+  fail bad
 EOI
-a
-b
-c
+string a
+string b
+string c
 EOO

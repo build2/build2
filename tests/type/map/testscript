@@ -34,9 +34,11 @@ EOO
 $* <<EOI >>EOO
 m = [string_map] a@1 b@2 c@3
 print ($m[b])
+print $type($m[b])
 print ($m[z])
 EOI
 2
+string
 [null]
 EOO
 
@@ -45,6 +47,9 @@ EOO
 $* <<EOI >>EOO
 for p: [string_map] a@1 b@2 c@3
   print $first($p) $second($p)
+
+for p: [string_map, null]
+  fail bad
 EOI
 a 1
 b 2

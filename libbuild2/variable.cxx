@@ -2093,8 +2093,9 @@ namespace build2
     return r;
   }
 
-  void json_iterate (const value& val,
-                     const function<void (value&&, bool first)>& f)
+  static void
+  json_iterate (const value& val,
+                const function<void (value&&, bool first)>& f)
   {
     // Implement in terms of subscript for consistency (in particular,
     // iterating over simple values like number, string).
