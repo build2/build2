@@ -308,5 +308,28 @@ namespace build2
       }
     };
 #endif
+
+    // $size(<json-set>)
+    // $size(<json-map>)
+    //
+    // Return the number of elements in the sequence.
+    //
+    f["size"] += [] (set<json_value> v)             {return v.size ();};
+    f["size"] += [] (map<json_value, json_value> v) {return v.size ();};
+
+    // $keys(<json-map>)
+    //
+    // Return the list of keys in a json map as a json array.
+    //
+    // Note that the result is sorted in ascending order.
+    //
+    f["keys"] += [](map<json_value, json_value> v)
+    {
+      json_value r (json_type::array);
+      r.array.reserve (v.size ());
+      for (pair<const json_value, json_value>& p: v)
+        r.array.push_back (p.first); // @@ PERF: use C++17 map::extract() to steal.
+      return r;
+    };
   }
 }

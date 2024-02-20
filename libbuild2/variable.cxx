@@ -1635,6 +1635,17 @@ namespace build2
   }
 
   json_value value_traits<json_value>::
+  convert (name&& l, name* r)
+  {
+    // Here we expect either a simple value or a serialized representation.
+    //
+    if (r != nullptr)
+      throw invalid_argument ("pair in json element value");
+
+    return to_json_value (l, "json element");
+  }
+
+  json_value value_traits<json_value>::
   convert (names&& ns)
   {
     size_t n (ns.size ());
@@ -1781,56 +1792,36 @@ namespace build2
     }
   }
 
-  static names_view
-  json_reverse (const value& x, names& ns, bool)
+  name value_traits<json_value>::
+  reverse (const json_value& v)
   {
-    const json_value& v (x.as<json_value> ());
-
     switch (v.type)
     {
     case json_type::null:
       {
-        // @@ Hm, it would be nice if this somehow got mapped to [null]/empty
-        //    but still be round-trippable to JSON null. Perhaps via type
-        //    hint?
-        //
-        //    But won't `print ([json] null)` printing nothing be
-        //    surprising. Also, it's not clear that mapping JSON null to out
-        //    [null] is a good idea since our [null] means "no value" while
-        //    JSON null means "null value".
-        //
-        //    Maybe the current semantics is the best: we map our [null] and
-        //    empty names to JSON null (naturally) but we always reverse JSON
-        //    null to the JSON "null" literal. Or maybe we could reverse it to
-        //    null but type-hint it that it's a spelling or [null]/empty.
-        //    Quite fuzzy, admittedly. In our model null values decay to empty
-        //    so JSON null decaying to "null" literal is strange. Let's try
-        //    and see how it goes. See also json_subscript_impl() below.
+        // Return empty to be consistent with other places.
         //
 #if 0
-        ns.push_back (name ("null"));
+        return name ("null");
+#else
+        return name ();
 #endif
-        break;
       }
     case json_type::boolean:
       {
-        ns.push_back (name (v.boolean ? "true" : "false"));
-        break;
+        return name (v.boolean ? "true" : "false");
       }
     case json_type::signed_number:
       {
-        ns.push_back (value_traits<int64_t>::reverse (v.signed_number));
-        break;
+        return value_traits<int64_t>::reverse (v.signed_number);
       }
     case json_type::unsigned_number:
       {
-        ns.push_back (value_traits<uint64_t>::reverse (v.unsigned_number));
-        break;
+        return value_traits<uint64_t>::reverse (v.unsigned_number);
       }
     case json_type::hexadecimal_number:
       {
-        ns.push_back (name (to_string (v.unsigned_number, 16)));
-        break;
+        return name (to_string (v.unsigned_number, 16));
       }
     case json_type::string:
         //
@@ -1868,6 +1859,10 @@ namespace build2
         }
         catch (const invalid_json_output& e)
         {
+          // Note that while it feels like value_traits::reverse() should
+          // throw invalid_argument, we don't currently handle it anywhere so
+          // for now let's just fail.
+          //
           // Note: the same diagnostics as in $json.serialize().
           //
           diag_record dr;
@@ -1882,10 +1877,37 @@ namespace build2
 #else
         fail << "json serialization requested during bootstrap";
 #endif
-        ns.push_back (name (move (o)));
-        break;
+        return name (move (o));
       }
     }
+
+    assert (false);
+    return name ();
+  }
+
+  static names_view
+  json_reverse (const value& x, names& ns, bool reduce)
+  {
+    const json_value& v (x.as<json_value> ());
+
+    // @@ Hm, it would be nice if JSON null somehow got mapped to [null]/empty
+    //    but still be round-trippable to JSON null. Perhaps via type hint?
+    //
+    //    But won't `print ([json] null)` printing nothing be surprising.
+    //    Also, it's not clear that mapping JSON null to out [null] is a good
+    //    idea since our [null] means "no value" while JSON null means "null
+    //    value".
+    //
+    //    Maybe the current semantics is the best: we map our [null] and empty
+    //    names to JSON null (naturally) but we always reverse JSON null to
+    //    the JSON "null" literal. Or maybe we could reverse it to null but
+    //    type-hint it that it's a spelling or [null]/empty. Quite fuzzy,
+    //    admittedly. In our model null values decay to empty so JSON null
+    //    decaying to "null" literal is strange. Let's try and see how it
+    //    goes. See also json_subscript_impl() below.
+    //
+    if (v.type != json_type::null || !reduce)
+      ns.push_back (value_traits<json_value>::reverse (v));
 
     return ns;
   }
@@ -3294,9 +3316,13 @@ namespace build2
   value_traits<vector<pair<string, optional<bool>>>>;
 
   template struct LIBBUILD2_DEFEXPORT value_traits<set<string>>;
+  template struct LIBBUILD2_DEFEXPORT value_traits<set<json_value>>;
 
   template struct LIBBUILD2_DEFEXPORT
   value_traits<map<string, string>>;
+
+  template struct LIBBUILD2_DEFEXPORT
+  value_traits<map<json_value, json_value>>;
 
   template struct LIBBUILD2_DEFEXPORT
   value_traits<map<string, optional<string>>>;

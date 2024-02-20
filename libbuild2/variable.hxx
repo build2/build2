@@ -100,6 +100,10 @@ namespace build2
 
     // If NULL, then the value is never empty.
     //
+    // Note that this is "semantically empty", not necessarily
+    // "representationally empty". For example, an empty JSON array is
+    // semantically empty but its representation (`[]`) is not.
+    //
     bool (*const empty) (const value&);
 
     // Custom subscript function. If NULL, then the generic implementation is
@@ -346,6 +350,10 @@ namespace build2
 
     // Check in a type-independent way if the value is empty. The value must
     // not be NULL.
+    //
+    // Note that this is "semantically empty", not necessarily
+    // "representationally empty". For example, an empty JSON array is
+    // semantically empty but its representation (`[]`) is not.
     //
     bool
     empty () const;
@@ -691,7 +699,7 @@ namespace build2
   // case (container) if invalid_argument is thrown, the names are not
   // guaranteed to be unchanged.
   //
-  //template <typename T> T convert (names&&); (declaration causes ambiguity)
+  template <typename T> T convert (names&&);
 
   // Convert value to T. If value is already of type T, then simply cast it.
   // Otherwise call convert(names) above. If value is NULL, then throw
@@ -1254,6 +1262,14 @@ namespace build2
     static void prepend (value&, json_value&&);
     static bool empty (const json_value&); // null or empty array/object
 
+    // These are provided to make it possible to use json_value as a container
+    // element.
+    //
+    static json_value convert (name&&, name*);
+    static name reverse (const json_value&);
+    static int compare (const json_value& x, const json_value& y) {
+      return x.compare (y);}
+
     static const json_value empty_instance; // null
     static const char* const type_name;
     static const build2::value_type value_type;
@@ -1348,9 +1364,13 @@ namespace build2
   value_traits<vector<pair<string, optional<bool>>>>;
 
   extern template struct LIBBUILD2_DECEXPORT value_traits<set<string>>;
+  extern template struct LIBBUILD2_DECEXPORT value_traits<set<json_value>>;
 
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<map<string, string>>;
+
+  extern template struct LIBBUILD2_DECEXPORT
+  value_traits<map<json_value, json_value>>;
 
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<map<string, optional<string>>>;

@@ -6066,7 +6066,12 @@ namespace build2
         {
           if (n[4] == '\0') return &value_traits<json_value>::value_type;
           if (n == "json_array") return &value_traits<json_array>::value_type;
-          if (n == "json_object") return &value_traits<json_object>::value_type;
+          if (n == "json_object")
+            return &value_traits<json_object>::value_type;
+          if (n == "json_set")
+            return &value_traits<set<json_value>>::value_type;
+          if (n == "json_map")
+            return &value_traits<map<json_value, json_value>>::value_type;
         }
         break;
       }
@@ -6266,6 +6271,8 @@ namespace build2
 
       if (n == "null")
       {
+        // @@ Looks like here we assume representationally empty?
+        //
         if (rhs && !rhs.empty ()) // Note: null means we had an expansion.
           fail (l) << "value with null attribute";
 
@@ -7808,9 +7815,9 @@ namespace build2
         // an empty sequence of names rather than a sequence of one empty
         // name.
         //
-        if (!d.empty ())
+        if (size_t n = d.size ())
         {
-          if (d.size () != 1)
+          if (n != 1)
           {
             assert (what_expansion != nullptr);
             concat_diag_multiple (loc, what_expansion);
@@ -9079,7 +9086,7 @@ namespace build2
           // Untyped concatenation. Note that if RHS is NULL/empty, we still
           // set the concat flag.
           //
-          else if (!result->null && !result->empty ())
+          else if (!result->null)
           {
             // This can only be an untyped value.
             //
@@ -9087,33 +9094,36 @@ namespace build2
             //
             const names& lv (cast<names> (*result));
 
-            // This should be a simple value or a simple directory.
-            //
-            if (lv.size () > 1)
-              concat_diag_multiple (loc, what);
-
-            const name& n (lv[0]);
-
-            if (n.qualified ())
-              fail (loc) << "concatenating " << what << " contains project "
-                         << "name";
-
-            if (n.typed ())
-              fail (loc) << "concatenating " << what << " contains target type";
-
-            if (!n.dir.empty ())
+            if (size_t s = lv.size ())
             {
-              if (!n.value.empty ())
-                fail (loc) << "concatenating " << what << " contains "
-                           << "directory";
-
-              // Note that here we cannot assume what's in dir is really a
-              // path (think s/foo/bar/) so we have to reverse it exactly.
+              // This should be a simple value or a simple directory.
               //
-              concat_data.value += n.dir.representation ();
+              if (s > 1)
+                concat_diag_multiple (loc, what);
+
+              const name& n (lv[0]);
+
+              if (n.qualified ())
+                fail (loc) << "concatenating " << what << " contains project "
+                           << "name";
+
+              if (n.typed ())
+                fail (loc) << "concatenating " << what << " contains target type";
+
+              if (!n.dir.empty ())
+              {
+                if (!n.value.empty ())
+                  fail (loc) << "concatenating " << what << " contains "
+                             << "directory";
+
+                // Note that here we cannot assume what's in dir is really a
+                // path (think s/foo/bar/) so we have to reverse it exactly.
+                //
+                concat_data.value += n.dir.representation ();
+              }
+              else
+                concat_data.value += n.value;
             }
-            else
-              concat_data.value += n.value;
           }
 
           // The same little hack as in the word case ($empty+foo).
@@ -9139,16 +9149,27 @@ namespace build2
 
           // Nothing else to do here if the result is NULL or empty.
           //
-          if (result->null || result->empty ())
-            continue;
-
-          // @@ Could move if nv is result_data; see untypify().
+          // Note that we cannot use value::empty() here since we are
+          // interested in representationally empty.
           //
-          names nv_storage;
-          names_view nv (reverse (*result, nv_storage, true /* reduce */));
+          if (!result->null)
+          {
+            // @@ Could move if nv is result_data; see untypify().
+            //
+            // Nuance: we should only be reducing empty simple value to empty
+            // list if we are not a second half of a pair.
+            //
+            bool pair (!ns.empty () && ns.back ().pair);
 
-          count = splice_names (
-            loc, nv, move (nv_storage), ns, what, pairn, pp, dp, tp);
+            names nv_storage;
+            names_view nv (reverse (*result, nv_storage, !pair /* reduce */));
+
+            if (!nv.empty ())
+            {
+              count = splice_names (
+                loc, nv, move (nv_storage), ns, what, pairn, pp, dp, tp);
+            }
+          }
         }
 
         continue;

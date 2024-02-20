@@ -1,7 +1,7 @@
 # file      : tests/type/set/testscript
 # license   : MIT; see accompanying LICENSE file
 
-# See also tests in function/*/ (size()).
+# See also tests in function/*/ (size()), type/json/ (json_set).
 
 .include ../../common.testscript
 

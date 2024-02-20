@@ -1,7 +1,7 @@
 # file      : tests/type/map/testscript
 # license   : MIT; see accompanying LICENSE file
 
-# See also tests in function/*/ (size(), keys()).
+# See also tests in function/*/ (size(), keys()), type/json/ (json_map).
 
 .include ../../common.testscript
 

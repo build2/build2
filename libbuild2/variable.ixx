@@ -362,11 +362,51 @@ namespace build2
 
   // This one will be SFINAE'd out unless T is a container.
   //
+  // If T is both (e.g., json_value), then make this version preferable.
+  //
   template <typename T>
   inline auto
-  convert (names&& ns) -> decltype (value_traits<T>::convert (move (ns)))
+  convert_impl (names&& ns, int)
+    -> decltype (value_traits<T>::convert (move (ns)))
   {
     return value_traits<T>::convert (move (ns));
+  }
+
+  // This one will be SFINAE'd out unless T is a simple value.
+  //
+  // If T is both (e.g., json_value), then make this version less preferable.
+  //
+  template <typename T>
+  auto // NOTE: not inline!
+  convert_impl (names&& ns, ...) ->
+    decltype (value_traits<T>::convert (move (ns[0]), nullptr))
+  {
+    size_t n (ns.size ());
+
+    if (n == 0)
+    {
+      if (value_traits<T>::empty_value)
+        return T ();
+    }
+    else if (n == 1)
+    {
+      return convert<T> (move (ns[0]));
+    }
+    else if (n == 2 && ns[0].pair != '\0')
+    {
+      return convert<T> (move (ns[0]), move (ns[1]));
+    }
+
+    throw invalid_argument (
+      string ("invalid ") + value_traits<T>::type_name +
+      (n == 0 ? " value: empty" : " value: multiple names"));
+  }
+
+  template <typename T>
+  inline T
+  convert (names&& ns)
+  {
+    return convert_impl<T> (move (ns), 0);
   }
 
   // bool value

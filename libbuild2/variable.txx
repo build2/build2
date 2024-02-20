@@ -27,34 +27,6 @@ namespace build2
     return false;
   }
 
-  // This one will be SFINAE'd out unless T is a simple value.
-  //
-  template <typename T>
-  auto
-  convert (names&& ns) ->
-    decltype (value_traits<T>::convert (move (ns[0]), nullptr))
-  {
-    size_t n (ns.size ());
-
-    if (n == 0)
-    {
-      if (value_traits<T>::empty_value)
-        return T ();
-    }
-    else if (n == 1)
-    {
-      return convert<T> (move (ns[0]));
-    }
-    else if (n == 2 && ns[0].pair != '\0')
-    {
-      return convert<T> (move (ns[0]), move (ns[1]));
-    }
-
-    throw invalid_argument (
-      string ("invalid ") + value_traits<T>::type_name +
-      (n == 0 ? " value: empty" : " value: multiple names"));
-  }
-
   [[noreturn]] LIBBUILD2_SYMEXPORT void
   convert_throw (const value_type* from, const value_type& to);
 

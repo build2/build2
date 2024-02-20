@@ -451,3 +451,47 @@
   abc
   EOO
 }
+
+: json-map
+:
+{
+  : basics
+  :
+  $* <<EOI >>EOO
+  m = [json_map] 2@([json] a@1 b@2) 1@([json] 1 2) 0@([json] null) -1@null
+  print $m
+  for p: $m
+    print $first($p) $second($p)
+  print ($m[1])
+  print $type($m[1])
+  print ($m[2][b])
+  EOI
+  -1@"" 0@"" 1@[1,2] 2@{"a":1,"b":2}
+  -1 ""
+  0 ""
+  1 [1,2]
+  2 {"a":1,"b":2}
+  [1,2]
+  json
+  2
+  EOO
+}
+
+: json-set
+:
+{
+  : basics
+  :
+  $* <<EOI >>EOO
+  s = [json_set] ([json] x@1 y@2) ([json] a@1 b@2)
+  print $s
+  for v: $s
+    print $type($v) $v
+  print ($s[([json] y@2 x@1)])
+  EOI
+  {"a":1,"b":2} {"x":1,"y":2}
+  json {"a":1,"b":2}
+  json {"x":1,"y":2}
+  true
+  EOO
+}

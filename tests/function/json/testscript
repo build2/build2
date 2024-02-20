@@ -37,7 +37,7 @@ object
 object
 EOO
 
-: size
+: value-size
 :
 $* <<EOI >>EOO
 print $value_size([json] null)
@@ -244,3 +244,14 @@ EOO
     <stdin>:1:6: info: while calling json.load(<untyped>)
   EOE
 }
+
+: size
+:
+{
+  $* <'print $size([json_set] a b b)'       >'2' : json-set
+  $* <'print $size([json_map] a@1 b@2 b@3)' >'2' : json-map
+}
+
+: keys
+:
+$* <'print $keys([json_map] 2@([json] a@1 b@2 c@3) 1@([json] 1 2 3))' >'[1,2]'
