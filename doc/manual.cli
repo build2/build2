@@ -5938,16 +5938,25 @@ uint64s
 
 string
 strings
+string_set
+string_map
 
 path
 paths
 dir_path
 dir_paths
 
+json
+json_array
+json_object
+json_set
+json_map
+
 name
 names
 name_pair
 
+cmdline
 project_name
 target_triplet
 \
