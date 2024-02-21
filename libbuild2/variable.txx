@@ -1347,6 +1347,10 @@ namespace build2
   // value), but we don't yet have pair<> as value type so we let the generic
   // implementation return an untyped pair.
   //
+  // BTW, one negative consequence of returning untyped pair is that
+  // $first()/$second() don't return types values either, which is quite
+  // unfortunate for something like json_map.
+  //
   template <typename K, typename V>
   const map_value_type<K, V>
   value_traits<map<K, V>>::value_type = build2::value_type // VC14 wants =

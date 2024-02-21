@@ -1799,9 +1799,16 @@ namespace build2
     {
     case json_type::null:
       {
-        // Return empty to be consistent with other places.
+        // Note that here we cannot return empty (e.g., to be consistent with
+        // other places) because we treat empty name (as opposed to empty
+        // names) as string, not null (see to_json_value() above).
         //
-#if 0
+        // Thankfully this version of reverse() is only used when json_value
+        // representation is needed as part of a container. Which means in
+        // "consumption" contexts (e.g., result of subscript) null will still
+        // decay to empty.
+        //
+#if 1
         return name ("null");
 #else
         return name ();

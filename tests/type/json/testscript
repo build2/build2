@@ -468,15 +468,19 @@
   print ($m[1])
   print $type($m[1])
   print ($m[2][b])
+  print ($m[0])
+  print ($m[-1])
   EOI
-  -1@"" 0@"" 1@[1,2] 2@{"a":1,"b":2}
-  -1 ""
-  0 ""
+  -1@null 0@null 1@[1,2] 2@{"a":1,"b":2}
+  -1 null
+  0 null
   1 [1,2]
   2 {"a":1,"b":2}
   [1,2]
   json
   2
+
+
   EOO
 }
 
