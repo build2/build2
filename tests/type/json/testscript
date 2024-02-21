@@ -91,6 +91,7 @@
   o = [json] '{"one":1, "two":}'
   EOI
   error: invalid json value in variable o: invalid json input: unexpected byte '}' in value
+    <stdin>:1:5: info: variable o value is assigned here
   EOE
 
   : diagnostics-duplicate-member
@@ -99,6 +100,7 @@
   o = [json] one@1 one@2
   EOI
   error: invalid json value in variable o: duplicate json object member 'one'
+    <stdin>:1:5: info: variable o value is assigned here
   EOE
 }
 
@@ -277,6 +279,7 @@
   print $s
   EOI
   error: invalid json value in variable s: unable to append array to string
+    <stdin>:3:6: info: variable s value is assigned here
   EOE
 }
 

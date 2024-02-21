@@ -6257,7 +6257,7 @@ namespace build2
                           type kind)
   {
     attributes as (attributes_pop ());
-    const location& l (as.loc);
+    const location& l (as.loc); // This points to value if no attributes.
 
     // Essentially this is an attribute-augmented assign/append/prepend.
     //
@@ -6376,6 +6376,17 @@ namespace build2
     }
     else
     {
+      auto df = make_diag_frame (
+        [this, var, &l](const diag_record& dr)
+        {
+          if (!l.empty ())
+          {
+            dr << info (l);
+            if (var != nullptr) dr << "variable " << var->name << ' ';
+            dr << "value is assigned here";
+          }
+        });
+
       if (kind == type::assign)
       {
         if (rhs)
