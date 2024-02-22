@@ -162,7 +162,12 @@ namespace build2
       // Add the library to the chain.
       //
       if (self && proc_lib)
+      {
+        if (find (chain->begin (), chain->end (), &l) != chain->end ())
+          fail << "dependency cycle detected involving library " << l;
+
         chain->push_back (&l);
+      }
 
       // We only lookup public variables so go straight for the public
       // variable pool.
