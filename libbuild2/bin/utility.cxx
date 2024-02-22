@@ -89,7 +89,9 @@ namespace build2
         // Make sure group members are resolved.
         //
         group_view gv (resolve_members (a, l));
-        assert (gv.members != nullptr);
+
+        if (gv.members == nullptr)
+          fail << "group " << l << " has no members";
 
         pair<otype, bool> p (
           link_member (lmembers {l.a != nullptr, l.s != nullptr}, li.order));
