@@ -2261,14 +2261,21 @@ namespace build2
                    *type != "cc" &&
                    type->compare (0, 3, "cc,") != 0)
           {
-            auto& md (l->data<link_rule::match_data> (d.a));
-            assert (md.for_install); // Must have been executed.
+            auto* md (l->try_data<link_rule::match_data> (d.a));
+
+            if (md == nullptr)
+              fail << "library " << *l << " is not built with cc module-based "
+                   << "link rule" <<
+                info << "mark it as generic with cc.type=cc target-specific "
+                     << "variable";
+
+            assert (md->for_install); // Must have been executed.
 
             // The user will get the target name from the context info.
             //
-            if (*md.for_install != *d.for_install)
+            if (*md->for_install != *d.for_install)
               fail << "incompatible " << *l << " build" <<
-                info << "library is built " << (*md.for_install ? "" : "not ")
+                info << "library is built " << (*md->for_install ? "" : "not ")
                      << "for install";
           }
 

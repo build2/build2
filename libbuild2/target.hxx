@@ -1219,11 +1219,26 @@ namespace build2
     }
 
     template <typename T>
-    typename std::enable_if<!data_invocable<T>::value, T&>::type&
+    typename std::enable_if<!data_invocable<T>::value, T&>::type
     data (action a) const
     {
       using V = typename std::remove_cv<T>::type;
       return state[a].recipe.target<data_wrapper<V>> ()->d;
+    }
+
+    // Return NULL if there is no data or the data is of a different type.
+    //
+    template <typename T>
+    typename std::enable_if<!data_invocable<T>::value, T*>::type
+    try_data (action a) const
+    {
+      using V = typename std::remove_cv<T>::type;
+
+      if (auto& r = state[a].recipe)
+        if (auto* t = r.target<data_wrapper<V>> ())
+          return &t->d;
+
+      return nullptr;
     }
 
     // Note that in this case we don't strip const (the expectation is that we
@@ -1250,10 +1265,18 @@ namespace build2
     }
 
     template <typename T>
-    typename std::enable_if<data_invocable<T>::value, T&>::type&
+    typename std::enable_if<data_invocable<T>::value, T&>::type
     data (action a) const
     {
       return *state[a].recipe.target<T> ();
+    }
+
+    template <typename T>
+    typename std::enable_if<data_invocable<T>::value, T*>::type
+    try_data (action a) const
+    {
+      auto& r = state[a].recipe;
+      return r ? r.target<T> () : nullptr;
     }
 
     // Target type info and casting.
