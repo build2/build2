@@ -2840,7 +2840,6 @@ namespace build2
     // s.recipe_group_action may be used further (see, for example,
     // group_state()) and should retain its value.
     //
-    //
     if (!s.recipe_keep)
       s.recipe = nullptr;
 

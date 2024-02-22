@@ -45,6 +45,8 @@ namespace build2
     // Return the greatest (newest) timestamp of all the DLLs that we will be
     // adding to the assembly or timestamp_nonexistent if there aren't any.
     //
+    // Note: called during the execute phase.
+    //
     timestamp link_rule::
     windows_rpath_timestamp (const file& t,
                              const scope& bs,
@@ -88,7 +90,18 @@ namespace build2
           //
           if (l->is_a<libs> () && !l->path ().empty ()) // Also covers binless.
           {
-            timestamp t (l->load_mtime ());
+            // Handle the case where the library is a member of a group (for
+            // example, people are trying to hack something up with pre-built
+            // libraries; see GH issue #366).
+            //
+            timestamp t;
+            if (l->group_state (action () /* inner */))
+            {
+              t = l->group->is_a<mtime_target> ()->mtime ();
+              assert (t != timestamp_unknown);
+            }
+            else
+              t = l->load_mtime ();
 
             if (t > r)
               r = t;

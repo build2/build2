@@ -1058,6 +1058,12 @@ namespace build2
     target_state
     executed_state (action, bool fail = true) const;
 
+    // Return true if the state comes from the group. Target must be at least
+    // matched except for ad hoc group members during the execute phase.
+    //
+    bool
+    group_state (action) const;
+
   protected:
     // Version that should be used during match after the target has been
     // matched for this action.
@@ -1073,12 +1079,6 @@ namespace build2
     //
     target_state
     executed_state_impl (action) const;
-
-    // Return true if the state comes from the group. Target must be at least
-    // matched except for ad hoc group members during the execute phase.
-    //
-    bool
-    group_state (action) const;
 
   public:
     // Targets to which prerequisites resolve for this action. Note that
