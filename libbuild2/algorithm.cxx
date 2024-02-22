@@ -375,29 +375,26 @@ namespace build2
     if (*mp != nullptr) // Might already be there.
       return **mp;
 
-    target* m (nullptr);
-    {
-      pair<target&, ulock> r (
-        t.ctx.targets.insert_locked (tt,
-                                     move (dir),
-                                     move (out),
-                                     move (n),
-                                     move (ext),
-                                     target_decl::implied,
-                                     trace,
-                                     true /* skip_find */));
+    pair<target&, ulock> r (
+      t.ctx.targets.insert_locked (tt,
+                                   move (dir),
+                                   move (out),
+                                   move (n),
+                                   move (ext),
+                                   target_decl::implied,
+                                   trace,
+                                   true /* skip_find */));
 
-      if (r.second) // Inserted.
-      {
-        m = &r.first;
-        m->group = &t;
-      }
-    }
+    target& m (r.first);
 
-    assert (m != nullptr);
-    *mp = m;
+    if (!r.second)
+      fail << "target " << m << " already exists and cannot be made "
+           << "ad hoc member of group " << t;
 
-    return *m;
+    m.group = &t;
+    *mp = &m;
+
+    return m;
   };
 
   pair<target&, bool>
