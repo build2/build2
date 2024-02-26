@@ -3969,6 +3969,14 @@ namespace build2
           try_rmfile (relt, true);
       }
 
+      // We have no choice but to serialize early if we want the command line
+      // printed shortly before actually executing the linker. Failed that, it
+      // may look like we are still executing in parallel.
+      //
+      scheduler::alloc_guard jobs_ag;
+      if (!ctx.dry_run && cast_false<bool> (t[c_serialize]))
+        jobs_ag = scheduler::alloc_guard (*ctx.sched, phase_unlock (nullptr));
+
       if (verb == 1)
         print_diag (lt.static_library () ? "ar" : "ld", t);
       else if (verb == 2)
@@ -3989,10 +3997,15 @@ namespace build2
       //
       // Note that we are not going to bother with oargs for this.
       //
+      // Note also that we now have scheduler::serialize() which allows us to
+      // block until full parallelism is available (this mode can currently
+      // be forced with cc.serialize=true; maybe we should invent something
+      // like config.cc.link_serialize or some such which can be used when
+      // LTO is enabled).
+      //
       string jobs_arg;
-      scheduler::alloc_guard jobs_extra;
 
-      if (!lt.static_library ())
+      if (!ctx.dry_run && !lt.static_library ())
       {
         switch (ctype)
         {
@@ -4008,8 +4021,10 @@ namespace build2
             auto i (find_option_prefix ("-flto", args.rbegin (), args.rend ()));
             if (i != args.rend () && strcmp (*i, "-flto=auto") == 0)
             {
-              jobs_extra = scheduler::alloc_guard (*ctx.sched, 0);
-              jobs_arg = "-flto=" + to_string (1 + jobs_extra.n);
+              if (jobs_ag.n == 0) // Might already have (see above).
+                jobs_ag = scheduler::alloc_guard (*ctx.sched, 0);
+
+              jobs_arg = "-flto=" + to_string (1 + jobs_ag.n);
               *i = jobs_arg.c_str ();
             }
             break;
@@ -4027,8 +4042,10 @@ namespace build2
                 strcmp (*i, "-flto=thin") == 0 &&
                 !find_option_prefix ("-flto-jobs=", args))
             {
-              jobs_extra = scheduler::alloc_guard (*ctx.sched, 0);
-              jobs_arg = "-flto-jobs=" + to_string (1 + jobs_extra.n);
+              if (jobs_ag.n == 0) // Might already have (see above).
+                jobs_ag = scheduler::alloc_guard (*ctx.sched, 0);
+
+              jobs_arg = "-flto-jobs=" + to_string (1 + jobs_ag.n);
               args.insert (i.base (), jobs_arg.c_str ()); // After -flto=thin.
             }
             break;
@@ -4200,8 +4217,6 @@ namespace build2
             if (!e)
               throw failed ();
           }
-
-          jobs_extra.deallocate ();
         }
         catch (const process_error& e)
         {
@@ -4280,6 +4295,8 @@ namespace build2
                env_ptrs.empty () ? nullptr : env_ptrs.data ());
         }
       }
+
+      jobs_ag.deallocate ();
 
       // For Windows generate (or clean up) rpath-emulating assembly.
       //

@@ -7830,6 +7830,14 @@ namespace build2
       if (!env.empty ())
         env.push_back (nullptr);
 
+      // We have no choice but to serialize early if we want the command line
+      // printed shortly before actually executing the compiler. Failed that,
+      // it may look like we are still executing in parallel.
+      //
+      scheduler::alloc_guard jobs_ag;
+      if (!ctx.dry_run && cast_false<bool> (t[c_serialize]))
+        jobs_ag = scheduler::alloc_guard (*ctx.sched, phase_unlock (nullptr));
+
       // With verbosity level 2 print the command line as if we are compiling
       // the source file, not its preprocessed version (so that it's easy to
       // copy and re-run, etc). Only at level 3 and above print the real deal.
@@ -7993,6 +8001,8 @@ namespace build2
 
           throw failed ();
         }
+
+        jobs_ag.deallocate ();
 
         if (md.deferred_failure)
           fail << "expected error exit status from " << x_lang << " compiler";

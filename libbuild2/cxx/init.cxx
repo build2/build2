@@ -951,6 +951,7 @@ namespace build2
         vp["cc.module_name"],
         vp["cc.importable"],
         vp["cc.reprocess"],
+        vp["cc.serialize"],
 
         // Ability to signal that source is already (partially) preprocessed.
         // Valid values are 'none' (not preprocessed), 'includes' (no #include

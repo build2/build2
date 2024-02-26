@@ -345,6 +345,7 @@ namespace build2
         vp["cc.module_name"],
         vp["cc.importable"],
         vp["cc.reprocess"],
+        vp["cc.serialize"],
 
         vp.insert<string>   ("c.preprocessed"), // See cxx.preprocessed.
         nullptr,                                // No __symexport (no modules).

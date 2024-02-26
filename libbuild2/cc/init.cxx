@@ -185,6 +185,13 @@ namespace build2
       //
       vp.insert<bool> ("cc.reprocess");
 
+      // Execute serially with regards to any other recipe. This is primarily
+      // useful when compiling large translation units or linking large
+      // binaries that require so much memory that doing that in parallel with
+      // other compilation/linking jobs is likely to summon the OOM killer.
+      //
+      vp.insert<bool> ("cc.serialize");
+
       // Register scope operation callback.
       //
       // It feels natural to clean up sidebuilds as a post operation but that

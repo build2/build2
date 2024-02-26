@@ -117,6 +117,7 @@ namespace build2
       const variable& c_module_name;  // cc.module_name
       const variable& c_importable;   // cc.importable
       const variable& c_reprocess;    // cc.reprocess
+      const variable& c_serialize;    // cc.serialize
 
       const variable& x_preprocessed; // x.preprocessed
       const variable* x_symexport;    // x.features.symexport
