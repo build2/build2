@@ -192,13 +192,15 @@ namespace build2
     //
     // The external flag indicates whether the wait is for an event external
     // to the scheduler, that is, triggered by something other than one of the
-    // threads managed by the scheduler.
+    // threads managed by the scheduler. This is used to suspend deadlock
+    // detection (which is progress-based and which cannot be measured for
+    // external events).
     //
     void
     deactivate (bool external);
 
     void
-    activate (bool external, bool = false);
+    activate (bool external);
 
     // Sleep for the specified duration, deactivating the thread before going
     // to sleep and re-activating it after waking up (which means this
@@ -217,7 +219,7 @@ namespace build2
     // Allocate additional active thread count to the current active thread,
     // for example, to be "passed" to an external program:
     //
-    // scheduler::alloc_guard ag (ctx.sched, ctx.sched.max_active () / 2);
+    // scheduler::alloc_guard ag (*ctx.sched, ctx.sched->max_active () / 2);
     // args.push_back ("-flto=" + to_string (1 + ag.n));
     // run (args);
     // ag.deallocate ();
@@ -242,12 +244,32 @@ namespace build2
     void
     deallocate (size_t);
 
+    // Similar to allocate() but reserve all the available threads blocking
+    // until this becomes possible. Call unlock() on the specified lock before
+    // deactivating and lock() after activating (can be used to unlock the
+    // phase). Typical usage:
+    //
+    // scheduler::alloc_guard ag (*ctx.sched,
+    //                            phase_unlock (ctx, true /* delay */));
+    //
+    // Or, without unlocking the phase:
+    //
+    // scheduler::alloc_guard ag (*ctx.sched, phase_unlock (nullptr));
+    //
+    template <typename L>
+    size_t
+    serialize (L& lock);
+
     struct alloc_guard
     {
       size_t n;
 
       alloc_guard (): n (0), s_ (nullptr) {}
       alloc_guard (scheduler& s, size_t m): n (s.allocate (m)), s_ (&s) {}
+
+      template <typename L,
+                typename std::enable_if<!std::is_integral<L>::value, int>::type = 0>
+      alloc_guard (scheduler& s, L&& l): n (s.serialize (l)), s_ (&s) {}
 
       alloc_guard (alloc_guard&& x) noexcept
         : n (x.n), s_ (x.s_) {x.s_ = nullptr;}
@@ -939,6 +961,12 @@ namespace build2
   private:
     optional<size_t>
     wait_impl (size_t, const atomic_count&, work_queue);
+
+    void
+    deactivate_impl (bool, lock&&);
+
+    lock
+    activate_impl (bool, bool);
   };
 }
 

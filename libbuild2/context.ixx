@@ -56,7 +56,7 @@ namespace build2
   inline void wait_guard::
   wait ()
   {
-    phase_unlock u (*ctx, phase, true /* delay */);
+    phase_unlock u (phase ? ctx : nullptr, true /* delay */);
     ctx->sched->wait (start_count, *task_count, u);
     task_count = nullptr;
   }

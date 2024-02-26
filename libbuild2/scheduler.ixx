@@ -44,6 +44,20 @@ namespace build2
     return suspend (start_count, task_count);
   }
 
+  inline void scheduler::
+  deactivate (bool external)
+  {
+    if (max_active_ != 1) // Serial execution.
+      deactivate_impl (external, lock (mutex_));
+  }
+
+  inline void scheduler::
+  activate (bool external)
+  {
+    if (max_active_ != 1) // Serial execution.
+      activate_impl (external, false /* collision */);
+  }
+
   inline scheduler::queue_mark::
   queue_mark (scheduler& s)
       : tq_ (s.queue ())

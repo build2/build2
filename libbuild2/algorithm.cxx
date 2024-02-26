@@ -284,7 +284,7 @@ namespace build2
         // to switch the phase to load. Which would result in a deadlock
         // unless we release the phase.
         //
-        phase_unlock u (ct.ctx, true /* unlock */, true /* delay */);
+        phase_unlock u (ct.ctx, true /* delay */);
         e = ctx.sched->wait (busy - 1, task_count, u, *wq);
       }
 

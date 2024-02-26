@@ -137,4 +137,42 @@ namespace build2
     if (tc.fetch_sub (1, memory_order_release) - 1 <= t.start_count)
       s.resume (tc); // Resume waiters, if any.
   }
+
+  template <typename L>
+  size_t scheduler::
+  serialize (L& el)
+  {
+    if (max_active_ == 1) // Serial execution.
+      return 0;
+
+    lock l (mutex_);
+
+    if (active_ == 1)
+      active_ = max_active_;
+    else
+    {
+      // Wait until we are the only active thread.
+      //
+      el.unlock ();
+
+      while (active_ != 1)
+      {
+        // While it would have been more efficient to implement this via the
+        // condition variable notifications, that logic is already twisted
+        // enough (and took a considerable time to debug). So for now we keep
+        // it simple and do sleep and re-check. Make the sleep external not to
+        // trip up the deadlock detection.
+        //
+        deactivate_impl (true /* external */, move (l));
+        active_sleep (std::chrono::milliseconds (10));
+        l = activate_impl (true /* external */, false /* collision */);
+      }
+
+      active_ = max_active_;
+      l.unlock (); // Important: unlock before attempting to relock external!
+      el.lock ();
+    }
+
+    return max_active_ - 1;
+  }
 }

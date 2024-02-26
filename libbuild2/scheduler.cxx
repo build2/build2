@@ -93,12 +93,11 @@ namespace build2
   }
 
   void scheduler::
-  deactivate (bool external)
+  deactivate_impl (bool external, lock&& rl)
   {
-    if (max_active_ == 1) // Serial execution.
-      return;
+    // Note: assume non-serial execution.
 
-    lock l (mutex_);
+    lock l (move (rl)); // Make sure unlocked on exception.
 
     active_--;
     waiting_++;
@@ -131,11 +130,10 @@ namespace build2
     }
   }
 
-  void scheduler::
-  activate (bool external, bool collision)
+  scheduler::lock scheduler::
+  activate_impl (bool external, bool collision)
   {
-    if (max_active_ == 1) // Serial execution.
-      return;
+    // Note: assume non-serial execution.
 
     lock l (mutex_);
 
@@ -160,6 +158,8 @@ namespace build2
 
     if (shutdown_)
       throw_generic_error (ECANCELED);
+
+    return l;
   }
 
   void scheduler::
@@ -207,7 +207,10 @@ namespace build2
   deallocate (size_t n)
   {
     if (max_active_ == 1) // Serial execution.
+    {
+      assert (n == 0);
       return;
+    }
 
     lock l (mutex_);
     active_ -= n;
@@ -216,13 +219,15 @@ namespace build2
   size_t scheduler::
   suspend (size_t start_count, const atomic_count& task_count)
   {
+    assert (max_active_ != 1); // Suspend during serial execution?
+
     wait_slot& s (
       wait_queue_[
         hash<const atomic_count*> () (&task_count) % wait_queue_size_]);
 
     // This thread is no longer active.
     //
-    deactivate (false /* external */);
+    deactivate_impl (false /* external */, lock (mutex_));
 
     // Note that the task count is checked while holding the lock. We also
     // have to notify while holding the lock (see resume()). The aim here
@@ -259,7 +264,7 @@ namespace build2
 
     // This thread is no longer waiting.
     //
-    activate (false /* external */, collision);
+    activate_impl (false /* external */, collision);
 
     return tc;
   }
