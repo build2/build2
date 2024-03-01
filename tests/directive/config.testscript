@@ -212,12 +212,14 @@ test.arguments =
     config [strings, config.report=multiline]  config.test.d ?= 1 2 3
     config [string,  config.report.variable=e] config.test.e ?= abc
     config [         config.report]            f
+    config [         config.report.variable=g] gg
     config [bool]                              config.test.n ?= [null]
     config [bool]                              config.test.p
     config [bool]                              config.test.p ?= true
 
     e = "'$config.test.e'"
     f = ($config.test.b || $config.test.c)
+    g = abc
 
     EOI
 
@@ -240,6 +242,7 @@ test.arguments =
         3
       e          'abc'
       f          true
+      gg         abc
       n          [null]
       p          true
     EOO
@@ -262,6 +265,7 @@ test.arguments =
         3
       e          'xyz'
       f          true
+      gg         abc
       n          true
       p          false
     EOO

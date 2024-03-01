@@ -3852,6 +3852,9 @@ namespace build2
         try
         {
           report_var = convert<string> (move (i->value));
+
+          if (!report)
+            report = string ("true");
         }
         catch (const invalid_argument& e)
         {
@@ -3889,9 +3892,13 @@ namespace build2
 
     // As a way to print custom (discovered, computed, etc) configuration
     // information we allow specifying a non config.* variable provided it is
-    // explicitly marked with the config.report attribute.
+    // explicitly marked with the config.report attribute (or another
+    // attribute that implies it).
     //
     bool new_val (false);
+    string org_var; // Original variable if config.report.variable specified.
+
+    const variable* var (nullptr); // config.* variable.
     lookup l;
 
     if (report && *report != "false" && !config)
@@ -3910,7 +3917,14 @@ namespace build2
       // philosophical question. In either case it doesn't seem useful for it
       // to unconditionally force reporting at level 2.
       //
-      report_var = move (name);
+      if (!report_var.empty ())
+      {
+        // For example, config [config.report.variable=multi] multi_database
+        //
+        org_var = move (name);
+      }
+      else
+        report_var = move (name);
 
       next (t, tt); // We shouldn't have the default value part.
     }
@@ -4040,17 +4054,16 @@ namespace build2
              << (proj.empty () ? "<project>" : proj.c_str ()) << ".**' form";
       }
 
-      const variable& var (
-        parse_variable_name (move (name), get_location (t)));
-      apply_variable_attributes (var);
+      var = &parse_variable_name (move (name), get_location (t));
+      apply_variable_attributes (*var);
 
       // Note that even though we are relying on the config.** variable
       // pattern to set global visibility, let's make sure as a sanity check.
       //
-      if (var.visibility != variable_visibility::global)
+      if (var->visibility != variable_visibility::global)
       {
-        fail (t) << "configuration variable " << var << " has "
-                 << var.visibility << " visibility";
+        fail (t) << "configuration variable " << *var << " has "
+                 << var->visibility << " visibility";
       }
 
       // See if we have the default value part.
@@ -4072,15 +4085,15 @@ namespace build2
       //
       bool dev;
       {
-        size_t p (var.name.rfind ('.'));
-        dev = p != 6 && var.name.compare (p + 1, string::npos, "develop") == 0;
+        size_t p (var->name.rfind ('.'));
+        dev = p != 6 && var->name.compare (p + 1, string::npos, "develop") == 0;
       }
 
       uint64_t sflags (0);
       if (dev)
       {
-        if (var.type != &value_traits<bool>::value_type)
-          fail (loc) << var << " variable must be of type bool";
+        if (var->type != &value_traits<bool>::value_type)
+          fail (loc) << *var << " variable must be of type bool";
 
         // This is quite messy: below we don't always parse the value (plus it
         // may be computed) so here we just peek at the next token. But we
@@ -4089,10 +4102,10 @@ namespace build2
         if (!def_val                                    ||
             peek (lexer_mode::value, '@') != type::word ||
             peeked ().value != "false")
-          fail (loc) << var << " variable default value must be literal false";
+          fail (loc) << *var << " variable default value must be literal false";
 
         if (nullable)
-          fail (loc) << var << " variable must not be nullable";
+          fail (loc) << *var << " variable must not be nullable";
 
         sflags |= config::save_false_omitted;
       }
@@ -4101,7 +4114,7 @@ namespace build2
       // in order to mark it as saved. We also have to do this to get the new
       // value status.
       //
-      l = config::lookup_config (new_val, *root_, var, sflags);
+      l = config::lookup_config (new_val, *root_, *var, sflags);
 
       // Handle the default value.
       //
@@ -4137,12 +4150,12 @@ namespace build2
         else
         {
           value lhs, rhs (parse_variable_value (t, tt, !dev /* mode */));
-          apply_value_attributes (&var, lhs, move (rhs), type::assign);
+          apply_value_attributes (var, lhs, move (rhs), type::assign);
 
           if (!nullable)
             nullable = lhs.null;
 
-          l = config::lookup_config (new_val, *root_, var, move (lhs), sflags);
+          l = config::lookup_config (new_val, *root_, *var, move (lhs), sflags);
         }
       }
 
@@ -4153,7 +4166,7 @@ namespace build2
       // then the user is expected to handle the undefined case).
       //
       if (!nullable && l.defined () && l->null)
-        fail (loc) << "null value in non-nullable variable " << var;
+        fail (loc) << "null value in non-nullable variable " << *var;
     }
 
     // We will be printing the report at either level 2 (-v) or 3 (-V)
@@ -4188,6 +4201,9 @@ namespace build2
       //
       if (!report_var.empty ())
       {
+        if (org_var.empty () && var != nullptr)
+          org_var = var->name;
+
         // In a somewhat hackish way we pass the variable in an undefined
         // lookup.
         //
@@ -4201,23 +4217,33 @@ namespace build2
 
       if (l.var != nullptr)
       {
-        auto r (make_pair (l, move (*report)));
-
         // If we have a duplicate, update it (it could be useful to have
         // multiple config directives to "probe" the value before calculating
         // the default; see lookup_config() for details).
         //
+        // Since the original variable is what the user will see in the
+        // report, we prefer that as a key.
+        //
         auto i (find_if (report_values.begin (),
                          report_values.end (),
-                         [&l] (const pair<lookup, string>& p)
+                         [&org_var, &l] (const config_report::value& v)
                          {
-                           return p.first.var == l.var;
+                           return (v.org.empty () && org_var.empty ()
+                                   ? v.val.var == l.var
+                                   : (v.org.empty ()
+                                      ? v.val.var->name == org_var
+                                      : v.org == l.var->name));
                          }));
 
         if (i == report_values.end ())
-          report_values.push_back (move (r));
+          report_values.push_back (
+            config_report::value {l, move (*report), move (org_var)});
         else
-          *i = move (r);
+        {
+          i->val = l;
+          i->fmt = move (*report);
+          if (i->org.empty ()) i->org = move (org_var);
+        }
 
         report_new_value = report_new_value || new_val;
       }

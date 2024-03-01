@@ -4966,6 +4966,32 @@ if! $defined(config.libhello.database)
   fail 'config.libhello.database must be specified'
 \
 
+\N|A configuration variable without a default value is omitted from
+\c{config.build} unless the value is specified by the user. This semantics is
+useful for values that are normally derived from other configuration values
+but could also be specified by the user. If the value is derived, then we
+don't want it saved in \c{config.build} since that would prevent it from
+being re-derived if the configuration values it is based on are changed.
+For example:
+
+\
+config [strings] config.hello.database
+
+assert ($size($config.hello.database) > 0) \
+  'database must be specified with config.hello.database'
+
+config [bool, config.report.variable=multi] config.hello.multi_database
+
+multi = ($defined(config.hello.multi_database) \
+         ? $config.hello.multi_database        \
+         : $size(config.hello.database) > 1)
+
+assert ($multi || $size(config.hello.database) == 1) \
+  'one database can be specified if config.hello.multi_database=false'
+\
+
+|
+
 If computing the default value is expensive or requires elaborate logic, then
 the handling of a configuration variable can be broken down into two steps
 along these lines:

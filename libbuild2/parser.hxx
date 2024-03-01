@@ -136,9 +136,16 @@ namespace build2
     //
     struct config_report
     {
-      project_name                 module;    // Reporting module name.
-      vector<pair<lookup, string>> values;    // Config value and format.
-      bool                         new_value; // One of values is new.
+      struct value
+      {
+        lookup val; // Value.
+        string fmt; // Format.
+        string org; // Original variable if config.report.variable.
+      };
+
+      project_name  module;    // Reporting module name.
+      vector<value> values;
+      bool          new_value; // One of values is new.
     };
     small_vector<config_report, 1> config_reports;
 

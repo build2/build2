@@ -4,6 +4,7 @@
 #include <libbuild2/file.hxx>
 
 #include <cerrno>
+#include <cstring> // strlen()
 #include <iomanip> // left, setw()
 #include <sstream>
 
@@ -1639,8 +1640,10 @@ namespace build2
     // Print the project configuration report(s), similar to how we do it in
     // build system modules.
     //
+    using config_report = parser::config_report;
+
     const project_name* proj (nullptr); // Resolve lazily.
-    for (const parser::config_report& cr: p.config_reports)
+    for (const config_report& cr: p.config_reports)
     {
       if (verb < (cr.new_value ? 2 : 3))
         continue;
@@ -1673,26 +1676,45 @@ namespace build2
                       ? '.' + proj->variable () + '.'
                       : string ()));
 
-      // Calculate max name length.
+      // Return the variable name for printing.
       //
-      size_t pad (10);
-      for (const pair<lookup, string>& lf: cr.values)
+      auto name = [&stem] (const config_report::value& cv) -> const char*
       {
-        lookup l (lf.first);
+        lookup l (cv.val);
 
-        size_t n;
         if (l.value == nullptr)
         {
-          n = l.var->name.size ();
+          if (cv.org.empty ())
+            return l.var->name.c_str ();
+
+          // This case may or may not have the prefix.
+          //
+          size_t p, n (
+            !stem.empty ()
+            ? (p = cv.org.find (stem)) != string::npos ? p + stem.size () : 0
+            : cv.org.compare (0, 7, "config.") == 0 ? 7 : 0);
+
+          return cv.org.c_str () + n;
         }
         else
         {
+          assert (cv.org.empty ()); // Sanity check.
+
           size_t p (!stem.empty ()
                     ? l.var->name.find (stem) + stem.size ()
                     : 7); // "config."
-          n = l.var->name.size () - p;
-        }
 
+          return l.var->name.c_str () + p;
+        }
+      };
+
+
+      // Calculate max name length.
+      //
+      size_t pad (10);
+      for (const config_report::value& cv: cr.values)
+      {
+        size_t n (strlen (name (cv)));
         if (n > pad)
           pad = n;
       }
@@ -1705,13 +1727,14 @@ namespace build2
          << ' ' << *proj << '@' << root;
 
       names storage;
-      for (const pair<lookup, string>& lf: cr.values)
+      for (const config_report::value& cv: cr.values)
       {
-        lookup l (lf.first);
-        const string& f (lf.second);
+        lookup l (cv.val);
+        const string& f (cv.fmt);
 
         // If the report variable has been overriden, now is the time to
-        // lookup its value.
+        // lookup its value. Note: see also the name() lambda above if
+        // changing anything here.
         //
         string n;
         if (l.value == nullptr)
@@ -1727,6 +1750,8 @@ namespace build2
           n = string (l.var->name, p);
         }
 
+        const char* pn (name (cv)); // Print name.
+
         dr << "\n  ";
 
         if (l)
@@ -1736,15 +1761,15 @@ namespace build2
 
           if (f == "multiline")
           {
-            dr << n;
+            dr << pn;
             for (auto& n: ns)
               dr << "\n    " << n;
           }
           else
-            dr << left << setw (static_cast<int> (pad)) << n << ' ' << ns;
+            dr << left << setw (static_cast<int> (pad)) << pn << ' ' << ns;
         }
         else
-          dr << left << setw (static_cast<int> (pad)) << n << " [null]";
+          dr << left << setw (static_cast<int> (pad)) << pn << " [null]";
       }
     }
 
