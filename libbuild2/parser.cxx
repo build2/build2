@@ -2374,10 +2374,12 @@ namespace build2
               string s;
               location sloc (file, 1, 1);
               {
-                // @@ Line is inaccurate since we skip consecutive newlines!
+                // Note: observe blank lines for accurate line count.
                 //
                 size_t b (0), e (0);
-                for (; next_word (text, b, e, '\n', '\r'); sloc.line++)
+                for (size_t m (0), n (text.size ());
+                     next_word (text, n, b, e, m, '\n', '\r'), b != n;
+                     sloc.line++)
                 {
                   s.assign (text, b, e - b);
 
