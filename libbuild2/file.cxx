@@ -3411,6 +3411,11 @@ namespace build2
     const target* pt (nullptr);
     const scope* iroot (nullptr); // Imported root scope.
 
+    // Original project/name as imported for diagnostics.
+    //
+    string oname (meta ? tgt.value : string ());
+    project_name oproj (meta && tgt.proj ? *tgt.proj : project_name ());
+
     pair<name, optional<dir_path>> r (
       import_search (new_value,
                      base,
@@ -3515,6 +3520,13 @@ namespace build2
     //
     if (meta)
     {
+      auto df = make_diag_frame (
+        [&oproj, &oname, &t] (const diag_record& dr)
+        {
+          if (!oproj.empty ())
+            import_suggest (dr, oproj, &t.type (), oname, false, "alternative ");
+        });
+
       // The export.metadata value should start with the version followed by
       // the metadata variable prefix.
       //
