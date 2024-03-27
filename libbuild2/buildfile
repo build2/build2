@@ -73,6 +73,12 @@ libul{build2}: config/{hxx ixx txx cxx}{** -host-config -**.test...} \
 # options which could cause spurious rebuilds when we filter out entire
 # groups.
 #
+# For ~host also filter out config.bin.lib/config.bin.*.lib (static/shared
+# library build/link preferences). In particular, we don't want to force
+# config.bin.lib=shared since that will cause static libraries to link shared
+# versions of their prerequisites (see mysql-client for a case where this can
+# make a difference).
+#
 # For ~build2 also filter out config.install.chroot -- we definitely don't
 # want it carried through. Also filter out variables that control tests
 # execution.
@@ -98,18 +104,24 @@ for l: $regex.replace_lines(                                                   \
     $l,                                                                     \
     ' *config\.(c[. ]|cxx[. ]|cc[.]|bin[.]|config.environment |version ).*')
   {
-    # Filter out sanitizer options in ~host. We run the toolchain with various
-    # sanitizers on CI but sanitizers cause issues in some packages. Note that
-    # we can have both -fsanitize and -fno-sanitize forms. For example:
-    #
-    # -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all
-    #
-    if $regex.match($l, ' *config\.(c|cxx|cc)\.(coptions|loptions)[ =].*')
+    if! ($regex.match(\
+           $l,        \
+           ' *config\.bin\.(lib|exe\.lib|liba\.lib|libs\.lib)[ =].*'))
     {
-      l = $regex.replace($l, ' ?-f(no-)?sanitize[=-][^ ]+', '')
-    }
+      # Filter out sanitizer options in ~host. We run the toolchain with
+      # various sanitizers on CI but sanitizers cause issues in some packages.
+      # Note that we can have both -fsanitize and -fno-sanitize forms. For
+      # example:
+      #
+      # -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all
+      #
+      if $regex.match($l, ' *config\.(c|cxx|cc)\.(coptions|loptions)[ =].*')
+      {
+        l = $regex.replace($l, ' ?-f(no-)?sanitize[=-][^ ]+', '')
+      }
 
-    host_config_lines += $l
+      host_config_lines += $l
+    }
   }
 }
 
