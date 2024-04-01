@@ -25,6 +25,51 @@
   }
 }
 
+: replace
+:
+{
+  : basics
+  :
+  {
+    $* <'print $string.replace(  abcb,      b, BB)' >'aBBcBB'  : expand
+    $* <'print $string.replace(  aabbccbb, bb,  B)' >'aaBccB'  : shrink
+    $* <'print $replace([string] abc,       b,  B)' >'aBc'     : typed
+    $* <'print $replace([string]  "",       b,  B)' >''        : empty
+    $* <'print $replace([string] bbb,       b, "")' >''        : to-empty
+  }
+
+  : icase
+  :
+  {
+    $* <'print $string.replace(abcB, b, X, icase)' >'aXcX'
+  }
+
+  : first
+  :
+  {
+    $* <'print $string.replace(babc, b, B, first_only)' >'Babc' : first
+    $* <'print $string.replace(abcb, b, B, first_only)' >'aBcb' : middle
+    $* <'print $string.replace(b,    b, B, first_only)' >'B'    : only
+  }
+
+  : last
+  :
+  {
+    $* <'print $string.replace(babc, b, B, last_only)' >'baBc' : middle
+    $* <'print $string.replace(abcb, b, B, last_only)' >'abcB' : last
+    $* <'print $string.replace(b,    b, B, last_only)' >'B'    : only
+  }
+
+  : first-and-last
+  :
+  {
+    $* <'print $string.replace(ac,   b, B, first_only last_only)' >'ac'   : zero
+    $* <'print $string.replace(abc,  b, B, first_only last_only)' >'aBc'  : one
+    $* <'print $string.replace(abcb, b, B, first_only last_only)' >'abcb' : two
+    $* <'print $string.replace(b,    b, B, first_only last_only)' >'B'    : only
+  }
+}
+
 : trim
 :
 {

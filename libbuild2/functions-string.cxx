@@ -8,6 +8,103 @@ using namespace std;
 
 namespace build2
 {
+  static string
+  replace (string&& s, value&& fv, value&& tv, optional<names>&& fs)
+  {
+    bool ic (false), fo (false), lo (false);
+    if (fs)
+    {
+      for (name& f: *fs)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "icase")
+          ic = true;
+        else if (s == "first_only")
+          fo = true;
+        else if (s == "last_only")
+          lo = true;
+        else
+          throw invalid_argument ("invalid flag '" + s + '\'');
+      }
+    }
+
+    string f (convert<string> (move (fv)));
+    string t (convert<string> (move (tv)));
+
+    if (f.empty ())
+      throw invalid_argument ("empty <from> substring");
+
+    if (!s.empty ())
+    {
+      // Note that we don't cache s.size () since the string size will be
+      // changing as we are replacing. In fact, we may end up with an empty
+      // string after a replacement.
+
+      size_t fn (f.size ());
+
+      // Look for the substring forward in the [p, n) range.
+      //
+      auto find = [&s, &f, fn, ic] (size_t p) -> size_t
+      {
+        for (size_t n (s.size ()); p != n; ++p)
+        {
+          if (n - p >= fn &&
+              (ic
+               ? icasecmp (f, s.c_str () + p, fn)
+               : s.compare (p, fn, f)) == 0)
+            return p;
+        }
+
+        return string::npos;
+      };
+
+      // Look for the substring backard in the [0, n) range.
+      //
+      auto rfind = [&s, &f, fn, ic] (size_t n) -> size_t
+      {
+        if (n >= fn)
+        {
+          n -= fn; // Don't consider characters out of range.
+
+          for (size_t p (n);; )
+          {
+            if ((ic
+                 ? icasecmp (f, s.c_str () + p, fn)
+                 : s.compare (p, fn, f)) == 0)
+              return p;
+
+            if (--p == 0)
+              break;
+          }
+        }
+
+        return string::npos;
+      };
+
+      if (fo || lo)
+      {
+        size_t p (lo ? rfind (s.size ()) : find (0));
+
+        if (fo && lo && p != string::npos)
+        {
+          if (p != find (0))
+            p = string::npos;
+        }
+
+        if (p != string::npos)
+          s.replace (p, fn, t);
+      }
+      else
+      {
+        for (size_t p (0); (p = find (0)) != string::npos; p += fn)
+          s.replace (p, fn, t);
+      }
+    }
+
+    return s;
+  }
+
   static size_t
   find_index (const strings& vs, value&& v, optional<names>&& fs)
   {
@@ -32,7 +129,7 @@ namespace build2
                      }));
 
     return i != vs.end () ? i - vs.begin () : vs.size ();
-  };
+  }
 
   void
   string_functions (function_map& m)
@@ -74,6 +171,39 @@ namespace build2
     {
       return icasecmp (convert<string> (move (x)),
                        convert<string> (move (y))) == 0;
+    };
+
+    // $string.replace(<untyped>, <from>, <to> [, <flags>])
+    // $replace(<string>, <from>, <to> [, <flags>])
+    //
+    // Replace occurences of substring <from> with <to> in a string. The
+    // <from> substring must not be empty.
+    //
+    // The following flags are supported:
+    //
+    //     icase       - compare ignoring case
+    //
+    //     first_only  - only replace the first match
+    //
+    //     last_only   - only replace the last match
+    //
+    //
+    // If both `first_only` and `last_only` flags are specified, then <from>
+    // is replaced only if it occurs in the string once.
+    //
+    // See also `$regex.replace()`.
+    //
+    f["replace"] += [](string s, value f, value t, optional<names> fs)
+    {
+      return replace (move (s), move (f), move (t), move (fs));
+    };
+
+    f[".replace"] += [](names s, value f, value t, optional<names> fs)
+    {
+      return names {
+        name (
+          replace (
+            convert<string> (move (s)), move (f), move (t), move (fs)))};
     };
 
     // $string.trim(<untyped>)

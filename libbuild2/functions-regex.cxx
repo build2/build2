@@ -775,6 +775,8 @@ namespace build2
     // If both `format_first_only` and `format_no_copy` flags are specified
     // then the result will only contain the replacement of the first match.
     //
+    // See also `$string.replace()`.
+    //
     f[".replace"] += [](value v, string re, string fmt, optional<names> flags)
     {
       return replace (move (v), re, fmt, move (flags));
