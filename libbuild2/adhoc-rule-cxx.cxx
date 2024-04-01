@@ -358,6 +358,46 @@ namespace build2
         // This way the configuration will be always in sync with ~build2
         // and we can update the recipe manually (e.g., for debugging).
         //
+        // Should we use ~build2 or ~build2-no-warnings? This case is similar
+        // to private host/module configurations in that the user doesn't have
+        // any control over the options used, etc. So it would be natural to
+        // use the no-warnings variant. However, unlike with tools/modules
+        // which can be configured in a user-created configuration (and which
+        // will normally be the case during development), for recipes it's
+        // always this automatically-create configuration. It feels like the
+        // best we can do is use ~build2-no-warnings by default but switch to
+        // ~build2 if the project is configured for development
+        // (config.<project>.develop).
+        //
+        string cfg;
+        {
+          const project_name& pn (named_project (rs));
+
+          if (!pn.empty ())
+          {
+            string var ("config." + pn.variable () + ".develop");
+
+            if (lookup l = rs[var])
+            {
+              // The value could be untyped if the project didn't declare this
+              // variable. Let's handle that case gracefully.
+              //
+              try
+              {
+                if (convert<bool> (*l))
+                  cfg = "~build2";
+              }
+              catch (const invalid_argument& e)
+              {
+                fail << "invalid " << var << " value: " << e;
+              }
+            }
+          }
+
+          if (cfg.empty ())
+            cfg = "~build2-no-warnings";
+        }
+
         create_project (
           pd,
           dir_path (),                             /* amalgamation */
@@ -366,7 +406,7 @@ namespace build2
           {"cxx."},                                /* root_modules */
           "",                                      /* root_post */
           string ("config"),                       /* config_module */
-          string ("config.config.load = ~build2"), /* config_file */
+          "config.config.load = " + cfg,           /* config_file */
           false,                                   /* buildfile */
           "build2 core",                           /* who */
           verbosity);                              /* verbosity */

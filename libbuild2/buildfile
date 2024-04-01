@@ -88,18 +88,24 @@ libul{build2}: config/{hxx ixx txx cxx}{** -host-config -**.test...} \
 # on the users of ~host/~build2; they can decide for themselves if they
 # want it).
 #
-build2_config_lines = [strings]
+# The *_no_warnings variants are with the suppressed C/C++ compiler warnings
+# (in particular, used for private host configuration in bpkg).
+#
+#
 host_config_lines = [strings]
+build2_config_lines = [strings]
+
+host_config_no_warnings_lines = [strings]
+build2_config_no_warnings_lines = [strings]
 
 for l: $regex.replace_lines(                                                   \
   $config.save(),                                                              \
   '^( *(#|(config\.(test[. ]|dist\.|install\.chroot|config\.hermetic))).*|)$', \
   [null])
 {
-  build2_config_lines += $l
-
   # Note: also preserve config.version.
   #
+  h = [null]
   if $regex.match(                                                          \
     $l,                                                                     \
     ' *config\.(c[. ]|cxx[. ]|cc[.]|bin[.]|config.environment |version ).*')
@@ -117,18 +123,56 @@ for l: $regex.replace_lines(                                                   \
       #
       if $regex.match($l, ' *config\.(c|cxx|cc)\.(coptions|loptions)[ =].*')
       {
-        l = $regex.replace($l, ' ?-f(no-)?sanitize[=-][^ ]+', '')
+        h = $regex.replace($l, ' ?-f(no-)?sanitize[=-][^ ]+', '')
       }
-
-      host_config_lines += $l
+      else
+        h = $l
     }
   }
+
+  if ($h != [null])
+    host_config_lines += $h
+
+  build2_config_lines += $l
+
+  # Append the warning suppressing option to config.{c,cxx}.coptions rather
+  # than config.cc.coptions since the former could re-enable them.
+  #
+  if ($regex.match($l, ' *config\.(c|cxx)\.coptions[ =].*'))
+  {
+    # Note that in MSVC overriding one warning option (say /W3) with another
+    # (say /w) triggers a warning. However, our compile_rule sanitizes the
+    # command line to resolve such overrides (see msvc_sanitize_cl()).
+    #
+    o = ($cxx.class == 'gcc' ? -w : $cxx.class == 'msvc' ? /w : )
+
+    if ($regex.match($l, '[^=]+= *\[null\] *'))
+    {
+      l = $regex.replace($l, '= *\[null\] *$', "= $o")
+      h = $regex.replace($h, '= *\[null\] *$', "= $o")
+    }
+    else
+    {
+      l = $regex.replace($l, '=(.*)$', "=\\1 $o")
+      h = $regex.replace($h, '=(.*)$', "=\\1 $o")
+    }
+  }
+
+  if ($h != [null])
+    host_config_no_warnings_lines += $h
+
+  build2_config_no_warnings_lines += $l
 }
 
 config/cxx{host-config}: config/in{host-config}
 {
-  build2_config = $regex.merge($build2_config_lines, '(.+)', '\1\n')
   host_config   = $regex.merge($host_config_lines,   '(.+)', '\1\n')
+  build2_config = $regex.merge($build2_config_lines, '(.+)', '\1\n')
+
+  host_config_no_warnings   = $regex.merge($host_config_no_warnings_lines,   \
+                                           '(.+)', '\1\n')
+  build2_config_no_warnings = $regex.merge($build2_config_no_warnings_lines, \
+                                           '(.+)', '\1\n')
 }
 
 libul{build2}: dist/{hxx ixx txx cxx}{** -**.test...}

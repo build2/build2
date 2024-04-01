@@ -210,6 +210,9 @@ namespace build2
 #ifndef BUILD2_BOOTSTRAP
     extern const char host_config[];
     extern const char build2_config[];
+
+    extern const char host_config_no_warnings[];
+    extern const char build2_config_no_warnings[];
 #endif
 
     bool
@@ -486,12 +489,19 @@ namespace build2
 
             if (s[0] != '~')
               load_config_file (f, l);
-            else if (s == "~host" || s == "~build2")
+            else if (s == "~host"   || s == "~host-no-warnings" ||
+                     s == "~build2" || s == "~build2-no-warnings")
             {
 #ifdef BUILD2_BOOTSTRAP
               assert (false);
 #else
-              istringstream is (s[1] == 'h' ? host_config : build2_config);
+              istringstream is (s[1] == 'h'
+                                ? (s.size () == 5
+                                   ? host_config
+                                   : host_config_no_warnings)
+                                : (s.size () == 7
+                                   ? build2_config
+                                   : build2_config_no_warnings));
               load_config (is, path_name (s), l);
 #endif
             }

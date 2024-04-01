@@ -9,5 +9,8 @@ namespace build2
     //
     extern const char host_config[] = R"###($host_config$)###";
     extern const char build2_config[] = R"###($build2_config$)###";
+
+    extern const char host_config_no_warnings[] = R"###($host_config_no_warnings$)###";
+    extern const char build2_config_no_warnings[] = R"###($build2_config_no_warnings$)###";
   }
 }
