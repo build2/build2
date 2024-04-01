@@ -102,7 +102,7 @@ namespace build2
       }
     }
 
-    return s;
+    return move (s);
   }
 
   static size_t
