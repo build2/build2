@@ -442,7 +442,7 @@ namespace build2
     // which case return the target that would have been inserted.
     //
     // The directory is only moved from if insert is true. Note that it must
-    // be normalized.
+    // be absolute and normalized.
     //
     auto find = [&trace, what, &bs, &t,
                  &map_extension,
@@ -632,7 +632,7 @@ namespace build2
         //
         // While it may seem like there is not much difference, the caller may
         // actually do more than just issue more specific diagnostics. For
-        // example, if may defer the failure to the tool diagnostics.
+        // example, it may defer the failure to the tool diagnostics.
         //
 #if 0
         r = &search (t, *tts[0], d, out, n, &e, s);
@@ -642,7 +642,11 @@ namespace build2
         r = pk.tk.type->search (ctx, &t, pk);
 
         if (r == nullptr && pk.tk.out->empty ())
-          r = &create_new_target (ctx, pk);
+        {
+          auto p (ctx.scopes.find (d, false));
+          if (*p.first != nullptr || ++p.first == p.second)
+            r = &create_new_target (ctx, pk);
+        }
 #endif
       }
 

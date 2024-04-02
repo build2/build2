@@ -793,6 +793,8 @@ namespace build2
     // The first element, if not NULL, is for the "owning" out path. The rest
     // of the elements are for the src path shallow references.
     //
+    // Note that the global scope is in the first element.
+    //
     struct scopes: small_vector<scope*, 3>
     {
       scopes () = default;
@@ -832,6 +834,10 @@ namespace build2
 
     // Find all the scopes that encompass this path (out or src).
     //
+    // If skip_null_out is false, then the first element always corresponds to
+    // the out scope and is NULL if there is none (see struct scopes above for
+    // details).
+    //
     // Note that the returned range will never be empty (there is always the
     // global scope).
     //
@@ -864,7 +870,7 @@ namespace build2
     // "island append" restriction we have on loading additional buildfile.
     //
     LIBBUILD2_SYMEXPORT pair<scopes::const_iterator, scopes::const_iterator>
-    find (const dir_path&) const;
+    find (const dir_path&, bool skip_null_out = true) const;
 
     const_iterator begin () const {return map_.begin ();}
     const_iterator end () const {return map_.end ();}

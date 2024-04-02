@@ -265,7 +265,24 @@ namespace build2
     //
     dir_path d;
     if (tk.dir->absolute ())
+    {
       d = *tk.dir; // Already normalized.
+
+      // Even if out is empty, it may still be (only) in src.
+      //
+      // Note: issue diagnostics consistent with search() after skipping this
+      // function due to non-empty out.
+      //
+      // @@ PERF: we could first check if it's in pk.scope, which feels like
+      //          the common case. Though this doesn't seem to affect
+      //          performance in any noticeable way.
+      //
+      auto p (ctx.scopes.find (d, false)); // Note: never empty.
+      if (*p.first == nullptr && ++p.first != p.second)
+      {
+        fail << "no existing source file for prerequisite " << pk << endf;
+      }
+    }
     else
     {
       d = pk.scope->out_path ();
@@ -313,7 +330,17 @@ namespace build2
     //
     dir_path d;
     if (tk.dir->absolute ())
+    {
       d = *tk.dir; // Already normalized.
+
+      // As above.
+      //
+      auto p (ctx.scopes.find (d, false));
+      if (*p.first == nullptr && ++p.first != p.second)
+      {
+        fail << "no existing source file for prerequisite " << pk << endf;
+      }
+    }
     else
     {
       d = pk.scope->out_path ();

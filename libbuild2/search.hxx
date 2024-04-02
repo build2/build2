@@ -37,6 +37,8 @@ namespace build2
 
   // Create a new target in this prerequisite's scope.
   //
+  // Fail if the target is in src directory.
+  //
   LIBBUILD2_SYMEXPORT const target&
   create_new_target (context&, const prerequisite_key&);
 

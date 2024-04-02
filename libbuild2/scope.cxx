@@ -1205,8 +1205,8 @@ namespace build2
   }
 
   auto scope_map::
-  find (const dir_path& k) const -> pair<scopes::const_iterator,
-                                         scopes::const_iterator>
+  find (const dir_path& k, bool sno) const -> pair<scopes::const_iterator,
+                                                   scopes::const_iterator>
   {
     assert (k.normalized (false));
     auto i (map_.find_sup (k));
@@ -1215,9 +1215,9 @@ namespace build2
     auto b (i->second.begin ());
     auto e (i->second.end ());
 
-    // Skip NULL first element.
+    // Skip NULL first element if requested.
     //
-    if (*b == nullptr)
+    if (sno && *b == nullptr)
       ++b;
 
     assert (b != e);
