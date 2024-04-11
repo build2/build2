@@ -759,6 +759,11 @@ namespace build2
           lookup l (rs[*c_s]);
           if (l && (l.belongs (rs) || l.belongs (ctx.global_scope)))
           {
+            const path& f (cast<path> (l));
+
+            if (f.empty ())
+              fail << "empty path in " << *c_s;
+
             // While writing the complete configuration seems like a natural
             // default, there might be a desire to take inheritance into
             // account (if, say, we are exporting at multiple levels). One can
@@ -766,8 +771,7 @@ namespace build2
             // still want to support this mode somehow in the future (it seems
             // like an override of config.config.persist should do the trick).
             //
-            save_config (
-              rs, cast<path> (l), false /* inherit */, mod, projects);
+            save_config (rs, f, false /* inherit */, mod, projects);
           }
         }
       }

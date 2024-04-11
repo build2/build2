@@ -487,7 +487,9 @@ namespace build2
 
             const string& s (f.string ());
 
-            if (s[0] != '~')
+            if (s.empty ())
+              fail << "empty path in config.config.load";
+            else if (s[0] != '~')
               load_config_file (f, l);
             else if (s == "~host"   || s == "~host-no-warnings" ||
                      s == "~build2" || s == "~build2-no-warnings")
