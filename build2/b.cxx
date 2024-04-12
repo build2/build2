@@ -856,12 +856,19 @@ main (int argc, char* argv[])
             }
           }
 
-          if (out_base.relative ())
-            out_base = work / out_base;
+          try
+          {
+            if (out_base.relative ())
+              out_base = work / out_base;
 
-          // This directory came from the command line so actualize it.
-          //
-          out_base.normalize (true);
+            // This directory came from the command line so actualize it.
+            //
+            out_base.normalize (true);
+          }
+          catch (const invalid_path& e)
+          {
+            fail << "invalid out_base directory '" << e.path << "'";
+          }
 
           // The order in which we determine the roots depends on whether
           // src_base was specified explicitly.
@@ -887,12 +894,19 @@ main (int argc, char* argv[])
             if (!exists (src_base))
               fail << "src_base directory " << src_base << " does not exist";
 
-            if (src_base.relative ())
-              src_base = work / src_base;
+            try
+            {
+              if (src_base.relative ())
+                src_base = work / src_base;
 
-            // Also came from the command line, so actualize.
-            //
-            src_base.normalize (true);
+              // Also came from the command line, so actualize.
+              //
+              src_base.normalize (true);
+            }
+            catch (const invalid_path& e)
+            {
+              fail << "invalid src_base directory '" << e.path << "'";
+            }
 
             // Make sure out_base is not a subdirectory of src_base. Who would
             // want to do that, you may ask. Well, you would be surprised...
@@ -1459,10 +1473,17 @@ main (int argc, char* argv[])
             //
             dir_path& d (tn.dir);
 
-            if (d.relative ())
-              d = work / d;
+            try
+            {
+              if (d.relative ())
+                d = work / d;
 
-            d.normalize (true); // Actualize since came from command line.
+              d.normalize (true); // Actualize since came from command line.
+            }
+            catch (const invalid_path& e)
+            {
+              fail << "invalid target directory '" << e.path << "'";
+            }
 
             if (ts.forwarded)
               d = rs.out_path () / d.leaf (rs.src_path ()); // Remap.
