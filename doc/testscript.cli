@@ -2777,6 +2777,11 @@ env - --unset=FOO -- $*
   Terminate the command if it fails to complete within the specified number
   of seconds. See also the \l{#builtins-timeout \c{timeout}} builtin.|
 
+\li|\n\c{-s|--timeout-success}
+
+  Assume the command terminated due to the timeout specified with the
+  \c{-t|--timeout} option to have succeeded.|
+
 \li|\n\c{-c|--cwd <dir>}
 
   Change the command's working directory.|

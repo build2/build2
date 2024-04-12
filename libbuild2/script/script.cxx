@@ -425,8 +425,13 @@ namespace build2
           // Timeout.
           //
           if (c.timeout)
+          {
             o << " -t "
               << chrono::duration_cast<chrono::seconds> (*c.timeout).count ();
+
+            if (c.timeout_success)
+              o << " -s";
+          }
 
           // CWD.
           //

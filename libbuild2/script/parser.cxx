@@ -1134,9 +1134,10 @@ namespace build2
               if (t.value == "env")
               {
                 parsed_env r (parse_env_builtin (t, tt));
-                c.cwd       = move (r.cwd);
-                c.variables = move (r.variables);
-                c.timeout   = r.timeout;
+                c.cwd             = move (r.cwd);
+                c.variables       = move (r.variables);
+                c.timeout         = r.timeout;
+                c.timeout_success = r.timeout_success;
                 env = true;
               }
               else if (t.value == "for")
@@ -1601,6 +1602,10 @@ namespace build2
         {
           r.timeout = chrono::seconds (*v);
         }
+        else if (o == "-s" || o == "--timeout-success")
+        {
+          r.timeout_success = true;
+        }
         else if (optional<dir_path> v = dir ("--cwd", "-c"))
         {
           r.cwd = move (*v);
@@ -1614,6 +1619,9 @@ namespace build2
         else
           break;
       }
+
+      if (r.timeout_success && !r.timeout)
+        fail (l) << "env: -s|--timeout-success specified without -t|--timeout";
 
       // Parse arguments (variable sets).
       //

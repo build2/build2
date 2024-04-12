@@ -2069,7 +2069,7 @@ namespace build2
 
       if (c.timeout)
       {
-        deadline d (system_clock::now () + *c.timeout, false /* success */);
+        deadline d (system_clock::now () + *c.timeout, c.timeout_success);
         if (!dl || d < *dl)
           dl = d;
       }

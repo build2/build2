@@ -331,9 +331,13 @@ namespace build2
       process_path program;
 
       strings            arguments;
-      optional<dir_path> cwd;       // From env builtin.
-      environment_vars   variables; // From env builtin.
-      optional<duration> timeout;   // From env builtin.
+
+      // These come from the env builtin.
+      //
+      optional<dir_path> cwd;
+      environment_vars   variables;
+      optional<duration> timeout;
+      bool               timeout_success;
 
       optional<redirect> in;
       optional<redirect> out;
