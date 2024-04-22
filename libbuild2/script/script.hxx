@@ -337,7 +337,7 @@ namespace build2
       optional<dir_path> cwd;
       environment_vars   variables;
       optional<duration> timeout;
-      bool               timeout_success;
+      bool               timeout_success = false;
 
       optional<redirect> in;
       optional<redirect> out;
