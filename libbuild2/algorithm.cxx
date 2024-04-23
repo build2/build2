@@ -1282,6 +1282,19 @@ namespace build2
             // has no own prerequisites and the group's ones will be matched
             // by the group.
           }
+          else
+          {
+            // Similar to catch(failed) below.
+            //
+            s.state = target_state::failed;
+            l.offset = target::offset_applied;
+
+            // Make sure we don't relock a failed target.
+            //
+            match_extra& me (s.match_extra);
+            me.cur_options = match_extra::all_options;
+            me.cur_options_.store (me.cur_options, memory_order_relaxed);
+          }
         }
         else
           l.offset = target::offset_tried;
