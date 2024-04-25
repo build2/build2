@@ -156,7 +156,7 @@ namespace build2
         {
           const path& n (e.path ());
 
-          if (n.string ()[0] != '.')
+          if (!n.empty () && n.string ().front () != '.')
           try
           {
             if (e.type () == entry_type::directory) // Can throw.

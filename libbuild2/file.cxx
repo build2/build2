@@ -859,6 +859,13 @@ namespace build2
       for (const dir_entry& de:
              dir_iterator (d, dir_iterator::detect_dangling))
       {
+        const path& n (de.path ());
+
+        // Skip hidden entries.
+        //
+        if (n.empty () || n.string ().front () == '.')
+          continue;
+
         if (de.type () != entry_type::directory)
         {
           if (de.type () == entry_type::unknown)
@@ -867,13 +874,13 @@ namespace build2
 
             warn << "skipping "
                  << (sl ? "dangling symlink" : "inaccessible entry") << ' '
-                 << d / de.path ();
+                 << d / n;
           }
 
           continue;
         }
 
-        dir_path sd (d / path_cast<dir_path> (de.path ()));
+        dir_path sd (d / path_cast<dir_path> (n));
 
         bool src (false);
         optional<bool> altn;
