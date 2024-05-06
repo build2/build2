@@ -4,7 +4,3 @@ summary: build2 build system repository
 :
 role: prerequisite
 location: ../libbutl.git##HEAD
-
-:
-role: prerequisite
-location: https://github.com/build2/libpkg-config.git##HEAD

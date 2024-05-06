@@ -11,7 +11,7 @@ libpkgconf = $config.build2.libpkgconf
 if $libpkgconf
   import impl_libs += libpkgconf%lib{pkgconf}
 else
-  import impl_libs += libpkg-config%lib{pkg-config}
+  import impl_libs += libbutl%lib{butl-pkg-config}
 
 include ../bin/
 intf_libs = ../bin/lib{build2-bin}
