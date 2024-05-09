@@ -97,6 +97,10 @@ namespace build2
   {
     // Note: assume non-serial execution.
 
+    // Note: increment progress before/after every wait.
+    //
+    progress_.fetch_add (1, memory_order_relaxed);
+
     lock l (move (rl)); // Make sure unlocked on exception.
 
     active_--;
@@ -134,6 +138,10 @@ namespace build2
   activate_impl (bool external, bool collision)
   {
     // Note: assume non-serial execution.
+
+    // Note: increment progress before/after every wait.
+    //
+    progress_.fetch_add (1, memory_order_relaxed);
 
     lock l (mutex_);
 
@@ -1053,7 +1061,9 @@ namespace build2
         // Re-check active/external counts for good measure (in case we were
         // spinning too fast).
         //
-        if (np == op && s.active_ == 0 && s.external_ == 0 && !s.shutdown_)
+        if (np == op &&
+            s.active_ == 0 && s.external_ == 0 && !s.shutdown_ &&
+            s.progress_.load (memory_order_consume) == op)
         {
           // Shutting things down cleanly is tricky: we could have handled it
           // in the scheduler (e.g., by setting a flag and then waking
