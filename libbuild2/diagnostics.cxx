@@ -55,31 +55,24 @@ namespace build2
 
     if (st)
     {
-      // @@ TMP: eventually we want to enable on Windows by default.
+      // Only attempt to enable if explicitly requested by the user. Note that
+      // while we may enable color for our process, who knows if this gets
+      // inherited by other processes we start (e.g., compilers) and/or
+      // whether they will do something sensible about any of this.
       //
-#ifdef _WIN32
-      if (c && *c)
+      stderr_term_color = fdterm_color (stderr_fd (), c && *c /* enable */);
+
+      // If the user specified --diag-color on POSIX we will trust the color
+      // is supported (e.g., wrong TERM value, etc).
+      //
+      if (!stderr_term_color && c && *c)
       {
-#endif
-        stderr_term_color = fdterm_color (stderr_fd (), !c || *c /* enable */);
-
-        // If the user specified --diag-color on POSIX we will trust the color
-        // is supported (e.g., wrong TERM value, etc).
-        //
-        if (!stderr_term_color && c && *c)
-        {
 #ifdef _WIN32
-          fail << "unable to enable diagnostics color support for stderr";
+        fail << "unable to enable diagnostics color support for stderr";
 #else
-          stderr_term_color = true;
+        stderr_term_color = true;
 #endif
-        }
-
-#ifdef _WIN32
       }
-      else
-        stderr_term_color = false;
-#endif
     }
     else
       stderr_term_color = false;

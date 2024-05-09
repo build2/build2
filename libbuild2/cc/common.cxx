@@ -1691,6 +1691,10 @@ namespace build2
           // Note that clang-cl appears to use -fansi-escape-codes. See GH
           // issue #312 for background.
           //
+          // Note that MSVC ignores /diagnostics:color if diagnostics is
+          // written to a pipe. See GH issue #312 for details and a link to
+          // the MSVC bug report.
+          //
           if (show_diag_color ())
           {
             if (cvariant.empty () &&
@@ -1716,7 +1720,8 @@ namespace build2
           //
           // Supported from GCC 4.9 (8.1 on Windows) and (at least) from Clang
           // 3.5. Clang supports -f[no]color-diagnostics in addition to the
-          // GCC's spelling.
+          // GCC's spelling. Note that to enable color on Windows Clang also
+          // needs -fansi-escape-codes.
           //
           if (
 #ifndef _WIN32
@@ -1742,7 +1747,14 @@ namespace build2
                     show_diag_color () ? "-fdiagnostics-color"    :
                     stderr_term        ? "-fno-diagnostics-color" :
                     nullptr))
+              {
                 args.push_back (o);
+
+#ifdef _WIN32
+                if (ctype == compiler_type::clang && o[2] != 'n')
+                  args.push_back ("-fansi-escape-codes");
+#endif
+              }
             }
           }
 
