@@ -60,7 +60,14 @@ namespace build2
       // inherited by other processes we start (e.g., compilers) and/or
       // whether they will do something sensible about any of this.
       //
-      stderr_term_color = fdterm_color (stderr_fd (), c && *c /* enable */);
+      try
+      {
+        stderr_term_color = fdterm_color (stderr_fd (), c && *c /* enable */);
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to query terminal color support for stderr: " << e;
+      }
 
       // If the user specified --diag-color on POSIX we will trust the color
       // is supported (e.g., wrong TERM value, etc).
