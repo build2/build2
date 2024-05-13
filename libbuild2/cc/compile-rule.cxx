@@ -6157,7 +6157,7 @@ namespace build2
       //
       if ((ctype == compiler_type::msvc)          ||
           (ctype == compiler_type::clang &&
-           cmaj >= 17                    &&
+           cmaj >= 18                    &&
            cast<string> (rs[x_stdlib]) == "libc++"))
       {
         // Similar logic to check_exact() above.
@@ -6177,10 +6177,7 @@ namespace build2
             {
             case compiler_type::clang:
               {
-                if (m.name != "std")
-                  fail << "module " << m.name << " not yet provided by libc++";
-
-                // Find or insert std.cppm (similar code to pkgconfig.cxx).
+                // Find or insert std*.cppm (similar code to pkgconfig.cxx).
                 //
                 // Note: build_install_data is absolute and normalized.
                 //
@@ -6188,7 +6185,7 @@ namespace build2
                   *x_mod,
                   (dir_path (build_install_data) /= "libbuild2") /= "cc",
                   dir_path (),
-                  "std",
+                  m.name,
                   string ("cppm"), // For C++14 during bootstrap.
                   target_decl::implied,
                   trace).first;
@@ -6199,18 +6196,18 @@ namespace build2
                 // type. And we could do that by looking for -static-libstdc++
                 // in loption (and no, it's not -static-libc++).
                 //
-                // But, looking at the object file produced from std.cppm, it
-                // only contains one symbol, the static object initializer.
-                // And this is unlikely to change since all other non-inline
-                // or template symbols should be in libc++. So feels like it's
-                // not worth the trouble and one variant should be good enough
-                // for both cases. Let's use the shared one for less
-                // surprising diagnostics (as in, "why are you linking obje{}
-                // to a shared library?")
+                // But, looking at the object file produced from std*.cppm,
+                // they only contain one symbol, the static object
+                // initializer. And this is unlikely to change since all
+                // other non-inline or template symbols should be in
+                // libc++. So feels like it's not worth the trouble and one
+                // variant should be good enough for both cases. Let's use the
+                // shared one for less surprising diagnostics (as in, "why are
+                // you linking obje{} to a shared library?")
                 //
-                // (Of course, theoretically, std.cppm could detect via a
-                // macro whether it's being compiled with -fPIC or not and do
-                // things differently, but this seems far-fetched).
+                // (Of course, theoretically, std*.cppm could detect via a
+                // macro whether they are being compiled with -fPIC or not and
+                // do things differently, but this seems far-fetched).
                 //
                 ot = otype::s;
 
