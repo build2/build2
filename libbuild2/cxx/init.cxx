@@ -498,8 +498,8 @@ namespace build2
 
       // Unless disabled by the user, try to enable C++ modules.
       //
-      // NOTE: see also diagnostics about modules support required in compile
-      //       rule.
+      // NOTE: see also diagnostics about modules support required (if
+      //       attempting to use) in compile rule.
       //
       if (!modules.value || *modules.value)
       {
@@ -580,7 +580,7 @@ namespace build2
             // around Clang 16 so we don't support anything earlier than
             // that (it's not practically usable anyway).
             //
-            // Clang enable modules by default in c++20 or later but they
+            // Clang enables modules by default in c++20 or later but they
             // don't yet (as of Clang 18) define __cpp_modules. When they
             // do, we can consider enabling modules by default on our side.
             // For now, we only enable modules if forced with explicit

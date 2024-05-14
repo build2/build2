@@ -111,23 +111,31 @@ namespace build2
           // From version 16.8 VC now supports /std:c11 and /std:c17 options
           // which enable C11/17 conformance. However, as of version 16.10,
           // neither SDK nor CRT can be compiled in these modes (see the /std
-          // option documentation for details/updates).
+          // option documentation for details/updates). There is also now
+          // /std:clatest which can be used to enable C23 typeof as of MSVC
+          // 17.9. So let's map C23 to that.
           //
           if (v == nullptr)
             ;
           else if (!stdcmp ("90"))
           {
-            uint64_t cver (ci.version.major);
+            uint64_t mj (ci.version.major);
+            uint64_t mi (ci.version.minor);
 
-            if ((stdcmp ("99")   && cver < 16) ||  // Since VS2010/10.0.
-                ((stdcmp ("11") ||
-                  stdcmp ("17") ||
-                  stdcmp ("18")) && cver < 18) ||  // Since VS????/11.0.
-                (stdcmp ("23", "2x")           ))
+            if      (stdcmp ("99") && mj >= 16) // Since VS2010/10.0.
+              ;
+            else if ((stdcmp ("11") ||
+                      stdcmp ("17") ||
+                      stdcmp ("18")) && mj >= 18) // Since VS????/11.0.
+              ;
+            else if (stdcmp ("23", "2x") &&
+                     (mj > 19 || (mj == 19 && mi >= 39))) // Since 17.9.
             {
+              mode.insert (mode.begin (), "/std:clatest");
+            }
+            else
               fail << "C " << *v << " is not supported by " << ci.signature <<
                 info << "required by " << project (rs) << '@' << rs;
-            }
           }
           break;
         }
