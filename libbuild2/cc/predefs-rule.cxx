@@ -278,7 +278,7 @@ namespace build2
           args.push_back ("/Zc:preprocessor"); // Preproc. conformance mode.
 
           // Output (note that while the /Fi: variant is only availbale
-          // starting with VS2013, /Zc:preprocessor is only available in
+          // starting with VS2013, /Zc:preprocessor is only available
           // starting from VS2019).
           //
           args.push_back ("/Fi:");

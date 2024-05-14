@@ -481,6 +481,12 @@ namespace build2
         {
         case compiler_type::msvc:
           {
+            // Let's enable the new preprocessor in this mode. For background,
+            // see MSVC issue 10537317.
+            //
+            if (mj > 19 || (mj == 19 && mi >= 39))
+              prepend ("/Zc:preprocessor");
+
             // Starting with 15.5 (19.12) Visual Studio-created projects
             // default to the strict mode. However, this flag currently tends
             // to trigger too many compiler bugs. So for now we leave it to
