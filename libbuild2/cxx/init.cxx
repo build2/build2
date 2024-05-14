@@ -335,7 +335,12 @@ namespace build2
             {
             case compiler_type::gcc:
               {
-                if (mj >= 11)
+                if (mj >= 14)
+                {
+                  o = "-std=c++26";
+                  cplusplus = 202400;
+                }
+                else if (mj >= 11)
                 {
                   o = "-std=c++23";
                   cplusplus = 202302;
@@ -367,25 +372,29 @@ namespace build2
               }
             case compiler_type::clang:
               {
-                // Clang 10.0.0 targeting MSVC 16.4 and 16.5 (preview) in the
-                // c++2a mode uncovers some Concepts-related bugs in MSVC STL
-                // (LLVM bug #44956). So in this case we map `latest` to
-                // c++17.
-                //
-                // While reportedly this has been fixed in the later versions
-                // of MSVC, instead of somehow passing the version of MSVC
-                // Clang is targeting, we will just assume that Clang 11
-                // and later are used with a sufficiently new version of
-                // MSVC.
-                //
-
-                if (mj >= 13)
+                if (mj >= 18)
+                {
+                  o = "-std=c++26";
+                  cplusplus = 202400;
+                }
+                else if (mj >= 13)
                 {
                   o = "-std=c++2b";
                   cplusplus = 202302;
                 }
                 else if (mj == 10 && latest && tt.system == "win32-msvc")
                 {
+                  // Clang 10.0.0 targeting MSVC 16.4 and 16.5 (preview) in
+                  // the c++2a mode uncovers some Concepts-related bugs in
+                  // MSVC STL (LLVM bug #44956). So in this case we map
+                  // `latest` to c++17.
+                  //
+                  // While reportedly this has been fixed in the later
+                  // versions of MSVC, instead of somehow passing the version
+                  // of MSVC Clang is targeting, we will just assume that
+                  // Clang 11 and later are used with a sufficiently new
+                  // version of MSVC.
+                  //
                   o = "-std=c++17";
                   cplusplus = 201703;
                 }
@@ -446,7 +455,7 @@ namespace build2
             // 26 to 2c for compatibility with older versions of the
             // compilers.
             //
-            // @@ TMP: update C++26 __cplusplus value once known.
+            // @@ TMP: update C++26 __cplusplus value once known (and above).
             //
             o = "-std=";
 
