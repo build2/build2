@@ -6677,6 +6677,15 @@ namespace build2
             //
             string extra;
 
+            // @@ What happens if different projects used different standards?
+            //    Specifically, how do we detect this and what can the user do
+            //    about it? For the latter question, forcing the same standard
+            //    with config.cxx.std seems like the only sensible option. For
+            //    the former, we could read the value of cxx.std using our
+            //    buildfile first-line peeking mechanism. But doing that for
+            //    every module interface feels inefficient so we will probably
+            //    need to cache it on the per-project basis. Maybe/later.
+            //
             if (const string* std = cast_null<string> (rs[x_std]))
               extra += string (x) + ".std = " + *std + '\n';
 
