@@ -80,6 +80,36 @@ s = ($posix ? '/' : '\')
   }
 }
 
+: absolute
+:
+{
+  $* <'print $absolute($src_root)' >"true"  : true
+  $* <'print $path.absolute(a/b)'  >"false" : false
+}
+
+: simple
+:
+{
+  $* <'print $simple([path] a)' >"true"  : true
+  $* <'print $path.simple(a/b)' >"false" : false
+}
+
+: sub_path
+:
+{
+  $* <'print $sub_path($src_base, $src_root)' >"true"  : true-absolute
+  $* <'print $path.sub_path(a/b/c, a/b)'      >"true"  : true-relative
+  $* <'print $path.sub_path(a/b/c, a/d)'      >"false" : false
+}
+
+: super_path
+:
+{
+  $* <'print $super_path($src_base, true-absolute)' >"true"  : true-absolute
+  $* <'print $path.super_path(a/b/c, b/c)'          >"true"  : true-relative
+  $* <'print $path.super_path(a/b/c, c/a)'          >"false" : false
+}
+
 : canonicalize
 :
 {

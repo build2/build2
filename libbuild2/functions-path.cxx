@@ -344,6 +344,78 @@ namespace build2
       return ns;
     };
 
+    // $absolute(<path>)
+    // $path.absolute(<untyped>)
+    //
+    // Return true if the path is absolute and false otherwise.
+    //
+    f["absolute"] += [](path p)
+    {
+      return p.absolute ();
+    };
+
+    f[".absolute"] += [](names ns)
+    {
+      return convert<path> (move (ns)).absolute ();
+    };
+
+    // $simple(<path>)
+    // $path.simple(<untyped>)
+    //
+    // Return true if the path is simple, that is, has no direcrory component,
+    // and false otherwise.
+    //
+    // Note that on POSIX `/foo` is not a simple path (it is `foo` in the root
+    // directory) while `/` is (it is the root directory).
+    //
+    f["simple"] += [](path p)
+    {
+      return p.simple ();
+    };
+
+    f[".simple"] += [](names ns)
+    {
+      return convert<path> (move (ns)).simple ();
+    };
+
+    // $sub_path(<path>, <path>)
+    // $path.sub_path(<untyped>, <untyped>)
+    //
+    // Return true if the path specified as the first argument is a sub-path
+    // of the one specified as the second argument (in other words, the second
+    // argument is a prefix of the first) and false otherwise. Both paths are
+    // expected to be normalized. Note that this function returns true if the
+    // paths are equal. Empty path is considered a prefix of any path.
+    //
+    f["sub_path"] += [](path p, value v)
+    {
+      return p.sub (convert_to_base<path> (move (v)));
+    };
+
+    f[".sub_path"] += [](names ns, value v)
+    {
+      return convert<path> (move (ns)).sub (convert_to_base<path> (move (v)));
+    };
+
+    // $super_path(<path>, <path>)
+    // $path.super_path(<untyped>, <untyped>)
+    //
+    // Return true if the path specified as the first argument is a super-path
+    // of the one specified as the second argument (in other words, the second
+    // argument is a suffix of the first) and false otherwise. Both paths are
+    // expected to be normalized. Note that this function returns true if the
+    // paths are equal. Empty path is considered a suffix of any path.
+    //
+    f["super_path"] += [](path p, value v)
+    {
+      return p.sup (convert_to_base<path> (move (v)));
+    };
+
+    f[".super_path"] += [](names ns, value v)
+    {
+      return convert<path> (move (ns)).sup (convert_to_base<path> (move (v)));
+    };
+
     // $canonicalize(<paths>)
     // $path.canonicalize(<untyped>)
     //
@@ -614,6 +686,8 @@ namespace build2
     // to the specified path (or a list of relative paths for a list of
     // specified paths). Issue diagnostics and fail if a relative path cannot
     // be derived (for example, paths are on different drives on Windows).
+    //
+    // Note: to check if a path if relative, use `$path.absolute()`.
     //
     f["relative"] += [](path p, dir_path d)
     {
