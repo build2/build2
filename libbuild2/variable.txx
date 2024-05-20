@@ -38,6 +38,11 @@ namespace build2
     {
       if (v.type == nullptr)
         return convert<T> (move (v).as<names> ());
+      //
+      // Note that while it may be tempting to use is_a() here like in cast(),
+      // the implications are unclear (i.e., we may end up relaxing things we
+      // don't want to). So we have the convert_to_base() variants instead.
+      //
       else if (v.type == &value_traits<T>::value_type)
         return move (v).as<T> ();
     }
@@ -54,6 +59,36 @@ namespace build2
       if (v.type == nullptr)
         return convert<T> (names (v.as<names> ()));
       else if (v.type == &value_traits<T>::value_type)
+        return v.as<T> ();
+    }
+
+    convert_throw (v ? v.type : nullptr, value_traits<T>::value_type);
+  }
+
+  template <typename T>
+  T
+  convert_to_base (value&& v)
+  {
+    if (v)
+    {
+      if (v.type == nullptr)
+        return convert<T> (move (v).as<names> ());
+      else if (v.type->is_a<T> ())
+        return move (v).as<T> ();
+    }
+
+    convert_throw (v ? v.type : nullptr, value_traits<T>::value_type);
+  }
+
+  template <typename T>
+  T
+  convert_to_base (const value& v)
+  {
+    if (v)
+    {
+      if (v.type == nullptr)
+        return convert<T> (names (v.as<names> ()));
+      else if (v.type->is_a<T> ())
         return v.as<T> ();
     }
 

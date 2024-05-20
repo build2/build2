@@ -92,6 +92,9 @@ namespace build2
     // static_cast to const T*. If it is NULL, then cast data_ directly. Note
     // that this function is used for both const and non-const values.
     //
+    // @@ This is currently ignored by as<T>() which is now used in quite a
+    //    few places (in particular, grep for as<T>).
+    //
     const void* (*const cast) (const value&, const value_type*);
 
     // If NULL, then the types are compared as PODs using memcmp().
@@ -702,14 +705,18 @@ namespace build2
   template <typename T> T convert (names&&);
 
   // Convert value to T. If value is already of type T, then simply cast it.
-  // Otherwise call convert(names) above. If value is NULL, then throw
-  // invalid_argument (with an appropriate message).
+  // Otherwise call convert(names) above. If the value is NULL, then throw
+  // invalid_argument (with an appropriate message). See also
+  // convert_to_base() below.
   //
   template <typename T> T convert (value&&);
-
-  // As above but preserving the value.
-  //
   template <typename T> T convert (const value&);
+
+  // As above but also allow the derived-to-base conversions (where T is
+  // base). Note that this call may potentially slice the value.
+  //
+  template <typename T> T convert_to_base (value&&);
+  template <typename T> T convert_to_base (const value&);
 
   // Default implementations of the dtor/copy_ctor/copy_assing callbacks for
   // types that are stored directly in value::data_ and the provide all the
