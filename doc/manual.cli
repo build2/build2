@@ -8911,10 +8911,11 @@ export
 \
 
 Besides starting a module purview, a non-exporting module declaration in the
-implementation unit makes non-internal linkage names declared or made visible
-(via import) in the module purview of an interface unit also visible in the
-module purview of the implementation unit. In this sense a non-exporting
-module declaration acts as a special \c{import}. For example:
+implementation unit makes (non-internal linkage) names declared or made
+visible (via import) in the module purview of an interface unit also visible
+in the module purview of the implementation unit. In this sense a
+non-exporting module declaration acts as a special \c{import}. The following
+example illustrates this point:
 
 \
 module;
