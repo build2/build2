@@ -8,6 +8,136 @@ using namespace std;
 
 namespace build2
 {
+  // Look for the substring forwards in the [p, n) range.
+  //
+  static inline size_t
+  find (const string& s, size_t p, const string& ss, bool ic)
+  {
+    size_t sn (ss.size ());
+
+    for (size_t n (s.size ()); p != n; ++p)
+    {
+      if (n - p >= sn &&
+          (ic
+           ? icasecmp (ss, s.c_str () + p, sn)
+           : s.compare (p, sn, ss)) == 0)
+        return p;
+    }
+
+    return string::npos;
+  }
+
+  // Look for the substring backwards in the [0, n) range.
+  //
+  static inline size_t
+  rfind (const string& s, size_t n, const string& ss, bool ic)
+  {
+    size_t sn (ss.size ());
+
+    if (n >= sn)
+    {
+      n -= sn; // Don't consider characters out of range.
+
+      for (size_t p (n);; )
+      {
+        if ((ic
+             ? icasecmp (ss, s.c_str () + p, sn)
+             : s.compare (p, sn, ss)) == 0)
+          return p;
+
+        if (--p == 0)
+          break;
+      }
+    }
+
+    return string::npos;
+  }
+
+  static bool
+  contains (const string& s, value&& ssv, optional<names>&& fs)
+  {
+    bool ic (false), once (false);
+    if (fs)
+    {
+      for (name& f: *fs)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "icase")
+          ic = true;
+        else if (s == "once")
+          once = true;
+        else
+          throw invalid_argument ("invalid flag '" + s + '\'');
+      }
+    }
+
+    const string ss (convert<string> (move (ssv)));
+
+    if (ss.empty ())
+      throw invalid_argument ("empty substring");
+
+    size_t p (find (s, 0, ss, ic));
+
+    if (once && p != string::npos && p != rfind (s, s.size (), ss, ic))
+      p = string::npos;
+
+    return p != string::npos;
+  }
+
+  static bool
+  starts_with (const string& s, value&& pfv, optional<names>&& fs)
+  {
+    bool ic (false);
+    if (fs)
+    {
+      for (name& f: *fs)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "icase")
+          ic = true;
+        else
+          throw invalid_argument ("invalid flag '" + s + '\'');
+      }
+    }
+
+    const string pf (convert<string> (move (pfv)));
+
+    if (pf.empty ())
+      throw invalid_argument ("empty prefix");
+
+    return find (s, 0, pf, ic) == 0;
+  }
+
+  static bool
+  ends_with (const string& s, value&& sfv, optional<names>&& fs)
+  {
+    bool ic (false);
+    if (fs)
+    {
+      for (name& f: *fs)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "icase")
+          ic = true;
+        else
+          throw invalid_argument ("invalid flag '" + s + '\'');
+      }
+    }
+
+    const string sf (convert<string> (move (sfv)));
+
+    if (sf.empty ())
+      throw invalid_argument ("empty suffix");
+
+    size_t n (s.size ());
+    size_t p (rfind (s, n, sf, ic));
+
+    return p != string::npos && p + sf.size () == n;
+  }
+
   static string
   replace (string&& s, value&& fv, value&& tv, optional<names>&& fs)
   {
@@ -43,52 +173,13 @@ namespace build2
 
       size_t fn (f.size ());
 
-      // Look for the substring forward in the [p, n) range.
-      //
-      auto find = [&s, &f, fn, ic] (size_t p) -> size_t
-      {
-        for (size_t n (s.size ()); p != n; ++p)
-        {
-          if (n - p >= fn &&
-              (ic
-               ? icasecmp (f, s.c_str () + p, fn)
-               : s.compare (p, fn, f)) == 0)
-            return p;
-        }
-
-        return string::npos;
-      };
-
-      // Look for the substring backard in the [0, n) range.
-      //
-      auto rfind = [&s, &f, fn, ic] (size_t n) -> size_t
-      {
-        if (n >= fn)
-        {
-          n -= fn; // Don't consider characters out of range.
-
-          for (size_t p (n);; )
-          {
-            if ((ic
-                 ? icasecmp (f, s.c_str () + p, fn)
-                 : s.compare (p, fn, f)) == 0)
-              return p;
-
-            if (--p == 0)
-              break;
-          }
-        }
-
-        return string::npos;
-      };
-
       if (fo || lo)
       {
-        size_t p (lo ? rfind (s.size ()) : find (0));
+        size_t p (lo ? rfind (s, s.size (), f, ic) : find (s, 0, f, ic));
 
         if (fo && lo && p != string::npos)
         {
-          if (p != find (0))
+          if (p != find (s, 0, f, ic))
             p = string::npos;
         }
 
@@ -97,7 +188,9 @@ namespace build2
       }
       else
       {
-        for (size_t p (0); (p = find (0)) != string::npos; p += fn)
+        size_t tn (t.size ());
+
+        for (size_t p (0); (p = find (s, p, f, ic)) != string::npos; p += tn)
           s.replace (p, fn, t);
       }
     }
@@ -171,6 +264,75 @@ namespace build2
     {
       return icasecmp (convert<string> (move (x)),
                        convert<string> (move (y))) == 0;
+    };
+
+    // $string.contains(<untyped>, <untyped>[, <flags>])
+    // $contains(<string>, <string>[, <flags>])
+    //
+    // Check if the string (first argument) contains the given substring
+    // (second argument). The substring must not be empty.
+    //
+    // The following flags are supported:
+    //
+    //     icase  - compare ignoring case
+    //
+    //     once   - check if the substring occurs exactly once
+    //
+    // See also `$string.starts_with()`, `$string.ends_with()`,
+    // `$regex.search()`.
+    //
+    f["contains"] += [](string s, value ss, optional<names> fs)
+    {
+      return contains (move (s), move (ss), move (fs));
+    };
+
+    f[".contains"] += [](names s, value ss, optional<names> fs)
+    {
+      return contains (convert<string> (move (s)), move (ss), move (fs));
+    };
+
+    // $string.starts_with(<untyped>, <untyped>[, <flags>])
+    // $starts_with(<string>, <string>[, <flags>])
+    //
+    // Check if the string (first argument) begins with the given prefix
+    // (second argument). The prefix must not be empty.
+    //
+    // The following flags are supported:
+    //
+    //     icase  - compare ignoring case
+    //
+    // See also `$string.contains()`.
+    //
+    f["starts_with"] += [](string s, value pf, optional<names> fs)
+    {
+      return starts_with (move (s), move (pf), move (fs));
+    };
+
+    f[".starts_with"] += [](names s, value pf, optional<names> fs)
+    {
+      return starts_with (convert<string> (move (s)), move (pf), move (fs));
+    };
+
+    // $string.ends_with(<untyped>, <untyped>[, <flags>])
+    // $ends_with(<string>, <string>[, <flags>])
+    //
+    // Check if the string (first argument) ends with the given suffix (second
+    // argument). The suffix must not be empty.
+    //
+    // The following flags are supported:
+    //
+    //     icase  - compare ignoring case
+    //
+    // See also `$string.contains()`.
+    //
+    f["ends_with"] += [](string s, value sf, optional<names> fs)
+    {
+      return ends_with (move (s), move (sf), move (fs));
+    };
+
+    f[".ends_with"] += [](names s, value sf, optional<names> fs)
+    {
+      return ends_with (convert<string> (move (s)), move (sf), move (fs));
     };
 
     // $string.replace(<untyped>, <from>, <to> [, <flags>])

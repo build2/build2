@@ -688,6 +688,9 @@ namespace build2
     // If both `return_match` and `return_subs` flags are specified then the
     // sub-string that matches the whole regular expression comes first.
     //
+    // See also `$string.contains()`, `$string.starts_with()`,
+    // `$string.ends_with()`.
+    //
     f[".search"] += [](value v, string re, optional<names> flags)
     {
       return search (move (v), re, move (flags));

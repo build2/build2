@@ -25,17 +25,79 @@
   }
 }
 
+: contains
+:
+{
+  : basics
+  :
+  {
+    $* <'print $string.contains(  abcd, bc)' >'true'  : true
+    $* <'print $string.contains(  abcd, ac)' >'false' : false
+    $* <'print $contains([string] abcd, cd)' >'true'  : typed
+  }
+
+  : icase
+  :
+  {
+    $* <'print $string.contains(aBcD, bC, icase)' >'true' : true
+  }
+
+  : once
+  :
+  {
+    $* <'print $string.contains(abcdabcd, da, once)' >'true'  : true
+    $* <'print $string.contains(abcdabcd, bc, once)' >'false' : false
+  }
+}
+
+: starts_with
+:
+{
+  : basics
+  :
+  {
+    $* <'print $string.starts_with(  abcd, ab)'   >'true'  : true
+    $* <'print $string.starts_with(  abcd, bc)'   >'false' : false
+    $* <'print $starts_with([string] abcd, abcd)' >'true'  : typed
+  }
+
+  : icase
+  :
+  {
+    $* <'print $string.starts_with(aBcD, Ab, icase)' >'true' : true
+  }
+}
+
+: ends_with
+:
+{
+  : basics
+  :
+  {
+    $* <'print $string.ends_with(  abcd, cd)'   >'true'  : true
+    $* <'print $string.ends_with(  abcd, bc)'   >'false' : false
+    $* <'print $ends_with([string] abcd, abcd)' >'true'  : typed
+  }
+
+  : icase
+  :
+  {
+    $* <'print $string.ends_with(aBcD, Cd, icase)' >'true' : true
+  }
+}
+
 : replace
 :
 {
   : basics
   :
   {
-    $* <'print $string.replace(  abcb,      b, BB)' >'aBBcBB'  : expand
-    $* <'print $string.replace(  aabbccbb, bb,  B)' >'aaBccB'  : shrink
-    $* <'print $replace([string] abc,       b,  B)' >'aBc'     : typed
-    $* <'print $replace([string]  "",       b,  B)' >''        : empty
-    $* <'print $replace([string] bbb,       b, "")' >''        : to-empty
+    $* <'print $string.replace(  abcb,      b, BB)' >'aBBcBB' : expand
+    $* <'print $string.replace(  aabbccbb, bb,  B)' >'aaBccB' : shrink
+    $* <'print $replace([string] abc,       b,  B)' >'aBc'    : typed
+    $* <'print $replace([string]  "",       b,  B)' >''       : empty
+    $* <'print $replace([string] bbb,       b, "")' >''       : to-empty
+    $* <'print $replace([string] bb,        b, Bb)' >'BbBb'   : no-recursion
   }
 
   : icase
