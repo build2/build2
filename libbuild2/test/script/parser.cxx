@@ -1609,6 +1609,17 @@ namespace build2
       {
         runner_->enter (*scope_, scope_->start_loc_);
 
+        // Set thread-specific current directory override. In particular, this
+        // makes sure functions like $path.complete() work correctly.
+        //
+        auto wdg = make_guard (
+          [old = path_traits::thread_current_directory ()] ()
+          {
+            path_traits::thread_current_directory (old);
+          });
+
+        path_traits::thread_current_directory (&scope_->work_dir.path->string ());
+
         // Note that we rely on "small function object" optimization for the
         // exec_*() lambdas.
         //
