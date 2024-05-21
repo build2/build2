@@ -110,37 +110,6 @@ s = ($posix ? '/' : '\')
   $* <'print $path.super_path(a/b/c, c/a)'          >"false" : false
 }
 
-: canonicalize
-:
-{
-  $* <'print $canonicalize([path] a/b)'           >"a$(s)b"            : path
-  $* <'print $canonicalize([paths] a/b a/c)'      >"a$(s)b a$(s)c"     : paths
-  $* <'print $canonicalize([dir_path] a/b)'       >"a$(s)b$s"          : dir-path
-  $* <'print $canonicalize([dir_paths] a/b a/c/)' >"a$(s)b$s a$(s)c$s" : dir-paths
-  $* <'print $path.canonicalize(a/b)'             >"a$(s)b"            : untyped
-  $* <'print $path.canonicalize(a/b/ a/c)'        >"a$(s)b$s a$(s)c"   : mixed
-}
-
-: normalize
-:
-{
-  $* <'print $normalize([path] a/../b)'              >"b"        : path
-  $* <'print $normalize([paths] a/../b a/../c)'      >"b c"      : paths
-  $* <'print $normalize([dir_path] a/../b)'          >"b$s"      : dir-path
-  $* <'print $normalize([dir_paths] a/../b a/../c/)' >"b$s c$s"  : dir-paths
-  $* <'print $path.normalize(a/../b)'                >"b"        : untyped
-  $* <'print $path.normalize(a/../b/ a/../c)'        >"b$s c"    : mixed
-}
-
-: actualize
-:
-if! $posix
-{
-  mkdir Foo;
-  $* <'print $path.actualize($out_base/foo)' >~'/.+\\Foo/'
-}
-
-
 : directory
 :
 {
@@ -233,6 +202,51 @@ if! $posix
   a/b/exe{c}
   a/b/c.t.cpp
   EOO
+}
+
+: complete
+:
+{
+  $* <'print $complete([path] a)'     >"$~$(s)a"     : path
+  $* <'print $complete([dir_path] a)' >"$~$(s)a$(s)" : dir-path
+  $* <'print $path.complete(a)'       >"$~$(s)a"     : untyped
+}
+
+: canonicalize
+:
+{
+  $* <'print $canonicalize([path] a/b)'           >"a$(s)b"            : path
+  $* <'print $canonicalize([paths] a/b a/c)'      >"a$(s)b a$(s)c"     : paths
+  $* <'print $canonicalize([dir_path] a/b)'       >"a$(s)b$s"          : dir-path
+  $* <'print $canonicalize([dir_paths] a/b a/c/)' >"a$(s)b$s a$(s)c$s" : dir-paths
+  $* <'print $path.canonicalize(a/b)'             >"a$(s)b"            : untyped
+  $* <'print $path.canonicalize(a/b/ a/c)'        >"a$(s)b$s a$(s)c"   : mixed
+}
+
+: normalize
+:
+{
+  $* <'print $normalize([path] a/../b)'              >"b"        : path
+  $* <'print $normalize([paths] a/../b a/../c)'      >"b c"      : paths
+  $* <'print $normalize([dir_path] a/../b)'          >"b$s"      : dir-path
+  $* <'print $normalize([dir_paths] a/../b a/../c/)' >"b$s c$s"  : dir-paths
+  $* <'print $path.normalize(a/../b)'                >"b"        : untyped
+  $* <'print $path.normalize(a/../b/ a/../c)'        >"b$s c"    : mixed
+}
+
+: try_normalize
+:
+{
+  $* <'print $try_normalize([path] a/../b)'                      >"b"      : valid
+  $* <'print $path.try_normalize($root_directory($src_root)/..)' >"[null]" : invalid
+}
+
+: actualize
+:
+if! $posix
+{
+  mkdir Foo;
+  $* <'print $path.actualize($out_base/foo)' >~'/.+\\Foo/'
 }
 
 : sort

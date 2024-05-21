@@ -193,6 +193,35 @@ namespace build2
 #endif
   }
 
+  template <typename P>
+  static bool
+  try_normalize (P& p)
+  {
+    try
+    {
+      p.normalize ();
+      return true;
+    }
+    catch (const invalid_path&) {}
+
+    return false;
+  }
+
+  template <typename P>
+  static bool
+  try_actualize (P& p)
+  {
+    try
+    {
+      p.normalize (true);
+      return true;
+    }
+    catch (const invalid_path&) {}
+    catch (const system_error&) {}
+
+    return false;
+  }
+
   void
   path_functions (function_map& m)
   {
@@ -414,140 +443,6 @@ namespace build2
     f[".super_path"] += [](names ns, value v)
     {
       return convert<path> (move (ns)).sup (convert_to_base<path> (move (v)));
-    };
-
-    // $canonicalize(<paths>)
-    // $path.canonicalize(<untyped>)
-    //
-    // Canonicalize the path (or list of paths) by converting all the
-    // directory separators to the canonical form for the host platform. Note
-    // that multiple directory separators are not collapsed.
-    //
-
-    // @@ TODO: add ability to specify alternative separator.
-    //
-    f["canonicalize"] += [](path p)     {p.canonicalize (); return p;};
-    f["canonicalize"] += [](dir_path p) {p.canonicalize (); return p;};
-
-    f["canonicalize"] += [](paths v)
-    {
-      for (auto& p: v)
-        p.canonicalize ();
-      return v;
-    };
-
-    f["canonicalize"] += [](dir_paths v)
-    {
-      for (auto& p: v)
-        p.canonicalize ();
-      return v;
-    };
-
-    f[".canonicalize"] += [](names ns)
-    {
-      // For each path decide based on the presence of a trailing slash
-      // whether it is a directory. Return as untyped list of (potentially
-      // mixed) paths.
-      //
-      for (name& n: ns)
-      {
-        if (n.directory ())
-          n.dir.canonicalize ();
-        else
-          n.value = convert<path> (move (n)).canonicalize ().string ();
-      }
-      return ns;
-    };
-
-    // $normalize(<paths>)
-    // $path.normalize(<untyped>)
-    //
-    // Normalize the path (or list of paths) by collapsing the `.` and `..`
-    // components if possible, collapsing multiple directory separators, and
-    // converting all the directory separators to the canonical form for the
-    // host platform.
-    //
-    f["normalize"] += [](path p)     {p.normalize (); return p;};
-    f["normalize"] += [](dir_path p) {p.normalize (); return p;};
-
-    f["normalize"] += [](paths v)
-    {
-      for (auto& p: v)
-        p.normalize ();
-      return v;
-    };
-
-    f["normalize"] += [](dir_paths v)
-    {
-      for (auto& p: v)
-        p.normalize ();
-      return v;
-    };
-
-    f[".normalize"] += [](names ns)
-    {
-      // For each path decide based on the presence of a trailing slash
-      // whether it is a directory. Return as untyped list of (potentially
-      // mixed) paths.
-      //
-      for (name& n: ns)
-      {
-        if (n.directory ())
-          n.dir.normalize ();
-        else
-          n.value = convert<path> (move (n)).normalize ().string ();
-      }
-      return ns;
-    };
-
-    // $actualize(<paths>)
-    // $path.actualize(<untyped>)
-    //
-    // Actualize the path (or list of paths) by first normalizing it and then
-    // for host platforms with case-insensitive filesystems obtaining the
-    // actual spelling of the path.
-    //
-    // Note that only an absolute path can be actualized. If a path component
-    // does not exist, then its (and all subsequent) spelling is
-    // unchanged. This is a potentially expensive operation.
-    //
-    // Note that this function is not pure.
-    //
-    {
-      auto e (f.insert ("actualize", false));
-
-      e += [](path p)     {p.normalize (true); return p;};
-      e += [](dir_path p) {p.normalize (true); return p;};
-
-      e += [](paths v)
-      {
-        for (auto& p: v)
-          p.normalize (true);
-        return v;
-      };
-
-      e += [](dir_paths v)
-      {
-        for (auto& p: v)
-          p.normalize (true);
-        return v;
-      };
-    }
-
-    f.insert (".actualize", false) += [](names ns)
-    {
-      // For each path decide based on the presence of a trailing slash
-      // whether it is a directory. Return as untyped list of (potentially
-      // mixed) paths.
-      //
-      for (name& n: ns)
-      {
-        if (n.directory ())
-          n.dir.normalize (true);
-        else
-          n.value = convert<path> (move (n)).normalize (true).string ();
-      }
-      return ns;
     };
 
     // $directory(<paths>)
@@ -774,6 +669,261 @@ namespace build2
     {
       return extension (convert<path> (move (ns)));
     };
+
+    // $complete(<paths>)
+    // $path.complete(<untyped>)
+    //
+    // Complete the path (or list of paths) by prepending the current working
+    // directory unless the path is already absolute.
+    //
+    f["complete"] += [](path p)     {p.complete (); return p;};
+    f["complete"] += [](dir_path p) {p.complete (); return p;};
+
+    f["complete"] += [](paths v)
+    {
+      for (auto& p: v)
+        p.complete ();
+      return v;
+    };
+
+    f["complete"] += [](dir_paths v)
+    {
+      for (auto& p: v)
+        p.complete ();
+      return v;
+    };
+
+    f[".complete"] += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir.complete ();
+        else
+          n.value = convert<path> (move (n)).complete ().string ();
+      }
+      return ns;
+    };
+
+    // $canonicalize(<paths>)
+    // $path.canonicalize(<untyped>)
+    //
+    // Canonicalize the path (or list of paths) by converting all the
+    // directory separators to the canonical form for the host platform. Note
+    // that multiple directory separators are not collapsed.
+    //
+    f["canonicalize"] += [](path p)     {p.canonicalize (); return p;};
+    f["canonicalize"] += [](dir_path p) {p.canonicalize (); return p;};
+
+    f["canonicalize"] += [](paths v)
+    {
+      for (auto& p: v)
+        p.canonicalize ();
+      return v;
+    };
+
+    f["canonicalize"] += [](dir_paths v)
+    {
+      for (auto& p: v)
+        p.canonicalize ();
+      return v;
+    };
+
+    f[".canonicalize"] += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir.canonicalize ();
+        else
+          n.value = convert<path> (move (n)).canonicalize ().string ();
+      }
+      return ns;
+    };
+
+    // $normalize(<paths>)
+    // $path.normalize(<untyped>)
+    // $try_normalize(<path>)
+    // $path.try_normalize(<untyped>)
+    //
+    // Normalize the path (or list of paths) by collapsing the `.` and `..`
+    // components if possible, collapsing multiple directory separators, and
+    // converting all the directory separators to the canonical form for the
+    // host platform.
+    //
+    // If the resulting path would be invalid, the `$normalize()` version
+    // issues diagnostics and fails while the `$try_normalize()` version
+    // returns `null`. Note that `$try_normalize()` only accepts a single
+    // path.
+    //
+    f["normalize"] += [](path p)     {p.normalize (); return p;};
+    f["normalize"] += [](dir_path p) {p.normalize (); return p;};
+
+    f["normalize"] += [](paths v)
+    {
+      for (auto& p: v)
+        p.normalize ();
+      return v;
+    };
+
+    f["normalize"] += [](dir_paths v)
+    {
+      for (auto& p: v)
+        p.normalize ();
+      return v;
+    };
+
+    f[".normalize"] += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir.normalize ();
+        else
+          n.value = convert<path> (move (n)).normalize ().string ();
+      }
+      return ns;
+    };
+
+    f["try_normalize"] += [](path p)
+    {
+      return try_normalize (p) ? value (move (p)) : value (nullptr);
+    };
+
+    f["try_normalize"] += [](dir_path p)
+    {
+      return try_normalize (p) ? value (move (p)) : value (nullptr);
+    };
+
+    f[".try_normalize"] += [](names ns)
+    {
+      if (ns.size () != 1)
+        throw invalid_argument ("multiple paths");
+
+      name& n (ns.front ());
+
+      bool r;
+      if (n.directory ())
+        r = try_normalize (n.dir);
+      else
+      {
+        path p (convert<path> (move (n)));
+        if ((r = try_normalize (p)))
+          n.value = move (p).string ();
+      }
+
+      return r ? value (move (ns)) : value (nullptr);
+    };
+
+    // $actualize(<paths>)
+    // $path.actualize(<untyped>)
+    // $try_actualize(<path>)
+    // $path.try_actualize(<untyped>)
+    //
+    // Actualize the path (or list of paths) by first normalizing it and then
+    // for host platforms with case-insensitive filesystems obtaining the
+    // actual spelling of the path.
+    //
+    // Only an absolute path can be actualized. If a path component does not
+    // exist, then its (and all subsequent) spelling is unchanged. Note that
+    // this is a potentially expensive operation.
+    //
+    // If the resulting path would be invalid or in case of filesystem errors
+    // (other than non-existent component), the `$actualize()` version issues
+    // diagnostics and fails while the `$try_actualize()` version returns
+    // `null`. Note that `$try_actualize()` only accepts a single path.
+    //
+    // Note that this function is not pure.
+    //
+    {
+      auto e (f.insert ("actualize", false));
+
+      e += [](path p)     {p.normalize (true); return p;};
+      e += [](dir_path p) {p.normalize (true); return p;};
+
+      e += [](paths v)
+      {
+        for (auto& p: v)
+          p.normalize (true);
+        return v;
+      };
+
+      e += [](dir_paths v)
+      {
+        for (auto& p: v)
+          p.normalize (true);
+        return v;
+      };
+    }
+
+    f.insert (".actualize", false) += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir.normalize (true);
+        else
+          n.value = convert<path> (move (n)).normalize (true).string ();
+      }
+      return ns;
+    };
+
+    {
+      auto e (f.insert ("try_actualize", false));
+
+      e += [](path p)
+      {
+        return try_actualize (p) ? value (move (p)) : value (nullptr);
+      };
+
+      e += [](dir_path p)
+      {
+        return try_actualize (p) ? value (move (p)) : value (nullptr);
+      };
+    }
+
+    f.insert (".try_actualize", false) += [](names ns)
+    {
+      if (ns.size () != 1)
+        throw invalid_argument ("multiple paths");
+
+      name& n (ns.front ());
+
+      bool r;
+      if (n.directory ())
+        r = try_actualize (n.dir);
+      else
+      {
+        path p (convert<path> (move (n)));
+        if ((r = try_actualize (p)))
+          n.value = move (p).string ();
+      }
+
+      return r ? value (move (ns)) : value (nullptr);
+    };
+
+
+    // Note that we currently do not expose realize(). For one, it might be
+    // tricky to handle CWD overrides (on POSIX we just call realize(3)).
+    // Also, our implementation for Windows currently does not handle
+    // symlinks.
+
 
     // $size(<paths>)
     // $size(<path>)
