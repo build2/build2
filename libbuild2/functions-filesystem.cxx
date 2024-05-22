@@ -5,6 +5,7 @@
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/filesystem.hxx>
 
 using namespace std;
 using namespace butl;
@@ -95,13 +96,59 @@ namespace build2
     return r;
   }
 
+  static bool
+  file_exists (path&& f)
+  {
+    if (f.relative () && path_traits::thread_current_directory () != nullptr)
+      f.complete ();
+
+    return exists (f);
+  }
+
+  static bool
+  directory_exists (dir_path&& d)
+  {
+    if (d.relative () && path_traits::thread_current_directory () != nullptr)
+      d.complete ();
+
+    return exists (d);
+  }
+
   void
   filesystem_functions (function_map& m)
   {
-    // @@ Maybe we should have the ability to mark the whole family as not
-    //    pure?
+    // NOTE: anything that depends on relative path must handle the
+    //       thread-specific curren directory override explicitly.
 
     function_family f (m, "filesystem");
+
+    // $file_exists(<path>)
+    //
+    // Return true if a filesystem entry at the specified path exists and is a
+    // regular file (or is a symlink to a regular file) and false otherwise.
+    //
+    // Note that this function is not pure.
+    //
+    {
+      auto e (f.insert ("file_exists", false));
+
+      e += [](path f) {return file_exists (move (f));};
+      e += [](names ns) {return file_exists (convert<path> (move (ns)));};
+    }
+
+    // $directory_exists(<path>)
+    //
+    // Return true if a filesystem entry at the specified path exists and is a
+    // directory (or is a symlink to a directory) and false otherwise.
+    //
+    // Note that this function is not pure.
+    //
+    {
+      auto e (f.insert ("directory_exists", false));
+
+      e += [](path f) {return directory_exists (path_cast<dir_path> (move (f)));};
+      e += [](names ns) {return directory_exists (convert<dir_path> (move (ns)));};
+    }
 
     // $path_search(<pattern>[, <start-dir>])
     //

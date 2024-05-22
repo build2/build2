@@ -73,3 +73,51 @@
     EOE
   }
 }
+
+: file_exists
+:
+{
+  : file
+  :
+  touch f;
+  $* <'print $file_exists(f)' >'true'
+
+  : symlink
+  :
+  touch f && ln -s f s;
+  $* <'print $file_exists([path] s)' >'true'
+
+  : directory
+  :
+  mkdir d;
+  $* <'print $file_exists([dir_path] d)' >'false'
+
+  : testscript
+  :
+  touch f;
+  echo $file_exists(f) >'true'
+}
+
+: directory_exists
+:
+{
+  : directory
+  :
+  mkdir d;
+  $* <'print $directory_exists(d)' >'true'
+
+  : symlink
+  :
+  mkdir d && ln -s d s;
+  $* <'print $directory_exists([dir_path] d)' >'true'
+
+  : file
+  :
+  touch f;
+  $* <'print $directory_exists([path] f)' >'false'
+
+  : testscript
+  :
+  mkdir d;
+  echo $directory_exists(d) >'true'
+}

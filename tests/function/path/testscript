@@ -210,6 +210,8 @@ s = ($posix ? '/' : '\')
   $* <'print $complete([path] a)'     >"$~$(s)a"     : path
   $* <'print $complete([dir_path] a)' >"$~$(s)a$(s)" : dir-path
   $* <'print $path.complete(a)'       >"$~$(s)a"     : untyped
+
+  echo $path.complete(a)              > "$~$(s)a"    : testscript
 }
 
 : canonicalize
