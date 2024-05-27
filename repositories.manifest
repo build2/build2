@@ -3,4 +3,4 @@ summary: build2 build system repository
 
 :
 role: prerequisite
-location: ../libbutl.git##HEAD
+location: ../libbutl.git#HEAD
