@@ -3351,6 +3351,9 @@ namespace build2
                 origin = p.directory ();
             }
 
+            // Note: suppress duplicates at the options level, similar to
+            // rpath_libraries().
+
             bool origin_used (false);
             for (const dir_path& p: cast<dir_paths> (l))
             {
@@ -3387,7 +3390,8 @@ namespace build2
               else
                 o += p.string ();
 
-              sargs.push_back (move (o));
+              if (find (sargs.begin (), sargs.end (), o) == sargs.end ())
+                sargs.push_back (move (o));
             }
 
             // According to the Internet, `-Wl,-z,origin` is not needed except
@@ -3405,7 +3409,12 @@ namespace build2
               fail << ctgt << " does not support rpath-link";
 
             for (const dir_path& p: cast<dir_paths> (l))
-              sargs.push_back ("-Wl,-rpath-link," + p.string ());
+            {
+              string o ("-Wl,-rpath-link," + p.string ());
+
+              if (find (sargs.begin (), sargs.end (), o) == sargs.end ())
+                sargs.push_back (move (o));
+            }
           }
         }
 
