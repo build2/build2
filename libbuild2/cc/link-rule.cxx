@@ -2660,7 +2660,9 @@ namespace build2
             if ((c
                  ? f.compare (p, string::npos, e)
                  : icasecmp (f.c_str () + p, e)) == 0)
+            {
               append (f);
+            }
           }
         }
 
@@ -2671,6 +2673,11 @@ namespace build2
       {
         // Top-level shared library dependency.
         //
+        // As above, suppress duplicates.
+        //
+        if (find (d.ls.begin (), d.ls.end (), &l) != d.ls.end ())
+          return;
+
         if (!l.path ().empty ()) // Not binless.
         {
           // It is either matched or imported so should be a cc library.
