@@ -2596,18 +2596,26 @@ namespace build2
           size_t p (path::traits_type::rfind_separator (f));
           assert (p != string::npos);
 
+          // For good measure, also suppress duplicates at the options level.
+          // This will take care of different libraries built in the same
+          // directory, system-installed, etc.
+
           if (d.rpath)
           {
             string o ("-Wl,-rpath,");
             o.append (f, 0, (p != 0 ? p : 1)); // Don't include trailing slash.
-            d.args.push_back (move (o));
+
+            if (find (d.args.begin (), d.args.end (), o) == d.args.end ())
+              d.args.push_back (move (o));
           }
 
           if (d.rpath_link)
           {
             string o ("-Wl,-rpath-link,");
             o.append (f, 0, (p != 0 ? p : 1));
-            d.args.push_back (move (o));
+
+            if (find (d.args.begin (), d.args.end (), o) == d.args.end ())
+              d.args.push_back (move (o));
           }
         };
 
@@ -2684,7 +2692,11 @@ namespace build2
           //
           if (!cast_false<bool> (l.vars[c_system]))
           {
-            args.push_back ("-Wl,-rpath," + l.path ().directory ().string ());
+            string o ("-Wl,-rpath," + l.path ().directory ().string ());
+
+            if (find (args.begin (), args.end (), o) == args.end ())
+              args.push_back (move (o));
+
             ls.push_back (&l);
           }
         }
