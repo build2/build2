@@ -293,7 +293,7 @@ if ($install.root != [null])
 
 if ($cxx.target.class != 'windows')
 {
-  libul{build2}: cxx.libs += -lpthread
+  libul{build2}: cxx.libs += -pthread
 
   # Note: only linking libdl in shared build.
   #
@@ -323,7 +323,7 @@ lib{build2}:
 # needed for some std::thread implementations (like libstdc++).
 #
 if ($cxx.target.class != 'windows')
-  lib{build2}: cxx.export.libs += -lpthread
+  lib{build2}: cxx.export.libs += -pthread
 
 liba{build2}: cxx.export.poptions += -DLIBBUILD2_STATIC
 libs{build2}: cxx.export.poptions += -DLIBBUILD2_SHARED
