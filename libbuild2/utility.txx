@@ -5,16 +5,16 @@ namespace build2
 {
   template <typename I, typename F>
   void
-  append_option_values (cstrings& args, const char* o, I b, I e, F&& get)
+  append_option_values (cstrings& ss, const char* o, I b, I e, F&& get)
   {
     if (b != e)
     {
-      args.reserve (args.size () + (e - b));
+      ss.reserve (ss.size () + (e - b));
 
       for (; b != e; ++b)
       {
-        args.push_back (o);
-        args.push_back (get (*b));
+        ss.push_back (o);
+        ss.push_back (get (*b));
       }
     }
   }
@@ -27,6 +27,19 @@ namespace build2
     {
       cs.append (o);
       cs.append (get (*b));
+    }
+  }
+
+  template <typename I, typename F>
+  void
+  append_combined_option_values (strings& ss, const char* o, I b, I e, F&& get)
+  {
+    if (b != e)
+    {
+      ss.reserve (ss.size () + (e - b));
+
+      for (; b != e; ++b)
+        ss.push_back (string (o) += get (*b));
     }
   }
 

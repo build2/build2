@@ -3479,13 +3479,19 @@ namespace build2
 
           append_args (sargs1);
         }
-        else
+        else if (b != x)
         {
-          append_option_values (
-            args,
+          // Use the more canonical combined form (-L/usr/local/lib) even
+          // though it's less efficient (the split one is just too much of an
+          // eye-sore in the logs).
+          //
+          append_combined_option_values (
+            sargs1,
             "-L",
             b, x,
-            [] (const dir_path& d) {return d.string ().c_str ();});
+            [] (const dir_path& d) -> const string& {return d.string ();});
+
+          append_args (sargs1);
         }
       }
 

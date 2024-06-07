@@ -877,17 +877,29 @@ namespace build2
   //
   template <typename I, typename F>
   void
-  append_option_values (cstrings&,
-                        const char* opt,
-                        I begin, I end,
-                        F&& get = [] (const string& s) {return s.c_str ();});
+  append_option_values (
+    cstrings&,
+    const char* opt,
+    I begin, I end,
+    F&& get = [] (const string& s) {return s.c_str ();});
 
   template <typename I, typename F>
   void
-  append_option_values (sha256&,
-                        const char* opt,
-                        I begin, I end,
-                        F&& get = [] (const string& s) {return s;});
+  append_option_values (
+    sha256&,
+    const char* opt,
+    I begin, I end,
+    F&& get = [] (const string& s) -> const string& {return s;});
+
+  // As above but in a combined form (e.g., -L/usr/local/lib).
+  //
+  template <typename I, typename F>
+  void
+  append_combined_option_values (
+    strings&,
+    const char* opt,
+    I begin, I end,
+    F&& get = [] (const string& s) -> const string& {return s;});
 
   // As above but append a single option (used for append/hash uniformity).
   //
