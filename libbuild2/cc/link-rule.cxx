@@ -2585,6 +2585,24 @@ namespace build2
         // We don't rpath system libraries. Why, you may ask? There are many
         // good reasons and I have them written on a napkin somewhere...
         //
+        // Well, the main reason is that we naturally assume the dynamic
+        // linker searches there by default and so there is no need for rpath.
+        // Plus, rpath would prevent "overriding" distribution-system
+        // (/usr/lib) libraries with user-system (/usr/local/lib).
+        //
+        // Note, however, that some operating systems don't search in
+        // /usr/local/lib by default (for example, Fedora, RHEL, Mac OS since
+        // version 13). In a sense, on these platforms /usr/local is
+        // "half-system" in that the system compiler by default searches in
+        // /usr/local/include and/or /usr/local/lib (see config_module::init()
+        // for background) but the dynamic linker does not. While we could
+        // hack this test for such platforms and add rpath for /usr/local/lib,
+        // this is still feels wrong (the user can always "fix" such an
+        // operating system by instructing the dynamic linker to search in
+        // /usr/local/lib, as many, including ourselves, do). So for now we
+        // are not going to do anything. In the end, the user can always add
+        // an rpath for /usr/local/lib manually.
+        //
         // We also assume system libraries can only depend on other system
         // libraries and so can prune the traversal.
         //
