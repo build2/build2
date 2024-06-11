@@ -1,3 +1,394 @@
+Version 0.17.0
+
+  * C++20 modules support improvements:
+
+    - Named modules support in Clang, including automatic building of the
+      `std` and `std.compat` standard library modules from libc++ with Clang
+      18 or later.
+
+    - Named modules support in MSVC, including automatic building of the `std`
+      and `std.compat` standard library modules.
+
+      Note: if combining the standard library modules importation with the
+      standard library headers inclusion, MSVC 17.10 or later is recommended.
+
+    - Modules support can now be enabled for any std.cxx value greater or
+      equal 20 (including `latest`).
+
+    - The "C++ Modules Support" section in the manual has been updated to
+      match the current state of the implementation.
+
+  * The `latest` and `experimental` cxx.std values are now mapped to C++26
+    from GCC 14 and Clang 18.
+
+  * The 23 and 2x c.std values are now mapped to /std:clatest starting from
+    MSVC 17.9. In particular, this option enables C23 typeof support.
+
+  * /Zc:preprocessor is now added for the `experimental` cxx.std value from
+    MSVC 17.9.
+
+  * New string_set buildfile value type.
+
+    This exposes the std::set<std::string> type to buildfiles.
+
+    New functions:
+
+      $size(<string-set>)
+
+    Subscript returns true if the value is present and false otherwise (so
+    it is mapped to std::set::contains()). For example:
+
+    set = [string_set] a b c
+
+    if ($set[b])
+      ...
+
+    Note that append (+=) and prepend (=+) have the same semantics
+    (std::set::insert()). For example:
+
+    set = [string_set] a b
+    set += c b              # a b c
+    set =+ d b              # a b c d
+
+    Example of iteration:
+
+    set = [string_set] a b c
+    for k: $set
+      ...
+
+  * New string_map buildfile value type.
+
+    This exposes the std::map<std::string,std::string> type to buildfiles.
+
+    New functions:
+
+      $size(<string-map>)
+      $keys(<string-map>)
+
+    Subscript can be used to look up a value by key. The result is [null] if
+    there is no value associated with the specified key. For example:
+
+    map = [string_map] a@1 b@2 c@3
+
+    b = ($map[b])  # 2
+
+    if ($map[z] == [null])
+      ...
+
+    Note that append (+=) is overriding (like std::map::insert_or_assign())
+    while prepend (=+) is not (like std::map::insert()). In a sense, whatever
+    appears last (from left to right) is kept, which is consistent with what
+    we expect to happen when specifying the same key repeatedly in a literal
+    representation. For example:
+
+    map = [string_map] a@0 b@2 a@1  # a@1 b@2
+    map += b@0 c@3                  # a@1 b@0 c@3
+    map =+ b@1 d@4                  # a@1 b@0 c@3 d@4
+
+    Example of iteration:
+
+    map = [string_map] a@1 b@2 c@3
+    for p: $map
+    {
+      k = $first($p)
+      v = $second($p)
+    }
+
+    While the subscript is mapped to key lookup only, index-based access can
+    be implemented (with a bit of overhead) using the $keys() function:
+
+    map = [string_map] a@1 b@2 c@3
+    keys = $keys($m)
+    for i: $integer_sequence(0, $size($keys))
+    {
+      k = ($keys[$i])
+      v = ($map[$k])
+    }
+
+  * New JSON buildfile value types.
+
+    New types:
+
+      json
+      json_array
+      json_object
+
+    New functions:
+
+      $json.value_type(<json>)
+      $json.value_size(<json>)
+      $json.member_{name,value}(<json-member>)
+      $json.object_names(<json-object>)
+      $json.array_size(<json-array>)
+      $json.array_find(<json-array>, <json>)
+      $json.array_find_index(<json-array>, <json>)
+      $json.load(<path>)
+      $json.parse(<text>)
+      $json.serialize(<json>[, <indentation>])
+
+    See "JSON Functions" in the manual for details.
+
+    For example, to load a JSON value from a file:
+
+    j = $json.load($src_base/board.json)
+
+    Or to construct it in a buildfile:
+
+    j = [json] one@1 two@([json] 2 3 4) three@([json] x@1 y@-1)
+
+    This can also be done incrementally with append/prepend:
+
+    j = [json_object]
+    j += one@1
+    j += two@([json] 2 3 4)
+    j += three@([json] x@1 y@-1)
+
+    Instead of using this JSON-like syntax, one can also specify valid JSON
+    input text:
+
+    j = [json] '{"one":1, "two":[2, 3, 4], "three":{"x":1, "y":-1}'
+
+    Besides the above set of functions, other handy ways to access components
+    in a JSON value are iteration and subscript. For example:
+
+    for m: $j
+      print $member_name($m) $member_value($m)
+
+    print ($j[three])
+
+    A subscript can be nested:
+
+    print ($j[two][1])
+    print ($j[three][x])
+
+    While a JSON value can be printed directly like any other value, the
+    representation will not be pretty-printed. As a result, for complex
+    JSON values, printing a serialized representation might be a more
+    readable option:
+
+    info $serialize($j)
+
+  * New json_map and json_set buildfile value types.
+
+    These expose the std::map<json_value,json_value> and std::set<json_value>
+    types to buildfiles.
+
+    New functions:
+
+      $size(<json-set>)
+      $size(<json-map>)
+      $keys(<json-map>)
+
+    Note that the $keys() function returns the list of map key as a json
+    array.
+
+    For example:
+
+    m = [json_map] 2@([json] a@1 b@2) 1@([json] 1 2)
+    s = [json_set] ([json] x@1 y@2) ([json] a@1 b@2)
+
+    print ($m[2][b])              # 2
+    print ($s[([json] y@2 x@1)])  # true
+
+  * New $first() and $second() functions which return the first and second
+    halves of a pair, respectively.
+
+  * New string functions:
+
+    $string.contains()
+    $string.starts_with()
+    $string.ends_with()
+    $string.replace()
+
+    See "String Functions" in the manual for details.
+
+  * New path functions:
+
+    $path.absolute()
+    $path.simple()
+    $path.sub_path()
+    $path.super_path()
+    $path.complete()
+    $path.try_normalize()
+    $path.try_actualize()
+
+    See "Path Functions" in the manual for details.
+
+  * New filesystem functions:
+
+    $filesystem.file_exists()
+    $filesystem.directory_exists()
+
+    See "Filesystem Functions" in the manual for details.
+
+  * Runtime/buildtime distinction when installing libraries.
+
+    Specifically, now, if a library is installed solely as a prerequisite of
+    an executable (potentially recursively), then only its runtime files are
+    installed omitting everything buildtime-related (static/import libraries,
+    non-versioned symlinks for shared libraries, pkg-config files, headers,
+    etc). If you are familiar with the runtime and -dev/-devel package splits
+    for libraries in Debian/Fedora, this is the analogous semantics.
+
+  * Support for extracting C and C++ predefined macros (predefs).
+
+    Specifically, the c and cxx modules now provide the c.predefs and
+    cxx.predefs submodules which can be loaded in order to register a rule
+    that generates a C or C++ header with the predefined compiler macros,
+    respectively. For details, refer to "C Compiler Predefined Macro
+    Extraction" and "C++ Compiler Predefined Macro Extraction" in the manual.
+
+  * Ability to serialize compilation/linking in C/C++ rules.
+
+    Specifically, both the C/C++ compile and link rules now recognize the
+    cc.serialize boolean variable which instructs them to compile/link
+    serially with regards to any other recipe.
+
+    This is primarily useful when compiling large translation units or linking
+    large binaries that require so much memory that doing that in parallel
+    with other compilation/linking jobs is likely to summon the OOM killer.
+    For example:
+
+    obj{memory-hog}: cc.serialize = true
+
+  * Ability to specify compiler mode options in a buildfile.
+
+    Now the configured mode options are appended to buildfile-specified (which
+    must be specified before loading the guess module).
+
+    In particular, this ability to specify the compiler mode in a buildfile is
+    useful in embedded development where the project may need to hardcode
+    options like -target, -nostdinc, etc. For example:
+
+    cxx.std = 20
+    cxx.mode = -target riscv32-unknown-unknown -nostdinc
+    using cxx
+
+  * New ~host-no-warnings and ~build2-no-warnings special configurations.
+
+    These are parallel to ~host and ~build2 but with suppressed C/C++ compiler
+    warnings.
+
+    Note also that the C++ ad hoc recipes are now by default built in
+    ~build2-no-warnings instead of ~build2 unless the project is configured
+    for development with config.<project>.develop=true.
+
+  * New {bin,c,cxx}.types submodules that only register target types.
+
+    This is primarily useful when providing custom C/C++ compilation/linking
+    rules.
+
+  * New -s|--timeout-success option in the `env` script builtin.
+
+    The semantics is equivalent to the --success option in the `timeout`
+    builtin.
+
+  * Ability to specify alternative sysroot for pkg-config files.
+
+    Specifically, the new config.cc.pkgconfig.sysroot variable provides
+    roughly equivalent functionality to PKG_CONFIG_SYSROOT_DIR in
+    pkg-config. For details and limitations, see "Rewriting Installed
+    Libraries System Root (sysroot)" in the manual for details.
+
+  * Ability to alias a target type from another project.
+
+    The syntax is:
+
+    define <type> = <proj-scope>/<type>
+
+    For example:
+
+    sdk_proj = ... # Root directory of the SDK.
+    define ldscript = $sdk_proj/ldscript
+
+
+    Additionally, unknown target types of imported targets are now aliased
+    automatically.
+
+  * New no_default_target attribute for source, buildfile import directives.
+
+    This attribute can be used to disable the default target semantics for the
+    sources/imported buildfile.
+
+  * Allow imported buildfiles to use config.* variables from own projects
+    (that is, the project from which the buildfile is imported).
+
+  * The fsdir{} targets are now usable in ad hoc recipes.
+
+    In particular, they can now be used to represent directory symlinks. For
+    example:
+
+    exe{hello}: ... fsdir{assets}
+
+    fsdir{assets}:
+    % update
+    {{
+      ln -s $src_base/assets $out_base/assets
+    }}
+    % clean
+    {{
+      rm $out_base/assets
+    }}
+
+    Likewise, file{} targets can now be used to represent file symlinks
+    created in ad hoc recipes.
+
+  * Ability to specify ad hoc recipes in separate files.
+
+    This can now be achieved with the new `recipe` directive:
+
+    recipe <language> <file>
+
+    Note that similar to the use of if-else and switch directives with recipes,
+    this directive requires explicit % recipe header. For example, instead of:
+
+    file{foo.output}:
+    {{
+       echo 'hello' >$path($>)
+    }}
+
+    We can now write:
+
+    file{foo.output}:
+    %
+    recipe buildscript hello.buildscript
+
+    With hello.buildscript containing:
+
+    echo 'hello' >$path($>)
+
+    Similarly, for C++ recipes (this time for a pattern rule), instead of:
+
+    [rule_name=hello] file{~'/(.+)\.output/'}:
+    % update clean
+    {{ c++ 1 --
+
+    --
+
+    ...
+
+    }}
+
+    We can now write:
+
+    [rule_name=hello] file{~'/(.+)\.output/'}:
+    % update clean
+    recipe c++ hello.cxx
+
+    With hello.cxx containing:
+
+    // c++ 1 --
+
+    --
+
+    ...
+
+    Relative <file> paths are resolved using the buildfile directory that
+    contains the `recipe` directive as a base.
+
+    Note also that this mechanism can be used in exported buildfiles with
+    recipe files placed into build/export/ together with buildfiles.
+
 Version 0.16.0
 
   * Support for Objective-C/C++ compilation.
