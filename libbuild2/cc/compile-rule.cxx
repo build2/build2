@@ -3213,7 +3213,21 @@ namespace build2
         if (f != nullptr)
         {
           //cache_cls.fetch_add (1, memory_order_relaxed);
+
+#if 0
           assert (r.first == f);
+#else
+          if (r.first != f)
+          {
+            info   << "inconsistent header cache content" <<
+              info << "encountered: " << *f <<
+              info << "expected: " << *r.first <<
+              info << "please report at "
+                   << "https://github.com/build2/build2/issues/390";
+
+            assert (r.first == f);
+          }
+#endif
         }
       }
 
