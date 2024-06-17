@@ -18,7 +18,7 @@
 // toolchain. Bootstrap will be a problem though. (Maybe set it to nullptr and
 // say that it shall not be queried?)
 //
-#define LIBBUILD2_STAGE true
+#define LIBBUILD2_STAGE false
 
 // Modification time sanity checks are by default only enabled for the staged
 // version unless we are on Windows (which is known not to guarantee
