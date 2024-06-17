@@ -510,7 +510,7 @@ namespace build2
     &simple_append<bool>,         // Prepend same as append.
     &simple_reverse<bool>,
     nullptr,              // No cast (cast data_ directly).
-    nullptr,              // No compare (compare as POD).
+    &simple_compare<bool>,
     nullptr,              // Never empty.
     nullptr,              // Subscript.
     nullptr               // Iterate.
@@ -570,7 +570,7 @@ namespace build2
     &simple_append<int64_t>,          // Prepend same as append.
     &simple_reverse<int64_t>,
     nullptr,                          // No cast (cast data_ directly).
-    nullptr,                          // No compare (compare as POD).
+    &simple_compare<int64_t>,
     nullptr,                          // Never empty.
     nullptr,                          // Subscript.
     nullptr                           // Iterate.
@@ -632,7 +632,7 @@ namespace build2
     &simple_append<uint64_t>,         // Prepend same as append.
     &simple_reverse<uint64_t>,
     nullptr,                          // No cast (cast data_ directly).
-    nullptr,                          // No compare (compare as POD).
+    &simple_compare<uint64_t>,
     nullptr,                          // Never empty.
     nullptr,                          // Subscript.
     nullptr                           // Iterate.
