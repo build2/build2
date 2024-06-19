@@ -1,6 +1,6 @@
 : 1
 name: build2
-version: 0.17.0
+version: 0.18.0-a.0.z
 summary: build2 build system
 license: MIT
 topics: build system, build toolchain
@@ -18,4 +18,4 @@ depends: * build2 >= 0.16.0
 depends: * bpkg >= 0.16.0
 # @@ DEP Should probably become conditional dependency.
 #requires: ? cli ; Only required if changing .cli files.
-depends: libbutl ^0.17.0
+depends: libbutl [0.18.0-a.0.1 0.18.0-a.1)
