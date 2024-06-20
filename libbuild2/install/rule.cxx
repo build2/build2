@@ -871,16 +871,16 @@ namespace build2
         r->sudo = cast_null<string> (s["config.install.sudo"]);
 
       if (r->cmd == nullptr)
-        r->cmd = &cast<path> (s["config.install.cmd"]);
+        r->cmd = cast_null<path> (s["config.install.cmd"]);
 
       if (r->options == nullptr)
         r->options = cast_null<strings> (s["config.install.options"]);
 
       if (r->mode == nullptr)
-        r->mode = &cast<string> (s["config.install.mode"]);
+        r->mode = cast_null<string> (s["config.install.mode"]);
 
       if (r->dir_mode == nullptr)
-        r->dir_mode = &cast<string> (s["config.install.dir_mode"]);
+        r->dir_mode = cast_null<string> (s["config.install.dir_mode"]);
 
       return rs;
     }
@@ -1064,6 +1064,10 @@ namespace build2
       if (base.sudo != nullptr)
         args.push_back (base.sudo->c_str ());
 
+      // Wouldn't be here otherwise.
+      //
+      assert (base.cmd != nullptr && base.dir_mode != nullptr);
+
       args.push_back (base.cmd->string ().c_str ());
       args.push_back ("-d");
 
@@ -1128,6 +1132,10 @@ namespace build2
 
       if (base.sudo != nullptr)
         args.push_back (base.sudo->c_str ());
+
+      // Wouldn't be here otherwise.
+      //
+      assert (base.cmd != nullptr && base.mode != nullptr);
 
       args.push_back (base.cmd->string ().c_str ());
 
