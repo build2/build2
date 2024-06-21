@@ -1096,8 +1096,9 @@ main (int argc, char* argv[])
 
             if (!altn)
               altn = rs.root_extra->altn;
-            else
-              assert (*altn == rs.root_extra->altn);
+            else if (*altn != rs.root_extra->altn)
+              fail << "naming scheme mismatch for " << out_root << " and "
+                   << rs.src_path ();
           }
 
           // At this stage we should have both roots and out_base figured
