@@ -759,8 +759,9 @@ namespace build2
       {
         if (!altn)
           altn = s.root_extra->altn;
-        else
-          assert (*altn == s.root_extra->altn);
+        else if (*altn != s.root_extra->altn)
+          fail << "build file/directory naming schemes for " << out_root
+               << " and " << s.src_path () << " does not match";
 
         if (s.root_extra->project)
         {
