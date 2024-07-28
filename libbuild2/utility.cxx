@@ -16,7 +16,7 @@
 #endif
 
 #include <cerrno>   // ENOENT
-#include <cstring>  // strlen(), str[n]cmp()
+#include <cstring>  // strlen(), str[n]cmp(), strchr()
 #include <iostream> // cerr
 
 #include <libbuild2/target.hxx>
@@ -1010,5 +1010,49 @@ namespace build2
     }
 
     return r;
+  }
+
+  void
+  to_stream_quoted (ostream& o, const char* s)
+  {
+    if (strchr (s, '\'') != nullptr)
+    {
+      o << '"';
+
+      for (; *s != '\0'; ++s)
+      {
+        // Escape characters special inside double quotes.
+        //
+        if (strchr ("\\\"", *s) != nullptr)
+          o << '\\';
+
+        o << *s;
+      }
+
+      o << '"';
+    }
+    else
+      o << '\'' << s << '\'';
+  }
+
+  void
+  to_stream_quoted (ostream& o, const string& s, const char* special, bool e)
+  {
+    if ((e && s.empty ()) || s.find_first_of (special) != string::npos)
+      to_stream_quoted (o, s);
+    else
+      o << s;
+  }
+
+  void
+  to_stream_quoted (ostream& o, const strings& ss, const char* special)
+  {
+    for (auto b (ss.begin ()), i (b), e (ss.end ()); i != e; ++i)
+    {
+      if (i != b)
+        o << ' ';
+
+      to_stream_quoted (o, *i, special);
+    }
   }
 }

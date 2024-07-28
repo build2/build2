@@ -1114,6 +1114,39 @@ namespace build2
   //
   optional<uint64_t>
   parse_number (const string&, uint64_t max = UINT64_MAX);
+
+
+  // Write a string to a stream, single or double-quoting it unconditionally.
+  //
+  // If no quote characters are present in the string, then it is single-
+  // quoted. Otherwise, it is double quoted and the `\"` characters (backslach
+  // and double quote) inside the string are escaped.
+  //
+  LIBBUILD2_SYMEXPORT void
+  to_stream_quoted (ostream&, const char*);
+
+  inline void
+  to_stream_quoted (ostream& o, const string& s)
+  {
+    to_stream_quoted (o, s.c_str ());
+  }
+
+  // As above but only quote the string if it contains any of the specified
+  // special characters (which should include backslash as well as single and
+  // double quotes) or is empty (unless empty is false).
+  //
+  LIBBUILD2_SYMEXPORT void
+  to_stream_quoted (ostream&, const string&,
+                    const char* special, bool empty = true);
+
+  // Write a vector of strings to a stream separating elements with a space
+  // and quoting each element if it is empty or contains any of the specified
+  // special characters (which should include space and backslash as well as
+  // single and double quotes; this is also the default which is suitable for
+  // displaying command line options, etc).
+  //
+  LIBBUILD2_SYMEXPORT void
+  to_stream_quoted (ostream&, const strings&, const char* special = " \\\"'");
 }
 
 #include <libbuild2/utility.ixx>

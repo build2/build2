@@ -237,56 +237,15 @@ namespace build2
       }
     }
 
-    // Quote a string unconditionally, assuming it contains some special
-    // characters.
-    //
-    // If the quote character is present in the string then it is double
-    // quoted rather than single quoted. In this case the following characters
-    // are escaped:
-    //
-    // \"
-    //
-    static void
-    to_stream_quoted (ostream& o, const char* s)
-    {
-      if (strchr (s, '\'') != nullptr)
-      {
-        o << '"';
-
-        for (; *s != '\0'; ++s)
-        {
-          // Escape characters special inside double quotes.
-          //
-          if (strchr ("\\\"", *s) != nullptr)
-            o << '\\';
-
-          o << *s;
-        }
-
-        o << '"';
-      }
-      else
-        o << '\'' << s << '\'';
-    }
-
-    static inline void
-    to_stream_quoted (ostream& o, const string& s)
-    {
-      to_stream_quoted (o, s.c_str ());
-    }
-
     // Quote if empty or contains spaces or any of the command line special
     // characters.
     //
-    static void
+    static inline void
     to_stream_q (ostream& o, const string& s)
     {
       // NOTE: update dump(line) if adding any new special character.
       //
-      if (s.empty () || s.find_first_of (" |&<>=\\\"'") != string::npos)
-        to_stream_quoted (o, s);
-      else
-        o << s;
+      to_stream_quoted (o, s, " |&<>=\\\"'");
     }
 
     void
