@@ -47,6 +47,7 @@
   {
     $* <'print $string.contains(abcdabcd, da, once)' >'true'  : true
     $* <'print $string.contains(abcdabcd, bc, once)' >'false' : false
+    $* <'print $string.contains(abcdefgh, ab, once)' >'true'  : true-begin
   }
 }
 
@@ -76,6 +77,7 @@
   {
     $* <'print $string.ends_with(  abcd, cd)'   >'true'  : true
     $* <'print $string.ends_with(  abcd, bc)'   >'false' : false
+    $* <'print $string.ends_with(  abcd, xxxx)' >'false' : false-equal-size
     $* <'print $ends_with([string] abcd, abcd)' >'true'  : typed
   }
 

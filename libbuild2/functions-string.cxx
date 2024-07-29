@@ -38,14 +38,14 @@ namespace build2
     {
       n -= sn; // Don't consider characters out of range.
 
-      for (size_t p (n);; )
+      for (size_t p (n);; --p)
       {
         if ((ic
              ? icasecmp (ss, s.c_str () + p, sn)
              : s.compare (p, sn, ss)) == 0)
           return p;
 
-        if (--p == 0)
+        if (p == 0)
           break;
       }
     }
