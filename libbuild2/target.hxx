@@ -770,10 +770,12 @@ namespace build2
     // As above but also return the depth at which the value is found. The
     // depth is calculated by adding 1 for each test performed. So a value
     // that is from the target will have depth 1. That from the group -- 2.
-    // From the innermost scope's target type/patter-specific variables --
-    // 3. From the innermost scope's variables -- 4. And so on.  The idea is
-    // that given two lookups from the same target, we can say which one came
-    // earlier. If no value is found, then the depth is set to ~0.
+    // From the innermost scope's target type/patter-specific variables for
+    // the target -- 3. From the innermost scope's target type/patter-specific
+    // variables for the group -- 4. From the innermost scope's variables --
+    // 5. And so on. The idea is that given two lookups from the same target,
+    // we can say which one came earlier. If no value is found, then the depth
+    // is set to ~0.
     //
     pair<lookup_type, size_t>
     lookup (const variable& var, const scope* bs = nullptr) const

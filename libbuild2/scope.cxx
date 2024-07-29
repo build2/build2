@@ -43,12 +43,12 @@ namespace build2
     // Definition of adhoc_rule_pattern.
   }
 
-  pair<lookup, size_t> scope::
-  lookup_original (const variable& var,
-                   const target_key* tk,
-                   const target_key* g1k,
-                   const target_key* g2k,
-                   size_t start_d) const
+  scope::original_info scope::
+  lookup_original_info (const variable& var,
+                        const target_key* tk,
+                        const target_key* g1k,
+                        const target_key* g2k,
+                        size_t start_d) const
   {
     assert (tk != nullptr || var.visibility != variable_visibility::target);
     assert (g2k == nullptr || g1k != nullptr);
@@ -56,7 +56,7 @@ namespace build2
     size_t d (0);
 
     if (var.visibility == variable_visibility::prereq)
-      return make_pair (lookup_type (), d);
+      return original_info {{lookup_type (), d}, false};
 
     // Process target type/pattern-specific prepend/append values.
     //
@@ -115,7 +115,7 @@ namespace build2
           cv = *stem;
 
         // Typify the cache value in case there is no stem (we still want to
-        // prepend/append things in type-aware way).
+        // prepend/append things in a type-aware way).
         //
         if (cv.type == nullptr && var.type != nullptr)
           typify (cv, *var.type, &var);
@@ -152,7 +152,7 @@ namespace build2
       {
         bool f (!s->target_vars.empty ());
 
-        // Target.
+        // Target type/pattern-specific for the target.
         //
         if (++d >= start_d)
         {
@@ -162,15 +162,16 @@ namespace build2
 
             if (l.defined ())
             {
-              if (l->extra != 0) // Prepend/append?
+              bool pa (l->extra != 0); // Prepend/append?
+              if (pa)
                 pre_app (l, s, tk, g1k, g2k, move (*tn));
 
-              return make_pair (move (l), d);
+              return original_info {{move (l), d}, pa};
             }
           }
         }
 
-        // Group.
+        // Target type/pattern-specific for the group.
         //
         if (++d >= start_d)
         {
@@ -180,10 +181,11 @@ namespace build2
 
             if (l.defined ())
             {
-              if (l->extra != 0) // Prepend/append?
+              bool pa (l->extra != 0); // Prepend/append?
+              if (pa)
                 pre_app (l, s, g1k, g2k, nullptr, move (*g1n));
 
-              return make_pair (move (l), d);
+              return original_info {{move (l), d}, pa};
             }
 
             if (g2k != nullptr)
@@ -192,10 +194,11 @@ namespace build2
 
               if (l.defined ())
               {
-                if (l->extra != 0) // Prepend/append?
+                bool pa (l->extra != 0); // Prepend/append?
+                if (pa)
                   pre_app (l, s, g2k, nullptr, nullptr, move (*g2n));
 
-                return make_pair (move (l), d);
+                return original_info {{move (l), d}, pa};
               }
             }
           }
@@ -209,7 +212,8 @@ namespace build2
       {
         auto p (s->vars.lookup (var));
         if (p.first != nullptr)
-          return make_pair (lookup_type (*p.first, p.second, s->vars), d);
+          return original_info {
+            {lookup_type (*p.first, p.second, s->vars), d}, false};
       }
 
       switch (var.visibility)
@@ -229,14 +233,14 @@ namespace build2
       }
     }
 
-    return make_pair (lookup_type (), size_t (~0));
+    return original_info {{lookup_type (), size_t (~0)}, false};
   }
 
-  auto scope::
+  scope::override_info scope::
   lookup_override_info (const variable& var,
                         const pair<lookup_type, size_t> original,
                         bool target,
-                        bool rule) const -> override_info
+                        bool rule) const
   {
     assert (!rule || target); // Rule-specific is target-specific.
 

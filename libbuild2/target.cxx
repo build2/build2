@@ -188,9 +188,10 @@ namespace build2
       // Skip looking up in the ad hoc group, which is semantically the
       // first/primary member.
       //
-      if ((g1 = group == nullptr
+      const target* g (group); // Atomic.
+      if ((g1 = g == nullptr
            ? nullptr
-           : group->adhoc_group () ? group->group : group))
+           : g->adhoc_group () ? static_cast<const target*> (g->group) : g))
       {
         auto p (g1->vars.lookup (var));
         if (p.first != nullptr)
