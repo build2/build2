@@ -185,7 +185,7 @@ namespace build2
         //
         const string* pt (
           cast_null<string> (
-            l.state[a].lookup_original (c_type, true /* target_only */).first));
+            l.state[a].lookup_original (c_type, lookup_limit::target).first));
 
         // cc.type value format is <lang>[,...].
         //
@@ -242,7 +242,7 @@ namespace build2
           //
           {
             const variable& v (impl ? c_export_impl_libs : c_export_libs);
-            c_e_libs = l.lookup_original (v, false, &bs).first;
+            c_e_libs = l.lookup_original (v, &bs).first;
           }
 
           if (!cc)
@@ -251,7 +251,7 @@ namespace build2
               same
               ? (impl ? x_export_impl_libs : x_export_libs)
               : vp[t + (impl ? ".export.impl_libs" : ".export.libs")]);
-            x_e_libs = l.lookup_original (v, false, &bs).first;
+            x_e_libs = l.lookup_original (v, &bs).first;
           }
 
           // Process options first.
@@ -669,7 +669,7 @@ namespace build2
                   // See the link rule for the lookup semantics.
                   //
                   lookup l (
-                    t->lookup_original (var, true /* target_only */).first);
+                    t->lookup_original (var, lookup_limit::target).first);
 
                   if (l ? cast<bool> (*l) : u)
                     lf |= lflag_whole;
@@ -778,8 +778,8 @@ namespace build2
                 if (proc_lib)
                 {
                   const variable& v (same ? x_libs : vp[t + ".libs"]);
-                  proc_impl (l.lookup_original (c_libs, false, &bs).first);
-                  proc_impl (l.lookup_original (v, false, &bs).first);
+                  proc_impl (l.lookup_original (c_libs, &bs).first);
+                  proc_impl (l.lookup_original (v, &bs).first);
                 }
               }
             }

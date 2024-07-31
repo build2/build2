@@ -2256,7 +2256,7 @@ namespace build2
           const string& t (
             cast<string> (
               l.state[a].lookup_original (
-                c_type, true /* target_only */).first));
+                c_type, lookup_limit::target).first));
 
           // If common, then only save the language (the rest could be
           // static/shared-specific; strictly speaking even the language could
@@ -2276,7 +2276,7 @@ namespace build2
           //
           if (cast_false<bool> (l.lookup_original (
                                   ctx.var_pool["bin.whole"],
-                                  true /* target_only */).first))
+                                  lookup_limit::target).first))
           {
             os << endl
                << "bin.whole = true" << endl;

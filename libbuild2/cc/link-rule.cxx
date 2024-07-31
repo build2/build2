@@ -102,13 +102,13 @@ namespace build2
           //
           const scope& bs (t->base_scope ());
 
-          if (lookup l = t->lookup_original (c_export_libs, false, &bs).first)
+          if (lookup l = t->lookup_original (c_export_libs, &bs).first)
           {
             if (!deduplicate_export_libs (bs, cast<vector<name>> (l), r, seen))
               return false;
           }
 
-          if (lookup l = t->lookup_original (x_export_libs, false, &bs).first)
+          if (lookup l = t->lookup_original (x_export_libs, &bs).first)
           {
             if (!deduplicate_export_libs (bs, cast<vector<name>> (l), r, seen))
               return false;
@@ -1310,7 +1310,7 @@ namespace build2
                 //
                 if (const string* t = cast_null<string> (
                       ft->state[a].lookup_original (
-                        c_type, true /* target_only */).first))
+                        c_type, lookup_limit::target).first))
                 {
                   if (recursively_binless (*t))
                     continue;
@@ -1330,7 +1330,7 @@ namespace build2
           {
             auto find = [&t, &bs] (const variable& v) -> lookup
             {
-              return t.lookup_original (v, false, &bs).first;
+              return t.lookup_original (v, &bs).first;
             };
 
             auto has_simple = [] (lookup l)
@@ -1975,7 +1975,7 @@ namespace build2
             lookup l (p.prerequisite.vars[var]);
 
             if (!l.defined ())
-              l = pt->lookup_original (var, true /* target_only */).first;
+              l = pt->lookup_original (var, lookup_limit::target).first;
 
             if (!l.defined ())
             {

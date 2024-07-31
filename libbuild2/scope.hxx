@@ -186,37 +186,25 @@ namespace build2
       return var.overrides == nullptr ? p : lookup_override (var, move (p));
     }
 
-    // Implementation details (used by scope target lookup). The start_depth
-    // can be used to skip a number of initial lookups.
+    // Implementation details (used by scope and target lookup).
+    //
+    // The only valid values for limit are none and target_type and in the
+    // latter case the target key should not be NULL. If it is target_type,
+    // then only look in target type/pattern-specific variables. Note that if
+    // a target type/pattern-specific append/prepend modifies a scope
+    // variable, then the resulting value is considered target type/pattern-
+    // specific.
+    //
+    // The start_depth can be used to skip a number of initial lookups.
     //
     pair<lookup_type, size_t>
     lookup_original (const variable& var,
                      const target_key* tk = nullptr,
                      const target_key* g1k = nullptr,
                      const target_key* g2k = nullptr,
-                     size_t start_depth = 1) const
-    {
-      return lookup_original_info (var, tk, g1k, g2k, start_depth).lookup;
-    }
+                     lookup_limit limit = lookup_limit::none,
+                     size_t start_depth = 1) const;
 
-    // As above but also return an indication of whether the resulting value
-    // was modified by a target type/pattern-specific append/prepend.
-    //
-    struct original_info
-    {
-      pair<lookup_type, size_t> lookup;
-      bool modified;
-    };
-
-    original_info
-    lookup_original_info (const variable&,
-                          const target_key* tk,
-                          const target_key* g1k = nullptr,
-                          const target_key* g2k = nullptr,
-                          size_t start_depth = 1) const;
-
-    // Implementation details (used by scope target lookup).
-    //
     pair<lookup_type, size_t>
     lookup_override (const variable& var,
                      pair<lookup_type, size_t> original,

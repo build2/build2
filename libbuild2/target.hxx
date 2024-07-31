@@ -773,14 +773,16 @@ namespace build2
     // From the innermost scope's target type/patter-specific variables for
     // the target -- 3. From the innermost scope's target type/patter-specific
     // variables for the group -- 4. From the innermost scope's variables --
-    // 5. And so on. The idea is that given two lookups from the same target,
-    // we can say which one came earlier. If no value is found, then the depth
-    // is set to ~0.
+    // 5. And so on. Note that if a target type/patter-specific append/prepend
+    // was applied, then the returned depth is of the innermost such
+    // append/prepend. The idea is that given two lookups from the same
+    // target, we can say which one came earlier. If no value is found, then
+    // the depth is set to ~0.
     //
     pair<lookup_type, size_t>
     lookup (const variable& var, const scope* bs = nullptr) const
     {
-      auto p (lookup_original (var, false, bs));
+      auto p (lookup_original (var, bs));
       return var.overrides == nullptr
         ? p
         : (bs != nullptr
@@ -788,16 +790,30 @@ namespace build2
            : base_scope ()).lookup_override (var, move (p), true);
     }
 
-    // If target_only is true, then only look in target and its target group
-    // without continuing in scopes. As an optimization, the caller can also
-    // pass the base scope of the target, if already known. If locked is true,
-    // assume the targets mutex is locked.
+    // If limit is target, then only look in target and its target group
+    // without continuing in scopes. If it is target_type, then additionally
+    // look in target type/pattern-specific variables in scopes (see
+    // scope::lookup_original() for the exact semantics).
+    //
+    // As an optimization, the caller can also pass the base scope of the
+    // target, if already known.
+    //
+    // If locked is true, assume the targets mutex is locked (not relevant if
+    // limit is target).
     //
     pair<lookup_type, size_t>
     lookup_original (const variable&,
-                     bool target_only = false,
+                     lookup_limit = lookup_limit::none,
                      const scope* bs = nullptr,
                      bool locked = false) const;
+
+    pair<lookup_type, size_t>
+    lookup_original (const variable& var,
+                     const scope* bs,
+                     bool locked = false) const
+    {
+      return lookup_original (var, lookup_limit::none, bs, locked);
+    }
 
     // Return a value suitable for assignment. See scope for details.
     //
@@ -991,11 +1007,11 @@ namespace build2
           : target_->base_scope ().lookup_override (var, move (p), true, true);
       }
 
-      // If target_only is true, then only look in target and its target group
-      // without continuing in scopes.
+      // The limit semantics is the same as in target::lookup_original().
       //
       pair<lookup_type, size_t>
-      lookup_original (const variable&, bool target_only = false) const;
+      lookup_original (const variable&,
+                       lookup_limit = lookup_limit::none) const;
 
       // Return a value suitable for assignment. See target for details.
       //

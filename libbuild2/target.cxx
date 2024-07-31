@@ -142,7 +142,7 @@ namespace build2
 
   pair<lookup, size_t> target::
   lookup_original (const variable& var,
-                   bool target_only,
+                   lookup_limit limit,
                    const scope* bs,
                    bool locked) const
   {
@@ -204,7 +204,7 @@ namespace build2
     //
     if (!r.first)
     {
-      if (!target_only)
+      if (limit != lookup_limit::target)
       {
         auto key = [locked] (const target* t)
         {
@@ -221,7 +221,8 @@ namespace build2
         auto p (bs->lookup_original (var,
                                      &tk,
                                      g1 != nullptr ? &g1k : nullptr,
-                                     g2 != nullptr ? &g2k : nullptr));
+                                     g2 != nullptr ? &g2k : nullptr,
+                                     limit));
 
         r.first = move (p.first);
         r.second = r.first ? r.second + p.second : p.second;
@@ -241,7 +242,7 @@ namespace build2
     // Note that here we want the original value without any overrides
     // applied.
     //
-    auto l (lookup_original (var, false, bs).first);
+    auto l (lookup_original (var, bs).first);
 
     if (l.defined () && l.belongs (*this)) // Existing var in this target.
       return vars.modify (l); // Ok since this is original.
@@ -257,7 +258,7 @@ namespace build2
   value& target::
   append_locked (const variable& var, const scope* bs)
   {
-    auto l (lookup_original (var, false, bs, true /* locked */).first);
+    auto l (lookup_original (var, bs, true /* locked */).first);
 
     if (l.defined () && l.belongs (*this)) // Existing var in this target.
       return vars.modify (l); // Ok since this is original.
@@ -271,7 +272,7 @@ namespace build2
   }
 
   pair<lookup, size_t> target::opstate::
-  lookup_original (const variable& var, bool target_only) const
+  lookup_original (const variable& var, lookup_limit limit) const
   {
     pair<lookup_type, size_t> r (lookup_type (), 0);
 
@@ -286,7 +287,7 @@ namespace build2
     //
     if (!r.first)
     {
-      auto p (target_->lookup_original (var, target_only));
+      auto p (target_->lookup_original (var, limit));
 
       r.first = move (p.first);
       r.second = r.first ? r.second + p.second : p.second;

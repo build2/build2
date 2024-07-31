@@ -612,6 +612,15 @@ namespace build2
           vars (v != nullptr ? m : nullptr) {}
   };
 
+  // Variable lookup limit (see {scope,target}::lookup_original()).
+  //
+  enum class lookup_limit
+  {
+    none,
+    target_type,
+    target
+  };
+
   // Two lookups are equal if they point to the same variable.
   //
   inline bool

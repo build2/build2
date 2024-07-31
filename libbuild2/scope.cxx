@@ -43,20 +43,23 @@ namespace build2
     // Definition of adhoc_rule_pattern.
   }
 
-  scope::original_info scope::
-  lookup_original_info (const variable& var,
-                        const target_key* tk,
-                        const target_key* g1k,
-                        const target_key* g2k,
-                        size_t start_d) const
+  pair<lookup, size_t> scope::
+  lookup_original (const variable& var,
+                   const target_key* tk,
+                   const target_key* g1k,
+                   const target_key* g2k,
+                   lookup_limit limit,
+                   size_t start_d) const
   {
-    assert (tk != nullptr || var.visibility != variable_visibility::target);
-    assert (g2k == nullptr || g1k != nullptr);
+    assert ((tk != nullptr || var.visibility != variable_visibility::target) &&
+            (g2k == nullptr || g1k != nullptr)                               &&
+            (limit == lookup_limit::none ||
+             (limit == lookup_limit::target_type || tk != nullptr)));
 
     size_t d (0);
 
     if (var.visibility == variable_visibility::prereq)
-      return original_info {{lookup_type (), d}, false};
+      return make_pair (lookup_type (), d);
 
     // Process target type/pattern-specific prepend/append values.
     //
@@ -79,7 +82,9 @@ namespace build2
       // group, then we shouldn't be looking for stem in the target's
       // variables. In other words, once we "jump" to group, we stay there.
       //
-      lookup_type stem (s->lookup_original (var, tk, g1k, g2k, 2).first);
+      lookup_type stem (
+        s->lookup_original (
+          var, tk, g1k, g2k, lookup_limit::none, 2).first);
 
       // Check the cache.
       //
@@ -162,11 +167,10 @@ namespace build2
 
             if (l.defined ())
             {
-              bool pa (l->extra != 0); // Prepend/append?
-              if (pa)
+              if (l->extra != 0) // Prepend/append?
                 pre_app (l, s, tk, g1k, g2k, move (*tn));
 
-              return original_info {{move (l), d}, pa};
+              return make_pair (move (l), d);
             }
           }
         }
@@ -181,11 +185,10 @@ namespace build2
 
             if (l.defined ())
             {
-              bool pa (l->extra != 0); // Prepend/append?
-              if (pa)
+              if (l->extra != 0) // Prepend/append?
                 pre_app (l, s, g1k, g2k, nullptr, move (*g1n));
 
-              return original_info {{move (l), d}, pa};
+              return make_pair (move (l), d);
             }
 
             if (g2k != nullptr)
@@ -194,11 +197,10 @@ namespace build2
 
               if (l.defined ())
               {
-                bool pa (l->extra != 0); // Prepend/append?
-                if (pa)
+                if (l->extra != 0) // Prepend/append?
                   pre_app (l, s, g2k, nullptr, nullptr, move (*g2n));
 
-                return original_info {{move (l), d}, pa};
+                return make_pair (move (l), d);
               }
             }
           }
@@ -208,12 +210,13 @@ namespace build2
       // Note that we still increment the lookup depth so that we can compare
       // depths of variables with different visibilities.
       //
-      if (++d >= start_d && var.visibility != variable_visibility::target)
+      if (++d >= start_d &&
+          limit != lookup_limit::target_type &&
+          var.visibility != variable_visibility::target)
       {
         auto p (s->vars.lookup (var));
         if (p.first != nullptr)
-          return original_info {
-            {lookup_type (*p.first, p.second, s->vars), d}, false};
+          return make_pair (lookup_type (*p.first, p.second, s->vars), d);
       }
 
       switch (var.visibility)
@@ -233,7 +236,7 @@ namespace build2
       }
     }
 
-    return original_info {{lookup_type (), size_t (~0)}, false};
+    return make_pair (lookup_type (), size_t (~0));
   }
 
   scope::override_info scope::

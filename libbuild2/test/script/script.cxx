@@ -369,7 +369,10 @@ namespace build2
           // value. In this case, presumably the override also affects the
           // script target and we will pick it up there. A bit fuzzy.
           //
-          auto p (root.test_target.lookup_original (var, target_only));
+          auto p (
+            root.test_target.lookup_original (
+              var,
+              target_only ? lookup_limit::target : lookup_limit::none));
 
           if (p.first)
           {
