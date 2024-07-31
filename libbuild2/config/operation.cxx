@@ -1062,6 +1062,9 @@ namespace build2
     static bool
     disfigure_project (action a, const scope& rs, project_set& projects)
     {
+      // NOTE: if changing anything here, see also code in bpkg that saves the
+      // configuration files on reconfiguration.
+
       tracer trace ("disfigure_project");
 
       context& ctx (rs.ctx);
