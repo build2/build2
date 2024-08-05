@@ -382,25 +382,28 @@ namespace build2
   //
 
   // A target can be entered for several reasons that are useful to
-  // distinguish for diagnostics, when considering as the default
-  // target, etc.
+  // distinguish for diagnostics, when considering as the default target, etc.
   //
-  // Note that the order of the enumerators is arranged so that their
-  // integral values indicate whether one "overrides" the other.
+  // Note that the order of the enumerators is arranged so that their integral
+  // values indicate whether one "overrides" the other.
   //
-  // We refer to the targets other than real and implied as
-  // dynamically-created or just dynamic.
+  // We refer to the targets other than real and implied as dynamically-
+  // created or just dynamic.
   //
-  // @@ We have cases (like pkg-config extraction) where it should probably be
-  //    prereq_file rather than implied (also audit targets.insert<> calls).
+  // Implied means the target's existence is implied by the presence of
+  // another entity in the buildfile or the environment. This can range from a
+  // target-specific variable assignment, to a group target (which may imply
+  // the presence of member), to targets implied by the presence of installed
+  // artifacts.
   //
-  // @@ Also, synthesized dependency declarations (e.g., in cc::link_rule) are
-  //    fuzzy: they feel more `real` than `implied`. Maybe introduce
-  //    `synthesized` in-between?
-  //
-  // @@ There are also now dynamically-discovered targets (ad hoc group
-  //    members; see depdb-dyndep --dyn-target) which currently end up
-  //    with prereq_new.
+  // Note that it's often tempting to add another class of declarations for
+  // what we refer to as synthesized dependencies (see cc::link_rule for an
+  // example). However, this is probably an orthogonal notion (maybe a
+  // sub-state) to declaration since we can synthesize a dependency based on
+  // any declaration, including real.  And saying that synthesized is stronger
+  // than real feels wrong. To put it another way, synthesized dependencies
+  // are more about the target-prerequisite relationship rather that the
+  // target.
   //
   enum class target_decl: uint8_t
   {
@@ -2030,17 +2033,18 @@ namespace build2
       return pair<target&, bool> (p.first, p.second.mutex () != nullptr);
     }
 
-    // Note that the following versions always enter implied targets.
+    // The following versions always enter implied targets and are primarily
+    // meant for entering members when there is a group or vice versa.
     //
     template <typename T>
     T&
-    insert (const target_type& tt,
-            dir_path dir,
-            dir_path out,
-            string name,
-            optional<string> ext,
-            tracer& t,
-            bool skip_find = false)
+    insert_implied (const target_type& tt,
+                    dir_path dir,
+                    dir_path out,
+                    string name,
+                    optional<string> ext,
+                    tracer& t,
+                    bool skip_find = false)
     {
       return insert (tt,
                      move (dir),
@@ -2054,25 +2058,26 @@ namespace build2
 
     template <typename T>
     T&
-    insert (const dir_path& dir,
-            const dir_path& out,
-            const string& name,
-            const optional<string>& ext,
-            tracer& t,
-            bool skip_find = false)
+    insert_implied (const dir_path& dir,
+                    const dir_path& out,
+                    const string& name,
+                    const optional<string>& ext,
+                    tracer& t,
+                    bool skip_find = false)
     {
-      return insert<T> (T::static_type, dir, out, name, ext, t, skip_find);
+      return insert_implied<T> (
+        T::static_type, dir, out, name, ext, t, skip_find);
     }
 
     template <typename T>
     T&
-    insert (const dir_path& dir,
-            const dir_path& out,
-            const string& name,
-            tracer& t,
-            bool skip_find = false)
+    insert_implied (const dir_path& dir,
+                    const dir_path& out,
+                    const string& name,
+                    tracer& t,
+                    bool skip_find = false)
     {
-      return insert<T> (dir, out, name, nullopt, t, skip_find);
+      return insert_implied<T> (dir, out, name, nullopt, t, skip_find);
     }
 
     // Note: not MT-safe so can only be used during serial execution.

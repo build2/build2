@@ -255,11 +255,11 @@ namespace build2
           // really care.
           //
           file& tt (
-            ctx.targets.insert<file> (work,
-                                      dir_path (),
-                                      "driver",
-                                      string (),
-                                      trace));
+            ctx.targets.insert_implied<file> (work,
+                                              dir_path (),
+                                              "driver",
+                                              string (),
+                                              trace));
 
           value& v (
             tt.assign (
@@ -268,11 +268,12 @@ namespace build2
           v = *ctx.build_host;
 
           testscript& st (
-            ctx.targets.insert<testscript> (work,
-                                            dir_path (),
-                                            name.leaf ().base ().string (),
-                                            name.leaf ().extension (),
-                                            trace));
+            ctx.targets.insert_implied<testscript> (
+              work,
+              dir_path (),
+              name.leaf ().base ().string (),
+              name.leaf ().extension (),
+              trace));
 
           tt.path (path ("driver"));
           st.path (name);

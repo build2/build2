@@ -112,7 +112,7 @@ namespace build2
         //
         dir_path out (!rs.out_eq_src () ? out_src (d, rs) : dir_path ());
 
-        const T& t (rs.ctx.targets.insert<T> (
+        const T& t (rs.ctx.targets.insert_implied<T> (
                       move (d),
                       move (out),
                       p.leaf ().base ().string (),

@@ -10086,7 +10086,7 @@ namespace build2
       o = out_src (d, *root_);
     }
 
-    return ctx->targets.insert<T> (
+    return ctx->targets.insert_implied<T> (
       move (d),
       move (o),
       p.leaf ().base ().string (),

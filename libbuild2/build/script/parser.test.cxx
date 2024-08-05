@@ -247,11 +247,11 @@ namespace build2
           // really care.
           //
           file& tt (
-            ctx.targets.insert<file> (work,
-                                      dir_path (),
-                                      "driver",
-                                      string (),
-                                      trace));
+            ctx.targets.insert_implied<file> (work,
+                                              dir_path (),
+                                              "driver",
+                                              string (),
+                                              trace));
 
           tt.path (path ("driver"));
 

@@ -120,7 +120,8 @@ namespace build2
                 prerequisite_members (a, t)))
           {
             if (g == nullptr)
-              g = &t.ctx.targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
+              g = &t.ctx.targets.insert_implied<cli_cxx> (
+                t.dir, t.out, t.name, trace);
 
             prerequisites ps;
             ps.push_back (p->as_prerequisite ());

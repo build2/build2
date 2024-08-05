@@ -52,9 +52,9 @@ namespace build2
       //
       // Also required for the src-out remapping logic.
       //
-      ctx.targets.insert<cxx::hxx> (d, o, n, trace);
-      ctx.targets.insert<cxx::cxx> (d, o, n, trace);
-      ctx.targets.insert<cxx::ixx> (d, o, n, trace);
+      ctx.targets.insert_implied<cxx::hxx> (d, o, n, trace);
+      ctx.targets.insert_implied<cxx::cxx> (d, o, n, trace);
+      ctx.targets.insert_implied<cxx::ixx> (d, o, n, trace);
 
       return new cli_cxx (ctx, move (d), move (o), move (n));
     }
