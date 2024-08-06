@@ -1950,8 +1950,8 @@ namespace build2
         //
         // @@ Should we print the pid we are talking to? It gets hard to
         //    follow once things get nested. But if all our diag will include
-        //    some kind of id (chain, thread?), then this will not be strictly
-        //    necessary.
+        //    some kind of id (dependency chain, thread?), then this will not
+        //    be strictly necessary.
         //
         diag_record dr (text);
         for (size_t i (0); i != batch_n; ++i)
@@ -2628,8 +2628,8 @@ namespace build2
 
       // @@ MODHDR: Should we print the pid we are talking to? It gets hard to
       //            follow once things get nested. But if all our diag will
-      //            include some kind of id (chain, thread?), then this will
-      //            not be strictly necessary.
+      //            include some kind of id (dependency chain, thread?), then
+      //            this will not be strictly necessary.
       //
       if (verb >= 3)
         text << "  > " << rq;

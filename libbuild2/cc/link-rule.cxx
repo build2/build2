@@ -503,8 +503,8 @@ namespace build2
         return false;
       }
 
-      // We will only chain a C source if there is also an X source or we were
-      // explicitly told to.
+      // We will only synthesize a dependency for a C source if there is also
+      // an X source or we were explicitly told to.
       //
       if (r.seen_c && !r.seen_x && hint.empty ())
       {
@@ -915,8 +915,8 @@ namespace build2
       const fsdir* dir (inject_fsdir (a, t));
 
       // Process prerequisites, pass 1: search and match prerequisite
-      // libraries, search obj/bmi{} targets, and search targets we do rule
-      // chaining for.
+      // libraries, search obj/bmi{} targets, and search targets we do
+      // dependency synthesis for.
       //
       // Also clear the binless flag if we see any source or object files.
       // Note that if we don't see any this still doesn't mean the library is
@@ -928,7 +928,7 @@ namespace build2
       // compile::apply() to unmatch them and therefore not to hinder
       // parallelism (or mess up for-install'ness).
       //
-      // We also create obj/bmi{} chain targets because we need to add
+      // We also synthesize obj/bmi{} dependencies because we need to add
       // (similar to lib{}) all the bmi{} as prerequisites to all the other
       // obj/bmi{} that we are creating. Note that this doesn't mean that the
       // compile rule will actually treat them all as prerequisite targets.
@@ -954,6 +954,20 @@ namespace build2
 
       auto& pts (t.prerequisite_targets[a]);
       size_t start (pts.size ());
+
+      // Compile rule options specified on lib/exe{} to propagate to obj/bmi{}
+      // during dependency synthesis (see below).
+      //
+      struct cr_options
+      {
+        const strings* c_p; // cc.poptions
+        const strings* x_p; //  x.poptions
+        const strings* c_c; // cc.coptions
+        const strings* x_c; //  x.coptions
+
+        bool member;        // Any value came from member as opposed to group.
+      };
+      optional<cr_options> cr_ops; // Lookup lazily.
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
@@ -1025,7 +1039,14 @@ namespace build2
           continue;
         }
 
-        const target*& pt (pto);
+        const target*& pt (pto.target);
+
+        // Auxiliary data in prerequisite_target:
+        //
+        // - for libraries it stores link flags (lflag_whole)
+        // - for synthesized obj/bmi{} it strores the group flag
+        //
+        uintptr_t& pd (pto.data);
 
         // Mark (2 bits):
         //
@@ -1045,7 +1066,7 @@ namespace build2
         {
           binless = binless && (mod ? user_binless : false);
 
-          // Rule chaining, part 1.
+          // Dependency synthesis, part 1.
           //
           // Which scope shall we use to resolve the root? Unlikely, but
           // possible, the prerequisite is from a different project
@@ -1057,6 +1078,62 @@ namespace build2
           // for, say, both liba{} and libs{}. The same goes for bmi{}.
           //
           bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
+
+          // Lookup all the relevant binary-specific compile option values if
+          // this hasn't already been done.
+          //
+          if (!cr_ops)
+          {
+            bool m (false);
+
+            auto lookup = [&bs, &t, &m] (const variable& var) -> const strings*
+            {
+              // We don't want to pick anything beyond target-specific
+              // values (but including target type/pattern-specific) since
+              // they will also be in effect for obj/bmi{} and setting them
+              // to the same values is a waste (and, in fact, it could be
+              // that when this feature is not used, different obj/bmi{} are
+              // compiled with different options).
+              //
+              // Note that we need to take into account target type/pattern-
+              // specific append/prepend since it could modify the scope
+              // value but only be applicable to lib/exe{}. Something like
+              // this:
+              //
+              // cc.poptions += -DFOO
+              // lib{*}: cc.poptions += -DBAR
+              //
+              // Then there is this nuance: if any value came from the member
+              // and not from the group, then we need to override the above
+              // group semantics. In particular, this allows us to do:
+              //
+              // liba{hello}: cxx.poptions += -DLIBHELLO_STATIC_BUILD
+              // libs{hello}: cxx.poptions += -DLIBHELLO_SHARED_BUILD
+              //
+              // Note also that the variables we are dealing with are not
+              // overridable.
+              //
+              pair<build2::lookup, size_t> p (
+                t.lookup_original (var,
+                                   lookup_limit::target_type,
+                                   &bs));
+
+              const strings* r (cast_null<strings> (p.first));
+
+              if (r != nullptr)
+                m = m || p.second == 1; // Found in the target itself.
+
+              return r;
+            };
+
+            cr_ops = cr_options {lookup (c_poptions), lookup (x_poptions),
+                                 lookup (c_coptions), lookup (x_coptions),
+                                 false};
+            cr_ops->member = m;
+          }
+
+          if (group && cr_ops->member)
+            group = false;
 
           const target_type& rtt (mod
                                   ? (group ? bmi::static_type : tts.bmi)
@@ -1091,44 +1168,278 @@ namespace build2
           // obj/bmi{} is always in the out tree. Note that currently it could
           // be the group -- we will pick a member in part 2 below.
           //
+          // Note: d is used below.
+          //
           pair<target&, ulock> r (
             search_new_locked (
               ctx, rtt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
 
-          // If we shouldn't clean obj{}, then it is fair to assume we
-          // shouldn't clean the source either (generated source will be in
-          // the same directory as obj{} and if not, well, go find yourself
-          // another build system ;-)).
-          //
-          if (skip (r.first))
-          {
-            pt = nullptr;
-            continue;
-          }
+          const target& cpt (r.first);
+          bool locked (r.second.owns_lock ());
 
-          // Either set of verify the bin.binless value on this bmi*{} target
+          // Either set or verify the bin.binless value on this bmi*{} target
           // (see config_data::b_binless for semantics).
           //
           if (mod)
           {
-            if (r.second.owns_lock ())
+            if (locked)
             {
               if (user_binless)
                 r.first.assign (b_binless) = true;
             }
             else
             {
-              lookup l (r.first[b_binless]);
+              lookup l (cpt[b_binless]);
 
               if (user_binless ? !cast_false<bool> (l) : l.defined ())
                 fail << "synthesized dependency for prerequisite " << p
                      << " would be incompatible with existing target "
-                     << r.first <<
+                     << cpt <<
                   info << "incompatible bin.binless value";
             }
           }
 
-          pt = &r.first;
+          // Binary-specific compile options.
+          //
+          // Propagate compile rule options (*.poptions and *.coptions)
+          // specified on the binary to the obj/bmi{} targets that we
+          // synthesize.
+          //
+          // The semantics we are aiming for is as-if they were set on the
+          // obj/bmi{} target at the end of the buildfile (to be precise, at
+          // the end of loading all buildfiles for the scope).
+          //
+          // While ideally we would like to prevent sharing such obj/bmi{}
+          // between multiple binaries or for the user to specify any compile
+          // options explicitly, this is not easy to do (since once the
+          // options are set, we don't know who set them: same binary on the
+          // previous operation batch, another binary, or user). Instead, we
+          // are going to approximate this by making sure the options (or
+          // their absence) match.
+          //
+          // Note also that we don't touch user-specified obj/bmi{}
+          // prerequisites (neither set nor verify). In particular, this
+          // allows customizing compile options for specific translation
+          // units.
+          //
+          // NOTE: keep last since unlocks the lock.
+          //
+          {
+            // If we have any value, then either set them (locked) or make
+            // sure they all match (unlocked).
+            //
+            // Note that the case where one lib/exe{} specifies a value while
+            // the other doesn't specify any (and they share a synthesized
+            // dependency) will be racy to verify. Getting rid of this race
+            // will be difficult because in the verify case we can't say who
+            // set the value on obj/bmi{}. We could set some sort of a marker
+            // variable but then it means we would need to look it up for
+            // every lib/exe{} (whether they use this feature or not, and most
+            // won't). However, we can handle the common case based on the
+            // target being newly created (as opposed to being mentioned in
+            // the buildfile; see target_decl).
+            //
+            auto check = [&bs, &p, &d] (const variable& var,
+                                        const target& et,
+                                        const strings* e,
+                                        const target& st)
+            {
+              // If the expected value is NULL, then just make sure this
+              // variable is not set on the target. Otherwise, compare the
+              // result of the normal lookup and if it matches, then we assume
+              // it's good regardless of where it comes from (this covers all
+              // the corner cases which we cannot verify precisely; see above
+              // for details).
+              //
+              const strings* v;
+              size_t vd (0);
+
+              if (e == nullptr)
+              {
+                v = cast_null<strings> (st.vars[var]);
+
+                if (v == nullptr)
+                  return;
+              }
+              else
+              {
+                // Optimize the lookup for the common case.
+                //
+                pair<lookup, size_t> p (
+                  st.lookup_original (
+                    var,
+                    d.empty () ? &bs : nullptr));
+
+                v = cast_null<strings> (p.first);
+
+                if (v != nullptr && *v == *e)
+                  return;
+
+                vd = p.second;
+              }
+
+              diag_record dr (fail);
+
+              dr << "synthesized dependency for prerequisite " << p
+                 << " would be incompatible with existing target " << st <<
+                info << "variable " << var << " value mismatch";
+
+              if (e == nullptr)      // Expected to be absent.
+              {
+                dr << info << st << " value: "; to_stream_quoted (dr.os, *v);
+                dr << info << et << " value is absent";
+              }
+              else if (v == nullptr) // Expected to be present.
+              {
+                dr << info << st << " value is absent";
+                dr << info << et << " value: "; to_stream_quoted (dr.os, *e);
+              }
+              else                   // Expected to match.
+              {
+                dr << info << st << " value: "; to_stream_quoted (dr.os, *v);
+                dr << info << et << " value: "; to_stream_quoted (dr.os, *e);
+
+                if (vd > 1)
+                {
+                  if (const target* g = st.group)
+                    dr << info << st << " value came from group " << *g;
+                }
+              }
+            };
+
+            auto set = [&r] (const variable& var, const strings& v)
+            {
+              // One nuance here is that target type/pattern-specific
+              // append/prepend/assign specified for obj/bmi{} will not be
+              // in effect for options specified on lib/exe{}. For example:
+              //
+              // obj{*}: cc.poptions = -DFOO
+              // lib{bar}: cc.poptions += -DBAR
+              //
+              // It doesn't seem there is anything sensible we can do about
+              // it automatically other than documenting this nuance and
+              // suggesting the user adds lib/exe{} to such a pattern.
+              //
+              r.first.assign (var) = v;
+            };
+
+            bool absent (false);
+            if (cr_ops->c_p != nullptr || cr_ops->x_p != nullptr ||
+                cr_ops->c_c != nullptr || cr_ops->x_c != nullptr ||
+                (absent = !operator>= (cpt.decl, target_decl::implied))) // VC14
+            {
+              if (locked)
+              {
+                if (!absent)
+                {
+                  if (cr_ops->c_p != nullptr) set (c_poptions, *cr_ops->c_p);
+                  if (cr_ops->x_p != nullptr) set (x_poptions, *cr_ops->x_p);
+                  if (cr_ops->c_c != nullptr) set (c_coptions, *cr_ops->c_c);
+                  if (cr_ops->x_c != nullptr) set (x_coptions, *cr_ops->x_c);
+                }
+
+                // @@ PERF: maybe pass the lock to search_new_locked() below?
+                //
+                r.second.unlock ();
+                locked = false;
+              }
+              else
+              {
+                if (absent && cpt.vars.empty ())
+                  ; // Optimize for the common case.
+                else
+                {
+                  // If the values came from the group, then use the group in
+                  // diagnostics.
+                  //
+                  const target& et (group ? *t.group : t);
+
+                  check (c_poptions, et, cr_ops->c_p, cpt);
+                  check (x_poptions, et, cr_ops->x_p, cpt);
+                  check (c_coptions, et, cr_ops->c_c, cpt);
+                  check (x_coptions, et, cr_ops->x_c, cpt);
+                }
+              }
+
+              // Verify member/group consistency.
+              //
+              // The check above doesn't quite work for libraries where the
+              // one that specified any options will likely end up
+              // synthesizing obja/objs{} targets (see the group logic above)
+              // while the one that didn't -- obj{}. So we also need to check
+              // obj{} vs obj[as]{} consistency if both are synthesized.
+              //
+              // (This is actually even hairier than that: sometimes, the
+              // obj{} library will race ahead in its matching and manage to
+              // create the obja/objs{} prerequisite. In which case we will
+              // end up failing the above check, which will be quite confusing
+              // and which is the reason we have added the "value came from
+              // group" info above).
+              //
+              // Implementing this verification in this racing environment is
+              // challanging, to put it mildly. So what we are going to do is,
+              // in case of a group, also enter the member (which we will be
+              // doing anyway shortly). If we were the ones who created it,
+              // then we have "staked out" our view of its variables and any
+              // subsequent attempts to enter it will trigger the above
+              // check. If, however, this target was already there, then we
+              // verify that it's consistent with the values we expect.
+              //
+              if (group)
+              {
+                const target_type& tt (mod ? tts.bmi : tts.obj);
+
+                // @@ PERF: maybe we should stash the member in pd and avoid
+                //    another search when we pick the member? (Though obj{}
+                //    might also not be synthesized.)
+
+                pair<target&, ulock> r (
+                  search_new_locked (
+                    ctx, tt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+
+                if (r.second.owns_lock ())
+                  r.second.unlock ();
+                else
+                {
+                  const target& cmt (r.first);
+
+                  if (!absent ||
+                      !operator>= (cmt.decl, target_decl::implied)) // VC14
+                  {
+                    if (absent && cmt.vars.empty ())
+                      ; // Optimize for the common case.
+                    else
+                    {
+                      check (c_poptions, cpt, cr_ops->c_p, cmt);
+                      check (x_poptions, cpt, cr_ops->x_p, cmt);
+                      check (c_coptions, cpt, cr_ops->c_c, cmt);
+                      check (x_coptions, cpt, cr_ops->x_c, cmt);
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          if (locked)
+            r.second.unlock ();
+
+          // If we shouldn't clean obj{}, then it is fair to assume we
+          // shouldn't clean the source either (generated source will be in
+          // the same directory as obj{} and if not, well, go find yourself
+          // another build system ;-)).
+          //
+          // Note: should be done after setting/verifying variables since can
+          // be an operation batch.
+          //
+          if (skip (cpt))
+          {
+            pt = nullptr;
+            continue;
+          }
+
+          pt = &cpt;
+          pd = group ? 1 : 0;
           mk = mod ? 2 : 1;
         }
         else if (p.is_a<libx> () ||
@@ -1729,9 +2040,9 @@ namespace build2
         }
       }
 
-      // Process prerequisites, pass 2: finish rule chaining but don't start
-      // matching anything yet since that may trigger recursive matching of
-      // bmi{} targets we haven't completed yet. Hairy, I know.
+      // Process prerequisites, pass 2: finish dependency synthesis but don't
+      // start matching anything yet since that may trigger recursive matching
+      // of bmi{} targets we haven't completed yet. Hairy, I know.
       //
 
       // Parallel prerequisites/prerequisite_targets loop.
@@ -1759,14 +2070,14 @@ namespace build2
           // Note that if this is a library not to be cleaned, we keep it
           // marked for completion (see the next phase).
         }
-        else if (mk == 1 || mk == 2) // Source/module chain.
+        else if (mk == 1 || mk == 2) // Synthesized source/module dependency.
         {
           bool mod (mk == 2); // p is_a x_mod
 
           mk = 1;
 
           const target& rt (*pt);
-          bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
+          bool group (pd != 0); // Group's prerequisite (see pass 1).
 
           // If we have created a obj/bmi{} target group, pick one of its
           // members; the rest would be primarily concerned with it.
@@ -1812,7 +2123,7 @@ namespace build2
             }
 
             // Add our lib*{} (see the export.* machinery for details) and
-            // bmi*{} (both original and chained; see module search logic)
+            // bmi*{} (both original and synthesized; see module search logic)
             // prerequisites.
             //
             // Note that we don't resolve lib{} to liba{}/libs{} here
@@ -1833,7 +2144,8 @@ namespace build2
             size_t j (start);
             for (prerequisite_member p: group_prerequisite_members (a, t))
             {
-              const target* pt (pts[j++]);
+              const target* pt (pts[j].target);
+              uintptr_t&    pd (pts[j++].data);
 
               if (pt == nullptr) // Note: ad hoc is taken care of.
                 continue;
@@ -1847,7 +2159,8 @@ namespace build2
               {
                 ps.push_back (p.as_prerequisite ());
               }
-              else if (x_mod != nullptr && p.is_a (*x_mod)) // Chained module.
+              else if (x_mod != nullptr && p.is_a (*x_mod)) // Synthesized
+                                                            // module dependency.
               {
                 // Searched during pass 1 but can be NULL or marked.
                 //
@@ -1857,7 +2170,7 @@ namespace build2
                   // was a group, then we would have picked up a member. So
                   // here we may have to "unpick" it.
                   //
-                  bool group (j < i && !p.prerequisite.belongs (t));
+                  bool group (j < i && pd != 0);
 
                   unmark (pt);
                   ps.push_back (prerequisite (group ? *pt->group : *pt));
@@ -1997,7 +2310,8 @@ namespace build2
         mark (pt, mk);
       }
 
-      // Process prerequisites, pass 3: match everything and verify chains.
+      // Process prerequisites, pass 3: match everything and verify synthesized
+      // dependencies.
       //
 
       // Wait with unlocked phase to allow phase switching.
@@ -2051,7 +2365,9 @@ namespace build2
       i = start;
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        const target*& pt (pts[i++]);
+        const target*& pt (pts[i].target);
+        uintptr_t&     pd (pts[i++].data);
+
 
         // Skipped or not marked for completion.
         //
@@ -2088,7 +2404,7 @@ namespace build2
 
             if (&tp != &tp1)
             {
-              bool group (!p.prerequisite.belongs (t));
+              bool group (pd != 0); // See pass 1.
 
               const target_type& rtt (mod
                                       ? (group ? bmi::static_type : tts.bmi)
