@@ -177,8 +177,18 @@ namespace build2
   // diagnostics (unless quiet).
   //
   LIBBUILD2_SYMEXPORT void
-  perform_execute (const values&, action, const action_targets&,
+  perform_execute (const values&, action, action_targets&,
                    uint16_t diag, bool prog);
+
+  // Call the context-wide post operation callbacks. Should be called after
+  // perfrom_match() if perform_execute() will not be called. Note that
+  // perform_match() handles its own failures but not the match_only case.
+  //
+  LIBBUILD2_SYMEXPORT void
+  perform_post_operation_callbacks (context&,
+                                    action,
+                                    const action_targets&,
+                                    bool failed);
 
   LIBBUILD2_SYMEXPORT extern const meta_operation_info mo_noop;
   LIBBUILD2_SYMEXPORT extern const meta_operation_info mo_perform;

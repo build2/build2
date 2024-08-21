@@ -282,120 +282,134 @@ namespace build2
         const location loc (pn); // Dummy location.
         action_targets ts {tgt};
 
-        auto process_postponed = [&ctx, &mod] ()
         {
-          if (!mod.postponed.list.empty ())
+          auto mog = make_guard ([&ctx] () {ctx.match_only = nullopt;});
+          ctx.match_only = match_only_level::all;
+
+          auto process_postponed = [&ctx, &mod, &ts] (action a)
           {
-            // Re-grab the phase lock similar to perform_match().
-            //
-            phase_lock l (ctx, run_phase::match);
-
-            // Note that we don't need to bother with the mutex since we do
-            // all of this serially. But we can end up with new elements at
-            // the end.
-            //
-            // Strictly speaking, to handle this correctly we would need to do
-            // multiple passes over this list and only give up when we cannot
-            // make any progress since earlier entries that we cannot resolve
-            // could be "fixed" by later entries. But this feels far-fetched
-            // and so let's wait for a real example before complicating this.
-            //
-            for (auto i (mod.postponed.list.begin ());
-                 i != mod.postponed.list.end ();
-                 ++i)
-              rule::match_postponed (*i);
-          }
-        };
-
-        auto mog = make_guard ([&ctx] () {ctx.match_only = nullopt;});
-        ctx.match_only = match_only_level::all;
-
-        const operations& ops (rs.root_extra->operations);
-        for (operations::size_type id (default_id + 1); // Skip default_id.
-             id < ops.size ();
-             ++id)
-        {
-          if (const operation_info* oif = ops[id])
-          {
-            // Skip aliases (e.g., update-for-install). In fact, one can argue
-            // the default update should be sufficient since it is assumed to
-            // update all prerequisites and we no longer support ad hoc stuff
-            // like test.input. Though here we are using the dist
-            // meta-operation, not perform.
-            //
-            if (oif->id != id)
-              continue;
-
-            // Use standard (perform) match.
-            //
-            if (auto pp = oif->pre_operation)
+            if (!mod.postponed.list.empty ())
             {
-              if (operation_id pid = pp (ctx, {}, dist_id, loc))
-              {
-                const operation_info* poif (ops[pid]);
-                ctx.current_operation (*poif, oif, false /* diag_noise */);
+              auto eg (
+                make_exception_guard (
+                  [&ctx, a, &ts] ()
+                  {
+                    perform_post_operation_callbacks (
+                      ctx, a, ts, true /* failed */);
+                  }));
 
-                if (oif->operation_pre != nullptr)
-                  oif->operation_pre (ctx, {}, false /* inner */, loc);
+              // Re-grab the phase lock similar to perform_match().
+              //
+              phase_lock l (ctx, run_phase::match);
 
-                if (poif->operation_pre != nullptr)
-                  poif->operation_pre (ctx, {}, true /* inner */, loc);
-
-                action a (dist_id, poif->id, oif->id);
-                mod.postponed.list.clear ();
-                perform_match ({}, a, ts,
-                               1     /* diag (failures only) */,
-                               false /* progress */);
-                process_postponed ();
-
-                if (poif->operation_post != nullptr)
-                  poif->operation_post (ctx, {}, true /* inner */);
-
-                if (oif->operation_post != nullptr)
-                  oif->operation_post (ctx, {}, false /* inner */);
-              }
+              // Note that we don't need to bother with the mutex since we do
+              // all of this serially. But we can end up with new elements at
+              // the end.
+              //
+              // Strictly speaking, to handle this correctly we would need to
+              // do multiple passes over this list and only give up when we
+              // cannot make any progress since earlier entries that we cannot
+              // resolve could be "fixed" by later entries. But this feels
+              // far-fetched and so let's wait for a real example before
+              // complicating this.
+              //
+              for (auto i (mod.postponed.list.begin ());
+                   i != mod.postponed.list.end ();
+                   ++i)
+                rule::match_postponed (*i);
             }
+          };
 
-            ctx.current_operation (*oif, nullptr, false /* diag_noise */);
-
-            if (oif->operation_pre != nullptr)
-              oif->operation_pre (ctx, {}, true /* inner */, loc);
-
-            action a (dist_id, oif->id);
-            mod.postponed.list.clear ();
-            perform_match ({}, a, ts,
-                           1     /* diag (failures only) */,
-                           false /* progress */);
-            process_postponed ();
-
-            if (oif->operation_post != nullptr)
-              oif->operation_post (ctx, {}, true /* inner */);
-
-            if (auto po = oif->post_operation)
+          const operations& ops (rs.root_extra->operations);
+          for (operations::size_type id (default_id + 1); // Skip default_id.
+               id < ops.size ();
+               ++id)
+          {
+            if (const operation_info* oif = ops[id])
             {
-              if (operation_id pid = po (ctx, {}, dist_id))
+              // Skip aliases (e.g., update-for-install). In fact, one can
+              // argue the default update should be sufficient since it is
+              // assumed to update all prerequisites and we no longer support
+              // ad hoc stuff like test.input. Though here we are using the
+              // dist meta-operation, not perform.
+              //
+              if (oif->id != id)
+                continue;
+
+              // Use standard (perform) match.
+              //
+              if (auto pp = oif->pre_operation)
               {
-                const operation_info* poif (ops[pid]);
-                ctx.current_operation (*poif, oif, false /* diag_noise */);
+                if (operation_id pid = pp (ctx, {}, dist_id, loc))
+                {
+                  const operation_info* poif (ops[pid]);
+                  ctx.current_operation (*poif, oif, false /* diag_noise */);
 
-                if (oif->operation_pre != nullptr)
-                  oif->operation_pre (ctx, {}, false /* inner */, loc);
+                  if (oif->operation_pre != nullptr)
+                    oif->operation_pre (ctx, {}, false /* inner */, loc);
 
-                if (poif->operation_pre != nullptr)
-                  poif->operation_pre (ctx, {}, true /* inner */, loc);
+                  if (poif->operation_pre != nullptr)
+                    poif->operation_pre (ctx, {}, true /* inner */, loc);
 
-                action a (dist_id, poif->id, oif->id);
-                mod.postponed.list.clear ();
-                perform_match ({}, a, ts,
-                               1     /* diag (failures only) */,
-                               false /* progress */);
-                process_postponed ();
+                  action a (dist_id, poif->id, oif->id);
+                  mod.postponed.list.clear ();
+                  perform_match ({}, a, ts,
+                                 1     /* diag (failures only) */,
+                                 false /* progress */);
+                  process_postponed (a);
+                  perform_post_operation_callbacks (ctx, a, ts, false /*failed*/);
 
-                if (poif->operation_post != nullptr)
-                  poif->operation_post (ctx, {}, true /* inner */);
+                  if (poif->operation_post != nullptr)
+                    poif->operation_post (ctx, {}, true /* inner */);
 
-                if (oif->operation_post != nullptr)
-                  oif->operation_post (ctx, {}, false /* inner */);
+                  if (oif->operation_post != nullptr)
+                    oif->operation_post (ctx, {}, false /* inner */);
+                }
+              }
+
+              ctx.current_operation (*oif, nullptr, false /* diag_noise */);
+
+              if (oif->operation_pre != nullptr)
+                oif->operation_pre (ctx, {}, true /* inner */, loc);
+
+              action a (dist_id, oif->id);
+              mod.postponed.list.clear ();
+              perform_match ({}, a, ts,
+                             1     /* diag (failures only) */,
+                             false /* progress */);
+              process_postponed (a);
+              perform_post_operation_callbacks (ctx, a, ts, false /*failed*/);
+
+              if (oif->operation_post != nullptr)
+                oif->operation_post (ctx, {}, true /* inner */);
+
+              if (auto po = oif->post_operation)
+              {
+                if (operation_id pid = po (ctx, {}, dist_id))
+                {
+                  const operation_info* poif (ops[pid]);
+                  ctx.current_operation (*poif, oif, false /* diag_noise */);
+
+                  if (oif->operation_pre != nullptr)
+                    oif->operation_pre (ctx, {}, false /* inner */, loc);
+
+                  if (poif->operation_pre != nullptr)
+                    poif->operation_pre (ctx, {}, true /* inner */, loc);
+
+                  action a (dist_id, poif->id, oif->id);
+                  mod.postponed.list.clear ();
+                  perform_match ({}, a, ts,
+                                 1     /* diag (failures only) */,
+                                 false /* progress */);
+                  process_postponed (a);
+                  perform_post_operation_callbacks (ctx, a, ts, false /*failed*/);
+
+                  if (poif->operation_post != nullptr)
+                    poif->operation_post (ctx, {}, true /* inner */);
+
+                  if (oif->operation_post != nullptr)
+                    oif->operation_post (ctx, {}, false /* inner */);
+                }
               }
             }
           }

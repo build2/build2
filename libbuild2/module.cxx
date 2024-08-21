@@ -96,10 +96,20 @@ namespace build2
                    nullopt));                /* module_context */
 
     // We use the same context for building any nested modules that might be
-    // required while building modules.
+    // required while building modules. Note: this is also used to detect
+    // module building context. @@ Maybe we should invent special build.mode?
     //
     context& mctx (*(ctx.module_context = ctx.module_context_storage->get ()));
     mctx.module_context = &mctx;
+
+    // Copy over any operation callbacks. If a callback implementation does
+    // not wish to see module context's calls, it can filter them out based on
+    // the passed context.
+    //
+    // Note also that only the callbacks registered before we need to build
+    // the first module will be in effect. Probably good enough for now.
+    //
+    mctx.operation_callbacks = ctx.operation_callbacks;
 
     // Setup the context to perform update. In a sense we have a long-running
     // perform meta-operation batch (indefinite, in fact, since we never call
@@ -107,7 +117,7 @@ namespace build2
     // execute update operations.
     //
     // Note that we perform each build in a separate update operation. Failed
-    // that, if the same target is update twice (which may happen with ad hoc
+    // that, if the same target is updated twice (which may happen with ad hoc
     // recipes) we will see the old state.
     //
     if (mo_perform.meta_operation_pre != nullptr)

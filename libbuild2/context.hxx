@@ -351,10 +351,48 @@ namespace build2
               (current_mname.empty () && current_oname == mo));
     };
 
+    // Operation callbacks.
+    //
+    // An entity (module, core) can register a function that will be called
+    // when an action is executed on a set of targets. The pre callback is
+    // called before any recipes for the action are matched and the post --
+    // after all have been executed. The post callback is called even if
+    // execution has failed.
+    //
+    // The callback should only be registered during the load phase. Note
+    // that it's registered for the inner action, meaning that it will be
+    // called for any outer action (which is discernible from the first
+    // argument of the callback). Note also that meta-operations other than
+    // perform never actually execute any recipes and it probably only makes
+    // sense to register these callbacks for the perform_* actions.
+    //
+    // Note that the callbacks will also be called when building a build
+    // system module or an ad hoc C++ recipe. See create_module_context() for
+    // details.
+    //
+    // See also scope::operation_callback.
+    //
+    struct operation_callback
+    {
+      using pre_callback =
+        void (context&, action, const action_targets&);
+
+      using post_callback =
+        void (context&, action, const action_targets&, bool failed);
+
+      function<pre_callback> pre;
+      function<post_callback> post;
+    };
+
+    using operation_callback_map = multimap<action_id, operation_callback>;
+
+    operation_callback_map operation_callbacks;
+
     // Meta/operation-specific context-global auxiliary data storage.
     //
-    // Note: cleared by current_[meta_]operation() below. Normally set by
-    // meta/operation-specific callbacks from [mate_]operation_info.
+    // Normally set by meta/operation-specific callbacks from
+    // [mata_]operation_info. The operation data is cleared by
+    // current_operation() below.
     //
     // Note also: watch out for MT-safety in the data itself.
     //
@@ -758,6 +796,9 @@ namespace build2
                              scope* amalgamation = nullptr);
 
     // Set current meta-operation and operation.
+    //
+    // Note that the context instance is not to be re-used between different
+    // meta-operations.
     //
     void
     current_meta_operation (const meta_operation_info&);

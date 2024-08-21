@@ -335,6 +335,16 @@ namespace build2
           });
       }
 
+      // Call the pre operation callbacks.
+      //
+      // See a comment in perform_execute() for why we are doing it here
+      // (short answer: phase switches).
+      //
+      auto cs (ctx.operation_callbacks.equal_range (a));
+      for (auto i (cs.first); i != cs.second; ++i)
+        if (const auto& f = i->second.pre)
+          f (ctx, a, ts);
+
       // Start asynchronous matching of prerequisites keeping track of how
       // many we have started. Wait with unlocked phase to allow phase
       // switching.
@@ -437,7 +447,11 @@ namespace build2
         diag_progress.clear ();
       }
 
-      // We are now running serially. Re-examine targets that we have matched.
+      // We are now running serially.
+      //
+
+      // Re-examine targets that we have matched and determine whether we have
+      // failed.
       //
       for (size_t j (0); j != n; ++j)
       {
@@ -463,11 +477,8 @@ namespace build2
         case target_state::postponed:
           {
             // We bailed before matching it (leave state in action_target as
-            // unknown).
+            // unknown for the structured result printing).
             //
-            if (verb != 0 && diag >= 1)
-              info << "not " << diag_did (a, t);
-
             break;
           }
         case target_state::unknown:
@@ -480,15 +491,42 @@ namespace build2
           {
             // Things didn't go well for this target.
             //
-            if (verb != 0 && diag >= 1)
-              info << "failed to " << diag_do (a, t);
-
             at.state = s;
             fail = true;
             break;
           }
         default:
           assert (false);
+        }
+      }
+
+      // Call the post operation callbacks if perform_execute() won't be
+      // called.
+      //
+      if (fail)
+        perform_post_operation_callbacks (ctx, a, ts, fail);
+
+      // Re-examine targets that we have matched and print diagnostics.
+      //
+      if (verb != 0 && diag >= 1)
+      {
+        for (size_t j (0); j != n; ++j)
+        {
+          action_target& at (ts[j]);
+          const target& t (at.as<target> ());
+
+          if (at.state == target_state::failed)
+          {
+            // Things didn't go well for this target.
+            //
+            info << "failed to " << diag_do (a, t);
+          }
+          else if (j >= i || t.matched_state (a) == target_state::postponed)
+          {
+            // We bailed before matching it.
+            //
+            info << "not " << diag_did (a, t);
+          }
         }
       }
 
@@ -622,8 +660,8 @@ namespace build2
       switch (ctx.current_inner_oif->concurrency)
       {
       case 0: sched_tune = tune_guard (*ctx.sched, 1); break; // Run serially.
-      case 1:                                         break; // Run as is.
-      default:                               assert (false); // Not supported.
+      case 1:                                          break; // Run as is.
+      default:                                assert (false); // Not supported.
       }
 
       // Set the dry-run flag.
@@ -675,6 +713,13 @@ namespace build2
         }
       }
 
+      // Note that while this would seem like the natural place to call the
+      // pre operation callbacks, it is actually too late since during match
+      // we may switch to the execute phase and execute some recipes (think
+      // building a tool to generate some code). So we have to do this in
+      // perform_match() and then carefully make sure the post callbacks are
+      // called for all the exit paths (match failed, match_only, etc).
+
       // In the 'last' execution mode run post hoc first.
       //
       if (ctx.current_mode == execution_mode::last)
@@ -723,9 +768,44 @@ namespace build2
       // We are now running serially.
       //
 
-      // Clear the dry-run flag.
+      // Re-examine all the targets and determine whether we have failed.
       //
-      ctx.dry_run = false;
+      for (action_target& at: ts)
+      {
+        const target& t (at.as<target> ());
+
+        // Similar to match we cannot attribute post hoc failures to specific
+        // targets so it seems the best we can do is just fail them all.
+        //
+        if (!posthoc_fail)
+        {
+          // Note that here we call executed_state() directly instead of
+          // execute_complete() since we know there is no need to wait.
+          //
+          at.state = t.executed_state (a, false /* fail */);
+        }
+        else
+          at.state = /*t.state[a].state =*/ target_state::failed;
+
+        switch (at.state)
+        {
+        case target_state::unknown:
+        case target_state::unchanged:
+        case target_state::changed:
+          break;
+        case target_state::failed:
+          {
+            fail = true;
+            break;
+          }
+        default:
+          assert (false);
+        }
+      }
+
+      // Call the post operation callbacks.
+      //
+      perform_post_operation_callbacks (ctx, a, ts, fail);
 
       // Clear the progress if present.
       //
@@ -734,6 +814,10 @@ namespace build2
         diag_progress_lock pl;
         diag_progress.clear ();
       }
+
+      // Clear the dry-run flag.
+      //
+      ctx.dry_run = false;
 
       // Restore original scheduler settings.
     }
@@ -758,19 +842,6 @@ namespace build2
     for (action_target& at: ts)
     {
       const target& t (at.as<target> ());
-
-      // Similar to match we cannot attribute post hoc failures to specific
-      // targets so it seems the best we can do is just fail them all.
-      //
-      if (!posthoc_fail)
-      {
-        // Note that here we call executed_state() directly instead of
-        // execute_complete() since we know there is no need to wait.
-        //
-        at.state = t.executed_state (a, false /* fail */);
-      }
-      else
-        at.state = /*t.state[a].state =*/ target_state::failed;
 
       switch (at.state)
       {
@@ -806,7 +877,6 @@ namespace build2
           if (verb != 0 && diag >= 1)
             info << "failed to " << diag_do (a, t);
 
-          fail = true;
           break;
         }
       default:
@@ -1002,6 +1072,19 @@ namespace build2
 
     assert (ctx.dependency_count.load (memory_order_relaxed) == 0);
 #endif
+  }
+
+  void
+  perform_post_operation_callbacks (context& ctx,
+                                    action a,
+                                    const action_targets& ts,
+                                    bool failed)
+  {
+    auto cs (ctx.operation_callbacks.equal_range (a));
+
+    for (auto i (cs.first); i != cs.second; ++i)
+      if (const auto& f = i->second.post)
+        f (ctx, a, ts, failed);
   }
 
   const meta_operation_info mo_perform {

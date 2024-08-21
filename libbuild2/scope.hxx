@@ -459,13 +459,19 @@ namespace build2
     // when an action is executed on the dir{} target that corresponds to this
     // scope. The pre callback is called just before the recipe and the post
     // -- immediately after. The callbacks are only called if the recipe
-    // (including noop recipe) is executed for the corresponding target. The
-    // callbacks should only be registered during the load phase.
+    // (including noop recipe) is executed for the corresponding target.
+    //
+    // The callback should only be registered during the load phase. Note that
+    // it's registered for the inner action, meaning that it will be called
+    // for any outer action (which is discernible from the first argument of
+    // the callback).
     //
     // It only makes sense for callbacks to return target_state changed or
     // unchanged and to throw failed in case of an error. These pre/post
     // states will be merged with the recipe state and become the target
     // state. See execute_recipe() for details.
+    //
+    // See also context::operation_callback.
     //
   public:
     struct operation_callback

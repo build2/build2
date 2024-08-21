@@ -1559,8 +1559,13 @@ main (int argc, char* argv[])
             if (dump_match_pre)
               dump (ctx, a);
 
-            if (mif->execute != nullptr && !ctx.match_only)
-              mif->execute (mparams, a, tgs, diag, true /* progress */);
+            if (mif->execute != nullptr)
+            {
+              if (!ctx.match_only)
+                mif->execute (mparams, a, tgs, diag, true /* progress */);
+              else if (mif->execute == &perform_execute)
+                perform_post_operation_callbacks (ctx, a, tgs, false /*failed*/);
+            }
           }
 
           if (pre_oif->operation_post != nullptr)
@@ -1603,8 +1608,13 @@ main (int argc, char* argv[])
           if (dump_match)
             dump (ctx, a);
 
-          if (mif->execute != nullptr && !ctx.match_only)
-            mif->execute (mparams, a, tgs, diag, true /* progress */);
+          if (mif->execute != nullptr)
+          {
+            if (!ctx.match_only)
+              mif->execute (mparams, a, tgs, diag, true /* progress */);
+            else if (mif->execute == &perform_execute)
+              perform_post_operation_callbacks (ctx, a, tgs, false /*failed*/);
+          }
         }
 
         if (oif->operation_post != nullptr)
@@ -1647,8 +1657,13 @@ main (int argc, char* argv[])
             if (dump_match_post)
               dump (ctx, a);
 
-            if (mif->execute != nullptr && !ctx.match_only)
-              mif->execute (mparams, a, tgs, diag, true /* progress */);
+            if (mif->execute != nullptr)
+            {
+              if (!ctx.match_only)
+                mif->execute (mparams, a, tgs, diag, true /* progress */);
+              else if (mif->execute == &perform_execute)
+                perform_post_operation_callbacks (ctx, a, tgs, false /*failed*/);
+            }
           }
 
           if (post_oif->operation_post != nullptr)
