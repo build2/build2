@@ -904,7 +904,7 @@ namespace build2
                 bool unlock_phase = false);
 
     void
-    wait ();
+    wait (bool work_queue = true);
 
     // Note: move-assignable to empty only.
     //

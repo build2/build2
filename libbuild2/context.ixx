@@ -26,8 +26,11 @@ namespace build2
   inline wait_guard::
   ~wait_guard () noexcept (false)
   {
+    // Don't work our own queue since we are most likely in stack unwinding
+    // causes by an exception.
+    //
     if (task_count != nullptr)
-      wait ();
+      wait (false);
   }
 
   inline wait_guard::
@@ -54,10 +57,15 @@ namespace build2
   }
 
   inline void wait_guard::
-  wait ()
+  wait (bool wq)
   {
     phase_unlock u (phase ? ctx : nullptr, true /* delay */);
-    ctx->sched->wait (start_count, *task_count, u);
+    ctx->sched->wait (start_count,
+                      *task_count,
+                      u,
+                      (wq
+                       ? scheduler::work_queue::work_all
+                       : scheduler::work_queue::work_none));
     task_count = nullptr;
   }
 }
