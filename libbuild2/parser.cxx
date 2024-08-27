@@ -1757,11 +1757,18 @@ namespace build2
           }
           else
           {
-            // Note that p cannot point to the last character since then it
-            // would have been a directory, not a simple name.
-            //
-            d = dir_path (ns[0].value, 0, p + 1);
-            ns[0].value.erase (0, p + 1);
+            try
+            {
+              // Note that p cannot point to the last character since then it
+              // would have been a directory, not a simple name.
+              //
+              d = dir_path (ns[0].value, 0, p + 1);
+              ns[0].value.erase (0, p + 1);
+            }
+            catch (const invalid_path& e)
+            {
+              fail (nloc) << "invalid scope path '" << e.path << "'";
+            }
           }
         }
 
@@ -8802,15 +8809,22 @@ namespace build2
                       (p = path_traits::rfind_separator (ns[0].value)) !=
                       string::npos)
                   {
-                    // Note that p cannot point to the last character since
-                    // then it would have been a directory, not a simple name.
-                    //
-                    string& s (ns[0].value);
+                    try
+                    {
+                      // Note that p cannot point to the last character since
+                      // then it would have been a directory, not a simple name.
+                      //
+                      string& s (ns[0].value);
 
-                    name = string (s, p + 1);
-                    s.resize (p + 1);
-                    qual.push_back (name_type (dir_path (move (s))));
-                    qual.back ().pair = '/';
+                      name = string (s, p + 1);
+                      s.resize (p + 1);
+                      qual.push_back (name_type (dir_path (move (s))));
+                      qual.back ().pair = '/';
+                    }
+                    catch (const invalid_path& e)
+                    {
+                      fail (loc) << "invalid scope path '" << e.path << "'";
+                    }
                   }
                   else
                     name = move (ns[n - 1].value);
