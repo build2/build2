@@ -4167,9 +4167,10 @@ namespace build2
             if (l->empty ()) // Done, nothing changed.
             {
               // If modules are enabled, then we keep the preprocessed output
-              // around (see apply() for details).
+              // around (see apply() for details). Unless reprocessing was
+              // requested.
               //
-              if (modules)
+              if (modules && !reprocess)
               {
                 result.first = ctx.fcache->create_existing (t.path () + pext);
                 result.second = true;
