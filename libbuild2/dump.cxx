@@ -242,7 +242,8 @@ namespace build2
           h_pair = true;
         }
         else if (t.is_a<map<optional<string>, string>>          () ||
-                 t.is_a<vector<pair<optional<string>, string>>> ())
+                 t.is_a<vector<pair<optional<string>, string>>> () ||
+                 t.is_a<vector<pair<optional<string>, bool>>>   ())
         {
           h_array = true;
           h_pair = false;

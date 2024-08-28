@@ -14,6 +14,8 @@
 
 #include <libbuild2/cc/common.hxx>
 
+#include <libbuild2/cc/compiledb.hxx>
+
 #include <libbuild2/cc/compile-rule.hxx>
 #include <libbuild2/cc/link-rule.hxx>
 #include <libbuild2/cc/install-rule.hxx>
@@ -27,6 +29,35 @@ namespace build2
   {
     struct compiler_info;
 
+    // cc.core module
+    //
+    class core_module: public build2::module
+    {
+    public:
+      static const string name;
+
+      explicit
+      core_module (const core_module* om)
+          : outer_module_ (om)
+      {
+      }
+
+    public:
+      const core_module* outer_module_;
+
+      strings cdb_names_;
+
+      const compiledb_name_filter* cdb_filter_ = nullptr;
+      const compiledb_type_filter* cdb_filter_input_ = nullptr;
+      const compiledb_type_filter* cdb_filter_output_ = nullptr;
+
+      compiledb_name_filter cdb_filter_storage_;
+      compiledb_type_filter cdb_filter_input_storage_;
+      compiledb_type_filter cdb_filter_output_storage_;
+    };
+
+    // x.config module
+    //
     class LIBBUILD2_CC_SYMEXPORT config_module: public build2::module,
                                                 public config_data
     {
@@ -153,6 +184,8 @@ namespace build2
       msvc_library_search_dirs (const compiler_info&, scope&) const;
     };
 
+    // x module
+    //
     class LIBBUILD2_CC_SYMEXPORT module: public build2::module,
                                          public virtual common,
                                          public link_rule,
@@ -162,7 +195,6 @@ namespace build2
                                          public predefs_rule
     {
     public:
-      explicit
       module (data&& d, const scope& rs)
           : common (move (d)),
             link_rule (move (d)),

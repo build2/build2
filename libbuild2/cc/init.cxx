@@ -10,8 +10,10 @@
 
 #include <libbuild2/config/utility.hxx>
 
+#include <libbuild2/cc/module.hxx>
 #include <libbuild2/cc/target.hxx>
 #include <libbuild2/cc/utility.hxx>
+#include <libbuild2/cc/compiledb.hxx>
 
 using namespace std;
 using namespace butl;
@@ -23,7 +25,7 @@ namespace build2
     // Scope operation callback that cleans up module sidebuilds.
     //
     static target_state
-    clean_module_sidebuilds (action, const scope& rs, const dir&)
+    clean_module_sidebuilds (const scope& rs)
     {
       context& ctx (rs.ctx);
 
@@ -67,6 +69,81 @@ namespace build2
       return target_state::unchanged;
     }
 
+    // Scope operation callback that cleans up compilation databases.
+    //
+    static target_state
+    clean_compiledb (const scope& rs)
+    {
+      context& ctx (rs.ctx);
+
+      target_state r (target_state::unchanged);
+
+      for (const unique_ptr<compiledb>& db: compiledbs)
+      {
+        const path& p (db->path);
+
+        if (p.empty () ||
+            ctx.scopes.find_out (p.directory ()).root_scope () != &rs)
+          continue;
+
+        if (rmfile (ctx, p))
+          r = target_state::changed;
+      }
+
+      return r;
+    }
+
+    // Scope operation callback for cleaning module sidebuilds and compilation
+    // databases.
+    //
+    static target_state
+    clean_callback (action, const scope& rs, const dir&)
+    {
+      target_state r (clean_module_sidebuilds (rs));
+
+      if (!compiledbs.empty ())
+        r |= clean_compiledb (rs);
+
+      return r;
+    }
+
+    // Custom save function that completes relative paths in the
+    // config.cc.compiledb and config.cc.compiledb.name values.
+    //
+    static pair<names_view, const char*>
+    save_compiledb_name (const scope&,
+                         const value& v,
+                         const value*,
+                         names& storage)
+    {
+      const names& ns (v.as<names> ()); // Value is untyped.
+
+      if (find_if (ns.begin (), ns.end (),
+                   [] (const name& n) {return n.pair;}) == ns.end ())
+      {
+        return make_pair (names_view (ns), "=");
+      }
+
+      storage = ns;
+      for (auto i (storage.begin ()); i != storage.end (); ++i)
+      {
+        if (i->pair)
+        {
+          name& n (*++i);
+
+          if (!n.directory ())
+            n.canonicalize ();
+
+          if (n.dir.relative ())
+            n.dir.complete ();
+
+          n.dir.normalize ();
+        }
+      }
+
+      return make_pair (names_view (storage), "=");
+    }
+
     bool
     core_vars_init (scope& rs,
                     scope&,
@@ -106,6 +183,22 @@ namespace build2
       vp.insert<bool> ("config.cc.reprocess"); // See cc.preprocess below.
 
       vp.insert<abs_dir_path> ("config.cc.pkgconfig.sysroot");
+
+      // Compilation database.
+      //
+      // See the manual for the semantics.
+      //
+      // config.cc.compiledb                --  <name>[@<path>]    (untyped)
+      // config.cc.compiledb.name           --  <name>[@<path>]... (untyped)
+      // config.cc.compiledb.filter         --  [<name>@]<bool>...
+      // config.cc.compiledb.filter.input   --  [<name>@]<target-type>...
+      // config.cc.compiledb.filter.output  --  [<name>@]<target-type>...
+      //
+      vp.insert                        ("config.cc.compiledb");
+      vp.insert                        ("config.cc.compiledb.name");
+      vp.insert<compiledb_name_filter> ("config.cc.compiledb.filter");
+      vp.insert<compiledb_type_filter> ("config.cc.compiledb.filter.input");
+      vp.insert<compiledb_type_filter> ("config.cc.compiledb.filter.output");
 
       vp.insert<strings> ("cc.poptions");
       vp.insert<strings> ("cc.coptions");
@@ -191,16 +284,6 @@ namespace build2
       // other compilation/linking jobs is likely to summon the OOM killer.
       //
       vp.insert<bool> ("cc.serialize");
-
-      // Register scope operation callback.
-      //
-      // It feels natural to clean up sidebuilds as a post operation but that
-      // prevents the (otherwise-empty) out root directory to be cleaned up
-      // (via the standard fsdir{} chain).
-      //
-      rs.operation_callbacks.emplace (
-        perform_clean_id,
-        scope::operation_callback {&clean_module_sidebuilds, nullptr /*post*/});
 
       return true;
     }
@@ -292,6 +375,8 @@ namespace build2
 
       assert (first);
 
+      context& ctx (rs.ctx);
+
       // Load cc.core.guess.
       //
       load_module (rs, rs, "cc.core.guess", loc);
@@ -311,7 +396,6 @@ namespace build2
       // config.cc.libs
       //
       // @@ Same nonsense as in module.
-      //
       //
       rs.assign ("cc.poptions") += cast_null<strings> (
         lookup_config (rs, "config.cc.poptions", nullptr));
@@ -363,21 +447,16 @@ namespace build2
       if (!cast_false<bool> (rs["bin.config.loaded"]))
       {
         // Prepare configuration hints (pretend it belongs to root scope).
-        // They are only used on the first load of bin.config so we only
-        // populate them on our first load.
         //
         variable_map h (rs);
 
-        if (first)
-        {
-          // Note that all these variables have already been registered.
-          //
-          h.assign ("config.bin.target") =
-            cast<target_triplet> (rs["cc.target"]).representation ();
+        // Note that all these variables have already been registered.
+        //
+        h.assign ("config.bin.target") =
+          cast<target_triplet> (rs["cc.target"]).representation ();
 
-          if (auto l = extra.hints["config.bin.pattern"])
-            h.assign ("config.bin.pattern") = cast<string> (l);
-        }
+        if (auto l = extra.hints["config.bin.pattern"])
+          h.assign ("config.bin.pattern") = cast<string> (l);
 
         init_module (rs, rs, "bin.config", loc, false /* optional */, h);
       }
@@ -386,7 +465,6 @@ namespace build2
       // ourselves since the target can come from the configuration and not
       // our hint).
       //
-      if (first)
       {
         const auto& ct (cast<target_triplet> (rs["cc.target"]));
         const auto& bt (cast<target_triplet> (rs["bin.target"]));
@@ -415,6 +493,399 @@ namespace build2
 
       if (tsys == "mingw32")
         load_module (rs, rs, "bin.rc.config", loc);
+
+      // Find the innermost outer core_module, if any.
+      //
+      const core_module* om (nullptr);
+      for (const scope* s (&rs);
+           (s = s->parent_scope ()->root_scope ()) != nullptr; )
+      {
+        if ((om = s->find_module<core_module> (core_module::name)) != nullptr)
+          break;
+      }
+
+      auto& m (extra.set_module (new core_module (om)));
+
+      // config.cc.compiledb.*
+      //
+      {
+        // For config.cc.compiledb and config.cc.compiledb.name we only
+        // consider a value in this root scope (if it's inherited from the
+        // outer scope, then that's where it will be handled). One special
+        // case is when it's specified on a scope that doesn't load the cc
+        // module (including, ultimately, the global scope for a global
+        // override). We handle it by assuming the value belongs to the
+        // outermost amalgamation that loads the cc module.
+        //
+        // Note: cache the result.
+        //
+        auto find_outermost =
+          [&rs, o = optional<pair<scope*, core_module*>> ()] () mutable
+        {
+          if (!o)
+          {
+            o = pair<scope*, core_module*> (&rs, nullptr);
+            for (scope* s (&rs);
+                 (s = s->parent_scope ()->root_scope ()) != nullptr; )
+            {
+              if (auto* m = s->find_module<core_module> (core_module::name))
+              {
+                o->first = s;
+                o->second = m;
+              }
+            }
+          }
+
+          return *o;
+        };
+
+        auto belongs = [&rs, &find_outermost] (const lookup& l)
+        {
+          return l.belongs (rs) || find_outermost ().first == &rs;
+        };
+
+        // Add compilation databases specified in ns as <name>[@<path>] pairs,
+        // appending their names to cdb_names. If <path> is absent, then place
+        // the database into the base directory. Return the last added name.
+        //
+        auto add_cdbs = [&ctx,
+                         &loc,
+                         &trace] (strings& cdb_names,
+                                  const names& ns,
+                                  const dir_path& base) -> const string&
+        {
+          // Check that names and paths match. Return false if this entry
+          // already exist.
+          //
+          // Note that before we also checked that the same paths are not used
+          // across contexts. But, actually, there doesn't seem to be anything
+          // wrong with that and this can actually be useful, for example,
+          // when developing build system modules.
+          //
+          auto check = [&loc] (const string& n, const path& p)
+          {
+            for (const unique_ptr<compiledb>& db: compiledbs)
+            {
+              bool nm (db->name == n);
+              bool pm (db->path == p);
+
+              if (nm != pm)
+                fail (loc) << "inconsistent compilation database names/paths" <<
+                  info << p << " is called " << n <<
+                  info << db->path << " is called " << db->name;
+
+              if (nm)
+                return false;
+            }
+
+            return true;
+          };
+
+          const string* r (&empty_string);
+
+          bool reg (false);
+          size_t j (compiledbs.size ()); // First newly added database.
+          for (auto i (ns.begin ()); i != ns.end (); ++i)
+          {
+            // Each element has the <name>[@<path>] form.
+            //
+            // The special `-` <name> signifies stdout.
+            //
+            // If <path> is absent, then the file is called <name>.json and
+            // placed into the output directory of the amalgamation or project
+            // root scope (passed as the base argument).
+            //
+            // If <path> is (syntactically) a directory, then the file path is
+            // <path>/<name>.json.
+            //
+            if (!i->simple () || i->empty ())
+              fail (loc) << "invalid compilation database name '" << *i << "'";
+
+            string n (i->value);
+
+            path p;
+            if (i->pair)
+            {
+              ++i;
+
+              if (n == "-")
+                fail (loc) << "compilation database path specified for stdout "
+                           << "name";
+              try
+              {
+                if (i->directory ())
+                  p = i->dir / n + ".json";
+                else if (i->file ())
+                {
+                  if (i->dir.empty ())
+                    p = path (i->value);
+                  else
+                    p = i->dir / i->value;
+                }
+                else
+                  throw invalid_path ("");
+
+                if (p.relative ())
+                  p.complete ();
+
+                p.normalize ();
+              }
+              catch (const invalid_path&)
+              {
+                fail (loc) << "invalid compilation database path '" << *i
+                           << "'";
+              }
+            }
+            else if (n != "-")
+            {
+              p = base / n + ".json";
+            }
+
+            if (check (n, p))
+            {
+              reg = compiledbs.empty (); // First time.
+
+#ifdef BUILD2_BOOTSTRAP
+              fail (loc) << "compilation database requested during bootstrap";
+#else
+              if (n == "-")
+                compiledbs.push_back (
+                  unique_ptr<compiledb> (
+                    new compiledb_stdout (n)));
+              else
+                compiledbs.push_back (
+                  unique_ptr<compiledb> (
+                    new compiledb_file (n, move (p))));
+#endif
+            }
+
+            // We may end up with duplicates via the config.cc.compiledb
+            // logic.
+            //
+            auto k (find (cdb_names.begin (), cdb_names.end (), n));
+
+            if (k == cdb_names.end ())
+            {
+              cdb_names.push_back (move (n));
+              r = &cdb_names.back ();
+            }
+            else
+              r = &*k;
+          }
+
+          // Register context operation callback for compiledb generation.
+          //
+          // We have two complications here:
+          //
+          // 1. We could be performing all this from the load phase that
+          //    interrupted the match phase, which means the point where the
+          //    pre callback would have been called is already gone (but the
+          //    post callback will still be called). This will happen if we,
+          //    say, import a project that has a compilation database from a
+          //    project that doesn't.
+          //
+          //    (Note that if you think that this can be solved by simply
+          //    always registering the callbacks, regardless of whether we
+          //    have any databases or not, consider a slightly different
+          //    scenario where we import a project that loads the cc module
+          //    from a project that does not).
+          //
+          //    What we are going to do in this case is simply call the pre
+          //    callback manually.
+          //
+          // 2. We could again be performing all this from the load phase that
+          //    interrupted the match phase, but this time the pre callback
+          //    has already been called, which means there will be no pre()
+          //    call for the newly added database(s). This will happen if we,
+          //    say, import a project that has a compilation database from a
+          //    project that also has one.
+          //
+          //    Again, what we are going to do in this case is simply call the
+          //    pre callback for the new database(s) manually.
+          //
+          if (reg)
+            ctx.operation_callbacks.emplace (
+              perform_update_id,
+              context::operation_callback {&compiledb_pre, &compiledb_post});
+
+          if (ctx.load_generation > 1)
+          {
+            action a (ctx.current_action ());
+
+            if (a.inner_action () == perform_update_id)
+            {
+              if (reg) // Case #1.
+              {
+                l6 ([&]{trace << "direct compiledb_pre for context " << &ctx;});
+                compiledb_pre (ctx, a, action_targets {});
+              }
+              else     // Case #2.
+              {
+                size_t n (compiledbs.size ());
+
+                if (j != n)
+                {
+                  l6 ([&]{trace << "additional compiledb for context " << &ctx;});
+
+                  for (; j != n; ++j)
+                    compiledbs[j]->pre (ctx);
+                }
+              }
+            }
+          }
+
+          return *r;
+        };
+
+        lookup l;
+
+        // config.cc.compiledb
+        //
+        // The semantics of this value is as follows:
+        //
+        // Location:    outermost amalgamation that loads the cc module.
+        // Name filter: enable from this scope unless specified explicitly.
+        // Type filter: enable from this scope unless specified explicitly.
+        //
+        // Note: save omitted.
+        //
+        optional<string> enable_filter;
+
+        l = lookup_config (rs, "config.cc.compiledb", 0, &save_compiledb_name);
+        if (l && belongs (l))
+        {
+          l6 ([&]{trace << "config.cc.compiledb specified on " << rs;});
+
+          const names& ns (cast<names> (l));
+
+          // Make sure it's one name/path.
+          //
+          if (ns.empty () || ns.size () != (ns.front ().pair ? 2 : 1))
+            fail (loc) << "invalid compilation database name '" << ns << "'";
+
+          // We inject the database directly into the outer amalgamation's
+          // module, as-if config.cc.compiledb.name was specified in its
+          // scope. Unless there isn't one, in which case it's us.
+          //
+          pair<scope*, core_module*> p (find_outermost ());
+
+          // Save the name for the name filter below.
+          //
+          enable_filter = add_cdbs (
+            (p.second != nullptr ? *p.second : m).cdb_names_,
+            ns,
+            p.first->out_path ());
+        }
+
+        // config.cc.compiledb.name
+        //
+        // Note: save omitted.
+        //
+        l = lookup_config (rs,
+                           "config.cc.compiledb.name",
+                           0,
+                           &save_compiledb_name);
+        if (l && belongs (l))
+        {
+          l6 ([&]{trace << "config.cc.compiledb.name specified on " << rs;});
+
+          add_cdbs (m.cdb_names_, cast<names> (l), rs.out_path ());
+        }
+
+        // config.cc.compiledb.filter
+        //
+        // Note: save omitted.
+        //
+        l = lookup_config (rs, "config.cc.compiledb.filter");
+        if (l && belongs (l)) // Custom.
+        {
+          m.cdb_filter_ = &cast<compiledb_name_filter> (l);
+        }
+        else if (enable_filter) // Override.
+        {
+          // Inherit outer filter.
+          //
+          if (om != nullptr && om->cdb_filter_ != nullptr)
+            m.cdb_filter_storage_ = *om->cdb_filter_;
+
+          m.cdb_filter_storage_.emplace_back (*enable_filter, true);
+          m.cdb_filter_ = &m.cdb_filter_storage_;
+        }
+        else if (om != nullptr) // Inherit.
+        {
+          m.cdb_filter_ = om->cdb_filter_;
+        }
+
+        // config.cc.compiledb.filter.input
+        // config.cc.compiledb.filter.output
+        //
+        // Note that filtering happens before we take into account the change
+        // status, which means for larger projects there would be a lot of
+        // targets to filter even during the incremental update. So it feels
+        // it would have been better to pre-lookup the target types. However,
+        // the targets that would normally be used are registered by other
+        // modules (bin, c/cxx) and which haven't been loaded yet. So instead
+        // we try to optimize the lookup for the commonly used targets.
+        //
+        // Note: save omitted.
+        //
+        l = lookup_config (rs, "config.cc.compiledb.filter.input");
+        if (l && belongs (l)) // Custom.
+        {
+          m.cdb_filter_input_ = &cast<compiledb_type_filter> (l);
+        }
+        else if (enable_filter) // Override.
+        {
+          // Inherit outer filter.
+          //
+          if (om != nullptr && om->cdb_filter_input_ != nullptr)
+          {
+            m.cdb_filter_input_storage_ = *om->cdb_filter_input_;
+            m.cdb_filter_input_storage_.emplace_back (*enable_filter, "target");
+            m.cdb_filter_input_ = &m.cdb_filter_input_storage_;
+          }
+          else
+            m.cdb_filter_input_ = nullptr; // Enable all.
+        }
+        else if (om != nullptr) // Inherit.
+        {
+          m.cdb_filter_input_ = om->cdb_filter_input_;
+        }
+
+        l = lookup_config (rs, "config.cc.compiledb.filter.output");
+        if (l && belongs (l)) // Custom.
+        {
+          m.cdb_filter_output_ = &cast<compiledb_type_filter> (l);
+        }
+        else if (enable_filter) // Override.
+        {
+          // Inherit outer filter.
+          //
+          if (om != nullptr && om->cdb_filter_output_ != nullptr)
+          {
+            m.cdb_filter_output_storage_ = *om->cdb_filter_output_;
+            m.cdb_filter_output_storage_.emplace_back (*enable_filter, "target");
+            m.cdb_filter_output_ = &m.cdb_filter_output_storage_;
+          }
+          else
+            m.cdb_filter_output_ = nullptr; // Enable all.
+        }
+        else if (om != nullptr) // Inherit.
+        {
+          m.cdb_filter_output_ = om->cdb_filter_output_;
+        }
+      }
+
+      // Register scope operation callback for cleaning module sidebuilds and
+      // compilation databases.
+      //
+      // It feels natural to clean this stuff up as a post operation but that
+      // prevents the (otherwise-empty) out root directory to be cleaned up
+      // (via the standard fsdir{} chain).
+      //
+      rs.operation_callbacks.emplace (
+        perform_clean_id,
+        scope::operation_callback {&clean_callback, nullptr /*post*/});
 
       return true;
     }

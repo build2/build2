@@ -178,34 +178,35 @@ namespace build2
     // match    - search prerequisites and match rules
     // execute  - execute the matched rule
     //
-    // The build system starts with a "serial load" phase and then continues
-    // with parallel match and execute. Match, however, can be interrupted
-    // both with load and execute.
+    // The build system starts with a serial "initial load" phase and then
+    // continues with parallel match and execute. Match, however, can be
+    // interrupted both with load and execute.
     //
-    // Match can be interrupted with "exclusive load" in order to load
-    // additional buildfiles. Similarly, it can be interrupted with (parallel)
-    // execute in order to build targetd required to complete the match (for
-    // example, generated source code or source code generators themselves).
+    // Match can be interrupted with a (serial) "interrupting load" in order
+    // to load additional buildfiles. Similarly, it can be interrupted with
+    // (parallel) execute in order to build targetd required to complete the
+    // match (for example, generated source code or source code generators
+    // themselves).
     //
     // Such interruptions are performed by phase change that is protected by
     // phase_mutex (which is also used to synchronize the state changes
     // between phases).
     //
-    // Serial load can perform arbitrary changes to the build state. Exclusive
-    // load, however, can only perform "island appends". That is, it can
-    // create new "nodes" (variables, scopes, etc) but not (semantically)
-    // change already existing nodes or invalidate any references to such (the
-    // idea here is that one should be able to load additional buildfiles as
-    // long as they don't interfere with the existing build state). The
-    // "islands" are identified by the load_generation number (1 for the
-    // initial/serial load). It is incremented in case of a phase switch and
-    // can be stored in various "nodes" to verify modifications are only done
-    // "within the islands". Another example of invalidation would be
-    // insertion of a new scope "under" an existing target thus changing its
-    // scope hierarchy (and potentially even its base scope). This would be
-    // bad because we may have made decisions based on the original hierarchy,
-    // for example, we may have queried a variable which in the new hierarchy
-    // would "see" a new value from the newly inserted scope.
+    // Initial load can perform arbitrary changes to the build state.
+    // Interrupting load, however, can only perform what we call "island
+    // appends". That is, it can create new "nodes" (variables, scopes, etc)
+    // but not (semantically) change already existing nodes or invalidate any
+    // references to such (the idea here is that one should be able to load
+    // additional buildfiles as long as they don't interfere with the existing
+    // build state). The "islands" are identified by the load_generation
+    // number (1 for the initial load). It is incremented in case of a phase
+    // switch and can be stored in various "nodes" to verify modifications are
+    // only done "within the islands". Another example of invalidation would
+    // be insertion of a new scope "under" an existing target thus changing
+    // its scope hierarchy (and potentially even its base scope). This would
+    // be bad because we may have made decisions based on the original
+    // hierarchy, for example, we may have queried a variable which in the new
+    // hierarchy would "see" a new value from the newly inserted scope.
     //
     // The special load_generation value 0 indicates initialization before
     // anything has been loaded. Currently, it is changed to 1 at the end
@@ -369,6 +370,10 @@ namespace build2
     // Note that the callbacks will also be called when building a build
     // system module or an ad hoc C++ recipe. See create_module_context() for
     // details.
+    //
+    // Note also that if the callbacks are registered from a module load
+    // function, then there are nuances with interrupted load phases. See the
+    // compilation database handling in the cc module for details.
     //
     // See also scope::operation_callback.
     //

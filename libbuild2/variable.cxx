@@ -3320,10 +3320,13 @@ namespace build2
   value_traits<vector<pair<string, optional<string>>>>;
 
   template struct LIBBUILD2_DEFEXPORT
+  value_traits<vector<pair<string, optional<bool>>>>;
+
+  template struct LIBBUILD2_DEFEXPORT
   value_traits<vector<pair<optional<string>, string>>>;
 
   template struct LIBBUILD2_DEFEXPORT
-  value_traits<vector<pair<string, optional<bool>>>>;
+  value_traits<vector<pair<optional<string>, bool>>>;
 
   template struct LIBBUILD2_DEFEXPORT value_traits<set<string>>;
   template struct LIBBUILD2_DEFEXPORT value_traits<set<json_value>>;

@@ -22,6 +22,12 @@ namespace build2
 {
   namespace cc
   {
+    // cc.core_module
+    //
+    const string core_module::name ("cc.core.config");
+
+    // x.config_module
+    //
     void config_module::
     guess (scope& rs, const location& loc, const variable_map&)
     {
@@ -890,6 +896,9 @@ namespace build2
       config::save_environment (rs, xi.compiler_environment);
       config::save_environment (rs, xi.platform_environment);
     }
+
+    // x module
+    //
 
     // Global cache of ad hoc importable headers.
     //

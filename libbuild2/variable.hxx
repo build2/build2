@@ -1380,6 +1380,9 @@ namespace build2
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<vector<pair<string, optional<bool>>>>;
 
+  extern template struct LIBBUILD2_DECEXPORT
+  value_traits<vector<pair<optional<string>, bool>>>;
+
   extern template struct LIBBUILD2_DECEXPORT value_traits<set<string>>;
   extern template struct LIBBUILD2_DECEXPORT value_traits<set<json_value>>;
 

@@ -136,7 +136,7 @@ namespace build2
     // value to dir. Throw invalid_argument if value would become empty. May
     // also throw invalid_path.
     //
-    void
+    LIBBUILD2_SYMEXPORT void
     canonicalize ();
   };
 

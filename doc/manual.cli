@@ -2093,7 +2093,7 @@ If we forget to adjust the \c{missing-name} test, then this is what we could
 expect to see when running the tests:
 
 \
-b test
+$ b test
 c++ hello/cxx{hello} -> hello/obje{hello}
 ld hello/exe{hello}
 test hello/exe{hello} + hello/testscript{testscript}
@@ -6700,8 +6700,8 @@ quickly re-run a previously failed test), it can also be persisted in
 subset of tests by default. For example:
 
 \
-b test config.test=foo/exe{driver} # Only test foo/exe{driver} target.
-b test config.test=bar/baz         # Only run bar/baz testscript test.
+$ b test config.test=foo/exe{driver} # Only test foo/exe{driver} target.
+$ b test config.test=bar/baz         # Only run bar/baz testscript test.
 \
 
 The \c{config.test} variable contains a list of \c{@}-separated pairs with the
@@ -6712,14 +6712,14 @@ name. Otherwise \- an id path. The targets are resolved relative to the root
 scope where the \c{config.test} value is set. For example:
 
 \
-b test config.test=foo/exe{driver}@bar
+$ b test config.test=foo/exe{driver}@bar
 \
 
 To specify multiple id paths for the same target we can use the pair
 generation syntax:
 
 \
-b test config.test=foo/exe{driver}@{bar baz}
+$ b test config.test=foo/exe{driver}@{bar baz}
 \
 
 If no targets are specified (only id paths), then all the targets are tested
@@ -6741,9 +6741,9 @@ and the right hand side \- for individual tests. The zero value clears the
 previously set timeout. For example:
 
 \
-b test config.test.timeout=20   # Test operation.
-b test config.test.timeout=20/5 # Test operation and individual tests.
-b test config.test.timeout=/5   # Individual tests.
+$ b test config.test.timeout=20   # Test operation.
+$ b test config.test.timeout=20/5 # Test operation and individual tests.
+$ b test config.test.timeout=/5   # Individual tests.
 \
 
 The test timeout can be specified on multiple nested root scopes. For example,
@@ -6759,7 +6759,7 @@ specifying the \c{config.test.runner} variable. Its value has the \c{<path>
 [<options>]} form. For example:
 
 \
-b test config.test.runner=\"valgrind -q\"
+$ b test config.test.runner=\"valgrind -q\"
 \
 
 When the runner program is specified, commands of simple and Testscript tests
@@ -7648,6 +7648,12 @@ config.cc.reprocess
   cc.reprocess
 
 config.cc.pkgconfig.sysroot
+
+config.cc.compiledb
+config.cc.compiledb.name
+config.cc.compiledb.filter
+config.cc.compiledb.filter.input
+config.cc.compiledb.filter.output
 \
 
 Note that the compiler mode options are \"cross-hinted\" between \c{config.c}
@@ -8052,6 +8058,310 @@ As a result, it should only be used for dealing with issues in third-party
 \c{${pcfiledir\}} built-in \c{pkg-config} variable). In particular, for
 \c{build2}-generated \c{.pc} files a \l{#install-reloc relocatable
 installation} should be used instead.|
+
+
+\h#cc-compiledb|Compilation Database|
+
+The \c{cc}-based modules provide support for generating and maintaining the
+\l{https://clang.llvm.org/docs/JSONCompilationDatabase.html JSON Compilation
+Database} which can be used by other tools (static analyzers, language
+servers, IDEs, etc) to understand how a codebase is compiled. \"Maintaining\"
+in the previous sentence means that if new source files get added to the
+project or old ones removed, or if any compilation options change, then the
+corresponding entries in the compilation database will be automatically
+updated when you update your project. This helps maintain the database in sync
+with the project state.
+
+The generation of compilation databases and their configuration are controlled
+with a number of \c{config.cc.compiledb.*} variables. The
+\c{config.cc.compiledb} variable provides a simplified interface that enables
+the generation of one database per project with the resulting database
+containing entries for all the source and object files. The rest of the
+variables provide a more flexible interface that allows you to generate
+multiple databases in different locations as well as filter the entries that
+end up in each database.
+
+Let's start with the simplified interface as provided by
+\c{config.cc.compiledb}. The value of this configuration variable is a single
+\ci{name} or a \ci{name} and \ci{path} pair in the \c{\i{name}[@\i{path}]}
+form.
+
+The \ci{name} part is the compilation database name that can be used to refer
+to it in filters (see below). If \ci{path} is absent or is (syntactically) a
+directory, then \ci{name} is also used to derive the compilation database file
+by appending the \c{.json} extension to it.
+
+If \ci{path} is absent, then the compilation database is placed into the
+top-level amalgamation that loads any \c{cc}-based module. Otherwise, the
+database is placed into the specified location.
+
+The special \c{-} name is interpreted as an instruction to dump the database
+to \c{stdout}.
+
+Let's see some examples of using \c{config.cc.compiledb} to handle a few
+common scenarios. Here we will use \l{bdep(1)} to create amalgamations
+(configurations) and configure (initialize) one or more projects. We will
+assume we have \c{hello} and \c{libhello} as if created like this:
+
+\
+$ bdep new -t exe hello
+$ bdep new -t lib libhello
+\
+
+The most common scenario is likely having a compilation database per
+project:
+
+\
+$ cd libhello
+$ bdep config create ../build-gcc @gcc cc config.cxx=g++
+$ bdep init @gcc config.cc.compiledb=libhello
+$ cd ..
+
+$ cd hello
+$ bdep config add ../build-gcc @gcc
+$ bdep init @gcc config.cc.compiledb=hello
+$ cd ..
+
+$ b hello/ libhello/
+\
+
+\N|Or if you prefer to create/add configuration as part of \c{init} (notice
+the \c{--} separator):
+
+\
+$ bdep init -C ../build-gcc @gcc cc config.cxx=g++ -- \\
+  config.cc.compiledb=libhello
+
+$ bdep init -A ../build-gcc @gcc config.cc.compiledb=hello
+\
+
+|
+
+After the update (the last command), we will have \c{hello.json} and
+\c{libhello.json} in \c{build-gcc/} which contain the compilation command
+lines for each project.
+
+\N|Only source files that are compiled end up being added to the compilation
+database.
+
+To illustrate this point, let's assume our \c{hello} project imports and links
+\c{libhello}. And instead of updating both as in the above example, we will
+first update only \c{hello}:
+
+\
+$ b hello/
+\
+
+In this case \c{libhello.json} will still be generated but it will only
+contain a subset of the expected entries \- only those that were caused to be
+compiled by \c{hello}. The missing entries can be added by updating
+\c{libhello}:
+
+\
+$ b libhello/
+\
+
+|
+
+In the above setup it feels natural to call each database after the project
+and place them into the output directory. However, some consumers, such as
+IDEs, may not handle this setup well. Specifically, they may only recognize
+the canonical \c{compile_commands.json} file as the compilation database,
+opening all other files as generic JSON. They may also assume the directory
+where this file resides to be the project source directory root. To accommodate
+these assumptions we can instead place each database into the project's
+source directory and call it \c{compile_commands.json}:
+
+\
+$ bdep init @gcc config.cc.compiledb=libhello@./compile_commands.json
+
+$ bdep init @gcc config.cc.compiledb=hello@./compile_commands.json
+\
+
+Note that in this case it will be your responsibility to remove the database
+files if and when necessary. \N{\l{bdep-new(1)} adds \c{compile_commands.json}
+to \c{.gitignore} it generates.}
+
+If instead of having a separate database for each project we wanted to place
+all the entries into a single database, then the relevant commands would
+change as follows:
+
+\
+$ bdep init @gcc config.cc.compiledb=compiledb
+
+$ bdep init @gcc config.cc.compiledb=compiledb
+\
+
+This would give us a single \c{build-gcc/compiledb.json} that contains the
+compilation command lines for both projects.
+
+In the above example only \c{hello} and \c{libhello} will end up in the
+database, but not any of their dependencies. What if we wanted entries for
+everything in \c{build-gcc/}? In this case, we should enable the compilation
+database for the entire configuration rather than for individual projects:
+
+\
+$ bdep config create ../build-gcc @gcc cc \\
+  config.cxx=g++                          \\
+  config.cc.compiledb=compiledb
+$ bdep init @gcc
+
+$ bdep config add ../build-gcc @gcc
+$ bdep init @gcc
+\
+
+If multiple linked configurations are involved, then we would often want
+projects initialized in different configurations share the compilation
+database. The representative scenario here is a tool, such as a source code
+generator, which is initialized in the host configuration, and its runtime
+library plus tests/examples, which are initialized in the target
+configuration. Let's assume that in our example \c{hello} is the tool and
+\c{libhello} is the runtime library and both are part of the same project.
+This is how we can arrange for them to share the compilation database:
+
+\
+$ bdep config create @host ../host-gcc --type host cc config.cxx=g++
+$ bdep config create @target ../build-gcc cc config.cxx=g++
+
+$ bdep init @host -d hello config.cc.compiledb=hello@../build-gcc/
+$ bdep init @target -d libhello config.cc.compiledb=hello
+
+$ bdep update @host @target
+\
+
+With this setup the \c{hello.json} database in \c{build-gcc/} will contain
+entries for both \c{hello} and \c{libhello}.
+
+If instead of configuring and maintaining the compilation database in a file
+you want to dump it somewhere once, the recommended approach is to write it
+to \c{stdout}. For example:
+
+\
+$ b -n hello/ libhello/ config.cc.compiledb=- >/tmp/compiledb.json
+\
+
+Note that writing to \c{stdout} forces recompilation of all the targets that
+would be updated in order to make sure their entries end up in the database.
+If you don't want the actual recompilation, then you can use the dry run mode
+(\c{-n} option above).
+
+\N|If your projects are spread across multiple linked configurations and you
+would like to get compilation command lines for all of them, then use the
+global override for \c{config.cc.compiledb}:
+
+\
+$ b '!config.cc.compiledb=-' ...
+\
+
+As mentioned earlier, the entries that will end up in such a database are
+determined by what gets updated.|
+
+Let's now turn to the rest of the \c{config.cc.compiledb.*} configuration
+variables that provide a lower-level but more flexible interface. The
+following listing shows their synopsis:
+
+\
+config.cc.compiledb.name           =  <name>[@<path>]...
+config.cc.compiledb.filter         =  [<name>@]<bool>...
+config.cc.compiledb.filter.input   =  [<name>@]<target-type>...
+config.cc.compiledb.filter.output  =  [<name>@]<target-type>...
+\
+
+The \c{config.cc.compiledb.name} variable specifies the name and location of
+one or more compilation databases. The semantics of the
+\c{\i{name}[@\i{path}]} pair is the same as in \c{config.cc.compiledb}
+discussed above, except that if \ci{path} is absent, then the database is
+placed into the project being configured rather than into the top-level
+amalgamation.
+
+Also, unlike \c{config.cc.compiledb}, this variable does not automatically
+enable writing to the specified databases. Instead, this is the job of
+\c{config.cc.compiledb.filter}. Splitting this logic into two steps allows us
+to configure the database name/location in one place, typically an outer
+amalgamation, and then enable writing to it in other places, typically
+specific subprojects.
+
+The \c{config.cc.compiledb.filter.{input,output\}} variables allow us to
+filter the entries that end up in the databases based on the input (\c{c{\}},
+\c{cxx{\}}, etc) and output (\c{obja{\}}, \c{objs{\}}, etc) target types.
+
+Note that in all three \c{.filter} variables the values are examined in the
+reverse order and the first entry that matches determines the outcome.
+Entries without \ci{name} apply to all databases and the target types are
+matched taking into account inheritance (so \c{target{\}} will match any type)
+and groups (so \c{obj{\}} will match any \c{obj[eas]{\}}). If no target type
+filter (input or output) is specified, then no corresponding target filtering
+is performed.
+
+\N|The \c{config.cc.compiledb=<name>} semantics can be expressed as the
+following set of lower-level variables:
+
+\
+config.cc.compiledb.name           = <name>@../path/to/amalgamation/
+config.cc.compiledb.filter        += <name>@true
+config.cc.compiledb.filter.input  += <name>@target
+config.cc.compiledb.filter.output += <name>@target
+\
+
+The last three assignments only apply if the corresponding variable is not set
+to a custom value for this project.|
+
+Let's look at a few examples of using these lower-level configuration
+variables. The common use for the output target filtering is getting rid of
+\c{obja{\}} or \c{objs{\}} entries in libraries. Unless configured otherwise,
+when we build a library we end up with both static and shared variants. And
+this means that each source file for the library is compiled twice, once to
+produce \c{obja{\}} that goes to the static library and once -- \c{objs{\}}.
+And that, in turn, means that we will end up with two compilation database
+entries for each such source file. If we don't want that for some reason (for
+instance, because the consumer of the database does not handle this well),
+then we can filter one of them out. For example, below is how we can
+initialize \c{libhello} to achieve this (notice that we also include
+\c{obje{\}} to keep object files for executables, such as tests):
+
+\
+$ bdep init @gcc               \\
+  config.cc.compiledb=libhello \\
+  config.cc.compiledb.filter.output='obje objs'
+\
+
+As an example of the input target type filtering, below is how we can keep
+entries only for the C and C++ source files, filtering out everything else
+(assembler, Objective-C/C++), for instance, because the consumer of our
+database does not recognize them:
+
+\
+$ bdep init @gcc               \\
+  config.cc.compiledb=libhello \\
+  config.cc.compiledb.filter.input='c cxx'
+\
+
+As an example of a more advanced configuration, consider a compilation
+database for a project that use C++ modules. To know how such a project is
+compiled we not only need to know how its own source files are compiled, but
+also how to compile all the module interfaces that it consumes, including from
+other projects, transitively. One way to set this up would be to enable
+writing entries of the \c{bmi{\}} output target type to any database in the
+amalgamation:
+
+\
+$ bdep config create ../build-gcc @gcc cc \\
+  config.cxx=g++                          \\
+  config.cc.compiledb.filter=true         \\
+  config.cc.compiledb.filter.output=bmi   \\
+
+
+$ bdep init @gcc config.cc.compiledb=libhello
+
+$ bdep init @gcc config.cc.compiledb=hello
+\
+
+With this setup \c{libhello.json} and \c{hello.json} will contain module
+interface entries from all the dependencies.
+
+\N|When debugging complex compilation database setups it can be helpful to
+increase diagnostics verbosity to level 6 in order to get a trace of filtering
+decisions (the relevant lines will contain the \c{compiledb} keyword).|
 
 
 \h#cc-gcc|GCC Compiler Toolchain|

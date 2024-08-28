@@ -480,7 +480,7 @@ namespace build2
       //
       if (nested)
       {
-        // This could be initial or exclusive load.
+        // This could be initial or interrupting load.
         //
         // @@ TODO: see the ad hoc recipe case as a reference.
         //

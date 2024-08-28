@@ -1,6 +1,8 @@
 // file      : libbuild2/cc/pkgconfig.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
+#include <libbuild2/cc/pkgconfig.hxx>
+
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -18,7 +20,6 @@
 #include <libbuild2/cc/utility.hxx>
 
 #include <libbuild2/cc/common.hxx>
-#include <libbuild2/cc/pkgconfig.hxx>
 #include <libbuild2/cc/compile-rule.hxx>
 #include <libbuild2/cc/link-rule.hxx>
 

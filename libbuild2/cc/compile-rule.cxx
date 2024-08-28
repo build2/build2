@@ -25,6 +25,7 @@
 #include <libbuild2/cc/target.hxx>  // h
 #include <libbuild2/cc/module.hxx>
 #include <libbuild2/cc/utility.hxx>
+#include <libbuild2/cc/compiledb.hxx>
 
 using std::exit;
 using std::strlen;
@@ -1181,6 +1182,11 @@ namespace build2
           fsdir_rule::perform_update_direct (a, *dir);
         }
 
+        // Use the subset of the depdb checks to detect changes to the
+        // compilation database entry.
+        //
+        bool compiledb_changed (false);
+
         // Note: the leading '@' is reserved for the module map prefix (see
         // extract_modules()) and no other line must start with it.
         //
@@ -1198,7 +1204,13 @@ namespace build2
         // but only in what it targets, then the checksum will still change.
         //
         if (dd.expect (cast<string> (rs[x_checksum])) != nullptr)
+        {
           l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+
+          // The checksum includes the absolute compiler path.
+          //
+          compiledb_changed = true;
+        }
 
         // Then the compiler environment checksum.
         //
@@ -1263,7 +1275,17 @@ namespace build2
             append_sys_hdr_options (cs); // Extra system header dirs (last).
 
           if (dd.expect (cs.string ()) != nullptr)
+          {
             l4 ([&]{trace << "options mismatch forcing update of " << t;});
+
+            // Note that this doesn't include any of the "plumbing" options
+            // like -x, -c, -o, etc. In the unlikely event that there are
+            // changes in this area that also affect the semantics of the
+            // compilation database (options reordering doesn't, for example),
+            // then we can resort to incrementing the rule version.
+            //
+            compiledb_changed = true;
+          }
         }
 
         // Finally the source file.
@@ -1273,7 +1295,10 @@ namespace build2
           assert (!p.empty ()); // Sanity check.
 
           if (dd.expect (p) != nullptr)
+          {
             l4 ([&]{trace << "source file mismatch forcing update of " << t;});
+            compiledb_changed = true;
+          }
         }
 
         // If any of the above checks resulted in a mismatch (different
@@ -1294,6 +1319,14 @@ namespace build2
             t.mtime (mt = mtime (tp)); // Cache.
 
           u = dd.mtime > mt;
+        }
+
+        // Confirm the entry in the compilation database, if any.
+        //
+        if (compiledb::match (bs, t, tp, src, compiledb_changed) && !u)
+        {
+          l4 ([&]{trace << "compilation database forcing update of " << t;});
+          u = true;
         }
 
         // If updating for any of the above reasons, treat it as if doesn't
@@ -7354,8 +7387,11 @@ namespace build2
       // apply()). For named modules there may be no obj*{} if this is a
       // sidebuild (obj*{} is already in the library binary).
       //
-      path relm;
+      const path* abso (nullptr);
+      const path* absm (nullptr);
       path relo;
+      path relm;
+
       switch (ut)
       {
       case unit_type::module_header:
@@ -7365,12 +7401,18 @@ namespace build2
       case unit_type::module_impl_part:
         {
           if (const file* o = find_adhoc_member<file> (t, tts.obj))
-            relo = relative (o->path ());
+          {
+            abso = &o->path ();
+            relo = relative (*abso);
+          }
 
           break;
         }
       default:
-        relo = relative (tp);
+        {
+          abso = &tp;
+          relo = relative (tp);
+        }
       }
 
       // Build the command line.
@@ -7400,6 +7442,9 @@ namespace build2
       small_vector<string, 2> header_args; // Header unit options storage.
       small_vector<string, 2> module_args; // Module options storage.
 
+      // NOTE: see a note in apply() on the compilation database implications
+      // if changing anything below.
+      //
       switch (cclass)
       {
       case compiler_class::msvc:
@@ -7534,6 +7579,7 @@ namespace build2
           {
             assert (ut != unit_type::module_header); // @@ MODHDR
 
+            absm = &tp;
             relm = relative (tp);
 
             args.push_back ("/ifcOutput");
@@ -7747,6 +7793,9 @@ namespace build2
                 // Output module file is specified in the mapping file, the
                 // same as input.
                 //
+                // We set neither relm nor absm since they are not on the
+                // command line.
+                //
                 if (ut == unit_type::module_header) // No obj, -c implied.
                   break;
 
@@ -7775,6 +7824,7 @@ namespace build2
               {
                 assert (ut != unit_type::module_header); // @@ MODHDR
 
+                absm = &tp;
                 relm = relative (tp);
 
                 // Without this option Clang's .pcm will reference source
@@ -7885,6 +7935,15 @@ namespace build2
       }
       else if (verb == 2)
         print_process (args);
+
+      // Insert or update the entry in the compilation database, if any.
+      //
+      compiledb::execute (
+        bs,
+        t, tp, s, *sp,
+        cpath, args,
+        relo, abso != nullptr ? *abso : empty_path,
+        relm, absm != nullptr ? *absm : empty_path);
 
       // If we have the (partially) preprocessed output, switch to that.
       //
