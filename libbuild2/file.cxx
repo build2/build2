@@ -2200,8 +2200,8 @@ namespace build2
         const project_name& pn (project (iroot));
 
         if (pn.empty ())
-          fail (loc) << "project-local importation of target " << tgt
-                     << " from an unnamed project";
+          fail (loc) << "project-local importation of target '" << tgt
+                     << "' from an unnamed project";
 
         tgt.proj = pn; // Reduce to normal import.
 
@@ -2219,7 +2219,7 @@ namespace build2
     // maybe project-less does not make sense.
     //
     if (tgt.absolute ())
-      fail (loc) << "absolute directory in imported target " << tgt;
+      fail (loc) << "absolute directory in imported target '" << tgt << "'";
 
     // Get the project name and convert the target to unqualified.
     //
@@ -2584,7 +2584,7 @@ namespace build2
         src = p.second;
 
         if (out_root.empty ())
-          fail (loc) << "no project for imported target " << tgt;
+          fail (loc) << "no project for imported target '" << tgt << "'";
       }
 
       if (src)
@@ -2855,7 +2855,8 @@ namespace build2
           auto df = make_diag_frame (
             [&tgt, &loc] (const diag_record& dr)
             {
-              dr << info (loc) << "while loading export stub for " << tgt;
+              dr << info (loc) << "while loading export stub for imported "
+                 << "target '" << tgt << "'";
             });
 
           parser p (ctx);
@@ -2866,7 +2867,7 @@ namespace build2
         // assume the target is not exported.
         //
         if (v.empty () && !tgt.empty ())
-          fail (loc) << "target " << tgt << " is not exported by project "
+          fail (loc) << "target '" << tgt << "' is not exported by project "
                      << *proj;
 
         pair<names, const scope&> r (move (v), *root);
@@ -2880,7 +2881,9 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail (loc) << "unable to read buildfile " << es << ": " << e << endf;
+        fail (loc) << "unable to read buildfile " << es << ": " << e <<
+          info << "while loading export stub for imported target '"
+               << tgt << "'" << endf;
       }
     }
     else
@@ -2903,7 +2906,7 @@ namespace build2
                                        altn);
         if (!bf)
           fail << "no buildfile in " << src_base << " or parent directories "
-               << "for imported target " << tgt;
+               << "for imported target '" << tgt << "'";
 
         if (!bf->empty ())
           src_base = bf->directory ();
@@ -2982,7 +2985,7 @@ namespace build2
     // Validate the name.
     //
     if (tgt.qualified () && tgt.empty ())
-      fail (loc) << "project-qualified empty name " << tgt;
+      fail (loc) << "importing project-qualified empty name '" << tgt << "'";
 
     // If metadata is requested, delegate to import_direct() which will lookup
     // the target and verify the metadata was loaded.
