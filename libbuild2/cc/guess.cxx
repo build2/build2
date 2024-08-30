@@ -1878,7 +1878,7 @@ namespace build2
         move (ver),
         nullopt,
         move (gr.signature),
-        "",
+        "",                  // Checksum to be calculated from signature.
         move (t),
         move (ot),
         move (cpat),
@@ -2128,7 +2128,7 @@ namespace build2
         move (ver),
         nullopt,
         move (gr.signature),
-        move (gr.checksum), // Calculated on whole -v output.
+        "",                  // Checksum calculated on whole -v output.
         move (t),
         move (ot),
         move (pat),
@@ -2898,7 +2898,7 @@ namespace build2
         move (ver),
         move (var_ver),
         move (gr.signature),
-        move (gr.checksum), // Calculated on whole -v output.
+        "",                  // Checksum calculated on whole -v output.
         move (t),
         move (ot),
         move (cpat),
@@ -3216,7 +3216,7 @@ namespace build2
         move (ver),
         nullopt,
         move (gr.signature),
-        "",
+        "",                  // Checksum to be calculated from signature.
         move (t),
         move (ot),
         move (pat),
@@ -3369,6 +3369,8 @@ namespace build2
         if (!gr.type_signature.empty ())
           cs.append (gr.type_signature);
       }
+
+      cs.append (r.path.effect_string ());
 
       r.checksum = cs.string ();
 

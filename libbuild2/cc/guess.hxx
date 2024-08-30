@@ -160,6 +160,9 @@ namespace build2
     // checksum will still change. This is currently the case for all the
     // compilers that we support.
     //
+    // And we assume that the checksum incorporates the absolute compiler
+    // path. This is used to detect compilation database changes.
+    //
     // The target is the compiler's traget architecture triplet. Note that
     // unlike all the preceding fields, this one takes into account the
     // compile options (e.g., -m32).
