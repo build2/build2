@@ -7,7 +7,7 @@
 #include <exception> // terminate(), set_terminate(), terminate_handler
 
 #include <libbutl/pager.hxx>
-#include <libbutl/fdstream.hxx>  // stderr_fd(), fdterm()
+#include <libbutl/fdstream.hxx>  // stderr_fd(), fdterm(), std*_fdmode()
 #include <libbutl/backtrace.hxx> // backtrace()
 
 #ifndef BUILD2_BOOTSTRAP
@@ -249,8 +249,6 @@ main (int argc, char* argv[])
 
   tracer trace ("main");
 
-  init_process ();
-
   int r (0);
   b_options ops;
   scheduler sched;
@@ -261,6 +259,26 @@ main (int argc, char* argv[])
 
   try
   {
+    // Note that the standard stream descriptors can potentially be in the
+    // non-blocking mode, which the C++ streams are not suited for and which
+    // are not fully supported by butl::iofdstreams. Using such descriptors
+    // may lead to various weird failures (see GH issue #417 for the
+    // reproducer). Thus, we just turn such descriptors into the blocking mode
+    // at the beginning of the program execution.
+    //
+    try
+    {
+      stdin_fdmode  (fdstream_mode::blocking);
+      stdout_fdmode (fdstream_mode::blocking);
+      stderr_fdmode (fdstream_mode::blocking);
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to turn standard streams into blocking mode: " << e;
+    }
+
+    init_process ();
+
     // Parse the command line.
     //
     b_cmdline cmdl (parse_b_cmdline (trace, argc, argv, ops));
