@@ -2509,12 +2509,19 @@ namespace build2
         // appear after the preceding static library of which this binless
         // library is a dependency.
         //
+        // Note that we omit the duplicate suppression if we are linking the
+        // whole archive since the previous instance may not necessarily do
+        // the same (see GH issue #411; we could have complicated things and
+        // stored the flag in appended_libraries but it doesn't feel
+        // worthwhile in this case).
+        //
         // From the process_libraries() semantics we know that this callback
         // is always called and always after the options callbacks.
         //
-        appended_library* al (l != nullptr
-                              ? &d.ls.append (*l, d.args.size ())
-                              : d.ls.append (ns, d.args.size ()));
+        appended_library* al (
+          f & lflag_whole ? nullptr                           :
+          l != nullptr    ? &d.ls.append (*l, d.args.size ()) :
+          d.ls.append (ns, d.args.size ()));
 
         if (al != nullptr && al->end != appended_library::npos) // Closed.
         {
