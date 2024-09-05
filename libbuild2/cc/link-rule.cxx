@@ -2720,13 +2720,13 @@ namespace build2
               else
               {
                 d.args.push_back ("-Wl,--whole-archive");
-                d.args.push_back (move (p));
+                d.args.push_back (move (p)); p.clear ();
                 d.args.push_back ("-Wl,--no-whole-archive");
-                goto done;
               }
             }
 
-            d.args.push_back (move (p));
+            if (!p.empty ())
+              d.args.push_back (move (p));
           }
 
           if (d.cs != nullptr)
