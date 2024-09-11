@@ -155,8 +155,12 @@ namespace build2
         for (const dir_entry& e: dir_iterator (d, dir_iterator::no_follow))
         {
           const path& n (e.path ());
+          const string& s (n.string ());
 
-          if (!n.empty () && n.string ().front () != '.')
+          if (s.compare (0, 4, ".git") != 0 &&
+              s != ".bdep"                  &&
+              s != ".bpkg"                  &&
+              s != ".build2")
           try
           {
             if (e.type () == entry_type::directory) // Can throw.
@@ -643,8 +647,8 @@ namespace build2
       {
         l5 ([&]{trace << "bootstrap dist " << rs;});
 
-        // Recursively enter/collect file targets in src_root ignoring those
-        // that start with a dot.
+        // Recursively enter/collect file targets in src_root ignoring the
+        // following ones: .git*, .bdep, .bpkg, and .build2.
         //
         // Note that, in particular, we also collect the symlinks which point
         // outside src_root (think of third-party project packaging with the
