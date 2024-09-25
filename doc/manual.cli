@@ -8298,11 +8298,11 @@ c   m    S
 h
 \
 
-The \c{m{\}} target type represents an Objective-C source file, see \l{c-objc
+The \c{m{\}} target type represents an Objective-C source file, see \l{#c-objc
 Objective-C Compilation} for details.
 
 The \c{S{\}} target type represents an Assembler with C Preprocessor file, see
-\l{c-as-cpp Assembler with C Preprocessor Compilation} for details.
+\l{#c-as-cpp Assembler with C Preprocessor Compilation} for details.
 
 \h2#c-target-types-c|\c{c{\}}, \c{h{\}}|
 
@@ -8549,7 +8549,7 @@ mxx
 \
 
 The \c{mm{\}} target type represents an Objective-C++ source file, see
-\l{cxx-objcxx Objective-C++ Compilation} for details.
+\l{#cxx-objcxx Objective-C++ Compilation} for details.
 
 \h2#cxx-target-types-cxx|\c{cxx{\}}, \c{hxx{\}}, \c{ixx{\}}, \c{txx{\}},
 \c{mxx{\}}|
