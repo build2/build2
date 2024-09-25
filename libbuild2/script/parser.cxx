@@ -2460,19 +2460,19 @@ namespace build2
               //
               struct loop_data
               {
-                lines::const_iterator i;
-                lines::const_iterator e;
                 const function<exec_set_function>& exec_set;
                 const function<exec_cmd_function>& exec_cmd;
                 const function<exec_cond_function>& exec_cond;
                 const function<exec_for_function>& exec_for;
+                lines::const_iterator i;
+                lines::const_iterator e;
                 const iteration_index* ii;
                 size_t& li;
                 variable_pool* var_pool;
                 decltype (fcend)& fce;
                 lines::const_iterator& fe;
-              } ld {i, e,
-                    exec_set, exec_cmd, exec_cond, exec_for,
+              } ld {exec_set, exec_cmd, exec_cond, exec_for,
+                    i, e,
                     ii, li,
                     var_pool,
                     fcend,
@@ -2558,7 +2558,6 @@ namespace build2
                       const location& ll;
                       size_t fli;
                       iteration_index& fi;
-
                     } d {ld, env, vname, attrs, ll, fli, fi};
 
                     function<void (string&&)> f (
@@ -2676,12 +2675,19 @@ namespace build2
 
               if (val)
               {
-                // If this value is a vector, then save its element type so
+                // If the value type provides custom iterate function, then
+                // use that (see value_type::iterate for details).
+                //
+                auto iterate (val.type != nullptr
+                              ? val.type->iterate
+                              : nullptr);
+
+                // If this value is a container, then save its element type so
                 // that we can typify each element below.
                 //
                 const value_type* etype (nullptr);
 
-                if (val.type != nullptr)
+                if (!iterate && val.type != nullptr)
                 {
                   etype = val.type->element_type;
 
@@ -2693,37 +2699,84 @@ namespace build2
 
                 size_t fli (li);
                 iteration_index fi {1, ii};
-                names& ns (val.as<names> ());
 
-                for (auto ni (ns.begin ()), ne (ns.end ()); ni != ne; ++ni)
+                names* ns (!iterate ? &val.as<names> () : nullptr);
+
+                // Similar to above.
+                //
+                struct loop_data
                 {
-                  li = fli;
+                  const function<exec_set_function>& exec_set;
+                  const function<exec_cmd_function>& exec_cmd;
+                  const function<exec_cond_function>& exec_cond;
+                  const function<exec_for_function>& exec_for;
+                  lines::const_iterator i;
+                  lines::const_iterator e;
+                  const location& ll;
+                  size_t& li;
+                  variable_pool* var_pool;
+                  const variable&  var;
+                  const attributes& val_attrs;
+                  decltype (fcend)& fce;
+                  lines::const_iterator& fe;
+                  iteration_index& fi;
 
-                  // Set the variable value.
-                  //
-                  bool pair (ni->pair);
-                  names n;
-                  n.push_back (move (*ni));
-                  if (pair) n.push_back (move (*++ni));
-                  value v (move (n)); // Untyped.
+                } ld {exec_set, exec_cmd, exec_cond, exec_for,
+                      i, e,
+                      ll, li,
+                      var_pool, *var, val_attrs,
+                      fcend, fe, fi};
 
-                  if (etype != nullptr)
-                    typify (v, *etype, var);
-
-                  exec_for (*var, move (v), val_attrs, ll);
+                function<bool (value&&, bool first)> iteration =
+                  [this, &ld] (value&& v, bool)
+                {
+                  ld.exec_for (ld.var, move (v), ld.val_attrs, ld.ll);
 
                   // Find the construct end, if it is not found yet.
                   //
-                  if (fe == e)
-                    fe = fcend (i, true, false);
+                  if (ld.fe == ld.e)
+                    ld.fe = ld.fce (ld.i, true, false);
 
-                  if (!exec_lines (i + 1, fe,
-                                   exec_set, exec_cmd, exec_cond, exec_for,
-                                   &fi, li,
-                                   var_pool))
+                  if (!exec_lines (
+                        ld.i + 1, ld.fe,
+                        ld.exec_set, ld.exec_cmd, ld.exec_cond, ld.exec_for,
+                        &ld.fi, ld.li,
+                        ld.var_pool))
                     return false;
 
-                  fi.index++;
+                  ld.fi.index++;
+                  return true;
+                };
+
+                if (!iterate)
+                {
+                  for (auto nb (ns->begin ()), ni (nb), ne (ns->end ());
+                       ni != ne;
+                       ++ni)
+                  {
+                    bool first (ni == nb);
+
+                    li = fli;
+
+                    // Set the variable value.
+                    //
+                    bool pair (ni->pair);
+                    names n;
+                    n.push_back (move (*ni));
+                    if (pair) n.push_back (move (*++ni));
+                    value v (move (n)); // Untyped.
+
+                    if (etype != nullptr)
+                      typify (v, *etype, var);
+
+                    if (!iteration (move (v), first))
+                      return false;
+                  }
+                }
+                else
+                {
+                  if (!iterate (val, iteration))
+                    return false;
                 }
               }
 

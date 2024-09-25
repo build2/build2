@@ -30,6 +30,19 @@
     %.+ -b%
     EOO
 
+  : custom-iteration
+  :
+  $c <<EOI && $b >>EOO
+    j = $json.parse('[1, 2, 3]')
+    for e: $j
+      echo $e >|
+    end
+    EOI
+    1
+    2
+    3
+    EOO
+
   : special-var
   :
   $c <<EOI && $b 2>>EOE != 0

@@ -686,16 +686,19 @@ namespace build2
   // Provide iterate for vector<T> for efficiency.
   //
   template <typename T>
-  void
+  bool
   vector_iterate (const value& val,
-                  const function<void (value&&, bool first)>& f)
+                  const function<bool (value&&, bool first)>& f)
   {
     const auto& v (val.as<vector<T>> ()); // Never NULL.
 
     for (auto b (v.begin ()), i (b), e (v.end ()); i != e; ++i)
     {
-      f (value (*i), i == b);
+      if (!f (value (*i), i == b))
+        return false;
     }
+
+    return true;
   }
 
   // Make sure these are static-initialized together. Failed that VC will make
@@ -1071,16 +1074,19 @@ namespace build2
   // Provide iterate for set<T> for efficiency.
   //
   template <typename T>
-  void
+  bool
   set_iterate (const value& val,
-               const function<void (value&&, bool first)>& f)
+               const function<bool (value&&, bool first)>& f)
   {
     const auto& v (val.as<set<T>> ()); // Never NULL.
 
     for (auto b (v.begin ()), i (b), e (v.end ()); i != e; ++i)
     {
-      f (value (*i), i == b);
+      if (!f (value (*i), i == b))
+        return false;
     }
+
+    return true;
   }
 
   // Make sure these are static-initialized together. Failed that VC will make

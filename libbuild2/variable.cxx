@@ -2122,9 +2122,9 @@ namespace build2
     return r;
   }
 
-  static void
+  static bool
   json_iterate (const value& val,
-                const function<void (value&&, bool first)>& f)
+                const function<bool (value&&, bool first)>& f)
   {
     // Implement in terms of subscript for consistency (in particular,
     // iterating over simple values like number, string).
@@ -2136,8 +2136,11 @@ namespace build2
       if (!e.second)
         break;
 
-      f (move (e.first), i == 0);
+      if (!f (move (e.first), i == 0))
+        return false;
     }
+
+    return true;
   }
 
   const json_value value_traits<json_value>::empty_instance;

@@ -124,12 +124,13 @@ namespace build2
                                   const location& sloc,
                                   const location& bloc);
 
-    // Custom iteration function. It should invoked the specified function for
+    // Custom iteration function. It should invoke the specified function for
     // each element in order. If NULL, then the generic implementation is
-    // used. The passed value is never NULL.
+    // used. The passed value is never NULL. If the specified function returns
+    // false, then stop the iteration and return false. Otherwise return true.
     //
-    void (*const iterate) (const value&,
-                           const function<void (value&&, bool first)>&);
+    bool (*const iterate) (const value&,
+                           const function<bool (value&&, bool first)>&);
   };
 
   // The order of the enumerators is arranged so that their integral values

@@ -5607,7 +5607,7 @@ namespace build2
 
     } d {var, val_attrs, line, block, lhs, is};
 
-    function<void (value&&, bool first)> iteration =
+    function<bool (value&&, bool first)> iteration =
       [this, &d] (value&& v, bool first)
     {
       // Rewind the stream.
@@ -5645,12 +5645,15 @@ namespace build2
                  << "instead of " << t;
 
       lexer_ = ol;
+      return true;
     };
 
     if (!iterate)
     {
       for (auto b (ns->begin ()), i (b), e (ns->end ()); i != e; ++i)
       {
+        bool first (i == b);
+
         // Set the variable value.
         //
         bool pair (i->pair);
@@ -5662,7 +5665,7 @@ namespace build2
         if (etype != nullptr)
           typify (v, *etype, &var);
 
-        iteration (move (v), i == b);
+        iteration (move (v), first);
       }
     }
     else
