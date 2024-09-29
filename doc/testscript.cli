@@ -2873,7 +2873,9 @@ supports a small subset of primaries and doesn't support compound expressions,
 negations, logical OR and (explicit) AND operators, and the \c{-type} primary
 values other than \c{f}, \c{d}, and \c{l}. It, however, supports the
 \c{-mindepth} and \c{-maxdepth} primaries which are not specified by POSIX but
-are supported by the major \c{find} utility implementations.
+are supported by the major \c{find} utility implementations. Likewise, it
+dereferences symlinks in <start-path> if it ends with a trailing directory
+separator.
 
 The following primaries are supported:
 
