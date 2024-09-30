@@ -23,8 +23,9 @@ namespace build2
     const char*
     windows_manifest_arch (const string& tcpu)
     {
-      const char* pa (tcpu == "i386" || tcpu == "i686"  ? "x86"   :
-                      tcpu == "x86_64"                  ? "amd64" :
+      const char* pa (tcpu == "x86_64"                  ? "amd64" :
+                      tcpu == "i386" || tcpu == "i686"  ? "x86"   :
+                      tcpu == "aarch64"                 ? "arm64" :
                       nullptr);
 
       if (pa == nullptr)

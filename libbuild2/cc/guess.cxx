@@ -1635,7 +1635,7 @@ namespace build2
 
       // Seeing that we only do 64-bit on Windows, let's always use 64-bit
       // MSVC tools (link.exe, etc). In case of the Platform SDK, it's unclear
-      // what the CPU signifies (host, target, both).
+      // what the CPU signifies (host, target, both). It appears to be host.
       //
       r  = (((dir_path (mi.msvc_dir) /= "bin") /=
 #if defined(_M_ARM64) || defined(__aarch64__)
@@ -1647,8 +1647,13 @@ namespace build2
 
       r += path::traits_type::path_separator;
 
-      r += (((dir_path (mi.psdk_dir) /= "bin") /= mi.psdk_ver) /= cpu).
-        representation ();
+      r += (((dir_path (mi.psdk_dir) /= "bin") /= mi.psdk_ver) /=
+#if defined(_M_ARM64) || defined(__aarch64__)
+            "arm64"
+#else
+            "x64"
+#endif
+      ).representation ();
 
       return r;
     }
