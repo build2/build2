@@ -3522,10 +3522,6 @@ namespace build2
           //
           args.push_back ("/NOLOGO");
 
-          // Add /MACHINE.
-          //
-          args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
-
           // For utility libraries use thin archives if possible.
           //
           // LLVM's lib replacement had the /LLVMLIBTHIN option at least from
@@ -3592,7 +3588,16 @@ namespace build2
       {
         // Are we using the compiler or the linker (e.g., link.exe) directly?
         //
-        bool ldc (tsys != "win32-msvc");
+        bool ldc;
+
+        if (tsys == "win32-msvc")
+        {
+          args.push_back ("/NOLOGO");
+          ldc = false;
+        }
+        else
+          ldc = true;
+
 
         if (ldc)
         {
@@ -4002,6 +4007,20 @@ namespace build2
       if (lt.shared_library () && (tsys == "win32-msvc" || tsys == "mingw32"))
         reli = relative (find_adhoc_member<libi> (t)->path ());
 
+      if (tsys == "win32-msvc")
+      {
+        // Add /MACHINE unless there is a custom value (/MACHINE:ARM64EC).
+        //
+        // Note that we don't bother hashing it since to change its value one
+        // would have to use a different MSVC toolchain (which means things
+        // would be rebuilt from scratch anyway).
+        //
+        if (!find_option_prefix ("/MACHINE:", args, true))
+        {
+          args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
+        }
+      }
+
       const process_path* ld (nullptr);
       if (lt.static_library ())
       {
@@ -4025,14 +4044,9 @@ namespace build2
           // Using link.exe directly.
           //
           ld = &cast<process_path> (rs["bin.ld.path"]);
-          args.push_back ("/NOLOGO");
 
           if (ot == otype::s)
             args.push_back ("/DLL");
-
-          // Add /MACHINE.
-          //
-          args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
 
           // Unless explicitly enabled with /INCREMENTAL, disable incremental
           // linking (it is implicitly enabled if /DEBUG is specified). The
