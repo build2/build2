@@ -949,9 +949,15 @@ namespace build2
                   // there is nothing like -m32/-m64 or /MACHINE). Targeting
                   // 64-bit seems like as good of a default as any.
                   //
-                  fb = ((dir_path (mi->msvc_dir) /= "bin") /= "Hostx64") /=
-                    "x64";
+                  fb = dir_path (mi->msvc_dir) /= "bin";
 
+#if defined(_M_ARM64) || defined(__aarch64__)
+                  fb /= "HostARM64";
+                  fb /= "ARM64";
+#else
+                  fb /= "Hostx64";
+                  fb /= "x64";
+#endif
                   search_info = info_ptr (
                     new msvc_info (move (*mi)), msvc_info_deleter);
                 }
@@ -1631,8 +1637,13 @@ namespace build2
       // MSVC tools (link.exe, etc). In case of the Platform SDK, it's unclear
       // what the CPU signifies (host, target, both).
       //
-      r  = (((dir_path (mi.msvc_dir) /= "bin") /= "Hostx64") /= cpu).
-        representation ();
+      r  = (((dir_path (mi.msvc_dir) /= "bin") /=
+#if defined(_M_ARM64) || defined(__aarch64__)
+             "HostARM64"
+#else
+             "Hostx64"
+#endif
+            ) /= cpu).representation ();
 
       r += path::traits_type::path_separator;
 

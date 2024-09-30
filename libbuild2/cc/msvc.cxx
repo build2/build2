@@ -33,10 +33,10 @@ namespace build2
     const char*
     msvc_cpu (const string& cpu)
     {
-      const char* m (cpu == "i386" || cpu == "i686"  ? "x86"   :
-                     cpu == "x86_64"                 ? "x64"   :
+      const char* m (cpu == "x86_64"                 ? "x64"   :
+                     cpu == "i386" || cpu == "i686"  ? "x86"   :
+                     cpu == "aarch64"                ? "arm64" :
                      cpu == "arm"                    ? "arm"   :
-                     cpu == "arm64"                  ? "arm64" :
                      nullptr);
 
       if (m == nullptr)
@@ -51,10 +51,10 @@ namespace build2
     const char*
     msvc_machine (const string& cpu)
     {
-      const char* m (cpu == "i386" || cpu == "i686"  ? "/MACHINE:x86"   :
-                     cpu == "x86_64"                 ? "/MACHINE:x64"   :
+      const char* m (cpu == "x86_64"                 ? "/MACHINE:x64"   :
+                     cpu == "i386" || cpu == "i686"  ? "/MACHINE:x86"   :
+                     cpu == "aarch64"                ? "/MACHINE:ARM64" :
                      cpu == "arm"                    ? "/MACHINE:ARM"   :
-                     cpu == "arm64"                  ? "/MACHINE:ARM64" :
                      nullptr);
 
       if (m == nullptr)
