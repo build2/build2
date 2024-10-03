@@ -92,13 +92,36 @@ namespace build2
       //
       struct header_key
       {
-        path   file;
+        // We used to use path comparison/hash which are case-insensitive on
+        // Windows. While this sounds right on the surface, the catch is that
+        // our target names are always case-sensitive, even on Windows. So
+        // what can happen is that the same header spelled in different case
+        // ends up with distinct targets but trying to occupy the same cache
+        // entry. See GH issue #390 for details.
+        //
+        // The conceptually correct way to fix this would be to actualize the
+        // header name. But that would be prohibitively expensive, especially
+        // on Windows. Plus the header may be generated and thus not yet
+        // exist.
+        //
+        // On the other hand, we can already end up with different targets
+        // mapped to the same filesystem entry in other situations (h{} vs
+        // hxx{} is the canonical example). And we are ok with that provided
+        // they have noop recipes. So it feels like the simplest solution here
+        // is to go along by having case-sensitive cache entries. This means
+        // that auto-generated headers will have to be included using the same
+        // spelling, but that seems like a sensible restriction (doing
+        // otherwise won't be portable).
+        //
+        path file;
         size_t hash;
 
         friend bool
         operator== (const header_key& x, const header_key& y)
         {
-          return x.file == y.file; // Note: hash was already compared.
+          // Note: hash was already compared.
+          //
+          return x.file.string () == y.file.string ();
         }
       };
 

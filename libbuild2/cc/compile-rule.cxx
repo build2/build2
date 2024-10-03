@@ -3148,7 +3148,7 @@ namespace build2
         }
 
         hk.file = move (fp);
-        hk.hash = hash<path> () (hk.file);
+        hk.hash = hash<string> () (hk.file.string ());
 
         slock l (hc.header_map_mutex);
         auto i (hc.header_map.find (hk));
@@ -3201,7 +3201,7 @@ namespace build2
         // path has changed (header has been remapped).
         //
         if (!e || r.second)
-          hk.hash = hash<path> () (hk.file);
+          hk.hash = hash<string> () (hk.file.string ());
 
         const file* f;
         {
@@ -3214,6 +3214,8 @@ namespace build2
         {
           //cache_cls.fetch_add (1, memory_order_relaxed);
 
+          // @@ TMP cleanup.
+          //
 #if 0
           assert (r.first == f);
 #else
