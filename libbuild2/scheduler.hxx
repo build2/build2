@@ -452,9 +452,11 @@ namespace build2
     // should be set before any tasks are queued and cleared after all of
     // them have completed.
     //
-    // The counter must go in one direction, either increasing or decreasing,
-    // and should contain the initial value during the call. Zero threshold
-    // value is reserved.
+    // The counter can go in either direction and should contain the initial
+    // value during the call. The callback function is called when the current
+    // value differs form the previous/initial by at least the specified
+    // threshold. The callback returns the new threshold. Zero threshold value
+    // is reserved. The callback calls are serialized and synchronized.
     //
     struct monitor_guard
     {
@@ -488,7 +490,9 @@ namespace build2
     };
 
     monitor_guard
-    monitor (atomic_count&, size_t threshold, function<size_t (size_t)>);
+    monitor (atomic_count&,
+             size_t threshold,
+             function<size_t (size_t previous, size_t current)>);
 
     // If initially active thread(s) (besides the one that calls startup())
     // exist before the call to startup(), then they must call join() before
@@ -598,10 +602,10 @@ namespace build2
 
     // Monitor.
     //
-    atomic_count*              monitor_count_ = nullptr;  // NULL if not used.
-    atomic_count               monitor_tshold_;           // 0 means locked.
-    size_t                     monitor_init_;             // Initial count.
-    function<size_t (size_t)>  monitor_func_;
+    atomic_count* monitor_count_ = nullptr;  // NULL if not used.
+    atomic_count  monitor_tshold_;           // 0 means locked.
+    size_t        monitor_prev_;             // Previous values.
+    function<size_t (size_t, size_t)> monitor_func_;
 
     build2::mutex mutex_;
     bool shutdown_ = true;  // Shutdown flag.
@@ -914,19 +918,19 @@ namespace build2
           if (monitor_tshold_.compare_exchange_strong (
                 t,
                 0,
-                memory_order_release,
+                memory_order_acq_rel,  // Synchronize on success.
                 memory_order_relaxed))
           {
-            // Now we are the only ones messing with this.
+            // Now we are the only ones messing with this and everything
+            // is synchronized.
             //
+            size_t p (monitor_prev_);
             size_t v (monitor_count_->load (memory_order_relaxed));
 
-            if (v != monitor_init_)
+            if ((p > v ? p - v : p < v ? v - p : 0) >= t)
             {
-              // See which direction we are going.
-              //
-              if (v > monitor_init_ ? (v >= t) : (v <= t))
-                t = monitor_func_ (v);
+              t = monitor_func_ (p, v);
+              monitor_prev_= v;
             }
 
             monitor_tshold_.store (t, memory_order_release);

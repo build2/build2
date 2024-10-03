@@ -29,12 +29,13 @@ namespace build2
       //
       if (monitor_count_ != nullptr)
       {
+        size_t t (monitor_tshold_.load (memory_order_relaxed));
+        size_t p (monitor_prev_);
         size_t v (monitor_count_->load (memory_order_relaxed));
-        if (v != monitor_init_)
+        if ((p > v ? p - v : p < v ? v - p : 0) >= t)
         {
-          size_t t (monitor_tshold_.load (memory_order_relaxed));
-          if (v > monitor_init_ ? (v >= t) : (v <= t))
-            monitor_tshold_.store (monitor_func_ (v), memory_order_relaxed);
+          monitor_tshold_.store (monitor_func_ (p, v), memory_order_relaxed);
+          monitor_prev_ = v;
         }
       }
 

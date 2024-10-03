@@ -271,9 +271,12 @@ namespace build2
       struct monitor_data
       {
         size_t incr;
-        string what;
-        atomic<timestamp::rep> time {timestamp_nonexistent_rep};
+        string what1;
+        string what2;
+        size_t exec = 0; // Number of targets executed during match.
+        timestamp time = timestamp_nonexistent;
       } md; // Note: must outlive monitor_guard.
+
       scheduler::monitor_guard mg;
 
       if (prog && show_progress (2 /* max_verb */))
@@ -282,36 +285,53 @@ namespace build2
         // the up-to-date check on some projects (e.g., Boost). So we jump
         // through a few hoops to make sure we don't overindulge.
         //
+        // Note also that the higher the increment, the less accurate our
+        // executed during match number will be.
+        //
         md.incr = stderr_term // Scale depending on output type.
           ? (ctx.sched->serial () ? 1 : 5)
           : 100;
-        md.what = " targets to " + diag_do (ctx, a);
+        md.what1 = " targets to " + diag_do (ctx, a);
+        md.what2 = ' ' + diag_did (ctx, a) + " during match)";
 
         mg = ctx.sched->monitor (
           ctx.target_count,
           md.incr,
-          [&md] (size_t c) -> size_t
+          [&md, &ctx] (size_t p, size_t c) -> size_t
           {
-            size_t r (c + md.incr);
+            if (p > c)
+              md.exec += p - c;
 
             if (stderr_term)
             {
-              timestamp o (duration (md.time.load (memory_order_consume)));
               timestamp n (system_clock::now ());
 
-              if (n - o < chrono::milliseconds (80))
-                return r;
+              if (n - md.time < chrono::milliseconds (80))
+                return md.incr;
 
-              md.time.store (n.time_since_epoch ().count (),
-                             memory_order_release);
+              md.time = n;
             }
 
             diag_progress_lock pl;
             diag_progress  = ' ';
             diag_progress += to_string (c);
-            diag_progress += md.what;
+            diag_progress += md.what1;
 
-            return r;
+            if (md.exec != 0)
+            {
+              // Offset by the number of targets skipped.
+              //
+              size_t s (ctx.skip_count.load (memory_order_relaxed));
+
+              if (md.exec > s)
+              {
+                diag_progress += " (";
+                diag_progress += to_string (md.exec - s);
+                diag_progress += md.what2;
+              }
+            }
+
+            return md.incr;
           });
       }
 
@@ -612,30 +632,36 @@ namespace build2
 
       // Setup progress reporting if requested.
       //
-      string what; // Note: must outlive monitor_guard.
+      struct monitor_data
+      {
+        size_t init;
+        size_t incr;
+        string what;
+      } md; // Note: must outlive monitor_guard.
+
       scheduler::monitor_guard mg;
 
       if (prog && show_progress (1 /* max_verb */))
       {
-        size_t init (ctx.target_count.load (memory_order_relaxed));
-        size_t incr (init > 100 ? init / 100 : 1); // 1%.
+        md.init = ctx.target_count.load (memory_order_relaxed);
+        md.incr = md.init > 100 ? md.init / 100 : 1; // 1%.
 
-        if (init != incr)
+        if (md.init != md.incr)
         {
-          what = "% of targets " + diag_did (ctx, a);
+          md.what = "% of targets " + diag_did (ctx, a);
 
           mg = ctx.sched->monitor (
             ctx.target_count,
-            init - incr,
-            [init, incr, &what, &ctx] (size_t c) -> size_t
+            md.incr,
+            [&md, &ctx] (size_t, size_t c) -> size_t
             {
-              size_t p ((init - c) * 100 / init);
+              size_t p ((md.init - c) * 100 / md.init);
               size_t s (ctx.skip_count.load (memory_order_relaxed));
 
               diag_progress_lock pl;
               diag_progress  = ' ';
               diag_progress += to_string (p);
-              diag_progress += what;
+              diag_progress += md.what;
 
               if (s != 0)
               {
@@ -644,7 +670,7 @@ namespace build2
                 diag_progress += " skipped)";
               }
 
-              return c - incr;
+              return md.incr;
             });
         }
       }

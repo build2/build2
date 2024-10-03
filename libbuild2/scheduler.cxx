@@ -701,7 +701,7 @@ namespace build2
   }
 
   scheduler::monitor_guard scheduler::
-  monitor (atomic_count& c, size_t t, function<size_t (size_t)> f)
+  monitor (atomic_count& c, size_t t, function<size_t (size_t, size_t)> f)
   {
     assert (monitor_count_ == nullptr && t != 0);
 
@@ -713,7 +713,7 @@ namespace build2
 
     monitor_count_ = &c;
     monitor_tshold_.store (t, memory_order_relaxed);
-    monitor_init_ = c.load (memory_order_relaxed);
+    monitor_prev_ = c.load (memory_order_relaxed);
     monitor_func_ = move (f);
 
     return monitor_guard (this);
