@@ -7,7 +7,14 @@ using namespace std;
 
 namespace build2
 {
-  void (*config_save_variable) (scope&, const variable&, optional<uint64_t>);
+  void
+  (*config_save_variable) (scope&,
+                           const variable&,
+                           optional<uint64_t>,
+                           pair<names_view, const char*> (*)(const scope&,
+                                                             const value&,
+                                                             const value*,
+                                                             names&));
   void (*config_save_environment) (scope&, const char*);
   void (*config_save_module) (scope&, const char*, int);
   const string& (*config_preprocess_create) (context&,
@@ -21,7 +28,10 @@ namespace build2
   namespace config
   {
     pair<lookup, bool>
-    lookup_config_impl (scope& rs, const variable& var, uint64_t sflags)
+    lookup_config_impl (scope& rs,
+                        const variable& var,
+                        uint64_t sflags,
+                        save_variable_function* sfunc)
     {
       // This is a stripped-down version of the default value case.
 
@@ -71,7 +81,7 @@ namespace build2
       }
 
       if (l.defined ())
-        save_variable (rs, var, sflags);
+        save_variable (rs, var, sflags, sfunc);
 
       return pair<lookup, bool> (l, n);
     }

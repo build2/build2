@@ -22,20 +22,12 @@ namespace build2
   namespace config
   {
     // An ordered list of build system modules each with an ordered list of
-    // config.* variables and their "save flags" (see save_variable()) that
-    // are used (as opposed to just being specified) in this configuration.
-    // Populated by the config utility functions (required(), optional()) and
-    // saved in the order populated. If flags are absent, then this variable
-    // was marked as "unsaved" (always transient).
+    // config.* variables and their save flags/function (see save_variable())
+    // that are used (as opposed to just being specified) in this
+    // configuration. Populated by the config utility functions (required(),
+    // optional()) and saved in the order populated. If flags are absent, then
+    // this variable was marked as "unsaved" (always transient).
     //
-    // The optional save function can be used to implement custom variable
-    // saving, for example, as a difference appended to the base value. The
-    // second half of the result is the assignment operator to use.
-    //
-    using save_variable_function =
-      pair<names_view, const char*> (const value&,
-                                     const value* base,
-                                     names& storage);
     struct saved_variable
     {
       reference_wrapper<const variable> var;
@@ -151,7 +143,10 @@ namespace build2
                      save_variable_function* = nullptr);
 
       static void
-      save_variable (scope&, const variable&, optional<uint64_t>);
+      save_variable (scope&,
+                     const variable&,
+                     optional<uint64_t>,
+                     save_variable_function*);
 
       bool
       save_module (const char* name, int prio = 0);

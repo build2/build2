@@ -558,7 +558,7 @@ namespace build2
             storage.clear ();
             pair<names_view, const char*> p (
               sv.save != nullptr
-              ? sv.save (v, base, storage)
+              ? sv.save (rs, v, base, storage)
               : make_pair (reverse (v, storage, true /* reduce */), "="));
 
             // Might becomes empty after a custom save function had at it.

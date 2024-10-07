@@ -6,25 +6,32 @@ namespace build2
   namespace config
   {
     LIBBUILD2_SYMEXPORT pair<lookup, bool>
-    lookup_config_impl (scope&, const variable&, uint64_t);
+    lookup_config_impl (scope&,
+                        const variable&,
+                        uint64_t,
+                        save_variable_function*);
 
     template <typename T>
     pair<lookup, bool>
     lookup_config_impl (scope&, const variable&, T&&, uint64_t, bool);
 
     inline lookup
-    lookup_config (scope& rs, const variable& var, uint64_t sflags)
+    lookup_config (scope& rs,
+                   const variable& var,
+                   uint64_t sflags,
+                   save_variable_function* func)
     {
-      return lookup_config_impl (rs, var, sflags).first;
+      return lookup_config_impl (rs, var, sflags, func).first;
     }
 
     inline lookup
     lookup_config (bool& new_value,
                    scope& rs,
                    const variable& var,
-                   uint64_t sflags)
+                   uint64_t sflags,
+                   save_variable_function* func)
     {
-      auto r (lookup_config_impl (rs, var, sflags));
+      auto r (lookup_config_impl (rs, var, sflags, func));
       new_value = new_value || r.second;
       return r.first;
     }

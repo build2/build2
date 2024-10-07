@@ -38,7 +38,10 @@ namespace build2
     // the entire values.
     //
     static pair<names_view, const char*>
-    save_environment (const value& d, const value* b, names& storage)
+    save_environment (const scope&,
+                      const value& d,
+                      const value* b,
+                      names& storage)
     {
       if (b == nullptr)
         return make_pair (reverse (d, storage, true /* reduce */), "=");

@@ -29,13 +29,22 @@ namespace build2
   // disfigure hooks (for example, for second-level configuration). These are
   // accessed through the config module entry points (which are NULL for
   // transient configurations). Note also that the exact interpretation of the
-  // save flags and module order depends on the config module implementation
-  // (which may ignore them as not applicable). An implementation may also
-  // define custom save flags (for example, accessible through the config.save
-  // attribute). Such flags should start from 0x100000000.
+  // save flags/function and module order depends on the config module
+  // implementation (which may ignore them as not applicable). An
+  // implementation may also define custom save flags (for example, accessible
+  // through the config.save attribute). Such flags should start from
+  // 0x100000000.
+  //
+  // See below for the save function (last argument) semantics.
   //
   LIBBUILD2_SYMEXPORT extern void
-  (*config_save_variable) (scope&, const variable&, optional<uint64_t>);
+  (*config_save_variable) (scope&,
+                           const variable&,
+                           optional<uint64_t>,
+                           pair<names_view, const char*> (*)(const scope&,
+                                                             const value&,
+                                                             const value*,
+                                                             names&));
 
   LIBBUILD2_SYMEXPORT extern void
   (*config_save_environment) (scope&, const char*);
@@ -75,11 +84,27 @@ namespace build2
     const uint64_t save_false_omitted     = 0x08; // Treat false as undefined.
     const uint64_t save_base              = 0x10; // Custom save with base.
 
+    // The optional save function can be used to implement custom variable
+    // saving, for example, as a difference appended to the base value or to
+    // complete relative paths (if abs_dir_path does not fit). The base
+    // argument is the value of this variable from the outer scope (if any)
+    // and is only calculated if the save_base flag is specified. The second
+    // half of the result is the assignment operator to use.
+    //
+    using save_variable_function =
+      pair<names_view, const char*> (const scope& rs,
+                                     const value&,
+                                     const value* base,
+                                     names& storage);
+
     inline void
-    save_variable (scope& rs, const variable& var, uint64_t flags = 0)
+    save_variable (scope& rs,
+                   const variable& var,
+                   uint64_t flags = 0,
+                   save_variable_function* func = nullptr)
     {
       if (config_save_variable != nullptr)
-        config_save_variable (rs, var, flags);
+        config_save_variable (rs, var, flags, func);
     }
 
     // Mark a variable as "unsaved" (always transient).
@@ -91,7 +116,7 @@ namespace build2
     unsave_variable (scope& rs, const variable& var)
     {
       if (config_save_variable != nullptr)
-        config_save_variable (rs, var, nullopt);
+        config_save_variable (rs, var, nullopt, nullptr);
     }
 
     // Mark an environment variable to be saved during hermetic configuration.
@@ -256,35 +281,40 @@ namespace build2
     lookup
     lookup_config (scope& rs,
                    const variable&,
-                   uint64_t save_flags = 0);
+                   uint64_t save_flags = 0,
+                   save_variable_function* = nullptr);
 
     lookup
     lookup_config (bool& new_value,
                    scope& rs,
                    const variable&,
-                   uint64_t save_flags = 0);
+                   uint64_t save_flags = 0,
+                   save_variable_function* = nullptr);
 
     // Note that the variable is expected to have already been entered.
     //
     inline lookup
     lookup_config (scope& rs,
                    const string& var,
-                   uint64_t save_flags = 0)
+                   uint64_t save_flags = 0,
+                   save_variable_function* func = nullptr)
     {
       // Note: go straight for the public variable pool.
       //
-      return lookup_config (rs, rs.ctx.var_pool[var], save_flags);
+      return lookup_config (rs, rs.ctx.var_pool[var], save_flags, func);
     }
 
     inline lookup
     lookup_config (bool& new_value,
                    scope& rs,
                    const string& var,
-                   uint64_t save_flags = 0)
+                   uint64_t save_flags = 0,
+                   save_variable_function* func = nullptr)
     {
       // Note: go straight for the public variable pool.
       //
-      return lookup_config (new_value, rs, rs.ctx.var_pool[var], save_flags);
+      return lookup_config (
+        new_value, rs, rs.ctx.var_pool[var], save_flags, func);
     }
 
     // Lookup a config.* variable value and, if the value is undefined, set it

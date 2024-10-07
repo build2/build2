@@ -14,7 +14,7 @@ namespace build2
     bool module::
     save_variable (const variable& var,
                    optional<uint64_t> flags,
-                   save_variable_function* save)
+                   save_variable_function* func)
     {
       const string& n (var.name);
 
@@ -45,15 +45,18 @@ namespace build2
         return false;
       }
 
-      sv.push_back (saved_variable {var, flags, save});
+      sv.push_back (saved_variable {var, flags, func});
       return true;
     }
 
     void module::
-    save_variable (scope& rs, const variable& var, optional<uint64_t> flags)
+    save_variable (scope& rs,
+                   const variable& var,
+                   optional<uint64_t> flags,
+                   save_variable_function* func)
     {
       if (module* m = rs.find_module<module> (module::name))
-        m->save_variable (var, flags);
+        m->save_variable (var, flags, func);
     }
 
     void module::
