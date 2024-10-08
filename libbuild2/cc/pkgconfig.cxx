@@ -707,6 +707,7 @@ namespace build2
                      cmp ("user32")          ||
                      cmp ("userenv")         ||
                      cmp ("uuid")            ||
+                     cmp ("uxtheme")         ||
                      cmp ("version")         ||
                      cmp ("windowscodecs")   ||
                      cmp ("winhttp")         ||
