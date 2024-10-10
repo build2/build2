@@ -289,7 +289,7 @@ namespace build2
         // executed during match number will be.
         //
         md.incr = stderr_term // Scale depending on output type.
-          ? (ctx.sched->serial () ? 1 : 5)
+          ? (ctx.sched->serial () ? 1 : 2)
           : 100;
         md.what1 = " targets to " + diag_do (ctx, a);
         md.what2 = ' ' + diag_did (ctx, a) + " during match)";
