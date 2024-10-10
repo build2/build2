@@ -103,9 +103,10 @@ namespace build2
         // Dynamic target extraction options.
         //
         // This functionality is enabled with the --dyn-target option. Only
-        // the make format is supported, where the listed targets are added as
-        // ad hoc group members (unless already specified as static members).
-        // This functionality is not available in the byproduct mode.
+        // the `make` and `lines` formats are supported (see above), where the
+        // listed targets are added as ad hoc group members (unless already
+        // specified as static members). This functionality is not available
+        // in the byproduct mode.
         //
         string --target-what;         // Target kind, e.g., "source".
 

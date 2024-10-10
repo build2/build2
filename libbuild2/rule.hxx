@@ -209,8 +209,17 @@ namespace build2
     virtual recipe
     apply (action, target&) const override;
 
-    noop_rule () {}
-    static const noop_rule instance;
+    // If exclude_group is true then exclude the group-based targets (since
+    // their membership can only be accurately determined by the ad hoc
+    // recipe).
+    //
+    explicit
+    noop_rule (bool exclude_group = false): exclude_group_ (exclude_group) {}
+
+    static const noop_rule instance; // Note: does not exclude group.
+
+  private:
+    bool exclude_group_;
   };
 
   // Ad hoc rule.

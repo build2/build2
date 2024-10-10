@@ -430,9 +430,9 @@ namespace build2
   // noop_rule
   //
   bool noop_rule::
-  match (action, target&) const
+  match (action, target& t) const
   {
-    return true;
+    return !exclude_group_ || !t.is_a<group> ();
   }
 
   recipe noop_rule::

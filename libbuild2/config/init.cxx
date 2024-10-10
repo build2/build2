@@ -27,6 +27,7 @@ namespace build2
   namespace config
   {
     static const file_rule file_rule_ (true /* check_type */);
+    static const noop_rule noop_rule_ (true /* exclude_group */);
 
     void
     functions (function_map&); // functions.cxx
@@ -733,7 +734,7 @@ namespace build2
 
       // This allows a custom configure rule while doing nothing by default.
       //
-      rs.insert_rule<target> (configure_id, 0, "config.noop", noop_rule::instance);
+      rs.insert_rule<target> (configure_id, 0, "config.noop", noop_rule_);
 
       // We need this rule for out-of-any-project dependencies (for example,
       // libraries imported from /usr/lib). We are registering it on the
