@@ -235,6 +235,12 @@ namespace build2
     //
     const size_t concurrency;
 
+    // Whether to keep going in case of errors for this operation. If the
+    // value is false, then the context's keep_going flag is overridden for
+    // the duration of the operation.
+    //
+    const bool keep_going;
+
     // The values argument in the callbacks is the operation parameters. If
     // the operation expects parameters, then it should have a non-NULL
     // operation_pre() callback. Failed that, any parameters will be diagnosed

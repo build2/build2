@@ -369,7 +369,10 @@ namespace build2
     // files, there is not going to be much speedup from doing it in parallel.
     // There is also now the installation manifest, which relies on us
     // installing all the filesystem entries of a target serially.
-
+    //
+    // Additionally, we stop on first error since there is no sense in
+    // continuing.
+    //
     const operation_info op_install {
       install_id,
       0,
@@ -379,7 +382,8 @@ namespace build2
       "installed",
       "has nothing to install", // We cannot "be installed".
       execution_mode::first,
-      0 /* concurrency */,      // Run serially.
+      0     /* concurrency */,  // Run serially.
+      false /* keep_going */,   // Stop on first error.
       &pre_install,
       nullptr,
       &install_pre,
@@ -406,7 +410,8 @@ namespace build2
       "uninstalled",
       "is not installed",
       execution_mode::last,
-      0 /* concurrency */,      // Run serially
+      0     /* concurrency */,  // Run serially.
+      false /* keep_going */,   // Stop on first error.
       &pre_uninstall,
       nullptr,
       nullptr,
@@ -427,6 +432,7 @@ namespace build2
       op_update.name_done,
       op_update.mode,
       op_update.concurrency,
+      op_update.keep_going,
       op_update.pre_operation,
       op_update.post_operation,
       op_update.operation_pre,

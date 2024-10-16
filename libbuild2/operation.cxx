@@ -664,6 +664,15 @@ namespace build2
       default:                                assert (false); // Not supported.
       }
 
+      // Override the keep_going flag if requested by the operation.
+      //
+      auto kgg = make_guard ([&ctx, o = ctx.keep_going] ()
+                             {
+                               ctx.keep_going = o;
+                             });
+      if (!ctx.current_inner_oif->keep_going)
+        ctx.keep_going = false;
+
       // Set the dry-run flag.
       //
       ctx.dry_run = ctx.dry_run_option;
@@ -819,7 +828,7 @@ namespace build2
       //
       ctx.dry_run = false;
 
-      // Restore original scheduler settings.
+      // Restore original scheduler and keep_going settings.
     }
 
     // Print skip count if not zero. Note that we print it regardless of the
@@ -1500,7 +1509,8 @@ namespace build2
     "",
     "",
     execution_mode::first,
-    1 /* concurrency */,
+    1    /* concurrency */,
+    true /* keep_going */,
     nullptr,
     nullptr,
     nullptr,
@@ -1528,7 +1538,8 @@ namespace build2
     "updated",
     "is up to date",
     execution_mode::first,
-    1 /* concurrency */,
+    1    /* concurrency */,
+    true /* keep_going */,
     nullptr,
     nullptr,
     nullptr,
@@ -1546,7 +1557,8 @@ namespace build2
     "cleaned",
     "is clean",
     execution_mode::last,
-    1 /* concurrency */,
+    1    /* concurrency */,
+    true /* keep_going */,
     nullptr,
     nullptr,
     nullptr,

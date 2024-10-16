@@ -63,7 +63,8 @@ namespace build2
       "tested",
       "has nothing to test", // We cannot "be tested".
       execution_mode::first,
-      1 /* concurrency */,
+      1    /* concurrency */,
+      true /* keep_going */,
       &pre_test,
       nullptr,
       nullptr,
@@ -84,6 +85,7 @@ namespace build2
       op_update.name_done,
       op_update.mode,
       op_update.concurrency,
+      op_update.keep_going,
       op_update.pre_operation,
       op_update.post_operation,
       op_update.operation_pre,
