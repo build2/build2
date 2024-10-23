@@ -708,14 +708,16 @@ namespace build2
           }
           catch (const json::invalid_json_input& e)
           {
-            location l (path, line, e.column);
-            fail (l) << "invalid compilation database json input: " << e;
             state_ = state::failed;
+
+            location l (path, line, e.column);
+            fail (l) << "invalid compilation database json input: " << e <<
+              info << "remove this file if it was produced by a different tool";
           }
           catch (const io_error& e)
           {
-            fail << "unable to read " << path << ": " << e;
             state_ = state::failed;
+            fail << "unable to read " << path << ": " << e;
           }
         }
 
@@ -1076,9 +1078,8 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write to " << path << ": " << e;
         state_ = state::failed;
-        return;
+        fail << "unable to write to " << path << ": " << e;
       }
 
       // If this operation has failed, then our state may not be accurate
