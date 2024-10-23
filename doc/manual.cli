@@ -8173,8 +8173,10 @@ accommodate these assumptions we can instead place each database into the
 project's source directory and call it \c{compile_commands.json}:
 
 \
+$ cd libhello
 $ bdep init @gcc config.cc.compiledb=libhello@./compile_commands.json
 
+$ cd hello
 $ bdep init @gcc config.cc.compiledb=hello@./compile_commands.json
 \
 
@@ -8199,8 +8201,10 @@ config.cc.compiledb=<dir>@.../<dir>/compile_commands.json
 This shortcut allows us to simplify the above \c{init} commands to read:
 
 \
+$ cd libhello
 $ bdep init @gcc config.cc.compiledb=./
 
+$ cd hello
 $ bdep init @gcc config.cc.compiledb=./
 \
 
