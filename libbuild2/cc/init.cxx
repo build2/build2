@@ -107,6 +107,36 @@ namespace build2
       return r;
     }
 
+    // Detect if just <name> in the <name>[@<path>] form is actually <path>.
+    // We assume it is <path> and not <name> if it contains a directory
+    // component or is the special directory name (`.`/`..`) . If that's the
+    // case, return canonicalized name representing <path>. See the call site
+    // in core_config_init() below for background.
+    //
+    static optional<name>
+    compiledb_name_to_path (const name& n)
+    {
+      if (n.directory ())
+        return n;
+
+      if (n.file ())
+      {
+        if (!n.dir.empty () ||
+            path_traits::find_separator (n.value) != string::npos)
+        {
+          name r (n);
+          r.canonicalize ();
+          return r;
+        }
+        else if (n.value == "." || n.value == "..")
+        {
+          return name (dir_path (n.value));
+        }
+      }
+
+      return nullopt;
+    }
+
     // Custom save function that completes relative paths in the
     // config.cc.compiledb and config.cc.compiledb.name values.
     //
@@ -117,6 +147,26 @@ namespace build2
                          names& storage)
     {
       const names& ns (v.as<names> ()); // Value is untyped.
+
+      // Detect and handle the case where just <name> is actually <path>.
+      //
+      if (ns.size () == 1)
+      {
+        const name& n (ns.back ());
+
+        if (optional<name> otn = compiledb_name_to_path (n))
+        {
+          name& tn (*otn);
+
+          if (tn.dir.relative ())
+            tn.dir.complete ();
+
+          tn.dir.normalize ();
+
+          storage.push_back (move (tn));
+          return make_pair (names_view (storage), "=");
+        }
+      }
 
       if (find_if (ns.begin (), ns.end (),
                    [] (const name& n) {return n.pair;}) == ns.end ())
@@ -188,11 +238,11 @@ namespace build2
       //
       // See the manual for the semantics.
       //
-      // config.cc.compiledb                --  <name>[@<path>]    (untyped)
-      // config.cc.compiledb.name           --  <name>[@<path>]... (untyped)
-      // config.cc.compiledb.filter         --  [<name>@]<bool>...
-      // config.cc.compiledb.filter.input   --  [<name>@]<target-type>...
-      // config.cc.compiledb.filter.output  --  [<name>@]<target-type>...
+      // config.cc.compiledb               --  <name>[@<path>]|<path> (untyped)
+      // config.cc.compiledb.name          --  <name>[@<path>]... (untyped)
+      // config.cc.compiledb.filter        --  [<name>@]<bool>...
+      // config.cc.compiledb.filter.input  --  [<name>@]<target-type>...
+      // config.cc.compiledb.filter.output --  [<name>@]<target-type>...
       //
       vp.insert                        ("config.cc.compiledb");
       vp.insert                        ("config.cc.compiledb.name");
@@ -601,6 +651,12 @@ namespace build2
             if (!i->simple () || i->empty ())
               fail (loc) << "invalid compilation database name '" << *i << "'";
 
+            // Don't allow names that have (or are) directory components.
+            //
+            if (compiledb_name_to_path (*i))
+              fail (loc) << "directory component in compilation database name '"
+                         << *i << "'";
+
             string n (i->value);
 
             path p;
@@ -760,8 +816,50 @@ namespace build2
 
           // Make sure it's one name/path.
           //
-          if (ns.empty () || ns.size () != (ns.front ().pair ? 2 : 1))
+          size_t n (ns.size ());
+          if (n == 0 || n != (ns.front ().pair ? 2 : 1))
             fail (loc) << "invalid compilation database name '" << ns << "'";
+
+          // Detect and translate just <name> which is actually <path> to the
+          // <name>@<path> form:
+          //
+          // - The <name> part is the name of the directory where the database
+          //   file will reside (typically project/repository or package
+          //   name).
+          //
+          // - If <path> is a directory, then the database name is
+          //   compile_commands.json.
+          //
+          names tns;
+          if (n == 1)
+          {
+            const name& n (ns.front ());
+
+            if (optional<name> otn = compiledb_name_to_path (n))
+            {
+              name& tn (*otn);
+
+              // Note: the add_cdbs() call below completes and normalizes the
+              // path but we need to do it earlier in order to be able to
+              // derive the name (the last component can be `.`/`..`).
+              //
+              if (tn.dir.relative ())
+                tn.dir.complete ();
+
+              tn.dir.normalize ();
+
+              if (!exists (tn.dir))
+                fail (loc) << "compilation database directory " << tn.dir
+                           << " does not exist";
+
+              if (tn.value.empty ())
+                tn.value = "compile_commands.json";
+
+              tns.push_back (name (tn.dir.leaf ().string ()));
+              tns.back ().pair = '@';
+              tns.push_back (move (tn));
+            }
+          }
 
           // We inject the database directly into the outer amalgamation's
           // module, as-if config.cc.compiledb.name was specified in its
@@ -773,7 +871,7 @@ namespace build2
           //
           enable_filter = add_cdbs (
             (p.second != nullptr ? *p.second : m).cdb_names_,
-            ns,
+            tns.empty () ? ns : tns,
             p.first->out_path ());
         }
 

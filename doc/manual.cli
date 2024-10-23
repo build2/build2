@@ -8165,12 +8165,12 @@ $ b libhello/
 
 In the above setup it feels natural to call each database after the project
 and place them into the output directory. However, some consumers, such as
-IDEs, may not handle this setup well. Specifically, they may only recognize
-the canonical \c{compile_commands.json} file as the compilation database,
-opening all other files as generic JSON. They may also assume the directory
-where this file resides to be the project source directory root. To accommodate
-these assumptions we can instead place each database into the project's
-source directory and call it \c{compile_commands.json}:
+IDEs and LSP servers, may not handle this setup well. Specifically, they may
+only recognize the canonical \c{compile_commands.json} file as the compilation
+database, opening all other files as generic JSON. They may also assume the
+directory where this file resides to be the project source directory root. To
+accommodate these assumptions we can instead place each database into the
+project's source directory and call it \c{compile_commands.json}:
 
 \
 $ bdep init @gcc config.cc.compiledb=libhello@./compile_commands.json
@@ -8178,13 +8178,39 @@ $ bdep init @gcc config.cc.compiledb=libhello@./compile_commands.json
 $ bdep init @gcc config.cc.compiledb=hello@./compile_commands.json
 \
 
-Note that in this case it will be your responsibility to remove the database
-files if and when necessary. \N{\l{bdep-new(1)} adds \c{compile_commands.json}
-to \c{.gitignore} it generates.}
+To facilitate this use-case, \c{config.cc.compiledb} supports another
+shortcut: if we specify just \ci{name} and it contains a directory component,
+then it is interpreted as \ci{path} rather than \ci{name}. In this case
+\ci{name} is taken to be the name of the last directory component in \ci{path}
+(which would typically be a project or package name). And if \ci{path} is a
+directory, then the database file name is taken to be
+\c{compile_commands.json}. Or, in other words, the following:
+
+\
+config.cc.compiledb=.../<dir>/
+\
+
+Is equivalent to:
+
+\
+config.cc.compiledb=<dir>@.../<dir>/compile_commands.json
+\
+
+This shortcut allows us to simplify the above \c{init} commands to read:
+
+\
+$ bdep init @gcc config.cc.compiledb=./
+
+$ bdep init @gcc config.cc.compiledb=./
+\
+
+Note also that in this case it will be your responsibility to remove the
+database files if and when necessary. \N{\l{bdep-new(1)} adds
+\c{compile_commands.json} to \c{.gitignore} it generates.}
 
 If instead of having a separate database for each project we wanted to place
-all the entries into a single database, then the relevant commands would
-change as follows:
+all the entries into a single database (and in the output directory), then the
+relevant commands would change as follows:
 
 \
 $ bdep init @gcc config.cc.compiledb=compiledb
