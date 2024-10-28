@@ -6128,8 +6128,9 @@ source <functions-target.cli>;
 
 The \c{$regex.*()} function family contains function that provide
 comprehensive regular expression matching and substitution facilities. The
-supported regular expression flavor is ECMAScript (more specifically,
-ECMA-262-based C++11 regular expressions).
+supported regular expression flavor is ECMAScript, more precisely,
+ECMA-262-based C++11 regular expressions. Note that the \c{match_not_null}
+flag is in effect unless the string being matched is empty.
 
 In the \c{$regex.*()} functions the substitution escape sequences in the
 format string (the \ci{fmt} argument) are extended with a subset of the Perl

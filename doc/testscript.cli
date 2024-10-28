@@ -2372,8 +2372,8 @@ continuations.
 \h#syntax-regex|Output Regex|
 
 Instead of literal text the expected result in output here-strings and
-here-documents can be specified as ECMAScript regular expressions (more
-specifically, ECMA-262-based C++11 regular expressions). To signal the use of
+here-documents can be specified as ECMAScript regular expressions, more
+precisely, ECMA-262-based C++11 regular expressions. To signal the use of
 regular expressions the redirect must end with the \c{~} modifier, for
 example:
 
@@ -3082,7 +3082,9 @@ illegal.
 
 Note that this builtin implementation deviates substantially from POSIX
 \c{sed} (as described next). Most significantly, the regular expression flavor
-is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
+is ECMAScript, more precisely, ECMA-262-based C++11 regular expressions. Note
+that the \c{match_not_null} flag is in effect unless the line being matched
+is empty.
 
 \dl|
 

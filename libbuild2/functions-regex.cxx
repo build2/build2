@@ -138,12 +138,24 @@ namespace build2
     //
     string s (to_string (move (v)));
 
+    // Match flags.
+    //
+    // Note that by default std::regex_search() matches the empty substrings
+    // in non-empty strings for all the major implementations. We suppress
+    // such a counter-intuitive behavior with the match_not_null flag (see the
+    // butl::regex_replace_search() function implementation for details).
+    //
+    regex_constants::match_flag_type mf (regex_constants::match_default);
+
+    if (!s.empty ())
+      mf |= regex_constants::match_not_null;
+
     if (!match && !subs)
-      return value (regex_search (s, rge)); // Return boolean value.
+      return value (regex_search (s, rge, mf)); // Return boolean value.
 
     match_results<string::const_iterator> m;
 
-    if (regex_search (s, m, rge))
+    if (regex_search (s, m, rge, mf))
     {
       assert (!m.empty ());
 
@@ -483,7 +495,19 @@ namespace build2
 
     for (auto& n: ns)
     {
-      if (regex_search (convert<string> (move (n)), rge))
+      string s (convert<string> (move (n)));
+
+      // Match flags.
+      //
+      // Suppress matching of empty substrings in non-empty strings (see above
+      // for details).
+      //
+      regex_constants::match_flag_type mf (regex_constants::match_default);
+
+      if (!s.empty ())
+        mf |= regex_constants::match_not_null;
+
+      if (regex_search (s, rge, mf))
         return true;
     }
 
@@ -516,7 +540,17 @@ namespace build2
       bool s (n.simple ());
       string v (convert<string> (s ? move (n) : name (n)));
 
-      if (regex_search (v, rge) == matching)
+      // Match flags.
+      //
+      // Suppress matching of empty substrings in non-empty strings (see above
+      // for details).
+      //
+      regex_constants::match_flag_type mf (regex_constants::match_default);
+
+      if (!v.empty ())
+        mf |= regex_constants::match_not_null;
+
+      if (regex_search (v, rge, mf) == matching)
         r.emplace_back (s ? name (move (v)) : move (n));
     }
 

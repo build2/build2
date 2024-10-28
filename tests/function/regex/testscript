@@ -366,6 +366,33 @@
       EOI
     }
   }
+
+  : empty-substring
+  :
+  : Note that regex_search() ignores the match_not_null flag for older
+  : versions of libstdc++ and libc++.
+  :
+  if (($cxx.id != 'gcc'   || $cxx.version.major >= 7) && \
+      ($cxx.id != 'clang' || $cxx.version.major >= 6))
+  {
+    : empty
+    :
+    $* <<EOI >'true'
+    print $regex.search('', '.*')
+    EOI
+
+    : match
+    :
+    $* <<EOI >'true'
+    print $regex.search('a', 'a*')
+    EOI
+
+    : no-match
+    :
+    $* <<EOI >'false'
+    print $regex.search('aa', 'b*')
+    EOI
+  }
 }
 
 : split
@@ -576,6 +603,33 @@
     print $regex.find_search(Foo.cxx, 'f', icase)
     EOI
   }
+
+  : empty-substring
+  :
+  : Note that regex_search() ignores the match_not_null flag for older
+  : versions of libstdc++ and libc++.
+  :
+  if (($cxx.id != 'gcc'   || $cxx.version.major >= 7) && \
+      ($cxx.id != 'clang' || $cxx.version.major >= 6))
+  {
+    : empty
+    :
+    $* <<EOI >'true'
+    print $regex.find_search('', '.*')
+    EOI
+
+    : match
+    :
+    $* <<EOI >'true'
+    print $regex.find_search('a', 'a*')
+    EOI
+
+    : no-match
+    :
+    $* <<EOI >'false'
+    print $regex.find_search('aa', 'b*')
+    EOI
+  }
 }
 
 : filter-search
@@ -607,6 +661,33 @@
     $* <<EOI >''
     print $regex.filter_search(-g, '-O')
     EOI
+
+    : empty-substring
+    :
+    : Note that regex_search() ignores the match_not_null flag for older
+    : versions of libstdc++ and libc++.
+    :
+    if (($cxx.id != 'gcc'   || $cxx.version.major >= 7) && \
+        ($cxx.id != 'clang' || $cxx.version.major >= 6))
+    {
+      : empty
+      :
+      $* <<EOI >'{}'
+      print $regex.filter_search('', '.*')
+      EOI
+
+      : match
+      :
+      $* <<EOI >'a'
+      print $regex.filter_search('a', 'a*')
+      EOI
+
+      : no-match
+      :
+      $* <<EOI >''
+      print $regex.filter_search('aa', 'b*')
+      EOI
+    }
   }
 
   : filter-out
