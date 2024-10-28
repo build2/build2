@@ -953,10 +953,14 @@ namespace build2
       mutable bool           recipe_keep;         // Keep after execution.
       bool                   recipe_group_action; // Recipe is group_action.
 
-      // Target state for this operation. Note that it is undetermined until
-      // a rule is matched and recipe applied (see set_recipe()).
+      // Target state for this operation.
       //
-      target_state state;
+      // Note that it is undetermined until a rule is matched and recipe
+      // applied (see set_recipe()). However, we need it to be not postponed
+      // for ad hoc members that are not matched (see group_state()) so
+      // initialize it to unknown.
+      //
+      target_state state = target_state::unknown;
 
       // Set to true (only for the inner action) if this target has been
       // matched but not executed as a result of the resolve_members() call.

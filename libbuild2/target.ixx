@@ -286,6 +286,7 @@ namespace build2
     // @@ Hm, I wonder why not just return s.recipe_group_action now that we
     //    cache it.
     //
+    const opstate& s (state[a]);
 
     // This special hack allows us to do things like query an ad hoc member's
     // state or mtime without matching/executing the member, only the group.
@@ -293,13 +294,16 @@ namespace build2
     // this feels harmless (ad hoc membership cannot be changed during the
     // execute phase).
     //
-    // Note: this test must come first since the member may not be matched and
-    // thus its state uninitialized.
+    // Note: if the member state is postponed, then the group state may not be
+    // yet known (see group_action() for details).
     //
-    if (ctx.phase == run_phase::execute && adhoc_group_member ())
+    // Note: this test must come first since the member may not be matched and
+    // thus its state set (but it won't be postponed; see opstate::state).
+    //
+    if (ctx.phase == run_phase::execute &&
+        adhoc_group_member ()           &&
+        s.state != target_state::postponed)
       return true;
-
-    const opstate& s (state[a]);
 
     if (s.state == target_state::group)
       return true;
@@ -342,7 +346,14 @@ namespace build2
   inline target_state target::
   executed_state_impl (action a) const
   {
-    return (group_state (a) ? group->state : state)[a].state;
+    target_state ts ((group_state (a) ? group->state : state)[a].state);
+
+    // Translate postponed to unchanged, similar to execute_recipe().
+    //
+    if (ts == target_state::postponed)
+      ts = target_state::unchanged;
+
+    return ts;
   }
 
   inline target_state target::

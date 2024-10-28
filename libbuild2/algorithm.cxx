@@ -2077,7 +2077,11 @@ namespace build2
       case target_state::unchanged:
         break;
       case target_state::postponed:
-        ts = t[a].state = target_state::unchanged;
+        // Keep the target state postponed (see group_action() for details)
+        // but translate the result from postponed to unchanged, similar to
+        // executed_state_impl().
+        //
+        ts = target_state::unchanged;
         break;
       case target_state::group:
         ts = (*t.group)[a].state;
