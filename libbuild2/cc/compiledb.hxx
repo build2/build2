@@ -54,8 +54,18 @@ namespace build2
       // `/F?<path>`. Oh, well. Note also that either relo or relm (but not
       // both) could be empty if unused.
       //
-      // Note also that we assume the source file is always absolute and is
-      // the last argument.
+      // Note that we assume the source file is always absolute and is the
+      // last argument.
+      //
+      // Why do we want absolute paths? That's a good question. Our initial
+      // plan was to compare command lines in order to detect when we need to
+      // update the database. And if those changed with every change of CWD,
+      // that would be of little use. But then we realized we could do better
+      // by using depdb to detect changes. So now we actually don't have a
+      // need to get rid of the relative paths in the command line. But seeing
+      // that we already have it, let's keep it for now in case it makes a
+      // different to some broken/legacy consumers. Note also that C++ module
+      // name-to-BMI mapping is not untranslated (see append_module_options()).
       //
       static void
       execute (const scope& bs,
