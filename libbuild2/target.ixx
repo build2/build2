@@ -294,16 +294,16 @@ namespace build2
     // this feels harmless (ad hoc membership cannot be changed during the
     // execute phase).
     //
-    // Note: if the member state is postponed, then the group state may not be
-    // yet known (see group_action() for details).
-    //
     // Note: this test must come first since the member may not be matched and
     // thus its state set (but it won't be postponed; see opstate::state).
     //
-    if (ctx.phase == run_phase::execute &&
-        adhoc_group_member ()           &&
-        s.state != target_state::postponed)
-      return true;
+    if (ctx.phase == run_phase::execute && adhoc_group_member ())
+    {
+      // Note: if the member state is postponed, then the group state may not
+      // be yet known (see group_action() for details).
+      //
+      return s.state != target_state::postponed;
+    }
 
     if (s.state == target_state::group)
       return true;
