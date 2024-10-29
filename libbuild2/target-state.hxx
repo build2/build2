@@ -25,7 +25,8 @@ namespace build2
   //
   enum class target_state: uint8_t
   {
-    unknown = 1,
+    uninitialized = 0,
+    unknown,
     unchanged,
     postponed,
     busy,

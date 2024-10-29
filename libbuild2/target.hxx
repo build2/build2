@@ -957,10 +957,9 @@ namespace build2
       //
       // Note that it is undetermined until a rule is matched and recipe
       // applied (see set_recipe()). However, we need it to be not postponed
-      // for ad hoc members that are not matched (see group_state()) so
-      // initialize it to unknown.
+      // for ad hoc members that are not matched (see group_state()).
       //
-      target_state state = target_state::unknown;
+      target_state state = target_state::uninitialized;
 
       // Set to true (only for the inner action) if this target has been
       // matched but not executed as a result of the resolve_members() call.
