@@ -491,12 +491,14 @@ namespace build2
   //
   inline group_prerequisites::
   group_prerequisites (const target& t)
-      : t_ (t),
-        g_ (t_.group == nullptr                 ||
-            t_.group->adhoc_member != nullptr   || // Ad hoc group member.
-            t_.group->prerequisites ().empty ()
-            ? nullptr : t_.group)
+      : t_ (t), g_ (nullptr)
   {
+    if (const target* g = t_.group)
+    {
+      if (g->adhoc_member == nullptr  && // Not ad hoc group member.
+          !g->prerequisites ().empty ())
+        g_ = g;
+    }
   }
 
   inline group_prerequisites::
