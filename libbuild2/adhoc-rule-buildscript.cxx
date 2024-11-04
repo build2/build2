@@ -223,6 +223,19 @@ namespace build2
   using dynamic_target = build::script::parser::dynamic_target;
   using dynamic_targets = build::script::parser::dynamic_targets;
 
+  // Return true if the path exist and is a symlink.
+  //
+  static inline bool
+  path_symlink (const path& p)
+  {
+    pair<bool, butl::entry_stat> r (
+      butl::path_entry (p,
+                        false /* follow_symlinks */,
+                        true /* ignore_errors */));
+
+    return r.first && r.second.type == butl::entry_type::symlink;
+  };
+
   struct adhoc_buildscript_rule::match_data
   {
     match_data (action a, const target& t, const scope& bs, bool temp_dir)
@@ -236,6 +249,7 @@ namespace build2
 
     const scope* bs;
     timestamp mt;
+    bool symlink;
     bool deferred_failure;
   };
 
@@ -257,6 +271,7 @@ namespace build2
 
     const scope* bs;
     timestamp mt;
+    bool symlink;
   };
 
   bool adhoc_buildscript_rule::
@@ -1015,8 +1030,12 @@ namespace build2
     bool update (false);
     timestamp mt;
 
+    // Support creating file symlinks using ad hoc recipes.
+    //
+    bool symlink (false);
+
     if (dd.writing ())
-      update = true;
+      update = true; // Will re-query symlink.
     else
     {
       if (g == nullptr)
@@ -1025,6 +1044,8 @@ namespace build2
 
         if ((mt = ft.mtime ()) == timestamp_unknown)
           ft.mtime (mt = mtime (tp)); // Cache.
+
+        symlink = mt != timestamp_nonexistent && path_symlink (tp);
       }
       else
       {
@@ -1038,13 +1059,21 @@ namespace build2
              : nullptr));
 
         if (p != nullptr)
+        {
           mt = g->load_mtime (*p);
+          symlink = mt != timestamp_nonexistent && path_symlink (*p);
+        }
         else
-          update = true;
+          update = true; // Will re-query symlink.
       }
 
       if (!update)
-        update = dd.mtime > mt;
+      {
+        // If this is a symlink, depdb mtime could be greater than the symlink
+        // target.
+        //
+        update = dd.mtime > mt && !symlink;
+      }
     }
 
     if (update)
@@ -1189,6 +1218,7 @@ namespace build2
       //
       mdb->bs = &bs;
       mdb->mt = update ? timestamp_nonexistent : mt;
+      mdb->symlink = symlink;
 
       return [this, md = move (mdb)] (action a, const target& t)
       {
@@ -1265,6 +1295,7 @@ namespace build2
       md->bs = &bs;
       md->dd = move (dd.path);
       md->mt = update ? timestamp_nonexistent : mt;
+      md->symlink = symlink;
 
       return [this, md = move (md)] (action a, const target& t)
       {
@@ -1592,18 +1623,32 @@ namespace build2
 
     timestamp now (system_clock::now ());
 
+    const path* tp (nullptr);
     if (!ctx.dry_run)
     {
       // Only now we know for sure there must be a member in the group.
       //
       const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
+      tp = &ft.path ();
 
-      depdb::check_mtime (start, md.dd.path, ft.path (), now);
+      md.symlink = path_symlink (*tp); // Re-query.
+
+      // Again, if this is a symlink, depdb mtime will be greater than
+      // the symlink target.
+      //
+      if (!md.symlink)
+        depdb::check_mtime (start, md.dd.path, *tp, now);
     }
 
+    // Symlinks don't play well with dry-run (see full description in
+    // perform_update_file_or_group()).
+    //
     (g == nullptr
      ? static_cast<const mtime_target&> (t.as<file> ())
-     : static_cast<const mtime_target&> (*g)).mtime (now);
+     : static_cast<const mtime_target&> (*g)).mtime (
+       md.symlink && tp != nullptr
+       ? build2::mtime (*tp)
+       : now);
 
     return target_state::changed;
   }
@@ -1662,17 +1707,32 @@ namespace build2
 
     timestamp now (system_clock::now ());
 
+    const path* tp (nullptr);
     if (!ctx.dry_run)
     {
       // Note: in case of deferred failure we may not have any members.
       //
       const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
-      depdb::check_mtime (start, md.dd, ft.path (), now);
+      tp = &ft.path ();
+
+      md.symlink = path_symlink (*tp); // Re-query.
+
+      // Again, if this is a symlink, depdb mtime will be greater than the
+      // symlink target.
+      //
+      if (!md.symlink)
+        depdb::check_mtime (start, md.dd, *tp, now);
     }
 
+    // Symlinks don't play well with dry-run (see full description in
+    // perform_update_file_or_group()).
+    //
     (g == nullptr
      ? static_cast<const mtime_target&> (t)
-     : static_cast<const mtime_target&> (*g)).mtime (now);
+     : static_cast<const mtime_target&> (*g)).mtime (
+       md.symlink && tp != nullptr
+       ? build2::mtime (*tp)
+       : now);
 
     return target_state::changed;
   }
@@ -1695,35 +1755,14 @@ namespace build2
     const file& ft ((g == nullptr ? t : *g->members.front ()).as<file> ());
     const path& tp (ft.path ());
 
-    // Support creating file symlinks using ad hoc recipes.
-    //
-    auto path_symlink = [&tp] ()
-    {
-      pair<bool, butl::entry_stat> r (
-        butl::path_entry (tp,
-                          false /* follow_symlinks */,
-                          true /* ignore_errors */));
-
-      return r.first && r.second.type == butl::entry_type::symlink;
-    };
-
     // Update prerequisites and determine if any of them render this target
     // out-of-date.
     //
-    // If the file entry exists, check if its a symlink.
+    timestamp mt (g == nullptr ? ft.load_mtime () : g->load_mtime (tp));
+
+    // Support creating file symlinks using ad hoc recipes.
     //
-    bool symlink (false);
-    timestamp mt;
-
-    if (g == nullptr)
-    {
-      mt = ft.load_mtime ();
-
-      if (mt != timestamp_nonexistent)
-        symlink = path_symlink ();
-    }
-    else
-      mt = g->load_mtime (tp);
+    bool symlink (mt != timestamp_nonexistent && path_symlink (tp));
 
     // This is essentially ps=execute_prerequisites(a, t, mt) which we
     // cannot use because we need to see ad hoc prerequisites.
@@ -1923,8 +1962,7 @@ namespace build2
       {
         if (!ctx.dry_run)
         {
-          if (g == nullptr)
-            symlink = path_symlink ();
+          symlink = path_symlink (tp); // Re-query.
 
           // Again, if this is a symlink, depdb mtime will be greater than
           // the symlink target.
