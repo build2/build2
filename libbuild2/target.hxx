@@ -733,8 +733,6 @@ namespace build2
     atomic<uint8_t> prerequisites_state_ {0};
     prerequisites_type prerequisites_;
 
-    static const prerequisites_type empty_prerequisites_;
-
     // Target-specific variables.
     //
     // See also rule-specific variables below.
@@ -1488,9 +1486,9 @@ namespace build2
   {
   public:
     explicit
-    group_prerequisites (const target& t);
+    group_prerequisites (const target&);
 
-    group_prerequisites (const target& t, const target* g);
+    group_prerequisites (const target&, const target* group);
 
     using prerequisites_type = target::prerequisites_type;
     using base_iterator      = prerequisites_type::const_iterator;
@@ -1504,8 +1502,8 @@ namespace build2
       using iterator_category = std::bidirectional_iterator_tag;
 
       iterator () {}
-      iterator (const target* t,
-                const target* g,
+      iterator (const prerequisites_type* t,
+                const prerequisites_type* g,
                 const prerequisites_type* c,
                 base_iterator i): t_ (t), g_ (g), c_ (c), i_ (i) {}
 
@@ -1534,8 +1532,8 @@ namespace build2
       operator!= (const iterator& x, const iterator& y) {return !(x == y);}
 
     private:
-      const target*             t_ = nullptr;
-      const target*             g_ = nullptr;
+      const prerequisites_type* t_ = nullptr;
+      const prerequisites_type* g_ = nullptr;
       const prerequisites_type* c_ = nullptr;
       base_iterator             i_;
     };
@@ -1558,8 +1556,8 @@ namespace build2
     size () const;
 
   private:
-    const target& t_;
-    const target* g_;
+    const prerequisites_type* t_; // NULL if empty.
+    const prerequisites_type* g_; // NULL if no group or empty.
   };
 
   // A member of a prerequisite. If 'member' is NULL, then this is the

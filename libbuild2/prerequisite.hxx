@@ -190,6 +190,8 @@ namespace build2
   }
 
   using prerequisites = vector<prerequisite>;
+
+  LIBBUILD2_SYMEXPORT extern const prerequisites empty_prerequisites;
 }
 
 #endif // LIBBUILD2_PREREQUISITE_HXX

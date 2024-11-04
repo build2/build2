@@ -76,8 +76,6 @@ namespace build2
 
   // target
   //
-  const target::prerequisites_type target::empty_prerequisites_;
-
   target::
   ~target ()
   {

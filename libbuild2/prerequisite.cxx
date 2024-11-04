@@ -91,4 +91,8 @@ namespace build2
 
     return r;
   }
+
+  // prerequisites
+  //
+  const prerequisites empty_prerequisites;
 }

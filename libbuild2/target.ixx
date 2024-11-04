@@ -207,7 +207,7 @@ namespace build2
   {
     return prerequisites_state_.load (memory_order_acquire) == 2
       ? prerequisites_
-      : empty_prerequisites_;
+      : empty_prerequisites;
   }
 
   inline bool target::
@@ -491,44 +491,64 @@ namespace build2
   //
   inline group_prerequisites::
   group_prerequisites (const target& t)
-      : t_ (t), g_ (nullptr)
+      : t_ (nullptr), g_ (nullptr)
   {
-    if (const target* g = t_.group)
+    // Take "snapshot" of prerequisites, both for target and group.
+    //
+    const auto& ps (t.prerequisites ());
+    if (!ps.empty ())
+      t_ = &ps;
+
+    if (const target* g = t.group)
     {
-      if (g->adhoc_member == nullptr  && // Not ad hoc group member.
-          !g->prerequisites ().empty ())
-        g_ = g;
+      if (g->adhoc_member == nullptr) // Not ad hoc group member.
+      {
+        const auto& ps (g->prerequisites ());
+        if (!ps.empty ())
+          g_ = &ps;
+      }
     }
   }
 
   inline group_prerequisites::
   group_prerequisites (const target& t, const target* g)
-      : t_ (t),
-        g_ (g == nullptr                 ||
-            g->prerequisites ().empty ()
-            ? nullptr : g)
+      : t_ (nullptr), g_ (nullptr)
   {
+    const auto& ps (t.prerequisites ());
+    if (!ps.empty ())
+      t_ = &ps;
+
+    if (g != nullptr)
+    {
+      const auto& ps (g->prerequisites ());
+      if (!ps.empty ())
+        g_ = &ps;
+    }
   }
 
   inline auto group_prerequisites::
   begin () const -> iterator
   {
-    auto& c ((g_ != nullptr ? *g_ : t_).prerequisites ());
-    return iterator (&t_, g_, &c, c.begin ());
+    auto* c (g_ != nullptr ? g_ :
+             t_ != nullptr ? t_ :
+             &empty_prerequisites);
+    return iterator (t_, g_, c, c->begin ());
   }
 
   inline auto group_prerequisites::
   end () const -> iterator
   {
-    auto& c (t_.prerequisites ());
-    return iterator (&t_, g_, &c, c.end ());
+    auto* c (t_ != nullptr ? t_ :
+             g_ != nullptr ? g_ :
+             &empty_prerequisites);
+    return iterator (t_, g_, c, c->end ());
   }
 
   inline size_t group_prerequisites::
   size () const
   {
-    return t_.prerequisites ().size () +
-      (g_ != nullptr ? g_->prerequisites ().size () : 0);
+    return ((t_ != nullptr ? t_->size () : 0) +
+            (g_ != nullptr ? g_->size () : 0));
   }
 
   // group_prerequisites::iterator
@@ -536,9 +556,9 @@ namespace build2
   inline auto group_prerequisites::iterator::
   operator++ () -> iterator&
   {
-    if (++i_ == c_->end () && c_ != &t_->prerequisites ())
+    if (++i_ == c_->end () && c_ == g_ && t_ != nullptr)
     {
-      c_ = &t_->prerequisites ();
+      c_ = t_;
       i_ = c_->begin ();
     }
     return *this;
@@ -548,9 +568,9 @@ namespace build2
   inline auto group_prerequisites::iterator::
   operator-- () -> iterator&
   {
-    if (i_ == c_->begin () && c_ == &t_->prerequisites ())
+    if (i_ == c_->begin () && c_ == t_)
     {
-      c_ = &g_->prerequisites ();
+      c_ = g_;
       i_ = c_->end ();
     }
 
