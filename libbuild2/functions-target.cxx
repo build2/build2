@@ -23,10 +23,10 @@ namespace build2
     //
     // Return the path of a target (or a list of paths for a list of
     // targets). The path must be assigned, which normally happens during
-    // match. As a result, this function is normally called form a recipe.
+    // match. As a result, this function is normally called from a recipe.
     //
     // Note that while this function is technically not pure, we don't mark it
-    // as such since it can only be called (normally form a recipe) after the
+    // as such since it can only be called (normally from a recipe) after the
     // target has been matched, meaning that this target is a prerequisite and
     // therefore this impurity has been accounted for.
     //
@@ -52,6 +52,10 @@ namespace build2
             r.push_back (p);
           else
             fail << "target " << t << " path is not assigned";
+        }
+        else if (t.is_a<dir> () || t.is_a<fsdir> ())
+        {
+          r.push_back (t.out_dir ());
         }
         else
           fail << "target " << t << " is not path-based";
