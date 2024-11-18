@@ -218,5 +218,18 @@ namespace build2
       const target* m[] = {t.a, t.s};
       return execute_members (a, t, m);
     }
+
+    // install_lib_rule
+    //
+    pair<const target*, uint64_t> install_lib_rule::
+    filter (const scope* is,
+            action a, const target& t, const prerequisite& p,
+            match_extra& me) const
+    {
+      if (p.is_a<lib> ())
+        return pair<const target*, uint64_t> (nullptr, 0);
+
+      return install::group_rule::filter (is, a, t, p, me);
+    }
   }
 }

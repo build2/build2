@@ -10,6 +10,7 @@
 #include <libbuild2/rule.hxx>
 
 #include <libbuild2/dist/rule.hxx>
+#include <libbuild2/install/rule.hxx>
 
 #include <libbuild2/bin/export.hxx>
 
@@ -77,6 +78,26 @@ namespace build2
 
       static target_state
       perform (action, const target&);
+    };
+
+    // Install rule for lib{} group.
+    //
+    // The only difference compared to the standard install::group_rule is
+    // that it ignores the lib{} prerequisites, instead expecting the correct
+    // things to be installed via the liba{}/libs{} members. This is important
+    // due to the presence of match options (see lib{} target for details).
+    //
+    class LIBBUILD2_BIN_SYMEXPORT install_lib_rule: public install::group_rule
+    {
+    public:
+      install_lib_rule () {}
+
+      virtual pair<const target*, uint64_t>
+      filter (const scope*,
+              action, const target&, const prerequisite&,
+              match_extra&) const override;
+
+      using install::group_rule::filter; // "Unhide" to make Clang happy.
     };
   }
 }

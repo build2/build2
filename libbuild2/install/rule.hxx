@@ -119,7 +119,7 @@ namespace build2
       virtual recipe
       apply (action, target&, match_extra&) const override;
 
-      group_rule (bool sto): see_through_only (sto) {}
+      group_rule (bool sto = false): see_through_only (sto) {}
       static const group_rule instance;
 
       bool see_through_only;

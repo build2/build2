@@ -109,7 +109,21 @@ namespace build2
             // This is a library prerequisite of a library target and
             // runtime-only begets runtime-only.
             //
-            if (me.cur_options == lib::option_install_runtime)
+            // @@ But it goes further: while an interface prerequisite should
+            // match the target's options, it feels an implementation can be
+            // runtime-only, at least for shared library targets (for static
+            // the consumer would still need to link the prerequisite
+            // explicitly, which means it is more like buildtime). We could
+            // probably distinguish between interface/implementation by
+            // examining the *.export.libs variable and looking for the
+            // prerequisite (or its group). Feels hairy, though. So for now we
+            // only do this for target-shared/prerequisite-static case where
+            // we can assume the prerequisite is always implementation. See GH
+            // issue #448. See also apply_posthoc() as well as
+            // libux_install_rule below.
+            //
+            if (me.cur_options == lib::option_install_runtime ||
+                (t.is_a<libs> () && pt->is_a<liba> ()))
               options = lib::option_install_runtime;
           }
         }
@@ -315,6 +329,9 @@ namespace build2
               p.match_options = lib::option_install_runtime;
             else
             {
+              // @@ Hm, maybe runtime should be unconditional here since a
+              //    plugin is always an implementation dependency?
+              //
               if (me.cur_options == lib::option_install_runtime)
                 p.match_options = lib::option_install_runtime;
             }
@@ -493,7 +510,8 @@ namespace build2
             options = lib::option_install_runtime;
           else
           {
-            if (me.cur_options == lib::option_install_runtime)
+            if (me.cur_options == lib::option_install_runtime ||
+                (t.is_a<libus> () && pt->is_a<liba> ()))
               options = lib::option_install_runtime;
           }
         }

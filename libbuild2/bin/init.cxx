@@ -12,7 +12,6 @@
 
 #include <libbuild2/test/module.hxx>
 
-#include <libbuild2/install/rule.hxx>
 #include <libbuild2/install/utility.hxx>
 
 #include <libbuild2/bin/rule.hxx>
@@ -31,6 +30,7 @@ namespace build2
     static const obj_rule obj_;
     static const libul_rule libul_;
     static const lib_rule lib_;
+    static const install_lib_rule install_lib_;
     static const def_rule def_;
 
     // Default config.bin.*.lib values.
@@ -631,10 +631,8 @@ namespace build2
         //
         if (install_loaded)
         {
-          auto& gr (install::group_rule::instance);
-
-          r.insert<lib> (perform_install_id,   "bin.lib", gr);
-          r.insert<lib> (perform_uninstall_id, "bin.lib", gr);
+          r.insert<lib> (perform_install_id,   "bin.lib", install_lib_);
+          r.insert<lib> (perform_uninstall_id, "bin.lib", install_lib_);
         }
 
         if (const test::module* m = rs.find_module<test::module> ("test"))
