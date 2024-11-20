@@ -506,17 +506,23 @@ namespace build2
     // that it is unconfigured (e.g., in order to avoid re-running the tests,
     // etc; see below). Additional variables (e.g., unsaved) can be ignored
     // with the third argument. If specified, it should contain the part(s)
-    // after config.<name>.
+    // after the namespace (config.<name>).
+    //
+    // Note that <name> may include several components (separated with `.`).
+    // And you can request the exact match rather than the prefix.
+    //
+    // Note: unlike the above functions, can be called from any phase.
     //
     LIBBUILD2_SYMEXPORT bool
-    specified_config (scope& rs,
-                      const string& var,
-                      initializer_list<const char*> ignore);
+    specified_config (const scope& rs,
+                      const string& ns,
+                      initializer_list<const char*> ignore,
+                      bool exact = false);
 
     inline bool
-    specified_config (scope& rs, const string& var)
+    specified_config (const scope& rs, const string& ns, bool exact = false)
     {
-      return specified_config (rs, var, {});
+      return specified_config (rs, ns, {}, exact);
     }
 
     // Check if there is a false config.*.configured value. This mechanism can

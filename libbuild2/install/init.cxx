@@ -427,7 +427,7 @@ namespace build2
 
         // Note: ignore config.install.{scope,manifest} (see below).
         //
-        bool s (specified_config (rs, "install", {"scope", "manifest"}));
+        bool s (specified_config (rs, "config.install", {"scope", "manifest"}));
 
         // Adjust module priority so that the (numerous) config.install.*
         // values are saved at the end of config.build.

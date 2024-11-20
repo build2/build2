@@ -132,7 +132,7 @@ namespace build2
 
       // Note: ignore config.dist.bootstrap.
       //
-      bool s (specified_config (rs, "dist", {"bootstrap"}));
+      bool s (specified_config (rs, "config.dist", {"bootstrap"}));
 
       // config.dist.root
       //
