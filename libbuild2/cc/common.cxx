@@ -10,6 +10,8 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/config/utility.hxx> // config::lookup_config()
+
 #include <libbuild2/cc/utility.hxx>
 
 using namespace std;
@@ -952,6 +954,16 @@ namespace build2
 
       assert (p.scope != nullptr && (!exist || act));
 
+      // Import phase 1 may pass us a user-specified path with a relative
+      // directory (same semantics as in lookup_import() below).
+      //
+      {
+        const dir_path& d (*p.tk.dir);
+
+        if (!d.empty ())
+          fail << "relative path in imported " << p;
+      }
+
       context& ctx (p.scope->ctx);
       const scope& rs (*p.scope->root_scope ());
 
@@ -974,9 +986,96 @@ namespace build2
       bool l (p.is_a<lib> ());
       const optional<string>& ext (l ? nullopt : p.tk.ext); // Only liba/libs.
 
+      const string& name (*p.tk.name);
+
+      // If this prerequisite is project-qualified do an ad hoc check for
+      // config.import.<proj>.<name>.{liba,libs} which can be used to specify
+      // different path (see import_search() for background). Note that for
+      // importing liba{}/libs{} directly this is handled by the standard
+      // import machinery.
+      //
+      // Note that we also support simple names, which are then searched in
+      // the standard directories. The standard import machinery also does the
+      // right thing by delegating the resolution of relative paths to phase
+      // 2.
+      //
+      // Note that we can only do this if in the load phase since we need to
+      // enter variables and mark them as saved (via lookup_config() call),
+      // which means this will only work for immediate import with the rule
+      // hint. And doing this, strictly speaking, is racy (there could be both
+      // delayed and immediate imports and the delayed could get handled
+      // first, for example if the immediate import is handled in the
+      // interrupting load phase).
+      //
+      // @@ Perhaps in the future we can try to carefully switch the phase?
+      // Note, however, that in the existing mode I believe we may end up
+      // being calling from the execute phase but in this mode we can probably
+      // assume import has already been done and can just lookup the variable
+      // and value in the read-only mode. See GH issue #449.
+      //
+      auto lookup_import = [&rs,
+                            &act,
+                            &name,
+                            projv =
+                            (p.proj
+                             ? p.proj->variable ()
+                             : string ())] (const char* tt) -> optional<path>
+      {
+        if (!projv.empty ())
+        {
+          string varn ("config.import." + projv + '.' + name + '.' + tt);
+
+          if (config::specified_config (rs, varn, true /* exact */))
+          {
+            if (act)
+              fail << varn << " can only be specified for immediate import";
+
+            scope& s (rs.rw ()); // Safe because in the load phase.
+
+            // Note: qualified so go straight for the public variable pool.
+            //
+            auto& vp (s.var_pool (true /* public */));
+
+            const variable& var (vp.insert (move (varn)));
+
+            bool nv (false);
+            auto l (config::lookup_config (nv, s, var));
+
+            if (l.defined ())
+            {
+              const path* p (cast_null<path> (l));
+
+              if (const char* w = (
+                    p == nullptr                    ? "null" :
+                    p->empty ()                     ? "empty path" :
+                    p->relative () && !p->simple () ? "relative path" :
+                    nullptr))
+                fail << w << " in " << var;
+
+              path r (*p);
+
+              if (r.absolute ())
+              {
+                try
+                {
+                  r.normalize ();
+                }
+                catch (const invalid_path&)
+                {
+                  fail << "invalid path in " << var;
+                }
+              }
+
+              return r;
+            }
+          }
+        }
+
+        return nullopt;
+      };
+
       // First figure out what we need to search for.
       //
-      const string& name (*p.tk.name);
 
       // liba
       //
@@ -985,37 +1084,45 @@ namespace build2
 
       if (l || p.is_a<liba> ())
       {
-        // We are trying to find a library in the search paths extracted from
-        // the compiler. It would only be natural if we used the library
-        // prefix/extension that correspond to this compiler and/or its
-        // target.
-        //
-        // Unlike MinGW, VC's .lib/.dll.lib naming is by no means standard and
-        // we might need to search for other names. In fact, there is no
-        // reliable way to guess from the file name what kind of library it
-        // is, static or import and we will have to do deep inspection of such
-        // alternative names. However, if we did find .dll.lib, then we can
-        // assume that .lib is the static library without any deep inspection
-        // overhead.
-        //
-        const char* e ("");
-
-        if (tsys == "win32-msvc")
+        if (optional<path> p = lookup_import ("liba"))
         {
-          an = path (name);
-          e = "lib";
+          an = move (*p);
+          ae = an.extension ();
         }
         else
         {
-          an = path ("lib" + name);
-          e = "a";
-        }
+          // We are trying to find a library in the search paths extracted
+          // from the compiler. It would only be natural if we used the
+          // library prefix/extension that correspond to this compiler and/or
+          // its target.
+          //
+          // Unlike MinGW, VC's .lib/.dll.lib naming is by no means standard
+          // and we might need to search for other names. In fact, there is no
+          // reliable way to guess from the file name what kind of library it
+          // is, static or import and we will have to do deep inspection of
+          // such alternative names. However, if we did find .dll.lib, then we
+          // can assume that .lib is the static library without any deep
+          // inspection overhead.
+          //
+          const char* e ("");
 
-        ae = ext ? ext : string (e);
-        if (!ae->empty ())
-        {
-          an += '.';
-          an += *ae;
+          if (tsys == "win32-msvc")
+          {
+            an = path (name);
+            e = "lib";
+          }
+          else
+          {
+            an = path ("lib" + name);
+            e = "a";
+          }
+
+          ae = ext ? ext : string (e);
+          if (!ae->empty ())
+          {
+            an += '.';
+            an += *ae;
+          }
         }
       }
 
@@ -1026,27 +1133,35 @@ namespace build2
 
       if (l || p.is_a<libs> ())
       {
-        const char* e ("");
-
-        if (tsys == "win32-msvc")
+        if (optional<path> p = lookup_import ("libs"))
         {
-          sn = path (name);
-          e = "dll.lib";
+          sn = move (*p);
+          se = sn.extension ();
         }
         else
         {
-          sn = path ("lib" + name);
+          const char* e ("");
 
-          if      (tsys == "darwin")  e = "dylib";
-          else if (tsys == "mingw32") e = "dll.a"; // See search code below.
-          else                        e = "so";
-        }
+          if (tsys == "win32-msvc")
+          {
+            sn = path (name);
+            e = "dll.lib";
+          }
+          else
+          {
+            sn = path ("lib" + name);
 
-        se = ext ? ext : string (e);
-        if (!se->empty ())
-        {
-          sn += '.';
-          sn += *se;
+            if      (tsys == "darwin")  e = "dylib";
+            else if (tsys == "mingw32") e = "dll.a"; // See search code below.
+            else                        e = "so";
+          }
+
+          se = ext ? ext : string (e);
+          if (!se->empty ())
+          {
+            sn += '.';
+            sn += *se;
+          }
         }
       }
 
@@ -1268,10 +1383,6 @@ namespace build2
         return a != nullptr || s != nullptr;
       };
 
-      // First try user directories (i.e., -L or /LIBPATH).
-      //
-      bool sys (false);
-
       if (!usrd)
       {
         usrd = extract_library_search_dirs (*p.scope);
@@ -1304,13 +1415,57 @@ namespace build2
         }
       }
 
+      bool sys (false);
       const dir_path* pd (nullptr);
-      for (const dir_path& d: *usrd)
+
+      // First see if an absolute path was specified with import.
+      //
+      // Note: an, sn are either simple of absolute.
+      //
+      dir_path id;
+      if (an.absolute () || sn.absolute ())
       {
-        if (search (d))
+        if (an.absolute ())
         {
-          pd = &d;
-          break;
+          id = an.directory ();
+          an.make_leaf ();
+        }
+
+        if (sn.absolute ())
+        {
+          dir_path d (sn.directory ());
+          sn.make_leaf ();
+
+          if (id.empty ())
+            id = move (d);
+          else if (id != d)
+            fail << "inconsistent imported " << an << " and " << sn
+                 << " directories" <<
+              info << an << ": " << id <<
+              info << sn << ": " << d;
+        }
+
+        if (!search (id))
+        {
+          fail << "imported " << (an.empty () ? sn : an)
+               << " does not exist in " << id;
+        }
+
+        sys = find (sysd.begin (), sysd.end (), id) != sysd.end ();
+        pd = &id;
+      }
+
+      if (pd == nullptr)
+      {
+        // Next try user directories (i.e., -L or /LIBPATH).
+        //
+        for (const dir_path& d: *usrd)
+        {
+          if (search (d))
+          {
+            pd = &d;
+            break;
+          }
         }
       }
 

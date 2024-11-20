@@ -2268,6 +2268,9 @@ namespace build2
       // the config.<proj>.<name> variable). For backwards-compatibility
       // reasons, it takes precedence over config.import.
       //
+      // Note also that phase 2 import may handle these imports in an ad hoc
+      // manner (see cc::search_library() for an example).
+      //
       // Note: see import phase 2 diagnostics if changing anything here.
       //
       // @@ How will this work for snake-case targets, say libs{build2-foo}?
@@ -2364,10 +2367,10 @@ namespace build2
             //
             // config.import.build2.b=b-boot
             //
-            // @@ Maybe we should still complete it if it's not simple? After
-            //    all, this is a path, do we want interpretations other than
-            //    relative to CWD? Maybe we do, who knows. Doesn't seem to
-            //    harm anything at the moment.
+            // Maybe we should still complete it if it's not simple? After
+            // all, this is a path, do we want interpretations other than
+            // relative to CWD? Maybe we do, who knows. Doesn't seem to harm
+            // anything at the moment. Yes, we do, see cc::search_library().
             //
             // Why not call import phase 2 directly here? Well, one good
             // reason would be to allow for rule-specific import resolution.
