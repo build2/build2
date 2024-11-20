@@ -950,22 +950,35 @@ namespace build2
                     const prerequisite_key& p,
                     bool exist) const
     {
-      tracer trace (x, "search_library");
-
       assert (p.scope != nullptr && (!exist || act));
 
-      // Import phase 1 may pass us a user-specified path with a relative
-      // directory (same semantics as in lookup_import() below).
-      //
-      {
-        const dir_path& d (*p.tk.dir);
-
-        if (!d.empty ())
-          fail << "relative path in imported " << p;
-      }
+      tracer trace (x, "search_library");
 
       context& ctx (p.scope->ctx);
       const scope& rs (*p.scope->root_scope ());
+
+      // Note: since we are searching for a (presumably) installed library,
+      // utility libraries do not apply.
+      //
+      bool l (p.is_a<lib> ());
+      const string& name (*p.tk.name);
+      const optional<string>& ext (l ? nullopt : p.tk.ext); // Only liba/libs.
+
+      // Import phase 1 may pass us a path specified by the user with
+      // config.import.<proj>.<name>.<type>. The possible cases are:
+      //
+      // 1. Empty or relative directory for liba{} and libs{} (absolute would
+      //    be taken care of by phase 1 since these tragets are path-based).
+      //
+      // 2. Empty, relative, or absolute directory for lib{} (since it's not a
+      //    path-based target).
+      //
+      const dir_path& dir (*p.tk.dir);
+
+      // Same semantics as in lookup_import() below.
+      //
+      if (!dir.empty () && dir.relative ())
+        fail << "relative path in imported " << p;
 
       // Here is the problem: we may be building for two different toolchains
       // simultaneously that use the same installed library. But our search is
@@ -976,17 +989,6 @@ namespace build2
       const process_path& ld (tsys != "win32-msvc"
                               ? cpath
                               : cast<process_path> (rs["bin.ld.path"]));
-
-      // @@ This is hairy enough to warrant a separate implementation for
-      //    Windows.
-
-      // Note: since we are searching for a (presumably) installed library,
-      // utility libraries do not apply.
-      //
-      bool l (p.is_a<lib> ());
-      const optional<string>& ext (l ? nullopt : p.tk.ext); // Only liba/libs.
-
-      const string& name (*p.tk.name);
 
       // If this prerequisite is project-qualified do an ad hoc check for
       // config.import.<proj>.<name>.{liba,libs} which can be used to specify
@@ -1106,14 +1108,16 @@ namespace build2
           //
           const char* e ("");
 
+          an = dir; // Empty or absolute.
+
           if (tsys == "win32-msvc")
           {
-            an = path (name);
+            an /= path (name);
             e = "lib";
           }
           else
           {
-            an = path ("lib" + name);
+            an /= path ("lib" + name);
             e = "a";
           }
 
@@ -1142,14 +1146,16 @@ namespace build2
         {
           const char* e ("");
 
+          sn = dir;
+
           if (tsys == "win32-msvc")
           {
-            sn = path (name);
+            sn /= path (name);
             e = "dll.lib";
           }
           else
           {
-            sn = path ("lib" + name);
+            sn /= path ("lib" + name);
 
             if      (tsys == "darwin")  e = "dylib";
             else if (tsys == "mingw32") e = "dll.a"; // See search code below.

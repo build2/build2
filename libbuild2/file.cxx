@@ -2359,8 +2359,19 @@ namespace build2
           {
             string on (move (tgt.value)); // Original name as imported.
 
-            tgt.dir = p->directory ();
-            tgt.value = p->leaf ().string ();
+            // Keep the original name if the path is (syntactically) to
+            // directory.
+            //
+            if (p->to_directory ())
+            {
+              tgt.dir = path_cast<dir_path> (*p);
+              tgt.value = on;
+            }
+            else
+            {
+              tgt.dir = p->directory ();
+              tgt.value = p->leaf ().string ();
+            }
 
             // If the path is relative, then keep it project-qualified
             // assuming import phase 2 knows what to do with it. Think:
@@ -2379,48 +2390,59 @@ namespace build2
               tgt.proj = move (proj);
             else
             {
-              // Enter the target and assign its path (this will most commonly
-              // be some out of project file).
-              //
-              // @@ Should we check that the file actually exists (and cache
-              //    the extracted timestamp)? Or just let things take their
-              //    natural course?
-              //
               name n (tgt);
               const target_type* tt (ibase.find_target_type (n, loc).first);
 
               if (tt == nullptr)
                 fail (loc) << "unknown target type " << n.type << " in " << n;
 
-              // Note: not using the extension extracted by find_target_type()
-              // to be consistent with import phase 2.
+              // If this is not a path-based target, then delegate to import
+              // phase 2 as above (see cc::search_library() for an example).
               //
-              target& t (insert_target (trace, ctx, *tt, *p).first);
-
-              // Load the metadata, similar to import phase 2.
-              //
-              if (meta)
+              if (!tt->is_a<path_target> ())
               {
-                if (exe* e = t.is_a<exe> ())
+                tgt.proj = move (proj);
+              }
+              else
+              {
+                // Enter the target and assign its path (this will most
+                // commonly be some out of project file).
+                //
+                // @@ Should we check that the file actually exists (and cache
+                //    the extracted timestamp)? Or just let things take their
+                //    natural course?
+                //
+
+                // Note: not using the extension extracted by
+                // find_target_type() to be consistent with import phase 2.
+                //
+                target& t (insert_target (trace, ctx, *tt, *p).first);
+
+                // Load the metadata, similar to import phase 2.
+                //
+                if (meta)
                 {
-                  if (!e->vars[ctx.var_export_metadata].defined ())
+                  if (exe* e = t.is_a<exe> ())
                   {
-                    optional<string> md;
+                    if (!e->vars[ctx.var_export_metadata].defined ())
                     {
-                      auto df = make_diag_frame (
-                        [&proj, tt, &on] (const diag_record& dr)
-                        {
-                          import_suggest (
-                            dr, proj, tt, on, false, "alternative ");
-                        });
+                      optional<string> md;
+                      {
+                        auto df = make_diag_frame (
+                          [&proj, tt, &on] (const diag_record& dr)
+                          {
+                            import_suggest (
+                              dr, proj, tt, on, false, "alternative ");
+                          });
 
-                      md = extract_metadata (e->process_path (),
-                                             *meta,
-                                             false /* optional */,
-                                             loc);
+                        md = extract_metadata (e->process_path (),
+                                               *meta,
+                                               false /* optional */,
+                                               loc);
+                      }
+
+                      parse_metadata (*e, move (*md), loc);
                     }
-
-                    parse_metadata (*e, move (*md), loc);
                   }
                 }
               }

@@ -1,3 +1,32 @@
+Version 0.18.0
+
+  * Ability to override imported installed library path/name.
+
+    Specifically, the config.import.<proj>.<name>.{lib,liba,libs} variables
+    can be used to specify alternative location and/or name for an installed
+    library. This, in particular, can be useful when trying to use a library
+    installed with a prefix or suffix. For example, if the library was
+    installed with the `D` suffix:
+
+    config.import.libfoo.foo.lib=fooD
+
+    For the config.*.lib variable, the valid values are a simple path (which
+    is used as a library name base), an absolute directory (which is used as a
+    library location), or both. For example:
+
+    config.import.libfoo.foo.lib=/tmp/lib/
+    config.import.libfoo.foo.lib=/tmp/lib/fooD
+
+    For the config.*.{liba,libs} variables, the valid values are a simple name
+    (which is used as a library name), or an absolute path (which is used as a
+    library location and name). For example:
+
+    config.import.libfoo.foo.libs=libfooD.so
+    config.import.libfoo.foo.liba=/tmp/lib/libfooD.a
+
+    Note that on Windows, the shared library name/path should refer to the
+    import library, not the DLL.
+
 Version 0.17.0
 
   * C++20 modules support improvements:
