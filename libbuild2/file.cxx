@@ -2111,14 +2111,17 @@ namespace build2
     dr << info << "use config.import." << pv << " configuration variable to "
        << "specify its " << (qual != nullptr ? qual : "") << "project out_root";
 
-    // Suggest ad hoc import but only if it's a path-based target (doing it
-    // for lib{} is very confusing).
+    // Suggest ad hoc import. Note that now we do it even for non-path-based
+    // targets since we have ad hoc import phase 2 logic for lib{}.
     //
-    if (tt != nullptr && tt->is_a<path_target> ())
+    if (tt != nullptr)
     {
-      string v (tt->is_a<exe> () && (pv == tn || pn == tn)
+      string nv (sanitize_identifier (tn));
+
+      string v (tt->is_a<exe> () && pv == nv
                 ? "config." + pv
-                : "config.import." + pv + '.' + tn + '.' + tt->name);
+                : ("config.import." + pv + '.' + nv + '.' +
+                   sanitize_identifier (tt->name)));
 
       dr << info << "or use " << v << " configuration variable to specify "
          << "its " << (qual != nullptr ? qual : "") << "path";
@@ -2266,15 +2269,14 @@ namespace build2
       // recognize the special config.<proj> (tool importation; we could
       // also handle the case where <proj> is not the same as <name> via
       // the config.<proj>.<name> variable). For backwards-compatibility
-      // reasons, it takes precedence over config.import.
+      // reasons, it takes precedence over config.import. Note that both
+      // <name> and <type> must be sanitized to a valid identifier (think
+      // libs{build2-foo} and cli.cxx{}).
       //
       // Note also that phase 2 import may handle these imports in an ad hoc
       // manner (see cc::search_library() for an example).
       //
       // Note: see import phase 2 diagnostics if changing anything here.
-      //
-      // @@ How will this work for snake-case targets, say libs{build2-foo}?
-      //    As well as for dot-separated target types, say, cli.cxx{}?
       //
       // @@ This duality has a nasty side-effect: if we have config.<proj>
       //    configured, then specifying config.<proj>.import has no effect
@@ -2333,6 +2335,8 @@ namespace build2
         //
         const path* p (nullptr);
 
+        string valv (sanitize_identifier (string (tgt.value)));
+
         if (tgt.typed ())
         {
           bool e (tgt.type == "exe");
@@ -2341,15 +2345,18 @@ namespace build2
           // overridable variable of type path. The config.<proj> we have to
           // type manually.
           //
-          if (e && (projv == tgt.value || proj == tgt.value))
+          if (e && projv == valv)
             p = lookup (vp.insert<path> ("config." + projv), e);
 
           if (p == nullptr)
-            p = lookup (vp.insert (n + '.' + tgt.value + '.' + tgt.type), e);
+          {
+            string ttv (sanitize_identifier (string (tgt.type)));
+            p = lookup (vp.insert (n + '.' + valv + '.' + ttv), e);
+          }
         }
 
         if (p == nullptr)
-          p = lookup (vp.insert (n + '.' + tgt.value), false);
+          p = lookup (vp.insert (n + '.' + valv), false);
 
         if (p != nullptr)
         {

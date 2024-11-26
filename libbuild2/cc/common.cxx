@@ -1017,7 +1017,10 @@ namespace build2
       //
       auto lookup_import = [&rs,
                             &act,
-                            &name,
+                            namev =
+                            (p.proj
+                             ? sanitize_identifier (name)
+                             : string ()),
                             projv =
                             (p.proj
                              ? p.proj->variable ()
@@ -1025,7 +1028,9 @@ namespace build2
       {
         if (!projv.empty ())
         {
-          string varn ("config.import." + projv + '.' + name + '.' + tt);
+          // Note: we know tt is liba or libs and need not to be sanitized.
+          //
+          string varn ("config.import." + projv + '.' + namev + '.' + tt);
 
           if (config::specified_config (rs, varn, true /* exact */))
           {
