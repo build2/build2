@@ -1567,8 +1567,7 @@ namespace build2
               //
               string d ("-DLIB");
 
-              d += sanitize_identifier (
-                ucase (const_cast<const string&> (t.name)));
+              d += sanitize_identifier (ucase (t.name));
 
               d += '_';
               d += suffix;

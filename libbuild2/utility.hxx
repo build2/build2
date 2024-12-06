@@ -73,7 +73,9 @@ namespace build2
   using butl::icase_compare_string;
   using butl::icase_compare_c_string;
   using butl::lcase;
+  using butl::make_lcase;
   using butl::ucase;
+  using butl::make_ucase;
   using butl::alpha;
   using butl::alnum;
   using butl::digit;
@@ -82,6 +84,7 @@ namespace build2
   using butl::trim;
   using butl::next_word;
   using butl::sanitize_identifier;
+  using butl::make_sanitized_identifier;
   using butl::sanitize_strlit;
 
   using butl::make_guard;

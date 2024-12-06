@@ -2335,7 +2335,7 @@ namespace build2
         //
         const path* p (nullptr);
 
-        string valv (sanitize_identifier (string (tgt.value)));
+        string valv (sanitize_identifier (tgt.value));
 
         if (tgt.typed ())
         {
@@ -2350,7 +2350,7 @@ namespace build2
 
           if (p == nullptr)
           {
-            string ttv (sanitize_identifier (string (tgt.type)));
+            string ttv (sanitize_identifier (tgt.type));
             p = lookup (vp.insert (n + '.' + valv + '.' + ttv), e);
           }
         }
