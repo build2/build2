@@ -799,6 +799,10 @@ namespace build2
   // cleaning to normal execute and these functions should only be used in
   // special cases where this is not possible.
   //
+  // Note that cleaning during match is incompatible with update during load
+  // and if a target is cleaned during match, then it may not behave correctly
+  // when updated (directly or as a prerequisite) during load.
+  //
   // Note also that neither function should be called on fsdir{} since it's
   // hard to guarantee such an execution won't be too early (see the
   // implementation for details). If you do need to clean fsdir{} during
@@ -813,6 +817,28 @@ namespace build2
     tracer&,
     action, target&,
     uintptr_t mask = prerequisite_target::include_udm);
+
+  // Update the targets during the load phase. The targets should be defined
+  // in the specified buildfile which should have been loaded in the specified
+  // project. Note also that the passed targets are expected to be in out and
+  // thus not out-qualified.
+  //
+  // Return updated target (which could be from the update-during-load
+  // context). Note that thus updated targets are recorded as such only for
+  // the duration of an operation (see context::updated_during_load for
+  // details).
+  //
+  // If the current action is perform_update (or update-for-x), then this is
+  // achieved by switching the phase and then matching and executing them
+  // (fast). Otherwise (other meta-operations and/or operations), this is done
+  // by updating (more precisely, loading the buildfile) in a separate build
+  // context (slow).
+  //
+  LIBBUILD2_SYMEXPORT action_targets
+  update_during_load (const scope& bs,
+                      const path& buildfile,
+                      names targets,
+                      const location&);
 
   // The default prerequisite execute implementation. Call execute_async() on
   // each non-ignored (non-NULL) prerequisite target in a loop and then wait

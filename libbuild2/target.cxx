@@ -1708,12 +1708,13 @@ namespace build2
 
     if (root == nullptr)
     {
-      // The same login as in target::root_scope().
+      // The same logic as in target::root_scope().
       //
       // Note: we are guaranteed the scope is never NULL for prerequisites
       // (where out/dir could be relative and none of this will work).
       //
       // @@ CTX TODO
+      //
 #if 0
       root = scopes.find (tk.out->empty () ? *tk.dir : *tk.out).root_scope ();
 #endif

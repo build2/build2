@@ -1418,9 +1418,10 @@ namespace build2
   //
   struct variable_override
   {
-    const variable&    var; // Original variable.
-    const variable&    ovr; // Override variable.
-    optional<dir_path> dir; // Scope directory relative to base.
+    size_t             index; // Index in context::original_var_overrides.
+    const variable&    var;   // Original variable.
+    const variable&    ovr;   // Override variable.
+    optional<dir_path> dir;   // Scope directory relative to base.
     value              val;
   };
 

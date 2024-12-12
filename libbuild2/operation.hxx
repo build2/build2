@@ -105,8 +105,8 @@ namespace build2
 
     // Diagnostics levels:
     //
-    // 0 - none           (for structured result).
-    // 1 - failures only  (for pre-operations).
+    // 0 - none           (for structured result and similar).
+    // 1 - failures only  (for pre-operations and similar).
     // 2 - all            (for normal operations).
     //
     // The false progress argument can be used to suppress progress. If it is

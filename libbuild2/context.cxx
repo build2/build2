@@ -51,7 +51,9 @@ namespace build2
 
     target_type_map global_target_types;
     variable_override_cache global_override_cache;
-    strings global_var_overrides;
+
+    strings original_var_overrides;
+    context::entered_var_overrides_map entered_var_overrides;
 
     data (context& c)
         : scopes (c),
@@ -73,8 +75,13 @@ namespace build2
   }
 
   pair<char, variable_override> context::
-  parse_variable_override (const string& s, size_t i, bool buildspec)
+  parse_variable_override (const string& s,
+                           size_t i,
+                           bool buildspec,
+                           bool global_only)
   {
+    assert (data_->original_var_overrides.size () == i);
+
     istringstream is (s);
     is.exceptions (istringstream::failbit | istringstream::badbit);
 
@@ -202,6 +209,16 @@ namespace build2
     //
     char c (t.value[0]);
 
+    if (global_only && c != '!')
+      return make_pair (
+        '\0',
+        variable_override { // Bogus.
+          i,
+          *var_build_meta_operation,
+          *var_build_meta_operation,
+          nullopt,
+          value ()});
+
     if (path::traits_type::is_separator (c))
       c = '/'; // Normalize.
 
@@ -281,9 +298,11 @@ namespace build2
     if (r.first.type != nullptr)
       fail << "typed override of variable " << n;
 
+    data_->original_var_overrides.push_back (s);
+
     return make_pair (
       c,
-      variable_override {var, *o, move (dir), move (r.first)});
+      variable_override {i, var, *o, move (dir), move (r.first)});
   }
 
   context::
@@ -295,7 +314,9 @@ namespace build2
            bool dr,
            bool ndb,
            bool kg,
+           optional<string> build_mode,
            const strings& cmd_vars,
+           bool cmd_vars_global_only,
            reserves res,
            optional<context*> mc,
            const module_libraries_lock* ml,
@@ -319,7 +340,8 @@ namespace build2
         global_scope (create_global_scope (data_->scopes)),
         global_target_types (data_->global_target_types),
         global_override_cache (data_->global_override_cache),
-        global_var_overrides (data_->global_var_overrides),
+        original_var_overrides (data_->original_var_overrides),
+        entered_var_overrides (data_->entered_var_overrides),
         modules_lock (ml),
         module_context (mc ? *mc : nullptr),
         module_context_storage (mc
@@ -388,13 +410,18 @@ namespace build2
       //
       // This value signals any special mode the build system may be running
       // in. The two core modes are `no-external-modules` (bootstrapping of
-      // external modules is disabled) and `normal` (normal build system
-      // execution). Build system drivers may invent additional modes (for
-      // example, the bpkg `skeleton` mode that is used to evaluate depends
-      // clauses).
+      // external modules is disabled; see --no-external-modules) and `normal`
+      // (normal build system execution). Specialized build system drivers may
+      // invent additional modes (for example, the bpkg `skeleton` mode that
+      // is used to evaluate depends clauses). Other known modes are `module`
+      // (building of a build system module in the special module context) and
+      // `update-during-load` (updating a target during load in the special
+      // update-during-load context).
       //
       set ("build.mode",
-           no_external_modules ? "no-external-modules" : "normal");
+           build_mode
+           ? move (*build_mode)
+           : string (no_external_modules ? "no-external-modules" : "normal"));
 
       set ("build.work", work);
       set ("build.home", home);
@@ -592,14 +619,16 @@ namespace build2
     //
     {
       size_t i (0);
-      for (; i != cmd_vars.size (); ++i)
+      for (const string& s: cmd_vars)
       {
-        const string& s (cmd_vars[i]);
-
         pair<char, variable_override> p (
-          parse_variable_override (s, i, true /* buildspec */));
+          parse_variable_override (
+            s, i, true /* buildspec */, cmd_vars_global_only));
 
         char c (p.first);
+        if (c == '\0') // cmd_vars_global_only
+          continue;
+
         variable_override& vo (p.second);
 
         // Global and absolute scope overrides we can enter directly. Project
@@ -618,10 +647,7 @@ namespace build2
         else
           data_->var_overrides.push_back (move (vo));
 
-        // Save global overrides for nested contexts.
-        //
-        if (c == '!')
-          data_->global_var_overrides.push_back (s);
+        ++i;
       }
 
       // Parse any ad hoc project-wide overrides.
@@ -733,7 +759,8 @@ namespace build2
         global_scope (create_global_scope (data_->scopes)),
         global_target_types (data_->global_target_types),
         global_override_cache (data_->global_override_cache),
-        global_var_overrides (data_->global_var_overrides),
+        original_var_overrides (data_->original_var_overrides),
+        entered_var_overrides (data_->entered_var_overrides),
         modules_lock (nullptr),
         module_context (nullptr)
   {
@@ -875,7 +902,8 @@ namespace build2
         global_scope (create_global_scope (data_->scopes)),
         global_target_types (data_->global_target_types),
         global_override_cache (data_->global_override_cache),
-        global_var_overrides (data_->global_var_overrides),
+        original_var_overrides (data_->original_var_overrides),
+        entered_var_overrides (data_->entered_var_overrides),
         modules_lock (nullptr),
         module_context (nullptr)
   {
@@ -902,35 +930,37 @@ namespace build2
                            const variable_overrides& ovrs,
                            scope* as)
   {
+    assert (out_base.sub (rs.out_path ()));
+
+    vector<size_t> ais, ris, bis; // Amalgamation, root, and base.
+
     // The mildly tricky part here is to distinguish the situation where we
     // are bootstrapping the same project multiple times. The first override
     // that we set cannot already exist (because the override variable names
     // are unique) so if it is already set, then it can only mean this project
     // is already bootstrapped.
     //
-    // This is further complicated by the project vs amalgamation logic (we
-    // may have already done the amalgamation but not the project).  So we
-    // split it into two passes.
+    // This is further complicated by the base vs root vs amalgamation logic
+    // (we may have already done the root/amalgamation but not base). So we
+    // split it into separate passes.
     //
     auto& sm (scopes.rw ());
 
     for (const variable_override& o: ovrs)
     {
-      if (o.ovr.visibility != variable_visibility::global)
+      // Ours has global visibility.
+      //
+      if (o.ovr.visibility != variable_visibility::global || o.dir)
         continue;
 
-      // If we have a directory, enter the scope, similar to how we do
-      // it in the context ctor.
-      //
-      scope& s (
-        o.dir
-        ? *sm.insert_out ((out_base / *o.dir).normalize ())->second.front ()
-        : *(as != nullptr ? as : (as = rs.weak_scope ())));
+      scope& s (*(as != nullptr ? as : (as = rs.weak_scope ())));
 
       auto p (s.vars.insert (o.ovr));
 
-      if (!p.second)
+      if (!p.second) // Amalgamation is already done.
         break;
+
+      (s == rs ? ris : ais).push_back (o.index);
 
       value& v (p.first);
       v = o.val;
@@ -940,22 +970,74 @@ namespace build2
     {
       // Ours is either project (%foo) or scope (/foo).
       //
-      if (o.ovr.visibility == variable_visibility::global)
+      if (o.ovr.visibility == variable_visibility::global || o.dir)
         continue;
 
-      scope& s (
-        o.dir
-        ? *sm.insert_out ((out_base / *o.dir).normalize ())->second.front ()
-        : rs);
+      scope& s (rs);
 
       auto p (s.vars.insert (o.ovr));
 
-      if (!p.second)
+      if (!p.second) // Root is already done.
         break;
+
+      ris.push_back (o.index);
 
       value& v (p.first);
       v = o.val;
     }
+
+    for (const variable_override& o: ovrs)
+    {
+      // Ours has directory.
+      //
+      if (!o.dir)
+        continue;
+
+      // Enter the scope, similar to how we do it in the context ctor.
+      //
+      dir_path d;
+      try
+      {
+        d = out_base / *o.dir;
+        d.normalize ();
+      }
+      catch (const invalid_path&)
+      {
+        fail << "invalid scope variable " << *o.dir << '/' << o.var
+             << " override in base scope " << out_base;
+      }
+
+      // Failed that, associating this variable with out_base (see below)
+      // doesn't make sense.
+      //
+      if (!d.sub (out_base))
+        fail << "scope variable " << *o.dir << o.var
+             << " overrides outside base scope " << out_base;
+
+      scope& s (*sm.insert_out (move (d))->second.front ());
+
+      auto p (s.vars.insert (o.ovr));
+
+      if (!p.second) // Base is already done.
+        break;
+
+      (s == rs ? ris : bis).push_back (o.index);
+
+      value& v (p.first);
+      v = o.val;
+    }
+
+    // Record in context::entered_var_overrides.
+    //
+    auto record = [this] (const dir_path& out_base, vector<size_t>&& v)
+    {
+      auto p (data_->entered_var_overrides.emplace (out_base, move (v)));
+      assert (p.second); // Should be no duplicates.
+    };
+
+    if (!ais.empty ()) record (as->out_path (), move (ais));
+    if (!ris.empty ()) record (rs.out_path (),  move (ris));
+    if (!bis.empty ()) record (out_base,        move (bis));
   }
 
   void context::
@@ -969,6 +1051,8 @@ namespace build2
 
     current_mif = &mif;
     current_mdata = current_data_ptr (nullptr, null_current_data_deleter);
+    current_inner_oif = nullptr;
+    current_outer_oif = nullptr;
     current_on = 0; // Reset.
   }
 
@@ -997,7 +1081,25 @@ namespace build2
 
     // Clear accumulated targets with post hoc prerequisites.
     //
-    current_posthoc_targets.clear ();
+    current_posthoc_targets_collected.clear ();
+    current_posthoc_targets_matched.clear ();
+
+    // Reset the update during load state.
+    //
+    // Note that if this is the u-d-l context itself, then omit this,
+    // including clearing the updated_during_load (while we run multiple
+    // operations in the u-d-l context, they are for a single operation in the
+    // main context). Note also that the u-d-l context will be gone at the end
+    // of the main context operation.
+    //
+    assert (!update_during_load);
+
+    if (update_during_load_context != this)
+    {
+      updated_during_load.clear ();
+      update_during_load_context = nullptr;
+      update_during_load_context_storage.reset ();
+    }
   }
 
   bool run_phase_mutex::
@@ -1326,6 +1428,15 @@ namespace build2
   phase_switch (context& ctx, run_phase n)
       : old_phase (ctx.phase), new_phase (n)
   {
+    // In our model we don't switch from the execute phase. The only
+    // transitions we currently have are:
+    //
+    // match->load     -- interrupting load (and few other case)
+    // match->execute  -- update during match (or load)
+    // load->match     -- update during load
+    //
+    assert (old_phase != run_phase::execute);
+
     phase_lock* pl (phase_lock_instance);
     assert (&pl->ctx == &ctx);
 

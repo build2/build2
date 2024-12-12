@@ -23,7 +23,9 @@ namespace build2
     //
     // Return the path of a target (or a list of paths for a list of
     // targets). The path must be assigned, which normally happens during
-    // match. As a result, this function is normally called from a recipe.
+    // match. As a result, this function is normally called from a recipe,
+    // but can also be called from a buildfile provided the target has been
+    // updated during load.
     //
     // Note that while this function is technically not pure, we don't mark it
     // as such since it can only be called (normally from a recipe) after the
@@ -37,6 +39,8 @@ namespace build2
 
       context& ctx (s->ctx);
 
+      bool load (ctx.phase == run_phase::load);
+
       // Most of the time we will have a single target so optimize for that.
       //
       small_vector<path, 1> r;
@@ -47,10 +51,20 @@ namespace build2
         const target& t (
           to_target (*s,
                      move (n), move (n.pair ? *++i : o),
-                     ctx.phase != run_phase::load /* in_recipe */));
+                     !load /* in_recipe */));
 
         if (const auto* pt = t.is_a<path_target> ())
         {
+          // If this is the load phase, consult the updated-during-load map.
+          //
+          if (load)
+          {
+            auto i (ctx.updated_during_load.find (pt));
+
+            if (i != ctx.updated_during_load.end ())
+              pt = i->second->is_a<path_target> ();
+          }
+
           const path& p (pt->path ());
 
           if (&p != &empty_path)
@@ -97,14 +111,28 @@ namespace build2
       if (ns.empty () || ns.size () != (ns[0].pair ? 2 : 1))
         fail << "target.process_path() expects single target";
 
+      context& ctx (s->ctx);
+
+      bool load (ctx.phase == run_phase::load);
+
       name o;
       const target& t (
         to_target (*s,
                    move (ns[0]), move (ns[0].pair ? ns[1] : o),
-                   s->ctx.phase != run_phase::load /* in_recipe */));
+                   !load /* in_recipe */));
 
       if (const auto* et = t.is_a<exe> ())
       {
+        // If this is the load phase, consult the updated-during-load map.
+        //
+        if (load)
+        {
+          auto i (ctx.updated_during_load.find (et));
+
+          if (i != ctx.updated_during_load.end ())
+            et = i->second->is_a<exe> ();
+        }
+
         process_path r (et->process_path ());
 
         if (r.empty ())

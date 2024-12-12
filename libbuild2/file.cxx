@@ -525,6 +525,58 @@ namespace build2
     return s;
   }
 
+  static void
+  enter_project_overrides (context& ctx,
+                           const dir_path& out_base,
+                           const context::entered_var_overrides_map& ovr_map)
+  {
+    assert (!ovr_map.empty () && !ctx.var_overrides.empty ());
+
+    // Iterate over all the entered entries that are super-paths of this
+    // out_base. Note that it doesn't matter in which order we enter them.
+    //
+    for (auto i (ovr_map.find_sup (out_base));
+         i != ovr_map.end ();
+         i = ovr_map.find_sup (i->first.directory ()))
+    {
+      const dir_path& out_base (i->first);
+      const vector<size_t>& is (i->second); // Indexes.
+
+      // Note that while we should have all the root scopes setup (due to
+      // create_bootstrap_outer()), we may not have all the intermediate bases
+      // (enter_project_overrides() will create them as necessary).
+      //
+      scope& bs (ctx.scopes.find_out (out_base).rw ());
+      scope* rs (bs.root_scope ());
+      assert (rs != nullptr);
+
+      if (is.size () == ctx.var_overrides.size ()) // Common case.
+      {
+        ctx.enter_project_overrides (*rs, out_base, ctx.var_overrides, rs);
+      }
+      else
+      {
+        // Prepare a subset of overrides.
+        //
+        variable_overrides ovrs;
+        for (size_t i: is)
+        {
+          auto j (find_if (ctx.var_overrides.begin (),
+                           ctx.var_overrides.end (),
+                           [i] (const variable_override& v)
+                           {
+                             return v.index == i;
+                           }));
+
+          assert (j != ctx.var_overrides.end ());
+          ovrs.push_back (*j);
+        }
+
+        ctx.enter_project_overrides (*rs, out_base, ovrs, rs);
+      }
+    }
+  }
+
   pair<scope&, scope*>
   switch_scope (scope& root, const dir_path& out_base, bool proj)
   {
@@ -553,6 +605,16 @@ namespace build2
       // project (and src_root with it).
       //
       rs = &create_bootstrap_inner (*rs, out_base);
+
+      // Enter project variable overrides if we have an exemplar (see
+      // exemplar_load() for background).
+      //
+      if (const context* ectx = ctx.exemplar_context)
+      {
+        const auto& ovr_map (ectx->entered_var_overrides);
+        if (!ovr_map.empty ())
+          enter_project_overrides (ctx, out_base, ovr_map);
+      }
 
       // Switch to the new root scope.
       //
@@ -1369,7 +1431,7 @@ namespace build2
   }
 
   bool
-  bootstrapped (scope& rs)
+  bootstrapped (const scope& rs)
   {
     // Use the subprojects value cached at the end of bootstrap_src() as an
     // indicator.
@@ -1402,18 +1464,28 @@ namespace build2
   }
 
   void
-  create_bootstrap_outer (scope& root, bool subp)
+  create_bootstrap_outer (scope& irs, bool subp, const scope* eirs)
   {
-    context& ctx (root.ctx);
+    context& ctx (irs.ctx);
 
-    auto l (root.vars[ctx.var_amalgamation]);
+    auto l (irs.vars[ctx.var_amalgamation]);
 
     if (!l)
       return;
 
     const dir_path& d (cast<dir_path> (l));
-    dir_path out_root (root.out_path () / d);
+    dir_path out_root (irs.out_path () / d);
     out_root.normalize (); // No need to actualize (d is a bunch of ..)
+
+    // Note that we assume entering of variable overrides from the exemplar
+    // context is handled by the caller for the entire inner-outer chain.
+    //
+    const scope* eors (nullptr);
+    if (eirs != nullptr)
+    {
+      eors = eirs->parent_scope ()->root_scope ();
+      assert (eors != nullptr && eors->out_path () == out_root);
+    }
 
     // src_root is a bit more complicated. Here we have three cases:
     //
@@ -1425,14 +1497,23 @@ namespace build2
     // probably be tried first since that src_root was explicitly configured
     // by the user. After that, #2 followed by #1 seems reasonable.
     //
-    scope& rs (*create_root (ctx, out_root, dir_path ())->second.front ());
+    scope& ors (*create_root (ctx, out_root, dir_path ())->second.front ());
 
-    bool bstrapped (bootstrapped (rs));
+    bool bstrapped (bootstrapped (ors));
 
     optional<bool> altn;
     if (!bstrapped)
     {
-      value& v (bootstrap_out (rs, altn)); // #3 happens here (or it can be #1)
+      optional<dir_path> ad;
+      if (eors != nullptr)
+      {
+        assert (eors->root_extra->amalgamation); // Should be bootstrapped.
+        ad = (*eors->root_extra->amalgamation != nullptr
+              ? **eors->root_extra->amalgamation
+              : dir_path ());
+      }
+
+      value& v (bootstrap_out (ors, altn)); // #3 happens here (or it can be #1)
 
       if (!v)
       {
@@ -1440,7 +1521,7 @@ namespace build2
           v = out_root;
         else // #1
         {
-          dir_path src_root (root.src_path () / d);
+          dir_path src_root (irs.src_path () / d);
           src_root.normalize (); // No need to actualize (as above).
           v = move (src_root);
         }
@@ -1448,36 +1529,45 @@ namespace build2
       else
         remap_src_root (ctx, v); // Remap if inside old_src_root.
 
-      setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
-      bootstrap_pre (rs, altn);
-      bootstrap_src (rs, altn, nullopt, subp);
+      setup_root (ors, forwarded (irs, out_root, v.as<dir_path> (), altn));
+      bootstrap_pre (ors, altn);
+      bootstrap_src (ors, altn, move (ad), subp);
       // bootstrap_post() delayed until after create_bootstrap_outer().
     }
     else
     {
-      altn = rs.root_extra->altn;
+      altn = ors.root_extra->altn;
 
-      if (forwarded (root, rs.out_path (), rs.src_path (), altn))
-        rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
+      if (forwarded (irs, ors.out_path (), ors.src_path (), altn))
+        ors.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
     }
 
-    create_bootstrap_outer (rs, subp);
+    create_bootstrap_outer (ors, subp, eors);
 
     if (!bstrapped)
-      bootstrap_post (rs);
+      bootstrap_post (ors);
 
     // Check if we are strongly amalgamated by this outer root scope.
     //
     // Note that we won't end up here if we are not amalgamatable.
     //
-    if (root.src_path ().sub (rs.src_path ()))
-      root.strong_ = rs.strong_scope (); // Itself or some outer scope.
+    if (irs.src_path ().sub (ors.src_path ()))
+      irs.strong_ = ors.strong_scope (); // Itself or some outer scope.
   }
 
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base)
   {
     context& ctx (root.ctx);
+
+    // See exemplar_load() for details on the exemplar context logic.
+    //
+    // Note that we assume entering of variable overrides from the exemplar
+    // context is handled by the caller for the entire outer-inner chain
+    // (which only makes sense if out_base is not empty).
+    //
+    const context* ectx (ctx.exemplar_context);
+    assert (ectx == nullptr || !out_base.empty ());
 
     scope* r (&root);
 
@@ -1490,13 +1580,46 @@ namespace build2
         if (!out_base.empty () && !out_base.sub (out_root))
           continue;
 
+        dir_path src_root;
+
+        // Find the corresponding exemplar root scope, if any (similar logic
+        // to import_load()).
+        //
+        optional<bool> altn;
+        optional<bool> fwd;
+        const scope* ers (nullptr);
+
+        if (ectx != nullptr)
+        {
+          if ((ers = &ectx->scopes.find_out (out_root)) != nullptr)
+          {
+            if (ers->out_path () == out_root && bootstrapped (*ers))
+            {
+              src_root = ers->src_path ();
+              altn = ers->root_extra->altn;
+              fwd = cast_false<bool> (ers->vars[ectx->var_forwarded]);
+            }
+            else
+              ers = nullptr;
+          }
+        }
+
         // The same logic to src_root as in create_bootstrap_outer().
         //
-        scope& rs (*create_root (ctx, out_root, dir_path ())->second.front ());
+        scope& rs (*create_root (ctx, out_root, src_root)->second.front ());
 
-        optional<bool> altn;
         if (!bootstrapped (rs))
         {
+          // Get the amalgamation directory from the exemplar root scope.
+          //
+          optional<dir_path> ad;
+          if (ers != nullptr)
+          {
+            ad = (*ers->root_extra->amalgamation != nullptr
+                  ? **ers->root_extra->amalgamation
+                  : dir_path ());
+          }
+
           // Clear current project's environment.
           //
           auto_project_env penv (nullptr);
@@ -1512,15 +1635,23 @@ namespace build2
           else
             remap_src_root (ctx, v); // Remap if inside old_src_root.
 
-          setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
+          if (!fwd)
+            fwd = forwarded (root, out_root, v.as<dir_path> (), altn);
+
+          setup_root (rs, *fwd);
           bootstrap_pre (rs, altn);
-          bootstrap_src (rs, altn);
+          bootstrap_src (rs, altn, move (ad));
           bootstrap_post (rs);
         }
         else
         {
-          altn = rs.root_extra->altn;
-          if (forwarded (root, rs.out_path (), rs.src_path (), altn))
+          if (!altn)
+            altn = rs.root_extra->altn;
+
+          if (!fwd)
+            fwd = forwarded (root, rs.out_path (), rs.src_path (), altn);
+
+          if (*fwd)
             rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
         }
 
@@ -1788,38 +1919,85 @@ namespace build2
   load_project (context& ctx,
                 const dir_path& out_root,
                 const dir_path& src_root,
-                bool forwarded,
+                bool fwd,
                 bool load)
   {
     assert (ctx.phase == run_phase::load);
-    assert (!forwarded || out_root != src_root);
+    assert (!fwd || out_root != src_root);
+
+    // See exemplar_load() for details on the exemplar context logic.
+    //
+    const context* ectx (ctx.exemplar_context);
+
+    // Find the corresponding exemplar root scope, if any (similar logic to
+    // import_load()).
+    //
+    optional<bool> altn;
+    const scope* ers (nullptr);
+
+    if (ectx != nullptr)
+    {
+      if ((ers = &ectx->scopes.find_out (out_root)) != nullptr)
+      {
+        if (ers->out_path () == out_root && bootstrapped (*ers))
+        {
+          assert (src_root == ers->src_path ());
+          altn = ers->root_extra->altn;
+
+          // We expect these to be consistent.
+          //
+          assert (fwd == cast_false<bool> (ers->vars[ectx->var_forwarded]));
+        }
+        else
+          ers = nullptr;
+      }
+    }
 
     auto i (create_root (ctx, out_root, src_root));
     scope& rs (*i->second.front ());
 
     if (!bootstrapped (rs))
     {
+      // Get the amalgamation directory from the exemplar root scope.
+      //
+      optional<dir_path> ad;
+      if (ers != nullptr)
+      {
+        ad = (*ers->root_extra->amalgamation != nullptr
+              ? **ers->root_extra->amalgamation
+              : dir_path ());
+      }
+
       // Clear current project's environment.
       //
       auto_project_env penv (nullptr);
 
-      optional<bool> altn;
       bootstrap_out (rs, altn);
-      setup_root (rs, forwarded);
+      setup_root (rs, fwd);
       bootstrap_pre (rs, altn);
-      bootstrap_src (rs, altn);
+      bootstrap_src (rs, altn, move (ad));
       bootstrap_post (rs);
     }
     else
     {
-      if (forwarded)
+      if (fwd)
         rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
+    }
+
+    // Enter project variable overrides if we have an exemplar.
+    //
+    if (ectx != nullptr)
+    {
+      const auto& ovr_map (ectx->entered_var_overrides);
+      if (!ovr_map.empty ())
+        enter_project_overrides (ctx, out_root, ovr_map);
     }
 
     if (load)
     {
       if (!rs.root_extra->loaded)
         load_root (rs);
+
       setup_base (i, out_root, src_root); // Setup as base.
     }
 
@@ -2558,16 +2736,21 @@ namespace build2
   import_load (context& ctx,
                pair<name, optional<dir_path>> x,
                bool meta,
-               const location& loc)
+               const location& loc,
+               const char* what)
   {
     tracer trace ("import_load");
+
+    // See exemplar_load() for details on the exemplar context logic.
+    //
+    const context* ectx (ctx.exemplar_context);
 
     uint64_t metav (meta ? 1 : 0); // Metadata version.
 
     // We end up here in two cases: Ad hoc import, in which case name is
-    // unqualified and absolute and path is a base, not necessarily root. And
-    // normal import, in which case name must be project-qualified and path is
-    // a root.
+    // unqualified and absolute and path is an out base, not necessarily root.
+    // And normal import, in which case name must be project-qualified and
+    // path is an out root.
     //
     assert (x.second);
     name tgt (move (x.first));
@@ -2590,39 +2773,43 @@ namespace build2
     // amalgamation that contains our project. For now we only consider
     // top-level sub-projects.
     //
-    scope* root;
+    scope* rs;
     dir_path out_root, src_root;
 
-    // See if this is a forwarded configuration. For top-level project we want
-    // to use the same logic as in main() while for inner subprojects -- as in
-    // create_bootstrap_inner().
+    // See if this is a forwarded configuration. For top-level project we
+    // want to use the same logic as in main() while for inner subprojects
+    // -- as in create_bootstrap_inner().
     //
-    bool fwd (false);
-    optional<bool> altn;
+    bool top_fwd (false);
+    optional<bool> top_altn;
+    bool top_src;
     {
-      bool src;
+
       if (proj)
       {
         out_root = move (*x.second);
-        src = is_src_root (out_root, altn);
+        top_src = is_src_root (out_root, top_altn);
       }
       else
       {
         // For ad hoc import, find our root.
         //
-        pair<dir_path, bool> p (find_out_root (*x.second, altn));
+        // Note: don't move x.second, used below.
+        //
+        pair<dir_path, bool> p (find_out_root (*x.second, top_altn));
         out_root = move (p.first);
-        src = p.second;
+        top_src = p.second;
 
         if (out_root.empty ())
-          fail (loc) << "no project for imported target '" << tgt << "'";
+          fail (loc) << "no project for " << what << "ed target '"
+                     << tgt << "'";
       }
 
-      if (src)
+      if (top_src)
       {
         src_root = move (out_root);
-        out_root = bootstrap_fwd (ctx, src_root, altn);
-        fwd = (src_root != out_root);
+        out_root = bootstrap_fwd (ctx, src_root, top_altn);
+        top_fwd = (src_root != out_root);
       }
     }
 
@@ -2659,9 +2846,12 @@ namespace build2
 
     // Note: this loop does at most two iterations.
     //
-    for (const scope* proot (nullptr); ; proot = root)
+    optional<bool> altn (top_altn);
+    optional<bool> fwd (top_fwd);
+
+    for (const scope* prs (nullptr); ; prs = rs)
     {
-      bool top (proot == nullptr);
+      bool top (prs == nullptr);
 
       // Check the cache for the subproject.
       //
@@ -2671,13 +2861,75 @@ namespace build2
           return *r;
       }
 
-      root = create_root (ctx, out_root, src_root)->second.front ();
+      // Find the corresponding exemplar root scope, if any.
+      //
+      // It feels like maybe we should do this earlier, before calling
+      // is_src_root() or find_out_root() above (and below). On the other
+      // hand, if the user specifies import as pointing to a forwarded
+      // configuration, then the exemplar scope will be setup with the
+      // forwarded-to src/out_root.
+      //
+      const scope* ers (nullptr);
+      if (ectx != nullptr)
+      {
+        if ((ers = &ectx->scopes.find_out (out_root)) != nullptr)
+        {
+          // Note that the scope may not (yet) exist in the exemplar context
+          // (e.g., import directive after update directive) or it hasn't yet
+          // been bootstrapped. In both cases it's of no use to us and so we
+          // continue assuming the project is already sufficiently configured.
+          //
+          // Note also that entering variable overrides below is independent
+          // of that, which is why we check for ectx, not ers there.
+          //
+          if (ers->out_path () == out_root && bootstrapped (*ers))
+          {
+            if (src_root.empty ())
+              src_root = ers->src_path ();
+            else
+              assert (src_root == ers->src_path ());
 
-      bool bstrapped (bootstrapped (*root));
+            if (!altn)
+              altn = ers->root_extra->altn;
+            else
+              assert (*altn == ers->root_extra->altn);
+
+            if (!top || !top_src)
+              fwd = cast_false<bool> (ers->vars[ectx->var_forwarded]);
+            else
+            {
+              // This (top_fwd) value was discovered. What should we do if it
+              // doesn't match exemplar's? It's unclear whether there is a
+              // valid case where this may happen (especially where we think
+              // it's forwarded and exemplar thinks not), so for now let's
+              // play it safe and upgrade.
+              //
+              if (!fwd || !*fwd)
+                fwd = cast_false<bool> (ers->vars[ectx->var_forwarded]);
+            }
+          }
+          else
+            ers = nullptr;
+        }
+      }
+
+      rs = create_root (ctx, out_root, src_root)->second.front ();
+
+      bool bstrapped (bootstrapped (*rs));
 
       if (!bstrapped)
       {
-        value& v (bootstrap_out (*root, altn));
+        // Get the amalgamation directory from the exemplar root scope.
+        //
+        optional<dir_path> ad;
+        if (ers != nullptr)
+        {
+          ad = (*ers->root_extra->amalgamation != nullptr
+                ? **ers->root_extra->amalgamation
+                : dir_path ());
+        }
+
+        value& v (bootstrap_out (*rs, altn));
 
         // Check that the bootstrap process set src_root.
         //
@@ -2696,39 +2948,60 @@ namespace build2
         else
         {
           diag_record dr (fail (loc));
-          dr << "unable to determine src_root for imported ";
+          dr << "unable to determine src_root for " << what << "ed ";
           if (proj) dr << *proj;
           else      dr << out_root;
           dr << info << "consider configuring " << out_root;
         }
 
-        setup_root (*root,
-                    (top
-                     ? fwd
-                     : forwarded (*proot, out_root, v.as<dir_path> (), altn)));
+        if (!fwd)
+          fwd = forwarded (*prs, out_root, v.as<dir_path> (), altn);
 
-        bootstrap_pre (*root, altn);
-        bootstrap_src (*root, altn);
+        setup_root (*rs, *fwd);
+
+        bootstrap_pre (*rs, altn);
+        bootstrap_src (*rs, altn, move (ad));
         if (!top)
-          bootstrap_post (*root);
+          bootstrap_post (*rs);
       }
       else
       {
-        altn = root->root_extra->altn;
-
         if (src_root.empty ())
-          src_root = root->src_path ();
+          src_root = rs->src_path ();
 
-        if (top ? fwd : forwarded (*proot, out_root, src_root, altn))
-          root->assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
+        if (!altn)
+          altn = rs->root_extra->altn;
+
+        if (!fwd)
+          fwd = forwarded (*prs, out_root, src_root, altn);
+
+        if (*fwd)
+          rs->assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
       }
 
       if (top)
       {
-        create_bootstrap_outer (*root);
+        create_bootstrap_outer (*rs, true /* subprojects */, ers);
 
         if (!bstrapped)
-          bootstrap_post (*root);
+          bootstrap_post (*rs);
+      }
+
+      // Enter project variable overrides if we have an exemplar.
+      //
+      if (ectx != nullptr)
+      {
+        const auto& ovr_map (ectx->entered_var_overrides);
+        if (!ovr_map.empty ())
+        {
+          const dir_path& out_base (proj
+                                    ? out_root
+                                    : (x.second->sub (out_root)
+                                       ? *x.second
+                                       : out_src (*x.second, *rs)));
+
+          enter_project_overrides (ctx, out_base, ovr_map);
+        }
       }
 
       // If this is ad hoc import, then we are done.
@@ -2738,10 +3011,10 @@ namespace build2
 
       // Now we know this project's name as well as all its subprojects.
       //
-      if (project (*root) == *proj)
+      if (project (*rs) == *proj)
         break;
 
-      if (const subprojects* ps = *root->root_extra->subprojects)
+      if (const subprojects* ps = *rs->root_extra->subprojects)
       {
         auto i (ps->find (*proj));
 
@@ -2750,9 +3023,11 @@ namespace build2
           cache_out_root = move (out_root);
 
           const dir_path& d ((*i).second);
-          altn = nullopt;
-          out_root = root->out_path () / d;
+          out_root = rs->out_path () / d;
           src_root = is_src_root (out_root, altn) ? out_root : dir_path ();
+
+          altn = nullopt;
+          fwd = nullopt;
           continue;
         }
       }
@@ -2789,7 +3064,7 @@ namespace build2
         name n;
 
         if (src_root.empty ())
-          src_root = root->src_path ();
+          src_root = rs->src_path ();
 
         n.dir = move (src_root);
         n.dir /= *altn ? alt_export_dir : std_export_dir;
@@ -2803,7 +3078,7 @@ namespace build2
         n.value = tgt.value;
         add_ext (n.value);
 
-        pair<names, const scope&> r (names {move (n)}, *root);
+        pair<names, const scope&> r (names {move (n)}, *rs);
 
         // Cache.
         //
@@ -2818,14 +3093,14 @@ namespace build2
       else
       {
         add_ext (tgt.value);
-        return pair<names, const scope&> (names {move (tgt)}, *root);
+        return pair<names, const scope&> (names {move (tgt)}, *rs);
       }
     }
 
     // Load the imported root scope.
     //
-    if (!root->root_extra->loaded)
-      load_root (*root);
+    if (!rs->root_extra->loaded)
+      load_root (*rs);
 
     // If this is a normal import, then we go through the export stub.
     //
@@ -2844,7 +3119,7 @@ namespace build2
         cache_out_root = out_root;
 
       if (src_root.empty ())
-        src_root = root->src_path ();
+        src_root = rs->src_path ();
 
       ts.assign (ctx.var_out_root) = move (out_root);
       ts.assign (ctx.var_src_root) = move (src_root);
@@ -2867,13 +3142,13 @@ namespace build2
       // importing project, not the imported one. The export stub will
       // normally switch to the imported root scope at some point.
       //
-      path es (root->src_path () / root->root_extra->export_file);
+      path es (rs->src_path () / rs->root_extra->export_file);
 
       try
       {
         ifdstream ifs (es);
 
-        l5 ([&]{trace << "importing " << es;});
+        l5 ([&]{trace << what << "ing " << es;});
 
         // @@ Should we verify these are all unqualified names? Or maybe there
         // is a use-case for the export stub to return a qualified name? E.g.,
@@ -2882,14 +3157,14 @@ namespace build2
         names v;
         {
           auto df = make_diag_frame (
-            [&tgt, &loc] (const diag_record& dr)
+            [&tgt, &loc, what] (const diag_record& dr)
             {
-              dr << info (loc) << "while loading export stub for imported "
-                 << "target '" << tgt << "'";
+              dr << info (loc) << "while loading export stub for "
+                               << what << "ed target '" << tgt << "'";
             });
 
           parser p (ctx);
-          v = p.parse_export_stub (ifs, path_name (es), *root, gs, ts);
+          v = p.parse_export_stub (ifs, path_name (es), *rs, gs, ts);
         }
 
         // If there were no export directive executed in an export stub,
@@ -2899,7 +3174,7 @@ namespace build2
           fail (loc) << "target '" << tgt << "' is not exported by project "
                      << *proj;
 
-        pair<names, const scope&> r (move (v), *root);
+        pair<names, const scope&> r (move (v), *rs);
 
         // Cache.
         //
@@ -2911,7 +3186,7 @@ namespace build2
       catch (const io_error& e)
       {
         fail (loc) << "unable to read buildfile " << es << ": " << e <<
-          info << "while loading export stub for imported target '"
+          info << "while loading export stub for " << what << "ed target '"
                << tgt << "'" << endf;
       }
     }
@@ -2921,21 +3196,21 @@ namespace build2
       // plausibly define this target. We use the same hairy semantics as in
       // main() (and where one should refer for details).
       //
-      const dir_path& src_root (root->src_path ());
+      const dir_path& src_root (rs->src_path ());
       dir_path src_base (x.second->sub (src_root)
                          ? move (*x.second)
-                         : src_out (*x.second, *root));
+                         : src_out (*x.second, *rs));
 
       optional<path> bf (find_buildfile (src_base, src_base, altn));
 
       if (!bf)
       {
-        bf = find_plausible_buildfile (tgt, *root,
+        bf = find_plausible_buildfile (tgt, *rs,
                                        src_base, src_root,
                                        altn);
         if (!bf)
           fail << "no buildfile in " << src_base << " or parent directories "
-               << "for imported target '" << tgt << "'";
+               << "for " << what << "ed target '" << tgt << "'";
 
         if (!bf->empty ())
           src_base = bf->directory ();
@@ -2947,21 +3222,131 @@ namespace build2
       {
         // The same logic as in operation's load().
         //
-        dir_path out_base (out_src (src_base, *root));
+        dir_path out_base (out_src (src_base, *rs));
 
-        auto i (ctx.scopes.rw (*root).insert_out (out_base));
+        auto i (ctx.scopes.rw (*rs).insert_out (out_base));
         scope& base (setup_base (i, move (out_base), move (src_base)));
 
-        source_once (*root, base, *bf);
+        source_once (*rs, base, *bf);
       }
 
       // If this is forwarded src, then remap the target to out (will need to
       // adjust this if/when we allow out-qualification).
       //
-      if (fwd)
-        tgt.dir = out_src (tgt.dir, *root);
+      if (*fwd)
+        tgt.dir = out_src (tgt.dir, *rs);
 
-      return pair<names, const scope&> (names {move (tgt)}, *root);
+      return pair<names, const scope&> (names {move (tgt)}, *rs);
+    }
+  }
+
+  const scope&
+  exemplar_load (context& ctx,
+                 const scope& ebs,
+                 const path& bf,
+                 const location& loc)
+  {
+    tracer trace ("exemplar_load");
+
+    context& ectx (ebs.ctx);
+    assert (ctx.exemplar_context == &ectx);
+
+    const scope* ers (ebs.root_scope ());
+    assert (ers != nullptr);
+
+    // Create and bootstrap the new root scope in the other context. This is
+    // pretty similar to what we do in main() except that here we don't try to
+    // guess src_root, etc.
+    //
+    const dir_path& out_root (ers->out_path ());
+    const dir_path& src_root (ers->src_path ());
+
+    bool fwd (cast_false<bool> (ers->vars[ectx.var_forwarded]));
+    optional<bool> altn (ers->root_extra->altn);
+
+    scope& rs (*create_root (ctx, out_root, src_root)->second.front ());
+
+    bool bstrapped (bootstrapped (rs));
+
+    if (!bstrapped)
+    {
+      // Note that if the outer project is being configured out of source,
+      // then there will not yet be any information about its existence (in
+      // the form of the build/src-root.build) present on the file system. So
+      // we have to communicate this information from the exemplar scope.
+      // Note that we also do this in sevearl other places (such as
+      // create_bootstrap_outer/inner(), etc).
+      //
+      // @@ Should we also do this for subprojects? Though looks like we only
+      //    discover them from the filesystem state.
+      //
+      assert (ers->root_extra->amalgamation); // Should be bootstrapped.
+      dir_path ad (*ers->root_extra->amalgamation != nullptr
+                   ? **ers->root_extra->amalgamation
+                   : dir_path ());
+
+      value& v (bootstrap_out (rs, altn));
+
+      // Check that the bootstrap process set matching src_root.
+      //
+      assert (v);
+      const dir_path& p (cast<dir_path> (v));
+
+      if (p != src_root)
+        fail (loc) << "configured src_root " << p << " does not match "
+                   << "discovered " << src_root;
+
+      setup_root (rs, fwd);
+
+      bootstrap_pre (rs, altn);
+      bootstrap_src (rs, altn, move (ad)); // Note: discovers subprojects.
+    }
+    else
+    {
+      if (fwd)
+        rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
+    }
+
+    create_bootstrap_outer (rs, true /* subprojects */, ers);
+
+    if (!bstrapped)
+      bootstrap_post (rs);
+
+    // Enter project variable overrides if requested.
+    //
+    // Note that loading of buildfiles below may trigger importation of other
+    // projects which may also need their overrides entered. This is handled
+    // via context::exemplar_context.
+    //
+    const auto& ovr_map (ectx.entered_var_overrides);
+    if (!ovr_map.empty ())
+      enter_project_overrides (ctx, ebs.out_path (), ovr_map);
+
+    // Load the new root scope.
+    //
+    if (!rs.root_extra->loaded)
+      load_root (rs);
+
+    // Load the buildfile.
+    //
+    // Check if this is root.build, which was already loaded above.
+    //
+    assert (bf.absolute ());
+
+    if (bf != src_root / rs.root_extra->root_file)
+    {
+      // The same logic as in operation's load().
+      //
+      auto i (ctx.scopes.rw (rs).insert_out (ebs.out_path ()));
+      scope& bs (setup_base (i, ebs.out_path (), ebs.src_path ()));
+
+      source_once (rs, bs, bf);
+      return bs;
+    }
+    else
+    {
+      assert (ebs == *ers);
+      return rs;
     }
   }
 
@@ -3522,7 +3907,7 @@ namespace build2
       k = r.first.absolute () ? import_kind::adhoc : import_kind::normal;
 
       pair<names, const scope&> p (
-        import_load (base.ctx, move (r), metadata, loc));
+        import_load (base.ctx, move (r), metadata, loc, what));
 
       rns = ns = move (p.first);
       iroot = &p.second;

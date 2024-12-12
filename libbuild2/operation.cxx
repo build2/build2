@@ -112,7 +112,8 @@ namespace build2
     tracer trace ("perform_search");
 
     context& ctx (bs.ctx);
-    phase_lock pl (ctx, run_phase::match);
+
+    // Note: we are in the load phase.
 
     const target* t (ctx.targets.find (tk, trace));
 
@@ -252,16 +253,27 @@ namespace build2
       throw failed ();
   }
 
+  // This function as well as perform_execute() below are littered with ugly
+  // special cases to support update-during-load. This is unfortunate but felt
+  // like the least bad way to retrofit this functionality into a well
+  // established build model. See update_during_load() for how everything fits
+  // together.
+  //
   void
   perform_match (const values&, action a, action_targets& ts,
                  uint16_t diag, bool prog)
   {
     tracer trace ("perform_match");
 
+    // NOTE: also called with configure and dist meta-operations.
+
     if (ts.empty ())
       return;
 
     context& ctx (ts[0].as<target> ().ctx);
+
+    assert (!ctx.update_during_load ||
+            *ctx.update_during_load == 0); // Initial load.
 
     {
       phase_lock l (ctx, run_phase::match);
@@ -273,7 +285,9 @@ namespace build2
         size_t incr;
         string what1;
         string what2;
-        size_t exec = 0; // Number of targets executed during match.
+        size_t exec = 0; // Number of targets executed during match/load.
+        bool exec_match = false;
+        bool exec_load = false;
         timestamp time = timestamp_nonexistent;
       } md; // Note: must outlive monitor_guard.
 
@@ -291,11 +305,14 @@ namespace build2
         // Note that we strip the outer operation from "(... during match)"
         // not to repeat the same "(for <operation>)" twice.
         //
+        // NOTE: see also the update-during-loan emulation of this progress in
+        // perform_execute() below.
+        //
         md.incr = stderr_term // Scale depending on output type.
           ? (ctx.sched->serial () ? 1 : 2)
           : 100;
         md.what1 = " targets to " + diag_do (ctx, a);
-        md.what2 = ' ' + diag_did (ctx, a.inner_action ()) + " during match)";
+        md.what2 = ' ' + diag_did (ctx, a.inner_action ());
 
         mg = ctx.sched->monitor (
           ctx.target_count,
@@ -320,8 +337,31 @@ namespace build2
             diag_progress += to_string (c);
             diag_progress += md.what1;
 
+            // Trying to split exec/skip counts between load and match feels
+            // hopeless so we show it as a combined count. All we really need
+            // here is some inidication that something is being done during
+            // load.
+            //
             if (md.exec != 0)
             {
+              // Note that in the interrupting update during load case we may
+              // have both load and match updates happening in parallel and
+              // it's impossible to attribute them. So we assume both. Note
+              // also that in this case we may miss observing the update
+              // during load signal and thus continue showing only "during
+              // match". But that's probably ok since it means the update
+              // during load happened very fast.
+              //
+              if (ctx.update_during_load)
+              {
+                md.exec_load = true;
+
+                if (*ctx.update_during_load != 0)
+                  md.exec_match = true;
+              }
+              else
+                md.exec_match = true;
+
               // Offset by the number of targets skipped.
               //
               size_t s (ctx.skip_count.load (memory_order_relaxed));
@@ -331,6 +371,10 @@ namespace build2
                 diag_progress += " (";
                 diag_progress += to_string (md.exec - s);
                 diag_progress += md.what2;
+                diag_progress +=
+                  (md.exec_load && md.exec_match ? " during load/match)" :
+                   md.exec_load                  ? " during load)"       :
+                   " during match)");
               }
             }
 
@@ -343,10 +387,12 @@ namespace build2
       // See a comment in perform_execute() for why we are doing it here
       // (short answer: phase switches).
       //
-      auto cs (ctx.operation_callbacks.equal_range (a));
-      for (auto i (cs.first); i != cs.second; ++i)
-        if (const auto& f = i->second.pre)
-          f (ctx, a, ts);
+      {
+        auto cs (ctx.operation_callbacks.equal_range (a));
+        for (auto i (cs.first); i != cs.second; ++i)
+          if (const auto& f = i->second.pre)
+            f (ctx, a, ts);
+      }
 
       // Start asynchronous matching of prerequisites keeping track of how
       // many we have started. Wait with unlocked phase to allow phase
@@ -391,7 +437,8 @@ namespace build2
       // See match_posthoc() for the overall approach description.
       //
       bool posthoc_fail (false);
-      if (!ctx.current_posthoc_targets.empty () && (!fail || ctx.keep_going))
+      if (!ctx.current_posthoc_targets_collected.empty () &&
+          (!fail || ctx.keep_going))
       {
         using posthoc_target = context::posthoc_target;
         using posthoc_prerequisite_target = posthoc_target::prerequisite_target;
@@ -400,7 +447,7 @@ namespace build2
         // back. Since we start and end each iteration in serial execution, we
         // don't need to mess with the mutex.
         //
-        for (const posthoc_target& p: ctx.current_posthoc_targets)
+        for (posthoc_target& p: ctx.current_posthoc_targets_collected)
         {
           action a (p.action); // May not be the same as argument action.
           const target& t (p.target);
@@ -437,9 +484,13 @@ namespace build2
             }
           }
 
+          ctx.current_posthoc_targets_matched.push_back (move (p));
+
           if (posthoc_fail && !ctx.keep_going)
             break;
         }
+
+        ctx.current_posthoc_targets_collected.clear ();
       }
 
       // Clear the progress if present.
@@ -539,7 +590,11 @@ namespace build2
       // @@ This feels a bit ad hoc. Maybe we should invent operation hooks
       //    for this (e.g., post-search, post-match, post-execute)?
       //
-      if (a == perform_update_id)
+      // Omit if this is update-during-load (will be performed as part of the
+      // normal perform_match() call at the end). Note: only applies to the
+      // initial load case.
+      //
+      if (a == perform_update_id && !ctx.update_during_load)
         verify_targets (ctx, a);
     }
 
@@ -548,6 +603,12 @@ namespace build2
     assert (ctx.phase == run_phase::load);
   }
 
+  // This function as well as the perform_match() above are littered with ugly
+  // special cases to support update-during-load. This is unfortunate but felt
+  // like the least bad way to retrofit this functionality into a well
+  // established build model. See update_during_load() for how everything fits
+  // together.
+  //
   void
   perform_execute (const values&, action a, action_targets& ts,
                    uint16_t diag, bool prog)
@@ -559,13 +620,16 @@ namespace build2
 
     context& ctx (ts[0].as<target> ().ctx);
 
+    assert (!ctx.update_during_load ||
+            *ctx.update_during_load == 0); // Initial load.
+
     bool posthoc_fail (false);
     auto execute_posthoc = [&ctx, &posthoc_fail] ()
     {
       using posthoc_target = context::posthoc_target;
       using posthoc_prerequisite_target = posthoc_target::prerequisite_target;
 
-      for (const posthoc_target& p: ctx.current_posthoc_targets)
+      for (const posthoc_target& p: ctx.current_posthoc_targets_matched)
       {
         action a (p.action); // May not be the same as argument action.
         const target& t (p.target);
@@ -644,6 +708,8 @@ namespace build2
         if (posthoc_fail && !ctx.keep_going)
           break;
       }
+
+      ctx.current_posthoc_targets_matched.clear ();
     };
 
     // Reverse the order of targets if the execution mode is 'last'.
@@ -676,9 +742,10 @@ namespace build2
       if (!ctx.current_inner_oif->keep_going)
         ctx.keep_going = false;
 
-      // Set the dry-run flag.
+      // Set the dry-run flag, unless this is update-during-load. Note: only
+      // applies to the initial load case.
       //
-      ctx.dry_run = ctx.dry_run_option;
+      ctx.dry_run = ctx.dry_run_option && !ctx.update_during_load;
 
       // Setup progress reporting if requested.
       //
@@ -686,7 +753,8 @@ namespace build2
       {
         size_t init;
         size_t incr;
-        string what;
+        string what1;
+        string what2;
       } md; // Note: must outlive monitor_guard.
 
       scheduler::monitor_guard mg;
@@ -694,31 +762,61 @@ namespace build2
       if (prog && show_progress (1 /* max_verb */))
       {
         md.init = ctx.target_count.load (memory_order_relaxed);
-        md.incr = md.init > 100 ? md.init / 100 : 1; // 1%.
 
-        if (md.init != md.incr)
+        if (!ctx.update_during_load)
         {
-          md.what = "% of targets " + diag_did (ctx, a);
+          md.incr = md.init > 100 ? md.init / 100 : 1; // 1%.
+
+          if (md.init != md.incr)
+          {
+            md.what1 = "% of targets " + diag_did (ctx, a);
+
+            mg = ctx.sched->monitor (
+              ctx.target_count,
+              md.incr,
+              [&md, &ctx] (size_t, size_t c) -> size_t
+              {
+                size_t p ((md.init - c) * 100 / md.init);
+                size_t s (ctx.skip_count.load (memory_order_relaxed));
+
+                diag_progress_lock pl;
+                diag_progress  = ' ';
+                diag_progress += to_string (p);
+                diag_progress += md.what1;
+
+                if (s != 0)
+                {
+                  diag_progress += " (";
+                  diag_progress += to_string (s);
+                  diag_progress += " skipped)";
+                }
+
+                return md.incr;
+              });
+          }
+        }
+        else
+        {
+          // Emulate perform_match() progress (see update_during_load() for
+          // background).
+          //
+          // Note: only applies to the initial load case.
+          //
+          md.incr = stderr_term ? (ctx.sched->serial () ? 1 : 2) : 100;
+          md.what1 = to_string (md.init) + " targets to " + diag_do (ctx, a);
+          md.what2 = ' ' + diag_did (ctx, a.inner_action ()) + " during load)";
 
           mg = ctx.sched->monitor (
             ctx.target_count,
             md.incr,
             [&md, &ctx] (size_t, size_t c) -> size_t
             {
-              size_t p ((md.init - c) * 100 / md.init);
-              size_t s (ctx.skip_count.load (memory_order_relaxed));
-
               diag_progress_lock pl;
               diag_progress  = ' ';
-              diag_progress += to_string (p);
-              diag_progress += md.what;
-
-              if (s != 0)
-              {
-                diag_progress += " (";
-                diag_progress += to_string (s);
-                diag_progress += " skipped)";
-              }
+              diag_progress += md.what1;
+              diag_progress += " (";
+              diag_progress += to_string (md.init - c);
+              diag_progress += md.what2;
 
               return md.incr;
             });
@@ -734,9 +832,14 @@ namespace build2
 
       // In the 'last' execution mode run post hoc first.
       //
+      // Omit (here and below) if this is update-during-load (will be done as
+      // part of the normal perform_execute() call at the end). Note: only
+      // applies to the initial load case.
+      //
       if (ctx.current_mode == execution_mode::last)
       {
-        if (!ctx.current_posthoc_targets.empty ())
+        if (!ctx.current_posthoc_targets_matched.empty () &&
+            !ctx.update_during_load)
           execute_posthoc ();
       }
 
@@ -754,7 +857,7 @@ namespace build2
 
           l5 ([&]{trace << diag_doing (a, t);});
 
-          target_state s (execute_async (a, t, 0, task_count, false));
+          target_state s (execute_async (a, t, 0, task_count, false /*fail*/));
 
           // Bail out if the target has failed and we weren't instructed to
           // keep going.
@@ -773,7 +876,9 @@ namespace build2
 
       if (ctx.current_mode == execution_mode::first)
       {
-        if (!ctx.current_posthoc_targets.empty () && (!fail || ctx.keep_going))
+        if (!ctx.current_posthoc_targets_matched.empty () &&
+            (!fail || ctx.keep_going) &&
+            !ctx.update_during_load)
           execute_posthoc ();
       }
 
@@ -802,6 +907,8 @@ namespace build2
         switch (at.state)
         {
         case target_state::unknown:
+          // We bailed before executing it (leave state in action_target as
+          // unknown).
         case target_state::unchanged:
         case target_state::changed:
           break;
@@ -841,7 +948,11 @@ namespace build2
     // like part of the progress report and real usage suggests this as well
     // (e.g., when building modules/recipes in a nested context).
     //
-    if (prog && verb != 0)
+    // Omit if this is update-during-load (will be printed as part of the
+    // normal perform_execute() call at the end). Note: only applies to the
+    // initial load case.
+    //
+    if (prog && verb != 0 && !ctx.update_during_load)
     {
       if (size_t s = ctx.skip_count.load (memory_order_relaxed))
       {
@@ -851,53 +962,58 @@ namespace build2
 
     // Re-examine all the targets and print diagnostics.
     //
-    for (action_target& at: ts)
+    if (verb != 0 && diag >= 1)
     {
-      const target& t (at.as<target> ());
-
-      switch (at.state)
+      for (action_target& at: ts)
       {
-      case target_state::unknown:
+        const target& t (at.as<target> ());
+
+        switch (at.state)
         {
-          // We bailed before executing it (leave state in action_target as
-          // unknown).
-          //
-          if (verb != 0 && diag >= 1)
+        case target_state::unknown:
+          {
+            // We bailed before executing it.
+            //
             info << "not " << diag_did (a, t);
+            break;
+          }
+        case target_state::unchanged:
+          {
+            // Nothing had to be done.
+            //
+            if (diag >= 2)
+              info << diag_done (a, t);
 
-          break;
-        }
-      case target_state::unchanged:
-        {
-          // Nothing had to be done.
-          //
-          if (verb != 0 && diag >= 2)
-            info << diag_done (a, t);
-
-          break;
-        }
-      case target_state::changed:
-        {
-          // Something has been done.
-          //
-          break;
-        }
-      case target_state::failed:
-        {
-          // Things didn't go well for this target.
-          //
-          if (verb != 0 && diag >= 1)
+            break;
+          }
+        case target_state::changed:
+          {
+            // Something has been done.
+            //
+            break;
+          }
+        case target_state::failed:
+          {
+            // Things didn't go well for this target.
+            //
             info << "failed to " << diag_do (a, t);
-
-          break;
+            break;
+          }
+        default:
+          assert (false);
         }
-      default:
-        assert (false);
       }
     }
 
     if (fail)
       throw failed ();
+
+    // Skip the below check for update-during-load since we may have delayed
+    // executing posthoc targets (see above). Note: only applies to the
+    // initial load case.
+    //
+    if (ctx.update_during_load)
+      return;
 
 #ifndef NDEBUG
     size_t base (ctx.count_base ());

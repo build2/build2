@@ -225,7 +225,7 @@ namespace build2
   //   bootstrap_src()
   //
   LIBBUILD2_SYMEXPORT bool
-  bootstrapped (scope& root);
+  bootstrapped (const scope& root);
 
   // Execute pre/post-bootstrap hooks. Similar to bootstrap_out/src(), should
   // only be called once per project bootstrap.
@@ -238,10 +238,13 @@ namespace build2
 
   // Create and bootstrap outer root scopes, if any. Loading is done by
   // load_root(). If subprojects is false, then do not discover or extract
-  // subprojects.
+  // subprojects. See exemplar_load() for details on the exemplar_root
+  // argument.
   //
   LIBBUILD2_SYMEXPORT void
-  create_bootstrap_outer (scope& root, bool subprojects = true);
+  create_bootstrap_outer (scope& root,
+                          bool subprojects = true,
+                          const scope* exemplar_root = nullptr);
 
   // Create and bootstrap inner root scopes, if any, recursively.
   //
@@ -516,11 +519,31 @@ namespace build2
                  const location&,
                  const char* what = "import");
 
+  // Note that the what argument should make sense with the -ed and -ing
+  // suffixes (e.g., "load").
+  //
   LIBBUILD2_SYMEXPORT pair<names, const scope&>
   import_load (context&,
-               pair<name, optional<dir_path>>,
+               pair<name, optional<dir_path /* out_root/base */>>,
                bool metadata,
-               const location&);
+               const location&,
+               const char* what = "import");
+
+  // Create scopes, bootstrap the project, enter variable overrides, and load
+  // the buildfile in the new build context based on the exemplar. Note that
+  // the buildfile path must be absolute and normalized. Somewhat similar to
+  // import_load().
+  //
+  // Note that the contexts are expected to have the same set of variable
+  // overrides and the new context's versions are expected to be found in
+  // the exemplar's context::var_overrides. The new context is also expected
+  // to have context::exemplar_context pointing to the exemplar.
+  //
+  const scope&
+  exemplar_load (context& ctx,
+                 const scope& exemplar_bs,
+                 const path& buildfile,
+                 const location&);
 
   // Import (more precisely, alias as if using the `define =` syntax) the
   // target type from imported project (iroot) into this project (root). If

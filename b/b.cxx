@@ -427,6 +427,7 @@ main (int argc, char* argv[])
                                ops.dry_run (),
                                ops.no_diag_buffer (),
                                !ops.serial_stop () /* keep_going */,
+                               nullopt             /* build_mode */,
                                cmdl.cmd_vars));
 
       if (ops.trace_match_specified ())
@@ -1438,6 +1439,38 @@ main (int argc, char* argv[])
         if (load_only && (mid != perform_id || oid != update_id))
           fail << "--load-only requires perform(update) action";
 
+        // Setup the first operation before loading buildfiles. This is relied
+        // upon by the update-during-load machinery.
+        //
+        if (pre_oid != 0)
+        {
+          if (mif->operation_pre != nullptr)
+            mif->operation_pre (ctx, mparams, pre_oid); // Can't be translated.
+
+          ctx.current_operation (*pre_oif, oif);
+
+          if (oif->operation_pre != nullptr)
+            oif->operation_pre (ctx, oparams, false /* inner */, l);
+
+          if (pre_oif->operation_pre != nullptr)
+            pre_oif->operation_pre (ctx, {}, true /* inner */, l);
+        }
+        else
+        {
+          // Note: meta-operation operation_pre() already called above.
+
+          ctx.current_operation (*oif, outer_oif);
+
+          if (outer_oif != nullptr && outer_oif->operation_pre != nullptr)
+            outer_oif->operation_pre (ctx, oparams, false /* inner */, l);
+
+          if (oif->operation_pre != nullptr)
+            oif->operation_pre (ctx,
+                                outer_oif == nullptr ? oparams : values {},
+                                true /* inner */,
+                                l);
+        }
+
         // Now load the buildfiles and search the targets.
         //
         action_targets tgs;
@@ -1521,16 +1554,7 @@ main (int argc, char* argv[])
           l5 ([&]{trace << "start pre-operation batch " << pre_oif->name
                         << ", id " << static_cast<uint16_t> (pre_oid);});
 
-          if (mif->operation_pre != nullptr)
-            mif->operation_pre (ctx, mparams, pre_oid); // Can't be translated.
-
-          ctx.current_operation (*pre_oif, oif);
-
-          if (oif->operation_pre != nullptr)
-            oif->operation_pre (ctx, oparams, false /* inner */, l);
-
-          if (pre_oif->operation_pre != nullptr)
-            pre_oif->operation_pre (ctx, {}, true /* inner */, l);
+          // Note: current operation was setup before loading.
 
           action a (mid, pre_oid, oid);
 
@@ -1570,16 +1594,22 @@ main (int argc, char* argv[])
           tgs.reset ();
         }
 
-        ctx.current_operation (*oif, outer_oif);
+        // Note: current operation was setup above before loading if there was
+        // no pre-operation.
+        //
+        if (pre_oid != 0)
+        {
+          ctx.current_operation (*oif, outer_oif);
 
-        if (outer_oif != nullptr && outer_oif->operation_pre != nullptr)
-          outer_oif->operation_pre (ctx, oparams, false /* inner */, l);
+          if (outer_oif != nullptr && outer_oif->operation_pre != nullptr)
+            outer_oif->operation_pre (ctx, oparams, false /* inner */, l);
 
-        if (oif->operation_pre != nullptr)
-          oif->operation_pre (ctx,
-                              outer_oif == nullptr ? oparams : values {},
-                              true /* inner */,
-                              l);
+          if (oif->operation_pre != nullptr)
+            oif->operation_pre (ctx,
+                                outer_oif == nullptr ? oparams : values {},
+                                true /* inner */,
+                                l);
+        }
 
         action a (mid, oid, oif->outer_id);
 

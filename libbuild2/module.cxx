@@ -69,8 +69,21 @@ namespace build2
   void
   create_module_context (context& ctx, const location& loc)
   {
+    // NOTE: similar to update_during_load().
+
     assert (ctx.module_context == nullptr);
     assert (*ctx.module_context_storage == nullptr);
+
+    // Remap verbosity (see below for details). We also have to do this while
+    // creating the context because the verbosity is set as a variable on the
+    // global scope.
+    //
+    auto verbg = make_guard (
+      [z = !silent && verb == 0 ? (verb = 1, true) : false] ()
+      {
+        if (z)
+          verb = 0;
+      });
 
     // Since we are using the same scheduler, it makes sense to reuse the
     // same global mutexes. Also disable nested module context for good
@@ -83,33 +96,26 @@ namespace build2
       new context (*ctx.sched,
                    *ctx.mutexes,
                    *ctx.fcache,
-                   nullopt,                  /* match_only */
-                   false,                    /* no_external_modules */
-                   false,                    /* dry_run */
+                   nullopt,                    /* match_only */
+                   false,                      /* no_external_modules */
+                   false,                      /* dry_run */
                    ctx.no_diag_buffer,
                    ctx.keep_going,
-                   ctx.global_var_overrides, /* cmd_vars */
+                   string ("module"),          /* build_mode */
+                   ctx.original_var_overrides, /* cmd_vars */
+                   true,                       /* cmd_vars_global_only */
                    context::reserves {
-                     2500,                    /* targets */
-                      900                     /* variables */
+                     2500,                     /* targets */
+                      900                      /* variables */
                    },
-                   nullopt));                /* module_context */
+                   nullopt));                  /* module_context */
 
     // We use the same context for building any nested modules that might be
     // required while building modules. Note: this is also used to detect
-    // module building context. @@ Maybe we should invent special build.mode?
+    // module building context (plus the special build.mode above).
     //
     context& mctx (*(ctx.module_context = ctx.module_context_storage->get ()));
     mctx.module_context = &mctx;
-
-    // Copy over any operation callbacks. If a callback implementation does
-    // not wish to see module context's calls, it can filter them out based on
-    // the passed context.
-    //
-    // Note also that only the callbacks registered before we need to build
-    // the first module will be in effect. Probably good enough for now.
-    //
-    mctx.operation_callbacks = ctx.operation_callbacks;
 
     // Setup the context to perform update. In a sense we have a long-running
     // perform meta-operation batch (indefinite, in fact, since we never call
@@ -135,12 +141,27 @@ namespace build2
   update_in_module_context (context& ctx, const scope& rs, names tgt,
                             const location& loc, const path& bf)
   {
+    // NOTE: similar to update_during_load().
+
+    context& mctx (*ctx.module_context);
+
+    // Copy over any new operation callbacks. If a callback implementation
+    // does not wish to see module context's calls, it can filter them out
+    // based on the passed context.
+    //
+    // Note that only the callbacks registered before we need to build the
+    // module will be in effect. Note also that we assume callbacks are never
+    // unregistered or replaced and thus can avoid copying if sizes match.
+    //
+    if (mctx.operation_callbacks.size () != ctx.operation_callbacks.size ())
+      mctx.operation_callbacks = ctx.operation_callbacks;
+
     // New update operation.
     //
     assert (op_update.operation_pre == nullptr &&
             op_update.operation_post == nullptr);
 
-    ctx.module_context->current_operation (op_update);
+    mctx.current_operation (op_update);
 
     // Un-tune the scheduler.
     //
@@ -177,6 +198,11 @@ namespace build2
     // save/restore but then we would need some sort of diagnostics that we
     // have switched to another task).
     //
+    // Note also that the scheduler does not support nested progress monitors,
+    // which would happen if we are triggered via interrupting load.
+    //
+    // See also update_during_load().
+    //
     action a (perform_update_id);
     action_targets tgs;
 
@@ -204,7 +230,7 @@ namespace build2
                         0,       /* diag (none) */
                         false    /* progress */);
 
-    ctx.module_context->load_generation++;
+    mctx.load_generation++;
 
     assert (tgs.size () == 1);
     return tgs[0].as<target> ();

@@ -315,9 +315,9 @@ namespace build2
 
       tracer trace ("cc::compiledb_pre");
 
-      bool mctx (ctx.module_context == &ctx);
+      bool nctx (ctx.nested_context ());
 
-      l6 ([&]{trace << (mctx ? "module" : "normal") << " context " << &ctx;});
+      l6 ([&]{trace << (nctx ? "nested" : "normal") << " context " << &ctx;});
 
       for (const unique_ptr<compiledb>& db: compiledbs)
         db->pre (ctx);
@@ -335,9 +335,9 @@ namespace build2
 
       tracer trace ("cc::compiledb_post");
 
-      bool mctx (ctx.module_context == &ctx);
+      bool nctx (ctx.nested_context ());
 
-      l6 ([&]{trace << (mctx ? "module" : "normal") << " context " << &ctx
+      l6 ([&]{trace << (nctx ? "nested" : "normal") << " context " << &ctx
                     << ", failed: " << failed;});
 
       for (const unique_ptr<compiledb>& db: compiledbs)
@@ -366,11 +366,12 @@ namespace build2
       //
       assert (state_ != state::failed);
 
-      // The module context (used to build build system modules) poses a
-      // problem: we can receive its callbacks before the main context's or
-      // nested in the pre/post calls of the main context (or both, in
-      // fact). Plus there may be multiple pre/post sequences corresponding to
-      // the module context of both kinds. The three distinct cases are:
+      // The nested contexts (used to build build system modules, update
+      // during load targets) poses a problem: we can receive its callbacks
+      // before the main context's or nested in the pre/post calls of the main
+      // context (or both, in fact). Plus there may be multiple pre/post call
+      // sequences corresponding to the nested contexts of both kinds. The
+      // three distinct cases are (using module as an example):
       //
       // 1. Module is loaded as part of the initial buildfile load (e.g., from
       //    root.build) -- in this case we will observe module pre/post before
@@ -393,16 +394,17 @@ namespace build2
       // operation; there could be another for the subsequent operation in a
       // batch).
       //
-      // Handling the nested case is relatively straightforward: we can keep
-      // track and ignore all the nested calls.
+      // Handling the nested calls case is relatively straightforward: we can
+      // keep track and ignore all the nested calls.
       //
       // The before case is where things get complicated. We could "take" the
-      // first module pre call and then wait until the main post, unless we
-      // see a module post call with failed=true, in which case there will be
-      // no further pre/post calls. There is, however, a nuance: the module is
-      // loaded and build for any operation, not just update, which means that
-      // if the main operation is not update (say, it's clean), we won't see
-      // any of the main context's pre/post calls.
+      // first nested context pre call and then wait until the main post,
+      // unless we see a nested context post call with failed=true, in which
+      // case there will be no further pre/post calls. There is, however, a
+      // nuance: the module (again, as an example) is loaded and build for any
+      // operation, not just update, which means that if the main operation is
+      // not update (say, it's clean), we won't see any of the main context's
+      // pre/post calls.
       //
       // The way we are going to resolve this problem is different for the
       // stdout and file implementations:
@@ -555,16 +557,16 @@ namespace build2
       if (--nesting_ != 0) // Nested post() call.
         return;
 
-      bool mctx (ctx.module_context == &ctx);
+      bool nctx (ctx.nested_context ());
 
       switch (state_)
       {
       case state::empty:
       case state::full:
         {
-          // If this is a module context's post, wait for the main context's
-          // post (last) unless the module load failed (in which case there
-          // will be no main pre/post).
+          // If this is a nested context's post, wait for the main context's
+          // post (last) unless the nested operation failed (in which case
+          // there will be no main pre/post).
           //
           // Note that there is no easy way to diagnose the case where we
           // won't get the main pre/post calls. Instead, we will just produce
@@ -573,7 +575,7 @@ namespace build2
           // will take the pre() call from clean and the main post() from
           // update.
           //
-          if (mctx && !failed)
+          if (nctx && !failed)
             return;
 
           if (state_ == state::full)
@@ -608,7 +610,7 @@ namespace build2
       //
       assert (state_ != state::failed);
 
-      // See compiledb_stdout::pre() for background on dealing with the module
+      // See compiledb_stdout::pre() for background on dealing with the nested
       // context. Here are some file-specific nuances:
       //
       // We are going to load the database on the first pre call and flush
@@ -753,9 +755,9 @@ namespace build2
       {
         entry& e (i->second);
 
-        // Note: we can end up with present entries via the module context
+        // Note: we can end up with present entries via the nested context
         // (see post() below). And we can see changed entries in a subsequent
-        // nested module context.
+        // nested context.
         //
         switch (e.status)
         {
@@ -901,7 +903,7 @@ namespace build2
         return;
       }
 
-      bool mctx (ctx.module_context == &ctx);
+      bool nctx (ctx.nested_context ());
 
       tracer trace ("cc::compiledb_file::post");
 
@@ -913,7 +915,7 @@ namespace build2
       // Don't prune the stale entries if the operation failed since we may
       // not have gotten to execute some of them.
       //
-      // And if this is a module context's post, then also don't prune the
+      // And if this is a nested context's post, then also don't prune the
       // stale entries, instead waiting for the main context's post (if there
       // will be one; this means we will only prune on update).
       //
@@ -926,19 +928,35 @@ namespace build2
       // prune the entries if they are in a subdirectory of the dir{} targets
       // which we are building.
       //
-      // What do we do about the module context, where we always update a
-      // specific libs{}? We could use its directory instead but that may lead
-      // to undesirable results. For example, if there are unit tests in the
-      // same directory, we will end up dropping their entries. It feels like
-      // the correct approach is to just ignore module context's entries
-      // entirely. If someone wants to prune the compilation database of a
-      // module, they will just need to update it directly (i.e., via the main
-      // context). Note that we cannot apply the same "simplification" to the
-      // changed entries since we will only observe the change once.
+      // What do we do about the nested context, where we update a specific
+      // target, say libs{} for module context? We could use its directory
+      // instead but that may lead to undesirable results. For example, if
+      // there are unit tests in the same directory, we will end up dropping
+      // their entries. It feels like the correct approach is to just ignore
+      // nested context's entries entirely. If someone wants to prune the
+      // compilation database of, say, a module, they will just need to update
+      // it directly (i.e., via the main context). Note that we cannot apply
+      // the same "simplification" to the changed entries since we will only
+      // observe the change once.
+      //
+      // Note also that the update-during-load context is only used when the
+      // main context's action is other than perform_update. And if it is,
+      // then such targets are updated directly in the main context, which can
+      // happen in two different ways: initial load and interrupting load (see
+      // update_during_load() for details). Interrupting load is covered by
+      // the above logic since the update during load happens within the
+      // normal pre/post calls. Intial load, however, is tricky: we end up
+      // with an independent sequence(s) of pre/post calls before the main
+      // one, essentially as-if we had a batch of updates except that we don't
+      // actually start a new operation and which means that the target will
+      // already have been matched/executed and we will consider it as absent.
+      // So we handle that case specially by checking if the pre/post call is
+      // updated during initial load and if so not marking the targets as
+      // absent.
       //
       bool absent (false);
 
-      if (!failed && !mctx && absent_ != 0)
+      if (!failed && !nctx && absent_ != 0)
       {
         // Pre-scan the entries and drop the appropriate absent ones.
         //
@@ -1040,11 +1058,14 @@ namespace build2
           case entry_status::present:
           case entry_status::changed:
             {
-              // This is tricky: if this is a module context, then we don't
+              // This is tricky: if this is a nested context, then we don't
               // want to mark the entries as absent since they will then get
               // dropped by the main operation context.
               //
-              if (mctx)
+              // Or if we are updating during (initial) load (see above).
+              //
+              if (nctx || (ctx.update_during_load &&
+                           *ctx.update_during_load == 0))
                 e.status = entry_status::present;
               else
               {

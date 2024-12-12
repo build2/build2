@@ -6257,7 +6257,6 @@ automatically ignored. See also \l{#directives-source \c{source}}.
 
 \h#directives-source|\c{source}|
 
-
 \
 source <file>
 \
@@ -6266,6 +6265,138 @@ Load the specified file in the current scope as if its contents were copied
 and pasted in place of the \c{source} directive. Note that subsequent sourcing
 of the same file in the same scope are not automatically ignored.  See also
 \l{#directives-include \c{include}}.
+
+
+
+\h#directives-update|\c{update}|
+
+\
+update <target>...
+\
+
+Update the specified targets during load before continuing evaluating the
+\c{buildfile}. Updating a target during load is primarily useful when the
+information it contains is required in the \c{buildfile} itself. For example,
+we may need to know the target architecture byte-order in order to decide
+which source files must be included into the build. And, in case of C/C++
+compilation, the only reliable source of this information are the compiler
+macros. To extract this information from the compiler and make it available
+during the \c{buildfile} evaluation, we can generate a \c{buildfile} fragment
+during load and then source it into the main \c{buildfile}. For example (the
+actual extraction is omitted):
+
+\
+./: buildfile{byteorder} # Make sure it gets cleaned.
+
+buildfile{byteorder}:
+{{
+  diag gen $>
+  echo 'byteorder = little' >$path($>)
+}}
+
+update buildfile{byteorder}
+
+source $path(buildfile{byteorder})
+
+exe{test}: cxx{test-big}:    include = ($byteorder == 'big')
+exe{test}: cxx{test-little}: include = ($byteorder == 'little')
+\
+
+Once a target is updated during load, its path can be queried with the
+\c{$path()} and \c{$process_path()} functions. The resulting path is normally
+used to load the information contained in the target into the \c{buildfile},
+for example, using the \c{source} directive as in the above example, using the
+\c{$json.load()} function if the target is a JSON file, or using the \c{run}
+directive or \c{process.run*()} functions if the target is either an
+executable or can be processed using builtin commands such as \c{cat} and
+\c{sed}.
+
+Updating targets during load should only be used as a last resort because such
+updates happen serially and block further \c{buildfile} evaluation until
+completed. Even during the incremental build where the target in question is
+already up-to-date, this check is performed serially during load whereas it
+would be performed in parallel with other targets if updated normally.
+
+\N|More precisely, each \c{update} directive is processed serially as the
+\c{buildfile} is evaluated. However, targets specified in each directive (and
+their prerequisites) are updated in parallel. As result, if you need to update
+several targets during load, it is beneficial to do it with a single
+\c{update} directive is possible.|
+
+If you do need to update certain targets during load, try to make the update
+(and the up-to-date check) as fast as possible by limiting the amount of work
+done during load to the absolute minimum, including limiting the number of
+prerequisites to only what's necessary. If certain prerequisite, for example,
+generated \c{config.h}, is also used for other purposes and thus contains more
+information than what's needed during load, consider making a smaller version
+(or even a static version, if possible) specifically for update during load.
+
+Another reason to avoid update during load unless absolutely necessary is the
+counter-intuitive behavior during operations other than \c{update}. Since
+updating such targets is required to continue evaluating the \c{buildfile},
+this is performed regardless of the operation requested by the user,
+including, for example, during \c{clean}. As a result, the user may see
+targets being updated in unexpected contexts.
+
+While there is nothing we can do about \c{clean}, we can limit update during
+load to the \c{perform} meta-operation only. This will be especially helpful
+for the \c{configure} meta-operation since seeing update commands during
+configuration will definitely be surprising, especially if they are coming
+from a third-party dependency.
+
+Limiting update during load to \c{perform} is safe to do if the information in
+question is only required during \c{perform} and we are able to provide
+a suitable fallback for other meta-operations. For example:
+
+\
+./: buildfile{byteorder} # Make sure it gets cleaned.
+
+buildfile{byteorder}:
+{{
+  diag gen $>
+  echo 'byteorder = little' >$path($>)
+}}
+
+if ($build.meta_operation == 'perform')
+{
+  update buildfile{byteorder}
+  source $path(buildfile{byteorder})
+}
+else
+{
+  byteorder = little
+}
+
+exe{test}: cxx{test-big}:    include = ($byteorder == 'big')
+exe{test}: cxx{test-little}: include = ($byteorder == 'little')
+\
+
+\N|One scenario where limiting update during load to \c{perform} would not
+work is if, for example, we were using the extracted information to set
+default values of the configuration variables.|
+
+A target being update during load should be defined in the \c{buildfile}
+containing the \c{update} directive and this \c{buildfile} should be
+standalone, that is, it can be loaded on its own. Note also that everything
+pertaining to updating the target (prerequisites, options, recipes/rules, etc)
+should be in effect before the \c{update} directive since the target will be
+updated without evaluating the rest of the \c{buildfile}.
+
+The update during load mechanism also has a number of restrictions and
+limitations:
+
+\ul|
+
+\li|It cannot be used in \c{bootstrap.build} (but can be used in
+\c{root.build}).|
+
+\li|Targets (and their prerequisites) that are updated during load should not
+be aliases (\c{alias{\}}, including \c{dir{\}}).|
+
+\li|Post hoc prerequisites will not yet be updated after the \c{update}
+directive.|
+
+|
 
 
 \h1#attributes|Attributes|

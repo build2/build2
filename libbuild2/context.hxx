@@ -185,14 +185,16 @@ namespace build2
     // execute  - execute the matched rule
     //
     // The build system starts with a serial "initial load" phase and then
-    // continues with parallel match and execute. Match, however, can be
-    // interrupted both with load and execute.
+    // continues with parallel match and execute. Load, however, can be
+    // interrupted with match/execute in order to update targets during load
+    // (see update_during_load() for background). And match can be interrupted
+    // both with load and execute.
     //
-    // Match can be interrupted with a (serial) "interrupting load" in order
-    // to load additional buildfiles. Similarly, it can be interrupted with
-    // (parallel) execute in order to build targetd required to complete the
-    // match (for example, generated source code or source code generators
-    // themselves).
+    // Specifically, match can be interrupted with a (serial) "interrupting
+    // load" in order to load additional buildfiles. Similarly, it can be
+    // interrupted with (parallel) execute in order to build targets required
+    // to complete the match (for example, generated source code or source
+    // code generators themselves).
     //
     // Such interruptions are performed by phase change that is protected by
     // phase_mutex (which is also used to synchronize the state changes
@@ -347,25 +349,12 @@ namespace build2
 
     // Current action (meta/operation).
     //
-    // The names unlike info are available during boot but may not yet be
-    // lifted. The name is always for an outer operation (or meta operation
-    // that hasn't been recognized as such yet).
+    // The names unlike the info below are available during boot but may not
+    // yet be lifted. The name is always for an outer operation (or meta
+    // operation that hasn't been recognized as such yet).
     //
     string current_mname;
     string current_oname;
-
-    const meta_operation_info* current_mif;
-
-    const operation_info* current_inner_oif;
-    const operation_info* current_outer_oif;
-
-    action
-    current_action () const
-    {
-      return action (current_mif->id,
-                     current_inner_oif->id,
-                     current_outer_oif != nullptr ? current_outer_oif->id : 0);
-    }
 
     // Check whether this is the specified meta-operation during bootstrap
     // (when current_mif may not be yet known).
@@ -376,6 +365,23 @@ namespace build2
       return ((current_mname == mo  ) ||
               (current_mname.empty () && current_oname == mo));
     };
+
+    const meta_operation_info* current_mif;
+
+    // Note that while this information may be available during load, it
+    // should not be relied upon (it's an implementation detail of the
+    // update-during-load machinery).
+    //
+    const operation_info* current_inner_oif;
+    const operation_info* current_outer_oif;
+
+    action
+    current_action () const
+    {
+      return action (current_mif->id,
+                     current_inner_oif->id,
+                     current_outer_oif != nullptr ? current_outer_oif->id : 0);
+    }
 
     // Operation callbacks.
     //
@@ -392,13 +398,21 @@ namespace build2
     // perform never actually execute any recipes and it probably only makes
     // sense to register these callbacks for the perform_* actions.
     //
-    // Note that the callbacks will also be called when building a build
-    // system module or an ad hoc C++ recipe. See create_module_context() for
-    // details.
+    // Note that the callbacks will also be called with a nested context when
+    // building a build system module or an ad hoc C++ recipe as well as
+    // targets updated during load. See update_in_module_context(),
+    // update_during_load(), and context::nested_context() for details. Note
+    // also that update during load can result a series of pre/post call
+    // pairs, which would be similar to operation batches but for the same
+    // operation number.
     //
     // Note also that if the callbacks are registered from a module load
     // function, then there are nuances with interrupted load phases. See the
     // compilation database handling in the cc module for details.
+    //
+    // Finally, note that we currently assume callbacks are never unregistered
+    // or replaced (used to optimize propagation of callbacks to nested
+    // contexts).
     //
     // See also scope::operation_callback.
     //
@@ -435,7 +449,8 @@ namespace build2
     current_data_ptr current_inner_odata  = {nullptr, null_current_data_deleter};
     current_data_ptr current_outer_odata  = {nullptr, null_current_data_deleter};
 
-    // Current operation number (1-based) in the meta-operation batch.
+    // Current operation number (1-based) in the meta-operation batch (0
+    // before the first current_operation() call in a batch).
     //
     size_t current_on;
 
@@ -491,7 +506,7 @@ namespace build2
     const variable_overrides& var_overrides; // Project and relative scope.
     function_map& functions;
 
-    // Current targets with post hoc prerequisites.
+    // Targets with post hoc prerequisites for the current operation.
     //
     // Note that we don't expect many of these so a simple mutex should be
     // sufficient. Note also that we may end up adding more entries as we
@@ -511,15 +526,35 @@ namespace build2
       vector<prerequisite_target>             prerequisite_targets;
     };
 
-    list<posthoc_target> current_posthoc_targets;
-    mutex                current_posthoc_targets_mutex;
+    list<posthoc_target>   current_posthoc_targets_collected;
+    vector<posthoc_target> current_posthoc_targets_matched;
+    mutex                  current_posthoc_targets_mutex;
 
     // Global scope.
     //
     const scope& global_scope;
     const target_type_map& global_target_types;
     variable_override_cache& global_override_cache;
-    const strings& global_var_overrides;
+
+    // Variable overrides as passed to the context constructor but also as
+    // parsed by the var_override_function callback. Note that the index of
+    // each entry matches that passed to parse_variable_override() and stored
+    // in the variable_override struct.
+    //
+    // Plus overrides that have been entered with enter_project_overrides().
+    //
+    // Plus the exemplar context to take the override information from.
+    //
+    // Used to communicate overrides to nested contexts.
+    //
+    const strings& original_var_overrides;
+
+    using entered_var_overrides_map =
+      dir_path_map<vector<size_t> /* indexes in original_var_overrides */>;
+
+    const entered_var_overrides_map& entered_var_overrides;
+
+    const context* exemplar_context = nullptr;
 
     // Cached values (from global scope).
     //
@@ -747,6 +782,29 @@ namespace build2
     context* module_context;
     optional<unique_ptr<context>> module_context_storage;
 
+    // Update-during-load state.
+    //
+    // If update_during_load is present, then the value indicates whether
+    // this is initial (0) or interruping (>0) load.
+    //
+    // In the updated_during_load map the key is the target that has been
+    // notionally updated and the value is the target that was actually
+    // updated, which can be the same as the key or the corresponding target
+    // from update_during_load_context. See update_during_load() for details.
+    //
+    optional<size_t> update_during_load = nullopt;
+    map<const target*, const target*> updated_during_load;
+    context* update_during_load_context = nullptr;
+    unique_ptr<context> update_during_load_context_storage;
+
+    // Return true if this is one of the nested contexts.
+    //
+    bool
+    nested_context () const
+    {
+      return module_context == this || update_during_load_context == this;
+    }
+
   public:
     // If module_context is absent, then automatic updating of build system
     // modules and ad hoc recipes is disabled. If it is NULL, then the context
@@ -783,7 +841,9 @@ namespace build2
              bool dry_run = false,
              bool no_diag_buffer = false,
              bool keep_going = true,
+             optional<string> build_mode = nullopt,
              const strings& cmd_vars = {},
+             bool cmd_vars_global_only = false,
              reserves = {0, 160},
              optional<context*> module_context = nullptr,
              const module_libraries_lock* inherited_modules_lock = nullptr,
@@ -816,8 +876,14 @@ namespace build2
     // Note: should only be called from the var_override_function constructor
     // callback.
     //
+    // If global_only is true, then ignore non-global overrides. In this case
+    // return `\0` for ignored variables.
+    //
     pair<char, variable_override>
-    parse_variable_override (const string& var, size_t index, bool buildspec);
+    parse_variable_override (const string& var,
+                             size_t index,
+                             bool buildspec,
+                             bool global_only = false);
 
     // Enter project-wide (as opposed to global) variable overrides.
     //
@@ -833,8 +899,11 @@ namespace build2
 
     // Set current meta-operation and operation.
     //
+    // Note that the update-during-load support requires the first operation
+    // that will be executed to be set before loading buildfiles.
+    //
     // Remember to also increment load_generation for subsequent operations in
-    // a batch if additional buildfiles are loaded between them.
+    // a batch.
     //
     // Note that the context instance is not to be re-used between different
     // meta-operations.

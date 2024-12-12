@@ -15,6 +15,7 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
@@ -580,6 +581,10 @@ namespace build2
         else if (n == "define")
         {
           f = &parser::parse_define;
+        }
+        else if (n == "update")
+        {
+          f = &parser::parse_update;
         }
         else if (n == "if" ||
                  n == "if!")
@@ -4908,6 +4913,56 @@ namespace build2
     else
       fail (t) << "expected ':' or '=' instead of " << t << " in target type "
                << "definition";
+
+    next_after_newline (t, tt);
+  }
+
+  void parser::
+  parse_update (token& t, type& tt)
+  {
+    // update <target>*
+    //
+    // Restrictions and limitations:
+    //
+    // - Cannot be used during bootstrap.
+    //
+    // - Target should be defined in the buildfile containing the directive
+    //   and this buildfile should be standalone (i.e., can be loaded) or
+    //   root.build. Note also that everything pertaining to updating the
+    //   target (prerequisites, options, etc) should be in effect before the
+    //   update directive since the target will be updated without evaluating
+    //   the rest of the buildfile. None of this is enforced.
+    //
+    // - Target (or its prerequisites) should not be an alias. The
+    //   prerequisites part is not diagnosed.
+    //
+    // - Post hoc prerequisites will not yet be updated after the update
+    //   directive.
+    //
+    if (stage_ == stage::boot)
+      fail (t) << "update during bootstrap";
+
+    // Verify buildfile.
+    //
+    assert (path_ != nullptr);
+
+    if (path_->path == nullptr)
+      fail (t) << "buildfile " << *path_ << " has no path";
+
+    // The rest should be a list of targets. Parse them as names in the value
+    // mode to get variable expansion, etc (similar to import, export).
+    //
+    mode (lexer_mode::value, '@');
+    next (t, tt);
+    const location l (get_location (t));
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt, pattern_mode::expand)
+              : names ());
+
+    // Could end up empty via variable expansion, for example.
+    //
+    if (!ns.empty ())
+      update_during_load (*scope_, *path_->path, move (ns), l);
 
     next_after_newline (t, tt);
   }

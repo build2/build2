@@ -278,6 +278,9 @@ namespace build2
     parse_define (token&, token_type&);
 
     void
+    parse_update (token&, token_type&);
+
+    void
     parse_if_else (token&, token_type&);
 
     void

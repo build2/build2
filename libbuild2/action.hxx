@@ -168,6 +168,25 @@ namespace build2
   // Note: currently max 15 (see above).
   // Note: update small_vector in operations if adding more.
   //
+  // Note that the clean operation needs to be implemented in a certain way
+  // in order to be compatible with the update during load functionality (see
+  // update_during_load() for details). Specifically:
+  //
+  // - Cleaning during match is incompatible with update during load and if a
+  //   target is cleaned during match, then it may not behave correctly when
+  //   updated (directly or as a prerequisite) during load.
+  //
+  // - During match, no decision should be made based on mtime (either loaded
+  //   or cached). For example, checking the underlying filesystem for the
+  //   file and then returning noop_recipe if it doesn't exist would be
+  //   incompatible with the update during load semantics.
+  //
+  // - During execute, no decision should be made based on the cached mtime.
+  //   Instead, it should be loaded from the filesystem (or, more likely, one
+  //   should just attempt to remove the filesystem entry and handle the case
+  //   when it doesn't exist). Note that the commonly used standard
+  //   perform_clean*() implementations satisfy this requirement.
+  //
   const operation_id default_id            = 1; // Shall be first.
   const operation_id update_id             = 2; // Shall be second.
   const operation_id clean_id              = 3;
