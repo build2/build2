@@ -1544,8 +1544,20 @@ namespace build2
         // to keep re-validating the file on every subsequent dry-run as well
         // on the real run).
         //
-        if (u && dd.reading () && !ctx.dry_run_option)
-          dd.touch = timestamp_unknown;
+        if (u && dd.reading ())
+        {
+          // What will happen if dry_run_option is true but we still end up
+          // performing a non-dry-run update due to update during match or
+          // load? In this case the target will become up-to-date and we will
+          // keep re-validating the cache until the depdb will get touched due
+          // to other reasons, which would be bad. So it feels like the least
+          // bad option is to keep re-touching the database on dry-run.
+          //
+#if 0
+          if (!ctx.dry_run_option)
+#endif
+            dd.touch = timestamp_unknown;
+        }
 
         dd.close (false /* mtime_check */);
         md.dd = move (dd.path);
@@ -4042,6 +4054,10 @@ namespace build2
         //
         auto fail = [&ctx] (const auto& h) -> optional<bool>
         {
+          // Note that this test will give a false negative if this target
+          // ends up being updated during load or match. At least it's
+          // conservative.
+          //
           bool df (!ctx.match_only && !ctx.dry_run_option);
 
           diag_record dr;
@@ -4104,7 +4120,6 @@ namespace build2
                        this] (path hp, path bp, timestamp mt) -> optional<bool>
       {
         context& ctx (t.ctx);
-        bool df (!ctx.match_only && !ctx.dry_run_option);
 
         const file* ht (
           enter_header (a, bs, t, li,
@@ -4113,6 +4128,12 @@ namespace build2
 
         if (ht == nullptr) // hp is still valid.
         {
+          // Note that this test will give a false negative if this target
+          // ends up being updated during load or match. At least it's
+          // conservative.
+          //
+          bool df (!ctx.match_only && !ctx.dry_run_option);
+
           diag_record dr;
           dr << error << "header " << hp << " not found and no rule to "
              << "generate it";

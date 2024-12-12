@@ -1207,9 +1207,11 @@ namespace build2
       }
 
       // Note that in case of dry run we will have an incomplete (but valid)
-      // database which will be updated on the next non-dry run.
+      // database which will be updated on the next non-dry run. Except that
+      // we may still end up performing a non-dry-run update due to update
+      // during match or load.
       //
-      if (!update || ctx.dry_run_option)
+      if (!update /*|| ctx.dry_run_option*/)
         dd.close (false /* mtime_check */);
       else
         mdb->dd = dd.close_to_reopen ();
@@ -1246,8 +1248,24 @@ namespace build2
                                          md->deferred_failure);
       }
 
-      if (update && dd.reading () && !ctx.dry_run_option)
-        dd.touch = timestamp_unknown;
+      // Update depdb timestamp if nothing changed. Failed that, we will keep
+      // re-validating the information store in depdb (see similar logic in
+      // cc::compile_rule).
+      //
+      if (update && dd.reading ())
+      {
+        // What will happen if dry_run_option is true but we still end up
+        // performing a non-dry-run update due to update during match or
+        // load? In this case the target will become up-to-date and we will
+        // keep re-validating the cache until the depdb will get touched due
+        // to other reasons, which would be bad. So it feels like the least
+        // bad option is to keep re-touching the database on dry-run.
+        //
+#if 0
+        if (!ctx.dry_run_option)
+#endif
+          dd.touch = timestamp_unknown;
+      }
 
       dd.close (false /* mtime_check */);
 

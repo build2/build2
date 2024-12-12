@@ -2501,6 +2501,10 @@ namespace build2
           //
           auto fail = [this, what, &ctx] (const auto& f) -> optional<bool>
           {
+            // Note that this test will give a false negative if this target
+            // ends up being updated during load or match. At least it's
+            // conservative.
+            //
             bool df (!ctx.match_only && !ctx.dry_run_option);
 
             diag_record dr;

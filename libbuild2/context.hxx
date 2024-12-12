@@ -230,6 +230,10 @@ namespace build2
 
     // Match only flag/level (see --{load,match}-only but also dist).
     //
+    // See also dry_run, which is in some sense a weaker version of match-
+    // only: the target is executed but nothing is actually being done (unless
+    // executed during match or load, that is).
+    //
     optional<match_only_level> match_only;
 
     // Skip booting external modules flag (see --no-external-modules).
@@ -263,10 +267,21 @@ namespace build2
     //
     // Note also that sometimes it makes sense to do a bit more than
     // absolutely necessary or to discard information in order to keep the
-    // rule logic sane.  And some rules may choose to ignore this flag
+    // rule logic sane. And some rules may choose to ignore this flag
     // altogether. In this case, however, the rule should be careful not to
     // rely on functions (notably from filesystem) that respect this flag in
     // order not to end up with a job half done.
+    //
+    // Finally, sometimes you may need to know during match whether there will
+    // be a non-dry-run execute and use the dry_run_option for that. This can
+    // be problematic because even when dry_run_option is true, the target may
+    // end up being executed in the non-dry-run mode during load or match. As
+    // a result, any logic that is based on dry_run_option should be capable
+    // of functioning correctly in the non-dry-run execute.
+    //
+    // See also match_only, which is in some sense a stronger version of
+    // dry-run: the target is not executed at all, again, unless during match
+    // or load.
     //
     bool dry_run = false;
     bool dry_run_option;
