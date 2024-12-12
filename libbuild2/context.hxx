@@ -190,9 +190,11 @@ namespace build2
     //
     // Match can be interrupted with a (serial) "interrupting load" in order
     // to load additional buildfiles. Similarly, it can be interrupted with
-    // (parallel) execute in order to build targetd required to complete the
+    // (parallel) execute in order to build targets required to complete the
     // match (for example, generated source code or source code generators
     // themselves).
+    //
+    // @@ TODO: now we have more interruptions with update-during-load?
     //
     // Such interruptions are performed by phase change that is protected by
     // phase_mutex (which is also used to synchronize the state changes
@@ -347,25 +349,12 @@ namespace build2
 
     // Current action (meta/operation).
     //
-    // The names unlike info are available during boot but may not yet be
-    // lifted. The name is always for an outer operation (or meta operation
-    // that hasn't been recognized as such yet).
+    // The names unlike the info below are available during boot but may not
+    // yet be lifted. The name is always for an outer operation (or meta
+    // operation that hasn't been recognized as such yet).
     //
     string current_mname;
     string current_oname;
-
-    const meta_operation_info* current_mif;
-
-    const operation_info* current_inner_oif;
-    const operation_info* current_outer_oif;
-
-    action
-    current_action () const
-    {
-      return action (current_mif->id,
-                     current_inner_oif->id,
-                     current_outer_oif != nullptr ? current_outer_oif->id : 0);
-    }
 
     // Check whether this is the specified meta-operation during bootstrap
     // (when current_mif may not be yet known).
@@ -376,6 +365,23 @@ namespace build2
       return ((current_mname == mo  ) ||
               (current_mname.empty () && current_oname == mo));
     };
+
+    const meta_operation_info* current_mif;
+
+    // Note that while this information is available during load, it should
+    // not be relied upon (it's an implementation details for the update-
+    // during-load machinery).
+    //
+    const operation_info* current_inner_oif;
+    const operation_info* current_outer_oif;
+
+    action
+    current_action () const
+    {
+      return action (current_mif->id,
+                     current_inner_oif->id,
+                     current_outer_oif != nullptr ? current_outer_oif->id : 0);
+    }
 
     // Operation callbacks.
     //
@@ -435,7 +441,8 @@ namespace build2
     current_data_ptr current_inner_odata  = {nullptr, null_current_data_deleter};
     current_data_ptr current_outer_odata  = {nullptr, null_current_data_deleter};
 
-    // Current operation number (1-based) in the meta-operation batch.
+    // Current operation number (1-based) in the meta-operation batch (0
+    // before the first current_operation() call in a batch).
     //
     size_t current_on;
 
@@ -491,7 +498,7 @@ namespace build2
     const variable_overrides& var_overrides; // Project and relative scope.
     function_map& functions;
 
-    // Current targets with post hoc prerequisites.
+    // Targets with post hoc prerequisites for the current operation.
     //
     // Note that we don't expect many of these so a simple mutex should be
     // sufficient. Note also that we may end up adding more entries as we
@@ -511,8 +518,9 @@ namespace build2
       vector<prerequisite_target>             prerequisite_targets;
     };
 
-    list<posthoc_target> current_posthoc_targets;
-    mutex                current_posthoc_targets_mutex;
+    list<posthoc_target>   current_posthoc_targets_collected;
+    vector<posthoc_target> current_posthoc_targets_matched;
+    mutex                  current_posthoc_targets_mutex;
 
     // Global scope.
     //
@@ -747,6 +755,11 @@ namespace build2
     context* module_context;
     optional<unique_ptr<context>> module_context_storage;
 
+    // Update-during-load mode.
+    //
+    bool update_during_load = false;
+    bool updated_during_load; // @@ Turn into list of targets?
+
   public:
     // If module_context is absent, then automatic updating of build system
     // modules and ad hoc recipes is disabled. If it is NULL, then the context
@@ -827,8 +840,11 @@ namespace build2
 
     // Set current meta-operation and operation.
     //
+    // Note that the build-during-load support requires the first operation
+    // that will be executed to be set before loading buildfiles.
+    //
     // Remember to also increment load_generation for subsequent operations in
-    // a batch if additional buildfiles are loaded between them.
+    // a batch.
     //
     // Note that the context instance is not to be re-used between different
     // meta-operations.

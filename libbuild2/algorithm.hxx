@@ -814,6 +814,13 @@ namespace build2
     action, target&,
     uintptr_t mask = prerequisite_target::include_udm);
 
+  // Update the targets during the load phase by switching the phase and,
+  // potentially, action to perform_update and then matching and executing
+  // them.
+  //
+  LIBBUILD2_SYMEXPORT void
+  update_during_load (const scope& bs, names targets, const location&);
+
   // The default prerequisite execute implementation. Call execute_async() on
   // each non-ignored (non-NULL) prerequisite target in a loop and then wait
   // for their completion. Return target_state::changed if any of them were

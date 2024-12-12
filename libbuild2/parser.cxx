@@ -15,6 +15,7 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
@@ -580,6 +581,10 @@ namespace build2
         else if (n == "define")
         {
           f = &parser::parse_define;
+        }
+        else if (n == "update")
+        {
+          f = &parser::parse_update;
         }
         else if (n == "if" ||
                  n == "if!")
@@ -4899,6 +4904,30 @@ namespace build2
     else
       fail (t) << "expected ':' or '=' instead of " << t << " in target type "
                << "definition";
+
+    next_after_newline (t, tt);
+  }
+
+  void parser::
+  parse_update (token& t, type& tt)
+  {
+    // update <target>*
+    //
+    if (stage_ == stage::boot)
+      fail (t) << "update during bootstrap";
+
+    // The rest should be a list of targets. Parse them as names in the value
+    // mode to get variable expansion, etc (similar to import, export).
+    //
+    mode (lexer_mode::value, '@');
+    next (t, tt);
+    const location l (get_location (t));
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt, pattern_mode::ignore, "module", nullptr)
+              : names ());
+
+    if (!ns.empty ())
+      update_during_load (*scope_, move (ns), l);
 
     next_after_newline (t, tt);
   }

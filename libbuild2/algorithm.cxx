@@ -9,9 +9,11 @@
 #include <libbuild2/file.hxx> // import()
 #include <libbuild2/search.hxx>
 #include <libbuild2/context.hxx>
+#include <libbuild2/operation.hxx> // perform_{match,execute}()
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
+#include <libbuild2/functions-name.hxx> // to_target()
 
 using namespace std;
 using namespace butl;
@@ -1185,8 +1187,9 @@ namespace build2
       context& ctx (t.ctx);
 
       mlock l (ctx.current_posthoc_targets_mutex);
-      ctx.current_posthoc_targets.push_back (posthoc_target {a, t, move (pts)});
-      return &ctx.current_posthoc_targets.back (); // Stable.
+      ctx.current_posthoc_targets_collected.push_back (
+        posthoc_target {a, t, move (pts)});
+      return &ctx.current_posthoc_targets_collected.back (); // Stable.
     }
 
     return nullptr;
@@ -3448,6 +3451,229 @@ namespace build2
 #endif
 
     return r;
+  }
+
+  void
+  update_during_load (const scope& bs, names ns, const location& loc)
+  {
+    context& ctx (bs.ctx);
+
+    assert (ctx.phase == run_phase::load && !ns.empty ());
+
+    // If the operation was not set, assume it's some special build mode (like
+    // bpkg skeleton) that does not support update during load.
+    //
+    if (ctx.current_on == 0)
+    {
+      fail (loc) << "update during load is not supported in the " <<
+        cast<string> (ctx.global_scope["build.mode"]) << " build mode";
+    }
+
+    // The overall plan is pretty simple:
+    //
+    // 1. Switch the phase to match and match the target.
+    //
+    // 2. Switch the phase to execute and execute the target.
+    //
+    // Howevere, there are a number of complications:
+    //
+    // 1. This could be an interrupting load, meaning there could be other
+    //    threads waiting for the match phase. But that match phase could be
+    //    for a different action. Specifically, it can be for a different
+    //    operation say, clean, but it can also be for a different meta-
+    //    operation, say configure or dist.
+    //
+    //    BTW, this also assumes that the modules (say, cc) that implement,
+    //    say, rules for updating the targets (or their prerequisites) that we
+    //    want to update don't omit any of the functionality when loaded for
+    //    other meta-operations (configure, dist) which would be required to
+    //    perform update. This is normally the case, currently.
+    //
+
+    // @@ TODO: mode incompatibilities in a batch (may need shadow targets
+    //    even in the direct mode). But optimize for batch of 1 and pre-
+    //    operation is update (in which case we assume it loads everything).
+    //
+    action a (ctx.current_action ());
+
+    info (loc) << "update during load " << ns << " " << a;
+
+    action_targets ts;
+    for (auto i (ns.begin ()); i != ns.end (); ++i)
+    {
+      name& n (*i), o;
+      const target& t (to_target (bs,
+                                  move (n), move (n.pair ? *++i : o),
+                                  false /* in_recipe */,
+                                  loc));
+
+      // We cannot update aliases during load due to their special semantics
+      // in the load-only mode (see below for details). Note that we don't
+      // diagnose alias prerequisites.
+      //
+      if (t.is_a<alias> ())
+        fail (loc) << "alias target " << t << " in update during load";
+
+      ts.push_back (&t);
+    }
+
+    // We assume we can build whatever needs to be loaded during update with
+    // an outer operation with any incompatibilities (e.g., for/not-for
+    // install) detected naturally. More precisely, if we ended up executing
+    // first, it will be detected, but not the other way around. On the other
+    // hand, some incompatibilities could be harmless (e.g., for-test). Maybe
+    // we should just let this case play out natually (e.g., in the
+    // for-install case we won't be able to run an executable already built
+    // for-install). But on yet another hand, why would someone need to load
+    // during the build something that was built, say, for test? @@ Maybe we
+    // should diagnose it and see what shakes out.
+    //
+    if (a.inner_action () == perform_update_id)
+    {
+      action a (perform_update_id); // Drop outer action.
+
+      if (true) // Batch size==1.
+      {
+        // It doesn't feel like a recursive update-during-load makes much
+        // sense (dir{} alias as update-during-load target)?
+        //
+        if (ctx.update_during_load)
+          fail (loc) << "recursive update during load";
+
+        auto udlg = make_guard ([&ctx] () {ctx.update_during_load = false;});
+        ctx.update_during_load = true;
+
+        // Note: doesn't feel like there is any harm in keeping the existing
+        // diagnostics stack.
+        //
+        auto df = make_diag_frame (
+          [&loc] (const diag_record& dr)
+          {
+            dr << info (loc) << "while updating targets during load";
+          });
+
+        // If we are in the initial load then we use standard perform_match()
+        // and perform_execute(). In particular, this will call operation
+        // callbacks, setup progress, etc. Note that perform_match() and
+        // perform_execute() have a lot of special update-during-load logic.
+        // Note also that this pair can be called repeatedly to update
+        // multiple targets during load.
+        //
+        // Otherwise, we are in the interrupting load, which means match is
+        // already in progress and we should instead switch the phase.
+        //
+        // @@ TODO: add diag guard for diagnostics (with location).
+        //
+        if (ctx.phase_mutex.unlocked ()) // Initial load.
+        {
+          info (loc) << "update during initial load";
+
+          // Clear the match-only mode. While we ignore match-only by calling
+          // perform_execute() unconditionally, the rules may still adjust
+          // their logic based on this mode.
+          //
+          auto mog = make_guard ([&ctx, o = ctx.match_only] ()
+                                 {
+                                   ctx.match_only = o;
+                                 });
+          ctx.match_only = nullopt;
+
+          // Note that we suppress all outcome diagnostics, even for failure
+          // since the extra `info: failed to update <target>` is not very
+          // useful (the diagnostics frame above explains what's going on).
+          //
+          // What should we do about the progress, keeping in mind that in the
+          // interrupting load case below (which will be more common) we will
+          // be piggybacking on the the same progress as update-during-match.
+          // If we do the standard thing, then we will see the percentage and
+          // will reach 100%, which will definitely look confusing since we
+          // will then start another progress from 0%. After some meditation,
+          // it felt most sensible to emulate the same progress as in
+          // update-during-match, but with the "during load" instead of
+          // "during match" diagnostics. This is all hacked in as special
+          // cases in perform_match() and perform_execute().
+          //
+          perform_match ({}, a, ts,
+                         0 /* diag (none) */,
+                         true /* progress */);
+
+          // Note: perform_execute() ignores the dry-run mode for u-d-l.
+          // Note: perfrom_execute() omits handling posthoc targets for u-d-l.
+          // Note: perfrom_execute() omits operation callbacks post for u-d-l.
+          //
+          perform_execute ({}, a, ts,
+                           0 /* diag (none) */,
+                           true /* progress */);
+
+          ctx.updated_during_load = true;
+        }
+        else // Interrupting load.
+        {
+          info (loc) << "update during interrupting load";
+
+          // This case can only get triggered during match, before the dry-run
+          // mode is in effect (see perform_execute() for details).
+          //
+          assert (!ctx.dry_run);
+
+          // This means there is a perform update action already in progress
+          // in this context. So we are going to switch the phase and perform
+          // direct match and update.
+          //
+          // Note that since neither match nor execute are serial phases, it
+          // means other targets in this context can be matched and executed
+          // in paralellel with us.
+          //
+          // A couple of nuances:
+          //
+          // - While we ignore match-only by calling execute unconditionally,
+          //   the rules may still adjust their logic based on this mode. In
+          //   particular, alias_rule will only keep alias prerequisites in
+          //   the load-only mode. It doesn't seem there is anything we can do
+          //   except not allowing updating aliases during load (diagnosed
+          //   above).
+          //
+          // - Posthoc prerequisites will not yet be updated and thus not
+          //   usable during load. Again, there is nothing we can easily do
+          //   about it. Note that the perform_execute() call recreates the
+          //   the same semantics, for consistency.
+          //
+          if (ts.size () == 1) // Common case.
+          {
+            const target& t (ts.front ().as<target> ());
+
+            phase_switch mp (ctx, run_phase::match);
+            if (match_sync (perform_update_id, t) != target_state::unchanged)
+            {
+              phase_switch ep (ctx, run_phase::execute);
+              execute_sync (a, t);
+            }
+          }
+          else
+          {
+            // @@ TODO: async match and execute.
+            //
+
+            error << "TODO: interrupting load multiple";
+          }
+
+          ctx.updated_during_load = true;
+        }
+      }
+      else
+      {
+        error << "TODO: not batch=1";
+      }
+    }
+    else
+    {
+      // @@ ctx.update_during_load=true, recursive? Some things we do/omit
+      //    due to this flag may not apply.
+
+      error << "TODO: not perform_update";
+    }
+
+    info (loc) << "update during load end";
   }
 
   static inline void

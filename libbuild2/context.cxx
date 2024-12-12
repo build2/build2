@@ -826,6 +826,8 @@ namespace build2
 
     current_mif = &mif;
     current_mdata = current_data_ptr (nullptr, null_current_data_deleter);
+    current_inner_oif = nullptr;
+    current_outer_oif = nullptr;
     current_on = 0; // Reset.
   }
 
@@ -854,7 +856,10 @@ namespace build2
 
     // Clear accumulated targets with post hoc prerequisites.
     //
-    current_posthoc_targets.clear ();
+    current_posthoc_targets_collected.clear ();
+    current_posthoc_targets_matched.clear ();
+
+    updated_during_load = false; // Reset.
   }
 
   bool run_phase_mutex::
@@ -1183,6 +1188,15 @@ namespace build2
   phase_switch (context& ctx, run_phase n)
       : old_phase (ctx.phase), new_phase (n)
   {
+    // In our model we don't switch from the execute phase. The only
+    // transitions we currently have are:
+    //
+    // match->load     -- interrupting load (and few other case)
+    // match->execute  -- update during match (or load)
+    // load->match     -- update during load
+    //
+    assert (old_phase != run_phase::execute);
+
     phase_lock* pl (phase_lock_instance);
     assert (&pl->ctx == &ctx);
 
