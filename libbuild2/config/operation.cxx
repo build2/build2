@@ -1018,8 +1018,20 @@ namespace build2
               if (oif->operation_pre != nullptr)
                 oif->operation_pre (ctx, {}, true /* inner */, location ());
 
+              // Use perform_match() instead of direct match_sync() to handle
+              // posthoc targets (similar to dist).
+              //
+#if 0
               phase_lock pl (ctx, run_phase::match);
               match_sync (action (configure_id, id), t);
+#else
+              action a (configure_id, id);
+              action_targets ts {&t};
+              perform_match ({}, a, ts,
+                             1     /* diag (failures only) */,
+                             false /* progress */);
+              perform_post_operation_callbacks (ctx, a, ts, false /*failed*/);
+#endif
 
               if (oif->operation_post != nullptr)
                 oif->operation_post (ctx, {}, true /* inner */);
