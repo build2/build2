@@ -188,16 +188,20 @@ namespace build2
                         loc,
                         tgs);
 
+    // Note that we suppress all outcome diagnostics, even for failure since
+    // the extra `info: failed to update <target>` is not very useful (we
+    // expect an appropriate diagnostics frame explains what's going on).
+    //
     mo_perform.match   ({},      /* parameters */
                         a,
                         tgs,
-                        1,       /* diag (failures only) */
+                        0,       /* diag (none) */
                         false    /* progress */);
 
     mo_perform.execute ({},      /* parameters */
                         a,
                         tgs,
-                        1,       /* diag (failures only) */
+                        0,       /* diag (none) */
                         false    /* progress */);
 
     assert (tgs.size () == 1);
