@@ -60,8 +60,13 @@ namespace build2
               const path& arc, const dir_path& dir, const string& ext);
 
     static operation_id
-    dist_operation_pre (context&, const values&, operation_id o)
+    dist_operation_pre (context& ctx, const values&, operation_id o)
     {
+      // Note: cannot be --load-only which requires perform(update).
+      //
+      if (ctx.match_only)
+        fail << "--match-only specified for dist meta-operation";
+
       if (o != default_id)
         fail << "explicit operation specified for dist meta-operation";
 
@@ -283,6 +288,8 @@ namespace build2
         action_targets ts {tgt};
 
         {
+          // Signal to the rules we will not be executing.
+          //
           auto mog = make_guard ([&ctx] () {ctx.match_only = nullopt;});
           ctx.match_only = match_only_level::all;
 
