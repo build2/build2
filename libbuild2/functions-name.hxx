@@ -18,13 +18,16 @@ namespace build2
   // Resolve the name to target issuing diagnostics and failing if not found.
   //
   LIBBUILD2_SYMEXPORT const target&
-  to_target (const scope&, name&&, name&& out);
+  to_target (const scope&,
+             name&&, name&& out,
+             bool in_recipe,
+             const location& = {});
 
   // As above but from the names vector which should contain a single name
   // or an out-qualified name pair (asserted).
   //
   LIBBUILD2_SYMEXPORT const target&
-  to_target (const scope&, names&&);
+  to_target (const scope&, names&&, bool in_recipe, const location& = {});
 }
 
 #endif // LIBBUILD2_FUNCTIONS_NAME_HXX

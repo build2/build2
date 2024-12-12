@@ -76,7 +76,9 @@ namespace build2
       for (auto i (ts_ns.begin ()); i != ts_ns.end (); ++i)
       {
         name& n (*i), o;
-        const target& t (to_target (*bs, move (n), move (n.pair ? *++i : o)));
+        const target& t (to_target (*bs,
+                                    move (n), move (n.pair ? *++i : o),
+                                    true /* in_recipe */));
 
         if (!t.matched (a))
           fail << t << " is not matched" <<
@@ -193,7 +195,9 @@ namespace build2
       for (auto i (ts_ns.begin ()); i != ts_ns.end (); ++i)
       {
         name& n (*i), o;
-        const target& t (to_target (*bs, move (n), move (n.pair ? *++i : o)));
+        const target& t (to_target (*bs,
+                                    move (n), move (n.pair ? *++i : o),
+                                    true /* in_recipe */));
 
         bool la (false);
         if (li

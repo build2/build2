@@ -49,7 +49,10 @@ namespace build2
   }
 
   const target&
-  to_target (const scope& s, name&& n, name&& o)
+  to_target (const scope& s,
+             name&& n, name&& o,
+             bool in_recipe,
+             const location& loc)
   {
     // Note: help the user out and search in both out and src like a
     // prerequisite.
@@ -62,13 +65,13 @@ namespace build2
     //
     bool typed (n.typed ());
 
-    diag_record dr (fail);
+    diag_record dr (fail (loc));
 
     dr << "target "
        << (n.pair ? names {move (n), move (o)} : names {move (n)})
        << " not found";
 
-    if (!typed)
+    if (in_recipe && !typed)
       dr << info << "wrap it in ([names] ...) if this is literal target name "
          << "specified inside recipe";
 
@@ -76,12 +79,15 @@ namespace build2
   }
 
   const target&
-  to_target (const scope& s, names&& ns)
+  to_target (const scope& s, names&& ns, bool in_recipe, const location& loc)
   {
     assert (ns.size () == (ns[0].pair ? 2 : 1));
 
     name o;
-    return to_target (s, move (ns[0]), move (ns[0].pair ? ns[1] : o));
+    return to_target (s,
+                      move (ns[0]), move (ns[0].pair ? ns[1] : o),
+                      in_recipe,
+                      loc);
   }
 
   static bool

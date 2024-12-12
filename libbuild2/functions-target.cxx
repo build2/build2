@@ -35,6 +35,8 @@ namespace build2
       if (s == nullptr)
         fail << "target.path() called out of scope";
 
+      context& ctx (s->ctx);
+
       // Most of the time we will have a single target so optimize for that.
       //
       small_vector<path, 1> r;
@@ -42,7 +44,10 @@ namespace build2
       for (auto i (ns.begin ()); i != ns.end (); ++i)
       {
         name& n (*i), o;
-        const target& t (to_target (*s, move (n), move (n.pair ? *++i : o)));
+        const target& t (
+          to_target (*s,
+                     move (n), move (n.pair ? *++i : o),
+                     ctx.phase != run_phase::load /* in_recipe */));
 
         if (const auto* pt = t.is_a<path_target> ())
         {
@@ -94,7 +99,9 @@ namespace build2
 
       name o;
       const target& t (
-        to_target (*s, move (ns[0]), move (ns[0].pair ? ns[1] : o)));
+        to_target (*s,
+                   move (ns[0]), move (ns[0].pair ? ns[1] : o),
+                   s->ctx.phase != run_phase::load /* in_recipe */));
 
       if (const auto* et = t.is_a<exe> ())
       {
