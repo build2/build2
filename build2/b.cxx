@@ -831,6 +831,12 @@ main (int argc, char* argv[])
         if (!oname.empty () && lift ())
           break;
 
+        // Increment load generation for subsequent operations in a batch
+        // since they may load additional buildfiles.
+        //
+        if (mid != 0)
+          ctx.load_generation++;
+
         // Next bootstrap projects for all the target so that all the variable
         // overrides are set (if we also load/search/match in the same loop
         // then we may end up loading a project (via import) before this

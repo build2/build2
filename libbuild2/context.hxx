@@ -49,6 +49,12 @@ namespace build2
     optional<bool>
     relock (run_phase unlock, run_phase lock);
 
+    // Return true if the mutex is unlocked, meaning we are in the initial
+    // load phase.
+    //
+    bool
+    unlocked () const;
+
     // Statistics.
     //
   public:
@@ -78,7 +84,7 @@ namespace build2
     //
     context& ctx_;
 
-    mutex m_;
+    mutable mutex m_;
 
     bool fail_;
 
@@ -209,8 +215,12 @@ namespace build2
     // hierarchy would "see" a new value from the newly inserted scope.
     //
     // The special load_generation value 0 indicates initialization before
-    // anything has been loaded. Currently, it is changed to 1 at the end
-    // of the context constructor.
+    // anything has been loaded. Currently, it is changed to 1 at the end of
+    // the context constructor. Note also that subsequent operations in a
+    // batch may trigger loading of additional buildfiles, in fact, entire new
+    // projects. As a result, load_generation is also incremented after each
+    // operation in a batch. If you need to detect the initial load in each
+    // operation, check that phase_mutex is unlocked.
     //
     // Note must come (and thus initialized) before the data_ member.
     //
@@ -816,6 +826,9 @@ namespace build2
                              scope* amalgamation = nullptr);
 
     // Set current meta-operation and operation.
+    //
+    // Remember to also increment load_generation for subsequent operations in
+    // a batch if additional buildfiles are loaded between them.
     //
     // Note that the context instance is not to be re-used between different
     // meta-operations.

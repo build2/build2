@@ -204,6 +204,8 @@ namespace build2
                         0,       /* diag (none) */
                         false    /* progress */);
 
+    ctx.module_context->load_generation++;
+
     assert (tgs.size () == 1);
     return tgs[0].as<target> ();
   }

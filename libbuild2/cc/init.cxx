@@ -764,7 +764,7 @@ namespace build2
               perform_update_id,
               context::operation_callback {&compiledb_pre, &compiledb_post});
 
-          if (ctx.load_generation > 1)
+          if (!ctx.phase_mutex.unlocked ()) // Interrupting load.
           {
             action a (ctx.current_action ());
 

@@ -1061,6 +1061,13 @@ namespace build2
     return r ? optional<bool> (s) : nullopt;
   }
 
+  bool run_phase_mutex::
+  unlocked () const
+  {
+    mlock l (m_);
+    return lc_ == 0 && mc_ == 0 && ec_ == 0;
+  }
+
   // C++17 deprecated uncaught_exception() so use uncaught_exceptions() if
   // available.
   //
