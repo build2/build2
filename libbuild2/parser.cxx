@@ -6998,7 +6998,13 @@ namespace build2
     // The directory/value must not be empty if we have a type.
     //
     if (d.empty () && v.empty () && !t.empty ())
-      fail (loc) << "typed empty name";
+    {
+      // We sneak +/- in type if in pattern_mode::detect (think {+{}}).
+      //
+      fail (loc) << (t == "+" ? "empty name pattern inclusion group" :
+                     t == "-" ? "empty name pattern exclusion group" :
+                     "typed empty name");
+    }
 
     ns.emplace_back (move (p), move (d), move (t), move (v), pat);
     return ns.back ();
@@ -7569,7 +7575,10 @@ namespace build2
       // and look for some wildcards since the pattern can be the result of an
       // expansion (or, worse, concatenation). Thus pattern_mode::detect: we
       // are going to ask parse_names() to detect for us if the first name is
-      // a pattern. And if it is, to refrain from adding pair/dir/type.
+      // a pattern. And if it is, to refrain from adding pair/dir/type (note:
+      // for the pattern inclusions and exclusions the name's type member will
+      // be set to "+" and "-", respectively, and will later be cleared by
+      // expand_name_pattern()).
       //
       optional<const target_type*> pat_tt (
         parse_names (
@@ -8313,16 +8322,42 @@ namespace build2
             fail (loc) << "invalid path '" << e.path << "'";
           }
 
-          count = parse_names_trailer (
-            t, tt, ns, pmode, what, separators, pairn, *pp1, dp1, tp1, cross);
+          // Note that for a pattern inclusion group (see above) we make sure
+          // that the resulting patterns are simple names, passing NULL as the
+          // directory path (the names' type members will still be set to "+"
+          // thought; see the parse_names_trailer::parse() lambda
+          // implementation for details).
+          //
+          assert (!pinc || (tp1 != nullptr && *tp1 == "+"));
 
-          // If empty group or empty name, then this is not a pattern inclusion
-          // group (see above).
+          count = parse_names_trailer (
+            t, tt,
+            ns,
+            pmode,
+            what,
+            separators, pairn,
+            *pp1, (!pinc ? dp1 : nullptr), tp1,
+            cross);
+
+          // If empty group, then this is not a pattern inclusion group.
           //
           if (pinc)
           {
-            if (count != 0 && (count > 1 || !ns.back ().empty ()))
+            if (count != 0)
+            {
+              // Note that we can never end up with the empty name here. For
+              // example, for the below constructs the above
+              // parse_names_trailer() call would fail with appropriate
+              // diagnostics since the empty name's type will be set to "+"
+              // (see above for details):
+              //
+              // foo/{hxx cxx}{+{}}
+              // foo/{+{}}
+              //
+              assert (count > 1 || !ns.back ().empty ());
+
               pattern_detected (ttp);
+            }
 
             ppat = pinc = false;
           }

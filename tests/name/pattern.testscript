@@ -153,6 +153,9 @@ EOI
   mkdir bar;
   $* <'print {f*/ +{b*/}}' >/'bar/'                : include-group
 
+  mkdir -p foo/bar;
+  $* <'print $path.canonicalize(foo/{+{b*/}})' >/'foo/bar/' : include-group-first
+
   touch foo.txt fox.txt;
   $* <'print {*.txt -f*.txt +*x.txt}' >'fox.txt'   : include-exclude-order
 
@@ -307,6 +310,15 @@ EOI
   $* <<EOI >'bar.hxx foo.txt'
     pats = '*.hxx' '*.txt'
     print {+{$pats}}
+    EOI
+
+  : pattern-via-expansion-list-subdir
+  :
+  mkdir baz;
+  touch baz/foo.txt baz/bar.hxx;
+  $* <<EOI >'baz/bar.hxx baz/foo.txt'
+    pats = '*.hxx' '*.txt'
+    print baz/{+{$pats}}
     EOI
 
   : pattern-via-expansion-type
