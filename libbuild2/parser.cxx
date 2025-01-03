@@ -7264,7 +7264,9 @@ namespace build2
             (root_ != nullptr              &&
              root_->root_extra != nullptr  &&
              m.to_directory ()             &&
-             exists (d.sp / m / root_->root_extra->buildignore_file)))
+             exists (m.relative ()
+                     ? d.sp / m / root_->root_extra->buildignore_file
+                     : m / root_->root_extra->buildignore_file)))
           return !interm;
 
         // Note that we have to make copies of the extension since there will
@@ -7320,9 +7322,11 @@ namespace build2
           return true;
         });
 
+      path pat (move (p));
+
       try
       {
-        path_search (path (move (p)),
+        path_search (pat,
                      process,
                      *sp,
                      path_match_flags::follow_symlinks,
@@ -7330,7 +7334,8 @@ namespace build2
       }
       catch (const system_error& e)
       {
-        fail (l) << "unable to scan " << *sp << ": " << e;
+        fail (l) << "unable to scan for '"
+                 << (pat.relative () ? *sp / pat : pat) << "': " << e;
       }
     };
 
