@@ -281,7 +281,7 @@ namespace build2
           //
           if (!*md.for_install)
             fail << "incompatible " << t << " build" <<
-              info << "target already built not for install";
+              info << "target already updated but not for install";
         }
         else
           md.for_install = true;

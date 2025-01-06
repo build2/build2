@@ -2598,8 +2598,8 @@ namespace build2
             //
             if (*md->for_install != *d.for_install)
               fail << "incompatible " << *l << " build" <<
-                info << "library is built " << (*md->for_install ? "" : "not ")
-                     << "for install";
+                info << "library is already updated but "
+                     << (*md->for_install ? "" : "not ") << "for install";
           }
 
           auto newer = [&d, l] ()
