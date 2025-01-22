@@ -24,6 +24,9 @@ namespace build2
 {
   using butl::entry_type;
 
+  using butl::dir_entry;
+  using butl::dir_iterator;
+
   using butl::auto_rmfile;
   using butl::auto_rmdir;
 
