@@ -2598,7 +2598,7 @@ namespace build2
             //
             if (*md->for_install != *d.for_install)
               fail << "incompatible " << *l << " build" <<
-                info << "library is already updated but "
+                info << "target is already updated but "
                      << (*md->for_install ? "" : "not ") << "for install";
           }
 
