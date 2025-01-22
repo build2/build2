@@ -2385,9 +2385,16 @@ namespace build2
                 //
                 size_t b (0), e (0);
                 for (size_t m (0), n (text.size ());
-                     next_word (text, n, b, e, m, '\n', '\r'), b != n;
-                     sloc.line++)
+                     next_word (text, n, b, e, m, '\n', '\r'), b != n; )
                 {
+                  // Treat consecutive \r\n (CRLF) as if they were a single
+                  // delimiter.
+                  //
+                  if (b != 0 && text[b - 1] == '\r' &&
+                      e != n && text[e] == '\n'     &&
+                      m != 2)
+                    continue;
+
                   s.assign (text, b, e - b);
 
                   if (!trim (s).empty ())
@@ -2401,6 +2408,8 @@ namespace build2
                       break;
                     }
                   }
+
+                  sloc.line++;
                 }
 
                 if (b == e)
