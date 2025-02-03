@@ -1813,6 +1813,24 @@ namespace build2
       //
       const string& program (c.program.recall.string ());
 
+      // Optimize standalone true/false builtins (used in conditions, etc). We
+      // know they don't read/write stdin/stdout/stderr so none of the below
+      // complications are necessary.
+      //
+      if (resolve && (program == "true" || program == "false") &&
+          first && last && cf == nullptr &&
+          !c.in && !c.out && !c.err && !c.exit)
+      {
+        // Note: we can safely ignore agruments, env vars, and timeout.
+        //
+        // Don't print the true and false builtins, since they are normally
+        // used for the commands execution flow control (also below).
+        //
+        return program == "true";
+      }
+
+      // Standard streams.
+      //
       const redirect& in ((c.in ? *c.in : env.in).effective ());
 
       const redirect* out (!last || (cf != nullptr && !last_cmd)
@@ -2757,7 +2775,7 @@ namespace build2
         // Execute the builtin.
         //
         // Don't print the true and false builtins, since they are normally
-        // used for the commands execution flow control.
+        // used for the commands execution flow control (also above).
         //
         if (verb >= 2 && program != "true" && program != "false")
           print_process (args);
@@ -3263,6 +3281,8 @@ namespace build2
          const function<command_function>& cf,
          bool last_cmd)
     {
+      assert (last_cmd || cf != nullptr);
+
       // Note that we don't print the expression at any verbosity level
       // assuming that the caller does this, potentially providing some
       // additional information (command type, etc).
