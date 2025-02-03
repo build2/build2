@@ -511,8 +511,8 @@ namespace build2
 
       if (!run_finish_code (args, pr, s, 2 /* verbosity */) || io)
       {
-        diag_record dr;
-        dr << warn << "unable to detect " << l << " library type, ignoring" <<
+        diag_record dr (warn);
+        dr << "unable to detect " << l << " library type, ignoring" <<
           info << "run the following command to investigate" <<
           info; print_process (dr, args);
         return otype::e;

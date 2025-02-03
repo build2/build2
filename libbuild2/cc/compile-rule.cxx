@@ -2350,9 +2350,9 @@ namespace build2
 
                 if (verb > 2)
                 {
-                  diag_record dr;
-                  dr << error << "header " << f << " not found and no "
-                     << "rule to generate it";
+                  diag_record dr (error);
+                  dr << "header " << f << " not found and no rule to "
+                     << "generate it";
 
                   if (verb < 4)
                     dr << info << "re-run with --verbose=4 for more information";
@@ -2925,8 +2925,8 @@ namespace build2
 
                 if (verb > 2)
                 {
-                  diag_record dr;
-                  dr << error << "header '" << f << "' not found";
+                  diag_record dr (error);
+                  dr << "header '" << f << "' not found";
 
                   if (verb < 4)
                     dr << info << "re-run with --verbose=4 for more information";
@@ -4060,9 +4060,8 @@ namespace build2
           //
           bool df (!ctx.match_only && !ctx.dry_run_option);
 
-          diag_record dr;
-          dr << error << "header " << h << " not found and no rule to "
-             << "generate it";
+          diag_record dr (error);
+          dr << "header " << h << " not found and no rule to generate it";
 
           if (df)
             dr << info << "failure deferred to compiler diagnostics";
@@ -4134,9 +4133,8 @@ namespace build2
           //
           bool df (!ctx.match_only && !ctx.dry_run_option);
 
-          diag_record dr;
-          dr << error << "header " << hp << " not found and no rule to "
-             << "generate it";
+          diag_record dr (error);
+          dr << "header " << hp << " not found and no rule to generate it";
 
           if (df)
             dr << info << "failure deferred to compiler diagnostics";
@@ -4985,7 +4983,7 @@ namespace build2
               if (pr.wait ())
               {
                 {
-                  diag_record dr;
+                  maybe_diag_record dr;
 
                   if (bad_error)
                     dr << fail << "expected error exit status from "
@@ -5093,7 +5091,7 @@ namespace build2
                 // preprocessed source files).
                 //
                 {
-                  diag_record dr;
+                  maybe_diag_record dr;
                   if (force_gen_skip && *force_gen_skip == skip_count)
                   {
                     dr <<
@@ -5101,11 +5099,11 @@ namespace build2
                       info << "run the following two commands to investigate";
 
                     dr << info;
-                    print_process (dr, args.data ()); // No pipes.
+                    print_process (*dr, args.data ()); // No pipes.
 
                     init_args ((gen = true));
                     dr << info << "";
-                    print_process (dr, args.data ()); // No pipes.
+                    print_process (*dr, args.data ()); // No pipes.
                   }
 
                   if (dbuf.is_open ())

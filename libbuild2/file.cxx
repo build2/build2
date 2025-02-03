@@ -2004,9 +2004,8 @@ namespace build2
 
           if (!opt)
           {
-            diag_record dr;
-            dr << error (loc) << "invalid metadata signature in " << args[0]
-               << " output" <<
+            diag_record dr (error (loc));
+            dr << "invalid metadata signature in " << args[0] << " output" <<
               info << "expected '" << s << "'";
 
             if (verb >= 1 && verb <= 2)
@@ -2042,8 +2041,8 @@ namespace build2
         //
         if (!opt)
         {
-          diag_record dr;
-          dr << error (loc) << "unable to extract metadata from " << args[0] <<
+          diag_record dr (error (loc));
+          dr << "unable to extract metadata from " << args[0] <<
             info << "process " << args[0] << " " << *pr.exit;
 
           if (verb >= 1 && verb <= 2)
@@ -2696,12 +2695,10 @@ namespace build2
         }
         else
         {
-          diag_record dr;
-          dr << fail (loc) << "unable to determine src_root for imported ";
-          if (proj)
-            dr << *proj;
-          else
-            dr << out_root;
+          diag_record dr (fail (loc));
+          dr << "unable to determine src_root for imported ";
+          if (proj) dr << *proj;
+          else      dr << out_root;
           dr << info << "consider configuring " << out_root;
         }
 
@@ -3279,8 +3276,8 @@ namespace build2
     if (opt || exist)
       return nullptr;
 
-    diag_record dr;
-    dr << fail (loc) << "unable to import target " << pk;
+    diag_record dr (fail (loc));
+    dr << "unable to import target " << pk;
 
     if (proj.empty ())
       dr << info << "consider adding its installation location" <<
@@ -3327,8 +3324,8 @@ namespace build2
             if (opt || exist)
               return nullptr;
 
-            diag_record dr;
-            dr << fail (loc) << "unable to import target " << ns;
+            diag_record dr (fail (loc));
+            dr << "unable to import target " << ns;
             import_suggest (dr, *n.proj, nullptr, string (), meta.has_value ());
           }
         }
@@ -3406,8 +3403,8 @@ namespace build2
     if (opt)
       return names {};
 
-    diag_record dr;
-    dr << fail (loc) << "unable to import target " << n;
+    diag_record dr (fail (loc));
+    dr << "unable to import target " << n;
 
     import_suggest (dr, *n.proj, nullptr /* tt */, n.value, false);
 

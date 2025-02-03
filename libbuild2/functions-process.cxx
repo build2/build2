@@ -177,8 +177,8 @@ namespace build2
       // While assuming that the builtin has issued the diagnostics on failure
       // we still print the error message (see process_finish() for details).
       //
-      diag_record dr;
-      dr << fail << "builtin " << bn << " " << process_exit (rs);
+      diag_record dr (fail);
+      dr << "builtin " << bn << " " << process_exit (rs);
 
       if (verb >= 1 && verb <= 2)
       {

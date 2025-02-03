@@ -1061,8 +1061,8 @@ namespace build2
                 : 0);
       };
 
-      diag_record dr;
-      dr << info << "detected unexecuted matched targets:";
+      diag_record dr (info);
+      dr << "detected unexecuted matched targets:";
 
       for (const auto& pt: ctx.targets)
       {

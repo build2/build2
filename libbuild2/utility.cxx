@@ -364,8 +364,8 @@ namespace build2
       //
       // Note: make sure keep the above trace if decide not to print.
       //
-      diag_record dr;
-      dr << error (loc) << "process " << args[0] << " " << pe;
+      diag_record dr (error (loc));
+      dr << "process " << args[0] << " " << pe;
 
       if (verb >= 1 && verb <= v)
       {

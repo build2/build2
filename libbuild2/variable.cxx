@@ -1872,8 +1872,8 @@ namespace build2
           //
           // Note: the same diagnostics as in $json.serialize().
           //
-          diag_record dr;
-          dr << fail << "invalid json value: " << e;
+          diag_record dr (fail);
+          dr << "invalid json value: " << e;
 
           if (e.event)
             dr << info << "while serializing " << to_string (*e.event);
@@ -2099,8 +2099,8 @@ namespace build2
         // We will likely be trying to interpret a member name as an integer
         // due to the incorrect value type so issue appropriate diagnostics.
         //
-        diag_record dr;
-        dr << fail (sloc) << "invalid json value subscript: " << e;
+        diag_record dr (fail (sloc));
+        dr << "invalid json value subscript: " << e;
 
         if (jv != nullptr && jv->type != json_type::object)
           dr << info << "json value type is " << jv->type;

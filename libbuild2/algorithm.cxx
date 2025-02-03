@@ -861,7 +861,7 @@ namespace build2
               //
               bool ambig (false);
 
-              diag_record dr;
+              maybe_diag_record dr;
               for (++i; i != rs.second; ++i)
               {
                 const rule_match* r1 (&*i);

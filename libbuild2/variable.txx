@@ -135,30 +135,34 @@ namespace build2
   {
     size_t n (ns.size ());
 
-    diag_record dr;
-    if (value_traits<T>::empty_value ? n <= 1 : n == 1)
+    try
     {
-      try
+      if (value_traits<T>::empty_value ? n <= 1 : n == 1)
       {
+        // Throws invalid argument with complete diagnostics, in which case ns
+        // is not moved from.
+        //
         value_traits<T>::assign (
           v,
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
       }
-      catch (const invalid_argument& e)
-      {
-        dr << fail << e;
-      }
+      else
+        throw invalid_argument ("");
     }
-    else
-      dr << fail << "invalid " << value_traits<T>::value_type.name
-         << " value: " << (n == 0 ? "empty" : "multiple names");
-
-    if (!dr.empty ())
+    catch (const invalid_argument& e)
     {
+      diag_record dr (fail);
+
+      if (*e.what () != '\0')
+        dr << e;
+      else
+        dr << "invalid " << value_traits<T>::value_type.name << " value: "
+           << (n == 0 ? "empty value" : "multiple names");
+
       if (var != nullptr)
-        dr << " in variable " << var->name;
+        dr << " in variable " << var->name; // Note: appended to above line.
 
       dr << info << "while converting '" << ns << "'";
     }
@@ -170,30 +174,34 @@ namespace build2
   {
     size_t n (ns.size ());
 
-    diag_record dr;
-    if (value_traits<T>::empty_value ? n <= 1 : n == 1)
+    try
     {
-      try
+      if (value_traits<T>::empty_value ? n <= 1 : n == 1)
       {
+        // Throws invalid argument with complete diagnostics, in which case ns
+        // is not moved from.
+        //
         value_traits<T>::append (
           v,
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
       }
-      catch (const invalid_argument& e)
-      {
-        dr << fail << e;
-      }
+      else
+        throw invalid_argument ("");
     }
-    else
-      dr << fail << "invalid " << value_traits<T>::value_type.name
-         << " value: " << (n == 0 ? "empty" : "multiple names");
-
-    if (!dr.empty ())
+    catch (const invalid_argument& e)
     {
+      diag_record dr (fail);
+
+      if (*e.what () != '\0')
+        dr << e;
+      else
+        dr << "invalid " << value_traits<T>::value_type.name << " value: "
+           << (n == 0 ? "empty value" : "multiple names");
+
       if (var != nullptr)
-        dr << " in variable " << var->name;
+        dr << " in variable " << var->name; // Note: appended to above line.
 
       dr << info << "while converting '" << ns << "'";
     }
@@ -205,30 +213,34 @@ namespace build2
   {
     size_t n (ns.size ());
 
-    diag_record dr;
-    if (value_traits<T>::empty_value ? n <= 1 : n == 1)
+    try
     {
-      try
+      if (value_traits<T>::empty_value ? n <= 1 : n == 1)
       {
+        // Throws invalid argument with complete diagnostics, in which case ns
+        // is not moved from.
+        //
         value_traits<T>::prepend (
           v,
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
       }
-      catch (const invalid_argument& e)
-      {
-        dr << fail << e;
-      }
+      else
+        throw invalid_argument ("");
     }
-    else
-      dr << fail << "invalid " << value_traits<T>::value_type.name
-         << " value: " << (n == 0 ? "empty" : "multiple names");
-
-    if (!dr.empty ())
+    catch (const invalid_argument& e)
     {
+      diag_record dr (fail);
+
+      if (*e.what () != '\0')
+        dr << e;
+      else
+        dr << "invalid " << value_traits<T>::value_type.name << " value: "
+           << (n == 0 ? "empty value" : "multiple names");
+
       if (var != nullptr)
-        dr << " in variable " << var->name;
+        dr << " in variable " << var->name; // Note: appended to above line.
 
       dr << info << "while converting '" << ns << "'";
     }

@@ -1668,9 +1668,9 @@ namespace build2
 
         if (es > 255)
         {
-          diag_record dr;
+          diag_record dr (fail (l));
 
-          dr << fail (l) << "expected exit status instead of ";
+          dr << "expected exit status instead of ";
           to_stream (dr.os, ns, quote_mode::normal);
 
           dr << info << "exit status is an unsigned integer less than 256";

@@ -106,7 +106,7 @@ namespace build2
         // name from the script operation first.
         //
         {
-          diag_record dr;
+          maybe_diag_record dr;
 
           if (!diag_name_ && diag_preamble_.empty ())
           {
@@ -131,7 +131,7 @@ namespace build2
                << "'";
           }
 
-          if (!dr.empty ())
+          if (dr)
           {
             dr << info << "consider specifying it explicitly with the 'diag' "
                << "recipe attribute";
@@ -2507,8 +2507,8 @@ namespace build2
             //
             bool df (!ctx.match_only && !ctx.dry_run_option);
 
-            diag_record dr;
-            dr << error << what << ' ' << f << " not found and no rule to "
+            diag_record dr (error);
+            dr << what << ' ' << f << " not found and no rule to "
                << "generate it";
 
             if (df)

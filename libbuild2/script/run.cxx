@@ -1301,7 +1301,6 @@ namespace build2
       // Terminate processes gracefully and set the terminate flag for the
       // pipe commands.
       //
-      diag_record dr;
       for (pipe_command* c (pc); c != nullptr; c = c->prev)
       {
         if (process* p = c->proc)
@@ -1323,6 +1322,10 @@ namespace build2
 
         c->terminated = true;
       }
+
+      // Delay any failure until we process the entire pipeline.
+      //
+      maybe_diag_record dr;
 
       // Wait a bit for the processes to terminate and kill the remaining
       // ones.
@@ -2547,7 +2550,7 @@ namespace build2
 
           // Verify the exit status and issue the diagnostics on failure.
           //
-          diag_record dr;
+          maybe_diag_record dr;
 
           path pr (cmd_path (cmd));
 
@@ -2563,16 +2566,16 @@ namespace build2
 
             if (c->unread_stdout)
             {
-              dr << "stdout ";
+              *dr << "stdout ";
 
               if (c->unread_stderr)
-                dr << "and ";
+                *dr << "and ";
             }
 
             if (c->unread_stderr)
-              dr << "stderr ";
+              *dr << "stderr ";
 
-            dr << "not closed after exit";
+            *dr << "not closed after exit";
           };
 
           // Fail if the process is terminated due to reaching the deadline.
@@ -2588,7 +2591,7 @@ namespace build2
             if (verb == 1)
             {
               dr << info << "command line: ";
-              print_process (dr, *c->args);
+              print_process (*dr, *c->args);
             }
 
             fail = true;
@@ -2643,23 +2646,23 @@ namespace build2
               dr << error (ll) << w << ' ' << pr << ' ';
 
               if (!exit->normal ())
-                dr << *exit;
+                *dr << *exit;
               else
               {
                 uint16_t ec (exit->code ()); // Make sure printed as integer.
 
                 if (!valid)
                 {
-                  dr << "exit code " << ec << " out of 0-255 range";
+                  *dr << "exit code " << ec << " out of 0-255 range";
                 }
                 else
                 {
                   if (cmd.exit)
-                    dr << "exit code " << ec
-                       << (cmp == exit_comparison::eq ? " != " : " == ")
-                       << exc;
+                    *dr << "exit code " << ec
+                        << (cmp == exit_comparison::eq ? " != " : " == ")
+                        << exc;
                   else
-                    dr << "exited with code " << ec;
+                    *dr << "exited with code " << ec;
                 }
               }
 
@@ -2669,7 +2672,7 @@ namespace build2
               if (verb == 1)
               {
                 dr << info << "command line: ";
-                print_process (dr, *c->args);
+                print_process (*dr, *c->args);
               }
 
               if (non_empty (*c->esp, ll) && avail_on_failure (*c->esp, env))
@@ -2683,7 +2686,7 @@ namespace build2
 
               // Print cached stderr.
               //
-              print_file (dr, *c->esp, ll);
+              print_file (*dr, *c->esp, ll);
             }
             else if (c->unread_stdout || c->unread_stderr)
               unread_output_diag (true /* main_error */);

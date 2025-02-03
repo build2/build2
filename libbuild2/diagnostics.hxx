@@ -4,6 +4,8 @@
 #ifndef LIBBUILD2_DIAGNOSTICS_HXX
 #define LIBBUILD2_DIAGNOSTICS_HXX
 
+#include <cstddef> // max_align_t
+
 #include <libbutl/diagnostics.hxx>
 
 #include <libbuild2/types.hxx>
@@ -447,15 +449,110 @@ namespace build2
       return *this;
     }
 
-    diag_record () = default;
+    // Use maybe_diag_record below for maybe-used records.
+    //
+    diag_record () = delete;
+
+    // Create empty record that will be used.
+    //
+    explicit
+    diag_record (nullptr_t): butl::diag_record () {}
 
     template <typename B>
     explicit
-    diag_record (const diag_prologue<B>& p): diag_record () { *this << p;}
+    diag_record (const diag_prologue<B>& p)
+        : butl::diag_record ()
+    {
+      *this << p;
+    }
 
     template <typename B>
     explicit
-    diag_record (const diag_mark<B>& m): diag_record () { *this << m;}
+    diag_record (const diag_mark<B>& m)
+        : butl::diag_record ()
+    {
+      *this << m;
+    }
+  };
+
+  // A diag_record wrapper similar to std::optional that allows creating an
+  // uninitialized record that may or may not be used. The initializers are
+  // the diagnostics marks, for example:
+  //
+  // maybe_diag_record dr; // Uninitialized.
+  // dr << fail << "bad";  // Initialized.
+  // if (dr)
+  //   *dr << "extra info";
+  //
+  // The reason we need this is because the std::ostringstream member of
+  // butl::diag_record is quite expensive to construct but to never use.
+  //
+  struct maybe_diag_record
+  {
+    maybe_diag_record (): empty_ (true) {}
+
+    explicit operator bool () const
+    {
+      return !empty_;
+    }
+
+    diag_record&
+    operator* ()
+    {
+      return *reinterpret_cast<diag_record*> (data_);
+    }
+
+    template <typename B>
+    diag_record&
+    operator<< (const diag_mark<B>& m)
+    {
+      diag_record* r;
+
+      if (empty_)
+      {
+        r = new (&data_) diag_record (m);
+        empty_ = false;
+      }
+      else
+        *(r = reinterpret_cast<diag_record*> (data_)) << m;
+
+      return *r;
+    }
+
+    template <typename B>
+    diag_record&
+    operator<< (const diag_prologue<B>& p)
+    {
+      diag_record* r;
+
+      if (empty_)
+      {
+        r = new (&data_) diag_record (p);
+        empty_ = false;
+      }
+      else
+        *(r = reinterpret_cast<diag_record*> (data_)) << p;
+
+      return *r;
+    }
+
+    maybe_diag_record (maybe_diag_record&&) = delete;
+    maybe_diag_record& operator= (maybe_diag_record&&) = delete;
+
+    maybe_diag_record (const maybe_diag_record&) = delete;
+    maybe_diag_record& operator= (const maybe_diag_record&) = delete;
+
+    ~maybe_diag_record () noexcept (false) // butl::diag_record may throw
+    {
+      if (!empty_)
+        reinterpret_cast<diag_record*> (data_)->~diag_record ();
+    }
+
+  private:
+    bool empty_;
+
+    static constexpr size_t size_ = sizeof (diag_record);
+    alignas (std::max_align_t) unsigned char data_[size_];
   };
 
   template <typename B>
@@ -467,7 +564,7 @@ namespace build2
     diag_record
     operator<< (const T& x) const
     {
-      diag_record r;
+      diag_record r (nullptr);
       r.append (this->indent, this->epilogue);
       B::operator() (r);
       r << x;
@@ -981,7 +1078,7 @@ namespace build2
     // function will throw.
     //
     void
-    close (diag_record&& = {});
+    close (maybe_diag_record&& = {});
 
     // Direct access to the underlying stream and buffer for custom processing
     // (see read() above for details).

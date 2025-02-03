@@ -745,7 +745,9 @@ namespace build2
         //
         auto term_pipe = [&timed_wait] (pipe_process* pp)
         {
-          diag_record dr;
+          // Delay the failure until we process the entire pipeline.
+          //
+          maybe_diag_record dr;
 
           // Terminate processes gracefully and set the terminate flag for
           // them.
@@ -962,7 +964,7 @@ namespace build2
             //
             if (!fail)
             {
-              diag_record dr;
+              maybe_diag_record dr;
 
               // Note that there can be a race, so that the process we have
               // terminated due to reaching the deadline has in fact exited
@@ -983,14 +985,14 @@ namespace build2
 
                 if (!pe)
                 {
-                  dr << "terminated: execution timeout expired";
+                  *dr << "terminated: execution timeout expired";
 
                   if (p->unread_stderr)
                     dr << error << "stderr not closed after exit";
                 }
                 else if (!pe->normal () || pe->code () != 0)
                 {
-                   dr << *pe;
+                   *dr << *pe;
 
                   if (p->unread_stderr)
                     dr << error << "stderr not closed after exit";
@@ -999,7 +1001,7 @@ namespace build2
                 {
                   assert (p->unread_stderr);
 
-                  dr << "stderr not closed after exit";
+                  *dr << "stderr not closed after exit";
                 }
 
                 if (verb == 1)
@@ -1009,9 +1011,9 @@ namespace build2
                   for (pipe_process* p (b); p != nullptr; p = p->next)
                   {
                     if (p != b)
-                      dr << " | ";
+                      *dr << " | ";
 
-                    print_process (dr, p->args);
+                    print_process (*dr, p->args);
                   }
                 }
               }

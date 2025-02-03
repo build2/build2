@@ -239,9 +239,9 @@ namespace build2
 
         // No match.
         //
-        diag_record dr;
+        diag_record dr (fail (loc));
 
-        dr << fail (loc) << "unmatched call to "; print_call (dr.os);
+        dr << "unmatched call to "; print_call (dr.os);
 
         if (all_ovls != nullptr)
         {
@@ -284,8 +284,8 @@ namespace build2
       {
         // Ambigous match.
         //
-        diag_record dr;
-        dr << fail (loc) << "ambiguous call to "; print_call (dr.os);
+        diag_record dr (fail (loc));
+        dr << "ambiguous call to "; print_call (dr.os);
 
         for (auto f: ovls)
           dr << info << "candidate: " << *f;

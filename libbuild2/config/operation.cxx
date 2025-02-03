@@ -302,8 +302,8 @@ namespace build2
                   continue;
               }
 
-              diag_record dr;
-              dr << warn (on) << "saving no longer used variable " << *var;
+              diag_record dr (warn (on));
+              dr << "saving no longer used variable " << *var;
               info_import (dr, var->name);
               if (verb >= 2)
                 info_value (dr, v);
@@ -313,8 +313,8 @@ namespace build2
           {
             if (r.second) // warn
             {
-              diag_record dr;
-              dr << warn (on) << "dropping no longer used variable " << *var;
+              diag_record dr (warn (on));
+              dr << "dropping no longer used variable " << *var;
               info_import (dr, var->name);
               info_value (dr, v);
             }
@@ -479,9 +479,8 @@ namespace build2
                 //
                 if (checked && org == ovr)
                 {
-                  diag_record dr;
-                  dr << warn (on) << "saving previously inherited variable "
-                     << var;
+                  diag_record dr (warn (on));
+                  dr << "saving previously inherited variable " << var;
 
                   dr << info << "because project " << *r << " no longer uses "
                      << "it in its configuration";

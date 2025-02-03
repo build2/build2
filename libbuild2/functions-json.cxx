@@ -295,8 +295,8 @@ namespace build2
       }
       catch (const invalid_json_output& e)
       {
-        diag_record dr;
-        dr << fail << "invalid json value: " << e;
+        diag_record dr (fail);
+        dr << "invalid json value: " << e;
 
         if (e.event)
           dr << info << "while serializing " << to_string (*e.event);

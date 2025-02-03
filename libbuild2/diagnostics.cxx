@@ -836,7 +836,7 @@ namespace build2
     // is inseparable from any buffered diagnostics. So we prepare the record
     // first and then write both while holding the diagnostics stream lock.
     //
-    diag_record dr;
+    maybe_diag_record dr;
     if (!pe)
     {
       // Note: see similar code in run_finish_impl().
@@ -852,7 +852,7 @@ namespace build2
         if (verb >= 1 && verb <= v)
         {
           dr << info << "command line: ";
-          print_process (dr, args);
+          print_process (*dr, args);
         }
       }
     }
@@ -861,7 +861,7 @@ namespace build2
   }
 
   void diag_buffer::
-  close (diag_record&& dr)
+  close (maybe_diag_record&& dr)
   {
     assert (state_ != state::closed);
 
@@ -901,7 +901,7 @@ namespace build2
     args0 = nullptr;
     state_ = state::closed;
 
-    if (!buf.empty () || !dr.empty ())
+    if (!buf.empty () || dr)
     {
       diag_stream_lock l;
 
@@ -911,14 +911,14 @@ namespace build2
         buf.clear ();
       }
 
-      if (!dr.empty ())
-        dr.flush ([] (const butl::diag_record& r)
-                  {
-                    // Similar to default_writer().
-                    //
-                    *diag_stream << r.os.str () << '\n';
-                    diag_stream->flush ();
-                  });
+      if (dr)
+        (*dr).flush ([] (const butl::diag_record& r)
+                     {
+                       // Similar to default_writer().
+                       //
+                       *diag_stream << r.os.str () << '\n';
+                       diag_stream->flush ();
+                     });
       else
         diag_stream->flush ();
     }

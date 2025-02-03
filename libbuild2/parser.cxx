@@ -2259,9 +2259,9 @@ namespace build2
 
         if (tt != type::word)
         {
-          diag_record dr;
+          diag_record dr (fail (t));
 
-          dr << fail (t) << "unterminated recipe ";
+          dr << "unterminated recipe ";
           if (kind.empty ()) dr << "block"; else dr << kind << "-block";
 
           dr << info (st) << "recipe ";
@@ -3007,8 +3007,8 @@ namespace build2
           // rule-specific search) can possibly succeed so we can fail now and
           // with a more accurate reason. See import2(names) for background.
           //
-          diag_record dr;
-          dr << fail (ploc) << "unable to import target " << n;
+          diag_record dr (fail (ploc));
+          dr << "unable to import target " << n;
           import_suggest (dr, *n.proj, nullptr, string (), false);
         }
         else
@@ -3963,7 +3963,7 @@ namespace build2
             proj = n.variable ();
         }
 
-        diag_record dr;
+        maybe_diag_record dr;
         do // Breakout loop.
         {
           if (!config)
@@ -4067,7 +4067,7 @@ namespace build2
         }
         while (false);
 
-        if (!dr.empty ())
+        if (dr)
           dr << info << "expected variable name in the 'config[.**]."
              << (proj.empty () ? "<project>" : proj.c_str ()) << ".**' form";
       }
@@ -5763,9 +5763,9 @@ namespace build2
   void parser::
   parse_diag (token& t, type& tt)
   {
-    diag_record dr;
     const location l (get_location (t));
 
+    diag_record dr (nullptr);
     switch (t.value[0])
     {
     case 'f': dr << fail (l); break;

@@ -40,9 +40,8 @@ namespace build2
       if (!f)
         return nullopt;
 
-      diag_record dr;
-      dr << fail << what << ' ' << pt << " not found and no rule to "
-         << "generate it";
+      diag_record dr (fail);
+      dr << what << ' ' << pt << " not found and no rule to generate it";
 
       if (verb < 4)
         dr << info << "re-run with --verbose=4 for more information";
@@ -107,9 +106,8 @@ namespace build2
       if (!f)
         return nullopt;
 
-      diag_record dr;
-      dr << fail << what << ' ' << pt << " not found and no rule to "
-         << "generate it";
+      diag_record dr (fail);
+      dr << what << ' ' << pt << " not found and no rule to generate it";
 
       if (verb < 4)
         dr << info << "re-run with --verbose=4 for more information";
@@ -139,7 +137,7 @@ namespace build2
                         action a, const target& t, size_t pts_n,
                         const file& pt)
   {
-    diag_record dr;
+    const char* err (nullptr);
 
     if (pt.matched (a, memory_order_acquire))
     {
@@ -148,7 +146,7 @@ namespace build2
       {
         if (pts_n == 0 || !updated_during_match (a, t, pts_n, pt))
         {
-          dr << fail << what << ' ' << pt << " has non-noop recipe";
+          err = "has non-noop recipe";
         }
       }
     }
@@ -157,12 +155,14 @@ namespace build2
       // Note that this target could not possibly be updated during match
       // since it's not matched.
       //
-      dr << fail << what << ' ' << pt << " is explicitly declared as "
-         << "target and may have non-noop recipe";
+      err = "is explicitly declared as target and may have non-noop recipe";
     }
 
-    if (!dr.empty ())
-      dr << info << "consider listing it as static prerequisite of " << t;
+    if (err != nullptr)
+    {
+      fail << what << ' ' << pt << ' ' << err <<
+        info << "consider listing it as static prerequisite of " << t;
+    }
   }
 
   small_vector<const target_type*, 2> dyndep_rule::
