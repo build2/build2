@@ -2218,7 +2218,7 @@ namespace build2
 
           // Copy the tokens and start playing.
           //
-          replay_data (replay_tokens (ln.tokens));
+          replay_data (ln.tokens);
 
           // We don't really need to change the mode since we already know
           // the line type.
@@ -2433,7 +2433,7 @@ namespace build2
 
                   // Prepare for the condition reevaluation.
                   //
-                  replay_data (replay_tokens (ln.tokens));
+                  replay_data (ln.tokens);
                   next (t, tt);
                   li = wli;
                 }

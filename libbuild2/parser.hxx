@@ -893,6 +893,9 @@ namespace build2
 
     // Set the data and start playing.
     //
+    // Note that using the const reference version is better than making a
+    // copy since it may reuse the existing capacity.
+    //
     void
     replay_data (replay_tokens&& d)
     {
@@ -901,6 +904,18 @@ namespace build2
       replay_path_ = path_; // Save old path.
 
       replay_data_ = move (d);
+      replay_i_ = 0;
+      replay_ = replay::play;
+    }
+
+    void
+    replay_data (const replay_tokens& d)
+    {
+      assert (replay_ == replay::stop);
+
+      replay_path_ = path_; // Save old path.
+
+      replay_data_ = d;
       replay_i_ = 0;
       replay_ = replay::play;
     }

@@ -1529,7 +1529,7 @@ namespace build2
         {
           // Copy the tokens and start playing.
           //
-          replay_data (replay_tokens (dl.tokens));
+          replay_data (dl.tokens);
 
           token t;
           build2::script::token_type tt;
