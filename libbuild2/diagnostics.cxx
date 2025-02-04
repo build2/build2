@@ -930,11 +930,15 @@ namespace build2
   // diag_do(), etc.
   //
   string
-  diag_do (context& ctx, const action&)
+  diag_do (context& ctx, const action& a)
   {
     const meta_operation_info& m (*ctx.current_mif);
     const operation_info& io (*ctx.current_inner_oif);
-    const operation_info* oo (ctx.current_outer_oif);
+    const operation_info* oo (a.outer () ? ctx.current_outer_oif : nullptr);
+
+    assert (m.id == a.meta_operation () &&
+            io.id == a.operation () &&
+            (a.inner () || (oo != nullptr && oo->id == a.outer_operation ())));
 
     string r;
 
@@ -971,11 +975,15 @@ namespace build2
   }
 
   string
-  diag_doing (context& ctx, const action&)
+  diag_doing (context& ctx, const action& a)
   {
     const meta_operation_info& m (*ctx.current_mif);
     const operation_info& io (*ctx.current_inner_oif);
-    const operation_info* oo (ctx.current_outer_oif);
+    const operation_info* oo (a.outer () ? ctx.current_outer_oif : nullptr);
+
+    assert (m.id == a.meta_operation () &&
+            io.id == a.operation () &&
+            (a.inner () || (oo != nullptr && oo->id == a.outer_operation ())));
 
     string r;
 
@@ -1008,11 +1016,15 @@ namespace build2
   }
 
   string
-  diag_did (context& ctx, const action&)
+  diag_did (context& ctx, const action& a)
   {
     const meta_operation_info& m (*ctx.current_mif);
     const operation_info& io (*ctx.current_inner_oif);
-    const operation_info* oo (ctx.current_outer_oif);
+    const operation_info* oo (a.outer () ? ctx.current_outer_oif : nullptr);
+
+    assert (m.id == a.meta_operation () &&
+            io.id == a.operation () &&
+            (a.inner () || (oo != nullptr && oo->id == a.outer_operation ())));
 
     string r;
 
@@ -1049,11 +1061,17 @@ namespace build2
   }
 
   void
-  diag_done (ostream& os, const action&, const target& t)
+  diag_done (ostream& os, const action& a, const target& t)
   {
-    const meta_operation_info& m (*t.ctx.current_mif);
-    const operation_info& io (*t.ctx.current_inner_oif);
-    const operation_info* oo (t.ctx.current_outer_oif);
+    context& ctx (t.ctx);
+
+    const meta_operation_info& m (*ctx.current_mif);
+    const operation_info& io (*ctx.current_inner_oif);
+    const operation_info* oo (a.outer () ? ctx.current_outer_oif : nullptr);
+
+    assert (m.id == a.meta_operation () &&
+            io.id == a.operation () &&
+            (a.inner () || (oo != nullptr && oo->id == a.outer_operation ())));
 
     // perform(update(x))   -> "x is up to date"
     // configure(update(x)) -> "updating x is configured"

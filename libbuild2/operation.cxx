@@ -288,11 +288,14 @@ namespace build2
         // Note also that the higher the increment, the less accurate our
         // executed during match number will be.
         //
+        // Note that we strip the outer operation from "(... during match)"
+        // not to repeat the same "(for <operation>)" twice.
+        //
         md.incr = stderr_term // Scale depending on output type.
           ? (ctx.sched->serial () ? 1 : 2)
           : 100;
         md.what1 = " targets to " + diag_do (ctx, a);
-        md.what2 = ' ' + diag_did (ctx, a) + " during match)";
+        md.what2 = ' ' + diag_did (ctx, a.inner_action ()) + " during match)";
 
         mg = ctx.sched->monitor (
           ctx.target_count,
