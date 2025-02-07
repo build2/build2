@@ -39,7 +39,9 @@ namespace build2
     // can be used in diagnostics.
     //
     // Optionally, execute the specified function at the end of the pipe,
-    // either after the last command or instead of it (last_cmd=false).
+    // either after the last command (last_cmd=false) or instead of it
+    // (last_cmd=true). Note that the last_cmd argument is only meaningful if
+    // the function is specified.
     //
     void
     run (environment&,

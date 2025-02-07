@@ -1839,6 +1839,36 @@ namespace build2
 
       const redirect& err ((c.err ? *c.err : env.err).effective ());
 
+      // If the output redirect is `none` (default for testscript) or `null`
+      // and this is a builtin which is known not to write to stdout, then
+      // redirect its stdout to stderr, unless stderr itself is redirected to
+      // stdout. This way we give up the expensive fdopen() call in favor of
+      // the cheap fddup() call.
+      //
+      // Note that we ignore the pseudo builtins since they are handled prior
+      // to opening any file descriptors for stdout.
+      //
+      const redirect out_merge (redirect_type::merge, 2);
+      if (out != nullptr                     &&
+          (out->type == redirect_type::none ||
+           out->type == redirect_type::null) &&
+          err.type != redirect_type::merge   &&
+          resolve                            &&
+          (program == "cp"    ||
+           program == "false" ||
+           program == "ln"    ||
+           program == "mkdir" ||
+           program == "mv"    ||
+           program == "rm"    ||
+           program == "rmdir" ||
+           program == "sleep" ||
+           program == "test"  ||
+           program == "touch" ||
+           program == "true"))
+      {
+        out = &out_merge;
+      }
+
       auto process_args = [&c] () -> cstrings
       {
         return build2::process_args (c.program.recall_string (), c.arguments);
@@ -1985,11 +2015,14 @@ namespace build2
       // If this is the first pipeline command, then open stdin descriptor
       // according to the redirect specified.
       //
+      // Specifically, save into ifd the descriptor of a newly created file,
+      // existing file, stdin descriptor duplicate, or null-device descriptor
+      // for the here_*_literal, file, pass, or null/none redirects,
+      // respectively.
+      //
       path isp;
 
-      if (!first)
-        assert (!c.in); // No redirect expected.
-      else
+      if (first)
       {
         // Open a file for passing to the command stdin.
         //
@@ -2023,25 +2056,58 @@ namespace build2
             break;
           }
         case redirect_type::none:
-          // Somehow need to make sure that the child process doesn't read
-          // from stdin. That is tricky to do in a portable way. Here we
-          // suppose that the program which (erroneously) tries to read some
-          // data from stdin being redirected to /dev/null fails not being
-          // able to read the expected data, and so the command doesn't pass
-          // through.
-          //
-          // @@ Obviously doesn't cover the case when the process reads
-          //    whatever available.
-          // @@ Another approach could be not to redirect stdin and let the
-          //    process to hang which can be interpreted as a command failure.
-          // @@ Both ways are quite ugly. Is there some better way to do
-          //    this?
-          // @@ Maybe we can create a pipe, write a byte into it, close the
-          //    writing end, and after the process terminates make sure we can
-          //    still read this byte out?
-          //
+          {
+            // Somehow need to make sure that the child process doesn't read
+            // from stdin. That is tricky to do in a portable way. Here we
+            // suppose that the program which (erroneously) tries to read some
+            // data from stdin being redirected to /dev/null fails not being
+            // able to read the expected data, and so the command doesn't pass
+            // through.
+            //
+            // @@ Obviously doesn't cover the case when the process reads
+            //    whatever available.
+            // @@ Another approach could be not to redirect stdin and let the
+            //    process to hang which can be interpreted as a command
+            //    failure.
+            // @@ Both ways are quite ugly. Is there some better way to do
+            //    this?
+            // @@ Maybe we can create a pipe, write a byte into it, close the
+            //    writing end, and after the process terminates make sure we
+            //    can still read this byte out?
+            //
+            // Let's optimize for the builtins, which are known not to read
+            // any input, by not opening /dev/null but duplicating the stdin
+            // file descriptor instead.
+            //
+            if (resolve &&
+                (program == "cp"    ||
+                 program == "date"  ||
+                 program == "echo"  ||
+                 program == "false" ||
+                 program == "find"  ||
+                 program == "ln"    ||
+                 program == "mkdir" ||
+                 program == "mv"    ||
+                 program == "rm"    ||
+                 program == "rmdir" ||
+                 program == "sleep" ||
+                 program == "test"  ||
+                 program == "touch" ||
+                 program == "true"))
+            {
+              try
+              {
+                ifd = fddup (0);
+              }
+              catch (const io_error& e)
+              {
+                fail (ll) << "unable to duplicate stdin: " << e;
+              }
+
+              break;
+            }
+          }
           // Fall through.
-          //
         case redirect_type::null:
           {
             ifd = open_null ();
@@ -2078,8 +2144,10 @@ namespace build2
         case redirect_type::here_doc_ref:   assert (false); break;
         }
       }
+      else
+        assert (!c.in); // No redirect expected.
 
-      assert (ifd.get () != -1);
+      assert (ifd != nullfd);
 
       // Calculate the process/builtin execution deadline. Note that we should
       // also consider the left-hand side processes deadlines, not to keep
@@ -2173,14 +2241,16 @@ namespace build2
       else
         pc.next = &pc; // Points to itself.
 
-      // Open a file for command output redirect if requested explicitly
-      // (file overwrite/append redirects) or for the purpose of the output
+      // Open a file for command output redirect if requested explicitly (file
+      // overwrite/append redirects) or for the purpose of the output
       // validation (none, here_*, file comparison redirects), register the
       // file for cleanup, return the file descriptor. Interpret trace
       // redirect according to the verbosity level (as null if below 2, as
-      // pass otherwise). Return nullfd, standard stream descriptor duplicate
-      // or null-device descriptor for merge, pass or null redirects
-      // respectively (not opening any file).
+      // pass otherwise). Return nullfd, standard stream descriptor duplicate,
+      // or null-device descriptor for merge, pass (except for the buffered
+      // stderr), or null redirects respectively (not opening/creating any
+      // file/pipe). Create the pipe and return its write end for the pass
+      // redirect of the buffered stderr.
       //
       auto open = [&env, &wdir, &ll, &std_path, &c, &pc] (const redirect& r,
                                                           int dfd,
@@ -2297,10 +2367,12 @@ namespace build2
       path osp;
       fdpipe ofd;
 
-      // If this is the last command in the pipeline than redirect the
-      // command process stdout to a file. Otherwise create a pipe and
-      // redirect the stdout to the write-end of the pipe. The read-end will
-      // be passed as stdin for the next command in the pipeline.
+      // If this is either not the last command in the pipeline or the
+      // command's output needs to be read by the specified function, then
+      // create a pipe and redirect the stdout to the write-end of the
+      // pipe. The read-end will be passed as stdin for the next command in
+      // the pipeline or the function. Otherwise, proceed according to the
+      // specified redirect (see open() lambda for details).
       //
       // @@ Shouldn't we allow the here-* and file output redirects for a
       //    command with pipelined output? Say if such redirect is present
@@ -2311,16 +2383,21 @@ namespace build2
       //    script failures investigation and, for example, for validation
       //    "tightening".
       //
-      if (last && out != nullptr)
-        ofd.out = open (*out, 1, osp);
-      else
+      if (!last || out == nullptr)
       {
         assert (!c.out); // No redirect expected.
+
+        // Otherwise we wouldn't be here.
+        //
+        assert (!last || (cf != nullptr && !last_cmd));
+
         ofd = open_pipe ();
       }
+      else
+        ofd.out = open (*out, 1, osp); // Note: may or may not open file.
 
       path esp;
-      auto_fd efd (open (err, 2, esp));
+      auto_fd efd (open (err, 2, esp)); // Note: may or may not open file/pipe.
 
       // Merge standard streams.
       //
@@ -3281,8 +3358,6 @@ namespace build2
          const function<command_function>& cf,
          bool last_cmd)
     {
-      assert (last_cmd || cf != nullptr);
-
       // Note that we don't print the expression at any verbosity level
       // assuming that the caller does this, potentially providing some
       // additional information (command type, etc).
