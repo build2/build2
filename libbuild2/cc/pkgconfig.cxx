@@ -693,6 +693,7 @@ namespace build2
                      cmp ("msxml", 5)        || // msxml*
                      cmp ("netapi32")        ||
                      cmp ("normaliz")        ||
+                     cmp ("ntdll")           ||
                      cmp ("odbc32")          ||
                      cmp ("ole32")           ||
                      cmp ("oleaut32")        ||
