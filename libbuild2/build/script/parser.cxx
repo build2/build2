@@ -2826,7 +2826,7 @@ namespace build2
                                      cmd,
                                      nullptr /* iteration_index */, li,
                                      ll,
-                                     cf, false /* last_cmd */);
+                                     cf);
 
                 iss.exceptions (istream::badbit);
               }

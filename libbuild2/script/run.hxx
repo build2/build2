@@ -39,9 +39,7 @@ namespace build2
     // can be used in diagnostics.
     //
     // Optionally, execute the specified function at the end of the pipe,
-    // either after the last command (last_cmd=false) or instead of it
-    // (last_cmd=true). Note that the last_cmd argument is only meaningful if
-    // the function is specified.
+    // potentially instead of the last command (replace_last_cmd).
     //
     void
     run (environment&,
@@ -49,7 +47,7 @@ namespace build2
          const iteration_index*, size_t index,
          const location&,
          const function<command_function>& = nullptr,
-         bool last_cmd = true);
+         bool replace_last_cmd = false);
 
     bool
     run_cond (environment&,
@@ -57,7 +55,7 @@ namespace build2
               const iteration_index*, size_t index,
               const location&,
               const function<command_function>& = nullptr,
-              bool last_cmd = true);
+              bool replace_last_cmd = false);
 
     // Perform the registered special file cleanups in the direct order and
     // then the regular cleanups in the reverse order.

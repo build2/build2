@@ -143,7 +143,13 @@ namespace build2
                                (cf != nullptr &&
                                 p.recall.string () == "for"));
                      }) != expr.end ())
-          build2::script::run (env, expr, ii, li, ll, cf);
+        {
+          build2::script::run (env,
+                               expr,
+                               ii, li,
+                               ll,
+                               cf, (cf != nullptr) /* replace_last_cmd */);
+        }
         else if (verb >= 2)
           text << expr;
       }

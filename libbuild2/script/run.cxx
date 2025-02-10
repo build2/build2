@@ -1711,7 +1711,7 @@ namespace build2
               const iteration_index* ii, size_t li, size_t ci,
               const location& ll,
               bool diag,
-              const function<command_function>& cf, bool last_cmd,
+              const function<command_function>& cf, bool replace_last_cmd,
               optional<deadline> dl = nullopt,
               pipe_command* prev_cmd = nullptr)
     {
@@ -1723,7 +1723,7 @@ namespace build2
       {
         if (cf != nullptr)
         {
-          assert (!last_cmd); // Otherwise we wouldn't be here.
+          assert (!replace_last_cmd); // Otherwise we wouldn't be here.
 
           // The pipeline can't be empty.
           //
@@ -1798,8 +1798,9 @@ namespace build2
       command_pipe::const_iterator nc (bc + 1);
       bool last (nc == ec);
 
-      // Make sure that stdout is not redirected if meant to be read (last_cmd
-      // is false) or cannot not be produced (last_cmd is true).
+      // Make sure that stdout is not redirected if meant to be read
+      // (replace_last_cmd is false) or cannot not be produced
+      // (replace_last_cmd is true).
       //
       if (last && c.out && cf != nullptr)
         fail (ll) << "stdout cannot be redirected";
@@ -1833,7 +1834,7 @@ namespace build2
       //
       const redirect& in ((c.in ? *c.in : env.in).effective ());
 
-      const redirect* out (!last || (cf != nullptr && !last_cmd)
+      const redirect* out (!last || (cf != nullptr && !replace_last_cmd)
                            ? nullptr // stdout is piped.
                            : &(c.out ? *c.out : env.out).effective ());
 
@@ -1842,8 +1843,8 @@ namespace build2
       // If the output redirect is `none` (default for testscript) or `null`
       // and this is a builtin which is known not to write to stdout, then
       // redirect its stdout to stderr, unless stderr itself is redirected to
-      // stdout. This way we give up the expensive fdopen() call in favor of
-      // the cheap fddup() call.
+      // stdout. This way we replace the expensive fdopen(/dev/null) call with
+      // the cheap fddup(...) call.
       //
       // Note that we ignore the pseudo builtins since they are handled prior
       // to opening any file descriptors for stdout.
@@ -1940,7 +1941,7 @@ namespace build2
         if (c.out)
           fail (ll) << program << " builtin stdout cannot be redirected";
 
-        if (cf != nullptr && !last_cmd)
+        if (cf != nullptr && !replace_last_cmd)
           fail (ll) << program << " builtin stdout cannot be read";
 
         if (c.err)
@@ -2181,7 +2182,7 @@ namespace build2
         if (c.out)
           fail (ll) << "set builtin stdout cannot be redirected";
 
-        if (cf != nullptr && !last_cmd)
+        if (cf != nullptr && !replace_last_cmd)
           fail (ll) << "set builtin stdout cannot be read";
 
         if (c.err)
@@ -2200,7 +2201,7 @@ namespace build2
       // If this is the last command in the pipe and the command function is
       // specified for it, then call it.
       //
-      if (last && cf != nullptr && last_cmd)
+      if (last && cf != nullptr && replace_last_cmd)
       {
         // Must be enforced by the caller.
         //
@@ -2389,7 +2390,7 @@ namespace build2
 
         // Otherwise we wouldn't be here.
         //
-        assert (!last || (cf != nullptr && !last_cmd));
+        assert (!last || (cf != nullptr && !replace_last_cmd));
 
         ofd = open_pipe ();
       }
@@ -3118,7 +3119,7 @@ namespace build2
                               nc, ec,
                               move (ofd.in),
                               ii, li, ci + 1, ll, diag,
-                              cf, last_cmd,
+                              cf, replace_last_cmd,
                               dl,
                               &pc);
 
@@ -3243,7 +3244,7 @@ namespace build2
                               nc, ec,
                               move (ofd.in),
                               ii, li, ci + 1, ll, diag,
-                              cf, last_cmd,
+                              cf, replace_last_cmd,
                               dl,
                               &pc);
 
@@ -3296,7 +3297,7 @@ namespace build2
               const iteration_index* ii, size_t li,
               const location& ll,
               bool diag,
-              const function<command_function>& cf, bool last_cmd)
+              const function<command_function>& cf, bool replace_last_cmd)
     {
       // Commands are numbered sequentially throughout the expression
       // starting with 1. Number 0 means the command is a single one.
@@ -3341,7 +3342,7 @@ namespace build2
                         p.begin (), p.end (),
                         auto_fd (),
                         ii, li, ci, ll, print,
-                        cf, last_cmd);
+                        cf, replace_last_cmd);
         }
 
         ci += p.size ();
@@ -3356,8 +3357,13 @@ namespace build2
          const iteration_index* ii, size_t li,
          const location& ll,
          const function<command_function>& cf,
-         bool last_cmd)
+         bool replace_last_cmd)
     {
+      // If the last command in the pipeline is ought to be replaced, then the
+      // replacement function must be specified.
+      //
+      assert (!replace_last_cmd || cf != nullptr);
+
       // Note that we don't print the expression at any verbosity level
       // assuming that the caller does this, potentially providing some
       // additional information (command type, etc).
@@ -3366,7 +3372,7 @@ namespace build2
                      expr,
                      ii, li, ll,
                      true /* diag */,
-                     cf, last_cmd))
+                     cf, replace_last_cmd))
         throw failed (); // Assume diagnostics is already printed.
     }
 
@@ -3375,15 +3381,20 @@ namespace build2
               const command_expr& expr,
               const iteration_index* ii, size_t li,
               const location& ll,
-              const function<command_function>& cf, bool last_cmd)
+              const function<command_function>& cf, bool replace_last_cmd)
     {
+      // If the last command in the pipeline is ought to be replaced, then the
+      // replacement function must be specified.
+      //
+      assert (!replace_last_cmd || cf != nullptr);
+
       // Note that we don't print the expression here (see above).
       //
       return run_expr (env,
                        expr,
                        ii, li, ll,
                        false /* diag */,
-                       cf, last_cmd);
+                       cf, replace_last_cmd);
     }
 
     void

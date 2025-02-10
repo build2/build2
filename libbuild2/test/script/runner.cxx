@@ -182,7 +182,11 @@ namespace build2
           });
 
         ++sp.exec_level;
-        build2::script::run (sp, expr, ii, li, ll, cf);
+        build2::script::run (sp,
+                             expr,
+                             ii, li,
+                             ll,
+                             cf, (cf != nullptr) /* replace_last_cmd */);
         --sp.exec_level;
       }
 
