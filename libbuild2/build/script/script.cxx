@@ -235,6 +235,12 @@ namespace build2
         }
       }
 
+      void environment::
+      sleep (const duration& d)
+      {
+        context.sched->sleep (d);
+      }
+
       lookup environment::
       lookup (const variable& var) const
       {

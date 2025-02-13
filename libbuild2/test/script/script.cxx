@@ -181,6 +181,12 @@ namespace build2
                : exported_vars;
       }
 
+      void scope::
+      sleep (const duration& d)
+      {
+        context.sched->sleep (d);
+      }
+
       // script_base
       //
       script_base::

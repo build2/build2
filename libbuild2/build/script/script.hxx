@@ -189,6 +189,11 @@ namespace build2
         virtual void
         create_temp_dir () override;
 
+        // Call the scheduler's sleep() function.
+        //
+        virtual void
+        sleep (const duration&) override;
+
         // Variables.
         //
       public:

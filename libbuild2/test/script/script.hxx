@@ -140,6 +140,11 @@ namespace build2
         virtual void
         create_temp_dir () override {assert (false);};
 
+        // Call the scheduler's sleep() function.
+        //
+        virtual void
+        sleep (const duration&) override;
+
         // Return true if this is a test program path.
         //
         // Note that currently the test program is only specified via the test

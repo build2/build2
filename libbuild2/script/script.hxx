@@ -588,6 +588,11 @@ namespace build2
       virtual void
       create_temp_dir () = 0;
 
+      // Used as an implementation of the sleep builtin.
+      //
+      virtual void
+      sleep (const duration&) = 0;
+
     public:
       virtual
       ~environment () = default;
