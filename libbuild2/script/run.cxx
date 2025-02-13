@@ -1258,13 +1258,17 @@ namespace build2
       pipe_command* prev; // NULL for the left-most command.
       pipe_command* next; // Left-most command for the right-most command.
 
-      pipe_command (context& x,
+      pipe_command (bool serial, bool no_diag_buffer,
                     const command& c,
                     const optional<deadline>& d,
                     const location& l,
                     pipe_command* p,
                     pipe_command* f)
-          : cmd (c), dl (d), dbuf (x), loc (l), prev (p), next (f) {}
+          : cmd (c),
+            dl (d),
+            dbuf (serial, no_diag_buffer),
+            loc (l),
+            prev (p), next (f) {}
     };
 
     // Wait for a process/builtin to complete until the deadline is reached
@@ -2230,7 +2234,7 @@ namespace build2
 
       // Propagate the pointer to the left-most command.
       //
-      pipe_command pc (env.context,
+      pipe_command pc (env.serial, env.no_diag_buffer,
                        c,
                        dl,
                        ll,
@@ -2276,7 +2280,10 @@ namespace build2
               if (dfd == 2) // stderr?
               {
                 fdpipe p;
-                if (diag_buffer::pipe (env.context) == -1) // Are we buffering?
+
+                // Are we buffering?
+                //
+                if (diag_buffer::pipe (env.serial, env.no_diag_buffer) == -1)
                   p = fdopen_pipe ();
 
                 // Deduce the args0 argument similar to cmd_path().

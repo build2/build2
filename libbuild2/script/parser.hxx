@@ -25,7 +25,13 @@ namespace build2
     class parser: protected build2::parser
     {
     public:
+      explicit
       parser (context& c): build2::parser (c) {}
+
+      // Context-less parsing.
+      //
+      parser (const variable_pool& vp, const function_map& fs)
+          : build2::parser (vp, fs) {}
 
       // Helpers.
       //

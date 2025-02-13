@@ -67,7 +67,8 @@ namespace build2
             // creating the root scope (p is NULL). Also note that
             // root.test_target is always constructed to date.
             //
-            environment (root.test_target.ctx,
+            environment (root.test_target.ctx.sched->serial (),
+                         root.test_target.ctx.no_diag_buffer,
                          test_tt (),
                          dir_name_view (wd_path (), &wd_name),
                          dir_name_view (
@@ -160,7 +161,7 @@ namespace build2
               dr << info (ll) << "while parsing attributes '" << attrs << "'";
             });
 
-          parser p (context);
+          parser p (root.test_target.ctx);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),
@@ -184,7 +185,7 @@ namespace build2
       void scope::
       sleep (const duration& d)
       {
-        context.sched->sleep (d);
+        root.test_target.ctx.sched->sleep (d);
       }
 
       // script_base

@@ -898,6 +898,9 @@ namespace build2
     static int
     pipe (context&, bool force = false);
 
+    static int
+    pipe (bool serial, bool no_diag_buffer, bool force = false);
+
     // Open the diagnostics buffer given the parent end of the pipe (normally
     // process:in_efd). If it is nullfd, then assume no buffering is
     // necessary. If mode is non_blocking, then make reading from the parent
@@ -973,6 +976,8 @@ namespace build2
     //
     explicit
     diag_buffer (context&);
+
+    diag_buffer (bool serial, bool no_diag_buffer);
 
     diag_buffer (context&, vector<char>&& buf);
 
@@ -1117,7 +1122,7 @@ namespace build2
     //
     enum class state {closed, opened, eof};
 
-    context& ctx_;
+    context* ctx_;
     state    state_ = state::closed;
   };
 

@@ -125,6 +125,8 @@ namespace build2
            const function<command_function>& cf,
            const location& ll)
       {
+        context& ctx (env.target.ctx);
+
         if (verb >= 3)
           text << ":  " << expr;
 
@@ -132,7 +134,7 @@ namespace build2
         // executes the set or exit builtin or it is a for-loop. Otherwise,
         // just print the expression otherwise at verbosity level 2 and up.
         //
-        if (!env.context.dry_run ||
+        if (!ctx.dry_run ||
             find_if (expr.begin (), expr.end (),
                      [&cf] (const expr_term& et)
                      {

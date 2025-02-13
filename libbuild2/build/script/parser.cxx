@@ -3499,7 +3499,7 @@ namespace build2
         //
         if (top_pre_parse_ && perform_update_ && file_based_ && !impure_func_)
         {
-          const function_overloads* f (ctx->functions.find (name));
+          const function_overloads* f (functions_->find (name));
 
           if (f != nullptr && !f->pure)
             impure_func_ = make_pair (move (name), loc);

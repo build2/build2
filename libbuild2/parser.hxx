@@ -48,7 +48,7 @@ namespace build2
     explicit
     parser (context& c, stage s = stage::rest)
       : fail ("error", &path_), info ("info", &path_),
-        ctx (&c),
+        ctx (&c), pub_var_pool_ (&c.var_pool), functions_ (&c.functions),
         stage_ (s) {}
 
     // Pattern expansion mode.
@@ -105,7 +105,7 @@ namespace build2
     reset ();
 
     // Special, context-less mode that can only be used to parse literal
-    // names.
+    // names (used for command line parsing).
     //
   public:
     static const string name_separators;
@@ -114,6 +114,8 @@ namespace build2
     parser (context* c)
       : fail ("error", &path_), info ("info", &path_),
         ctx (c),
+        pub_var_pool_ (c != nullptr ? &c->var_pool : nullptr),
+        functions_ (c != nullptr ? &c->functions : nullptr),
         stage_ (stage::rest) {}
 
     names
@@ -122,6 +124,16 @@ namespace build2
                  pattern_mode pmode,
                  const char* what = "name",
                  const string* separators = &name_separators);
+
+    // Special, context-less mode for scripts (see script/parser.hxx).
+    //
+  public:
+    parser (const variable_pool& vp, const function_map& fs)
+      : fail ("error", &path_), info ("info", &path_),
+        ctx (nullptr),
+        pub_var_pool_ (&vp),
+        functions_ (&fs),
+        stage_ (stage::rest) {}
 
     // Ad hoc parsing results for some cases.
     //
@@ -960,6 +972,9 @@ namespace build2
     //
   protected:
     context* ctx;
+    const variable_pool* pub_var_pool_;
+    const function_map* functions_;
+
     stage stage_;
 
     bool pre_parse_ = false;
