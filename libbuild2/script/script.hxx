@@ -440,7 +440,13 @@ namespace build2
     class environment
     {
     public:
-      build2::context& context;
+      // Execution context.
+      //
+      // Note that we reasonably assume these don't change during the script
+      // execution.
+      //
+      bool serial;
+      bool no_diag_buffer;
 
       // The platform script programs run on.
       //
@@ -482,7 +488,7 @@ namespace build2
       const redirect out;
       const redirect err;
 
-      environment (build2::context& ctx,
+      environment (bool s, bool ndb,
                    const target_triplet& h,
                    const dir_name_view& wd,
                    const dir_name_view& sd,
@@ -490,7 +496,8 @@ namespace build2
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
-          : context (ctx), host (h),
+          : serial (s), no_diag_buffer (ndb),
+            host (h),
             work_dir (wd), sandbox_dir (sd), temp_dir (td), temp_dir_keep (tk),
             in (move (i)), out (move (o)), err (move (e))
       {
@@ -498,14 +505,15 @@ namespace build2
 
       // Create environment without the sandbox.
       //
-      environment (build2::context& ctx,
+      environment (bool s, bool ndb,
                    const target_triplet& h,
                    const dir_name_view& wd,
                    const dir_path& td, bool tk,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
-          : environment (ctx, h,
+          : environment (s, ndb,
+                         h,
                          wd, dir_name_view (), td, tk,
                          move (i), move (o), move (e))
       {

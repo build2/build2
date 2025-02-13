@@ -30,6 +30,7 @@ namespace build2
         // Pre-parse. Issue diagnostics and throw failed in case of an error.
         //
       public:
+        explicit
         parser (context& c): build2::script::parser (c) {}
 
         void

@@ -634,7 +634,11 @@ namespace build2
   int diag_buffer::
   pipe (context& ctx, bool force)
   {
-    return (ctx.sched->serial () || ctx.no_diag_buffer) && !force ? 2 : -1;
+    // Assume serial execution if there is no scheduler.
+    //
+    return pipe (ctx.sched == nullptr || ctx.sched->serial (),
+                 ctx.no_diag_buffer,
+                 force);
   }
 
   void diag_buffer::
@@ -642,8 +646,13 @@ namespace build2
   {
     assert (state_ == state::closed && args0 != nullptr);
 
-    serial = ctx_.sched->serial ();
-    nobuf = !serial && ctx_.no_diag_buffer;
+    if (ctx_ != nullptr) // Otherwise already initialized in ctor.
+    {
+      // Assume serial execution if there is no scheduler.
+      //
+      serial = ctx_->sched == nullptr || ctx_->sched->serial ();
+      nobuf = !serial && ctx_->no_diag_buffer;
+    }
 
     if (fd != nullfd)
     {
@@ -666,8 +675,14 @@ namespace build2
   {
     assert (state_ == state::closed && args0 != nullptr);
 
-    serial = ctx_.sched->serial ();
-    nobuf = !serial && ctx_.no_diag_buffer;
+    if (ctx_ != nullptr) // Otherwise already initialized in ctor.
+    {
+      // Assume serial execution if there is no scheduler.
+      //
+      serial = ctx_->sched == nullptr || ctx_->sched->serial ();
+      nobuf = !serial && ctx_->no_diag_buffer;
+    }
+
     this->args0 = args0;
     state_ = state::eof;
   }

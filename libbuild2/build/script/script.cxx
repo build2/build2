@@ -34,7 +34,8 @@ namespace build2
                    bool temp,
                    const optional<timestamp>& dl)
           : build2::script::environment (
-              t.ctx,
+              t.ctx.sched->serial (),
+              t.ctx.no_diag_buffer,
               *t.ctx.build_host,
               dir_name_view (&work, &wd_name),
               temp_dir.path, false /* temp_dir_keep */,
@@ -43,7 +44,7 @@ namespace build2
               redirect (redirect_type::pass)),
             target (t),
             scope (s),
-            vars (context, false /* shared */), // Note: managed.
+            vars (t.ctx, false /* shared */), // Note: managed.
             var_ts (var_pool.insert (">")),
             var_ps (var_pool.insert ("<")),
             script_deadline (to_deadline (dl, false /* success */))
@@ -225,7 +226,7 @@ namespace build2
               dr << info (ll) << "while parsing attributes '" << attrs << "'";
             });
 
-          parser p (context);
+          parser p (target.ctx);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),
@@ -238,7 +239,7 @@ namespace build2
       void environment::
       sleep (const duration& d)
       {
-        context.sched->sleep (d);
+        target.ctx.sched->sleep (d);
       }
 
       lookup environment::

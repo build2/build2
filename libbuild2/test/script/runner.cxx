@@ -32,7 +32,7 @@ namespace build2
       void default_runner::
       enter (scope& sp, const location&)
       {
-        context& ctx (sp.context);
+        context& ctx (sp.root.test_target.ctx);
 
         auto df = make_diag_frame (
           [&sp](const diag_record& dr)
@@ -105,7 +105,7 @@ namespace build2
         {
           clean (sp, ll);
 
-          context& ctx (sp.context);
+          context& ctx (sp.root.test_target.ctx);
 
           rmdir_status r (
             sp.parent == nullptr

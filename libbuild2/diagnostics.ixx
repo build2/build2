@@ -65,15 +65,27 @@ namespace build2
 
   // diag_buffer
   //
+  inline int diag_buffer::
+  pipe (bool serial, bool nobuf, bool force)
+  {
+    return (serial || nobuf) && !force ? 2 : -1;
+  }
+
   inline diag_buffer::
   diag_buffer (context& ctx)
-      : is (ifdstream::badbit), ctx_ (ctx)
+      : is (ifdstream::badbit), ctx_ (&ctx)
+  {
+  }
+
+  inline diag_buffer::
+  diag_buffer (bool s, bool n)
+      : is (ifdstream::badbit), serial (s), nobuf (!s && n), ctx_ (nullptr)
   {
   }
 
   inline diag_buffer::
   diag_buffer (context& ctx, vector<char>&& b)
-      : is (ifdstream::badbit), buf (move (b)), ctx_ (ctx)
+      : is (ifdstream::badbit), buf (move (b)), ctx_ (&ctx)
   {
     buf.clear ();
   }

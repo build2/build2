@@ -5318,7 +5318,7 @@ namespace build2
                 if (!e.arg.empty ())
                   args.push_back (value (e.arg));
 
-                value r (ctx->functions.call (scope_, *e.func, args, l));
+                value r (functions_->call (scope_, *e.func, args, l));
 
                 // We support two types of functions: matchers and extractors:
                 // a matcher returns a statically-typed bool value while an
@@ -6286,7 +6286,7 @@ namespace build2
       // Note that the overridability incompatibilities are diagnosed by
       // update(). So we just need to diagnose the project-private case.
       //
-      if (*ovr && var.owner != &ctx->var_pool)
+      if (*ovr && var.owner != pub_var_pool_)
         fail (l) << "private variable " << var << " cannot be overridable";
     }
 
@@ -7854,10 +7854,10 @@ namespace build2
               dr << info << "use quoting to force untyped concatenation";
             });
 
-          if (ctx == nullptr)
+          if (functions_ == nullptr)
             fail << "literal " << what << " expected";
 
-          p = ctx->functions.try_call (
+          p = functions_->try_call (
             scope_, "builtin.concat", vector_view<value> (a), loc);
         }
 
@@ -8663,7 +8663,7 @@ namespace build2
       //
       if (tt == type::dollar || tt == type::lparen)
       {
-        if (ctx == nullptr)
+        if (functions_ == nullptr)
           fail << "literal " << what << " expected";
 
         // These cases are pretty similar in that in both we quickly end up
@@ -8918,7 +8918,7 @@ namespace build2
               //
               if (!pre_parse_)
               {
-                result_data = ctx->functions.call (scope_, name, args, loc);
+                result_data = functions_->call (scope_, name, args, loc);
                 what = "function call";
               }
               else
@@ -9161,10 +9161,10 @@ namespace build2
                   dr << info (loc) << "while converting " << t << " to string";
                 });
 
-              if (ctx == nullptr)
+              if (functions_ == nullptr)
                 fail << "literal " << what << " expected";
 
-              p = ctx->functions.try_call (
+              p = functions_->try_call (
                 scope_, "string", vector_view<value> (&result_data, 1), loc);
             }
 
@@ -9789,16 +9789,24 @@ namespace build2
       case '/':
         {
           assert (qual.front ().directory ());
-
           dir_path& d (qual.front ().dir);
-          enter_scope::complete_normalize (*scope_, d);
 
-          s = &ctx->scopes.find_out (d);
+          if (ctx != nullptr)
+          {
+            enter_scope::complete_normalize (*scope_, d);
+            s = &ctx->scopes.find_out (d);
+          }
 
-          if (s->out_path () != d)
-            fail (loc) << "unknown scope " << d << " in scope-qualified "
-                       << "variable " << name << " expansion" <<
-              info << "did you forget to include the corresponding buildfile?";
+          if (s == nullptr || s->out_path () != d)
+          {
+            diag_record dr (fail (loc));
+
+            dr << "unknown scope " << d << " in scope-qualified variable "
+               << name << " expansion";
+
+            if (s != nullptr)
+              dr << info << "did you forget to include corresponding buildfile?";
+          }
 
           break;
         }
