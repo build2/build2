@@ -17,7 +17,7 @@ echo ^(INCLUDE, LIB^) are set.
 echo.
 echo The batch file expects to find the libbutl\ or libbutl-*\ directory
 echo either in the current directory ^(build2 root^) or one level up. The
-echo result is saved as build2\b-boot.exe.
+echo result is saved as b\b-boot.exe.
 echo.
 echo Example usage:
 echo.
@@ -90,7 +90,7 @@ if "_%libbutl%_" == "__" (
 
 rem All the source directories.
 rem
-set "src=build2"
+set "src=b"
 
 set "src=%src% libbuild2"
 set "src=%src% libbuild2\script"
@@ -152,7 +152,7 @@ for %%d in (%src%) do (
 
 rem Link.
 rem
-call :link /Fe: build2\b-boot.exe %obj% shell32.lib imagehlp.lib
+call :link /Fe: b\b-boot.exe %obj% shell32.lib imagehlp.lib
 if errorlevel 1 goto error
 
 rem Clean up.

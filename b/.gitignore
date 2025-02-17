@@ -1,9 +1,6 @@
 b
 b-boot
 
-#*-options
-#*-options.?xx
-
 # Unit test executables and Testscript output directories
 # (can be symlinks).
 #

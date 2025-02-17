@@ -1,4 +1,4 @@
-# file      : build2/buildfile
+# file      : b/buildfile
 # license   : MIT; see accompanying LICENSE file
 
 # NOTE: imports should go into root.build.

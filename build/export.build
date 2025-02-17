@@ -5,10 +5,10 @@ if ($import.target == exe{b})
 {
   $out_root/
   {
-    include build2/
+    include b/
   }
 
-  export $out_root/build2/exe{b}
+  export $out_root/b/exe{b}
 }
 else
 {

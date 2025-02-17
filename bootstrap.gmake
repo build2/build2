@@ -10,7 +10,7 @@
 # Similar to the script, the makefile expects to find the libbutl/ or
 # libbutl-*/ directory either in the current directory (build2 root) or one
 # level up. Both in-tree and out-of-tree builds as well as the 'clean' target
-# are supported. The result is saved as build2/b-boot.
+# are supported. The result is saved as b/b-boot.
 #
 # Typical in-tree build:
 #
@@ -166,30 +166,30 @@ cxx              \
 version          \
 in
 
-build2_src    := $(wildcard $(src_root)/build2/*.cxx)
+b_src         := $(wildcard $(src_root)/b/*.cxx)
 libbuild2_src := $(wildcard $(src_root)/libbuild2/*.cxx)
 libbuild2_src += $(foreach d,$(libbuild2_sub),$(wildcard $(src_root)/libbuild2/$d/*.cxx))
 libbutl_src   := $(wildcard $(libbutl)/libbutl/*.cxx)
 
 # Filter out *.test.cxx sources.
 #
-build2_src    := $(filter-out %.test.cxx,$(build2_src))
+b_src         := $(filter-out %.test.cxx,$(b_src))
 libbuild2_src := $(filter-out %.test.cxx,$(libbuild2_src))
 libbutl_src   := $(filter-out %.test.cxx,$(libbutl_src))
 
 # Note that we use the .b.o object file extension to avoid clashing with the
 # build2 builds.
 #
-build2_obj    := $(patsubst $(src_root)/%.cxx,$(out_root)/%.b.o,$(build2_src))
+b_obj         := $(patsubst $(src_root)/%.cxx,$(out_root)/%.b.o,$(b_src))
 libbuild2_obj := $(patsubst $(src_root)/%.cxx,$(out_root)/%.b.o,$(libbuild2_src))
 libbutl_obj   := $(patsubst $(libbutl)/libbutl/%.cxx,$(libbutl_out)/%.b.o,$(libbutl_src))
 
 # Build.
 #
-$(out_root)/build2/b-boot$(exe): $(build2_obj) $(libbuild2_obj) $(libbutl_obj)
+$(out_root)/b/b-boot$(exe): $(b_obj) $(libbuild2_obj) $(libbutl_obj)
 	$(CXX) -std=c++1y $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(out_root)/build2/%.b.o: $(src_root)/build2/%.cxx | $$(dir $$@).
+$(out_root)/b/%.b.o: $(src_root)/b/%.cxx | $$(dir $$@).
 	$(CXX) -I$(libbutl) -I$(src_root) -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"$(chost)\" $(CPPFLAGS) -finput-charset=UTF-8 -std=c++1y $(CXXFLAGS) -o $@ -c $<
 
 $(out_root)/libbuild2/%.b.o: $(src_root)/libbuild2/%.cxx | $$(dir $$@).
@@ -203,19 +203,19 @@ $(libbutl_out)/%.b.o: $(libbutl)/libbutl/%.cxx | $$(dir $$@).
 	mkdir -p $*
 
 .PHONY: all
-all: $(out_root)/build2/b-boot$(exe)
+all: $(out_root)/b/b-boot$(exe)
 
 # Clean.
 #
 .PHONY: clean cleano
 
 cleano:
-	rm -f $(build2_obj)
+	rm -f $(b_obj)
 	rm -f $(libbuild2_obj)
 	rm -f $(libbutl_obj)
 
 clean: cleano
-	rm -f $(out_root)/build2/b-boot$(exe)
+	rm -f $(out_root)/b/b-boot$(exe)
 ifeq ($(in_tree),false)
 	rm -fd $(out_root)/build2 $(foreach d,$(libbuild2_sub),$(out_root)/libbuild2/$d) $(out_root)/libbuild2 $(libbutl_out)
 endif

@@ -22,7 +22,7 @@ while test $# -ne 0; do
       diag
       diag "The script expects to find the libbutl/ or libbutl-*/ directory either"
       diag "in the current directory (build2 root) or one level up. The result is"
-      diag "saved as build2/b-boot."
+      diag "saved as b/b-boot."
       diag
       diag "Example usage:"
       diag
@@ -115,7 +115,7 @@ if test -z "$libbutl"; then
   exit 1
 fi
 
-src="build2/*.cxx"
+src="b/*.cxx"
 
 src="$src libbuild2/*.cxx"
 src="$src libbuild2/script/*.cxx"
@@ -147,4 +147,4 @@ done
 # mode since 4.9 doesn't recognize c++1z.
 #
 set -x
-"$cxx" "-I$libbutl" -I. -DBUILD2_BOOTSTRAP '-DBUILD2_HOST_TRIPLET="'"$host"'"' -finput-charset=UTF-8 -std=c++1y "$@" -o build2/b-boot $r -pthread
+"$cxx" "-I$libbutl" -I. -DBUILD2_BOOTSTRAP '-DBUILD2_HOST_TRIPLET="'"$host"'"' -finput-charset=UTF-8 -std=c++1y "$@" -o b/b-boot $r -pthread

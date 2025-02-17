@@ -1,4 +1,4 @@
-// file      : build2/b.cxx -*- C++ -*-
+// file      : b/b.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
 #include <sstream>

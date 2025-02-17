@@ -12,7 +12,7 @@ echo Usage: %0 [/?] ^<cxx^> [^<cxx-option^>...]
 echo.
 echo The batch file expects to find the libbutl\ or libbutl-*\ directory
 echo either in the current directory ^(build2 root^) or one level up. The
-echo result is saved as build2\b-boot.exe.
+echo result is saved as b\b-boot.exe.
 echo.
 echo Example usage:
 echo.
@@ -59,7 +59,7 @@ if "_%libbutl%_" == "__" (
 
 rem All the source directories.
 rem
-set "src=build2"
+set "src=b"
 
 set "src=%src% libbuild2"
 set "src=%src% libbuild2\script"
@@ -107,7 +107,7 @@ for %%d in (%src%) do (
 )
 
 echo on
-%cxx% -I%libbutl% -I. -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"x86_64-w64-mingw32\" %ops% -o build2\b-boot.exe %r% -pthread -limagehlp
+%cxx% -I%libbutl% -I. -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"x86_64-w64-mingw32\" %ops% -o b\b-boot.exe %r% -pthread -limagehlp
 @echo off
 if errorlevel 1 goto error
 
