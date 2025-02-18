@@ -1,0 +1,656 @@
+# file      : libbuild2/shell/script/parser+for.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: form-1
+:
+: for x: ...
+:
+{
+  : for
+  :
+  {
+    : no-var
+    :
+    $* <<EOI 2>>EOE != 0
+    for
+      cmd
+    end
+    EOI
+    shellscript:11:1: error: for: missing variable name
+    EOE
+
+    : untyped
+    :
+    $* <<EOI >>EOO
+    for x: a b
+      cmd $x
+    end
+    EOI
+    cmd a
+    cmd b
+    EOO
+
+    : null
+    :
+    $* <<EOI >:''
+    for x: [null]
+      cmd $x
+    end
+    EOI
+
+    : empty
+    :
+    $* <<EOI >:''
+    for x:
+      cmd $x
+    end
+    EOI
+
+    : expansion
+    :
+    $* <<EOI >>EOO
+    vs = a b
+    for x: $vs
+      cmd $x
+    end
+    EOI
+    cmd a
+    cmd b
+    EOO
+
+    : typed-values
+    :
+    $* <<EOI >>~%EOO%
+    for x: [dir_paths] a b
+      cmd $x
+    end
+    EOI
+    %cmd (a/|'a\\')%
+    %cmd (b/|'b\\')%
+    EOO
+
+    : typed-elem
+    :
+    $* <<EOI >>~%EOO%
+    for x [dir_path]: a b
+      cmd $x
+    end
+    EOI
+    %cmd (a/|'a\\')%
+    %cmd (b/|'b\\')%
+    EOO
+
+    : typed-elem-value
+    :
+    $* <<EOI >>~%EOO%
+    for x [dir_path]: [strings] a b
+      cmd $x
+    end
+    EOI
+    %cmd (a/|'a\\')%
+    %cmd (b/|'b\\')%
+    EOO
+
+    : defined-var
+    :
+    $* <<EOI >>EOO
+    x = x
+
+    for x: a b
+      cmd $x
+    end
+
+    cmd $x
+    EOI
+    cmd a
+    cmd b
+    cmd b
+    EOO
+  }
+
+  : end
+  :
+  {
+    : without-end
+    :
+    $* <<EOI 2>>EOE != 0
+    for x: a b
+      cmd
+    EOI
+    shellscript:13:1: error: expected closing 'end'
+    EOE
+  }
+
+  : elif
+  :
+  {
+    : without-if
+    :
+    $* <<EOI 2>>EOE != 0
+    for x: a b
+      elif true
+        cmd
+      end
+    end
+    EOI
+    shellscript:12:3: error: 'elif' without preceding 'if'
+    EOE
+  }
+
+  : nested
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    for x: a b
+      cmd1 $x               # 1
+      if ($x == "a")        # 2
+        cmd2                # 3
+        for y: x y
+          cmd3              # 4
+        end
+      else
+        cmd4                # 5
+      end
+      cmd5                  # 6
+    end
+    cmd6                    # 7
+    EOI
+    cmd1 a # 1 i1
+    ? true # 2 i1
+    cmd2 # 3 i1
+    cmd3 # 4 i1 i1
+    cmd3 # 4 i1 i2
+    cmd5 # 6 i1
+    cmd1 b # 1 i2
+    ? false # 2 i2
+    cmd4 # 5 i2
+    cmd5 # 6 i2
+    cmd6 # 7
+    EOO
+  }
+
+  : contained
+  :
+  {
+    : eos
+    :
+    $* <<EOI 2>>EOE != 0
+    for x:
+    EOI
+    shellscript:12:1: error: expected closing 'end'
+    EOE
+  }
+}
+
+: form-2
+:
+: ... | for x
+:
+{
+  : for
+  :
+  {
+    : status
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x != 0
+      cmd
+    end
+    EOI
+    shellscript:11:20: error: for-loop exit code cannot be checked
+    EOE
+
+    : not-last
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x | echo x
+      cmd
+    end
+    EOI
+    shellscript:11:20: error: for-loop must be last command in a pipe
+    EOE
+
+    : not-last-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x|echo x
+      cmd
+    end
+    EOI
+    shellscript:11:19: error: for-loop must be last command in a pipe
+    EOE
+
+    : expression-after
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x && echo x
+      cmd
+    end
+    EOI
+    shellscript:11:20: error: command expression involving for-loop
+    EOE
+
+    : expression-after-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x&&echo x
+      cmd
+    end
+    EOI
+    shellscript:11:19: error: command expression involving for-loop
+    EOE
+
+    : expression-before
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' && echo x | for x
+      cmd
+    end
+    EOI
+    shellscript:11:24: error: command expression involving for-loop
+    EOE
+
+    : expression-before-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' && echo x|for x
+      cmd
+    end
+    EOI
+    shellscript:11:22: error: command expression involving for-loop
+    EOE
+
+    : cleanup
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x &f
+      cmd
+    end
+    EOI
+    shellscript:11:20: error: cleanup in for-loop
+    EOE
+
+    : cleanup-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x&f
+      cmd
+    end
+    EOI
+    shellscript:11:19: error: cleanup in for-loop
+    EOE
+
+    : stdout-redirect
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x >a
+      cmd
+    end
+    EOI
+    shellscript:11:20: error: output redirect in for-loop
+    EOE
+
+    : stdout-redirect-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x>a
+      cmd
+    end
+    EOI
+    shellscript:11:19: error: output redirect in for-loop
+    EOE
+
+    : stdin-redirect
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x <a
+      cmd
+    end
+    EOI
+    shellscript:11:20: error: stdin is both piped and redirected
+    EOE
+
+    : no-var
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for
+      cmd
+    end
+    EOI
+    shellscript:11:1: error: for: missing variable name
+    EOE
+
+    : untyped
+    :
+    $* <<EOI >>EOO
+    echo 'a b' | for -w x
+      cmd $x
+    end
+    EOI
+    echo 'a b' | for -w x
+    EOO
+
+    : expansion
+    :
+    $* <<EOI >>EOO
+    vs = a b
+    echo $vs | for x
+      cmd $x
+    end
+    EOI
+    echo a b | for x
+    EOO
+
+    : typed-elem
+    :
+    $* <<EOI >>EOO
+    echo 'a b' | for -w x [dir_path]
+      cmd $x
+    end
+    EOI
+    echo 'a b' | for -w x [dir_path]
+    EOO
+  }
+
+  : end
+  :
+  {
+    : without-end
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x
+      cmd
+    EOI
+    shellscript:13:1: error: expected closing 'end'
+    EOE
+  }
+
+  : elif
+  :
+  {
+    : without-if
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' | for x
+      elif true
+        cmd
+      end
+    end
+    EOI
+    shellscript:12:3: error: 'elif' without preceding 'if'
+    EOE
+  }
+
+  : nested
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    echo 'a b' | for x      # 1
+      cmd1 $x               # 2
+      if ($x == "a")        # 3
+        cmd2                # 4
+        echo x y | for y    # 5
+          cmd3              # 6
+        end
+      else
+        cmd4                # 7
+      end
+      cmd5                  # 8
+    end
+    cmd6                    # 9
+    EOI
+    echo 'a b' | for x # 1
+    cmd6 # 9
+    EOO
+  }
+}
+
+: form-3
+:
+: for x <...
+:
+{
+  : for
+  :
+  {
+    : status
+    :
+    $* <<EOI 2>>EOE != 0
+    for x <a != 0
+      cmd
+    end
+    EOI
+    shellscript:11:10: error: for-loop exit code cannot be checked
+    EOE
+
+    : not-last
+    :
+    $* <<EOI 2>>EOE != 0
+    for x <a | echo x
+      cmd
+    end
+    EOI
+    shellscript:11:10: error: for-loop must be last command in a pipe
+    EOE
+
+    : not-last-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    for <a x|echo x
+      cmd
+    end
+    EOI
+    shellscript:11:9: error: for-loop must be last command in a pipe
+    EOE
+
+    : expression-after
+    :
+    $* <<EOI 2>>EOE != 0
+    for x <a && echo x
+      cmd
+    end
+    EOI
+    shellscript:11:10: error: command expression involving for-loop
+    EOE
+
+    : expression-after-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    for <a x&&echo x
+      cmd
+    end
+    EOI
+    shellscript:11:9: error: command expression involving for-loop
+    EOE
+
+    : expression-before
+    :
+    $* <<EOI 2>>EOE != 0
+    echo 'a b' && for x <a
+      cmd
+    end
+    EOI
+    shellscript:11:15: error: command expression involving for-loop
+    EOE
+
+    : cleanup
+    :
+    $* <<EOI 2>>EOE != 0
+    for x <a &f
+      cmd
+    end
+    EOI
+    shellscript:11:10: error: cleanup in for-loop
+    EOE
+
+    : cleanup-before-var
+    :
+    $* <<EOI 2>>EOE != 0
+    for &f x <a
+      cmd
+    end
+    EOI
+    shellscript:11:5: error: cleanup in for-loop
+    EOE
+
+    : cleanup-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    for <a x&f
+      cmd
+    end
+    EOI
+    shellscript:11:9: error: cleanup in for-loop
+    EOE
+
+    : stdout-redirect
+    :
+    $* <<EOI 2>>EOE != 0
+    for x >a
+      cmd
+    end
+    EOI
+    shellscript:11:7: error: output redirect in for-loop
+    EOE
+
+    : stdout-redirect-before-var
+    :
+    $* <<EOI 2>>EOE != 0
+    for >a x
+      cmd
+    end
+    EOI
+    shellscript:11:5: error: output redirect in for-loop
+    EOE
+
+    : stdout-redirect-relex
+    :
+    $* <<EOI 2>>EOE != 0
+    for x>a
+      cmd
+    end
+    EOI
+    shellscript:11:6: error: output redirect in for-loop
+    EOE
+
+    : no-var
+    :
+    $* <<EOI 2>>EOE != 0
+    for <a
+      cmd
+    end
+    EOI
+    shellscript:11:1: error: for: missing variable name
+    EOE
+
+    : quoted-opt
+    :
+    $* <<EOI >>EOO
+    o = -w
+    for "$o" x <'a b'
+      cmd $x
+    end
+    for "($o)" x <'a b'
+      cmd $x
+    end
+    EOI
+    for -w x <'a b'
+    for -w x <'a b'
+    EOO
+
+    : untyped
+    :
+    $* <<EOI >>EOO
+    for -w x <'a b'
+      cmd $x
+    end
+    EOI
+    for -w x <'a b'
+    EOO
+
+    : expansion
+    :
+    $* <<EOI >>EOO
+    vs = a b
+    for x <$vs
+      cmd $x
+    end
+    EOI
+    for x b <a
+    EOO
+
+    : typed-elem
+    :
+    $* <<EOI >>EOO
+    for -w x [dir_path] <'a b'
+      cmd $x
+    end
+    EOI
+    for -w x [dir_path] <'a b'
+    EOO
+  }
+
+  : end
+  :
+  {
+    : without-end
+    :
+    $* <<EOI 2>>EOE != 0
+    for x <'a b'
+      cmd
+    EOI
+    shellscript:13:1: error: expected closing 'end'
+    EOE
+  }
+
+  : elif
+  :
+  {
+    : without-if
+    :
+    $* <<EOI 2>>EOE != 0
+    for x <'a b'
+      elif true
+        cmd
+      end
+    end
+    EOI
+    shellscript:12:3: error: 'elif' without preceding 'if'
+    EOE
+  }
+
+  : nested
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    for -w x <'a b'         # 1
+      cmd1 $x               # 2
+      if ($x == "a")        # 3
+        cmd2                # 4
+        for -w y <'x y'     # 5
+          cmd3              # 6
+        end
+      else
+        cmd4                # 7
+      end
+      cmd5                  # 8
+    end
+    cmd6                    # 9
+    EOI
+    for -w x <'a b' # 1
+    cmd6 # 9
+    EOO
+  }
+
+  : contained
+  :
+  {
+    : eos
+    :
+    $* <<EOI 2>>EOE != 0
+    for x <'a b'
+    EOI
+    shellscript:12:1: error: expected closing 'end'
+    EOE
+  }
+}

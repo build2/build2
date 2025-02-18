@@ -1,23 +1,29 @@
-// file      : libbuild2/build/script/script.cxx -*- C++ -*-
+// file      : libbuild2/shell/script/script.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbuild2/build/script/script.hxx>
+#include <libbuild2/shell/script/script.hxx>
+
+#ifndef _WIN32
+#  include <thread> // this_thread::sleep_for()
+#else
+#  include <libbutl/win32-utility.hxx>
+
+#  include <chrono>
+#endif
 
 #include <libbutl/filesystem.hxx>
 
-#include <libbuild2/target.hxx>
-
-#include <libbuild2/adhoc-rule-buildscript.hxx> // include_unmatch*
+#include <libbuild2/scope.hxx>
 
 #include <libbuild2/script/timeout.hxx>
 
-#include <libbuild2/build/script/parser.hxx>
+#include <libbuild2/shell/script/parser.hxx>
 
 using namespace std;
 
 namespace build2
 {
-  namespace build
+  namespace shell
   {
     namespace script
     {
@@ -28,117 +34,75 @@ namespace build2
       static const optional<string> wd_name ("current directory");
 
       environment::
-      environment (action a,
-                   const target_type& t,
-                   const scope_type& s,
-                   bool temp,
+      environment (const scope_type& gs,
+                   path p,
+                   strings args,
                    const optional<timestamp>& dl)
           : build2::script::environment (
-              t.ctx.sched->serial (),
-              t.ctx.no_diag_buffer,
-              *t.ctx.build_host,
+              gs.ctx.sched == nullptr || gs.ctx.sched->serial (),
+              gs.ctx.no_diag_buffer,
+              *gs.ctx.build_host,
               dir_name_view (&work, &wd_name),
               temp_dir.path, false /* temp_dir_keep */,
-              true /* default_cleanup */,
-              redirect (redirect_type::none),
-              redirect (redirect_type::merge, 2),
+              false /* default_cleanup */,
+              redirect (redirect_type::pass),
+              redirect (redirect_type::pass),
               redirect (redirect_type::pass)),
-            target (t),
-            scope (s),
-            vars (t.ctx, false /* shared */), // Note: managed.
-            var_ts (var_pool.insert (">")),
-            var_ps (var_pool.insert ("<")),
+            scope (gs),
+            vars (gs.ctx, false /* shared */), // Note: managed.
+            cmd_var (var_pool.insert<strings> ("*")),
+            cmdN_var {
+              &var_pool.insert<path> ("0"),
+              &var_pool.insert<string> ("1"),
+              &var_pool.insert<string> ("2"),
+              &var_pool.insert<string> ("3"),
+              &var_pool.insert<string> ("4"),
+              &var_pool.insert<string> ("5"),
+              &var_pool.insert<string> ("6"),
+              &var_pool.insert<string> ("7"),
+              &var_pool.insert<string> ("8"),
+              &var_pool.insert<string> ("9")},
             script_deadline (to_deadline (dl, false /* success */))
       {
-        set_special_variables (a);
-
-        if (temp)
-          set_temp_dir_variable ();
-      }
-
-      void environment::
-      set_special_variables (action a)
-      {
-        {
-          // $>
-          //
-          // What should it contain for an explicit group? While it may seem
-          // that just the members should be enough (and analogous to the ad
-          // hoc case), this won't let us get the group name for diagnostics.
-          // So the group name followed by all the members seems like the
-          // logical choice.
-          //
-          names ns;
-
-          if (const group* g = target.is_a<group> ())
-          {
-            g->as_name (ns);
-            for (const target_type* m: g->members)
-              m->as_name (ns);
-          }
-          else
-          {
-            for (const target_type* m (&target);
-                 m != nullptr;
-                 m = m->adhoc_member)
-              m->as_name (ns);
-          }
-
-          assign (var_ts) = move (ns);
-        }
-
-        {
-          // $<
-          //
-          // Note that ad hoc prerequisites don't end up in $<. While at first
-          // thought ad hoc prerequisites in ad hoc recipes don't seem to make
-          // much sense, they could be handy to exclude certain prerequisites
-          // from $< while still treating them as such, especially in rule.
-          //
-          // While initially we treated update=unmatch prerequisites as
-          // implicitly ad hoc, this turned out to be not quite correct, so
-          // now we add them unless they are explicitly marked ad hoc.
-          //
-          names ns;
-          for (const prerequisite_target& p: target.prerequisite_targets[a])
-          {
-            // See adhoc_buildscript_rule::execute_update_prerequisites().
-            //
-            if (const target_type* pt =
-                p.target != nullptr ? (p.adhoc () ? nullptr : p.target) :
-                (p.include & adhoc_buildscript_rule::include_unmatch) != 0 &&
-                (p.include & prerequisite_target::include_adhoc) == 0      &&
-                (p.include & adhoc_buildscript_rule::include_unmatch_adhoc) == 0
-                ? reinterpret_cast<target_type*> (p.data)
-                : nullptr)
-            {
-              pt->as_name (ns);
-            }
-          }
-
-          assign (var_ps) = move (ns);
-        }
-      }
-
-      void environment::
-      set_temp_dir_variable ()
-      {
-        // Note that the temporary directory could have been created
-        // implicitly by the runner.
+        // Set the special $* and $N variables.
         //
-        if (temp_dir.path.empty ())
-          create_temp_dir ();
+        // First assemble the $* value.
+        //
+        size_t n (args.size () + 1);
 
-        assign (var_pool.insert<dir_path> ("~")) = temp_dir.path;
+        strings s;
+        s.reserve (n);
+
+        s.push_back (p.representation ());
+
+        s.insert (s.end (),
+                  make_move_iterator (args.begin ()),
+                  make_move_iterator (args.end ()));
+
+        // Set the $N values.
+        //
+        if (n > 10)
+          n = 10;
+
+        for (size_t i (0); i != n; ++i)
+        {
+          value& v (assign (*cmdN_var[i]));
+
+          if (i == 0)
+            v = move (p);
+          else
+            v = s[i];
+        }
+
+        // Set $*.
+        //
+        assign (cmd_var) = move (s);
       }
 
       void environment::
       create_temp_dir ()
       {
-        // Create the temporary directory for this run regardless of the
-        // dry-run mode, since some commands still can be executed (see run()
-        // for details). This is also the reason why we are not using the
-        // build2 filesystem API that considers the dry-run mode.
+        // Create the temporary directory for this run.
         //
         // Note that the directory auto-removal is active.
         //
@@ -148,11 +112,11 @@ namespace build2
 
         try
         {
-          td = dir_path::temp_path ("buildscript");
+          td = dir_path::temp_path ("shellscript");
         }
         catch (const system_error& e)
         {
-          fail << "unable to obtain temporary directory for buildscript "
+          fail << "unable to obtain temporary directory for shellscript "
                << "execution" << e;
         }
 
@@ -227,7 +191,7 @@ namespace build2
               dr << info (ll) << "while parsing attributes '" << attrs << "'";
             });
 
-          parser p (target.ctx);
+          parser p (scope.ctx);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),
@@ -240,7 +204,21 @@ namespace build2
       void environment::
       sleep (const duration& d)
       {
-        target.ctx.sched->sleep (d);
+        // Let's use scheduler if present in case this is run as a recipe.
+        //
+        if (scope.ctx.sched == nullptr)
+        {
+          // MinGW GCC 4.9 doesn't implement this_thread so use Win32 Sleep().
+          //
+#ifndef _WIN32
+          this_thread::sleep_for (d);
+#else
+          using namespace chrono;
+          Sleep (static_cast<DWORD> (duration_cast<milliseconds> (d).count ()));
+#endif
+        }
+        else
+          scope.ctx.sched->sleep (d);
       }
 
       lookup environment::
@@ -250,7 +228,7 @@ namespace build2
         if (p.first != nullptr)
           return lookup_type (*p.first, p.second, vars);
 
-        return lookup_in_buildfile (var.name);
+        return lookup_global (var.name);
       }
 
       lookup environment::
@@ -259,26 +237,45 @@ namespace build2
         // Every variable that is ever set in a script has been added during
         // variable line execution or introduced with the set builtin. Which
         // means that if one is not found in the environment pool then it can
-        // only possibly be set in the buildfile.
+        // only possibly be set in the global scope.
         //
         const variable* pvar (var_pool.find (name));
-        return pvar != nullptr ? lookup (*pvar) : lookup_in_buildfile (name);
+
+        // @@ If the not found (private) variable is "~", then create the
+        //    temporary directory and assign its path to the newly created
+        //    variable.
+        //
+#if 0
+        if (pvar == nullptr && name == "~")
+        {
+          // Note that the temporary directory could have been created
+          // implicitly by the runner.
+          //
+          if (temp_dir.path.empty ())
+            create_temp_dir ();
+
+          pvar = &var_pool.insert<dir_path> (name);
+
+          assign (*pvar) = temp_dir.path;
+        }
+#endif
+
+        return pvar != nullptr ? lookup (*pvar) : lookup_global (name);
       }
 
       lookup environment::
-      lookup_in_buildfile (const string& n) const
+      lookup_global (const string& n) const
       {
-        // Switch to the corresponding buildfile variable. Note that we don't
-        // want to insert a new variable into the pool (we might be running
-        // in parallel). Plus, if there is no such variable, then we cannot
-        // possibly find any value.
+        // Switch to the corresponding global variable. Note that we don't
+        // want to insert a new variable into the pool. Plus, if there is no
+        // such variable, then we cannot possibly find any value.
         //
         const variable* pvar (scope.var_pool ().find (n));
 
         if (pvar == nullptr)
           return lookup_type ();
 
-        return target[*pvar];
+        return scope[*pvar];
       }
 
       value& environment::
@@ -302,7 +299,7 @@ namespace build2
       {
         fragment_deadline =
           to_deadline (
-            parse_deadline (t, "buildscript timeout", "timeout: ", l),
+            parse_deadline (t, "shellscript timeout", "timeout: ", l),
             success);
       }
 

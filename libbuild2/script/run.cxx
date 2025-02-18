@@ -933,11 +933,12 @@ namespace build2
       }
     }
 
-    // The exit pseudo-builtin: exit the script successfully, or print the
-    // diagnostics and exit the script unsuccessfully. Always throw exit
-    // exception.
+    // The exit pseudo-builtin: exit the script with the code specified or, if
+    // unspecified, with the code 1, if the diagnostics is specified, and 0
+    // otherwise. For non-zero code print the diagnostics, if specified.
+    // Always throw exit exception.
     //
-    // exit [<diagnostics>]
+    // exit [<code>] [<diagnostics>]
     //
     [[noreturn]] static void
     exit_builtin (const strings& args, const location& ll)
@@ -945,21 +946,52 @@ namespace build2
       auto i (args.begin ());
       auto e (args.end ());
 
-      // Process arguments.
+      // If the first argument contains only digits, then consider it an exit
+      // code argument.
       //
-      // If no argument is specified, then exit successfully. Otherwise,
-      // print the diagnostics and exit unsuccessfully.
-      //
-      if (i == e)
-        throw exit (true);
+      optional<uint8_t> code;
 
-      const string& s (*i++);
+      if (i != e)
+      {
+        const string& s (*i);
+
+        if (!s.empty () && s.find_first_not_of ("0123456789") == string::npos)
+        {
+          unsigned long c (256);
+
+          try
+          {
+            c = stoul (s);
+          }
+          catch (const exception&) {} // Fall through.
+
+          if (c > 255)
+            fail (ll) << "exit: exit code must be an unsigned integer less "
+                      << "than 256";
+
+          code = static_cast<uint8_t> (c);
+
+          ++i;
+        }
+      }
+
+      const string* diag (i != e ? &(*i++) : nullptr);
 
       if (i != e)
         fail (ll) << "exit: unexpected argument '" << *i << "'";
 
-      error (ll) << s;
-      throw exit (false);
+      if (code)
+      {
+        if (*code == 0 && diag != nullptr)
+          fail (ll) << "exit: diagnostics is specified for 0 exit code";
+      }
+      else
+        code = (diag == nullptr ? 0 : 1);
+
+      if (diag != nullptr)
+        error (ll) << *diag;
+
+      throw exit (*code);
     }
 
     // Return the command program path for diagnostics.
@@ -1791,7 +1823,7 @@ namespace build2
                     << " cleanup " << p << " is out of "
                     << diag_path (env.sandbox_dir);
 
-        env.clean ({cl.type, move (np)}, false);
+        env.clean ({cl.type, move (np)}, false /* implicit */);
       }
 
       // If stdin file descriptor is not open then this is the first pipeline
@@ -2359,7 +2391,10 @@ namespace build2
           if ((m & fdopen_mode::at_end) != fdopen_mode::at_end)
           {
             if (rt == redirect_type::file)
-              env.clean ({cleanup_type::always, p}, true);
+            {
+              if (env.default_cleanup)
+                env.clean ({cleanup_type::always, p}, true /* implicit */);
+            }
             else
               env.clean_special (p);
           }
@@ -2879,7 +2914,7 @@ namespace build2
           // false by the parse_option callback if --no-cleanup is
           // encountered.
           //
-          bool enabled = true;
+          bool enabled;
 
           // Whether to register cleanup for a filesystem entry being
           // created/updated depending on its existence. Calculated by the
@@ -2899,7 +2934,7 @@ namespace build2
         optional<cleanup> cln;
 
         if (cleanup_builtin (program))
-          cln = cleanup ();
+          cln = cleanup {env.default_cleanup, false, false};
 
         // We also extend the sleep builtin, deactivating the thread before
         // going to sleep and waking up before the deadline is reached.

@@ -22,7 +22,7 @@ namespace build2
     class  lexer;
     struct lexer_mode;
 
-    class parser: protected build2::parser
+    class LIBBUILD2_SYMEXPORT parser: protected build2::parser
     {
     public:
       explicit
@@ -212,18 +212,24 @@ namespace build2
                                       const attributes& value_attrs,
                                       const location&);
 
-      // If a parser implementation doesn't pre-enter variables into a pool
-      // during the pre-parsing phase, then they are entered during the
+      // Return nullopt if the execution was not terminated by the exit
+      // exception. Otherwise, return the exit code specified in this
+      // exception (which can be 0). Optionally, throw failed on the non-zero
+      // exit code instead of returning it.
+      //
+      // Note that if a parser implementation doesn't pre-enter variables into
+      // a pool during the pre-parsing phase, then they are entered during the
       // execution phase and so the variable pool must be provided. Note that
       // in this case the variable pool insertions are not MT-safe.
       //
-      bool
+      optional<uint8_t>
       exec_lines (lines::const_iterator b, lines::const_iterator e,
                   const function<exec_set_function>&,
                   const function<exec_cmd_function>&,
                   const function<exec_cond_function>&,
                   const function<exec_for_function>&,
                   const iteration_index*, size_t& li,
+                  bool throw_on_failure,
                   variable_pool* = nullptr);
 
       // Customization hooks.

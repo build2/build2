@@ -24,7 +24,7 @@ namespace build2
       struct parser;
 
       template <>
-      struct parser<path>
+      struct LIBBUILD2_SYMEXPORT parser<path>
       {
         static void
         parse (path&, bool&, scanner&);
@@ -34,7 +34,7 @@ namespace build2
       };
 
       template <>
-      struct parser<dir_path>
+      struct LIBBUILD2_SYMEXPORT parser<dir_path>
       {
         static void
         parse (dir_path&, bool&, scanner&);

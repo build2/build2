@@ -156,7 +156,7 @@ namespace build2
       append
     };
 
-    struct redirect
+    struct LIBBUILD2_SYMEXPORT redirect
     {
       redirect_type type;
 
@@ -437,7 +437,7 @@ namespace build2
 
     // Script execution environment.
     //
-    class environment
+    class LIBBUILD2_SYMEXPORT environment
     {
     public:
       // Execution context.
@@ -479,6 +479,12 @@ namespace build2
       //
       const bool temp_dir_keep;
 
+      // If true, then builtins and file redirects (>=) automatically register
+      // their outputs for cleanup (unless suppressed with the --no-cleanup
+      // option for builtins).
+      //
+      const bool default_cleanup;
+
       // Default process streams redirects.
       //
       // If a stream redirect is not specified on the script command line,
@@ -493,12 +499,14 @@ namespace build2
                    const dir_name_view& wd,
                    const dir_name_view& sd,
                    const dir_path& td, bool tk,
+                   bool dc,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
           : serial (s), no_diag_buffer (ndb),
             host (h),
             work_dir (wd), sandbox_dir (sd), temp_dir (td), temp_dir_keep (tk),
+            default_cleanup (dc),
             in (move (i)), out (move (o)), err (move (e))
       {
       }
@@ -509,12 +517,14 @@ namespace build2
                    const target_triplet& h,
                    const dir_name_view& wd,
                    const dir_path& td, bool tk,
+                   bool dc,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
           : environment (s, ndb,
                          h,
                          wd, dir_name_view (), td, tk,
+                         dc,
                          move (i), move (o), move (e))
       {
       }

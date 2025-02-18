@@ -42,6 +42,9 @@ libul{build2}: script/{hxx ixx txx cxx}{** -*-options -**.test...} \
 libul{build2}: build/script/{hxx ixx txx cxx}{** -*-options -**.test...} \
                build/script/{hxx ixx cxx}{builtin-options}
 
+libul{build2}: shell/script/{hxx ixx txx cxx}{** -*-options -**.test...} \
+               shell/script/{hxx ixx cxx}{builtin-options}
+
 # Note that this won't work in libul{} since it's not installed.
 #
 lib{build2}: cxx{utility-installed}:   for_install = true
@@ -207,6 +210,7 @@ exe{*.test}:
 for t:         cxx{ *.test...} \
         script/cxx{**.test...} \
          build/cxx{**.test...} \
+         shell/cxx{**.test...} \
         config/cxx{**.test...} \
           dist/cxx{**.test...} \
        install/cxx{**.test...} \
@@ -411,6 +415,17 @@ if $cli.configured
     #
     install = false
   }
+
+  shell/script/cli.cxx{builtin-options}: shell/script/cli{builtin}
+  {
+    cli.options += --include-prefix libbuild2/shell/script \
+--guard-prefix LIBBUILD2_SHELL_SCRIPT --suppress-usage
+
+    # Don't install the generated cli headers since they are only used
+    # internally in the buildscript implementation.
+    #
+    install = false
+  }
 }
 else
 {
@@ -421,6 +436,9 @@ else
 
   build/script/hxx{builtin-options}@build/script/ \
   build/script/ixx{builtin-options}@build/script/: install = false
+
+  shell/script/hxx{builtin-options}@shell/script/ \
+  shell/script/ixx{builtin-options}@shell/script/: install = false
 }
 
 # Install into the libbuild2/ subdirectory of, say, /usr/include/

@@ -2796,7 +2796,7 @@ See also the \l{#builtins-export \c{export}} builtin.
 \h#builtins-exit|\c{exit}|
 
 \
-exit [<diagnostics>]
+exit [<code>] [<diagnostics>]
 \
 
 Exit the current group or test scope skipping any remaining commands.
@@ -2804,13 +2804,19 @@ Exit the current group or test scope skipping any remaining commands.
 Note that \c{exit} is a \i{pseudo-builtin}. In particular, it must be the only
 command in the pipe expression and its standard streams cannot be redirected.
 
-Without any arguments \c{exit} exits the current scope successfully. In this
-case, if exiting a group scope, teardown commands and cleanups are executed
-normally.
+If the zero code is specified, then \c{exit} exits the current scope
+successfully. In this case, if exiting a group scope, teardown commands and
+cleanups are executed normally.
 
-If an argument is specified, then \c{exit} exits the current scope and all
+If a non-zero code is specified, then \c{exit} exits the current scope and all
 the outer scopes unsuccessfully, as if the \c{exit} command failed. In this
-case the argument must be the diagnostics string describing the error.
+case the diagnostics string describing the error can be specified as a second
+argument. It will be printed with the \c{error:\ } prefix to \c{stderr}.
+
+If no exit code is specified, then assume exit code 1, if the diagnostics
+string is specified, and 0 otherwise.
+
+The exit code must be in the 0-255 range.
 
 
 \h#builtins-export|\c{export}|

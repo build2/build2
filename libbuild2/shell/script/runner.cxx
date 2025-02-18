@@ -1,18 +1,19 @@
-// file      : libbuild2/build/script/runner.cxx -*- C++ -*-
+// file      : libbuild2/shell/script/runner.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbuild2/build/script/runner.hxx>
+#include <libbuild2/shell/script/runner.hxx>
 
 #include <libbutl/filesystem.hxx> // try_rmdir()
 
-#include <libbuild2/target.hxx>
+#include <libbuild2/scope.hxx>
+
 #include <libbuild2/script/run.hxx>
 
 using namespace butl;
 
 namespace build2
 {
-  namespace build
+  namespace shell
   {
     namespace script
     {
@@ -24,49 +25,6 @@ namespace build2
       void default_runner::
       leave (environment& env, const location& ll)
       {
-        // Drop cleanups of target paths.
-        //
-        for (auto i (env.cleanups.begin ()); i != env.cleanups.end (); )
-        {
-          const target* m (nullptr);
-          if (const group* g = env.target.is_a<group> ())
-          {
-            for (const target* gm: g->members)
-            {
-              if (const path_target* pm = gm->is_a<path_target> ())
-              {
-                if (i->path == pm->path ())
-                {
-                  m = gm;
-                  break;
-                }
-              }
-            }
-          }
-          else if (const fsdir* fd = env.target.is_a<fsdir> ())
-          {
-            // Compare ignoring the trailing directory separator.
-            //
-            if (path_traits::compare (i->path.string (),
-                                      fd->dir.string ()) == 0)
-              m = fd;
-          }
-          else
-          {
-            for (m = &env.target; m != nullptr; m = m->adhoc_member)
-            {
-              if (const path_target* pm = m->is_a<path_target> ())
-                if (i->path == pm->path ())
-                  break;
-            }
-          }
-
-          if (m != nullptr)
-            i = env.cleanups.erase (i);
-          else
-            ++i;
-        }
-
         clean (env, ll);
 
         // Remove the temporary directory, if created.
@@ -75,12 +33,17 @@ namespace build2
 
         if (!td.empty ())
         {
-          // Note that the temporary directory may contain not only special
+          // @@ If we add support for $~ variable, then copy the semantics
+          //    description from buildscript. Also, maybe we should just allow
+          //    the script to leave the temporary files and just remove the
+          //    temporary directory recursively here?
+          //
+          // Note that since the temporary directory may only contain special
           // files that are created and registered for cleanup by the script
           // running machinery and should all be removed by the above clean()
-          // function call. It may also contain files created by the script
-          // (by using the $~ variable) and not registered for cleanup. Thus,
-          // we don't ignore the errors and report them.
+          // function call, its removal failure may not be the script fault
+          // but potentially a bug or a filesystem problem. Thus, we don't
+          // ignore the errors and report them.
           //
           env.temp_dir.cancel ();
 
@@ -92,6 +55,11 @@ namespace build2
 
             if (r != rmdir_status::success)
             {
+              // While there can be no fault of the script being currently
+              // executed let's add the location anyway to help with
+              // troubleshooting. And let's stick to that principle down the
+              // road.
+              //
               diag_record dr (fail (ll));
               dr << "temporary directory '" << td
                  << (r == rmdir_status::not_exist
@@ -104,11 +72,6 @@ namespace build2
           }
           catch (const system_error& e)
           {
-            // While there can be no fault of the script being currently
-            // executed let's add the location anyway to help with
-            // troubleshooting. And let's stick to that principle down the
-            // road.
-            //
             fail (ll) << "unable to remove temporary directory '" << td
                       << "': " << e;
           }
@@ -125,8 +88,6 @@ namespace build2
            const function<command_function>& cf,
            const location& ll)
       {
-        context& ctx (env.target.ctx);
-
         if (verb >= 3)
           text << ":  " << expr;
 
@@ -134,7 +95,7 @@ namespace build2
         // executes the set or exit builtin or it is a for-loop. Otherwise,
         // just print the expression otherwise at verbosity level 2 and up.
         //
-        if (!ctx.dry_run ||
+        if (!env.scope.ctx.dry_run ||
             find_if (expr.begin (), expr.end (),
                      [&cf] (const expr_term& et)
                      {

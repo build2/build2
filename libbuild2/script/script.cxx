@@ -725,6 +725,7 @@ namespace build2
         }
       }
     }
+
     // environment
     //
     void environment::

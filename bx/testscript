@@ -1,0 +1,401 @@
+# file      : bx/testscript
+# license   : MIT; see accompanying LICENSE file
+
+: script
+:
+{
+  test.arguments += test.bx
+
+  : variables
+  :
+  {
+    : special
+    :
+    {
+      : success
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo $*
+          echo $0 $1 $2 $3 $4 $5 $6 $7 $8 $9 ($*[10])
+          EOI
+
+        $* a b c d e f g h i j >>EOO
+          test.bx a b c d e f g h i j
+          test.bx a b c d e f g h i j
+          EOO
+      }
+
+      : failure
+      :
+      {
+        : multi-digit
+        :
+        {
+          cat <<EOI >=test.bx;
+            echo $10
+            EOI
+
+          $* 2>>EOE != 0
+            test.bx:1:8: error: multi-digit special variable name
+              info: use '($*[NN])' to access elements beyond 9
+            EOE
+        }
+
+        : assign-special
+        :
+        {
+          cat <<EOI >=test.bx;
+            0 = foo
+            EOI
+
+          $* 2>>EOE != 0
+            test.bx:1:1: error: attempt to set '0' special variable
+            EOE
+        }
+      }
+    }
+
+    : global
+    :
+    {
+      cat <<EOI >=test.bx;
+        echo "$shell.work" # Strip trailing slash.
+        EOI
+
+      $* >"$~"
+    }
+
+    : assignment
+    :
+    {
+      cat <<EOI >=test.bx;
+        foo = bar
+        bar = $foo
+        bar += baz
+        bar += fox
+        echo $bar
+        EOI
+
+      $* >'bar baz fox'
+    }
+  }
+
+  : no-default-cleanups
+  :
+  {
+    cat <<EOI >=test.bx;
+      touch foo
+      echo "" >=bar
+      EOI
+
+    $* &foo &bar;
+
+    test -f foo && test -f bar
+  }
+
+  : exit
+  :
+  {
+    : success
+    :
+    {
+      : code
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          exit 0
+          echo 2
+          EOI
+
+        $* >'1'
+      }
+
+      : no-code
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          exit
+          echo 2
+          EOI
+
+        $* >'1'
+      }
+
+      : diag
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          exit 0 'diagnostics'
+          echo 2
+          EOI
+
+        $* >'1' 2>>EOE != 0
+          test.bx:2:1: error: exit: diagnostics is specified for 0 exit code
+          EOE
+      }
+
+      : cleanups
+      :
+      {
+        cat <<EOI >=test.bx;
+          touch foo &foo
+          exit
+          EOI
+
+        $*
+      }
+    }
+
+    : failure
+    :
+    {
+      : code
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          exit 5
+          echo 2
+          EOI
+
+        $* >'1' == 5
+      }
+
+      : no-code
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          exit 'diagnostics'
+          echo 2
+          EOI
+
+        $* >'1' 2>>EOE == 1
+          test.bx:2:1: error: diagnostics
+          EOE
+      }
+
+      : diag
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          exit 5 'diagnostics'
+          echo 2
+          EOI
+
+        $* >'1' 2>>EOE == 5
+          test.bx:2:1: error: diagnostics
+          EOE
+      }
+
+      : if-cond
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          if exit 5
+            echo 2
+          end
+          echo 3
+          EOI
+
+        $* >'1' == 5
+      }
+
+      : if-block
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          if true
+            echo 2
+            exit 5
+            echo 3
+          end
+          echo 4
+          EOI
+
+        $* >>EOO == 5
+          1
+          2
+          EOO
+      }
+
+      : elif-cond
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          if false
+            echo 2
+          elif exit 5
+            echo 3
+          end
+          echo 4
+          EOI
+
+        $* >'1' == 5
+      }
+
+      : elif-block
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          if false
+            echo 2
+          elif true
+            echo 3
+            exit 5
+            echo 4
+          end
+          echo 5
+          EOI
+
+        $* >>EOO == 5
+          1
+          3
+          EOO
+      }
+
+      : else-block
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          if false
+            echo 2
+          else
+            echo 3
+            exit 5
+            echo 4
+          end
+          echo 5
+          EOI
+
+        $* >>EOO == 5
+          1
+          3
+          EOO
+      }
+
+      : for-args
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          for i: 2 3
+            echo $i
+            exit 5
+          end
+          echo 4
+          EOI
+
+        $* >>EOO == 5
+          1
+          2
+          EOO
+      }
+
+      : for-stream
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          echo 2 3 | for i
+            echo $i
+            exit 5
+          end
+          echo 4
+          EOI
+
+        $* >>EOO == 5
+          1
+          2
+          EOO
+      }
+
+      : while-cond
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          while exit 5
+            echo 2
+          end
+          echo 3
+          EOI
+
+        $* >'1' == 5
+      }
+
+      : while-block
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 1
+          while true
+            echo 2
+            exit 5
+            echo 3
+          end
+          echo 4
+          EOI
+
+        $* >>EOO == 5
+          1
+          2
+          EOO
+      }
+
+      : cleanups
+      :
+      {
+        cat <<EOI >=test.bx;
+          touch foo &foo
+          exit 5
+          EOI
+
+        $* == 5
+      }
+    }
+
+
+    : error
+    :
+    {
+      : big-code
+      :
+      : While at it, check that the cleanups are not performed on a script
+      : execution error to help with troubleshooting.
+      :
+      {
+        cat <<EOI >=test.bx &foo;
+          touch foo &foo
+          exit 555
+          EOI
+
+        $* 2>>EOE == 1
+          test.bx:2:1: error: exit: exit code must be an unsigned integer less than 256
+          EOE
+      }
+
+      : unexpected-arg
+      :
+      {
+        cat <<EOI >=test.bx;
+          exit 5 'diagnostics' junk
+          EOI
+
+        $* 2>>EOE == 1
+          test.bx:1:1: error: exit: unexpected argument 'junk'
+          EOE
+      }
+    }
+  }
+}

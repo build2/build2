@@ -1,7 +1,7 @@
-# file      : libbuild2/test/script/lexer+variable.test.testscript
+# file      : libbuild2/shell/script/lexer+variable.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-# Test handling special variable names ($*, $~, $NN).
+# Test handling special variable names ($*, $NN, $~).
 #
 test.arguments = variable
 
@@ -24,7 +24,8 @@ test.arguments = variable
   EOO
 }
 
-: working-dir
+#\
+: temporary-dir
 :
 {
   : only
@@ -42,6 +43,7 @@ test.arguments = variable
   <newline>
   EOO
 }
+#\
 
 : arg
 :

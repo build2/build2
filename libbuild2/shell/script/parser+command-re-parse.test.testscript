@@ -1,0 +1,19 @@
+# file      : libbuild2/shell/script/parser+command-re-parse.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: double-quote
+:
+$* <<EOI >>EOO
+x = [cmdline] cmd \">-\" "'<-'"
+$x
+EOI
+cmd '>-' '<-'
+EOO
+
+: literal-re-parse
+:
+$* <<EOI >>EOO
+cmd >foo
+EOI
+cmd >foo
+EOO

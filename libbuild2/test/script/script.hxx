@@ -392,6 +392,8 @@ namespace build2
         // Testscript file paths. Specifically, replay_token::file points to
         // these path names.
         //
+        // Note: the pointers are stable since point to values in std::set.
+        //
         struct compare_paths
         {
           bool operator() (const path_name_value& x,

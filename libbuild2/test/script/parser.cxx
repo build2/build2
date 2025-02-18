@@ -1707,16 +1707,20 @@ namespace build2
 
           exec_lines (t->tests_.begin (), t->tests_.end (),
                       exec_set, exec_cmd, exec_cond, exec_for,
-                      nullptr /* iteration_index */, li);
+                      nullptr /* iteration_index */, li,
+                      true /* throw_on_failure */);
         }
         else if (group* g = dynamic_cast<group*> (scope_))
         {
           ct = command_type::setup;
 
+          // Execute the scope if the setup commands do not exit the script.
+          //
           bool exec_scope (
-            exec_lines (g->setup_.begin (), g->setup_.end (),
-                        exec_set, exec_cmd, exec_cond, exec_for,
-                        nullptr /* iteration_index */, li));
+            !exec_lines (g->setup_.begin (), g->setup_.end (),
+                         exec_set, exec_cmd, exec_cond, exec_for,
+                         nullptr /* iteration_index */, li,
+                         true /* throw_on_failure */));
 
           if (exec_scope)
           {
@@ -1779,10 +1783,10 @@ namespace build2
                   }
                   catch (const exit_scope& e)
                   {
-                    // Bail out if the scope is exited with the failure status.
+                    // Bail out if the scope is exited with a non-zero code.
                     // Otherwise leave the scope normally.
                     //
-                    if (!e.status)
+                    if (!e)
                       throw failed ();
 
                     // Stop iterating through if conditions, and stop executing
@@ -1887,7 +1891,8 @@ namespace build2
 
           exec_lines (g->tdown_.begin (), g->tdown_.end (),
                       exec_set, exec_cmd, exec_cond, exec_for,
-                      nullptr /* iteration_index */, li);
+                      nullptr /* iteration_index */, li,
+                      true /* throw_on_failure */);
         }
         else
           assert (false);

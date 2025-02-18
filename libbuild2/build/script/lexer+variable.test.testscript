@@ -1,7 +1,7 @@
 # file      : libbuild2/build/script/lexer+variable.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-# Test handling custom variable names ($*, $~, $NN).
+# Test handling special variable names ($>, $<).
 #
 test.arguments = variable
 
@@ -19,6 +19,25 @@ test.arguments = variable
   :
   $* <">abc" >>EOO
   '>'
+  'abc'
+  <newline>
+  EOO
+}
+
+: prerequisite
+:
+{
+  : only
+  :
+  $* <"<" >>EOO
+  '<'
+  <newline>
+  EOO
+
+  : followed
+  :
+  $* <"<abc" >>EOO
+  '<'
   'abc'
   <newline>
   EOO
