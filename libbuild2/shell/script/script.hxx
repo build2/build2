@@ -1,8 +1,8 @@
-// file      : libbuild2/build/script/script.hxx -*- C++ -*-
+// file      : libbuild2/shell/script/script.hxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef LIBBUILD2_BUILD_SCRIPT_SCRIPT_HXX
-#define LIBBUILD2_BUILD_SCRIPT_SCRIPT_HXX
+#ifndef LIBBUILD2_SHELL_SCRIPT_SCRIPT_HXX
+#define LIBBUILD2_SHELL_SCRIPT_SCRIPT_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
@@ -15,7 +15,7 @@
 
 namespace build2
 {
-  namespace build
+  namespace shell
   {
     namespace script
     {
@@ -33,17 +33,13 @@ namespace build2
       using build2::script::pipe_command;
       using build2::script::command_function;
 
-      // Forward declarations.
-      //
-      class default_runner;
-
       // Notes:
       //
       // - Once parsed, the script can be executed in multiple threads with
       //   the state (variable values, etc) maintained in the environment.
       //
-      // - The default script command redirects semantics is 'none' for stdin,
-      //   'merge' into stderr for stdout, and 'pass' for stderr.
+      // - The default script command redirects semantics is 'pass' for all
+      //   the standard streams.
       //
       class script
       {
@@ -58,39 +54,6 @@ namespace build2
         // test::script::parser::pre_parse_line() for details).
         //
         lines body;
-        bool  body_temp_dir = false; // True if the body references $~.
-
-        // Referenced ordinary (non-special) variables.
-        //
-        // Used for the script semantics change tracking. The variable list is
-        // filled during the pre-parsing phase and is checked against during
-        // the execution phase. If during execution some non-script-local
-        // variable is not found in the list (may happen for a computed name),
-        // then the execution fails since the script semantics may not be
-        // properly tracked (the variable value change will not trigger the
-        // target rebuild).
-        //
-        small_vector<string, 2> vars; // 2 for command and options.
-
-        // Command name for low-verbosity diagnostics and custom low-verbosity
-        // diagnostics line, potentially preceded with the variable
-        // assignments. Note: cannot be both (see the script parser for
-        // details).
-        //
-        optional<string> diag_name;
-        lines            diag_preamble;
-        bool             diag_preamble_temp_dir = false; // True if refs $~.
-
-        // The script's custom dependency change tracking lines (see the
-        // script parser for details).
-        //
-        bool             depdb_clear;
-        bool             depdb_value;                    // String or hash.
-        optional<size_t> depdb_dyndep;                   // Pos of first dyndep.
-        bool             depdb_dyndep_byproduct = false; // dyndep --byproduct
-        bool             depdb_dyndep_dyn_target = false;// dyndep --dyn-target
-        lines            depdb_preamble;                 // Note include vars.
-        bool             depdb_preamble_temp_dir = false;// True if refs $~.
 
         location start_loc;
         location end_loc;
@@ -100,24 +63,18 @@ namespace build2
       {
       public:
         using scope_type = build2::scope;
-        using target_type = build2::target;
 
-        environment (action,
-                     const target_type&,
-                     const scope_type&,
-                     bool temp_dir,
+        // Use the script and args arguments to compose the $* and $N variable
+        // values.
+        //
+        // @@ Can the script come from a stream, not a file. If yes, what the
+        //    script argument should refer to in this case? Note that for bash
+        //    $0 refers to the bash program path in this case.
+        //
+        environment (const scope_type& global_scope,
+                     path script,
+                     strings args,
                      const optional<timestamp>& deadline = nullopt);
-
-        // (Re)set special $< and $> variables.
-        //
-        void
-        set_special_variables (action);
-
-        // Create the temporary directory (if it doesn't exist yet) and set
-        // the $~ special variable to its path.
-        //
-        void
-        set_temp_dir_variable ();
 
         environment (environment&&) = delete;
         environment (const environment&) = delete;
@@ -125,17 +82,11 @@ namespace build2
         environment& operator= (const environment&) = delete;
 
       public:
-        // Primary target this environment is for and its base scope.
+        // Global scope, containing the script's global variables.
         //
-        const target_type& target;
-        const scope_type&  scope;
+        const scope_type& scope;
 
         // Script-private variable pool and map.
-        //
-        // Note that it may be tempting to reuse the rule-specific variables
-        // for this but they should not be modified during execution (i.e.,
-        // they are for intra-rule communication; perhaps we could have a
-        // special builtin that sets such variables during match).
         //
         // Note also that if we lookup the variable by passing name as a
         // string, then it will be looked up in the wrong pool.
@@ -143,8 +94,8 @@ namespace build2
         variable_pool var_pool;
         variable_map vars;
 
-        const variable& var_ts; // $>
-        const variable& var_ps; // $<
+        const variable& cmd_var;      // $*
+        const variable* cmdN_var[10]; // $N
 
         // Temporary directory for the script run.
         //
@@ -153,13 +104,13 @@ namespace build2
         // we may invent an option that suppresses the removal of temporary
         // files in general.
         //
-        // This directory is available to the user via the $~ special
-        // variable. Note, however, that the following filesystem entry
-        // prefixes are reserved:
+        // @@ This directory is available to the user via the $~ special
+        //    variable. Note, however, that the following filesystem entry
+        //    prefixes are reserved:
         //
-        // stdin*
-        // stdout*
-        // stderr*
+        //    stdin*
+        //    stdout*
+        //    stderr*
         //
         auto_rmdir temp_dir;
 
@@ -170,8 +121,8 @@ namespace build2
         optional<deadline> fragment_deadline;
 
         // Index of the next script line to be executed. Used and incremented
-        // by the parser's execute_depdb_preamble() and execute_body()
-        // function calls to produce special file names, etc.
+        // by the parser's execute() function calls to produce special file
+        // names, etc.
         //
         size_t exec_line = 1;
 
@@ -195,32 +146,30 @@ namespace build2
         virtual void
         create_temp_dir () override;
 
-        // Call the scheduler's sleep() function.
-        //
         virtual void
         sleep (const duration&) override;
 
         // Variables.
         //
       public:
-        // Lookup the variable starting from this environment, then the
-        // primary target, and then outer buildfile scopes.
-        //
-        // Note that we currently skip rule-specific variables since the rule
-        // that runs this script doesn't set any.
+        // Lookup the variable starting from this environment and then the
+        // global scope.
         //
         using lookup_type = build2::lookup;
 
         lookup_type
         lookup (const variable&) const;
 
+        // @@ May add $~ variable on demand. Make it non-const if/when $~
+        //    support is added.
+        //
         lookup_type
         lookup (const string&) const;
 
-        // As above but only look for buildfile variables.
+        // As above but only look for global variables.
         //
         lookup_type
-        lookup_in_buildfile (const string&) const;
+        lookup_global (const string&) const;
 
         // Return a value suitable for assignment. If the variable does not
         // exist in this environment's variable map, then a new one with the
@@ -231,10 +180,10 @@ namespace build2
         assign (const variable& var) {return vars.assign (var);}
 
         // Return a value suitable for append/prepend. If the variable does
-        // not exist in this environment's variable map, then outer scopes are
-        // searched for the same variable. If found then a new variable with
-        // the found value is added to the environment and returned. Otherwise
-        // this function proceeds as assign() above.
+        // not exist in this environment's variable map, then the global scope
+        // is searched for the same variable. If found then a new variable
+        // with the found value is added to the environment and returned.
+        // Otherwise this function proceeds as assign() above.
         //
         value&
         append (const variable&);
@@ -243,4 +192,4 @@ namespace build2
   }
 }
 
-#endif // LIBBUILD2_BUILD_SCRIPT_SCRIPT_HXX
+#endif // LIBBUILD2_SHELL_SCRIPT_SCRIPT_HXX

@@ -16,6 +16,10 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/shell/script/parser.hxx>
+#include <libbuild2/shell/script/script.hxx>
+#include <libbuild2/shell/script/runner.hxx>
+
 #include <bx/bx-options.hxx>
 
 using namespace butl;
@@ -40,14 +44,22 @@ run_script (bx_options&, path script, cli::argv_file_scanner& args)
 {
   context ctx (true /* no_diag_buffer */);
 
-  text << script;
-
+  strings as;
   while (args.more ())
-  {
-    text << '\'' << args.next () << '\'';
-  }
+    as.push_back (args.next ());
 
-  return 0;
+  shell::script::parser p (ctx);
+
+  path_name pnv (script);
+  shell::script::script s (p.pre_parse (ctx.global_scope, pnv));
+
+  // Note: don't move from the script variable since it is referred to from
+  //       the script object (see parser::pre_parse() for details).
+  //
+  shell::script::environment e (ctx.global_scope, script, move (as));
+
+  shell::script::default_runner r;
+  return p.execute (e, s, r);
 }
 
 int build2::
