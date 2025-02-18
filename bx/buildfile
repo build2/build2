@@ -10,7 +10,7 @@ libs += ../libbuild2/lib{build2}
 
 exe{bx}: {hxx ixx txx cxx}{** -bx-options} \
          {hxx ixx cxx}{bx-options}         \
-         $libs
+         $libs testscript
 
 # Generated options parser (the same setup as in libbuild2).
 #

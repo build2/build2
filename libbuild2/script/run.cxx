@@ -939,6 +939,10 @@ namespace build2
     //
     // exit [<diagnostics>]
     //
+    // @@ For the sake of shellscript we should probably change it to:
+    //
+    //    exit [<code>] [<diagnostics>]
+    //
     [[noreturn]] static void
     exit_builtin (const strings& args, const location& ll)
     {

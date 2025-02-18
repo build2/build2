@@ -1,0 +1,23 @@
+// file      : libbuild2/shell/script/builtin.cli
+// license   : MIT; see accompanying LICENSE file
+
+include <libbuild2/common.cli>;
+
+// Note that options in this file are undocumented because we generate neither
+// the usage printing code nor man pages. Instead, they are documented in the
+// manual.
+//
+namespace build2
+{
+  namespace shell
+  {
+    namespace script
+    {
+      // Pseudo-builtin options.
+      //
+      class shopt_options
+      {
+      };
+    }
+  }
+}
