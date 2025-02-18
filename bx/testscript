@@ -1,0 +1,69 @@
+# file      : bx/testscript
+# license   : MIT; see accompanying LICENSE file
+
+: script
+:
+{
+  : variables
+  :
+  {
+    : special
+    :
+    {
+      : success
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo $*
+          echo $0 $1 $2 $3 $4 $5 $6 $7 $8 $9 ($*[10])
+          EOI
+
+        $* test.bx a b c d e f g h i j >>EOO
+          test.bx a b c d e f g h i j
+          test.bx a b c d e f g h i j
+          EOO
+      }
+
+      : failure
+      :
+      {
+        : multi-digit
+        :
+        {
+          cat <<EOI >=test.bx;
+            echo $10
+            EOI
+
+          $* test.bx 2>>EOE != 0
+            test.bx:1:8: error: multi-digit special variable name
+              info: use '($*[NN])' to access elements beyond 9
+            EOE
+        }
+      }
+    }
+
+    : global
+    :
+    {
+      cat <<EOI >=test.bx;
+        echo "$shell.work" # Strip trailing slash.
+        EOI
+
+      $* test.bx >"$~"
+    }
+
+    : assignment
+    :
+    {
+      cat <<EOI >=test.bx;
+        foo = bar
+        bar = $foo
+        bar += baz
+        bar += fox
+        echo $bar
+        EOI
+
+      $* test.bx >"bar baz fox"
+    }
+  }
+}

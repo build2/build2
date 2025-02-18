@@ -51,6 +51,12 @@ namespace build2
         // Note that the variables are not pre-entered into a pool during the
         // parsing phase, so the line variable pointers are NULL.
         //
+        // Note that in contrast to the testscript we have per-environment
+        // variable pools and thus don't need to share them between multiple
+        // threads (which is the reason for the testscript to pre-enter
+        // variables during pre-parsing; see
+        // test::script::parser::pre_parse_line() for details).
+        //
         lines body;
         bool  body_temp_dir = false; // True if the body references $~.
 
@@ -119,7 +125,7 @@ namespace build2
         environment& operator= (const environment&) = delete;
 
       public:
-        // Primary target this environment is for and its base scope;
+        // Primary target this environment is for and its base scope.
         //
         const target_type& target;
         const scope_type&  scope;
@@ -131,8 +137,8 @@ namespace build2
         // they are for intra-rule communication; perhaps we could have a
         // special builtin that sets such variables during match).
         //
-        // Note also that if we lookup the variable by passing name as a
-        // string, then it will be looked up in the wrong pool.
+        // Note also that trying to lookup the variable in the map by using
+        // its name as a string will end up with an assertion failure.
         //
         variable_pool var_pool;
         variable_map vars;

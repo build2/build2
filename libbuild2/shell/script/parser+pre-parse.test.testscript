@@ -1,0 +1,22 @@
+# file      : libbuild2/shell/script/parser+pre-parse.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: attribute
+:
+{
+  : name
+  :
+  $* <<EOI 2>>EOE != 0
+  x = [foo]
+  EOI
+  shellscript:11:5: error: unknown value attribute foo
+  EOE
+
+  : name-value
+  :
+  $* <<EOI 2>>EOE != 0
+  x = [foo=bar]
+  EOI
+  shellscript:11:5: error: unknown value attribute foo=bar
+  EOE
+}

@@ -262,8 +262,8 @@ namespace build2
           {
             // First we need to sense the next few tokens and detect which
             // form of the loop we are dealing with, the first (for x: ...)
-            // or the third (x <...) one. Note that the second form (... | for
-            // x) is handled separately.
+            // or the third (for x <...) one. Note that the second form (... |
+            // for x) is handled separately.
             //
             // If the next token doesn't look like a variable name, then this
             // is the third form. Otherwise, if colon follows the variable
