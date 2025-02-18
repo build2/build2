@@ -880,6 +880,24 @@ namespace build2
   void
   init_process ()
   {
+    // Note that the standard stream descriptors can potentially be in the
+    // non-blocking mode, which the C++ streams are not suited for and which
+    // are not fully supported by butl::iofdstreams. Using such descriptors
+    // may lead to various weird failures (see GH issue #417 for the
+    // reproducer). Thus, we just turn such descriptors into the blocking mode
+    // at the beginning of the program execution.
+    //
+    try
+    {
+      stdin_fdmode  (fdstream_mode::blocking);
+      stdout_fdmode (fdstream_mode::blocking);
+      stderr_fdmode (fdstream_mode::blocking);
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to turn standard streams into blocking mode: " << e;
+    }
+
     // This is a little hack to make out baseutils for Windows work when
     // called with absolute path. In a nutshell, MSYS2's exec*p() doesn't
     // search in the parent's executable directory, only in PATH. And since we

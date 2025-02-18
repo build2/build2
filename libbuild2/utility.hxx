@@ -115,6 +115,8 @@ namespace build2
   // called once early in main(). In particular, besides other things, this
   // functions does the following:
   //
+  // - Turn standard streams into blocking mode.
+  //
   // - Sets PATH to include baseutils /bin on Windows.
   //
   // - Ignores SIGPIPE.
