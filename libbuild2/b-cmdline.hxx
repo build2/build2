@@ -20,7 +20,7 @@ namespace build2
     strings cmd_vars;
     string buildspec;
 
-    // Processed/meged option values (unless --help or --version specified).
+    // Processed/merged option values (unless --help or --version specified).
     //
     uint16_t verbosity = 1;
     optional<bool> progress;

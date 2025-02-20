@@ -7,7 +7,7 @@ css{*}: extension = css
 define xhtml: doc
 xhtml{*}: extension = xhtml
 
-./: {man1 xhtml}{b}         \
+./: {man1 xhtml}{b bx}      \
     css{common pre-box man} \
     file{man-*}
 

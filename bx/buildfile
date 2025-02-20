@@ -1,0 +1,69 @@
+# file      : bx/buildfile
+# license   : MIT; see accompanying LICENSE file
+
+# NOTE: imports should go into root.build.
+#
+libs = $libbutl
+
+include ../libbuild2/
+libs += ../libbuild2/lib{build2}
+
+exe{bx}: {hxx ixx txx cxx}{** -bx-options} \
+         {hxx ixx cxx}{bx-options}         \
+         $libs
+
+# Generated options parser (the same setup as in libbuild2).
+#
+if $cli.configured
+{
+  cli.options += --std c++11 -I $src_root --include-with-brackets \
+--include-prefix bx --guard-prefix BX --cli-namespace build2::build::cli \
+--generate-specifier --keep-separator --generate-parse --generate-merge \
+--cxx-prologue "#include <libbuild2/types-parsers.hxx>"
+
+  # Usage options.
+  #
+  cli.options += --suppress-undocumented --long-usage --ansi-color \
+--ascii-tree --page-usage 'build2::print_$name$_' --option-length 23
+
+  cli.cxx{bx-options}: cli{bx}
+  {
+    # Include the generated cli files into the distribution and don't remove
+    # them when cleaning in src (so that clean results in a state identical
+    # to distributed).
+    #
+    dist  = true
+    clean = ($src_root != $out_root)
+
+    # We keep the generated code in the repository so copy it back to src in
+    # case of a forwarded configuration.
+    #
+    backlink = overwrite
+  }
+}
+
+# Target metadata, see also --build2-metadata in bx.cxx.
+#
+exe{bx}:
+{
+  export.metadata = 1 bx
+  bx.name = [string] bx
+  bx.version  = $version
+  bx.checksum = $version
+  #bx.environment = [strings] @@
+}
+
+# Build options.
+#
+# Pass our compiler target to be used as build2 host.
+#
+obj{bx}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
+
+# Pass the copyright notice extracted from the LICENSE file.
+#
+copyright = $process.run_regex(                      \
+  cat $src_root/LICENSE,                             \
+  'Copyright \(c\) (.+) \(see the AUTHORS file\)\.', \
+  '\1')
+
+obj{bx}: cxx.poptions += -DBUILD2_COPYRIGHT=\"$copyright\"

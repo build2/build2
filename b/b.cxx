@@ -2,7 +2,6 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <sstream>
-#include <typeinfo>
 #include <iostream>  // cout
 #include <exception> // terminate(), set_terminate(), terminate_handler
 

@@ -1,0 +1,659 @@
+// file      : bx/bx.cli
+// license   : MIT; see accompanying LICENSE file
+
+include <libbuild2/common.cli>;
+
+"\section=1"
+"\name=bx"
+"\summary=shellscript and task runner"
+
+namespace build2
+{
+  {
+    "<options>",
+
+    "\h|SYNOPSIS|
+
+     \c{\b{bx --help}\n
+        \b{bx --version}\n
+        \b{bx} [<options>] @@}
+
+     \h|DESCRIPTION|
+
+     The \cb{build2} build system driver executes a set of meta-operations on
+     operations on targets according to the build specification, or
+     \i{buildspec} for short.  This process can be controlled by specifying
+     driver <options> and build system <variables>.
+
+     Note that <options>, <variables>, and <buildspec> fragments can be
+     specified in any order. To avoid treating an argument that starts with
+     \cb{'-'} as an option, add the \cb{'--'} separator. To avoid treating an
+     argument that contains \cb{'='} as a variable, add the second \cb{'--'}
+     separator."
+  }
+
+  // For usage it's nice to see the list of options on the first page. So
+  // let's not put this "extended" description into usage.
+  //
+  {
+    "<meta-operation> <operation> <target> <parameters> <src-base>",
+    "",
+
+    "All components in the buildspec can be omitted. If <meta-operation> is
+     omitted, then it defaults to \cb{perform}. If <operation> is omitted,
+     then it defaults to the default operation for this meta-operation. For
+     \cb{perform} it is \cb{update}. Finally, if <target> is omitted, then it
+     defaults to the current working directory. A meta-operation on operation
+     is called an \i{action}. Some operations and meta-operations may take
+     additional <parameters>. For example:
+
+     \
+     $ b                       # perform(update(./))
+     $ b foo/                  # perform(update(foo/))
+     $ b foo/ bar/             # perform(update(foo/ bar/))
+     $ b update                # perform(update(./))
+     $ b 'clean(../)'          # perform(clean(../))
+     $ b perform               # perform(update(./))
+     $ b configure             # configure(?(./))
+     $ b 'configure(../)'      # configure(?(../))
+     $ b clean update          # perform(clean(./) update(./))
+     $ b configure update      # configure(?(./)) perform(update(./))
+     $ b 'create(conf/, cxx)'  # create(?(conf/), cxx)
+     \
+
+     Notice the question mark used to show the (imaginary) default operation
+     for the \cb{configure} meta-operation. For \cb{configure} the default
+     operation is \"all operations\". That is, it will configure all the
+     operations for the specified target.
+
+     You can also \"generate\" multiple operations for the same set of targets.
+     Compare:
+
+     \
+     $ b 'clean(foo/ bar/)' 'update(foo/ bar/)'
+     $ b '{clean update}(foo/ bar/)'
+     \
+
+     Some more useful buildspec examples:
+
+     \
+     $ b '{clean update}(...)'        # rebuild
+     $ b '{clean update clean}(...)'  # make sure builds
+     $ b '{clean test clean}(...)'    # make sure passes tests
+     $ b '{clean disfigure}(...)'     # similar to distclean
+     \
+
+     In POSIX shells parenthesis are special characters and must be quoted
+     when used in a buildspec. Besides being an inconvenience in itself,
+     quoting also inhibits path auto-completion. To help with this situation a
+     shortcut syntax is available for executing a single operation or
+     meta-operation, for example:
+
+     \
+     $ b clean: foo/ bar/                # clean(foo/ bar/)
+     $ b configure: src/@out/            # configure(src/@out/)
+     $ b create: conf/, cxx              # create(conf/, cxx)
+     $ b configure: config.cxx=g++ src/  # configure(src/) config.cxx=g++
+     \
+
+     To activate the shortcut syntax the first buildspec argument must start
+     with an operation or meta-operation name and end with a colon (\cb{:}).
+     To transform the shortcut syntax to the normal buildspec syntax the colon
+     is replaced with the opening parenthesis ('\cb{(}'), the rest of the
+     buildspec arguments are treated as is, and the final closing parenthesis
+     ('\cb{)}') is added.
+
+     For each <target> the driver expects to find \cb{buildfile} either in the
+     target's directory or, if the directory is part of the \cb{out} tree
+     (\cb{out_base}), in the corresponding \cb{src} directory (\cb{src_base}).
+
+     For example, assuming \cb{foo/} is the source directory of a project:
+
+     \
+     $ b foo/              # out_base=src_base=foo/
+     $ b foo-out/          # out_base=foo-out/ src_base=foo/
+     $ b foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
+     \
+
+     An exception to this requirement is a directory target in which case,
+     provided the directory has subdirectories, an \i{implied} \cb{buildfile}
+     with the following content is assumed:
+
+     \
+     # Implied directory buildfile: build all subdirectories.
+     #
+     ./: */
+     \
+
+     In the above example, we assumed that the build system driver was able to
+     determine the association between \cb{out_base} and \cb{src_base}. In
+     case \cb{src_base} and \cb{out_base} are not the same directory, this is
+     achieved in one of two ways: the \cb{config} module (which implements the
+     \cb{configure}, \cb{disfigure}, and \cb{create} meta-operations) saves
+     this association as part of the configuration process. If, however, the
+     association hasn't been saved, then we have to specify \cb{src_base}
+     explicitly using the following extended <target> syntax:
+
+     \c{<src-base>/@<target>}
+
+     Continuing with the previous example:
+
+     \
+     $ b foo/@foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
+     \
+
+     Normally, you would need to specify \cb{src_base} explicitly only once,
+     during configuration. For example, a typical usage would be:
+
+     \
+     $ b configure: foo/@foo-out/  # src_base is saved
+     $ b foo-out/                  # no need to specify src_base
+     $ b clean: foo-out/exe{foo}   # no need to specify src_base
+     \
+
+     Besides in and out of source builds, \cb{build2} also supports
+     configuring a project's source directory as \i{forwarded} to an out of
+     source build. With such a forwarded configuration in place, if we run the
+     build system driver from the source directory, it will automatically
+     build in the output directory and \i{backlink} (using symlinks or another
+     suitable mechanism) certain \"interesting\" targets (executables,
+     documentation, etc) to the source directory for easy access. Continuing
+     with the previous example:
+
+     \
+     $ b configure: foo/@foo-out/,forward  # foo/ forwarded to foo-out/
+     $ cd foo/
+     $ b                                   # build in foo-out/
+     $ ./foo                               # symlink to foo-out/foo
+     \
+
+     The ability to specify \cb{build2} variables as part of the command line
+     is normally used to pass configuration values, for example:
+
+     \
+     $ b config.cxx=clang++ config.cxx.coptions=-O3
+     \
+
+     Similar to buildspec, POSIX shells often inhibit path auto-completion on
+     the right hand side of a variable assignment. To help with this situation
+     the assignment can be broken down into three separate command line
+     arguments, for example:
+
+     \
+     $ b config.import.libhello = ../libhello/
+     \
+
+     The build system has the following built-in and pre-defined
+     meta-operations:
+
+     \dl|
+
+     \li|\cb{perform}
+
+         Perform an operation.|
+
+     \li|\cb{configure}
+
+         Configure all operations supported by a project and save the result
+         in the project's \cb{build/config.build} file. Implemented by the
+         \cb{config} module. For example:
+
+         \
+         $ b configure                      \
+             config.cxx=clang++             \
+             config.cxx.coptions=-O3        \
+             config.install.root=/usr/local \
+             config.install.root.sudo=sudo
+         \
+
+         Use the \cb{forward} parameter to instead configure a source
+         directory as forwarded to an out of source build. For example:
+
+         \
+         $ b configure: src/@out/,forward
+         \
+
+         |
+
+     \li|\cb{disfigure}
+
+         Disfigure all operations supported by a project and remove the
+         project's \cb{build/config.build} file. Implemented by the
+         \cb{config} module.
+
+         Use the \cb{forward} parameter to instead disfigure forwarding of a
+         source directory to an out of source build. For example:
+
+         \
+         $ b disfigure: src/,forward
+         \
+
+         |
+
+     \li|\cb{create}
+
+         Create and configure a \i{configuration} project. Implemented by the
+         \cb{config} module.
+
+         Normally a \cb{build2} project is created manually by writing the
+         \cb{bootstrap.build} and \cb{config.build} files, adding source
+         files, and so on. However, a special kind of project, which we call
+         \i{configuration}, is often useful. Such a project doesn't have any
+         source files of its own. Instead, it serves as an amalgamation for
+         building other projects as part of it. Doing it this way has two
+         major benefits: sub-projects automatically resolve their imports
+         to other projects in the amalgamation and sub-projects inherits their
+         configuration from the amalgamation (which means if we want to change
+         something, we only need to do it in one place).
+
+         As an example, let's assume we have two C++ projects: the
+         \cb{libhello} library in \cb{libhello/} and the \cb{hello} executable
+         that imports it in \cb{hello/}. And we want to build \cb{hello} with
+         \cb{clang++}.
+
+         One way to do it would be to configure and build each project in its
+         own directory, for example:
+
+         \
+         $ b configure: libhello/@libhello-clang/ config.cxx=clang++
+         $ b configure: hello/@hello-clang/ config.cxx=clang++ \
+             config.import.libhello=libhello-clang/
+         \
+
+         The two drawbacks, as mentioned above, are the need to explicitly
+         resolve the import and having to make changes in multiple places
+         should, for example, we want to switch from \cb{clang++} to \cb{g++}.
+
+         We can, however, achieve the same end result but without any of the
+         drawbacks using the configuration project:
+
+         \
+         $ b create: clang/,cxx config.cxx=clang++  # Creates clang/.
+         $ b configure: libhello/@clang/libhello/
+         $ b configure: hello/@clang/hello/
+         \
+
+         The targets passed to the \cb{create} meta-operation must be
+         directories which should either not exist or be empty. For each
+         such directory \cb{create} first initializes a project as described
+         below and then configures it by executing the \cb{configure}
+         meta-operation.
+
+         The first optional parameter to \cb{create} is the list of modules to
+         load in \cb{root.build}. By default, \cb{create} appends \cb{.config}
+         to the names of these modules so that only their configurations are
+         loaded. You can override this behavior by specifying the period
+         (\cb{.})  after the module name. You can also instruct \cb{create} to
+         use the optional module load by prefixing the module name with the
+         question mark (\cb{?}).
+
+         The second optional parameter is the list of modules to load in
+         \cb{bootstrap.build}. If not specified, then the \cb{test},
+         \cb{dist}, and \cb{install} modules are loaded by default. The
+         \cb{config} module is always loaded first.
+
+         Besides creating project's \cb{bootstrap.build} and \cb{root.build},
+         \cb{create} also writes the root \cb{buildfile} with the following
+         contents:
+
+         \
+         ./: {*/ -build/}
+         \
+
+         If used, this \cb{buildfile} will build all the sub-projects
+         currently present in the configuration.|
+
+     \li|\cb{dist}
+
+         Prepare a distribution containing all files necessary to perform all
+         operations in a project. Implemented by the \cb{dist} module.|
+
+     \li|\cb{info}
+
+         Print basic information (name, version, source and output
+         directories, etc) about one or more projects to \cb{stdout},
+         separating multiple projects with a blank line. Each project is
+         identified by its root directory target. For example (some output
+         is omitted):
+
+         \
+         $ b info: libfoo/ libbar/
+         project: libfoo
+         version: 1.0.0
+         src_root: /tmp/libfoo
+         out_root: /tmp/libfoo
+         subprojects: @tests
+
+         project: libbar
+         version: 2.0.0
+         src_root: /tmp/libbar
+         out_root: /tmp/libbar-out
+         subprojects: @tests
+         \
+
+         To omit discovering and printing subprojects information, use the
+         \cb{no_subprojects} parameter, for example:
+
+         \
+         $ b info: libfoo/,no_subprojects
+         \
+
+         To instead print this information in the JSON format, use the
+         \cb{json} parameter, for example:
+
+         \
+         $ b info: libfoo/,json
+         \
+
+         In this case the output is a JSON array of objects which are the
+         serialized representation of the following C++ \cb{struct}
+         \cb{project_info}:
+
+         \
+         struct subproject
+         {
+           string           path;
+           optional<string> name;
+         };
+
+         struct project_info
+         {
+           optional<string>   project;
+           optional<string>   version;
+           optional<string>   summary;
+           optional<string>   url;
+           string             src_root;
+           string             out_root;
+           optional<string>   amalgamation;
+           vector<subproject> subprojects;
+           vector<string>     operations;
+           vector<string>     meta_operations;
+           vector<string>     modules;
+         };
+         \
+
+         For example:
+
+         \
+         [
+           {
+             \"project\": \"libfoo\",
+             \"version\": \"1.0.0\",
+             \"summary\": \"libfoo C++ library\",
+             \"src_root\": \"/tmp/libfoo\",
+             \"out_root\": \"/tmp/gcc-debug/libfoo\",
+             \"amalgamation\": \"..\",
+             \"subprojects\": [
+               {
+                 \"path\": \"tests\"
+               }
+             ],
+             \"operations\": [
+               \"update\",
+               \"clean\",
+               \"test\",
+               \"update-for-test\",
+               \"install\",
+               \"uninstall\",
+               \"update-for-install\"
+             ],
+             \"meta-operations\": [
+               \"perform\",
+               \"configure\",
+               \"disfigure\",
+               \"dist\",
+               \"info\"
+             ],
+             \"modules\": [
+               \"version\",
+               \"config\",
+               \"test\",
+               \"install\",
+               \"dist\"
+             ]
+           }
+         ]
+         \
+
+         See the JSON OUTPUT section below for details on the overall
+         properties of this format and the semantics of the \cb{struct}
+         serialization.
+
+         ||
+
+     The build system has the following built-in and pre-defined operations:
+
+     \dl|
+
+     \li|\cb{update}
+
+         Update a target.|
+
+     \li|\cb{clean}
+
+         Clean a target.|
+
+     \li|\cb{test}
+
+         Test a target. Performs \cb{update} as a pre-operation. Implemented by
+         the \cb{test} module.|
+
+     \li|\cb{update-for-test}
+
+         Update a target for testing. This operation is equivalent to the
+         \cb{update} pre-operation as executed by the \cb{test} operation and
+         can be used to only update what is necessary for testing. Implemented
+         by the \cb{test} module.|
+
+     \li|\cb{install}
+
+         Install a target. Performs \cb{update} as a pre-operation. Implemented
+         by the \cb{install} module.|
+
+
+     \li|\cb{uninstall}
+
+         Uninstall a target. Performs \cb{update} as a pre-operation.
+         Implemented by the \cb{install} module.|
+
+     \li|\cb{update-for-install}
+
+         Update a target for installation. This operation is equivalent to the
+         \cb{update} pre-operation as executed by the \cb{install} operation
+         and can be used to only update what is necessary for
+         installation. Implemented by the \cb{install} module.||
+
+     Note that buildspec and command line variable values are treated as
+     \cb{buildfile} fragments and so can use quoting and escaping as well as
+     contain variable expansions and evaluation contexts. However, to be more
+     usable on various platforms, escaping in these two situations is limited
+     to the \i{effective sequences} of \cb{\\'}, \cb{\\\"}, \cb{\\\\},
+     \cb{\\$}, and \cb{\\(} with all other sequences interpreted as is.
+     Together with double-quoting this is sufficient to represent any value.
+     For example:
+
+     \
+     $ b config.install.root=c:\projects\install
+     $ b \"config.install.root='c:\Program Files\test\'\"
+     $ b 'config.cxx.poptions=-DFOO_STR=\"foo\"'
+     \
+     "
+  }
+
+  class bx_options
+  {
+    "\h#options|OPTIONS|"
+
+    uint64_t --build2-metadata; // Leave undocumented/hidden.
+
+    bool -v
+    {
+      "Print actual commands being executed. This options is equivalent to
+       \cb{--verbose 2}."
+    }
+
+    bool -V
+    {
+      "Print all underlying commands being executed. This options is
+       equivalent to \cb{--verbose 3}."
+    }
+
+    bool --quiet|-q
+    {
+      "Run quietly, only printing error messages. This option is equivalent
+       to \cb{--verbose 0}."
+    }
+
+    uint16_t --verbose = 1
+    {
+      "<level>",
+      "Set the diagnostics verbosity to <level> between 0 and 6. Level 0
+       disables any non-error messages while level 6 produces lots of
+       information, with level 1 being the default. The following additional
+       types of diagnostics are produced at each level:
+
+       \ol|
+
+       \li|High-level information messages.|
+
+       \li|Essential underlying commands being executed.|
+
+       \li|All underlying commands being executed.|
+
+       \li|Information that could be helpful to the user.|
+
+       \li|Information that could be helpful to the developer.|
+
+       \li|Even more detailed information.||"
+    }
+
+    bool --diag-color
+    {
+      "Use color in diagnostics. If printing to a terminal the color is used
+       by default provided the terminal is not dumb. Use \cb{--no-diag-color}
+       to suppress."
+    }
+
+    bool --no-diag-color
+    {
+      "Don't use color in diagnostics."
+    }
+
+    string --pager // String to allow empty value.
+    {
+      "<path>",
+      "The pager program to be used to show long text. Commonly used pager
+       programs are \cb{less} and \cb{more}. You can also specify additional
+       options that should be passed to the pager program with
+       \cb{--pager-option}. If an empty string is specified as the pager
+       program, then no pager will be used. If the pager program is not
+       explicitly specified, then \cb{b} will try to use \cb{less}. If it
+       is not available, then no pager will be used."
+    }
+
+    strings --pager-option
+    {
+      "<opt>",
+      "Additional option to be passed to the pager program. See \cb{--pager}
+       for more information on the pager program. Repeat this option to
+       specify multiple pager options."
+    }
+
+    // The following option is "fake" in that it is actually handled by
+    // argv_file_scanner. We have it here for documentation.
+    //
+    string --options-file
+    {
+      "<file>",
+      "Read additional options from <file>. Each option should appear on a
+       separate line optionally followed by space or equal sign (\cb{=}) and
+       an option value. Empty lines and lines starting with \cb{#} are
+       ignored. Option values can be enclosed in double (\cb{\"}) or single
+       (\cb{'}) quotes to preserve leading and trailing whitespaces as well as
+       to specify empty values. If the value itself contains trailing or
+       leading quotes, enclose it with an extra pair of quotes, for example
+       \cb{'\"x\"'}. Non-leading and non-trailing quotes are interpreted as
+       being part of the option value.
+
+       The semantics of providing options in a file is equivalent to providing
+       the same set of options in the same order on the command line at the
+       point where the \cb{--options-file} option is specified except that
+       the shell escaping and quoting is not required. Repeat this option
+       to specify more than one options file."
+    }
+
+    dir_path --default-options
+    {
+      "<dir>",
+      "The directory to load additional default options files from."
+    }
+
+    bool --no-default-options
+    {
+      "Don't load default options files."
+    }
+
+    bool --help {"Print usage information and exit."}
+    bool --version {"Print version and exit."}
+  };
+
+  "
+  \h|DEFAULT OPTIONS FILES|
+
+  Instead of having a separate config file format for tool configuration, the
+  \cb{build2} toolchain uses \i{default options files} which contain the same
+  options as what can be specified on the command line. The default options
+  files are like options files that one can specify with \cb{--options-file}
+  except that they are loaded by default.
+
+  The default options files for the build system driver are called
+  \cb{b.options} and are searched for in the \cb{.build2/} subdirectory of the
+  home directory and in the system directory (for example, \cb{/etc/build2/})
+  if configured. Note that besides options these files can also contain global
+  variable overrides.
+
+  Once the search is complete, the files are loaded in the reverse order, that
+  is, beginning from the system directory (if any), followed by the home
+  directory, and finishing off with the options specified on the command line.
+  In other words, the files are loaded from the more generic to the more
+  specific with the command line options having the ability to override any
+  values specified in the default options files.
+
+  If a default options file contains \cb{--no-default-options}, then the
+  search is stopped at the directory containing this file and no outer files
+  are loaded. If this option is specified on the command line, then none of
+  the default options files are searched for or loaded.
+
+  An additional directory containing default options files can be specified
+  with \cb{--default-options}. Its configuration files are loaded after the
+  home directory.
+
+  The order in which default options files are loaded is traced at the
+  verbosity level 3 (\cb{-V} option) or higher.
+
+  \h|EXIT STATUS|
+
+  Non-zero exit status is returned in case of an error.
+  "
+
+  // NOTE: remember to update --build2-metadata output if adding any relevant
+  //       new environment variables.
+  //
+  "
+  \h|ENVIRONMENT|
+
+  The \cb{HOME} environment variable is used to determine the user's home
+  directory. If it is not set, then \cb{getpwuid(3)} is used instead. This
+  value is used to shorten paths printed in diagnostics by replacing the home
+  directory with \cb{~/}. It is also made available to \cb{buildfile}'s as the
+  \cb{build.home} variable.
+
+  The \cb{BUILD2_VAR_OVR} environment variable is used to propagate global
+  variable overrides to nested build system driver invocations. Its value is a
+  list of global variable assignments separated with newlines.
+
+  The \cb{BUILD2_DEF_OPT} environment variable is used to suppress loading of
+  default options files in nested build system driver invocations. Its values
+  are \cb{false} or \cb{0} to suppress and \cb{true} or \cb{1} to load.
+  "
+}

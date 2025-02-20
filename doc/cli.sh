@@ -28,7 +28,7 @@ done
 
 function compile ()
 {
-  local n=$1; shift
+  local f=$1; shift
 
   # Use a bash array to handle empty arguments.
   #
@@ -48,7 +48,7 @@ function compile ()
 --html-prologue-file man-prologue.xhtml \
 --html-epilogue-file man-epilogue.xhtml \
 --link-regex '%b(#.+)?%build2-build-system-manual.xhtml$1%' \
-../libbuild2/$n.cli
+"$f"
 
   cli -I .. \
 -v project="build2" \
@@ -60,14 +60,15 @@ function compile ()
 --man-prologue-file man-prologue.1 \
 --man-epilogue-file man-epilogue.1 \
 --link-regex '%b(#.+)?%$1%' \
-../libbuild2/$n.cli
+"$f"
 }
 
 o="--output-prefix b-"
 
 # A few special cases.
 #
-compile "b" $o --output-prefix "" --suppress-undocumented
+compile ../libbuild2/b.cli $o --output-prefix "" --suppress-undocumented
+compile ../bx/bx.cli $o --output-prefix "" --suppress-undocumented
 
 pages=""
 

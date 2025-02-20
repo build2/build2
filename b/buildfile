@@ -27,6 +27,7 @@ exe{b}:
   b.name = [string] b
   b.version  = $version
   b.checksum = $version
+  b.environment = [strings] BUILD2_VAR_OVR BUILD2_DEF_OPT
   b.static = ($bin.link_member(exe) == liba)
 }
 

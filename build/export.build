@@ -10,6 +10,15 @@ if ($import.target == exe{b})
 
   export $out_root/b/exe{b}
 }
+elif ($import.target == exe{bx})
+{
+  $out_root/
+  {
+    include bx/
+  }
+
+  export $out_root/bx/exe{bx}
+}
 else
 {
   $out_root/
