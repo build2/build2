@@ -326,7 +326,8 @@ namespace build2
                                 ? optional<unique_ptr<context>> (nullptr)
                                 : nullopt)
   {
-    // NOTE: see also the bare minimum version below if adding anything here.
+    // NOTE: see also the shell and bare minimum versions below if adding
+    // anything here.
 
     tracer trace ("context");
 
@@ -704,6 +705,119 @@ namespace build2
 
       r.insert<mtime_target> (perform_update_id, "build.file", file_rule::instance);
       r.insert<mtime_target> (perform_clean_id,  "build.file", file_rule::instance);
+    }
+
+    // End of initialization.
+    //
+    load_generation = 1;
+  }
+
+  context::
+  context (bool ndb)
+      : data_ (new data (*this)),
+        sched (nullptr),
+        mutexes (nullptr),
+        fcache (nullptr),
+        match_only (nullopt),
+        no_external_modules (true),
+        dry_run_option (false),
+        no_diag_buffer (ndb),
+        keep_going (false),
+        phase_mutex (*this),
+        scopes (data_->scopes),
+        targets (data_->targets),
+        var_pool (data_->var_pool),
+        var_patterns (data_->var_patterns),
+        var_overrides (data_->var_overrides),
+        functions (data_->functions),
+        global_scope (create_global_scope (data_->scopes)),
+        global_target_types (data_->global_target_types),
+        global_override_cache (data_->global_override_cache),
+        global_var_overrides (data_->global_var_overrides),
+        modules_lock (nullptr),
+        module_context (nullptr)
+  {
+    tracer trace ("context");
+
+    variable_pool& vp (data_->var_pool);
+
+    insert_builtin_functions (functions);
+
+    // Setup the global scope (similar/subset of the build case).
+    //
+    scope& gs (global_scope.rw ());
+    {
+      const auto v_g (variable_visibility::global);
+
+      auto set = [&gs, &vp] (const char* var, auto val) -> const value&
+      {
+        using T = decltype (val);
+        value& v (gs.assign (vp.insert<T> (var, variable_visibility::global)));
+        v = move (val);
+        return v;
+      };
+
+      set ("shell.work", work);
+      set ("shell.home", home);
+
+      // Shell process path.
+      //
+      set ("shell.path",
+           process_path (nullptr, // Will be filled by value assignment.
+                         path (argv0.recall_string ()),
+                         path (argv0.effect)));
+
+      // Shell verbosity level.
+      //
+      set ("shell.verbosity", uint64_t (verb));
+
+      // Shell diagnostics color.
+      //
+      // Note that this can be true, false, or NULL if neither requested nor
+      // suppressed explicitly.
+      //
+      {
+        value& v (gs.assign (vp.insert<bool> ("shell.diag_color", v_g)));
+        if (diag_color_option)
+          v = *diag_color_option;
+      }
+
+      // This is the "effective" value that incorporate a suitable default
+      // if neither requested nor suppressed explicitly.
+      //
+      set ("shell.show_diag_color", show_diag_color ());
+
+
+      // @@ TODO: the rest.
+
+      // Shell host triplet.
+      //
+      string orig (BUILD2_HOST_TRIPLET);
+
+      l5 ([&]{trace << "original host: '" << orig << "'";});
+
+      try
+      {
+        target_triplet t (orig);
+
+        l5 ([&]{trace << "canonical host: '" << t.string () << "'; "
+                      << "class: " << t.class_;});
+
+        // Also enter as shell.host.{cpu,vendor,system,version,class} for
+        // convenience of access.
+        //
+        set ("shell.host.cpu",     t.cpu);
+        set ("shell.host.vendor",  t.vendor);
+        set ("shell.host.system",  t.system);
+        set ("shell.host.version", t.version);
+        set ("shell.host.class",   t.class_);
+
+        build_host = &set ("shell.host", move (t)).as<target_triplet> ();
+      }
+      catch (const invalid_argument& e)
+      {
+        fail << "unable to parse shell host '" << orig << "': " << e;
+      }
     }
 
     // End of initialization.

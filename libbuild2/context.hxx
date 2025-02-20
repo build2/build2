@@ -530,29 +530,29 @@ namespace build2
 
     // Note: consider printing in info meta-operation if adding anything here.
     //
-    const variable* var_src_root;
-    const variable* var_out_root;
-    const variable* var_src_base;
-    const variable* var_out_base;
-    const variable* var_forwarded;
+    const variable* var_src_root = nullptr;
+    const variable* var_out_root = nullptr;
+    const variable* var_src_base = nullptr;
+    const variable* var_out_base = nullptr;
+    const variable* var_forwarded = nullptr;
 
-    const variable* var_project;
-    const variable* var_amalgamation;
-    const variable* var_subprojects;
-    const variable* var_version;
+    const variable* var_project = nullptr;
+    const variable* var_amalgamation = nullptr;
+    const variable* var_subprojects = nullptr;
+    const variable* var_version = nullptr;
 
     // project.url
     //
-    const variable* var_project_url;
+    const variable* var_project_url = nullptr;
 
     // project.summary
     //
-    const variable* var_project_summary;
+    const variable* var_project_summary = nullptr;
 
     // import.* and export.*
     //
-    const variable* var_import_build2;
-    const variable* var_import_target;
+    const variable* var_import_build2 = nullptr;
+    const variable* var_import_target = nullptr;
 
     // The import.metadata export stub variable and the --build2-metadata
     // executable option are used to pass the metadata compatibility version.
@@ -581,12 +581,12 @@ namespace build2
     // Note that the same mechanism is used for library user metadata (see
     // cc::pkgconfig_{load,save}() for details).
     //
-    const variable* var_import_metadata;
-    const variable* var_export_metadata;
+    const variable* var_import_metadata = nullptr;
+    const variable* var_export_metadata = nullptr;
 
     // [string] target visibility
     //
-    const variable* var_extension;
+    const variable* var_extension = nullptr;
 
     // This variable can only be specified as prerequisite-specific (see the
     // `include` variable for details).
@@ -601,14 +601,14 @@ namespace build2
     // semantics by default). Note that if unmatch is impossible, then the
     // prerequisite is treated as ad hoc.
     //
-    const variable* var_update;
+    const variable* var_update = nullptr;
 
     // Note that this variable can also be specified as prerequisite-specific
     // (see the `include` variable for details).
     //
     // [bool] target visibility
     //
-    const variable* var_clean;
+    const variable* var_clean = nullptr;
 
     // Forwarded configuration backlink mode. The value has two components
     // in the form:
@@ -656,7 +656,7 @@ namespace build2
     //
     // [names] target visibility
     //
-    const variable* var_backlink;
+    const variable* var_backlink = nullptr;
 
     // Prerequisite inclusion/exclusion. Valid values are:
     //
@@ -697,13 +697,13 @@ namespace build2
     //
     // [string] prereq visibility
     //
-    const variable* var_include;
+    const variable* var_include = nullptr;
 
     // The build.* namespace.
     //
     // .meta_operation
     //
-    const variable* var_build_meta_operation;
+    const variable* var_build_meta_operation = nullptr;
 
     // Known meta-operation and operation tables.
     //
@@ -773,6 +773,8 @@ namespace build2
 
     using var_override_function = void (context&, size_t&);
 
+    // Build context.
+    //
     context (scheduler&,
              global_mutexes&,
              file_cache&,
@@ -786,6 +788,10 @@ namespace build2
              optional<context*> module_context = nullptr,
              const module_libraries_lock* inherited_modules_lock = nullptr,
              const function<var_override_function>& = nullptr);
+
+    // Shell context.
+    //
+    context (bool no_diag_buffer);
 
     // Special context with bare minimum of initializations. It is only
     // guaranteed to be sufficiently initialized to call extract_variable().

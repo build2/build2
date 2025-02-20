@@ -38,6 +38,8 @@ namespace build2
 int build2::
 run_script (bx_options&, path script, cli::argv_file_scanner& args)
 {
+  context ctx (true /* no_diag_buffer */);
+
   text << script;
 
   while (args.more ())
