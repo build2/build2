@@ -1467,8 +1467,6 @@ namespace build2
 
     os << "\033[1mSYNOPSIS\033[0m" << ::std::endl
        << ::std::endl
-       << "\033[1mb --help\033[0m" << ::std::endl
-       << "\033[1mb --version\033[0m" << ::std::endl
        << "\033[1mb\033[0m [\033[4moptions\033[0m] [\033[4mvariables\033[0m] [\033[4mbuildspec\033[0m]\033[0m" << ::std::endl
        << ::std::endl
        << "\033[4mbuildspec\033[0m = \033[4mmeta-operation\033[0m\033[1m(\033[0m\033[4moperation\033[0m\033[1m(\033[0m\033[4mtarget\033[0m...[\033[1m,\033[0m\033[4mparameters\033[0m]\033[1m)\033[0m...\033[1m)\033[0m...\033[0m" << ::std::endl

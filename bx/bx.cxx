@@ -96,6 +96,7 @@ main (int argc, char* argv[])
     // Parse the command line.
     //
     // @@ TODO: need to parse properly.
+    // @@ TODO: BUILD2_VAR_OVR, BUILD2_DEF_OPT
     // @@ TODO: need to handle cli exceptions.
     //
     bx_options ops;

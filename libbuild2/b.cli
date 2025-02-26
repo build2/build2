@@ -16,9 +16,7 @@ namespace build2
 
     "\h|SYNOPSIS|
 
-     \c{\b{b --help}\n
-        \b{b --version}\n
-        \b{b} [<options>] [<variables>] [<buildspec>]}
+     \c{\b{b} [<options>] [<variables>] [<buildspec>]}
 
      \c{<buildspec> = <meta-operation>\b{(}<operation>\b{(}<target>...[\b{,}<parameters>]\b{)}...\b{)}...}
 

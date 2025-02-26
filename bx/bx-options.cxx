@@ -847,21 +847,22 @@ namespace build2
 
     os << "\033[1mSYNOPSIS\033[0m" << ::std::endl
        << ::std::endl
-       << "\033[1mbx --help\033[0m" << ::std::endl
-       << "\033[1mbx --version\033[0m" << ::std::endl
-       << "\033[1mbx\033[0m [\033[4moptions\033[0m] @@\033[0m" << ::std::endl
+       << "\033[1mbx\033[0m [\033[4moptions\033[0m] \033[4mpath\033[0m [\033[4marg\033[0m...]" << ::std::endl
+       << "\033[1mbx\033[0m [\033[4moptions\033[0m] \033[4mtask\033[0m [\033[4marg\033[0m...]" << ::std::endl
+       << "\033[1mbx\033[0m [\033[4moptions\033[0m] [\033[1m--\033[0m \033[4marg\033[0m...]\033[0m" << ::std::endl
        << ::std::endl
        << "\033[1mDESCRIPTION\033[0m" << ::std::endl
        << ::std::endl
-       << "The \033[1mbuild2\033[0m build system driver executes a set of meta-operations on operations" << ::std::endl
-       << "on targets according to the build specification, or \033[4mbuildspec\033[0m for short.  This" << ::std::endl
-       << "process can be controlled by specifying driver \033[4moptions\033[0m and build system" << ::std::endl
-       << "<variables>." << ::std::endl
+       << "The \033[1mbuild2\033[0m shell script and task runner executes a script (first form) or a" << ::std::endl
+       << "task (second and third form) with optional arguments." << ::std::endl
        << ::std::endl
-       << "Note that \033[4moptions\033[0m, <variables>, and <buildspec> fragments can be specified in" << ::std::endl
-       << "any order. To avoid treating an argument that starts with \033[1m'-'\033[0m as an option, add" << ::std::endl
-       << "the \033[1m'--'\033[0m separator. To avoid treating an argument that contains \033[1m'='\033[0m as a" << ::std::endl
-       << "variable, add the second \033[1m'--'\033[0m separator." << ::std::endl;
+       << "The first argument after \033[4moptions\033[0m determines whether it is a shell script path" << ::std::endl
+       << "or a task name. It is considered a script if it contains the directory" << ::std::endl
+       << "separator or the \033[1m.bx\033[0m extension. Otherwise, it is considered a task name. Absent" << ::std::endl
+       << "first argument means the default task. In this case the \033[1m--\033[0m separator must be" << ::std::endl
+       << "used if you wish to pass arguments to the default task." << ::std::endl
+       << ::std::endl
+       << "Note that task running is not yet implemented." << ::std::endl;
 
     p = ::build2::bx_options::print_usage (os, ::build2::build::cli::usage_para::text);
 
@@ -876,10 +877,11 @@ namespace build2
        << "options files that one can specify with \033[1m--options-file\033[0m except that they are" << ::std::endl
        << "loaded by default." << ::std::endl
        << ::std::endl
-       << "The default options files for the build system driver are called \033[1mb.options\033[0m and" << ::std::endl
+       << "The default options files for the build system driver are called \033[1mbx.options\033[0m and" << ::std::endl
        << "are searched for in the \033[1m.build2/\033[0m subdirectory of the home directory and in the" << ::std::endl
        << "system directory (for example, \033[1m/etc/build2/\033[0m) if configured. Note that besides" << ::std::endl
-       << "options these files can also contain global variable overrides." << ::std::endl
+       << "options these files can also contain global variable overrides (@@ only for" << ::std::endl
+       << "task running?)." << ::std::endl
        << ::std::endl
        << "Once the search is complete, the files are loaded in the reverse order, that" << ::std::endl
        << "is, beginning from the system directory (if any), followed by the home" << ::std::endl
@@ -901,7 +903,8 @@ namespace build2
        << ::std::endl
        << "\033[1mEXIT STATUS\033[0m" << ::std::endl
        << ::std::endl
-       << "Non-zero exit status is returned in case of an error." << ::std::endl;
+       << "In case of a script execution, the script exit code is returned. In case of a" << ::std::endl
+       << "task execution, non-zero exit status is returned in case of an error." << ::std::endl;
 
     os << std::endl
        << "\033[1mENVIRONMENT\033[0m" << ::std::endl
@@ -909,15 +912,15 @@ namespace build2
        << "The \033[1mHOME\033[0m environment variable is used to determine the user's home directory." << ::std::endl
        << "If it is not set, then \033[1mgetpwuid(3)\033[0m is used instead. This value is used to" << ::std::endl
        << "shorten paths printed in diagnostics by replacing the home directory with \033[1m~/\033[0m." << ::std::endl
-       << "It is also made available to \033[1mbuildfile\033[0m's as the \033[1mbuild.home\033[0m variable." << ::std::endl
+       << "It is also made available to scripts as the \033[1mshell.home\033[0m variable." << ::std::endl
        << ::std::endl
        << "The \033[1mBUILD2_VAR_OVR\033[0m environment variable is used to propagate global variable" << ::std::endl
-       << "overrides to nested build system driver invocations. Its value is a list of" << ::std::endl
-       << "global variable assignments separated with newlines." << ::std::endl
+       << "overrides to nested runner invocations. Its value is a list of global variable" << ::std::endl
+       << "assignments separated with newlines. (@@ only for task running?)" << ::std::endl
        << ::std::endl
        << "The \033[1mBUILD2_DEF_OPT\033[0m environment variable is used to suppress loading of default" << ::std::endl
-       << "options files in nested build system driver invocations. Its values are \033[1mfalse\033[0m" << ::std::endl
-       << "or \033[1m0\033[0m to suppress and \033[1mtrue\033[0m or \033[1m1\033[0m to load." << ::std::endl;
+       << "options files in nested runner invocations. Its values are \033[1mfalse\033[0m or \033[1m0\033[0m to" << ::std::endl
+       << "suppress and \033[1mtrue\033[0m or \033[1m1\033[0m to load." << ::std::endl;
 
     p = ::build2::build::cli::usage_para::text;
 
