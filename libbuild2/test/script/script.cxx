@@ -75,6 +75,7 @@ namespace build2
                            p != nullptr ? root.work_dir.path : wd_path (),
                            &sd_name),
                          *wd_path (), true /* temp_dir_keep */,
+                         true /* default_cleanup */,
                          redirect (redirect_type::none),
                          redirect (redirect_type::none),
                          redirect (redirect_type::none)),

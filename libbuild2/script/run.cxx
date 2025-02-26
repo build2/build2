@@ -1795,7 +1795,7 @@ namespace build2
                     << " cleanup " << p << " is out of "
                     << diag_path (env.sandbox_dir);
 
-        env.clean ({cl.type, move (np)}, false);
+        env.clean ({cl.type, move (np)}, false /* implicit */);
       }
 
       // If stdin file descriptor is not open then this is the first pipeline
@@ -2363,7 +2363,10 @@ namespace build2
           if ((m & fdopen_mode::at_end) != fdopen_mode::at_end)
           {
             if (rt == redirect_type::file)
-              env.clean ({cleanup_type::always, p}, true);
+            {
+              if (env.default_cleanup)
+                env.clean ({cleanup_type::always, p}, true /* implicit */);
+            }
             else
               env.clean_special (p);
           }
@@ -2883,7 +2886,7 @@ namespace build2
           // false by the parse_option callback if --no-cleanup is
           // encountered.
           //
-          bool enabled = true;
+          bool enabled;
 
           // Whether to register cleanup for a filesystem entry being
           // created/updated depending on its existence. Calculated by the
@@ -2903,7 +2906,7 @@ namespace build2
         optional<cleanup> cln;
 
         if (cleanup_builtin (program))
-          cln = cleanup ();
+          cln = cleanup {env.default_cleanup, false, false};
 
         // We also extend the sleep builtin, deactivating the thread before
         // going to sleep and waking up before the deadline is reached.

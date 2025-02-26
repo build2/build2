@@ -39,6 +39,7 @@ namespace build2
               *t.ctx.build_host,
               dir_name_view (&work, &wd_name),
               temp_dir.path, false /* temp_dir_keep */,
+              true /* default_cleanup */,
               redirect (redirect_type::none),
               redirect (redirect_type::merge, 2),
               redirect (redirect_type::pass)),

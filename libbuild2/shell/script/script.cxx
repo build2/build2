@@ -44,6 +44,7 @@ namespace build2
               *gs.ctx.build_host,
               dir_name_view (&work, &wd_name),
               temp_dir.path, false /* temp_dir_keep */,
+              false /* default_cleanup */,
               redirect (redirect_type::pass),
               redirect (redirect_type::pass),
               redirect (redirect_type::pass)),

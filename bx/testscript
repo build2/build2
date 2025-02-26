@@ -39,6 +39,18 @@
               info: use '($*[NN])' to access elements beyond 9
             EOE
         }
+
+        : assign-special
+        :
+        {
+          cat <<EOI >=test.bx;
+            0 = foo
+            EOI
+
+          $* test.bx 2>>EOE != 0
+            test.bx:1:1: error: attempt to set '0' special variable
+            EOE
+        }
       }
     }
 
@@ -65,5 +77,18 @@
 
       $* test.bx >"bar baz fox"
     }
+  }
+
+  : no-default-cleanups
+  :
+  {
+    cat <<EOI >=test.bx;
+      touch foo
+      echo "" >=bar
+      EOI
+
+    $* test.bx &foo &bar;
+
+    test -f foo && test -f bar
   }
 }
