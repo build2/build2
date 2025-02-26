@@ -745,6 +745,9 @@ namespace build2
 
     // Setup the global scope (similar/subset of the build case).
     //
+    // NOTE: similar to/subset of the build version above, except we use the
+    // shell. rather than build. namespace.
+    //
     scope& gs (global_scope.rw ());
     {
       const auto v_g (variable_visibility::global);
@@ -787,8 +790,34 @@ namespace build2
       //
       set ("shell.show_diag_color", show_diag_color ());
 
+      // Shell version.
+      //
+      const standard_version& v (build_version);
 
-      // @@ TODO: the rest.
+      set ("shell.version", v.string_project ());
+
+      set ("shell.version.number", v.version);
+      set ("shell.version.id",     v.string_project_id ());
+
+      set ("shell.version.major", uint64_t (v.major ()));
+      set ("shell.version.minor", uint64_t (v.minor ()));
+      set ("shell.version.patch", uint64_t (v.patch ()));
+
+      optional<uint16_t> a (v.alpha ());
+      optional<uint16_t> b (v.beta ());
+
+      set ("shell.version.alpha",              a.has_value ());
+      set ("shell.version.beta",               b.has_value ());
+      set ("shell.version.pre_release",        v.pre_release ().has_value ());
+      set ("shell.version.pre_release_string", v.string_pre_release ());
+      set ("shell.version.pre_release_number", uint64_t (a ? *a : b ? *b : 0));
+
+      set ("shell.version.snapshot",        v.snapshot ()); // bool
+      set ("shell.version.snapshot_sn",     v.snapshot_sn); // uint64
+      set ("shell.version.snapshot_id",     v.snapshot_id); // string
+      set ("shell.version.snapshot_string", v.string_snapshot ());
+
+      set ("shell.version.stage", LIBBUILD2_STAGE);
 
       // Shell host triplet.
       //
