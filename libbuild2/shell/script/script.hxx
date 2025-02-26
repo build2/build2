@@ -70,8 +70,9 @@ namespace build2
         // values.
         //
         // @@ Can the script come from a stream, not a file. If yes, what the
-        //    script argument should refer to in this case? Note that for bash
-        //    $0 refers to the bash program path in this case.
+        //    script argument (which is used as the $0 value) should refer to
+        //    in this case? Note that for bash $0 refers to the bash program
+        //    path in this case.
         //
         environment (const scope_type& global_scope,
                      path script,

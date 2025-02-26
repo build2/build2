@@ -479,6 +479,12 @@ namespace build2
       //
       const bool temp_dir_keep;
 
+      // If true, then builtins, redirects (@@ what else?) automatically
+      // register their outputs for cleanup (unless suppressed with the
+      // --no-cleanup option for builtins).
+      //
+      const bool default_cleanup;
+
       // Default process streams redirects.
       //
       // If a stream redirect is not specified on the script command line,
@@ -493,6 +499,7 @@ namespace build2
                    const dir_name_view& wd,
                    const dir_name_view& sd,
                    const dir_path& td, bool tk,
+                   bool dc,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))

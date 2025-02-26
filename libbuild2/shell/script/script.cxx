@@ -48,11 +48,7 @@ namespace build2
               redirect (redirect_type::pass),
               redirect (redirect_type::pass)),
             scope (gs),
-
-            // @@ Is that correct?
-            //
             vars (gs.ctx, false /* shared */), // Note: managed.
-
             cmd_var (var_pool.insert<strings> ("*")),
             cmdN_var {
               &var_pool.insert<path> ("0"),
@@ -194,10 +190,7 @@ namespace build2
               dr << info (ll) << "while parsing attributes '" << attrs << "'";
             });
 
-          // @@ Is that correct?
-          //
           parser p (scope.ctx);
-
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),
@@ -210,7 +203,7 @@ namespace build2
       void environment::
       sleep (const duration& d)
       {
-        // @@ Is that correct?
+        // Let's use scheduler if present in case this is run as a recipe.
         //
         if (scope.ctx.sched == nullptr)
         {
