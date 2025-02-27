@@ -214,7 +214,7 @@ namespace build2
 
       // Return nullopt if the execution was not terminated by the exit
       // exception. Otherwise, return the exit code specified in this
-      // exception. Optionally, throw the failed exception on the non-zero
+      // exception (which can be 0). Optionally, throw failed on the non-zero
       // exit code instead of returning it.
       //
       // Note that if a parser implementation doesn't pre-enter variables into
