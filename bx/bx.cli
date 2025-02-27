@@ -221,11 +221,6 @@ namespace build2
   directory with \cb{~/}. It is also made available to scripts as the
   \cb{shell.home} variable.
 
-  The \cb{BUILD2_VAR_OVR} environment variable is used to propagate global
-  variable overrides to nested runner invocations. Its value is a list of
-  global variable assignments separated with newlines. (@@ only for task
-  running?)
-
   The \cb{BUILD2_DEF_OPT} environment variable is used to suppress loading of
   default options files in nested runner invocations. Its values are
   \cb{false} or \cb{0} to suppress and \cb{true} or \cb{1} to load.

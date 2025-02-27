@@ -101,7 +101,7 @@ main (int argc, char* argv[])
     // Parse the command line.
     //
     // @@ TODO: need to parse properly.
-    // @@ TODO: BUILD2_VAR_OVR, BUILD2_DEF_OPT
+    // @@ TODO: BUILD2_DEF_OPT
     // @@ TODO: need to handle cli exceptions.
     //
     bx_options ops;
@@ -125,7 +125,7 @@ main (int argc, char* argv[])
         << "bx.name = [string] bx" << endl
         << "bx.version = [string] '" << LIBBUILD2_VERSION_FULL << '\'' << endl
         << "bx.checksum = [string] '" << LIBBUILD2_VERSION_FULL << '\'' << endl
-        << "bx.environment = [strings]" << endl;
+        << "bx.environment = [strings] BUILD2_DEF_OPT" << endl;
 
       return 0;
     }
