@@ -2196,13 +2196,14 @@ namespace build2
       return r;
     }
 
-    bool parser::
+    optional<uint8_t> parser::
     exec_lines (lines::const_iterator i, lines::const_iterator e,
                 const function<exec_set_function>& exec_set,
                 const function<exec_cmd_function>& exec_cmd,
                 const function<exec_cond_function>& exec_cond,
                 const function<exec_for_function>& exec_for,
                 const iteration_index* ii, size_t& li,
+                bool throw_on_failure,
                 variable_pool* var_pool)
     {
       try
@@ -2373,11 +2374,15 @@ namespace build2
                 //
                 lines::const_iterator j (fcend (i, false, false));
 
-                if (!exec_lines (i + 1, j,
-                                 exec_set, exec_cmd, exec_cond, exec_for,
-                                 ii, li,
-                                 var_pool))
-                  return false;
+                if (optional<uint8_t> ec =
+                    exec_lines (i + 1, j,
+                                exec_set, exec_cmd, exec_cond, exec_for,
+                                ii, li,
+                                throw_on_failure,
+                                var_pool))
+                {
+                  return ec;
+                }
 
                 // Find construct end.
                 //
@@ -2425,11 +2430,15 @@ namespace build2
                   if (we == e)
                     we = fcend (i, true, false);
 
-                  if (!exec_lines (i + 1, we,
-                                   exec_set, exec_cmd, exec_cond, exec_for,
-                                   &wi, li,
-                                   var_pool))
-                    return false;
+                  if (optional<uint8_t> ec =
+                      exec_lines (i + 1, we,
+                                  exec_set, exec_cmd, exec_cond, exec_for,
+                                  &wi, li,
+                                  throw_on_failure,
+                                  var_pool))
+                  {
+                    return ec;
+                  }
 
                   // Prepare for the condition reevaluation.
                   //
@@ -2468,12 +2477,14 @@ namespace build2
                 lines::const_iterator e;
                 const iteration_index* ii;
                 size_t& li;
+                bool throw_on_failure;
                 variable_pool* var_pool;
                 decltype (fcend)& fce;
                 lines::const_iterator& fe;
               } ld {exec_set, exec_cmd, exec_cond, exec_for,
                     i, e,
                     ii, li,
+                    throw_on_failure,
                     var_pool,
                     fcend,
                     fe};
@@ -2580,15 +2591,17 @@ namespace build2
                         if (ld.fe == ld.e)
                           ld.fe = ld.fce (ld.i, true, false);
 
-                        if (!exec_lines (ld.i + 1, ld.fe,
-                                         ld.exec_set,
-                                         ld.exec_cmd,
-                                         ld.exec_cond,
-                                         ld.exec_for,
-                                         &d.fi, ld.li,
-                                         ld.var_pool))
+                        if (optional<uint8_t> ec =
+                            exec_lines (ld.i + 1, ld.fe,
+                                        ld.exec_set,
+                                        ld.exec_cmd,
+                                        ld.exec_cond,
+                                        ld.exec_for,
+                                        &d.fi, ld.li,
+                                        ld.throw_on_failure,
+                                        ld.var_pool))
                         {
-                          throw exit (true);
+                          throw exit (*ec);
                         }
 
                         d.fi.index++;
@@ -2714,16 +2727,19 @@ namespace build2
                   lines::const_iterator e;
                   const location& ll;
                   size_t& li;
+                  optional<uint8_t> exit_code;
+                  bool throw_on_failure;
                   variable_pool* var_pool;
-                  const variable&  var;
+                  const variable& var;
                   const attributes& val_attrs;
                   decltype (fcend)& fce;
                   lines::const_iterator& fe;
                   iteration_index& fi;
-
                 } ld {exec_set, exec_cmd, exec_cond, exec_for,
                       i, e,
                       ll, li,
+                      nullopt /* exit_code */,
+                      throw_on_failure,
                       var_pool, *var, val_attrs,
                       fcend, fe, fi};
 
@@ -2737,12 +2753,17 @@ namespace build2
                   if (ld.fe == ld.e)
                     ld.fe = ld.fce (ld.i, true, false);
 
-                  if (!exec_lines (
+                  if (optional<uint8_t> ec =
+                      exec_lines (
                         ld.i + 1, ld.fe,
                         ld.exec_set, ld.exec_cmd, ld.exec_cond, ld.exec_for,
                         &ld.fi, ld.li,
+                        ld.throw_on_failure,
                         ld.var_pool))
+                  {
+                    ld.exit_code = *ec;
                     return false;
+                  }
 
                   ld.fi.index++;
                   return true;
@@ -2770,14 +2791,22 @@ namespace build2
                       typify (v, *etype, var);
 
                     if (!iteration (move (v), first))
-                      return false;
+                    {
+                      assert (ld.exit_code); // Wouldn't be here otherwise.
+                      return *ld.exit_code;
+                    }
                   }
                 }
                 else
                 {
                   if (!iterate (val, iteration))
-                    return false;
+                  {
+                    assert (ld.exit_code); // Wouldn't be here otherwise.
+                    return *ld.exit_code;
+                  }
                 }
+
+                assert (!ld.exit_code); // Wouldn't be here otherwise.
               }
 
               // Position to construct end.
@@ -2794,18 +2823,19 @@ namespace build2
           }
         }
 
-        return true;
+        return nullopt;
       }
       catch (const exit& e)
       {
-        // Bail out if the script is exited with the failure status. Otherwise
-        // exit the lines execution normally.
+        // Bail out if the script is exited with a non-zero code and we are in
+        // the throw-on-failure mode. Otherwise exit the lines execution
+        // normally.
         //
-        if (!e.status)
+        if (!e && throw_on_failure)
           throw failed ();
 
         replay_stop ();
-        return false;
+        return e.code;
       }
     }
 

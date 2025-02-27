@@ -547,19 +547,17 @@ namespace build2
           apply_value_attributes (&var, lhs, move (val), type::assign);
         };
 
-        build2::script::parser::exec_lines (
-          s.body.begin (), s.body.end (),
-          exec_set, exec_cmd, exec_cond, exec_for,
-          nullptr /* iteration_index */,
-          environment_->exec_line,
-          &environment_->var_pool);
+        optional<uint8_t> ec (
+          exec_lines (
+            s.body.begin (), s.body.end (),
+            exec_set, exec_cmd, exec_cond, exec_for,
+            nullptr /* iteration_index */,
+            environment_->exec_line,
+            false /* throw_on_failure */,
+            &environment_->var_pool));
 
         runner_->leave (e, s.end_loc);
-
-        // @@ Return value passed to the exit builtin? Still need to implement
-        //    the ability to pass an exit code to the exit builtin.
-        //
-        return 0;
+        return ec ? *ec : 0;
       }
 
       // When add a special variable don't forget to update lexer::word() and

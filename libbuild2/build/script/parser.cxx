@@ -1632,6 +1632,7 @@ namespace build2
           exec_set, exec_cmd, exec_cond, exec_for,
           nullptr /* iteration_index */,
           environment_->exec_line,
+          true /* throw_on_failure */,
           &environment_->var_pool);
       }
 

@@ -14,16 +14,23 @@ namespace build2
   namespace script
   {
     // An exception that can be thrown by an expression running function to
-    // exit the script (for example, as a result of executing the exit builtin
-    // by the below run*() functions). The status indicates whether the
-    // execution should be considered to have succeeded or failed.
+    // exit the script with the specified exit code (for example, as a result
+    // of executing the exit builtin by the below run*() functions).
     //
     struct exit
     {
-      bool status;
+      // Note that we use the 0-255 range as the lowest common denominator
+      // across the supported platforms (see command_exit for details).
+      //
+      uint8_t code;
 
       explicit
-      exit (bool s): status (s) {}
+      exit (uint8_t c): code (c) {}
+
+      // Indicate whether the execution should be considered to have succeeded
+      // or failed.
+      //
+      explicit operator bool () const {return code == 0;}
     };
 
     // Helpers.
