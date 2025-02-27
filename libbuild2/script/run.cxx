@@ -954,21 +954,8 @@ namespace build2
       if (i != e)
       {
         const string& s (*i);
-        bool ec (!s.empty ());
 
-        if (ec)
-        {
-          for (char c: s)
-          {
-            if (!digit (c))
-            {
-              ec = false;
-              break;
-            }
-          }
-        }
-
-        if (ec)
+        if (!s.empty () && s.find_first_not_of ("0123456789") == string::npos)
         {
           unsigned long c (256);
 

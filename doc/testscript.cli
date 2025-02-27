@@ -2813,8 +2813,8 @@ the outer scopes unsuccessfully, as if the \c{exit} command failed. In this
 case the diagnostics string describing the error can be specified as a second
 argument. It will be printed with the \c{error:\ } prefix to \c{stderr}.
 
-If no exit code is specified, then, assume exit code 1 if the diagnostics
-string is specified and 0 otherwise.
+If no exit code is specified, then assume exit code 1, if the diagnostics
+string is specified, and 0 otherwise.
 
 The exit code must be in the 0-255 range.
 
