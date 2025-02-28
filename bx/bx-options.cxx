@@ -877,18 +877,21 @@ namespace build2
        << "options files that one can specify with \033[1m--options-file\033[0m except that they are" << ::std::endl
        << "loaded by default." << ::std::endl
        << ::std::endl
-       << "The default options files for the build system driver are called \033[1mbx.options\033[0m and" << ::std::endl
-       << "are searched for in the \033[1m.build2/\033[0m subdirectory of the home directory and in the" << ::std::endl
-       << "system directory (for example, \033[1m/etc/build2/\033[0m) if configured. Note that besides" << ::std::endl
-       << "options these files can also contain global variable overrides (@@ only for" << ::std::endl
-       << "task running?)." << ::std::endl
+       << "The default options files for the \033[1mbx\033[0m executable are called \033[1mbx.options\033[0m," << ::std::endl
+       << "\033[1mbx-script.options\033[0m (shell script runner only), and \033[1mbx-task.options\033[0m (task runner" << ::std::endl
+       << "only) and are searched for in the \033[1m.build2/\033[0m subdirectory of the home directory" << ::std::endl
+       << "and in the system directory (for example, \033[1m/etc/build2/\033[0m) if configured. Note" << ::std::endl
+       << "that besides options these files can also contain global variable overrides (@@" << ::std::endl
+       << "only for task running?)." << ::std::endl
        << ::std::endl
        << "Once the search is complete, the files are loaded in the reverse order, that" << ::std::endl
        << "is, beginning from the system directory (if any), followed by the home" << ::std::endl
-       << "directory, and finishing off with the options specified on the command line. In" << ::std::endl
-       << "other words, the files are loaded from the more generic to the more specific" << ::std::endl
-       << "with the command line options having the ability to override any values" << ::std::endl
-       << "specified in the default options files." << ::std::endl
+       << "directory, and finishing off with the options specified on the command line." << ::std::endl
+       << "For each directory the found files are loaded in the following order:" << ::std::endl
+       << "\033[1mbx.options\033[0m and \033[1mbx-script.options\033[0m for the shell script runner or" << ::std::endl
+       << "\033[1mbx-task.options\033[0m for the task runner. In other words, the files are loaded from" << ::std::endl
+       << "the more generic to the more specific with the command line options having the" << ::std::endl
+       << "ability to override any values specified in the default options files." << ::std::endl
        << ::std::endl
        << "If a default options file contains \033[1m--no-default-options\033[0m, then the search is" << ::std::endl
        << "stopped at the directory containing this file and no outer files are loaded. If" << ::std::endl
@@ -913,10 +916,6 @@ namespace build2
        << "If it is not set, then \033[1mgetpwuid(3)\033[0m is used instead. This value is used to" << ::std::endl
        << "shorten paths printed in diagnostics by replacing the home directory with \033[1m~/\033[0m." << ::std::endl
        << "It is also made available to scripts as the \033[1mshell.home\033[0m variable." << ::std::endl
-       << ::std::endl
-       << "The \033[1mBUILD2_VAR_OVR\033[0m environment variable is used to propagate global variable" << ::std::endl
-       << "overrides to nested runner invocations. Its value is a list of global variable" << ::std::endl
-       << "assignments separated with newlines. (@@ only for task running?)" << ::std::endl
        << ::std::endl
        << "The \033[1mBUILD2_DEF_OPT\033[0m environment variable is used to suppress loading of default" << ::std::endl
        << "options files in nested runner invocations. Its values are \033[1mfalse\033[0m or \033[1m0\033[0m to" << ::std::endl

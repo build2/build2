@@ -399,3 +399,25 @@
     }
   }
 }
+
+: task
+:
+{
+  : named
+  :
+  {
+    $* foo bar 2>'error: task running not yet implemented' != 0
+  }
+
+  : default
+  :
+  {
+    $* 2>'error: task running not yet implemented' != 0
+  }
+
+  : default-args
+  :
+  {
+    $* -- foo 2>'error: task running not yet implemented' != 0
+  }
+}
