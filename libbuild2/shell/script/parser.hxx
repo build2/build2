@@ -23,7 +23,7 @@ namespace build2
     {
       class runner;
 
-      class parser: public build2::script::parser
+      class LIBBUILD2_SYMEXPORT parser: public build2::script::parser
       {
         // Pre-parse. Issue diagnostics and throw failed in case of an error.
         //

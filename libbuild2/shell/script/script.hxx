@@ -61,7 +61,7 @@ namespace build2
         path_name_value path;
       };
 
-      class environment: public build2::script::environment
+      class LIBBUILD2_SYMEXPORT environment: public build2::script::environment
       {
       public:
         using scope_type = build2::scope;
