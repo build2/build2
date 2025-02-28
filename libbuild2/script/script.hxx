@@ -156,7 +156,7 @@ namespace build2
       append
     };
 
-    struct redirect
+    struct LIBBUILD2_SYMEXPORT redirect
     {
       redirect_type type;
 
@@ -437,7 +437,7 @@ namespace build2
 
     // Script execution environment.
     //
-    class environment
+    class LIBBUILD2_SYMEXPORT environment
     {
     public:
       // Execution context.

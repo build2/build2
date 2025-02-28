@@ -17,7 +17,7 @@ namespace build2
 
     namespace script
     {
-      class runner
+      class LIBBUILD2_SYMEXPORT runner
       {
       public:
         // Location is the script start location (for diagnostics, etc).
@@ -60,7 +60,7 @@ namespace build2
       // control construct conditions or execute the set or exit builtins, but
       // print them at verbosity level 2 and up.
       //
-      class default_runner: public runner
+      class LIBBUILD2_SYMEXPORT default_runner: public runner
       {
       public:
         virtual void
