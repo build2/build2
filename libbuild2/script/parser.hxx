@@ -22,7 +22,7 @@ namespace build2
     class  lexer;
     struct lexer_mode;
 
-    class parser: protected build2::parser
+    class LIBBUILD2_SYMEXPORT parser: protected build2::parser
     {
     public:
       explicit

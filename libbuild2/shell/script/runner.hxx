@@ -17,7 +17,7 @@ namespace build2
 
     namespace script
     {
-      class runner
+      class LIBBUILD2_SYMEXPORT runner
       {
       public:
         // Location is the script start location (for diagnostics, etc).
