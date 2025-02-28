@@ -42,8 +42,8 @@ namespace build2
                  istream& is, const path_name& pn, uint64_t line)
       {
         script s;
-        s.path = path_name_value (pn);
-        path_ = &s.path;
+
+        path_ = &*s.paths_.insert (path_name_value (pn)).first;
 
         pre_parse_ = true;
 

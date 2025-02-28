@@ -33,6 +33,8 @@ namespace build2
       using build2::script::pipe_command;
       using build2::script::command_function;
 
+      class parser; // Required by VC for 'friend class parser' declaration.
+
       // Notes:
       //
       // - Once parsed, the script can be executed in multiple threads with
@@ -58,7 +60,36 @@ namespace build2
         location start_loc;
         location end_loc;
 
-        path_name_value path;
+        script () = default;
+
+        // Move-constructible but not move-assignable.
+        //
+        script (script&&) = default;
+        script& operator= (script&&) = delete;
+
+        script (const script&) = delete;
+        script& operator= (const script&) = delete;
+
+        // Pre-parse data.
+        //
+      private:
+        friend class parser;
+
+        // Shellscript file path names. Specifically, replay_token::file and
+        // *_loc members point to these path names.
+        //
+        // Note: the pointers are stable since point to values in std::set.
+        //
+        struct compare_path_name_values
+        {
+          bool operator() (const path_name_value& x,
+                           const path_name_value& y) const
+          {
+            return x.path < y.path || (x.path == y.path && x.name < y.name);
+          }
+        };
+
+        set<path_name_value, compare_path_name_values> paths_;
       };
 
       class LIBBUILD2_SYMEXPORT environment: public build2::script::environment
