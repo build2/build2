@@ -1,6 +1,8 @@
 # file      : bx/testscript
 # license   : MIT; see accompanying LICENSE file
 
+test.options += --no-default-options
+
 : script
 :
 {
