@@ -58,7 +58,17 @@ namespace build2
         location start_loc;
         location end_loc;
 
-        path_name_value path;
+        unique_ptr<path_name_value> path;
+
+        script () = default;
+
+        // Movable-only type.
+        //
+        script (script&&) = default;
+        script& operator= (script&&) = default;
+
+        script (const script&) = delete;
+        script& operator= (const script&) = delete;
       };
 
       class LIBBUILD2_SYMEXPORT environment: public build2::script::environment
