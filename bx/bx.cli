@@ -178,18 +178,23 @@ namespace build2
   files are like options files that one can specify with \cb{--options-file}
   except that they are loaded by default.
 
-  The default options files for the build system driver are called
-  \cb{bx.options} and are searched for in the \cb{.build2/} subdirectory of
-  the home directory and in the system directory (for example,
-  \cb{/etc/build2/}) if configured. Note that besides options these files can
-  also contain global variable overrides (@@ only for task running?).
+  The default options files for the \cb{bx} executable are called
+  \cb{bx.options}, \cb{bx-script.options} (shell script runner only), and
+  \cb{bx-task.options} (task runner only) and are searched for in the
+  \cb{.build2/} subdirectory of the home directory and in the system directory
+  (for example, \cb{/etc/build2/}) if configured. Note that besides options
+  these files can also contain global variable overrides (@@ only for task
+  running?).
 
   Once the search is complete, the files are loaded in the reverse order, that
   is, beginning from the system directory (if any), followed by the home
   directory, and finishing off with the options specified on the command line.
-  In other words, the files are loaded from the more generic to the more
-  specific with the command line options having the ability to override any
-  values specified in the default options files.
+  For each directory the found files are loaded in the following order:
+  \cb{bx.options} and \cb{bx-script.options} for the shell script runner or
+  \cb{bx-task.options} for the task runner. In other words, the files are
+  loaded from the more generic to the more specific with the command line
+  options having the ability to override any values specified in the default
+  options files.
 
   If a default options file contains \cb{--no-default-options}, then the
   search is stopped at the directory containing this file and no outer files
