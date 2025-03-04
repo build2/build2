@@ -50,7 +50,7 @@ exe{bx}:
   bx.name = [string] bx
   bx.version  = $version
   bx.checksum = $version
-  #bx.environment = [strings] @@
+  bx.environment = [strings] BUILD2_DEF_OPT
 }
 
 # Build options.

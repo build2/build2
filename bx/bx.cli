@@ -28,7 +28,8 @@ namespace build2
      the directory separator or the \cb{.bx} extension. Otherwise, it is
      considered a task name. Absent first argument means the default task.
      In this case the \cb{--} separator must be used if you wish to pass
-     arguments to the default task.
+     arguments to the default task. Note that neither the script path nor
+     task name can start with \cb{-}.
 
      Note that task running is not yet implemented."
   }
@@ -178,16 +179,19 @@ namespace build2
   files are like options files that one can specify with \cb{--options-file}
   except that they are loaded by default.
 
-  The default options files for the build system driver are called
-  \cb{bx.options} and are searched for in the \cb{.build2/} subdirectory of
-  the home directory and in the system directory (for example,
-  \cb{/etc/build2/}) if configured. Note that besides options these files can
+  The default options files for \cb{bx} are called \cb{bx.options},
+  \cb{bx-script.options} (shell script only), and \cb{bx-task.options} (task
+  only) and are searched for in the \cb{.build2/} subdirectory of the home
+  directory and in the system directory (for example, \cb{/etc/build2/}) if
+  configured. Note that besides options the \cb{bx-task.options} file can
   also contain global variable overrides (@@ only for task running?).
 
   Once the search is complete, the files are loaded in the reverse order, that
   is, beginning from the system directory (if any), followed by the home
   directory, and finishing off with the options specified on the command line.
-  In other words, the files are loaded from the more generic to the more
+  For each directory \cb{bx.options}, if found, is loaded first, followed by
+  \cb{bx-script.options} for a shell script and \cb{bx-task.options} for a
+  task. In other words, the files are loaded from the more generic to the more
   specific with the command line options having the ability to override any
   values specified in the default options files.
 
@@ -220,11 +224,6 @@ namespace build2
   value is used to shorten paths printed in diagnostics by replacing the home
   directory with \cb{~/}. It is also made available to scripts as the
   \cb{shell.home} variable.
-
-  The \cb{BUILD2_VAR_OVR} environment variable is used to propagate global
-  variable overrides to nested runner invocations. Its value is a list of
-  global variable assignments separated with newlines. (@@ only for task
-  running?)
 
   The \cb{BUILD2_DEF_OPT} environment variable is used to suppress loading of
   default options files in nested runner invocations. Its values are

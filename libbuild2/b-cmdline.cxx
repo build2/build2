@@ -457,7 +457,6 @@ namespace build2
     r.mtime_check = (ops.mtime_check ()    ? optional<bool> (true)  :
                      ops.no_mtime_check () ? optional<bool> (false) : nullopt);
 
-
     r.config_sub = (ops.config_sub_specified ()
                     ? optional<path> (ops.config_sub ())
                     : nullopt);
