@@ -33,10 +33,11 @@ namespace build2
 
         if (!td.empty ())
         {
-          // @@ If we add support for $~ variable, then copy the semantics
-          //    description from buildscript. Also, maybe we should just allow
-          //    the script to leave the temporary files and just remove the
-          //    temporary directory recursively here?
+          // @@ If we add support for the temporary directory special
+          //    variable, then copy the semantics description from
+          //    buildscript. Also, maybe we should just allow the script to
+          //    leave the temporary files and just remove the temporary
+          //    directory recursively here?
           //
           // Note that since the temporary directory may only contain special
           // files that are created and registered for cleanup by the script

@@ -130,6 +130,7 @@ namespace build2
 
         const variable& cmd_var;      // $*
         const variable* cmdN_var[10]; // $N
+        const variable& wd_var;       // $~
 
         // Temporary directory for the script run.
         //
@@ -138,7 +139,7 @@ namespace build2
         // we may invent an option that suppresses the removal of temporary
         // files in general.
         //
-        // @@ This directory is available to the user via the $~ special
+        // @@ This directory is available to the user via the ??? special
         //    variable. Note, however, that the following filesystem entry
         //    prefixes are reserved:
         //
@@ -194,8 +195,8 @@ namespace build2
         lookup_type
         lookup (const variable&) const;
 
-        // @@ May add $~ special variable on demand. Make it non-const if/when
-        //    $~ support is added.
+        // @@ May add the temporary directory special variable on demand. Make
+        //    it non-const if/when support for this variable is added.
         //
         lookup_type
         lookup (const string&) const;

@@ -28,20 +28,7 @@ test.arguments = variable
 : temporary-dir
 :
 {
-  : only
-  :
-  $* <"~" >>EOO
-  '~'
-  <newline>
-  EOO
-
-  : followed
-  :
-  $* <"~123" >>EOO
-  '~'
-  '123'
-  <newline>
-  EOO
+  # @@ TODO
 }
 #\
 
@@ -69,4 +56,23 @@ test.arguments = variable
   <stdin>:1:2: error: multi-digit special variable name
     info: use '($*[NN])' to access elements beyond 9
   EOE
+}
+
+: working-dir
+:
+{
+  : only
+  :
+  $* <"~" >>EOO
+  '~'
+  <newline>
+  EOO
+
+  : followed
+  :
+  $* <"~123" >>EOO
+  '~'
+  '123'
+  <newline>
+  EOO
 }

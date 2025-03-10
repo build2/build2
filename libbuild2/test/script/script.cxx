@@ -236,7 +236,7 @@ namespace build2
                                       false /* success */))
       {
         // Set the script working dir ($~) to $out_base/test/<id> (id_path
-        // for root is just the id which is empty if st is 'testscript').
+        // for root is just the id which is empty if it is 'testscript').
         //
         const_cast<dir_path&> (*work_dir.path) =
           dir_path (rwd) /= id_path.string ();

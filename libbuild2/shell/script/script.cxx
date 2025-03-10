@@ -33,6 +33,12 @@ namespace build2
       //
       static const optional<string> wd_name ("current directory");
 
+      // Note that if/when we add support for changing the working directory
+      // during the script execution, then, similar to the Testscript, the
+      // environment::work_dir member should refer to the $~ variable's map
+      // entry and the thread-specific current directory override should be
+      // used.
+      //
       environment::
       environment (const scope_type& gs,
                    path p,
@@ -62,9 +68,10 @@ namespace build2
               &var_pool.insert<string> ("7"),
               &var_pool.insert<string> ("8"),
               &var_pool.insert<string> ("9")},
+            wd_var (var_pool.insert<dir_path> ("~")),
             script_deadline (to_deadline (dl, false /* success */))
       {
-        // Set the special $* and $N variables.
+        // Set the special $*, $N, and $~ variables.
         //
         // First assemble the $* value.
         //
@@ -97,6 +104,10 @@ namespace build2
         // Set $*.
         //
         assign (cmd_var) = move (s);
+
+        // Set $~.
+        //
+        assign (wd_var) = work;
       }
 
       void environment::
@@ -241,12 +252,12 @@ namespace build2
         //
         const variable* pvar (var_pool.find (name));
 
-        // @@ If the not found (private) variable is "~", then create the
-        //    temporary directory and assign its path to the newly created
-        //    variable.
+        // @@ If the not found (private) variable is the temporary directory
+        //    special variable, then create the temporary directory and assign
+        //    its path to the newly created variable.
         //
 #if 0
-        if (pvar == nullptr && name == "~")
+        if (pvar == nullptr && name == "???")
         {
           // Note that the temporary directory could have been created
           // implicitly by the runner.

@@ -20,11 +20,13 @@ test.options += --no-default-options
         cat <<EOI >=test.bx;
           echo $*
           echo $0 $1 $2 $3 $4 $5 $6 $7 $8 $9 ($*[10])
+          echo $~
           EOI
 
-        $* a b c d e f g h i j >>EOO
+        $* a b c d e f g h i j >>~%EOO%
           test.bx a b c d e f g h i j
           test.bx a b c d e f g h i j
+          %.+[/\\]success[/\\]%
           EOO
       }
 

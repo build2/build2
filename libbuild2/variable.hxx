@@ -362,7 +362,7 @@ namespace build2
     bool
     empty () const;
 
-    // Creation. A default-initialzied value is NULL and can be reset back to
+    // Creation. A default-initialized value is NULL and can be reset back to
     // NULL by assigning nullptr. Values can be copied and copy-assigned. Note
     // that for assignment, the values' types should be the same or LHS should
     // be untyped.

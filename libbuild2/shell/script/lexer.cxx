@@ -90,16 +90,16 @@ namespace build2
           }
         default:
           {
-            // Recognize special variable names ($*, $N). See also an extra
-            // check in word() below.
+            // Recognize special variable names ($*, $N, $~). See also an
+            // extra check in word() below.
             //
-            // @@ Do we also need to add support for $~ to refer to the
-            //    temporary directory path?
+            // @@ Do we also need to add support for the temporary directory
+            //    special variable?
             //
             if (m == lexer_mode::variable)
             {
               assert (data == 0);
-              data = reinterpret_cast<uintptr_t> ("*0123456789");
+              data = reinterpret_cast<uintptr_t> ("*0123456789~");
             }
 
             base_lexer::mode (m, ps, esc, data);

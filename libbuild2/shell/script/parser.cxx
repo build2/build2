@@ -179,9 +179,12 @@ namespace build2
             //
             string& n (t.value);
 
+            // @@ If we add support for the temporary directory special
+            //    variable, then check for it here as well.
+            //
             if (tt == type::word && t.qtype == quote_type::unquoted &&
                 (n[0] == '_' || alpha (n[0]) || // Variable.
-                 n == "*" /* || n == "~" */))   // Special variable.
+                 n == "*"    || n == "~"))      // Special variable.
             {
               // Detect patterns analogous to parse_variable_name() (so we
               // diagnose `for x[string]: ...`).
@@ -563,10 +566,13 @@ namespace build2
       // When add a special variable don't forget to update lexer::word() and
       // for-loop parsing in pre_parse_line().
       //
+      // @@ If we add support for the temporary directory special variable,
+      //    then check for it here as well.
+      //
       bool parser::
       special_variable (const string& n) noexcept
       {
-        return n == "*" || (n.size () == 1 && digit (n[0])) /*|| n == "~"*/;
+        return n == "*" || (n.size () == 1 && digit (n[0])) || n == "~";
       }
 
       lookup parser::
