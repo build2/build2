@@ -6873,15 +6873,26 @@ namespace build2
                    << rhs.type->name;
     }
 
+    // Treat NULL the same as empty (for types that have a notion of empty
+    // value). This makes sure that comparison of undefined and null values
+    // to empty works intuitively. Specifically, without this relaxation
+    // the following two tests produce different results:
+    //
+    // x = [string, null]
+    // if ($x == '')
+    // if $empty($x)
+    //
+    int c (compare (lhs, rhs, true /* null_equal_empty */));
+
     bool r;
     switch (op)
     {
-    case type::equal:         r = lhs == rhs; break;
-    case type::not_equal:     r = lhs != rhs; break;
-    case type::less:          r = lhs <  rhs; break;
-    case type::less_equal:    r = lhs <= rhs; break;
-    case type::greater:       r = lhs >  rhs; break;
-    case type::greater_equal: r = lhs >= rhs; break;
+    case type::equal:         r = c == 0; break;
+    case type::not_equal:     r = c != 0; break;
+    case type::less:          r = c <  0; break;
+    case type::less_equal:    r = c <= 0; break;
+    case type::greater:       r = c >  0; break;
+    case type::greater_equal: r = c >= 0; break;
     default:                  r = false;      assert (false);
     }
     return r;

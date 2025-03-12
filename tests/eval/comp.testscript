@@ -44,3 +44,16 @@ $* <'print (foo == bar == false)' >'true'
   <stdin>:1:20: error: comparison between uint64 and string
   EOE
 }
+
+: null-equal-empty
+:
+$* <<EOI >>EOO
+x = [string, null]
+print ($x == [null])
+print ($x == '')
+print ($y == ) # Undefined/untyped.
+EOI
+true
+true
+true
+EOO

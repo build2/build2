@@ -101,9 +101,12 @@ namespace build2
     //
     int (*const compare) (const value&, const value&);
 
-    // If NULL, then the value is never empty.
+    // If NULL, then the type has no notion of empty.
     //
-    // Note that this is "semantically empty", not necessarily
+    // Note that if not NULL, then it's assumed the empty value is less than
+    // any non-empty.
+    //
+    // Note also that this is "semantically empty", not necessarily
     // "representationally empty". For example, an empty JSON array is
     // semantically empty but its representation (`[]`) is not.
     //
@@ -483,12 +486,18 @@ namespace build2
   // values can also be untyped. NULL values compare equal and a NULL value
   // is always less than a non-NULL.
   //
-  LIBBUILD2_SYMEXPORT bool operator== (const value&, const value&);
-                      bool operator!= (const value&, const value&);
-  LIBBUILD2_SYMEXPORT bool operator<  (const value&, const value&);
-                      bool operator<= (const value&, const value&);
-  LIBBUILD2_SYMEXPORT bool operator>  (const value&, const value&);
-                      bool operator>= (const value&, const value&);
+  bool operator== (const value&, const value&);
+  bool operator!= (const value&, const value&);
+  bool operator<  (const value&, const value&);
+  bool operator<= (const value&, const value&);
+  bool operator>  (const value&, const value&);
+  bool operator>= (const value&, const value&);
+
+  // If null_equal_empty, then for types that have a notion of empty value,
+  // NULL values are considered equal to empty.
+  //
+  LIBBUILD2_SYMEXPORT int
+  compare (const value&, const value&, bool null_equal_empty = false);
 
   // Value cast. The first three expect the value to be not NULL. The cast
   // from lookup expects the value to also be defined.
@@ -828,7 +837,7 @@ namespace build2
     static void append (value&, int64_t); // ADD.
     static name reverse (int64_t x) {return name (to_string (x));}
     static int compare (int64_t, int64_t);
-    static bool empty (bool) {return false;}
+    static bool empty (int64_t) {return false;}
 
     static const bool empty_value = false;
     static const char* const type_name;
@@ -850,7 +859,7 @@ namespace build2
     static void append (value&, uint64_t); // ADD.
     static name reverse (uint64_t x) {return name (to_string (x));}
     static int compare (uint64_t, uint64_t);
-    static bool empty (bool) {return false;}
+    static bool empty (uint64_t) {return false;}
 
     static const bool empty_value = false;
     static const char* const type_name;

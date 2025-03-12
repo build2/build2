@@ -258,8 +258,8 @@ namespace build2
     null = false;
   }
 
-  bool
-  operator== (const value& x, const value& y)
+  int
+  compare (const value& x, const value& y, bool null_equal_empty)
   {
     bool xn (x.null);
     bool yn (y.null);
@@ -268,64 +268,65 @@ namespace build2
             (xn && x.type == nullptr) ||
             (yn && y.type == nullptr));
 
+
     if (xn || yn)
-      return xn == yn;
+    {
+      if (null_equal_empty)
+      {
+        if (!xn && (x.type == nullptr
+                    ? x.as<names> ().empty ()
+                    : x.type->empty != nullptr && x.type->empty (x)))
+          xn = true;
+
+        if (!yn && (y.type == nullptr
+                    ? y.as<names> ().empty ()
+                    : y.type->empty != nullptr && y.type->empty (y)))
+          yn = true;
+      }
+
+      // NULL value is always less than non-NULL.
+      //
+      return (xn > yn ? -1 : // !xn < !yn
+              xn < yn ?  1 : // !xn > !yn
+              0);
+    }
 
     if (x.type == nullptr)
-      return x.as<names> () == y.as<names> ();
+    {
+      const names& xns (x.as<names> ());
+      const names& yns (y.as<names> ());
+
+      // std::lexicographical_compare_three_way() is only available in C++20.
+      //
+      auto xi (xns.begin ()), xe (xns.end ());
+      auto yi (yns.begin ()), ye (yns.end ());
+
+      for (;; ++xi, ++yi)
+      {
+        bool xd (xi == xe);
+        bool yd (yi == ye);
+
+        if (xd)
+        {
+          if (yd)
+            break;     // Equal.
+          else
+            return -1; // x shorter.
+        }
+        else if (yd)
+          return 1;    // y shorter.
+
+        if (int r = xi->compare (*yi))
+          return r;
+      }
+
+      return 0; // Equal.
+    }
 
     if (x.type->compare == nullptr)
-      return memcmp (&x.data_, &y.data_, x.type->size) == 0;
+      return memcmp (&x.data_, &y.data_, x.type->size);
 
-    return x.type->compare (x, y) == 0;
-  }
-
-  bool
-  operator< (const value& x, const value& y)
-  {
-    bool xn (x.null);
-    bool yn (y.null);
-
-    assert (x.type == y.type ||
-            (xn && x.type == nullptr) ||
-            (yn && y.type == nullptr));
-
-    // NULL value is always less than non-NULL.
-    //
-    if (xn || yn)
-      return xn > yn; // !xn < !yn
-
-    if (x.type == nullptr)
-      return x.as<names> () < y.as<names> ();
-
-    if (x.type->compare == nullptr)
-      return memcmp (&x.data_, &y.data_, x.type->size) < 0;
-
-    return x.type->compare (x, y) < 0;
-  }
-
-  bool
-  operator> (const value& x, const value& y)
-  {
-    bool xn (x.null);
-    bool yn (y.null);
-
-    assert (x.type == y.type ||
-            (xn && x.type == nullptr) ||
-            (yn && y.type == nullptr));
-
-    // NULL value is always less than non-NULL.
-    //
-    if (xn || yn)
-      return xn < yn; // !xn > !yn
-
-    if (x.type == nullptr)
-      return x.as<names> () > y.as<names> ();
-
-    if (x.type->compare == nullptr)
-      return memcmp (&x.data_, &y.data_, x.type->size) > 0;
-
-    return x.type->compare (x, y) > 0;
+    return x.type->compare (x, y);
   }
 
   void
@@ -345,8 +346,6 @@ namespace build2
         t.assign (v, move (ns), var);
         v.null = false;
       }
-      else
-        v.type = &t;
 
       v.type.store (&t, mo);
     }

@@ -155,21 +155,39 @@ namespace build2
   }
 
   inline bool
+  operator== (const value& x, const value& y)
+  {
+    return compare (x, y) == 0;
+  }
+
+  inline bool
   operator!= (const value& x, const value& y)
   {
-    return !(x == y);
+    return compare (x, y) != 0;
+  }
+
+  inline bool
+  operator< (const value& x, const value& y)
+  {
+    return compare (x, y) < 0;
   }
 
   inline bool
   operator<= (const value& x, const value& y)
   {
-    return !(x > y);
+    return compare (x, y) <= 0;
+  }
+
+  inline bool
+  operator> (const value& x, const value& y)
+  {
+    return compare (x, y) > 0;
   }
 
   inline bool
   operator>= (const value& x, const value& y)
   {
-    return !(x < y);
+    return compare (x, y) >= 0;
   }
 
   template <>
