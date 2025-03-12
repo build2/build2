@@ -466,6 +466,10 @@ namespace build2
 
         // Set the $N values if present.
         //
+        // Note that we also set the variables which have not been passed on
+        // the command line, so that they are not looked up in the outer
+        // scopes and to clear any old values.
+        //
         for (size_t i (0); i <= 9; ++i)
         {
           value& v (assign (*root.cmdN_var[i]));
@@ -478,7 +482,7 @@ namespace build2
               v = s[i].value;
           }
           else
-            v = nullptr; // Clear any old values.
+            v = nullptr;
         }
 
         // Set $*.

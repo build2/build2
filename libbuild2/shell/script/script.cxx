@@ -88,17 +88,23 @@ namespace build2
 
         // Set the $N values.
         //
-        if (n > 10)
-          n = 10;
-
-        for (size_t i (0); i != n; ++i)
+        // Note that we also set the variables which have not been passed on
+        // the command line, so that they are not looked up in the global
+        // scope.
+        //
+        for (size_t i (0); i <= 9; ++i)
         {
           value& v (assign (*cmdN_var[i]));
 
-          if (i == 0)
-            v = move (p);
+          if (i < n)
+          {
+            if (i == 0)
+              v = move (p);
+            else
+              v = s[i];
+          }
           else
-            v = s[i];
+            v = nullptr;
         }
 
         // Set $*.
