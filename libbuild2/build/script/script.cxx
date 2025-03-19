@@ -227,7 +227,10 @@ namespace build2
               dr << info (ll) << "while parsing attributes '" << attrs << "'";
             });
 
-          parser p (target.ctx);
+          // Let's assume that for all syntax versions the syntax of the value
+          // and attributes is the same.
+          //
+          parser p (target.ctx, 2 /* syntax */);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),

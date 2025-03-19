@@ -261,7 +261,9 @@ namespace build2
 
           // Parse and run.
           //
-          parser p (ctx);
+          // @@ TMP Parse the syntax version from a command line option.
+          //
+          parser p (ctx, 1 /* syntax */);
           path_name nm ("buildfile");
 
           script s (p.pre_parse (bs, tt.type (), acts,

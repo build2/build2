@@ -29,7 +29,8 @@ namespace build2
         //
       public:
         explicit
-        parser (context& c): build2::script::parser (c) {}
+        parser (context& c, uint64_t syntax)
+            : build2::script::parser (c, syntax) {}
 
         // Note that the returned script object references the passed path
         // name.

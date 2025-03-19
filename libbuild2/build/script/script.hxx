@@ -94,6 +94,8 @@ namespace build2
 
         location start_loc;
         location end_loc;
+
+        uint64_t syntax; // Note: propagated by parser::pre_parse().
       };
 
       class environment: public build2::script::environment

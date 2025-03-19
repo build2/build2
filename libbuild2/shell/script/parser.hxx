@@ -29,7 +29,7 @@ namespace build2
         //
       public:
         parser (const context& c)
-            : build2::script::parser (c.var_pool, c.functions) {}
+          : build2::script::parser (c.var_pool, c.functions, 2 /* syntax */) {}
 
         script
         pre_parse (const scope&, const path&);

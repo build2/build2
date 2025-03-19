@@ -27,6 +27,9 @@ namespace build2
         case token_type::plus:  os << q << '+' << q; break;
         case token_type::minus: os << q << '-' << q; break;
 
+        case token_type::double_lcbrace: os << q << "{{" << q; break;
+        case token_type::double_rcbrace: os << q << "}}" << q; break;
+
         default: build2::script::token_printer (os, t, m);
         }
       }

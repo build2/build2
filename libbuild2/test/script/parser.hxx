@@ -30,8 +30,8 @@ namespace build2
         // Pre-parse. Issue diagnostics and throw failed in case of an error.
         //
       public:
-        explicit
-        parser (context& c): build2::script::parser (c) {}
+        parser (context& c, uint64_t syntax)
+            : build2::script::parser (c, syntax) {}
 
         void
         pre_parse (script&);
@@ -58,6 +58,11 @@ namespace build2
         unique_ptr<group>
         pre_parse_scope_block (token&, token_type&, const string&);
 
+        unique_ptr<test>
+        pre_parse_test_block (token&, token_type&,
+                              const string&,
+                              bool allow_semi = false);
+
         bool
         pre_parse_line (token&, token_type&,
                         optional<description>&,
@@ -74,7 +79,8 @@ namespace build2
         bool
         pre_parse_if_else (token&, token_type&,
                            optional<description>&,
-                           lines&);
+                           lines&,
+                           bool allow_scope);
 
         bool
         pre_parse_if_else_scope (token&, token_type&,
@@ -85,6 +91,11 @@ namespace build2
         pre_parse_if_else_command (token&, token_type&,
                                    optional<description>&,
                                    lines&);
+
+        pair<unique_ptr<test>, optional<bool>>
+        pre_parse_if_else_test (token&, token_type&,
+                                optional<description>&,
+                                lines&);
 
         bool
         pre_parse_loop (token&, token_type&,

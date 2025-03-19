@@ -199,6 +199,13 @@ namespace build2
       protected:
         scope (const string& id, scope* parent, script& root);
 
+        // Recalculate the id path and working directory path.
+        //
+        // Note: can only be called during preparsing.
+        //
+        void
+        id (const string&);
+
         // Pre-parse data.
         //
       public:

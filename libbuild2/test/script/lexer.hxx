@@ -46,11 +46,13 @@ namespace build2
         lexer (istream& is,
                const path_name& name,
                lexer_mode m,
+               uint64_t syntax,
                const char* escapes = nullptr)
             : base_lexer (is, name, 1 /* line */,
                           nullptr     /* escapes */,
                           false       /* set_mode */,
-                          redirect_aliases)
+                          redirect_aliases),
+              syntax_ (syntax)
         {
           mode (m, '\0', escapes);
         }
@@ -78,6 +80,9 @@ namespace build2
 
         virtual token
         word (const state&, bool) override;
+
+      private:
+        uint64_t syntax_;
       };
     }
   }

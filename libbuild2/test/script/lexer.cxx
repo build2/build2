@@ -53,11 +53,11 @@ namespace build2
         case lexer_mode::first_token:
           {
             // First token on the script line. Like command_line but
-            // recognizes leading '.+-{}' as tokens as well as variable
+            // recognizes leading '.+-{}{{}}' as tokens as well as variable
             // assignments as separators.
             //
-            // Note that to recognize only leading '.+-{}' we shouldn't add
-            // them to the separator strings.
+            // Note that to recognize only leading '.+-{}{{}}' we shouldn't
+            // add them to the separator strings.
             //
             s1 = ":;=+!|&<> $(#\t\n";
             s2 = "   ==          ";
@@ -268,8 +268,26 @@ namespace build2
           case '.': return make_token (type::dot);
           case '+': return make_token (type::plus);
           case '-': return make_token (type::minus);
-          case '{': return make_token (type::lcbrace);
-          case '}': return make_token (type::rcbrace);
+          case '{':
+            {
+              if (syntax_ == 2 && peek () == '{')
+              {
+                get ();
+                return make_token (type::double_lcbrace);
+              }
+              else
+                return make_token (type::lcbrace);
+            }
+          case '}':
+            {
+              if (syntax_ == 2 && peek () == '}')
+              {
+                get ();
+                return make_token (type::double_rcbrace);
+              }
+              else
+                return make_token (type::rcbrace);
+            }
           }
         }
 

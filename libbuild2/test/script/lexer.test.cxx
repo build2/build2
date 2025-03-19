@@ -49,7 +49,10 @@ namespace build2
           bool u (m != lexer_mode::command_line);
 
           path_name in ("<stdin>");
-          lexer l (cin, in, lexer_mode::command_line);
+
+          // @@ TMP Parse the syntax version from a command line option.
+          //
+          lexer l (cin, in, lexer_mode::command_line, 1 /* syntax */);
           if (u)
             l.mode (m);
 

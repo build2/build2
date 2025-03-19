@@ -25,13 +25,13 @@ namespace build2
     class LIBBUILD2_SYMEXPORT parser: protected build2::parser
     {
     public:
-      explicit
-      parser (context& c): build2::parser (c) {}
+      parser (context& c, uint64_t s)
+        : build2::parser (c), syntax_ (s) {assert (s >= 1 && s <= 2);}
 
       // Context-less parsing.
       //
-      parser (const variable_pool& vp, const function_map& fs)
-          : build2::parser (vp, fs) {}
+      parser (const variable_pool& vp, const function_map& fs, uint64_t s)
+          : build2::parser (vp, fs), syntax_ (s) {assert (s >= 1 && s <= 2);}
 
       // Helpers.
       //
@@ -291,6 +291,7 @@ namespace build2
 
     protected:
       lexer* lexer_ = nullptr;
+      uint64_t syntax_;
     };
   }
 }

@@ -280,7 +280,9 @@ namespace build2
 
           // Parse and run.
           //
-          parser p (ctx);
+          // @@ TMP Parse the syntax version from a command line option.
+          //
+          parser p (ctx, 1);
           script s (tt, st, dir_path (work) /= "test-driver");
           p.pre_parse (cin, s);
 

@@ -76,6 +76,7 @@ namespace build2
           diag_weight_ = 4;
         }
 
+        s.syntax = syntax_;
         s.start_loc = location (*path_, line, 1);
 
         token t (pre_parse_script ());
