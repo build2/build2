@@ -5,23 +5,18 @@ test.options += -b
 
 : lines
 :
-$* <<EOI >>EOO
+$* <<EOF >>EOF
   s = 'foo'
   if echo "$s" | sed 's/o/a/p' >>>? 'bar'
+  {
     f = 'baz'
+  }
   else
+  {
     f = 'fox'
-  end
+  }
   foo "$s" "$f"
-  EOI
-  s = 'foo'
-  if echo "$s" | sed 's/o/a/p' >>>? 'bar'
-    f = 'baz'
-  else
-    f = 'fox'
-  end
-  foo "$s" "$f"
-  EOO
+  EOF
 
 : command
 :
@@ -39,18 +34,25 @@ $* <<EOF >>EOF
 :
 $* <<EOF >>EOF
   if foo
+  {
     bar
+  }
   elif fox
+  {
     if fix
+    {
       baz
-    end
+    }
     biz
-  end
+  }
   if! foo
+  {
     bar
+  }
   elif! fox
+  {
     baz
-  end
+  }
   EOF
 
 : quoting

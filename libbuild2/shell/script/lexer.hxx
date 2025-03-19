@@ -46,11 +46,13 @@ namespace build2
                const path_name& name,
                uint64_t line,         // Start line in the stream.
                lexer_mode m,
+               uint64_t syntax,
                const char* escapes = nullptr)
             : base_lexer (is, name, line,
                           nullptr /* escapes */,
                           false   /* set_mode */,
-                          redirect_aliases)
+                          redirect_aliases,
+                          syntax)
         {
           mode (m, '\0', escapes);
         }

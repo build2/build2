@@ -195,7 +195,7 @@ namespace build2
             }
           case mode::body:
             {
-              dump (cout, "", s.body);
+              dump (cout, "", s.body, s.syntax);
               break;
             }
           }

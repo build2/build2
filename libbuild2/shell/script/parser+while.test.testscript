@@ -8,9 +8,10 @@
   :
   $* <<EOI >>EOO
   while ($v != "aa")
+  {
     cmd "$v"
     v = "$(v)a"
-  end
+  }
   EOI
   ? true
   cmd ''
@@ -23,9 +24,10 @@
   :
   $* <<EOI >>EOO
   while ($v == "aa")
+  {
     cmd "$v"
     v = "$(v)a"
-  end
+  }
   EOI
   ? false
   EOO
@@ -35,22 +37,22 @@
   $* <<EOI 2>>EOE != 0
   while
     cmd
-  end
   EOI
   shellscript:11:6: error: missing program
   EOE
 }
 
-: end
+: without-rcbrace
 :
 {
-  : without-end
+  : without-rcbrace
   :
   $* <<EOI 2>>EOE != 0
   while true
+  {
     cmd
   EOI
-  shellscript:13:1: error: expected closing 'end'
+  shellscript:14:1: error: expected command instead of <end of file>
   EOE
 }
 
@@ -61,12 +63,12 @@
   :
   $* <<EOI 2>>EOE != 0
   while false
+  {
     elif true
       cmd
-    end
-  end
+  }
   EOI
-  shellscript:12:3: error: 'elif' without preceding 'if'
+  shellscript:13:3: error: 'elif' without preceding 'if'
   EOE
 }
 
@@ -75,19 +77,22 @@
 {
   $* -l -r <<EOI >>EOO
   while ($v != "aa")      # 1
+  {
     cmd1 "$v"             # 2
     if ($v == "a")        # 3
+    {
       cmd2                # 4
       while ($v2 != "$v") # 5
+      {
         cmd3              # 6
         v2=$v
-      end
+      }
+    }
     else
       cmd4                # 7
-    end
     cmd5                  # 8
     v = "$(v)a"
-  end
+  }
   EOI
   ? true # 1 i1
   cmd1 '' # 2 i1
@@ -114,7 +119,7 @@
   $* <<EOI 2>>EOE != 0
   while
   EOI
-  shellscript:12:1: error: expected closing 'end'
+  shellscript:12:1: error: expected command instead of <end of file>
   EOE
 }
 
@@ -122,9 +127,10 @@
 :
 $* <<EOI >>EOO
 while ($v1 != "a")
+{
   v1 = "$(v1)a"
   v2 = "$v1"
-end
+}
 cmd $v1
 EOI
 ? true

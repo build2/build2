@@ -20,3 +20,29 @@
   buildfile:11:5: error: unknown value attribute foo=bar
   EOE
 }
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : attribute
+  :
+  {
+    : name
+    :
+    $* <<EOI 2>>EOE != 0
+    x = [foo]
+    EOI
+    buildfile:11:5: error: unknown value attribute foo
+    EOE
+
+    : name-value
+    :
+    $* <<EOI 2>>EOE != 0
+    x = [foo=bar]
+    EOI
+    buildfile:11:5: error: unknown value attribute foo=bar
+    EOE
+  }
+}

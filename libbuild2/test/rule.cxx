@@ -377,7 +377,9 @@ namespace build2
         build2::test::script::script s (t, ts, wd);
 
         {
-          parser p (t.ctx);
+          // @@ TMP Retrieve the syntax version from a variable.
+          //
+          parser p (t.ctx, 1 /* syntax */);
           p.pre_parse (s);
 
           default_runner r (c);

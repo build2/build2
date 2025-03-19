@@ -11,7 +11,6 @@ $* <<EOI >>EOO
     f = 'baz'
   else
     f = 'fox'
-  end
   depdb clear
   depdb string "$s"
   depdb hash "$f"
@@ -74,18 +73,25 @@ $* <<EOF >>EOF
 :
 $* <<EOF >>EOF
   if foo
+  {
     bar
+  }
   elif fox
+  {
     if fix
+    {
       baz
-    end
+    }
     biz
-  end
+  }
   if! foo
+  {
     bar
+  }
   elif! fox
+  {
     baz
-  end
+  }
   EOF
 
 : quoting
@@ -131,3 +137,138 @@ $* <<EOI >>EOO
 $* <:'foo' 2>>EOE != 0
   buildfile:11:4: error: expected newline instead of <end of file>
   EOE
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : lines
+  :
+  $* <<EOI >>EOO
+    s = 'foo'
+    if echo "$s" | sed 's/o/a/p' >>>? 'bar'
+      f = 'baz'
+    else
+      f = 'fox'
+    end
+    depdb clear
+    depdb string "$s"
+    depdb hash "$f"
+    foo "$s" "$f"
+    EOI
+    foo "$s" "$f"
+    EOO
+
+  : temp_dir
+  :
+  {
+    test.options += -t
+
+    : no
+    :
+    $* <<EOI >false
+      foo
+      EOI
+
+    : yes
+    :
+    $* <<EOI >true
+      foo
+      f = $~/f
+      EOI
+
+    : preamble-no
+    :
+    $* <<EOI >false
+      f1 = $~/f2
+      depdb string "$f1"
+      f2 = $~/f3
+      depdb string "$f2"
+      foo "$f1" "$f2"
+      EOI
+
+    : preamble-yes
+    :
+    $* <<EOI >true
+      f1 = $~/f1
+      depdb string "$f1"
+      f2 = $~/f2
+      foo "$f2"
+      EOI
+  }
+
+  : command
+  :
+  $* <<EOF >>EOF
+    foo >| 2>- &a &?b
+    foo >=c 2>~/error:.*/ &!c
+    foo >>:/~%EOS%
+    %.*
+    abc
+    %xyz.*%
+    EOS
+    EOF
+
+  : if-else
+  :
+  $* <<EOF >>EOF
+    if foo
+      bar
+    elif fox
+      if fix
+        baz
+      end
+      biz
+    end
+    if! foo
+      bar
+    elif! fox
+      baz
+    end
+    EOF
+
+  : quoting
+  :
+  $* <<EOI >>EOO
+    foo 'bar' "baz" '' ""
+    "$foo"
+    "foo$bar"
+    "fo"o
+    "foo"\"
+    "foo\\"
+    "foo\"<"
+    fo\"o
+    fo\\o
+    fo\<o
+    "fo<o"
+    'fo\"o'
+    f"oo" "ba"r
+    f"oo" 'ba'r
+    "fo"'o'
+    'foo b"ar baz'
+    EOI
+    foo 'bar' "baz" '' ""
+    "$foo"
+    "foo$bar"
+    "foo"
+    "foo\""
+    "foo\\"
+    "foo\"<"
+    fo\"o
+    fo\\o
+    fo\<o
+    "fo<o"
+    'fo\"o'
+    "foo bar"
+    "foo" 'bar'
+    "foo"
+    'foo b"ar baz'
+    EOO
+
+  : no-newline
+  :
+  $* <:'foo' 2>>EOE != 0
+    buildfile:11:4: error: expected newline instead of <end of file>
+    EOE
+}

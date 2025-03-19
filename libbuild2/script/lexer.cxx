@@ -423,5 +423,12 @@ namespace build2
 
       return nullopt;
     }
+
+    void lexer::
+    syntax (uint64_t s)
+    {
+      assert (syntax_ != 0); // Don't allow changing if syntax-agnostic.
+      syntax_ = s;
+    }
   }
 }

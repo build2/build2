@@ -29,7 +29,7 @@ namespace build2
         //
       public:
         parser (const context& c)
-            : build2::script::parser (c.var_pool, c.functions) {}
+          : build2::script::parser (c.var_pool, c.functions, 2 /* syntax */) {}
 
         script
         pre_parse (const scope&, const path&);
@@ -55,13 +55,16 @@ namespace build2
                         optional<line_type> flow_control_type = nullopt);
 
         void
-        pre_parse_block_line (token&, token_type&, line_type block_type);
+        pre_parse_block_line (token&, token_type&);
+
+        void
+        pre_parse_block (token&, token_type&);
 
         void
         pre_parse_if_else (token&, token_type&);
 
         void
-        pre_parse_loop (token&, token_type&, line_type);
+        pre_parse_loop (token&, token_type&);
 
         command_expr
         parse_command_line (token&, token_type&);
@@ -77,6 +80,13 @@ namespace build2
       public:
         static bool
         special_variable (const string&) noexcept;
+
+        // Verify that variable with the specified name can be assigned. Issue
+        // diagnostics and throw failed if that's not the case (this is a
+        // special variable, etc).
+        //
+        static void
+        verify_variable_assignment (const string&, const location&);
 
         // Customization hooks.
         //

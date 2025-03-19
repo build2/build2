@@ -1277,6 +1277,7 @@ namespace build2
                 lexer lex (is, in,
                            lexer_mode::command_expansion,
                            ra,
+                           syntax_,
                            "\'\"\\");
 
                 // Treat the first "sub-token" as always separated from what
@@ -2122,7 +2123,7 @@ namespace build2
       // Note that the redirect alias information is not used in the
       // attributes lexer mode.
       //
-      lexer l (is, name, lexer_mode::attributes, no_redirect_aliases);
+      lexer l (is, name, lexer_mode::attributes, no_redirect_aliases, syntax_);
 
       set_lexer (&l);
 
@@ -2145,6 +2146,8 @@ namespace build2
     line_type parser::
     pre_parse_line_start (token& t, token_type& tt, lexer_mode stm)
     {
+      assert (syntax_ != 0);
+
       replay_save (); // Start saving tokens from the current one.
       next (t, tt);
 
@@ -2163,14 +2166,14 @@ namespace build2
       {
         const string& n (t.value);
 
-        if      (n == "if")    r = line_type::cmd_if;
-        else if (n == "if!")   r = line_type::cmd_ifn;
-        else if (n == "elif")  r = line_type::cmd_elif;
-        else if (n == "elif!") r = line_type::cmd_elifn;
-        else if (n == "else")  r = line_type::cmd_else;
-        else if (n == "while") r = line_type::cmd_while;
-        else if (n == "for")   r = line_type::cmd_for_stream;
-        else if (n == "end")   r = line_type::cmd_end;
+        if      (n == "if")                  r = line_type::cmd_if;
+        else if (n == "if!")                 r = line_type::cmd_ifn;
+        else if (n == "elif")                r = line_type::cmd_elif;
+        else if (n == "elif!")               r = line_type::cmd_elifn;
+        else if (n == "else")                r = line_type::cmd_else;
+        else if (n == "while")               r = line_type::cmd_while;
+        else if (n == "for")                 r = line_type::cmd_for_stream;
+        else if (n == "end" && syntax_ == 1) r = line_type::cmd_end;
         else
         {
           // Switch the recognition of leading variable assignments for
@@ -2190,10 +2193,66 @@ namespace build2
             if (n.empty ())
               fail (t) << "missing variable name";
           }
+          // Issue more specific diagnostics for standalone `end` in syntax 2
+          // to aid transition.
+          //
+          // @@ TMP drop eventually since strictly speaking, in syntax 2,
+          //    `end` could be a valid command. Maybe in 0.20.0?
+          //
+          else if (syntax_ >= 2 && p == type::newline && n == "end")
+          {
+            fail (t) << "flow-control constructs use {} in syntax version 2";
+          }
         }
       }
 
       return r;
+    }
+
+    void parser::
+    try_parse_syntax_version (const char* name,
+                              lexer_mode ftm,
+                              uint64_t min_syntax,
+                              uint64_t max_syntax)
+    {
+      assert (syntax_ != 0); // Don't allow changing if syntax-agnostic.
+
+      type tt (peek (ftm));
+      const token& pt (peeked ());
+
+      if (tt == type::word                 &&
+          pt.qtype == quote_type::unquoted &&
+          pt.value == name)
+      {
+        token t;
+        next (t, tt); // Get variable name.
+
+        mode (lexer_mode::normal);
+
+        if (next (t, tt) != type::assign)
+          fail (t) << "expected '=' instead of " << t;
+
+        optional<uint64_t> s;
+        if (next (t, tt) != type::word || !(s = parse_number (t.value)))
+          fail (t) << "expected literal syntax version instead of " << t;
+
+        if (*s < min_syntax || *s > max_syntax)
+        {
+          if (min_syntax != max_syntax)
+            fail (t) << "syntax version must be in [" << min_syntax
+                     << ',' << max_syntax << "] range";
+          else
+            fail (t) << "only syntax version " << min_syntax << " is supported";
+        }
+
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after syntax version";
+
+        expire_mode ();
+
+        syntax_ = *s;
+        lexer_->syntax (syntax_);
+      }
     }
 
     optional<uint8_t> parser::

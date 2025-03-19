@@ -33,11 +33,16 @@ namespace build2
       class print_runner: public runner
       {
       public:
-        print_runner (bool scope, bool id, bool line, bool iterations)
+        print_runner (bool scope,
+                      bool id,
+                      bool line,
+                      bool iterations,
+                      uint64_t syntax)
             : scope_ (scope),
               id_ (id),
               line_ (line),
-              iterations_ (iterations) {}
+              iterations_ (iterations),
+              syntax_ (syntax) {}
 
         virtual bool
         test (scope&) const override
@@ -88,7 +93,10 @@ namespace build2
 
           if (scope_)
           {
-            cout << ind_ << "{";
+            cout << ind_
+                 << (syntax_ >= 2 && dynamic_cast<group*> (&s) != nullptr
+                     ? "{{"
+                     : "{");
 
             if (id_ && !s.id_path.empty ()) // Skip empty root scope id.
               cout << " # " << s.id_path.string ();
@@ -160,12 +168,15 @@ namespace build2
         }
 
         virtual void
-        leave (scope&, const location&) override
+        leave (scope& s, const location&) override
         {
           if (scope_)
           {
             ind_.resize (ind_.size () - 2);
-            cout << ind_ << "}" << endl;
+            cout << ind_
+                 << (syntax_ >= 2 && dynamic_cast<group*> (&s) != nullptr
+                     ? "}}"
+                     : "}") << endl;
           }
         }
 
@@ -193,10 +204,11 @@ namespace build2
         bool id_;
         bool line_;
         bool iterations_;
+        uint64_t syntax_;
         string ind_;
       };
 
-      // Usage: argv[0] [-s] [-i] [-l] [-r] [<testscript-name>]
+      // Usage: argv[0] [-s] [-i] [-l] [-r] [-v <version>] [<testscript-name>]
       //
       int
       main (int argc, char* argv[])
@@ -220,19 +232,37 @@ namespace build2
         bool line (false);
         bool iterations (false);
         path name;
+        uint64_t syntax (2);
 
         for (int i (1); i != argc; ++i)
         {
           string a (argv[i]);
 
           if (a == "-s")
+          {
             scope = true;
+          }
           else if (a == "-i")
+          {
             id = true;
+          }
           else if (a == "-l")
+          {
             line = true;
+          }
           else if (a == "-r")
+          {
             iterations = true;
+          }
+          else if (a == "-v")
+          {
+            assert (++i != argc);
+
+            optional<uint64_t> s (parse_number (argv[i], 2 /* max */));
+            assert (s);
+
+            syntax = *s;
+          }
           else
           {
             name = path (move (a));
@@ -280,11 +310,11 @@ namespace build2
 
           // Parse and run.
           //
-          parser p (ctx);
+          parser p (ctx, syntax);
           script s (tt, st, dir_path (work) /= "test-driver");
           p.pre_parse (cin, s);
 
-          print_runner r (scope, id, line, iterations);
+          print_runner r (scope, id, line, iterations, s.syntax);
           p.execute (s, r);
         }
         catch (const failed&)

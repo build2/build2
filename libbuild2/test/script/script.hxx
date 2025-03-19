@@ -23,6 +23,7 @@ namespace build2
       using build2::script::line;
       using build2::script::line_type;
       using build2::script::lines;
+      using build2::script::end_line;
       using build2::script::redirect;
       using build2::script::redirect_type;
       using build2::script::command;
@@ -199,6 +200,13 @@ namespace build2
       protected:
         scope (const string& id, scope* parent, script& root);
 
+        // Recalculate the id path and working directory path.
+        //
+        // Note: can only be called during preparsing.
+        //
+        void
+        id (const string&);
+
         // Pre-parse data.
         //
       public:
@@ -367,6 +375,8 @@ namespace build2
         //
         optional<deadline> operation_deadline;
         optional<timeout>  test_timeout;
+
+        uint64_t syntax = 0; // Note: set to valid value by parser::pre_parse().
 
       public:
         script (const target& test_target,

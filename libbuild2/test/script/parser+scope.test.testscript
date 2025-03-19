@@ -18,38 +18,117 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
   : empty
   :
   $* -s <<EOI
-  {
-  }
+  {{
+  }}
   EOI
 
   : empty-empty
   :
   $* -s <<EOI
-  {
-    {
-    }
-  }
+  {{
+    {{
+    }}
+  }}
   EOI
 
   : non-empty
   :
   $* -s <<EOI >>EOO
-  {
+  {{
     cmd1
     cmd2
-  }
+  }}
   EOI
-  {
-    {
+  {{
+    {{
       {
         cmd1
       }
       {
         cmd2
       }
-    }
-  }
+    }}
+  }}
   EOO
+
+  : nested
+  :
+  $* -s -i <<EOI >>EOO
+  {{
+    {{
+      cmd
+    }}
+  }}
+  EOI
+  {{
+    {{ # 1
+      {{ # 1/2
+        { # 1/2/3
+          cmd
+        }
+      }}
+    }}
+  }}
+  EOO
+
+  : setup
+  :
+  $* -s -i <<EOI >>EOO
+  {{
+    x = abc
+    +setup
+    cmd $x
+  }}
+  EOI
+  {{
+    {{ # 1
+      +setup
+      { # 1/4
+        cmd abc
+      }
+    }}
+  }}
+  EOO
+
+  : line-rcbrace
+  :
+  $* <<EOI 2>>EOE != 0
+  {{
+    cmd;
+  }}
+  EOI
+  testscript:3:1: error: expected another line after ';'
+  EOE
+
+  : after-tdown-cmd
+  :
+  $* <<EOI 2>>EOE != 0
+  -cmd1
+  -if true
+    for i: 0 1
+      cmd2
+  {{
+    cmd3
+  }}
+  EOI
+  testscript:5:1: error: group scope after teardown
+    testscript:4:5: info: last teardown line appears here
+  EOE
+
+  : after-tdown-var
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd1
+  if true
+    for i: 0 1
+      foo = bar
+  {{
+    cmd2
+  }}
+  EOI
+  testscript:5:1: error: group scope after teardown
+    testscript:4:5: info: last teardown line appears here
+  EOE
 }
 
 : test
@@ -65,28 +144,24 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
       cmd
     }
     EOI
-    {
+    {{
       { # 1
         cmd
       }
-    }
+    }}
     EOO
 
     : nested
     :
-    $* -s -i <<EOI >>EOO
+    $* -s -i <<EOI 2>>EOE != 0
     {
       {
         cmd
       }
     }
     EOI
-    {
-      { # 1
-        cmd
-      }
-    }
-    EOO
+    testscript:2:3: error: expected command instead of '{' inside test scope
+    EOE
 
     : var
     :
@@ -96,31 +171,56 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
       cmd $x
     }
     EOI
-    {
+    {{
       { # 1
         cmd abc
       }
-    }
+    }}
     EOO
 
     : setup
     :
-    $* -s -i <<EOI >>EOO
+    $* -s -i <<EOI 2>>EOE != 0
     {
       x = abc
       +setup
       cmd $x
     }
     EOI
+    testscript:3:3: error: setup command inside test scope
+    EOE
+
+    : semi
+    :
+    $* -s -i <<EOI 2>>EOE != 0
     {
-      { # 1
-        +setup
-        { # 1/4
-          cmd abc
-        }
-      }
+      x = abc;
+      cmd
     }
-    EOO
+    EOI
+    testscript:2:3: error: ';' inside test scope
+    EOE
+
+    : description
+    :
+    $* -s -i <<EOI 2>>EOE != 0
+    {
+      x = abc
+      cmd : description
+    }
+    EOI
+    testscript:3:3: error: description inside test scope
+    EOE
+
+    : semi-after-rcbrace
+    :
+    $* -s -i <<EOI 2>>EOE != 0
+    {
+      cmd
+    };
+    EOI
+    testscript:3:2: error: expected newline after '}'
+    EOE
   }
 
   : implicit
@@ -130,11 +230,11 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
     $* -s <<EOI >>EOO
     cmd1
     EOI
-    {
+    {{
       {
         cmd1
       }
-    }
+    }}
     EOO
 
     : two-cmd
@@ -143,12 +243,12 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
     cmd1;
     cmd2
     EOI
-    {
+    {{
       {
         cmd1
         cmd2
       }
-    }
+    }}
     EOO
 
     : three-cmd
@@ -158,13 +258,13 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
     cmd2;
     cmd3
     EOI
-    {
+    {{
       {
         cmd1
         cmd2
         cmd3
       }
-    }
+    }}
     EOO
 
     : var
@@ -174,12 +274,12 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
     x = abc;
     cmd2 $x
     EOI
-    {
+    {{
       {
         cmd1
         cmd2 abc
       }
-    }
+    }}
     EOO
 
     : var-first
@@ -188,11 +288,11 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
     x = abc;
     cmd $x
     EOI
-    {
+    {{
       {
         cmd abc
       }
-    }
+    }}
     EOO
 
     : var-setup-tdown
@@ -202,11 +302,11 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
     cmd $x
     y = 123
     EOI
-    {
+    {{
       {
         cmd abc
       }
-    }
+    }}
     EOO
 
     : after-tdown
@@ -233,7 +333,7 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
   : rcbrace
   :
   $* <"{" 2>>EOE != 0
-  testscript:2:1: error: expected '}' at the end of the scope
+  testscript:2:1: error: expected command instead of <end of file> inside test scope
   EOE
 
   : line-rcbrace
@@ -243,7 +343,7 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
     cmd;
   }
   EOI
-  testscript:3:1: error: expected another line after ';'
+  testscript:2:3: error: ';' inside test scope
   EOE
 
   : newline-rcbrace
@@ -276,4 +376,321 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
   $* <:"x = abc;" 2>>EOE != 0
   testscript:1:9: error: expected newline instead of <end of file>
   EOE
+}
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  $* testscript     <'cmd $@' >"cmd 1"     : id-testscript
+  $* foo.testscript <'cmd $@' >"cmd foo/1" : id
+
+  : wd-testscript
+  :
+  $* testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]1'?%"
+
+  : wd
+  :
+  $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?%"
+
+  : group
+  :
+  {
+    : empty
+    :
+    $* -s <<EOI
+    {
+    }
+    EOI
+
+    : empty-empty
+    :
+    $* -s <<EOI
+    {
+      {
+      }
+    }
+    EOI
+
+    : non-empty
+    :
+    $* -s <<EOI >>EOO
+    {
+      cmd1
+      cmd2
+    }
+    EOI
+    {
+      {
+        {
+          cmd1
+        }
+        {
+          cmd2
+        }
+      }
+    }
+    EOO
+
+    : after-tdown-cmd
+    :
+    $* <<EOI 2>>EOE != 0
+    -cmd1
+    -if true
+      for i: 0 1
+        cmd2
+      end
+    end
+    {
+      cmd3
+    }
+    EOI
+    testscript:7:1: error: scope after teardown
+      testscript:4:5: info: last teardown line appears here
+    EOE
+
+    : after-tdown-var
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd1
+    if true
+      for i: 0 1
+        foo = bar
+      end
+    end
+    {
+      cmd2
+    }
+    EOI
+    testscript:7:1: error: scope after teardown
+      testscript:4:5: info: last teardown line appears here
+    EOE
+  }
+
+  : test
+  :
+  {
+    : explicit
+    :
+    {
+      : one-level
+      :
+      $* -s -i <<EOI >>EOO
+      {
+        cmd
+      }
+      EOI
+      {
+        { # 1
+          cmd
+        }
+      }
+      EOO
+
+      : nested
+      :
+      $* -s -i <<EOI >>EOO
+      {
+        {
+          cmd
+        }
+      }
+      EOI
+      {
+        { # 1
+          cmd
+        }
+      }
+      EOO
+
+      : var
+      :
+      $* -s -i <<EOI >>EOO
+      {
+        x = abc
+        cmd $x
+      }
+      EOI
+      {
+        { # 1
+          cmd abc
+        }
+      }
+      EOO
+
+      : setup
+      :
+      $* -s -i <<EOI >>EOO
+      {
+        x = abc
+        +setup
+        cmd $x
+      }
+      EOI
+      {
+        { # 1
+          +setup
+          { # 1/4
+            cmd abc
+          }
+        }
+      }
+      EOO
+    }
+
+    : implicit
+    {
+      : one-cmd
+      :
+      $* -s <<EOI >>EOO
+      cmd1
+      EOI
+      {
+        {
+          cmd1
+        }
+      }
+      EOO
+
+      : two-cmd
+      :
+      $* -s <<EOI >>EOO
+      cmd1;
+      cmd2
+      EOI
+      {
+        {
+          cmd1
+          cmd2
+        }
+      }
+      EOO
+
+      : three-cmd
+      :
+      $* -s <<EOI >>EOO
+      cmd1;
+      cmd2;
+      cmd3
+      EOI
+      {
+        {
+          cmd1
+          cmd2
+          cmd3
+        }
+      }
+      EOO
+
+      : var
+      :
+      $* -s <<EOI >>EOO
+      cmd1;
+      x = abc;
+      cmd2 $x
+      EOI
+      {
+        {
+          cmd1
+          cmd2 abc
+        }
+      }
+      EOO
+
+      : var-first
+      :
+      $* -s <<EOI >>EOO
+      x = abc;
+      cmd $x
+      EOI
+      {
+        {
+          cmd abc
+        }
+      }
+      EOO
+
+      : var-setup-tdown
+      :
+      $* -s <<EOI >>EOO
+      x = abc
+      cmd $x
+      y = 123
+      EOI
+      {
+        {
+          cmd abc
+        }
+      }
+      EOO
+
+      : after-tdown
+      :
+      $* <<EOI 2>>EOE != 0
+      cmd1
+      x = abc
+      cmd2
+      EOI
+      testscript:3:1: error: test after teardown
+        testscript:2:1: info: last teardown line appears here
+      EOE
+    }
+  }
+
+  : expected
+  {
+    : newline-lcbrace
+    :
+    $* <:"{x" 2>>EOE != 0
+    testscript:1:2: error: expected newline after '{'
+    EOE
+
+    : rcbrace
+    :
+    $* <"{" 2>>EOE != 0
+    testscript:2:1: error: expected '}' at the end of the scope
+    EOE
+
+    : line-rcbrace
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      cmd;
+    }
+    EOI
+    testscript:3:1: error: expected another line after ';'
+    EOE
+
+    : newline-rcbrace
+    :
+    $* <<:EOI 2>>EOE != 0
+    {
+    }
+    EOI
+    testscript:2:2: error: expected newline after '}'
+    EOE
+
+    : line-eof
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd;
+    EOI
+    testscript:2:1: error: expected another line after ';'
+    EOE
+
+    : newline-cmd
+    :
+    $* <<:EOI 2>>EOE != 0
+    cmd;
+    EOI
+    testscript:1:5: error: expected newline instead of <end of file>
+    EOE
+
+    : newline-var
+    :
+    $* <:"x = abc;" 2>>EOE != 0
+    testscript:1:9: error: expected newline instead of <end of file>
+    EOE
+  }
 }

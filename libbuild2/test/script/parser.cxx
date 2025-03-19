@@ -56,7 +56,7 @@ namespace build2
 
         pre_parse_ = true;
 
-        lexer l (is, *path_, lexer_mode::command_line);
+        lexer l (is, *path_, lexer_mode::command_line, syntax_);
         set_lexer (&l);
 
         id_prefix_.clear ();
@@ -78,7 +78,12 @@ namespace build2
         //
         group_->start_loc_ = location (*path_, 1, 1);
 
-        token t (pre_parse_scope_body ());
+        try_parse_syntax_version ("testscript.syntax",
+                                  lexer_mode::first_token);
+
+        s.syntax = syntax_;
+
+        token t (pre_parse_group_body ());
 
         if (t.type != type::eos)
           fail (t) << "stray " << t;
@@ -87,7 +92,7 @@ namespace build2
       }
 
       bool parser::
-      pre_parse_demote_group_scope (unique_ptr<scope>& s)
+      pre_parse_demote_group_to_test (unique_ptr<scope>& s)
       {
         // See if this turned out to be an explicit test scope. An explicit
         // test scope contains a single test, only variable assignments in
@@ -119,7 +124,7 @@ namespace build2
             !t->if_cond_)
         {
           if (g.if_chain != nullptr &&
-              !pre_parse_demote_group_scope (g.if_chain))
+              !pre_parse_demote_group_to_test (g.if_chain))
             return false;
 
           // It would have been nice to reuse the test object and only throw
@@ -163,19 +168,30 @@ namespace build2
       }
 
       token parser::
-      pre_parse_scope_body ()
+      pre_parse_group_body ()
       {
-        // enter: next token is first token of scope body
-        // leave: rcbrace or eos (returned)
+        // enter: next token is first token of group body
+        // leave: [double_]rcbrace or eos (returned)
+
+        assert (syntax_ != 0);
 
         token t;
         type tt;
 
-        // Parse lines (including nested scopes) until we see '}' or eos.
+        // Parse lines (including nested scopes) until we see '}}' (syntax 2
+        // and above), '}' (syntax 1), or eos.
         //
+        type ot (syntax_ >= 2
+                 ? type (type::double_lcbrace)
+                 : type (type::lcbrace));
+
+        type ct (syntax_ >= 2
+                 ? type (type::double_rcbrace)
+                 : type (type::rcbrace));
+
         for (;;)
         {
-          // Start lexing each line recognizing leading '.+-{}'.
+          // Start lexing each line recognizing leading '.+-{}{{}}'.
           //
           tt = peek (lexer_mode::first_token);
 
@@ -187,37 +203,65 @@ namespace build2
 
           // Determine the line type by peeking at the first token.
           //
+
+          // Bail out if the end of the group scope is reached.
+          //
+          if (tt == type::eos || tt == ct)
+          {
+            next (t, tt);
+
+            if (d)
+              fail (t) << "description before " << t;
+
+            return t;
+          }
+
+          // Parse the nested group scope.
+          //
+          if (tt == ot)
+          {
+            next (t, tt); // Get '{{' or '{'.
+            const location sl (get_location (t));
+
+            verify_no_teardown (syntax_ >= 2 ? "group scope" : "scope", sl);
+
+            // If there is no user-supplied id, use the line number
+            // (prefixed with include id) as the scope id.
+            //
+            const string& id (
+              d && !d->id.empty ()
+              ? d->id
+              : insert_id (id_prefix_ + to_string (sl.line), sl));
+
+            unique_ptr<scope> g (pre_parse_group_block (t, tt, id));
+            g->desc = move (d);
+
+            if (syntax_ == 1)
+              pre_parse_demote_group_to_test (g);
+
+            group_->scopes.push_back (move (g));
+            continue;
+          }
+
           switch (tt)
           {
-          case type::eos:
           case type::rcbrace:
             {
-              next (t, tt);
+              assert (syntax_ >= 2); // Wouldn't be here otherwise.
 
-              if (d)
-                fail (t) << "description before " << t;
-
-              return t;
+              const token& p (peeked ());
+              fail (get_location (p)) << "expected command instead of " << p
+                                      << endf;
             }
           case type::lcbrace:
             {
-              // Nested scope.
+              // Parse the nested explicit test scope.
               //
-              next (t, tt); // Get '{'.
-              const location sl (get_location (t));
+              assert (syntax_ >= 2); // Wouldn't be here otherwise.
 
-              // First check that we don't have any teardown commands yet.
-              // This will detect things like variable assignments between
-              // scopes.
-              //
-              if (!group_->tdown_.empty ())
-              {
-                location tl (
-                  group_->tdown_.back ().tokens.front ().location ());
+              const location sl (get_location (peeked ()));
 
-                fail (sl) << "scope after teardown" <<
-                  info (tl) << "last teardown line appears here";
-              }
+              verify_no_teardown ("test scope", sl);
 
               // If there is no user-supplied id, use the line number
               // (prefixed with include id) as the scope id.
@@ -227,17 +271,18 @@ namespace build2
                 ? d->id
                 : insert_id (id_prefix_ + to_string (sl.line), sl));
 
-              unique_ptr<scope> g (pre_parse_scope_block (t, tt, id));
-              g->desc = move (d);
+              unique_ptr<test> ts (pre_parse_test_block (t, tt, id));
 
-              pre_parse_demote_group_scope (g);
-              group_->scopes.push_back (move (g));
-              continue;
+              ts->desc = move (d);
+
+              group_->scopes.push_back (move (ts));
+              break;
             }
           default:
             {
+              // Parse the setup, teardown, or test line.
+              //
               pre_parse_line (t, tt, d);
-              assert (tt == type::newline);
               break;
             }
           }
@@ -245,15 +290,22 @@ namespace build2
       }
 
       unique_ptr<group> parser::
-      pre_parse_scope_block (token& t, type& tt, const string& id)
+      pre_parse_group_block (token& t, type& tt, const string& id)
       {
-        // enter: lcbrace
-        // leave: newline after rcbrace
+        // enter: [double_]lcbrace
+        // leave: newline after [double_]rcbrace
+
+        // Note: in syntax 1 this function was called pre_parse_scope_block()
+        // since in that syntax the result can be demoted to the test scope.
+
+        assert (syntax_ != 0);
 
         const location sl (get_location (t));
 
         if (next (t, tt) != type::newline)
-          fail (t) << "expected newline after '{'";
+          fail (t) << (syntax_ >= 2
+                       ? "expected newline after '{{'"
+                       : "expected newline after '{'");
 
         // Push group.
         //
@@ -274,7 +326,7 @@ namespace build2
         // Parse body.
         //
         group_->start_loc_ = sl;
-        token e (pre_parse_scope_body ());
+        token e (pre_parse_group_body ());
         group_->end_loc_ = get_location (e);
 
         // Pop group.
@@ -283,39 +335,95 @@ namespace build2
         include_set_ = os;
         id_map_ = om;
 
-        if (e.type != type::rcbrace)
-          fail (e) << "expected '}' at the end of the scope";
+        if (syntax_ >= 2)
+        {
+          if (e.type != type::double_rcbrace)
+            fail (e) << "expected '}}' at the end of the group scope";
 
-        if (next (t, tt) != type::newline)
-          fail (t) << "expected newline after '}'";
+          if (next (t, tt) != type::newline)
+            fail (t) << "expected newline after '}}'";
+        }
+        else
+        {
+          if (e.type != type::rcbrace)
+            fail (e) << "expected '}' at the end of the scope";
+
+          if (next (t, tt) != type::newline)
+            fail (t) << "expected newline after '}'";
+        }
 
         return g;
       }
 
-      // Parse a logical line (as well as scope-if since the only way to
-      // recognize it is to parse the if line), handling the flow control
-      // constructs recursively.
+      // If semi_colon is NULL, then fail if a trailing semicolon or colon
+      // (description) is present. If it is not NULL, then save an indication
+      // of whether the block is followed by a semicolon (first=true) or colon
+      // (second contains the description) into the pointed object.
+      //
+      unique_ptr<test> parser::
+      pre_parse_test_block (token& t, type& tt,
+                            const string& id,
+                            pair<bool, optional<description>>* semi_colon)
+      {
+        // enter: peeked first token of the line (lcbrace)
+        // leave: newline
+
+        assert (syntax_ >= 2); // Wouldn't be here otherwise.
+
+        unique_ptr<test> ts (new test (id, *group_));
+        ts->start_loc_ = get_location (peeked ());
+
+        pair<bool, optional<description>> r (
+          pre_parse_command_block (t, tt,
+                                   ts->tests_,
+                                   nullopt /* block_type */,
+                                   semi_colon != nullptr));
+
+        ts->end_loc_ = get_location (t);
+
+        if (semi_colon != nullptr)
+          *semi_colon = move (r);
+
+        return ts;
+      }
+
+      // Parse a logical line (as well as scope-if, unless command_only_if is
+      // true, since the only way to recognize it is to parse the if line),
+      // handling the flow control constructs recursively.
       //
       // If one is true then only parse one line returning an indication of
       // whether the line ended with a semicolon. If the flow control
-      // construct type is specified, then this line is assumed to belong to
-      // such construct.
+      // construct type is specified, then it is assumed that this line can
+      // control further parsing/execution of such a construct. Note that it
+      // should not be specified for the first line of a construct and,
+      // starting from the syntax version 2, for the script command blocks it
+      // controls (see buildscript for the reasoning).
       //
       bool parser::
       pre_parse_line (token& t, type& tt,
                       optional<description>& d,
                       lines* ls,
                       bool one,
-                      optional<line_type> fct)
+                      optional<line_type> fct,
+                      bool command_only_if)
       {
         // enter: next token is peeked at (type in tt)
         // leave: newline
 
-        assert (!fct                              ||
-                *fct == line_type::cmd_if         ||
-                *fct == line_type::cmd_while      ||
-                *fct == line_type::cmd_for_stream ||
-                *fct == line_type::cmd_for_args);
+        assert (syntax_ != 0);
+
+        if (syntax_ >= 2)
+        {
+          assert (!fct || *fct == line_type::cmd_if);
+        }
+        else
+        {
+          assert (!fct                              ||
+                  *fct == line_type::cmd_if         ||
+                  *fct == line_type::cmd_while      ||
+                  *fct == line_type::cmd_for_stream ||
+                  *fct == line_type::cmd_for_args);
+        }
 
         // Note: token is only peeked at.
         //
@@ -387,7 +495,7 @@ namespace build2
             // Make sure we are not inside a test (i.e., after semi).
             //
             if (ls != nullptr)
-              fail (ll) << "directive after ';'";
+              fail (ll) << "directive inside test";
 
             const string& n (t.value);
 
@@ -443,12 +551,10 @@ namespace build2
         case line_type::var:
           {
             // Check if we are trying to modify any of the special aliases
-            // ($*, $N, $~, $@).
+            // ($*, $N, $~, $@) or the testscript.syntax variable.
             //
             string& n (t.value);
-
-            if (special_variable (n))
-              fail (t) << "attempt to set '" << n << "' variable directly";
+            verify_variable_assignment (t.value, get_location (t));
 
             // Pre-enter the variables now while we are executing serially.
             // Once parallel, it becomes a lot harder to do.
@@ -511,8 +617,7 @@ namespace build2
               if (n.find_first_of ("[*?") != string::npos)
                 fail (t) << "expected variable name instead of " << n;
 
-              if (special_variable (n))
-                fail (t) << "attempt to set '" << n << "' variable directly";
+              verify_variable_assignment (n, get_location (t));
 
               if (lexer_->peek_char ().first == '[')
               {
@@ -564,7 +669,8 @@ namespace build2
               parse_variable_line (t, tt);
 
               if (tt != type::newline)
-                fail (t) << "expected newline instead of " << t << " after for";
+                fail (t) << "expected newline instead of " << t
+                         << " after 'for'";
             }
 
             break;
@@ -579,8 +685,15 @@ namespace build2
           // Fall through.
         case line_type::cmd_end:
           {
-            if (!fct)
-              fail (t) << lt << " without preceding 'if', 'for', or 'while'";
+            if (syntax_ >= 2)
+            {
+              assert (lt != line_type::cmd_end); // Wouldn't be here otherwise.
+            }
+            else
+            {
+              if (!fct)
+                fail (t) << lt << " without preceding 'if', 'for', or 'while'";
+            }
           }
           // Fall through.
         case line_type::cmd_if:
@@ -626,7 +739,15 @@ namespace build2
         case line_type::cmd_if:
         case line_type::cmd_ifn:
           {
-            semi = pre_parse_if_else (t, tt, d, *ls);
+            // Only allow parsing as an if-command if requested so or there is
+            // leading +/-.
+            //
+            semi = pre_parse_if_else (t, tt,
+                                      d,
+                                      *ls,
+                                      command_only_if || st != type::eos);
+
+            assert (tt == type::newline);
 
             // If this turned out to be scope-if, then ls is empty, semi is
             // false, and none of the below logic applies.
@@ -748,18 +869,7 @@ namespace build2
               //
             default:
               {
-                // First check that we don't have any teardown commands yet.
-                // This will detect things like variable assignments between
-                // tests.
-                //
-                if (!group_->tdown_.empty ())
-                {
-                  location tl (
-                    group_->tdown_.back ().tokens.front ().location ());
-
-                  fail (ll) << "test after teardown" <<
-                    info (tl) << "last teardown line appears here";
-                }
+                verify_no_teardown ("test", ll);
                 break;
               }
             }
@@ -788,14 +898,22 @@ namespace build2
           case type::eos:
           case type::rcbrace:
           case type::lcbrace:
+          case type::double_lcbrace:
+          case type::double_rcbrace:
             fail (ll) << "expected another line after ';'" << endf;
           case type::plus:
             fail (ll) << "setup command in test" << endf;
           case type::minus:
             fail (ll) << "teardown command in test" << endf;
           default:
-            semi = pre_parse_line (t, tt, d, ls);
-            assert (tt == type::newline); // End of last test line.
+            {
+              semi = pre_parse_line (t, tt,
+                                     d,
+                                     ls,
+                                     false /* one */,
+                                     nullopt /* flow_control_type */,
+                                     command_only_if);
+            }
           }
         }
 
@@ -822,31 +940,334 @@ namespace build2
           group_->scopes.push_back (move (p));
         }
 
+        assert (tt == type::newline);
+
         return semi;
       }
 
       bool parser::
       pre_parse_if_else (token& t, type& tt,
                          optional<description>& d,
-                         lines& ls)
+                         lines& ls,
+                         bool command_only)
       {
-        // enter: <newline> (previous line)
+        // enter: <newline> (previous line `if ...`)
         // leave: <newline>
+
+        assert (syntax_ != 0);
 
         tt = peek (lexer_mode::first_token);
 
-        return tt == type::lcbrace
-          ? pre_parse_if_else_scope (t, tt, d, ls)
-          : pre_parse_if_else_command (t, tt, d, ls);
+        if (syntax_ == 1)
+        {
+          if (tt == type::lcbrace && command_only)
+            fail (peeked ()) << "expected command instead of '{'";
+
+          return tt == type::lcbrace
+                 ? pre_parse_if_else_group (t, tt, d, ls)
+                 : pre_parse_if_else_command_v1 (t, tt, d, ls);
+        }
+
+        if (tt == type::double_lcbrace)
+        {
+          if (command_only)
+            fail (peeked ()) << "expected command or '{' instead of '{{'";
+
+          return pre_parse_if_else_group (t, tt, d, ls);
+        }
+
+        // Unless parsing only as a command is requested, if this `if` line is
+        // first in the test, then parse this flow control construct as an
+        // explicit test scope. However, if this construct turned out to not
+        // be an explicit scope (is followed by `;` or is variable-only), then
+        // convert it into an if-command and continue parsing as a
+        // (potentially multi-command) test in an implicit scope.
+        //
+        if (!command_only && ls.size () == 1)
+        {
+          // Use if/if! as the entire scope chain location.
+          //
+          const location ll (ls.back ().tokens.front ().location ());
+
+          pair<unique_ptr<test>, bool> r (
+            pre_parse_if_else_test (t, tt, d, ls, ll));
+
+          unique_ptr<test>& ts (r.first);
+          bool semi (r.second);
+
+          if (!semi)
+          {
+            bool var_only (true);
+
+            for (test* t (ts.get ());
+                 t != nullptr;
+                 t = dynamic_cast <test*> (t->if_chain.get ()))
+            {
+              if (find_if (t->tests_.begin (), t->tests_.end (),
+                           [] (const line& l) {
+                             return l.type == line_type::cmd;
+                           }) != t->tests_.end ())
+              {
+                var_only = false;
+                break;
+              }
+            }
+
+            if (!var_only)
+            {
+              verify_no_teardown ("test scope", ll);
+
+              group_->scopes.push_back (move (ts));
+              return false;
+            }
+          }
+
+          // Covert the explicit `if` test scope into an if-command.
+          //
+          // Specifically, erase the automatically generated test id from the
+          // map, move the condition and blocks' lines into the single test
+          // lines list, and terminate the construct with the special `end`
+          // line.
+          //
+          // Note that here we assume that the caller (normally
+          // pre_parse_line()) is yet to generate the automatic test id for
+          // the yet to be created test object.
+          //
+          if (!d || d->id.empty ())
+            id_map_->erase (ts->id_path.leaf ().string ());
+
+          for (;;)
+          {
+            assert (ts->if_cond_); // Note: also present for the `else` line.
+
+            ls.push_back (move (*ts->if_cond_));
+
+            ls.insert (ls.end (),
+                       make_move_iterator (ts->tests_.begin ()),
+                       make_move_iterator (ts->tests_.end ()));
+
+            if (ts->if_chain == nullptr)
+              break;
+
+            ts.reset (dynamic_cast<test*> (ts->if_chain.release ()));
+            assert (ts != nullptr);
+          }
+
+          // Terminate the construct with the special `end` line.
+          //
+          ls.push_back (end_line);
+
+          return semi;
+        }
+
+        return pre_parse_if_else_command (t, tt, d, ls);
+      }
+
+      // Parse an `if` flow control construct as a test scope-if and return it
+      // together with an indication whether it has a trailing semicolon.
+      //
+      pair<unique_ptr<test>, bool> parser::
+      pre_parse_if_else_test (token& t, type& tt,
+                              optional<description>& d,
+                              lines& ls,
+                              const location& loc)
+      {
+        // enter: peeked first token of next line (potentially lcbrace)
+        // leave: newline
+
+        assert (syntax_ >= 2); // Wouldn't be here otherwise.
+
+        // If there is no user-supplied id, use the line number (prefixed with
+        // include id) as the scope id. Note that we use the same id for all
+        // scopes in the chain. Stash it as a pointer since it may change
+        // later, if the trailing description will be encountered.
+        //
+        const string* id (
+          d && !d->id.empty ()
+          ? &d->id
+          : &insert_id (id_prefix_ + to_string (loc.line), loc));
+
+        unique_ptr<scope> root;
+        bool semi (false);
+
+        // Parse the if-else scope chain.
+        //
+        line_type bt (line_type::cmd_if); // Current block.
+
+        for (unique_ptr<scope>* ps (&root);; ps = &(*ps)->if_chain)
+        {
+          unique_ptr<scope> sc;
+          optional<description> td;
+
+          if (tt == type::lcbrace) // Parse branch enclosed into curly braces.
+          {
+            pair<bool, optional<description>> r;
+            sc = pre_parse_test_block (t, tt, *id, &r);
+
+            semi = r.first;
+            td = move (r.second);
+          }
+          else                     // Parse branch which contains single line.
+          {
+            unique_ptr<test> ts (new test (*id, *group_));
+            ts->start_loc_ = get_location (peeked ());
+
+            pair<bool, optional<description>> r (
+              pre_parse_command_line (t, tt,
+                                      ts->tests_,
+                                      nullopt /* block_type */));
+
+            ts->end_loc_ = get_location (t);
+
+            sc = move (ts);
+
+            semi = r.first;
+            td = move (r.second);
+          }
+
+          // If there is a trailing description specified, then overwrite
+          // the description for all the scopes we have parsed so far. Also,
+          // overwrite the id, if it has changed.
+          //
+          if (td)
+          {
+            // @@ Not the exact location of colon.
+            //
+            if (d)
+              fail (loc) << "both leading and trailing descriptions";
+
+            // Note that the previous id has been generated automatically,
+            // since there were no leading description specified. Thus, only
+            // change the id, if the trailing description specifies one. In
+            // other words, we only overwrite the automatically generated id
+            // with the user-supplied one.
+            //
+            bool update_id (!td->id.empty ());
+
+            d = move (*td);
+
+            if (update_id)
+            {
+              id_map_->erase (*id); // Note: id refers to a map entry.
+              id = &d->id;
+
+              // Note that we will set the description later.
+              //
+              sc->id (*id);
+            }
+
+            for (scope* s (root.get ()); s != nullptr; s = s->if_chain.get ())
+            {
+              if (update_id)
+                s->id (*id);
+
+              // For now we just duplicate it (see below for details).
+              //
+              s->desc = (s == root.get () ? d : root->desc);
+            }
+          }
+
+          // If-condition.
+          //
+          sc->if_cond_ = move (ls.back ());
+          ls.clear ();
+
+          // Description. For now we just duplicate it through the entire
+          // chain.
+          //
+          sc->desc = (ps == &root ? d : root->desc);
+
+          *ps = move (sc);
+
+          // Bail out if semicolon or the trailing description is encountered.
+          //
+          if (semi || td)
+          {
+            // Can't be both true.
+            //
+            assert (semi != td.has_value ());
+            break;
+          }
+
+          // See if what comes next is another chain element.
+          //
+          line_type lt (line_type::cmd_end);
+          type pt (peek (lexer_mode::first_token));
+          const token& p (peeked ());
+          const location ll (get_location (p));
+
+          if (pt == type::word && p.qtype == quote_type::unquoted)
+          {
+            if      (p.value == "elif")  lt = line_type::cmd_elif;
+            else if (p.value == "elif!") lt = line_type::cmd_elifn;
+            else if (p.value == "else")  lt = line_type::cmd_else;
+          }
+
+          if (lt == line_type::cmd_end)
+            break;
+
+          // Check if-else block sequencing.
+          //
+          if (bt == line_type::cmd_else)
+            fail (ll) << lt << " after " << bt;
+
+          // Parse just the condition line using pre_parse_line() in the "one"
+          // mode and into ls so that it is naturally picked up as if_cond_ on
+          // the next iteration.
+          //
+          {
+            optional<description> td;
+            bool semi (pre_parse_line (t, (tt = pt),
+                                       td,
+                                       &ls,
+                                       true /* one */,
+                                       line_type::cmd_if));
+
+            assert (ls.size () == 1 && ls.back ().type == lt);
+
+            // For any of these lines trailing semi or description is illegal.
+            //
+            // @@ Not the exact location of semi/colon.
+            //
+            if (semi)
+              fail (ll) << "';' after " << lt;
+
+            if (td)
+              fail (ll) << "description after " << lt;
+          }
+
+          // Can either be '{' or the first token of the command line.
+          //
+          tt = peek (lexer_mode::first_token);
+
+          // Update current if-else block.
+          //
+          switch (lt)
+          {
+          case line_type::cmd_elif:
+          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          default: break;
+          }
+        }
+
+        return make_pair (
+          unique_ptr<test> (dynamic_cast <test*> (root.release ())),
+          semi);
       }
 
       bool parser::
-      pre_parse_if_else_scope (token& t, type& tt,
+      pre_parse_if_else_group (token& t, type& tt,
                                optional<description>& d,
                                lines& ls)
       {
-        // enter: peeked token of next line (lcbrace)
+        // enter: peeked token of next line ([double_]lcbrace)
         // leave: newline
+
+        // Note: in syntax 1 this function was called pre_parse_if_else_scope()
+        // since in that syntax the result can be demoted to the test scope.
+
+        assert (syntax_ != 0);
 
         assert (ls.size () == 1); // The if/if! line.
 
@@ -854,17 +1275,7 @@ namespace build2
         //
         const location sl (ls.back ().tokens.front ().location ());
 
-        // First check that we don't have any teardown commands yet. This
-        // will detect things like variable assignments between scopes.
-        //
-        if (!group_->tdown_.empty ())
-        {
-          location tl (
-            group_->tdown_.back ().tokens.front ().location ());
-
-          fail (sl) << "scope after teardown" <<
-            info (tl) << "last teardown line appears here";
-        }
+        verify_no_teardown (syntax_ >= 2 ? "group scope" : "scope", sl);
 
         // If there is no user-supplied id, use the line number (prefixed with
         // include id) as the scope id. Note that we use the same id for all
@@ -881,12 +1292,16 @@ namespace build2
         //
         line_type bt (line_type::cmd_if); // Current block.
 
+        type ot (syntax_ >= 2
+                 ? type (type::double_lcbrace)
+                 : type (type::lcbrace));
+
         for (unique_ptr<scope>* ps (&root);; ps = &(*ps)->if_chain)
         {
-          next (t, tt); // Get '{'.
+          next (t, tt); // Get '{' or '{{'.
 
           {
-            unique_ptr<group> g (pre_parse_scope_block (t, tt, id));
+            unique_ptr<group> g (pre_parse_group_block (t, tt, id));
 
             // If-condition.
             //
@@ -922,12 +1337,7 @@ namespace build2
           // Check if-else block sequencing.
           //
           if (bt == line_type::cmd_else)
-          {
-            if (lt == line_type::cmd_else ||
-                lt == line_type::cmd_elif ||
-                lt == line_type::cmd_elifn)
-              fail (ll) << lt << " after " << bt;
-          }
+            fail (ll) << lt << " after " << bt;
 
           // Parse just the condition line using pre_parse_line() in the "one"
           // mode and into ls so that it is naturally picked up as if_cond_ on
@@ -941,7 +1351,6 @@ namespace build2
                                      line_type::cmd_if));
 
           assert (ls.size () == 1 && ls.back ().type == lt);
-          assert (tt == type::newline);
 
           // For any of these lines trailing semi or description is illegal.
           //
@@ -957,8 +1366,10 @@ namespace build2
           //
           tt = peek (lexer_mode::first_token);
 
-          if (tt != type::lcbrace)
-            fail (ll) << "expected scope after " << lt;
+          if (tt != ot)
+            fail (ll) << (syntax_ >= 2
+                          ? "expected group scope after "
+                          : "expected scope after ") << lt;
 
           // Update current if-else block.
           //
@@ -971,22 +1382,159 @@ namespace build2
           }
         }
 
-        pre_parse_demote_group_scope (root);
+        if (syntax_ == 1)
+          pre_parse_demote_group_to_test (root);
+
         group_->scopes.push_back (move (root));
         return false; // We never end with a semi.
       }
 
-      // Pre-parse the flow control construct block line. Fail if the line is
-      // unexpectedly followed with a semicolon or test description.
+      // Pre-parse either a flow control construct block or an explicit test
+      // scope (both are the curly brace-enclosed sequences of command
+      // lines). If allow_semi_colon is true, then return an indication of
+      // whether the block is followed by a semicolon (first=true) or colon
+      // (second contains the description). Otherwise, fail if a trailing
+      // semicolon or description is present.
       //
-      bool parser::
-      pre_parse_block_line (token& t, type& tt,
-                            line_type bt,
-                            optional<description>& d,
-                            lines& ls)
+      // Note that the block type argument (bt) is only used for diagnostics.
+      // If it is nullopt, then the test scope is assumed.
+      //
+      pair<bool, optional<description>> parser::
+      pre_parse_command_block (token& t, type& tt,
+                               lines& ls,
+                               optional<line_type> bt,
+                               bool allow_semi_colon)
+      {
+        // enter: peeked first token of the line (lcbrace)
+        // leave: newline after rcbrace, semicolon, or trailing description
+
+        assert (syntax_ >= 2); // Wouldn't be here otherwise.
+
+        next (t, tt); // Get '{'.
+
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after '{'";
+
+        // Parse block lines until we see '}'.
+        //
+        for (;;)
+        {
+          // Start lexing each line recognizing leading '.+-{}{{}}'.
+          //
+          tt = peek (lexer_mode::first_token);
+
+          if (tt == type::rcbrace)
+            break;
+
+          const location ll (get_location (peeked ()));
+
+          pair<bool, optional<description>> r (
+            pre_parse_command_line (t, tt, ls, bt));
+
+          // The trailing semi or description is illegal.
+          //
+          // @@ Not the exact location of semi/colon.
+          //
+          if (r.first)
+            fail (ll) << "';' inside "
+                      << (bt ? to_string (*bt) : "test scope");
+
+          if (r.second)
+            fail (ll) << "description inside "
+                      << (bt ? to_string (*bt) : "test scope");
+        }
+
+        next (t, tt); // Get '}'.
+        next (t, tt); // Get newline, semicolon, or colon.
+
+        if (tt != type::newline &&
+            (!allow_semi_colon || (tt != type::semi && tt != type::colon)))
+          fail (t) << "expected newline"
+                   << (allow_semi_colon ? ", semicolon, or colon" : "")
+                   << " after '}'";
+
+        pair<bool, optional<description>> r (false, nullopt);
+
+        if (tt == type::semi)
+        {
+          if (next (t, tt) != type::newline)
+            fail (t) << "expected newline after ';'";
+
+          r.first = true;
+        }
+        else if (tt == type::colon)
+          r.second = parse_trailing_description (t, tt);
+
+        assert (tt == type::newline);
+        return r;
+      }
+
+      // Pre-parse a single command line which belongs to either a flow
+      // control construct block or an explicit test scope. Return an
+      // indication of whether the line is followed by a semicolon
+      // (first=true) or colon (second contains the description).
+      //
+      // Note that the block type argument (bt) is only used for diagnostics.
+      // If it is nullopt, then the test scope is assumed.
+      //
+      pair<bool, optional<description>> parser::
+      pre_parse_command_line (token& t, type& tt,
+                              lines& ls,
+                              optional<line_type> bt)
       {
         // enter: peeked first token of the line (type in tt)
         // leave: newline
+
+        assert (syntax_ >= 2); // Wouldn't be here otherwise.
+
+        const token& pt (peeked ());
+        const location ll (get_location (pt));
+
+        switch (tt)
+        {
+        case type::colon:
+          fail (ll) << "description inside "
+                    << (bt ? to_string (*bt) : "test scope") << endf;
+        case type::eos:
+        case type::lcbrace:
+        case type::rcbrace:
+        case type::double_lcbrace:
+        case type::double_rcbrace:
+          fail (ll) << "expected command instead of " << pt << " inside "
+                    << (bt ? to_string (*bt) : "test scope") << endf;
+        case type::plus:
+          fail (ll) << "setup command inside "
+                    << (bt ? to_string (*bt) : "test scope") << endf;
+        case type::minus:
+          fail (ll) << "teardown command inside "
+                    << (bt ? to_string (*bt) : "test scope");
+        }
+
+        optional<description> td;
+        bool semi (pre_parse_line (t, tt,
+                                   td,
+                                   &ls,
+                                   true /* one */,
+                                   nullopt /* flow_control_type */,
+                                   true /* command_only_if */));
+
+        return make_pair (semi, move (td));
+      }
+
+      // Pre-parse the flow control construct block line for syntax 1. Fail if
+      // the line is unexpectedly followed with a semicolon or test
+      // description.
+      //
+      bool parser::
+      pre_parse_command_line_v1 (token& t, type& tt,
+                                 optional<description>& d,
+                                 lines& ls,
+                                 line_type bt)
+      {
+        // enter: peeked first token of the line (type in tt)
+        // leave: newline
+
+        assert (syntax_ == 1);
 
         const location ll (get_location (peeked ()));
 
@@ -1001,7 +1549,7 @@ namespace build2
         case type::plus:
           fail (ll) << "setup command inside " << bt << endf;
         case type::minus:
-          fail (ll) << "teardown command inside " << bt << endf;
+          fail (ll) << "teardown command inside " << bt;
         }
 
         // Parse one line. Note that this one line can still be multiple lines
@@ -1035,9 +1583,12 @@ namespace build2
         }
 
         optional<description> td;
-        bool semi (pre_parse_line (t, tt, td, &ls, true /* one */, fct));
-
-        assert (tt == type::newline);
+        bool semi (pre_parse_line (t, tt,
+                                   td,
+                                   &ls,
+                                   true /* one */,
+                                   fct,
+                                   true /* command_only_if */));
 
         line_type lt (ls[i].type);
 
@@ -1077,6 +1628,124 @@ namespace build2
         // enter: peeked first token of next line (type in tt)
         // leave: newline
 
+        assert (syntax_ >= 2); // Wouldn't be here otherwise.
+
+        bool semi (false);
+
+        // Use the first test token as the entire test location.
+        //
+        const location tl (ls.front ().tokens.front ().location ());
+
+        // Parse the if-else block chain.
+        //
+        for (line_type bt (line_type::cmd_if); // Current block.
+             ;
+             tt = peek (lexer_mode::first_token))
+        {
+          pair<bool, optional<description>> r (
+            tt == type::lcbrace
+            ? pre_parse_command_block (t, tt, ls, bt)
+            : pre_parse_command_line  (t, tt, ls, bt));
+
+          semi = r.first;
+
+          optional<description>& td (r.second);
+
+          if (td)
+          {
+            // @@ Not the exact location of colon.
+            //
+            if (d)
+              fail (tl) << "both leading and trailing descriptions";
+
+            d = move (*td);
+          }
+
+          // Bail out if a semicolon or the trailing description is
+          // encountered.
+          //
+          if (semi || td)
+          {
+            // Can't be both true.
+            //
+            assert (semi != td.has_value ());
+            break;
+          }
+
+          // See if what comes next is another chain element.
+          //
+          line_type lt (line_type::cmd_end);
+          type pt (peek (lexer_mode::first_token));
+          const token& p (peeked ());
+          const location ll (get_location (p));
+
+          if (pt == type::word && p.qtype == quote_type::unquoted)
+          {
+            if      (p.value == "elif")  lt = line_type::cmd_elif;
+            else if (p.value == "elif!") lt = line_type::cmd_elifn;
+            else if (p.value == "else")  lt = line_type::cmd_else;
+          }
+
+          // Bail out if we reached the end of the if-construct.
+          //
+          if (lt == line_type::cmd_end)
+            break;
+
+          // Check if-else block sequencing.
+          //
+          if (bt == line_type::cmd_else)
+            fail (ll) << lt << " after " << bt;
+
+          {
+            optional<description> d;
+            bool semi (pre_parse_line (t, tt,
+                                       d,
+                                       &ls,
+                                       true /* one */,
+                                       line_type::cmd_if));
+
+            // The trailing semi or description is illegal.
+            //
+            // @@ Not the exact location of semi/colon.
+            //
+            if (semi)
+              fail (ll) << "';' inside test scope";
+
+            if (d)
+              fail (ll) << "description inside test scope";
+          }
+
+          // Can either be '{' or the first token of the command line.
+          //
+          tt = peek (lexer_mode::first_token);
+
+          // Update current if-else block.
+          //
+          switch (lt)
+          {
+          case line_type::cmd_elif:
+          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          default: break;
+          }
+        }
+
+        // Terminate the construct with the special `end` line.
+        //
+        ls.push_back (end_line);
+        return semi;
+      }
+
+      bool parser::
+      pre_parse_if_else_command_v1 (token& t, type& tt,
+                                    optional<description>& d,
+                                    lines& ls)
+      {
+        // enter: peeked first token of next line (type in tt)
+        // leave: newline
+
+        assert (syntax_ == 1);
+
         // Parse lines until we see closing 'end'.
         //
         for (line_type bt (line_type::cmd_if); // Current block.
@@ -1086,7 +1755,7 @@ namespace build2
           const location ll (get_location (peeked ()));
           size_t i (ls.size ());
 
-          bool semi (pre_parse_block_line (t, tt, bt, d, ls));
+          bool semi (pre_parse_command_line_v1 (t, tt, d, ls, bt));
 
           line_type lt (ls[i].type);
 
@@ -1129,6 +1798,52 @@ namespace build2
         // enter: <newline> (previous line)
         // leave: <newline>
 
+        assert (syntax_ != 0);
+
+        if (syntax_ == 1)
+          return pre_parse_loop_v1 (t, tt, lt, d, ls);
+
+        tt = peek (lexer_mode::first_token);
+
+        // Use the first test token as the entire test location.
+        //
+        const location tl (ls.front ().tokens.front ().location ());
+
+        pair<bool, optional<description>> r (
+          tt == type::lcbrace
+          ? pre_parse_command_block (t, tt, ls, lt)
+          : pre_parse_command_line  (t, tt, ls, lt));
+
+        bool semi (r.first);
+        optional<description>& td (r.second);
+
+        if (td)
+        {
+          // @@ Not the exact location of colon.
+          //
+          if (d)
+            fail (tl) << "both leading and trailing descriptions";
+
+          d = move (*td);
+        }
+
+        // Terminate the construct with the special `end` line.
+        //
+        ls.push_back (end_line);
+        return semi;
+      }
+
+      bool parser::
+      pre_parse_loop_v1 (token& t, type& tt,
+                         line_type lt,
+                         optional<description>& d,
+                         lines& ls)
+      {
+        // enter: <newline> (previous line)
+        // leave: <newline>
+
+        assert (syntax_ == 1);
+
         assert (lt == line_type::cmd_while      ||
                 lt == line_type::cmd_for_stream ||
                 lt == line_type::cmd_for_args);
@@ -1141,7 +1856,7 @@ namespace build2
         {
           size_t i (ls.size ());
 
-          bool semi (pre_parse_block_line (t, tt, lt, d, ls));
+          bool semi (pre_parse_command_line_v1 (t, tt, d, ls, lt));
 
           if (ls[i].type == line_type::cmd_end)
             return semi;
@@ -1236,7 +1951,7 @@ namespace build2
             try
             {
               ifdstream ifs (p);
-              lexer l (ifs, pn, lexer_mode::command_line);
+              lexer l (ifs, pn, lexer_mode::command_line, syntax_);
 
               const path_name* op (path_);
               path_ = &pn;
@@ -1250,7 +1965,7 @@ namespace build2
               id_prefix_ += p.leaf ().base ().string ();
               id_prefix_ += '-';
 
-              token t (pre_parse_scope_body ());
+              token t (pre_parse_group_body ());
 
               if (t.type != type::eos)
                 fail (t) << "stray " << t;
@@ -1543,6 +2258,29 @@ namespace build2
         return r;
       }
 
+      void parser::
+      verify_no_teardown (const char* what, const location& loc) const
+      {
+        const lines& tdown (group_->tdown_);
+
+        if (!tdown.empty ())
+        {
+          // Find the location of the last teardown line.
+          //
+          // Note that we exclude the trailing `end` lines from the search,
+          // since they are special for the syntax version 2 and above: they
+          // don't contain any tokens and thus have no locations.
+          //
+          for (const line& l: reverse_iterate (tdown))
+          {
+            if (l.type != line_type::cmd_end)
+              fail (loc) << what << " after teardown" <<
+                info (l.tokens.front ().location ()) << "last teardown "
+                                                     << "line appears here";
+          }
+        }
+      }
+
       //
       // Execute.
       //
@@ -1591,11 +2329,11 @@ namespace build2
       }
 
       static void
-      execute_impl (scope& s, script& scr, runner& r)
+      execute_impl (scope& s, script& scr, runner& r, uint64_t syntax)
       {
         try
         {
-          parser p (scr.test_target.ctx);
+          parser p (scr.test_target.ctx, syntax);
           p.execute (s, scr, r);
         }
         catch (const failed&)
@@ -1847,13 +2585,13 @@ namespace build2
                 //
                 const diag_frame* df (diag_frame::stack ());
                 if (!ctx->sched->async (task_count,
-                                        [] (const diag_frame* ds,
-                                            scope& s,
-                                            script& scr,
-                                            runner& r)
+                                        [this] (const diag_frame* ds,
+                                                scope& s,
+                                                script& scr,
+                                                runner& r)
                                         {
                                           diag_frame::stack_guard dsg (ds);
-                                          execute_impl (s, scr, r);
+                                          execute_impl (s, scr, r, syntax_);
                                         },
                                         df,
                                         ref (*chain),
@@ -1913,6 +2651,18 @@ namespace build2
       special_variable (const string& n) noexcept
       {
         return n == "*" || n == "~" || n == "@" || digit (n);
+      }
+
+      void parser::
+      verify_variable_assignment (const string& name, const location& loc)
+      {
+        if (special_variable (name))
+          build2::fail (loc) << "attempt to set '" << name
+                             << "' variable directly";
+
+        if (name == "testscript.syntax")
+          build2::fail (loc) << "variable testscript.syntax can only be "
+                             << "assigned to on the first line of the script";
       }
 
       lookup parser::

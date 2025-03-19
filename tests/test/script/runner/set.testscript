@@ -606,4 +606,14 @@
     testscript:1:1: info: while parsing attributes '[string] x'
     info: test id: 1
   EOE
+
+  : any-syntax
+  :
+  $c <<EOI && $b 2>>EOE != 0
+  echo true | set foo [bool{{]
+  EOI
+  <attributes>:1:1: error: unknown value attribute bool{{
+    testscript:1:1: info: while parsing attributes '[bool{{]'
+    info: test id: 1
+  EOE
 }

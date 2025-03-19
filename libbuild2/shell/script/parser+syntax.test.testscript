@@ -1,0 +1,84 @@
+# file      : libbuild2/shell/script/parser+syntax.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: set-version
+:
+{
+  $* <<EOI >>EOO
+  shellscript.syntax = 2
+  if true
+  {
+    cmd
+  }
+  EOI
+  ? true
+  cmd
+  EOO
+}
+
+: invalid-assignment
+:
+{
+  $* <<EOI 2>>EOE != 0
+  shellscript.syntax += 2
+  cmd
+  EOI
+  shellscript:11:20: error: expected '=' instead of '+='
+  EOE
+}
+
+: no-version
+:
+{
+  $* <<EOI 2>>EOE != 0
+  shellscript.syntax =
+  cmd
+  EOI
+  shellscript:11:21: error: expected literal syntax version instead of <newline>
+  EOE
+}
+
+: not-version
+:
+{
+  $* <<EOI 2>>EOE != 0
+  shellscript.syntax = $foo
+  cmd
+  EOI
+  shellscript:11:22: error: expected literal syntax version instead of '$'
+  EOE
+}
+
+: invalid-version
+:
+{
+  $* <<EOI 2>>EOE != 0
+  shellscript.syntax = 1
+  cmd
+  EOI
+  shellscript:11:22: error: only syntax version 2 is supported
+  EOE
+}
+
+: trailing-junk
+:
+{
+  $* <<EOI 2>>EOE != 0
+  shellscript.syntax = 2 foo
+  cmd
+  EOI
+  shellscript:11:24: error: expected newline after syntax version
+  EOE
+}
+
+: non-first-line
+:
+{
+  $* <<EOI 2>>EOE != 0
+  foo = bar
+  shellscript.syntax = 1
+  cmd
+  EOI
+  shellscript:12:1: error: variable shellscript.syntax can only be assigned to on the first line of the script
+  EOE
+}

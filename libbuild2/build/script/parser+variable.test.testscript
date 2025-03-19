@@ -39,3 +39,48 @@ $* <<EOI 2>>EOE != 0
 EOI
 buildfile:11:1: error: missing variable name
 EOE
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : assignment
+  :
+  $* <<EOI >>EOO
+  a = b
+  echo $a
+  EOI
+  echo b
+  EOO
+
+  : primary-target
+  :
+  $* <<EOI >>EOO
+  echo $name($>)
+  EOI
+  echo driver
+  EOO
+
+  : no-newline
+  :
+  $* <:'echo a' 2>>EOE != 0
+  buildfile:11:7: error: expected newline instead of <end of file>
+  EOE
+
+  : set-primary-target
+  :
+  $* <<EOI 2>>EOE != 0
+  > = a
+  EOI
+  buildfile:11:1: error: missing program
+  EOE
+
+  : empty-name
+  :
+  $* <<EOI 2>>EOE != 0
+  = b
+  EOI
+  buildfile:11:1: error: missing variable name
+  EOE
+}

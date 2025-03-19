@@ -167,7 +167,10 @@ namespace build2
     ttype = &tt;
 
     istringstream is (move (t));
-    build::script::parser p (s.ctx);
+
+    // @@ TMP Retrieve the syntax version from a variable.
+    //
+    build::script::parser p (s.ctx, 1 /* syntax */);
 
     script = p.pre_parse (s, tt, actions,
                           is, loc.file, loc.line + 1,
@@ -200,10 +203,10 @@ namespace build2
     if (script.depdb_clear)
       os << ind << "depdb clear" << endl;
 
-    script::dump (os, ind, script.depdb_preamble);
-    script::dump (os, ind, script.diag_preamble);
+    script::dump (os, ind, script.depdb_preamble, script.syntax);
+    script::dump (os, ind, script.diag_preamble, script.syntax);
 
-    script::dump (os, ind, script.body);
+    script::dump (os, ind, script.body, script.syntax);
     ind.resize (ind.size () - 2);
     os << ind << string (braces, '}');
   }
@@ -1013,7 +1016,7 @@ namespace build2
     // Run the first half of the preamble (before depdb-dyndep).
     //
     {
-      build::script::parser p (ctx);
+      build::script::parser p (ctx, script.syntax);
       p.execute_depdb_preamble (a, bs, t, env, script, run, dd);
 
       // Write a blank line after the custom depdb entries and before
@@ -1101,7 +1104,7 @@ namespace build2
       // to consider; see inject_existing_file() for details).
       //
       {
-        build::script::parser p (ctx);
+        build::script::parser p (ctx, script.syntax);
         mdb->byp = p.execute_depdb_preamble_dyndep_byproduct (
           a, bs, t,
           env, script, run,
@@ -1238,7 +1241,7 @@ namespace build2
       //
       md->deferred_failure = false;
       {
-        build::script::parser p (ctx);
+        build::script::parser p (ctx, script.syntax);
         p.execute_depdb_preamble_dyndep (a, bs, t,
                                          env, script, run,
                                          dd,
@@ -1940,7 +1943,7 @@ namespace build2
       if (script.depdb_preamble_temp_dir)
         env.set_temp_dir_variable ();
 
-      build::script::parser p (ctx);
+      build::script::parser p (ctx, script.syntax);
 
       run.enter (env, script.start_loc);
       p.execute_depdb_preamble (a, bs, t, env, script, run, dd);
@@ -2132,7 +2135,7 @@ namespace build2
     // variable ($~) in the 'diag' builtin call, so we postpone setting it
     // until the script body execution, that can potentially be omitted.
     //
-    build::script::parser p (ctx);
+    build::script::parser p (ctx, script.syntax);
 
     bool exec_body  (!ctx.dry_run || verb >= 2);
     bool exec_diag  (!script.diag_preamble.empty () && (exec_body || verb == 1));
@@ -2275,7 +2278,7 @@ namespace build2
 
     const scope& rs (*bs.root_scope ());
 
-    build::script::parser p (ctx);
+    build::script::parser p (ctx, script.syntax);
 
     bool exec_body  (!ctx.dry_run || verb >= 2);
     bool exec_diag  (!script.diag_preamble.empty () && (exec_body || verb == 1));
@@ -2471,7 +2474,7 @@ namespace build2
       const scope& rs (*bs.root_scope ());
 
       build::script::environment e (a, t, bs, false /* temp_dir */, deadline);
-      build::script::parser p (ctx);
+      build::script::parser p (ctx, script.syntax);
       build::script::default_runner r;
 
       bool exec_body (!ctx.dry_run || verb >= 2);

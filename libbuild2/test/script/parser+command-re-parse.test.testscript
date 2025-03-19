@@ -9,3 +9,18 @@ $x
 EOI
 cmd '>-' '<-'
 EOO
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : double-quote
+  :
+  $* <<EOI >>EOO
+  x = [cmdline] cmd \">-\" "'<-'"
+  $x
+  EOI
+  cmd '>-' '<-'
+  EOO
+}

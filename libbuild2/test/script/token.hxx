@@ -28,7 +28,10 @@ namespace build2
           dot,                          // .
 
           plus,                         // +
-          minus                         // -
+          minus,                        // -
+
+          double_lcbrace,               // {{
+          double_rcbrace                // }}
         };
 
         token_type () = default;

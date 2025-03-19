@@ -47,8 +47,13 @@ namespace build2
           //
           bool u (m != lexer_mode::command_line);
 
+          // Note: shellscript only supports syntax version 2.
+          //
           path_name in ("<stdin>");
-          lexer l (cin, in, 1 /* line */, lexer_mode::command_line);
+          lexer l (cin, in,
+                   1 /* line */,
+                   lexer_mode::command_line,
+                   2 /* syntax */);
           if (u)
             l.mode (m);
 

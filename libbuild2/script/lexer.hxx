@@ -75,6 +75,9 @@ namespace build2
 
       using redirect_aliases_type = script::redirect_aliases;
 
+      // The zero syntax version means 'any syntax' and can only be specified
+      // if the planned function calls are all syntax-agnostic.
+      //
       // Note that none of the name, redirect aliases, and escape arguments
       // are copied.
       //
@@ -82,12 +85,16 @@ namespace build2
              const path_name& name,
              lexer_mode m,
              const redirect_aliases_type& ra,
+             uint64_t syntax,
              const char* escapes = nullptr)
           : base_lexer (is, name, 1 /* line */,
                         nullptr     /* escapes */,
                         false       /* set_mode */),
-            redirect_aliases (ra)
+            redirect_aliases (ra),
+            syntax_ (syntax)
       {
+        assert (syntax <= 2);
+
         mode (m, '\0', escapes);
       }
 
@@ -108,6 +115,14 @@ namespace build2
       virtual token
       next () override;
 
+      // Change the current syntax version.
+      //
+      // Note that parser may change the syntax version during pre-parsing
+      // (see parser::try_parse_syntax_version() for details).
+      //
+      virtual void
+      syntax (uint64_t);
+
     public:
       const redirect_aliases_type& redirect_aliases;
 
@@ -117,9 +132,11 @@ namespace build2
       lexer (istream& is, const path_name& name, uint64_t line,
              const char* escapes,
              bool set_mode,
-             const redirect_aliases_type& ra)
+             const redirect_aliases_type& ra,
+             uint64_t syntax)
           : base_lexer (is, name, line, escapes, set_mode),
-            redirect_aliases (ra) {}
+            redirect_aliases (ra),
+            syntax_ (syntax) {assert (syntax <= 2);}
 
       // Return the next token if it is a command operator (|, ||, &&,
       // redirect, or cleanup) and nullopt otherwise.
@@ -134,6 +151,7 @@ namespace build2
 
     protected:
       size_t quoted_;
+      uint64_t syntax_;
     };
   }
 }

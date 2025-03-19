@@ -22,6 +22,7 @@ namespace build2
       using build2::script::line;
       using build2::script::line_type;
       using build2::script::lines;
+      using build2::script::end_line;
       using build2::script::redirect;
       using build2::script::redirect_type;
       using build2::script::command;
@@ -94,6 +95,8 @@ namespace build2
 
         location start_loc;
         location end_loc;
+
+        uint64_t syntax = 0; // Note: set to valid value by parser::pre_parse().
       };
 
       class environment: public build2::script::environment

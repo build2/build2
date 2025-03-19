@@ -47,7 +47,7 @@ namespace build2
 
         pre_parse_ = true;
 
-        lexer l (is, *path_, line, lexer_mode::command_line);
+        lexer l (is, *path_, line, lexer_mode::command_line, syntax_);
         set_lexer (&l);
 
         // The script shouldn't be able to modify the scope.
@@ -63,6 +63,12 @@ namespace build2
         environment_ = nullptr;
 
         s.start_loc = location (*path_, line, 1);
+
+        try_parse_syntax_version ("shellscript.syntax",
+                                  lexer_mode::first_token,
+                                  2 /* min_syntax */);
+
+        s.syntax = syntax_;
 
         token t (pre_parse_script ());
 
@@ -86,7 +92,7 @@ namespace build2
         //
         for (;;)
         {
-          // Start lexing each line.
+          // Start lexing each line recognizing leading '{}'.
           //
           tt = peek (lexer_mode::first_token);
 
@@ -99,10 +105,16 @@ namespace build2
               next (t, tt);
               return t;
             }
+          case type::lcbrace:
+          case type::rcbrace:
+            {
+              const token& p (peeked ());
+              fail (get_location (p)) << "expected command instead of " << p
+                                      << endf;
+            }
           default:
             {
               pre_parse_line (t, tt);
-              assert (tt == type::newline);
               break;
             }
           }
@@ -112,8 +124,21 @@ namespace build2
       // Parse a logical line, handling the flow control constructs
       // recursively.
       //
-      // If the flow control construct type is specified, then this line is
-      // assumed to belong to such a construct.
+      // If the flow control construct type is specified, then it is assumed
+      // that this line can control further parsing/execution of such a
+      // construct. Note that it should not be specified for the first line of
+      // a construct (since its parsing has not yet begun) and for the script
+      // command blocks it controls (since such blocks are not terminated with
+      // keywords). For example:
+      //
+      // if true     # nullopt
+      // {           # Not parsed as a line.
+      //   echo ''   # nullopt
+      // }           # Not parsed as a line.
+      // elif false  # cmd_if
+      //   echo ''   # nullopt
+      // else        # cmd_if
+      //   echo ''   # nullopt
       //
       void parser::
       pre_parse_line (token& t, type& tt, optional<line_type> fct)
@@ -121,11 +146,7 @@ namespace build2
         // enter: next token is peeked at (type in tt)
         // leave: newline
 
-        assert (!fct                              ||
-                *fct == line_type::cmd_if         ||
-                *fct == line_type::cmd_while      ||
-                *fct == line_type::cmd_for_stream ||
-                *fct == line_type::cmd_for_args);
+        assert (!fct || *fct == line_type::cmd_if);
 
         // Determine the line type/start token.
         //
@@ -139,9 +160,7 @@ namespace build2
           {
             // Check if we are trying to modify any of the special variables.
             //
-            if (special_variable (t.value))
-              fail (t) << "attempt to set '" << t.value << "' special "
-                       << "variable";
+            verify_variable_assignment (t.value, get_location (t));
 
             // We don't pre-enter variables.
             //
@@ -192,8 +211,7 @@ namespace build2
               if (n.find_first_of ("[*?") != string::npos)
                 fail (t) << "expected variable name instead of " << n;
 
-              if (special_variable (n))
-                fail (t) << "attempt to set '" << n << "' special variable";
+              verify_variable_assignment (n, get_location (t));
 
               if (lexer_->peek_char ().first == '[')
               {
@@ -242,7 +260,8 @@ namespace build2
               parse_variable_line (t, tt);
 
               if (tt != type::newline)
-                fail (t) << "expected newline instead of " << t << " after for";
+                fail (t) << "expected newline instead of " << t
+                         << " after 'for'";
             }
 
             ln.var = nullptr;
@@ -254,12 +273,6 @@ namespace build2
           {
             if (!fct || *fct != line_type::cmd_if)
               fail (t) << lt << " without preceding 'if'";
-          }
-          // Fall through.
-        case line_type::cmd_end:
-          {
-            if (!fct)
-              fail (t) << lt << " without preceding 'if', 'for', or 'while'";
           }
           // Fall through.
         case line_type::cmd_if:
@@ -287,6 +300,8 @@ namespace build2
 
             break;
           }
+        case line_type::cmd_end:
+          assert (false); // Not recognized as a keyword.
         }
 
         assert (tt == type::newline);
@@ -312,51 +327,66 @@ namespace build2
           {
             tt = peek (lexer_mode::first_token);
 
-            pre_parse_loop (t, tt, lt);
+            pre_parse_loop (t, tt);
             break;
           }
         default: break;
         }
+
+        assert (tt == type::newline);
       }
 
       // Pre-parse the flow control construct block line.
       //
       void parser::
-      pre_parse_block_line (token& t, type& tt, line_type bt)
+      pre_parse_block_line (token& t, type& tt)
       {
         // enter: peeked first token of the line (type in tt)
         // leave: newline
 
-        const location ll (get_location (peeked ()));
-
-        if (tt == type::eos)
-          fail (ll) << "expected closing 'end'";
-
-        line_type fct; // Flow control type the block type relates to.
-
-        switch (bt)
+        switch (tt)
         {
-        case line_type::cmd_if:
-        case line_type::cmd_ifn:
-        case line_type::cmd_elif:
-        case line_type::cmd_elifn:
-        case line_type::cmd_else:
+        case type::eos:
+        case type::lcbrace:
+        case type::rcbrace:
           {
-            fct = line_type::cmd_if;
-            break;
+            const token& p (peeked ());
+            fail (get_location (p)) << "expected command instead of " << p;
           }
-        case line_type::cmd_while:
-        case line_type::cmd_for_stream:
-        case line_type::cmd_for_args:
-          {
-            fct = bt;
-            break;
-          }
-        default: assert(false);
         }
 
-        pre_parse_line (t, tt, fct);
-        assert (tt == type::newline);
+        pre_parse_line (t, tt);
+      }
+
+      void parser::
+      pre_parse_block (token& t, type& tt)
+      {
+        // enter: peeked first token of the line (lcbrace)
+        // leave: newline after rcbrace
+
+        next (t, tt); // Get '{'.
+
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after '{'";
+
+        // Parse block lines until we see '}'.
+        //
+        for (;;)
+        {
+          // Start lexing each line recognizing leading '{}'.
+          //
+          tt = peek (lexer_mode::first_token);
+
+          if (tt == type::rcbrace)
+            break;
+
+          pre_parse_block_line (t, tt);
+        }
+
+        next (t, tt); // Get '}'.
+
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after '}'";
       }
 
       void parser::
@@ -365,26 +395,31 @@ namespace build2
         // enter: peeked first token of next line (type in tt)
         // leave: newline
 
-        // Parse lines until we see closing 'end'.
+        // Parse the if-else block chain.
         //
         for (line_type bt (line_type::cmd_if); // Current block.
              ;
              tt = peek (lexer_mode::first_token))
         {
-          const location ll (get_location (peeked ()));
+          if (tt == type::lcbrace)
+            pre_parse_block (t, tt);
+          else
+            pre_parse_block_line (t, tt);
 
-          // Parse one line. Note that this one line can still be multiple
-          // lines in case of a flow control construct. In this case we want
-          // to view it as cmd_if, not cmd_end. Thus remember the start
-          // position of the next logical line.
+          // See if what comes next is another chain element.
           //
-          size_t i (script_->body.size ());
+          line_type lt (line_type::cmd_end);
+          type pt (peek (lexer_mode::first_token));
+          const token& p (peeked ());
 
-          pre_parse_block_line (t, tt, bt);
+          if (pt == type::word && p.qtype == quote_type::unquoted)
+          {
+            if      (p.value == "elif")  lt = line_type::cmd_elif;
+            else if (p.value == "elif!") lt = line_type::cmd_elifn;
+            else if (p.value == "else")  lt = line_type::cmd_else;
+          }
 
-          line_type lt (script_->body[i].type);
-
-          // First take care of 'end'.
+          // Bail out if we reached the end of the if-construct.
           //
           if (lt == line_type::cmd_end)
             break;
@@ -392,12 +427,13 @@ namespace build2
           // Check if-else block sequencing.
           //
           if (bt == line_type::cmd_else)
-          {
-            if (lt == line_type::cmd_else ||
-                lt == line_type::cmd_elif ||
-                lt == line_type::cmd_elifn)
-              fail (ll) << lt << " after " << bt;
-          }
+            fail (p) << lt << " after " << bt;
+
+          pre_parse_line (t, (tt = pt), line_type::cmd_if);
+
+          // Can either be '{' or the first token of the command line.
+          //
+          tt = peek (lexer_mode::first_token);
 
           // Update current if-else block.
           //
@@ -409,29 +445,26 @@ namespace build2
           default: break;
           }
         }
+
+        // Terminate the construct with the special `end` line.
+        //
+        script_->body.push_back (end_line);
       }
 
       void parser::
-      pre_parse_loop (token& t, type& tt, line_type lt)
+      pre_parse_loop (token& t, type& tt)
       {
         // enter: peeked first token of next line (type in tt)
         // leave: newline
 
-        assert (lt == line_type::cmd_while      ||
-                lt == line_type::cmd_for_stream ||
-                lt == line_type::cmd_for_args);
+        if (tt == type::lcbrace)
+          pre_parse_block (t, tt);
+        else
+          pre_parse_block_line (t, tt);
 
-        // Parse lines until we see closing 'end'.
+        // Terminate the construct with the special `end` line.
         //
-        for (;; tt = peek (lexer_mode::first_token))
-        {
-          size_t i (script_->body.size ());
-
-          pre_parse_block_line (t, tt, lt);
-
-          if (script_->body[i].type == line_type::cmd_end)
-            break;
-        }
+        script_->body.push_back (end_line);
       }
 
       command_expr parser::
@@ -573,6 +606,18 @@ namespace build2
       special_variable (const string& n) noexcept
       {
         return n == "*" || (n.size () == 1 && digit (n[0])) || n == "~";
+      }
+
+      void parser::
+      verify_variable_assignment (const string& name, const location& loc)
+      {
+        if (special_variable (name))
+          build2::fail (loc) << "attempt to set '" << name
+                             << "' special variable";
+
+        if (name == "shellscript.syntax")
+          build2::fail (loc) << "variable shellscript.syntax can only be "
+                             << "assigned to on the first line of the script";
       }
 
       lookup parser::

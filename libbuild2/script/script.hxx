@@ -18,6 +18,11 @@ namespace build2
     // Pre-parsed representation.
     //
 
+    // Note that starting from syntax version 2, `end` is not recognized as a
+    // keyword during pre-parsing. However, lines of the cmd_end type are
+    // still used in the parsed script representation to terminate the flow
+    // control constructs.
+    //
     enum class line_type
     {
       var,
@@ -33,8 +38,11 @@ namespace build2
       cmd_end
     };
 
-    ostream&
-    operator<< (ostream&, line_type);
+    string
+    to_string (line_type);
+
+    inline ostream&
+    operator<< (ostream& o, line_type t) {return o << to_string (t);}
 
     struct line
     {
@@ -47,6 +55,13 @@ namespace build2
       };
     };
 
+    // Special flow control construct-terminating `end` line for pre-parsing
+    // script syntax version 2 and above.
+    //
+    // Note: doesn't contain location information or replay tokens.
+    //
+    extern const line end_line;
+
     // Most of the time we will have just one line (a command).
     //
     using lines = small_vector<line, 1>;
@@ -58,7 +73,7 @@ namespace build2
     // to the information loss.
     //
     void
-    dump (ostream&, const string& ind, const lines&);
+    dump (ostream&, const string& ind, const lines&, uint64_t syntax);
 
     // As above but print a single line and without the trailing newline token
     // by default.

@@ -204,7 +204,6 @@ test.options += --no-default-options
           echo 1
           if exit 5
             echo 2
-          end
           echo 3
           EOI
 
@@ -217,10 +216,11 @@ test.options += --no-default-options
         cat <<EOI >=test.bx;
           echo 1
           if true
+          {
             echo 2
             exit 5
             echo 3
-          end
+          }
           echo 4
           EOI
 
@@ -239,7 +239,6 @@ test.options += --no-default-options
             echo 2
           elif exit 5
             echo 3
-          end
           echo 4
           EOI
 
@@ -254,10 +253,11 @@ test.options += --no-default-options
           if false
             echo 2
           elif true
+          {
             echo 3
             exit 5
             echo 4
-          end
+          }
           echo 5
           EOI
 
@@ -275,10 +275,11 @@ test.options += --no-default-options
           if false
             echo 2
           else
+          {
             echo 3
             exit 5
             echo 4
-          end
+          }
           echo 5
           EOI
 
@@ -294,9 +295,10 @@ test.options += --no-default-options
         cat <<EOI >=test.bx;
           echo 1
           for i: 2 3
+          {
             echo $i
             exit 5
-          end
+          }
           echo 4
           EOI
 
@@ -312,9 +314,10 @@ test.options += --no-default-options
         cat <<EOI >=test.bx;
           echo 1
           echo 2 3 | for i
+          {
             echo $i
             exit 5
-          end
+          }
           echo 4
           EOI
 
@@ -331,7 +334,6 @@ test.options += --no-default-options
           echo 1
           while exit 5
             echo 2
-          end
           echo 3
           EOI
 
@@ -344,10 +346,11 @@ test.options += --no-default-options
         cat <<EOI >=test.bx;
           echo 1
           while true
+          {
             echo 2
             exit 5
             echo 3
-          end
+          }
           echo 4
           EOI
 
@@ -368,7 +371,6 @@ test.options += --no-default-options
         $* == 5
       }
     }
-
 
     : error
     :
@@ -398,6 +400,340 @@ test.options += --no-default-options
 
         $* 2>>EOE == 1
           test.bx:1:1: error: exit: unexpected argument 'junk'
+          EOE
+      }
+    }
+  }
+
+  : if
+  :
+  {
+    : success
+    :
+    {
+      cat <<EOI >=test.bx;
+        echo 1
+
+        if true
+        {
+          echo 2
+          echo 3
+        }
+
+        if false
+        {
+          echo 4
+          echo 5
+        }
+
+        if true
+          echo 6
+        if false
+          echo 7
+
+        if false
+        {
+          echo 8
+          echo 9
+        }
+        elif true
+        {
+          echo 10
+          echo 11
+        }
+
+        if false
+          echo 12
+        elif true
+          echo 13
+
+        if false
+        {
+          echo 14
+          echo 15
+        }
+        elif false
+        {
+          echo 16
+          echo 17
+        }
+        else
+        {
+          echo 18
+          echo 19
+        }
+
+        if false
+          echo 20
+        elif false
+          echo 21
+        else
+          echo 22
+
+        if true
+        {
+          if true
+          {
+            echo 23
+          }
+        }
+        else
+          if true
+            echo 24
+
+        echo 25
+        EOI
+
+      $* >>EOO
+        1
+        2
+        3
+        6
+        10
+        11
+        13
+        18
+        19
+        22
+        23
+        25
+        EOO
+    }
+
+    : failure
+    :
+    {
+      : unexpected-lcbrace
+      :
+      {
+        cat <<EOI >=test.bx;
+          if true
+          {
+            {
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:3:3: error: expected command instead of '{'
+          EOE
+      }
+
+      : unexpected-else
+      :
+      {
+        cat <<EOI >=test.bx;
+          if true
+          {
+            else
+            {
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:3:3: error: 'else' without preceding 'if'
+          EOE
+      }
+
+      : elif-after-else
+      :
+      {
+        cat <<EOI >=test.bx;
+          if true
+            echo ''
+          else
+            echo ''
+          elif true
+            echo ''
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:5:1: error: 'elif' after 'else'
+          EOE
+      }
+    }
+  }
+
+  : for-args
+  :
+  {
+    : success
+    :
+    {
+      cat <<EOI >=test.bx;
+        echo 1
+        for i: 2 3
+        {
+          for j: 4 5
+            echo $i $j
+        }
+        echo 6
+        EOI
+
+      $* >>EOO
+        1
+        2 4
+        2 5
+        3 4
+        3 5
+        6
+        EOO
+    }
+
+    : failure
+    :
+    {
+      : unexpected-lcbrace
+      :
+      {
+        cat <<EOI >=test.bx;
+          for i: 2 3
+          {
+            {
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:3:3: error: expected command instead of '{'
+          EOE
+      }
+
+      : unexpected-else
+      :
+      {
+        cat <<EOI >=test.bx;
+          for i: 2 3
+          {
+            else
+            {
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:3:3: error: 'else' without preceding 'if'
+          EOE
+      }
+    }
+  }
+
+  : for-stream
+  :
+  {
+    : success
+    :
+    {
+      cat <<EOI >=test.bx;
+        echo 1
+        for i <<< "2 3"
+        {
+          echo 4 5 | for j
+            echo $i $j
+        }
+        echo 6
+        EOI
+
+      $* >>EOO
+        1
+        2 4
+        2 5
+        3 4
+        3 5
+        6
+        EOO
+    }
+
+    : failure
+    :
+    {
+      : unexpected-lcbrace
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 4 5 | for i
+          {
+            {
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:3:3: error: expected command instead of '{'
+          EOE
+      }
+
+      : unexpected-else
+      :
+      {
+        cat <<EOI >=test.bx;
+          echo 4 5 | for i
+          {
+            elif
+            {
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:3:3: error: 'elif' without preceding 'if'
+          EOE
+      }
+    }
+  }
+
+  : while
+  :
+  {
+    : success
+    :
+    {
+      cat <<EOI >=test.bx;
+        echo 1
+        i = [uint64] 2
+        while ($i != 4)
+        {
+          j = [uint64] 4
+
+          while ($j != 6)
+          {
+            echo $i $j
+            j += 1
+          }
+
+          i += 1
+        }
+        echo 6
+        EOI
+
+      $* >>EOO
+        1
+        2 4
+        2 5
+        3 4
+        3 5
+        6
+        EOO
+    }
+
+    : failure
+    :
+    {
+      : unexpected-lcbrace
+      :
+      {
+        cat <<EOI >=test.bx;
+          while true
+          {
+            {
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:3:3: error: expected command instead of '{'
+          EOE
+      }
+
+      : unexpected-else
+      :
+      {
+        cat <<EOI >=test.bx;
+          while true
+          {
+            elif
+            {
+          EOI
+
+        $* 2>>EOE != 0
+          test.bx:3:3: error: 'elif' without preceding 'if'
           EOE
       }
     }

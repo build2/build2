@@ -25,13 +25,16 @@ namespace build2
     class LIBBUILD2_SYMEXPORT parser: protected build2::parser
     {
     public:
-      explicit
-      parser (context& c): build2::parser (c) {}
+      // The zero syntax version means 'any syntax' and can only be specified
+      // if the planned function calls are all syntax-agnostic.
+      //
+      parser (context& c, uint64_t s)
+        : build2::parser (c), syntax_ (s) {assert (s <= 2);}
 
       // Context-less parsing.
       //
-      parser (const variable_pool& vp, const function_map& fs)
-          : build2::parser (vp, fs) {}
+      parser (const variable_pool& vp, const function_map& fs, uint64_t s)
+          : build2::parser (vp, fs), syntax_ (s) {assert (s <= 2);}
 
       // Helpers.
       //
@@ -185,6 +188,27 @@ namespace build2
       parsed_env
       parse_env_builtin (token&, token_type&);
 
+      // Try to pre-parse script line as a syntax version variable assignment
+      // and change the current syntax version on success. For example:
+      //
+      // testscript.syntax = 1
+      //
+      // Specifically, peek the first token using the specified lexer mode
+      // and, if the peeked token is an unquoted word which matches the
+      // specified name, continue parsing the line as a variable assignment
+      // with the version number specified literally. Otherwise (peeked token
+      // doesn't match), do nothing, allowing the subsequent pre-parsing to
+      // handle this token. Override the syntax version on the successful line
+      // parsing and issue diagnostics and throw failed otherwise.
+      //
+      // Note: must be called before pre-parsing.
+      //
+      void
+      try_parse_syntax_version (const char* name,
+                                lexer_mode,
+                                uint64_t min_syntax = 1,
+                                uint64_t max_syntax = 2);
+
       // Execute.
       //
     protected:
@@ -291,6 +315,7 @@ namespace build2
 
     protected:
       lexer* lexer_ = nullptr;
+      uint64_t syntax_;
     };
   }
 }

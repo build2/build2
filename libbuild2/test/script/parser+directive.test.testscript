@@ -60,7 +60,7 @@ $* <<EOI 2>>EOE != 0
 cmd;
 .include foo.testscript
 EOI
-testscript:2:1: error: directive after ';'
+testscript:2:1: error: directive inside test
 EOE
 
 : semi-after
@@ -71,3 +71,80 @@ cmd
 EOI
 testscript:1:24: error: ';' after directive
 EOE
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : not-directive
+  :
+  $* <<EOI >>EOO
+  x = x
+  ".include" foo.testscript
+  \.include foo.testscript
+  EOI
+  .include foo.testscript
+  .include foo.testscript
+  EOO
+
+  : expected-name
+  :
+  $* <<EOI 2>>EOE != 0
+  .$
+  EOI
+  testscript:1:2: error: expected directive name instead of '$'
+  EOE
+
+  : unknown-name
+  :
+  $* <<EOI 2>>EOE != 0
+  .bogus
+  EOI
+  testscript:1:2: error: unknown directive 'bogus'
+  EOE
+
+  : separated
+  :
+  touch foo.testscript;
+  $* <<EOI
+  .  include foo.testscript
+  EOI
+
+  : not-separated
+  :
+  touch foo.testscript;
+  $* <<EOI
+  x = foo.testscript
+  .include$x
+  EOI
+
+  : var-expansion
+  :
+  cat <<EOI >="foo-$(build.verson.project).testscript";
+  cmd
+  EOI
+  $* <<EOI >>EOO
+  .include "foo-$(build.verson.project).testscript"
+  EOI
+  cmd
+  EOO
+
+  : after-semi
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd;
+  .include foo.testscript
+  EOI
+  testscript:2:1: error: directive inside test
+  EOE
+
+  : semi-after
+  :
+  $* <<EOI 2>>EOE != 0
+  .include foo.testscript;
+  cmd
+  EOI
+  testscript:1:24: error: ';' after directive
+  EOE
+}

@@ -13,27 +13,28 @@ namespace build2
 {
   namespace script
   {
-    ostream&
-    operator<< (ostream& o, line_type lt)
-    {
-      const char* s (nullptr);
+    const line end_line {line_type::cmd_end, {}, {nullptr}};
 
+    string
+    to_string (line_type lt)
+    {
       switch (lt)
       {
-      case line_type::var:            s = "variable"; break;
-      case line_type::cmd:            s = "command";  break;
-      case line_type::cmd_if:         s = "'if'";     break;
-      case line_type::cmd_ifn:        s = "'if!'";    break;
-      case line_type::cmd_elif:       s = "'elif'";   break;
-      case line_type::cmd_elifn:      s = "'elif!'";  break;
-      case line_type::cmd_else:       s = "'else'";   break;
-      case line_type::cmd_while:      s = "'while'";  break;
-      case line_type::cmd_for_args:   s = "'for'";    break;
-      case line_type::cmd_for_stream: s = "'for'";    break;
-      case line_type::cmd_end:        s = "'end'";    break;
+      case line_type::var:            return  "variable";
+      case line_type::cmd:            return  "command";
+      case line_type::cmd_if:         return  "'if'";
+      case line_type::cmd_ifn:        return  "'if!'";
+      case line_type::cmd_elif:       return  "'elif'";
+      case line_type::cmd_elifn:      return  "'elif!'";
+      case line_type::cmd_else:       return  "'else'";
+      case line_type::cmd_while:      return  "'while'";
+      case line_type::cmd_for_args:   return  "'for'";
+      case line_type::cmd_for_stream: return  "'for'";
+      case line_type::cmd_end:        return  "'end'";
       }
 
-      return o << s;
+      assert (false); // Can't be here.
+      return string ();
     }
 
     void
@@ -187,7 +188,7 @@ namespace build2
     }
 
     void
-    dump (ostream& os, const string& ind, const lines& ls)
+    dump (ostream& os, const string& ind, const lines& ls, uint64_t syntax)
     {
       // Additionally indent the flow control construct block lines.
       //
@@ -196,7 +197,8 @@ namespace build2
       for (const line& l: ls)
       {
         // Before printing indentation, decrease it if the else, end, etc line
-        // is reached.
+        // is reached. Also, print the block-closing `}` line for syntax
+        // version 2 and above.
         //
         switch (l.type)
         {
@@ -208,17 +210,29 @@ namespace build2
             size_t n (fc_ind.size ());
             assert (n >= 2);
             fc_ind.resize (n - 2);
+
+            if (syntax >= 2)
+              os << ind << fc_ind << '}' << endl;
+
             break;
           }
         default: break;
         }
 
-        // Print indentations.
+        // Only print the `end` line for syntax version 1.
         //
-        os << ind << fc_ind;
+        if (l.type != line_type::cmd_end || syntax == 1)
+        {
+          // Print indentations.
+          //
+          os << ind << fc_ind;
+
+          dump (os, l, true /* newline */);
+        }
 
         // After printing indentation, increase it for the flow control
-        // construct block lines.
+        // construct block lines. But before that, print the block-opening `{`
+        // line for syntax version 2 and above.
         //
         switch (l.type)
         {
@@ -229,11 +243,16 @@ namespace build2
         case line_type::cmd_else:
         case line_type::cmd_while:
         case line_type::cmd_for_args:
-        case line_type::cmd_for_stream: fc_ind += "  "; break;
+        case line_type::cmd_for_stream:
+          {
+            if (syntax >= 2)
+              os << ind << fc_ind << '{' << endl;
+
+            fc_ind += "  ";
+            break;
+          }
         default: break;
         }
-
-        dump (os, l, true /* newline */);
       }
     }
 

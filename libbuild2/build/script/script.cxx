@@ -193,10 +193,7 @@ namespace build2
                     const string& attrs,
                     const location& ll)
       {
-        // Check if we are trying to modify any of the special variables.
-        //
-        if (parser::special_variable (nm))
-          fail (ll) << "attempt to set '" << nm << "' special variable";
+        parser::verify_variable_assignment (nm, ll);
 
         // Set the variable value and attributes.
         //
@@ -227,7 +224,10 @@ namespace build2
               dr << info (ll) << "while parsing attributes '" << attrs << "'";
             });
 
-          parser p (target.ctx);
+          // Let's assume that for all syntax versions the syntax of the value
+          // and attributes is the same.
+          //
+          parser p (target.ctx, 0 /* syntax */);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),

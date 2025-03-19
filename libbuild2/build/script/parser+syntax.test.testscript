@@ -1,0 +1,83 @@
+# file      : libbuild2/build/script/parser+syntax.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: set-version
+:
+{
+  $* <<EOI >>EOO
+  buildscript.syntax = 1
+  if true
+    cmd
+  end
+  EOI
+  ? true
+  cmd
+  EOO
+}
+
+: invalid-assignment
+:
+{
+  $* <<EOI 2>>EOE != 0
+  buildscript.syntax += 1
+  cmd
+  EOI
+  buildfile:11:20: error: expected '=' instead of '+='
+  EOE
+}
+
+: no-version
+:
+{
+  $* <<EOI 2>>EOE != 0
+  buildscript.syntax =
+  cmd
+  EOI
+  buildfile:11:21: error: expected literal syntax version instead of <newline>
+  EOE
+}
+
+: not-version
+:
+{
+  $* <<EOI 2>>EOE != 0
+  buildscript.syntax = $foo
+  cmd
+  EOI
+  buildfile:11:22: error: expected literal syntax version instead of '$'
+  EOE
+}
+
+: invalid-version
+:
+{
+  $* <<EOI 2>>EOE != 0
+  buildscript.syntax = 0
+  cmd
+  EOI
+  buildfile:11:22: error: syntax version must be in [1,2] range
+  EOE
+}
+
+: trailing-junk
+:
+{
+  $* <<EOI 2>>EOE != 0
+  buildscript.syntax = 1 foo
+  cmd
+  EOI
+  buildfile:11:24: error: expected newline after syntax version
+  EOE
+}
+
+: non-first-line
+:
+{
+  $* <<EOI 2>>EOE != 0
+  foo = bar
+  buildscript.syntax = 1
+  cmd
+  EOI
+  buildfile:12:1: error: variable buildscript.syntax can only be assigned to on the first line of the script
+  EOE
+}

@@ -60,7 +60,7 @@ namespace build2
       static const optional<string> sd_name ("working directory");
 
       scope::
-      scope (const string& id, scope* p, script& r)
+      scope (const string& i, scope* p, script& r)
           : scope_base (r),
             //
             // Note that root.work_dir is not yet constructed if we are
@@ -82,12 +82,18 @@ namespace build2
             parent (p),
             id_path (cast<path> (assign (root.id_var) = path ()))
       {
+        id (i);
+      }
+
+      void scope::
+      id (const string& id)
+      {
         // Construct the id_path as a string to ensure POSIX form. In fact,
         // the only reason we keep it as a path is to be able to easily get id
         // by calling leaf().
         //
         {
-          string s (p != nullptr ? p->id_path.string () : string ());
+          string s (parent != nullptr ? parent->id_path.string () : string ());
 
           if (!s.empty () && !id.empty ())
             s += '/';
@@ -99,9 +105,9 @@ namespace build2
         // Calculate the working directory path unless this is the root scope
         // (handled in an ad hoc way).
         //
-        if (p != nullptr)
+        if (parent != nullptr)
           const_cast<dir_path&> (*work_dir.path) =
-            dir_path (*p->work_dir.path) /= id;
+            dir_path (*parent->work_dir.path) /= id;
       }
 
       bool scope::
@@ -124,8 +130,7 @@ namespace build2
       {
         // Check if we are trying to modify any of the special variables.
         //
-        if (parser::special_variable (nm))
-          fail (ll) << "attempt to set '" << nm << "' variable directly";
+        parser::verify_variable_assignment (nm, ll);
 
         // Set the variable value and attributes. Note that we need to aquire
         // unique lock before potentially changing the script's variable
@@ -162,7 +167,10 @@ namespace build2
               dr << info (ll) << "while parsing attributes '" << attrs << "'";
             });
 
-          parser p (root.test_target.ctx);
+          // Let's assume that for all syntax versions the syntax of the value
+          // and attributes is the same.
+          //
+          parser p (root.test_target.ctx, 0 /* syntax */);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),

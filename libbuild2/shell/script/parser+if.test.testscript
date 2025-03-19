@@ -1,4 +1,4 @@
-# file      : libbuild2/build/script/parser+command-if.test.testscript
+# file      : libbuild2/shell/script/parser+if.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
 : if
@@ -8,9 +8,10 @@
   :
   $* <<EOI >>EOO
   if true foo
+  {
     cmd1
     cmd2
-  end
+  }
   EOI
   ? true foo
   cmd1
@@ -21,9 +22,10 @@
   :
   $* <<EOI >>EOO
   if false foo
+  {
     cmd1
     cmd2
-  end
+  }
   EOI
   ? false foo
   EOO
@@ -32,9 +34,10 @@
   :
   $* <<EOI >>EOO
   if! true foo
+  {
     cmd1
     cmd2
-  end
+  }
   EOI
   ? true foo
   EOO
@@ -43,9 +46,10 @@
   :
   $* <<EOI >>EOO
   if! false foo
+  {
     cmd1
     cmd2
-  end
+  }
   EOI
   ? false foo
   cmd1
@@ -57,9 +61,8 @@
   $* <<EOI 2>>EOE != 0
   if
     cmd
-  end
   EOI
-  buildfile:11:3: error: missing program
+  shellscript:11:3: error: missing program
   EOE
 }
 
@@ -70,12 +73,15 @@
   :
   $* <<EOI >>EOO
   if false
+  {
     cmd1
     cmd2
+  }
   elif true
+  {
     cmd3
     cmd4
-  end
+  }
   EOI
   ? false
   ? true
@@ -87,12 +93,15 @@
   :
   $* <<EOI >>EOO
   if false
+  {
     cmd1
     cmd2
+  }
   elif false
+  {
     cmd3
     cmd4
-  end
+  }
   EOI
   ? false
   ? false
@@ -102,12 +111,15 @@
   :
   $* <<EOI >>EOO
   if false
+  {
     cmd1
     cmd2
+  }
   elif! true
+  {
     cmd3
     cmd4
-  end
+  }
   EOI
   ? false
   ? true
@@ -117,12 +129,15 @@
   :
   $* <<EOI >>EOO
   if false
+  {
     cmd1
     cmd2
+  }
   elif! false
+  {
     cmd3
     cmd4
-  end
+  }
   EOI
   ? false
   ? false
@@ -136,9 +151,8 @@
   cmd
   elif true
     cmd
-  end
   EOI
-  buildfile:12:1: error: 'elif' without preceding 'if'
+  shellscript:12:1: error: 'elif' without preceding 'if'
   EOE
 
   : not-without-if
@@ -147,9 +161,8 @@
   cmd
   elif! true
     cmd
-  end
   EOI
-  buildfile:12:1: error: 'elif!' without preceding 'if'
+  shellscript:12:1: error: 'elif!' without preceding 'if'
   EOE
 
   : after-else
@@ -161,9 +174,8 @@
     cmd
   elif true
     cmd
-  end
   EOI
-  buildfile:15:1: error: 'elif' after 'else'
+  shellscript:15:1: error: 'elif' after 'else'
   EOE
 }
 
@@ -174,12 +186,15 @@
   :
   $* <<EOI >>EOO
   if false
+  {
     cmd1
     cmd2
+  }
   else
+  {
     cmd3
     cmd4
-  end
+  }
   EOI
   ? false
   cmd3
@@ -190,12 +205,15 @@
   :
   $* <<EOI >>EOO
   if true
+  {
     cmd1
     cmd2
+  }
   else
+  {
     cmd3
     cmd4
-  end
+  }
   EOI
   ? true
   cmd1
@@ -206,24 +224,35 @@
   :
   $* <<EOI >>EOO
   if false
+  {
     cmd
     cmd
+  }
   elif false
+  {
     cmd
     cmd
+  }
   elif false
+  {
     cmd
     cmd
+  }
   elif true
+  {
     cmd1
     cmd2
+  }
   elif false
+  {
     cmd
     cmd
+  }
   else
+  {
     cmd
     cmd
-  end
+  }
   EOI
   ? false
   ? false
@@ -240,9 +269,8 @@
     cmd
   else cmd
     cmd
-  end
   EOI
-  buildfile:13:6: error: expected newline instead of 'cmd'
+  shellscript:13:6: error: expected newline instead of 'cmd'
   EOE
 
   : without-if
@@ -251,9 +279,8 @@
   cmd
   else
     cmd
-  end
   EOI
-  buildfile:12:1: error: 'else' without preceding 'if'
+  shellscript:12:1: error: 'else' without preceding 'if'
   EOE
 
   : after-else
@@ -265,33 +292,61 @@
     cmd
   else
     cmd
-  end
   EOI
-  buildfile:15:1: error: 'else' after 'else'
+  shellscript:15:1: error: 'else' after 'else'
   EOE
 }
 
-: end
+: rcbrace
+:
 {
   : without-if
   :
   $* <<EOI 2>>EOE != 0
   cmd
-  end
+  }
   EOI
-  buildfile:12:1: error: 'end' without preceding 'if', 'for', or 'while'
+  shellscript:12:1: error: expected command instead of '}'
   EOE
 
   : before
+  :
   {
     : command
     :
     $* <<EOI 2>>EOE != 0
     if true
+    {
       cmd
-    end cmd
+    } cmd
     EOI
-    buildfile:13:5: error: expected newline instead of 'cmd'
+    shellscript:14:3: error: expected newline after '}'
+    EOE
+  }
+}
+
+: lcbrace
+:
+{
+  : without-if
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  {
+  EOI
+  shellscript:12:1: error: expected command instead of '{'
+  EOE
+
+  : before
+  :
+  {
+    : command
+    :
+    $* <<EOI 2>>EOE != 0
+    if true
+    { cmd
+    EOI
+    shellscript:12:3: error: expected newline after '{'
     EOE
   }
 }
@@ -303,18 +358,19 @@
   :
   $* <<EOI >>EOO
   if true
+  {
     cmd1
     if false
       cmd
     elif false
+    {
       if true
         cmd
-      end
+    }
     else
       cmd2
-    end
     cmd3
-  end
+  }
   EOI
   ? true
   cmd1
@@ -328,20 +384,19 @@
   :
   $* <<EOI >>EOO
   if false
+  {
     cmd1
     if false
       cmd
     elif false
       if true
         cmd
-      end
     else
       cmd2
-    end
     cmd3
+  }
   else
     cmd
-  end
   EOI
   ? false
   cmd
@@ -356,7 +411,7 @@
   $* <<EOI 2>>EOE != 0
   if
   EOI
-  buildfile:12:1: error: expected closing 'end'
+  shellscript:12:1: error: expected command instead of <end of file>
   EOE
 }
 
@@ -364,16 +419,16 @@
 :
 $* -l <<EOI >>EOO
 if false
+{
   cmd
   if true
     cmd
-  end
   cmd
+}
 elif false
   cmd
 else
   cmd
-end
 EOI
 ? false # 1
 ? false # 6
@@ -387,7 +442,6 @@ if true
   x = foo
 else
   x = bar
-end
 cmd $x
 EOI
 ? true

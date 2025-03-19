@@ -49,7 +49,11 @@ namespace build2
           bool u (m != lexer_mode::command_line);
 
           path_name in ("<stdin>");
-          lexer l (cin, in, lexer_mode::command_line);
+
+          // Test the latest syntax (currently the new syntax is only adding
+          // new recognized tokens).
+          //
+          lexer l (cin, in, lexer_mode::command_line, 2 /* syntax */);
           if (u)
             l.mode (m);
 

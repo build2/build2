@@ -53,11 +53,11 @@ namespace build2
         case lexer_mode::first_token:
           {
             // First token on the script line. Like command_line but
-            // recognizes leading '.+-{}' as tokens as well as variable
+            // recognizes leading '.+-{}{{}}' as tokens as well as variable
             // assignments as separators.
             //
-            // Note that to recognize only leading '.+-{}' we shouldn't add
-            // them to the separator strings.
+            // Note that to recognize only leading '.+-{}{{}}' we shouldn't
+            // add them to the separator strings.
             //
             s1 = ":;=+!|&<> $(#\t\n";
             s2 = "   ==          ";
@@ -150,6 +150,10 @@ namespace build2
 
         state st (current_state ()); // Make copy (see first/second_token).
         lexer_mode m (st.mode);
+
+        // Note that the first_token mode is not syntax-agnostic.
+        //
+        assert (syntax_ != 0 || m != lexer_mode::first_token);
 
         auto make_token = [&sep, ln, cn] (type t)
         {
@@ -268,8 +272,26 @@ namespace build2
           case '.': return make_token (type::dot);
           case '+': return make_token (type::plus);
           case '-': return make_token (type::minus);
-          case '{': return make_token (type::lcbrace);
-          case '}': return make_token (type::rcbrace);
+          case '{':
+            {
+              if (syntax_ >= 2 && peek () == '{')
+              {
+                get ();
+                return make_token (type::double_lcbrace);
+              }
+              else
+                return make_token (type::lcbrace);
+            }
+          case '}':
+            {
+              if (syntax_ >= 2 && peek () == '}')
+              {
+                get ();
+                return make_token (type::double_rcbrace);
+              }
+              else
+                return make_token (type::rcbrace);
+            }
           }
         }
 

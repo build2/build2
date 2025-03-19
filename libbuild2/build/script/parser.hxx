@@ -29,7 +29,8 @@ namespace build2
         //
       public:
         explicit
-        parser (context& c): build2::script::parser (c) {}
+        parser (context& c, uint64_t syntax)
+            : build2::script::parser (c, syntax) {}
 
         // Note that the returned script object references the passed path
         // name.
@@ -70,13 +71,25 @@ namespace build2
                         optional<line_type> flow_control_type = nullopt);
 
         void
-        pre_parse_block_line (token&, token_type&, line_type block_type);
+        pre_parse_block (token&, token_type&);
+
+        void
+        pre_parse_block_line (token&, token_type&);
+
+        void
+        pre_parse_block_line_v1 (token&, token_type&, line_type block_type);
 
         void
         pre_parse_if_else (token&, token_type&);
 
         void
+        pre_parse_if_else_v1 (token&, token_type&);
+
+        void
         pre_parse_loop (token&, token_type&, line_type);
+
+        void
+        pre_parse_loop_v1 (token&, token_type&, line_type);
 
         command_expr
         parse_command_line (token&, token_type&);
@@ -263,6 +276,13 @@ namespace build2
       public:
         static bool
         special_variable (const string&) noexcept;
+
+        // Verify that variable with the specified name can be assigned. Issue
+        // diagnostics and throw failed if that's not the case (this is a
+        // special variable, etc).
+        //
+        static void
+        verify_variable_assignment (const string&, const location&);
 
         // Customization hooks.
         //

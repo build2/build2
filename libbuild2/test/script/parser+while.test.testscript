@@ -8,9 +8,10 @@
   :
   $* <<EOI >>EOO
   while ($v != "aa")
+  {
     cmd "$v"
     v = "$(v)a"
-  end
+  }
   EOI
   ? true
   cmd ''
@@ -23,9 +24,10 @@
   :
   $* <<EOI >>EOO
   while ($v == "aa")
+  {
     cmd "$v"
     v = "$(v)a"
-  end
+  }
   EOI
   ? false
   EOO
@@ -35,7 +37,6 @@
   $* <<EOI 2>>EOE != 0
   while
     cmd
-  end
   EOI
   testscript:1:6: error: missing program
   EOE
@@ -45,11 +46,12 @@
   $* -s <<EOI >>EOO
   cmd1;
   while ($v != "aa")
+  {
     cmd2 "$v"
     v = "$(v)a"
-  end
+  }
   EOI
-  {
+  {{
     {
       cmd1
       ? true
@@ -58,41 +60,79 @@
       cmd2 a
       ? false
     }
-  }
+  }}
   EOO
 
   : setup
   :
   $* -s <<EOI >>EOO
   +while ($v != "aa")
+  {
     cmd2 "$v"
     v = "$(v)a"
-  end
+  }
   EOI
-  {
+  {{
     ? true
     +cmd2 ''
     ? true
     +cmd2 a
     ? false
-  }
+  }}
   EOO
 
   : tdown
   :
   $* -s <<EOI >>EOO
   -while ($v != "aa")
+  {
     cmd2 "$v"
     v = "$(v)a"
-  end
+  }
   EOI
-  {
+  {{
     ? true
     -cmd2 ''
     ? true
     -cmd2 a
     ? false
-  }
+  }}
+  EOO
+
+  : setup-var-only
+  :
+  $* -s <<EOI >>EOO
+  while ($v != "aa")
+    v = "$(v)a"
+  cmd $v
+  EOI
+  {{
+    ? true
+    ? true
+    ? false
+    {
+      cmd aa
+    }
+  }}
+  EOO
+
+  : tdown-var-only
+  :
+  $* -s <<EOI >>EOO
+  cmd1
+  while ($v != "aa")
+    v = "$(v)a"
+  -cmd $v
+  EOI
+  {{
+    {
+      cmd1
+    }
+    ? true
+    ? true
+    ? false
+    -cmd aa
+  }}
   EOO
 }
 
@@ -103,9 +143,10 @@
   :
   $* <<EOI 2>>EOE != 0
   while true
+  {
     cmd
   EOI
-  testscript:3:1: error: expected closing 'end'
+  testscript:4:1: error: expected command instead of <end of file> inside 'while'
   EOE
 }
 
@@ -118,8 +159,6 @@
   while false
     elif true
       cmd
-    end
-  end
   EOI
   testscript:2:3: error: 'elif' without preceding 'if'
   EOE
@@ -130,19 +169,22 @@
 {
   $* -l -r <<EOI >>EOO
   while ($v != "aa")      # 1
+  {
     cmd1 "$v"             # 2
     if ($v == "a")        # 3
+    {
       cmd2                # 4
       while ($v2 != "$v") # 5
+      {
         cmd3              # 6
         v2=$v
-      end
+      }
+    }
     else
       cmd4                # 7
-    end
     cmd5                  # 8
     v = "$(v)a"
-  end;
+  };
   cmd6
   EOI
   ? true # 1 i1
@@ -170,32 +212,35 @@
   :
   $* <<EOI 2>>EOE != 0
   while
+  {
     cmd;
     cmd
-  end
+  }
   EOI
-  testscript:2:3: error: ';' inside 'while'
+  testscript:3:3: error: ';' inside 'while'
   EOE
 
   : colon-leading
   :
   $* <<EOI 2>>EOE != 0
   while
+  {
     : foo
     cmd
-  end
+  }
   EOI
-  testscript:2:3: error: description inside 'while'
+  testscript:3:3: error: description inside 'while'
   EOE
 
   : colon-trailing
   :
   $* <<EOI 2>>EOE != 0
   while
+  {
     cmd : foo
-  end
+  }
   EOI
-  testscript:2:3: error: description inside 'while'
+  testscript:3:3: error: description inside 'while'
   EOE
 
   : eos
@@ -203,19 +248,20 @@
   $* <<EOI 2>>EOE != 0
   while
   EOI
-  testscript:2:1: error: expected closing 'end'
+  testscript:2:1: error: expected command instead of <end of file> inside 'while'
   EOE
 
   : scope
   :
   $* <<EOI 2>>EOE != 0
   while
+  {
     cmd
     {
     }
-  end
+  }
   EOI
-  testscript:3:3: error: expected closing 'end'
+  testscript:4:3: error: expected command instead of '{' inside 'while'
   EOE
 
   : setup
@@ -223,7 +269,6 @@
   $* <<EOI 2>>EOE != 0
   while
     +cmd
-  end
   EOI
   testscript:2:3: error: setup command inside 'while'
   EOE
@@ -233,7 +278,6 @@
   $* <<EOI 2>>EOE != 0
   while
     -cmd
-  end
   EOI
   testscript:2:3: error: teardown command inside 'while'
   EOE
@@ -243,9 +287,10 @@
 :
 $* <<EOI >>EOO
 while ($v1 != "a")
+{
   v1 = "$(v1)a"
   v2 = "$v1"
-end
+}
 cmd $v1
 EOI
 ? true
@@ -253,13 +298,331 @@ EOI
 cmd a
 EOO
 
-: leading-and-trailing-description
+: leading-and-trailing-description-block
 :
 $* <<EOI 2>>EOE != 0
 : foo
 while false
+{
   cmd
-end : bar
+} : bar
 EOI
-testscript:4:1: error: both leading and trailing descriptions
+testscript:2:1: error: both leading and trailing descriptions
 EOE
+
+: leading-and-trailing-description-cmd
+:
+$* <<EOI 2>>EOE != 0
+: foo
+while false
+  cmd : bar
+EOI
+testscript:2:1: error: both leading and trailing descriptions
+EOE
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : while
+  :
+  {
+    : true
+    :
+    $* <<EOI >>EOO
+    while ($v != "aa")
+      cmd "$v"
+      v = "$(v)a"
+    end
+    EOI
+    ? true
+    cmd ''
+    ? true
+    cmd a
+    ? false
+    EOO
+
+    : false
+    :
+    $* <<EOI >>EOO
+    while ($v == "aa")
+      cmd "$v"
+      v = "$(v)a"
+    end
+    EOI
+    ? false
+    EOO
+
+    : without-command
+    :
+    $* <<EOI 2>>EOE != 0
+    while
+      cmd
+    end
+    EOI
+    testscript:1:6: error: missing program
+    EOE
+
+    : after-semi
+    :
+    $* -s <<EOI >>EOO
+    cmd1;
+    while ($v != "aa")
+      cmd2 "$v"
+      v = "$(v)a"
+    end
+    EOI
+    {
+      {
+        cmd1
+        ? true
+        cmd2 ''
+        ? true
+        cmd2 a
+        ? false
+      }
+    }
+    EOO
+
+    : setup
+    :
+    $* -s <<EOI >>EOO
+    +while ($v != "aa")
+      cmd2 "$v"
+      v = "$(v)a"
+    end
+    EOI
+    {
+      ? true
+      +cmd2 ''
+      ? true
+      +cmd2 a
+      ? false
+    }
+    EOO
+
+    : tdown
+    :
+    $* -s <<EOI >>EOO
+    -while ($v != "aa")
+      cmd2 "$v"
+      v = "$(v)a"
+    end
+    EOI
+    {
+      ? true
+      -cmd2 ''
+      ? true
+      -cmd2 a
+      ? false
+    }
+    EOO
+
+    : setup-var-only
+    :
+    $* -s <<EOI >>EOO
+    while ($v != "aa")
+      v = "$(v)a"
+    end
+    cmd $v
+    EOI
+    {
+      ? true
+      ? true
+      ? false
+      {
+        cmd aa
+      }
+    }
+    EOO
+
+    : tdown-var-only
+    :
+    $* -s <<EOI >>EOO
+    cmd1
+    while ($v != "aa")
+      v = "$(v)a"
+    end
+    -cmd $v
+    EOI
+    {
+      {
+        cmd1
+      }
+      ? true
+      ? true
+      ? false
+      -cmd aa
+    }
+    EOO
+  }
+
+  : end
+  :
+  {
+    : without-end
+    :
+    $* <<EOI 2>>EOE != 0
+    while true
+      cmd
+    EOI
+    testscript:3:1: error: expected closing 'end'
+    EOE
+  }
+
+  : elif
+  :
+  {
+    : without-if
+    :
+    $* <<EOI 2>>EOE != 0
+    while false
+      elif true
+        cmd
+      end
+    end
+    EOI
+    testscript:2:3: error: 'elif' without preceding 'if'
+    EOE
+  }
+
+  : nested
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    while ($v != "aa")      # 1
+      cmd1 "$v"             # 2
+      if ($v == "a")        # 3
+        cmd2                # 4
+        while ($v2 != "$v") # 5
+          cmd3              # 6
+          v2=$v
+        end
+      else
+        cmd4                # 7
+      end
+      cmd5                  # 8
+      v = "$(v)a"
+    end;
+    cmd6
+    EOI
+    ? true # 1 i1
+    cmd1 '' # 2 i1
+    ? false # 3 i1
+    cmd4 # 7 i1
+    cmd5 # 8 i1
+    ? true # 1 i2
+    cmd1 a # 2 i2
+    ? true # 3 i2
+    cmd2 # 4 i2
+    ? true # 5 i2 i1
+    cmd3 # 6 i2 i1
+    ? false # 5 i2 i2
+    cmd5 # 8 i2
+    ? false # 1 i3
+    cmd6 # 9
+    EOO
+  }
+
+  : contained
+  :
+  {
+    : semi
+    :
+    $* <<EOI 2>>EOE != 0
+    while
+      cmd;
+      cmd
+    end
+    EOI
+    testscript:2:3: error: ';' inside 'while'
+    EOE
+
+    : colon-leading
+    :
+    $* <<EOI 2>>EOE != 0
+    while
+      : foo
+      cmd
+    end
+    EOI
+    testscript:2:3: error: description inside 'while'
+    EOE
+
+    : colon-trailing
+    :
+    $* <<EOI 2>>EOE != 0
+    while
+      cmd : foo
+    end
+    EOI
+    testscript:2:3: error: description inside 'while'
+    EOE
+
+    : eos
+    :
+    $* <<EOI 2>>EOE != 0
+    while
+    EOI
+    testscript:2:1: error: expected closing 'end'
+    EOE
+
+    : scope
+    :
+    $* <<EOI 2>>EOE != 0
+    while
+      cmd
+      {
+      }
+    end
+    EOI
+    testscript:3:3: error: expected closing 'end'
+    EOE
+
+    : setup
+    :
+    $* <<EOI 2>>EOE != 0
+    while
+      +cmd
+    end
+    EOI
+    testscript:2:3: error: setup command inside 'while'
+    EOE
+
+    : tdown
+    :
+    $* <<EOI 2>>EOE != 0
+    while
+      -cmd
+    end
+    EOI
+    testscript:2:3: error: teardown command inside 'while'
+    EOE
+  }
+
+  : var
+  :
+  $* <<EOI >>EOO
+  while ($v1 != "a")
+    v1 = "$(v1)a"
+    v2 = "$v1"
+  end
+  cmd $v1
+  EOI
+  ? true
+  ? false
+  cmd a
+  EOO
+
+  : leading-and-trailing-description
+  :
+  $* <<EOI 2>>EOE != 0
+  : foo
+  while false
+    cmd
+  end : bar
+  EOI
+  testscript:4:1: error: both leading and trailing descriptions
+  EOE
+}

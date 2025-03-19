@@ -116,11 +116,11 @@ namespace build2
 
       // Usages:
       //
-      // argv[0] [-l] [-r]
-      // argv[0] -b [-t]
-      // argv[0] -d [-t]
-      // argv[0] -g [-t] [<diag-name>]
-      // argv[0] -q
+      // argv[0] [-l] [-r] [-v <version>]
+      // argv[0] -b [-t] [-v <version>]
+      // argv[0] -d [-t] [-v <version>]
+      // argv[0] -g [-t] [-v <version>] [<diag-name>]
+      // argv[0] -q [-v <version>]
       //
       // In the first form read the script from stdin and trace the script
       // body execution to stdout using the custom print runner.
@@ -167,6 +167,10 @@ namespace build2
       //    <quoting>      := 'S' | 'D' | 'M'
       //    <completeness> := 'C' | 'P'
       //
+      // -v <version>
+      //    Parse according to the specified version of the script syntax (the
+      //    latest by default).
+      //
       int
       main (int argc, char* argv[])
       {
@@ -185,21 +189,32 @@ namespace build2
         bool print_iterations (false);
         optional<string> diag_name;
         bool temp_dir (false);
+        uint64_t syntax (2);
 
         for (int i (1); i != argc; ++i)
         {
           string a (argv[i]);
 
           if (a == "-l")
+          {
             print_line = true;
+          }
           else if (a == "-r")
+          {
             print_iterations = true;
+          }
           else if (a == "-b")
+          {
             m = mode::body;
+          }
           else if (a == "-d")
+          {
             m = mode::depdb_preamble;
+          }
           else if (a == "-g")
+          {
             m = mode::diag;
+          }
           else if (a == "-t")
           {
             assert (m == mode::body           ||
@@ -208,7 +223,18 @@ namespace build2
             temp_dir = true;
           }
           else if (a == "-q")
+          {
             m = mode::quoting;
+          }
+          else if (a == "-v")
+          {
+            assert (++i != argc);
+
+            optional<uint64_t> s (parse_number (argv[i], 2 /* max */));
+            assert (s && *s != 0);
+
+            syntax = *s;
+          }
           else
           {
             if (m == mode::diag)
@@ -261,7 +287,7 @@ namespace build2
 
           // Parse and run.
           //
-          parser p (ctx);
+          parser p (ctx, syntax);
           path_name nm ("buildfile");
 
           script s (p.pre_parse (bs, tt.type (), acts,
@@ -336,7 +362,7 @@ namespace build2
           case mode::body:
             {
               if (!temp_dir)
-                dump (cout, "", s.body);
+                dump (cout, "", s.body, s.syntax);
               else
                 cout << (s.body_temp_dir ? "true" : "false") << endl;
 
@@ -345,7 +371,7 @@ namespace build2
           case mode::depdb_preamble:
             {
               if (!temp_dir)
-                dump (cout, "", s.depdb_preamble);
+                dump (cout, "", s.depdb_preamble, s.syntax);
               else
                 cout << (s.depdb_preamble_temp_dir ? "true" : "false") << endl;
 

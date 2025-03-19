@@ -196,3 +196,203 @@ $* <<EOI 2>>EOE != 0
   buildfile:11:1: error: 'diag' builtin call before 'depdb' call
     buildfile:12:1: info: 'depdb' call is here
   EOE
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : name
+  :
+  $* test <<EOI >>EOO
+    echo abc
+    EOI
+    name: test
+    EOO
+
+  : name-deduce
+  :
+  $* <<EOI >>EOO
+    echo abc
+    EOI
+    name: echo
+    EOO
+
+  : name-operation
+  :
+  $* <<EOI >>EOO
+    a = 'b'
+    EOI
+    name: update
+    EOO
+
+  : preamble
+  :
+  {
+    : disambiguate
+    :
+    $* <<EOI >>~%EOO%
+      echo abc | set v
+      cat abc | set v
+      diag copy >= $>
+      cp <- $>
+      EOI
+      echo abc | set v
+      cat abc | set v
+      %diag: copy >= .+file\{driver\.\}%
+      EOO
+
+    : name
+    :
+    $* <<EOI >>EOO
+      n = foo
+      diag copy $n
+      cp $n $>
+      EOI
+      diag: copy foo
+      EOO
+
+    : quoted
+    :
+    $* <<EOI >'diag: foo'
+      f = foo
+      diag "$f"
+      EOI
+
+    : quoted-eval
+    :
+    $* <<EOI >'diag: foo'
+      f = foo
+      diag "($f)"
+      EOI
+
+    : temp_dir
+    :
+    {
+      test.options += -t
+
+      : no
+      :
+      $* <<EOI >false
+        f = foo
+        diag $f
+        f = $~/f
+        foo "$f"
+        EOI
+
+      : no-depdb
+      :
+      $* <<EOI >false
+        f = $~/f
+        depdb hash "$f"
+        diag $f
+        f = $~/f
+        foo "$f"
+        EOI
+
+      : yes
+      :
+      $* <<EOI >true
+        f = $~/f
+        diag $f
+        foo $f
+        EOI
+
+      : yes-depdb
+      :
+      $* <<EOI >true
+        f = $~/f
+        depdb hash "$f"
+        f = $~/t
+        diag $f
+        f = $~/f
+        foo "$f"
+        EOI
+    }
+  }
+
+  : ambiguity
+  :
+  {
+    : name
+    :
+    $* test <<EOI 2>>EOE != 0
+      echo abc
+      diag xyz
+      EOI
+      buildfile:12:1: error: both low-verbosity script diagnostics name and 'diag' builtin call
+        buildfile:10: info: script name specified here
+      EOE
+
+    : diag
+    :
+    $* <<EOI 2>>EOE != 0
+      echo abc
+      diag abc
+      cat abc
+      diag xyz
+      EOI
+      buildfile:14:1: error: multiple 'diag' builtin calls
+        buildfile:12:1: info: previous call is here
+      EOE
+
+    : names
+    :
+    $* <<EOI 2>>EOE != 0
+      cp abc xyz
+      cat xyz
+      EOI
+      buildfile:11:1: error: low-verbosity script diagnostics name is ambiguous
+        buildfile:11:1: info: could be 'cp'
+        buildfile:12:1: info: could be 'cat'
+        info: consider specifying it explicitly with the 'diag' recipe attribute
+        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
+      EOE
+  }
+
+  : inside-if
+  :
+  $* <<EOI 2>>EOE != 0
+    if true
+      diag copy >= $>
+    fi
+    EOI
+    buildfile:12:3: error: 'diag' call inside flow control construct
+    EOE
+
+  : inside-if-cond
+  :
+  $* <<EOI 2>>EOE != 0
+    if diag copy >= $>
+      true
+    fi
+    EOI
+    buildfile:11:4: error: 'diag' call inside flow control construct
+    EOE
+
+  : second-command
+  :
+  $* <<EOI 2>>EOE != 0
+    true && diag copy >= $>
+    EOI
+    buildfile:11:9: error: 'diag' call must be the only command
+    EOE
+
+  : via-env
+  :
+  $* <<EOI 2>>EOE != 0
+    env -- diag copy >= $>
+    EOI
+    buildfile:11:8: error: 'diag' call via 'env' builtin
+    EOE
+
+  : before-depdb
+  :
+  $* <<EOI 2>>EOE != 0
+    diag test
+    depdb clear
+    EOI
+    buildfile:11:1: error: 'diag' builtin call before 'depdb' call
+      buildfile:12:1: info: 'depdb' call is here
+    EOE
+}

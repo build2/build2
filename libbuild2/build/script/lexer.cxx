@@ -48,7 +48,11 @@ namespace build2
         case lexer_mode::first_token:
           {
             // First token on the script line. Like command_line but
-            // recognizes variable assignments as separators.
+            // recognizes leading '{}' as tokens as well as variable
+            // assignments as separators.
+            //
+            // Note that to recognize only leading '{}' we shouldn't add them
+            // to the separator strings.
             //
             s1 = "=+!|&<> $(#\t\n";
             s2 = " ==          ";
@@ -142,6 +146,10 @@ namespace build2
         state st (current_state ()); // Make copy (see first/second_token).
         lexer_mode m (st.mode);
 
+        // Note that the first_token mode is not syntax-agnostic.
+        //
+        assert (syntax_ != 0 || m != lexer_mode::first_token);
+
         auto make_token = [&sep, ln, cn] (type t)
         {
           return token (t, sep, ln, cn, token_printer);
@@ -231,6 +239,23 @@ namespace build2
         {
           if (optional<token> t = next_cmd_op (c, sep))
             return move (*t);
+        }
+
+        // Left/right curly braces.
+        //
+        if (m == lexer_mode::first_token && syntax_ >= 2)
+        {
+          switch (c)
+          {
+          case '{':
+            {
+              return make_token (type::lcbrace);
+            }
+          case '}':
+            {
+              return make_token (type::rcbrace);
+            }
+          }
         }
 
         // Variable assignment (=, +=, =+).

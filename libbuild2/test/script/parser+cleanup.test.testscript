@@ -55,3 +55,64 @@ EOE
   testscript:1:6: error: missing cleanup path
   EOE
 }
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : always
+  :
+  $* <<EOI >>EOO
+  cmd &file
+  EOI
+  cmd &file
+  EOO
+
+  : maybe
+  :
+  $* <<EOI >>EOO
+  cmd &?file
+  EOI
+  cmd &?file
+  EOO
+
+  : never
+  :
+  $* <<EOI >>EOO
+  cmd &!file
+  EOI
+  cmd &!file
+  EOO
+
+  : empty
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd &""
+  EOI
+  testscript:1:6: error: empty cleanup path
+  EOE
+
+  : missed-before
+  :
+  {
+    : token
+    :
+    : Path missed before command next token
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd & >file
+    EOI
+    testscript:1:7: error: missing cleanup path
+    EOE
+
+    : end
+    : Test path missed before end of command
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd &
+    EOI
+    testscript:1:6: error: missing cleanup path
+    EOE
+  }
+}

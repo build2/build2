@@ -5601,7 +5601,7 @@ namespace build2
     }
 
     if (tt != type::newline)
-      fail (t) << "expected newline instead of " << t << " after for";
+      fail (t) << "expected newline instead of " << t << " after 'for'";
 
     // Finally the body. The initial thought was to use the token replay
     // facility but on closer inspection this didn't turn out to be a good
