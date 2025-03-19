@@ -28,7 +28,7 @@ namespace build2
   // by the user is allowed, can point to the key's ext member; note that for
   // performance reasons we currently only verify the explicitly specified
   // extension on target insersion -- see target_key comparison for details).
-  // It is called eraly, during the target insertion, in contrast to the
+  // It is called early, during the target insertion, in contrast to the
   // default extension function described below (you would specify one or the
   // other).
   //
@@ -54,8 +54,8 @@ namespace build2
   // The third argument is the default extension that is supplied (e.g., by a
   // rule) to derive_extension(), if any. The implementation can decide which
   // takes precedence, etc (see the exe{} target type for some interesting
-  // logic). If the default extension function returns NULL, then it means the
-  // default extension for this target could not be derived.
+  // logic). If the default extension function returns nullopt, then it means
+  // the default extension for this target could not be derived.
   //
   // If the pattern function is not NULL, then it is used to amend a pattern
   // or match (reverse is false) and then, if the amendment call returned

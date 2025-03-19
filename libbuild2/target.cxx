@@ -1690,7 +1690,7 @@ namespace build2
   };
 
   static const char*
-  buildfile_target_extension (const target_key& tk, const scope* root)
+  buildfile_fixed_target_extension (const target_key& tk, const scope* root)
   {
     // If the name is the special 'buildfile', then there is no extension,
     // otherwise it is 'build' (or 'build2file' and 'build2' in the
@@ -1701,7 +1701,8 @@ namespace build2
     //
     // BTW, one way to get rid of all this root scope complication is to
     // always require explicit extension specification for buildfiles. Since
-    // they are hardly ever mentioned explicitly, this should probably be ok.
+    // they are hardly ever mentioned explicitly, this should probably be ok,
+    // but sure inelegant.
     //
     if (tk.ext)
       return tk.ext->c_str ();
@@ -1713,7 +1714,7 @@ namespace build2
       // Note: we are guaranteed the scope is never NULL for prerequisites
       // (where out/dir could be relative and none of this will work).
       //
-      // @@ CTX TODO
+      // @@ CTX TODO (see operator==(target_key) and other places).
       //
 #if 0
       root = scopes.find (tk.out->empty () ? *tk.dir : *tk.out).root_scope ();
@@ -1726,6 +1727,22 @@ namespace build2
     return *tk.name == root->root_extra->buildfile_file.string ()
       ? ""
       : root->root_extra->build_ext.c_str ();
+  }
+
+  static optional<string>
+  buildfile_default_target_extension (const target_key& tk,
+                                      const scope& bs,
+                                      const char* e,
+                                      bool /* search */)
+  {
+    // Work around the buildfile_fixed_target_extension() limitation by using
+    // the default extension semantics instead. Failed that, we cannot sanely
+    // (i.e., without specifying the extension explicitly) handle generated
+    // buildfiles in update during load.
+    //
+    return e != nullptr
+      ? string (e)
+      : buildfile_fixed_target_extension (tk, bs.root_scope ());
   }
 
   static bool
@@ -1768,8 +1785,8 @@ namespace build2
     "buildfile",
     &file::static_type,
     &target_factory<buildfile>,
-    &buildfile_target_extension,
-    nullptr, /* default_extension */
+    nullptr /*&buildfile_fixed_target_extension*/,
+    &buildfile_default_target_extension,
     &buildfile_target_pattern,
     nullptr,
     &file_search,

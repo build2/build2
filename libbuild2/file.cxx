@@ -3047,6 +3047,13 @@ namespace build2
     //
     if (tgt.type == "buildfile")
     {
+      // Note that we know this target is in the project identified by root
+      // and thus can use altn.
+      //
+      // Note also that this tweak is necessary even with the workaround for
+      // the buildfile_fixed_target_extension() limitation (probably because
+      // we try to form the path from name when importing buildfile).
+      //
       auto add_ext = [&altn] (string& n)
       {
         if (path_traits::find_extension (n) == string::npos)
