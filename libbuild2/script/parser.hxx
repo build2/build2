@@ -25,13 +25,16 @@ namespace build2
     class LIBBUILD2_SYMEXPORT parser: protected build2::parser
     {
     public:
+      // The zero syntax version means 'any syntax' and can only be specified
+      // if the planned function calls are all system-agnostic.
+      //
       parser (context& c, uint64_t s)
-        : build2::parser (c), syntax_ (s) {assert (s >= 1 && s <= 2);}
+        : build2::parser (c), syntax_ (s) {assert (s <= 2);}
 
       // Context-less parsing.
       //
       parser (const variable_pool& vp, const function_map& fs, uint64_t s)
-          : build2::parser (vp, fs), syntax_ (s) {assert (s >= 1 && s <= 2);}
+          : build2::parser (vp, fs), syntax_ (s) {assert (s <= 2);}
 
       // Helpers.
       //

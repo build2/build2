@@ -230,7 +230,7 @@ namespace build2
           // Let's assume that for all syntax versions the syntax of the value
           // and attributes is the same.
           //
-          parser p (target.ctx, 2 /* syntax */); // @@ Maybe 0? (And other places).
+          parser p (target.ctx, 0 /* syntax */);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),
