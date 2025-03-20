@@ -50,18 +50,18 @@ namespace build2
         //
       protected:
         bool
-        pre_parse_demote_group_scope (unique_ptr<scope>&);
+        pre_parse_demote_group_to_test (unique_ptr<scope>&); // Syntax 1 only.
 
         token
-        pre_parse_scope_body ();
+        pre_parse_group_body ();
 
         unique_ptr<group>
-        pre_parse_scope_block (token&, token_type&, const string&);
+        pre_parse_group_block (token&, token_type&, const string&);
 
         unique_ptr<test>
         pre_parse_test_block (token&, token_type&,
                               const string&,
-                              bool allow_semi = false);
+                              bool allow_semi_colon = false);
 
         bool
         pre_parse_line (token&, token_type&,
@@ -80,22 +80,22 @@ namespace build2
         pre_parse_if_else (token&, token_type&,
                            optional<description>&,
                            lines&,
-                           bool allow_scope);
+                           bool command_only);
 
         bool
-        pre_parse_if_else_scope (token&, token_type&,
+        pre_parse_if_else_group (token&, token_type&,
                                  optional<description>&,
                                  lines&);
-
-        bool
-        pre_parse_if_else_command (token&, token_type&,
-                                   optional<description>&,
-                                   lines&);
 
         pair<unique_ptr<test>, optional<bool>>
         pre_parse_if_else_test (token&, token_type&,
                                 optional<description>&,
                                 lines&);
+
+        bool
+        pre_parse_if_else_command (token&, token_type&,
+                                   optional<description>&,
+                                   lines&);
 
         bool
         pre_parse_loop (token&, token_type&,

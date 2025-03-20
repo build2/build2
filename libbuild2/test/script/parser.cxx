@@ -78,7 +78,7 @@ namespace build2
         //
         group_->start_loc_ = location (*path_, 1, 1);
 
-        token t (pre_parse_scope_body ());
+        token t (pre_parse_group_body ());
 
         if (t.type != type::eos)
           fail (t) << "stray " << t;
@@ -87,7 +87,7 @@ namespace build2
       }
 
       bool parser::
-      pre_parse_demote_group_scope (unique_ptr<scope>& s)
+      pre_parse_demote_group_to_test (unique_ptr<scope>& s)
       {
         // See if this turned out to be an explicit test scope. An explicit
         // test scope contains a single test, only variable assignments in
@@ -119,7 +119,7 @@ namespace build2
             !t->if_cond_)
         {
           if (g.if_chain != nullptr &&
-              !pre_parse_demote_group_scope (g.if_chain))
+              !pre_parse_demote_group_to_test (g.if_chain))
             return false;
 
           // It would have been nice to reuse the test object and only throw
@@ -163,25 +163,27 @@ namespace build2
       }
 
       token parser::
-      pre_parse_scope_body ()
+      pre_parse_group_body ()
       {
-        // enter: next token is first token of scope body
+        // enter: next token is first token of group body
         // leave: [double_]rcbrace or eos (returned)
 
         token t;
         type tt;
 
-        type ct (syntax_ == 2
-                 ? type (type::double_rcbrace)
-                 : type (type::rcbrace));
-
-        type ot (syntax_ == 2
-                 ? type (type::double_lcbrace)
-                 : type (type::lcbrace));
-
         // Parse lines (including nested scopes) until we see '}}' (syntax 2),
         // '}' (syntax 1), or eos.
         //
+        // @@ >= 2, not == 2 everywhere
+        //
+        type ot (syntax_ >= 2
+                 ? type (type::double_lcbrace)
+                 : type (type::lcbrace));
+
+        type ct (syntax_ >= 2
+                 ? type (type::double_rcbrace)
+                 : type (type::rcbrace));
+
         for (;;)
         {
           // Start lexing each line recognizing leading '.+-{}{{}}'.
@@ -237,11 +239,11 @@ namespace build2
               ? d->id
               : insert_id (id_prefix_ + to_string (sl.line), sl));
 
-            unique_ptr<scope> g (pre_parse_scope_block (t, tt, id));
+            unique_ptr<scope> g (pre_parse_group_block (t, tt, id));
             g->desc = move (d);
 
             if (syntax_ == 1)
-              pre_parse_demote_group_scope (g);
+              pre_parse_demote_group_to_test (g);
 
             group_->scopes.push_back (move (g));
             continue;
@@ -298,10 +300,13 @@ namespace build2
       }
 
       unique_ptr<group> parser::
-      pre_parse_scope_block (token& t, type& tt, const string& id)
+      pre_parse_group_block (token& t, type& tt, const string& id)
       {
         // enter: [double_]lcbrace
         // leave: newline after [double_]rcbrace
+
+        // Note: in syntax 1 this function was called pre_parse_scope_block()
+        // since in that syntax the result can be demoted to the test scope.
 
         const location sl (get_location (t));
 
@@ -329,7 +334,7 @@ namespace build2
         // Parse body.
         //
         group_->start_loc_ = sl;
-        token e (pre_parse_scope_body ());
+        token e (pre_parse_group_body ());
         group_->end_loc_ = get_location (e);
 
         // Pop group.
@@ -340,8 +345,11 @@ namespace build2
 
         if (syntax_ == 2)
         {
+          // @@ Audit diagnostics to see if can use group/test instaed of
+          //    just scope in syntax 2.
+          //
           if (e.type != type::double_rcbrace)
-            fail (e) << "expected '}}' at the end of the scope";
+            fail (e) << "expected '}}' at the end of the group scope";
 
           if (next (t, tt) != type::newline)
             fail (t) << "expected newline after '}}'";
@@ -401,7 +409,7 @@ namespace build2
           case type::lcbrace:
           case type::double_lcbrace:
           case type::double_rcbrace:
-            fail (ll) << "expected closing '}'" << endf;
+            fail (ll) << "expected closing '}' instead of " << tt << endf; // @@
           case type::plus:
             fail (ll) << "setup command inside test scope" << endf;
           case type::minus:
@@ -980,7 +988,7 @@ namespace build2
       pre_parse_if_else (token& t, type& tt,
                          optional<description>& d,
                          lines& ls,
-                         bool allow_scope)
+                         bool command_only)
       {
         // enter: <newline> (previous line `if ...`)
         // leave: <newline>
@@ -989,29 +997,29 @@ namespace build2
 
         if (syntax_ == 1)
         {
-          if (tt == type::lcbrace && !allow_scope)
+          if (tt == type::lcbrace && command_only)
             fail (peeked ()) << "expected command instead of '{'";
 
           return tt == type::lcbrace
-                 ? pre_parse_if_else_scope (t, tt, d, ls)
+                 ? pre_parse_if_else_group (t, tt, d, ls)
                  : pre_parse_if_else_command (t, tt, d, ls);
         }
 
         if (tt == type::double_lcbrace)
         {
-          if (!allow_scope)
+          if (command_only)
             fail (peeked ()) << "expected command or '{' instead of '{{'";
 
-          return pre_parse_if_else_scope (t, tt, d, ls);
+          return pre_parse_if_else_group (t, tt, d, ls);
         }
 
         // If parsing as a scope is allowed (no leading +/-, etc), this `if`
         // line is first in the test, and is followed by the `{` token, then
         // parse this flow control construct as an explicit test scope.
         // However, if this construct turned out to not be an explicit scope
-        // (is followed by `;`, trailing description, etc), then convert it
-        // into the if-command and continue parsing as a (potentially
-        // multi-command) test in an implicit scope.
+        // (is followed by `;` or trailing description), then convert it into
+        // the if-command and continue parsing as a (potentially multi-
+        // command) test in an implicit scope.
         //
         if (allow_scope && tt == type::lcbrace && ls.size () == 1)
         {
@@ -1312,12 +1320,15 @@ namespace build2
       }
 
       bool parser::
-      pre_parse_if_else_scope (token& t, type& tt,
+      pre_parse_if_else_group (token& t, type& tt,
                                optional<description>& d,
                                lines& ls)
       {
         // enter: peeked token of next line ([double_]lcbrace)
         // leave: newline
+
+        // Note: in syntax 1 this function was called pre_parse_if_else_scope()
+        // since in that syntax the result can be demoted to the test scope.
 
         assert (ls.size () == 1); // The if/if! line.
 
@@ -1361,7 +1372,7 @@ namespace build2
           next (t, tt); // Get '{' or '{{'.
 
           {
-            unique_ptr<group> g (pre_parse_scope_block (t, tt, id));
+            unique_ptr<group> g (pre_parse_group_block (t, tt, id));
 
             // If-condition.
             //
@@ -1447,7 +1458,7 @@ namespace build2
         }
 
         if (syntax_ == 1)
-          pre_parse_demote_group_scope (root);
+          pre_parse_demote_group_to_test (root);
 
         group_->scopes.push_back (move (root));
         return false; // We never end with a semi.
@@ -1727,7 +1738,7 @@ namespace build2
               id_prefix_ += p.leaf ().base ().string ();
               id_prefix_ += '-';
 
-              token t (pre_parse_scope_body ());
+              token t (pre_parse_group_body ());
 
               if (t.type != type::eos)
                 fail (t) << "stray " << t;
