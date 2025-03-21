@@ -32,3 +32,41 @@ cmd <<<:""
 EOI
 cmd <<<:''
 EOO
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : empty
+  :
+  $* <<EOI >>EOO
+  cmd <<<=""
+  EOI
+  cmd <<<=''
+  EOO
+
+  : empty-nn
+  :
+  $* <<EOI >>EOO
+  cmd <<<=:""
+  EOI
+  cmd <<<=:''
+  EOO
+
+  : empty-alias
+  :
+  $* <<EOI >>EOO
+  cmd <<<""
+  EOI
+  cmd <<<''
+  EOO
+
+  : empty-nn-alias
+  :
+  $* <<EOI >>EOO
+  cmd <<<:""
+  EOI
+  cmd <<<:''
+  EOO
+}

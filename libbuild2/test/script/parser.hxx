@@ -59,23 +59,27 @@ namespace build2
         pre_parse_group_block (token&, token_type&, const string&);
 
         unique_ptr<test>
-        pre_parse_test_block (token&, token_type&,
-                              const string&,
-                              bool allow_semi_colon = false);
+        pre_parse_test_block (
+          token&, token_type&,
+          const string&,
+          pair<bool, optional<description>>* allow_semi_colon = nullptr);
+
+        pair<bool, optional<description>>
+        pre_parse_command_block (token&, token_type&,
+                                 lines&,
+                                 optional<line_type> block_type,
+                                 bool allow_semi_colon = true);
+
+        pair<bool, optional<description>>
+        pre_parse_command_line (token&, token_type&,
+                                lines&,
+                                optional<line_type> block_type);
 
         bool
-        pre_parse_line (token&, token_type&,
-                        optional<description>&,
-                        lines* = nullptr,
-                        bool one = false,
-                        optional<line_type> flow_control_type = nullopt,
-                        bool command_only_if = false);
-
-        bool
-        pre_parse_block_line (token&, token_type&,
-                              line_type block_type,
-                              optional<description>&,
-                              lines&);
+        pre_parse_command_line_v1 (token&, token_type&,
+                                   optional<description>&,
+                                   lines&,
+                                   line_type block_type);
 
         bool
         pre_parse_if_else (token&, token_type&,
@@ -88,10 +92,11 @@ namespace build2
                                  optional<description>&,
                                  lines&);
 
-        pair<unique_ptr<test>, optional<bool>>
+        pair<unique_ptr<test>, bool>
         pre_parse_if_else_test (token&, token_type&,
                                 optional<description>&,
-                                lines&);
+                                lines&,
+                                const location&);
 
         bool
         pre_parse_if_else_command (token&, token_type&,
@@ -99,10 +104,29 @@ namespace build2
                                    lines&);
 
         bool
+        pre_parse_if_else_command_v1 (token&, token_type&,
+                                      optional<description>&,
+                                      lines&);
+
+        bool
         pre_parse_loop (token&, token_type&,
                         line_type,
                         optional<description>&,
                         lines&);
+
+        bool
+        pre_parse_loop_v1 (token&, token_type&,
+                           line_type,
+                           optional<description>&,
+                           lines&);
+
+        bool
+        pre_parse_line (token&, token_type&,
+                        optional<description>&,
+                        lines* = nullptr,
+                        bool one = false,
+                        optional<line_type> flow_control_type = nullopt,
+                        bool command_only_if = false);
 
         void
         pre_parse_directive (token&, token_type&);

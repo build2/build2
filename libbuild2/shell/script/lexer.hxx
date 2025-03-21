@@ -50,7 +50,8 @@ namespace build2
             : base_lexer (is, name, line,
                           nullptr /* escapes */,
                           false   /* set_mode */,
-                          redirect_aliases)
+                          redirect_aliases,
+                          2 /* syntax */)
         {
           mode (m, '\0', escapes);
         }

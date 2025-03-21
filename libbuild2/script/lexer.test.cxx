@@ -49,7 +49,10 @@ namespace build2
                              type (type::out_file_app),
                              nullopt};
 
-        lexer l (cin, in, m, ra);
+        // Test the latest syntax (currently the new syntax doesn't add any
+        // new tokens).
+        //
+        lexer l (cin, in, m, ra, 2 /* syntax */);
 
         // No use printing eos since we will either get it or loop forever.
         //

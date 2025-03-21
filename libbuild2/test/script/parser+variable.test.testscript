@@ -17,3 +17,26 @@ $* <<EOI 2>>EOE != 0
 EOI
 testscript:1:1: error: missing variable name
 EOE
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : assignment
+  :
+  $* <<EOI >>EOO
+  a = b
+  echo $a
+  EOI
+  echo b
+  EOO
+
+  : empty-name
+  :
+  $* <<EOI 2>>EOE != 0
+  = b
+  EOI
+  testscript:1:1: error: missing variable name
+  EOE
+}

@@ -1277,6 +1277,7 @@ namespace build2
                 lexer lex (is, in,
                            lexer_mode::command_expansion,
                            ra,
+                           syntax_,
                            "\'\"\\");
 
                 // Treat the first "sub-token" as always separated from what
@@ -2122,7 +2123,7 @@ namespace build2
       // Note that the redirect alias information is not used in the
       // attributes lexer mode.
       //
-      lexer l (is, name, lexer_mode::attributes, no_redirect_aliases);
+      lexer l (is, name, lexer_mode::attributes, no_redirect_aliases, syntax_);
 
       set_lexer (&l);
 
@@ -2145,6 +2146,8 @@ namespace build2
     line_type parser::
     pre_parse_line_start (token& t, token_type& tt, lexer_mode stm)
     {
+      assert (syntax_ != 0);
+
       replay_save (); // Start saving tokens from the current one.
       next (t, tt);
 
@@ -2163,14 +2166,14 @@ namespace build2
       {
         const string& n (t.value);
 
-        if      (n == "if")    r = line_type::cmd_if;
-        else if (n == "if!")   r = line_type::cmd_ifn;
-        else if (n == "elif")  r = line_type::cmd_elif;
-        else if (n == "elif!") r = line_type::cmd_elifn;
-        else if (n == "else")  r = line_type::cmd_else;
-        else if (n == "while") r = line_type::cmd_while;
-        else if (n == "for")   r = line_type::cmd_for_stream;
-        else if (n == "end")   r = line_type::cmd_end;
+        if      (n == "if")                  r = line_type::cmd_if;
+        else if (n == "if!")                 r = line_type::cmd_ifn;
+        else if (n == "elif")                r = line_type::cmd_elif;
+        else if (n == "elif!")               r = line_type::cmd_elifn;
+        else if (n == "else")                r = line_type::cmd_else;
+        else if (n == "while")               r = line_type::cmd_while;
+        else if (n == "for")                 r = line_type::cmd_for_stream;
+        else if (n == "end" && syntax_ == 1) r = line_type::cmd_end;
         else
         {
           // Switch the recognition of leading variable assignments for

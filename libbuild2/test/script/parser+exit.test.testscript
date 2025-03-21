@@ -24,3 +24,33 @@ cmd != 1 <"foo"
 EOI
 testscript:1:10: error: expected newline instead of '<'
 EOE
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : eq
+  :
+  $* <<EOI >>EOO
+  cmd == 1
+  EOI
+  cmd == 1
+  EOO
+
+  : ne
+  :
+  $* <<EOI >>EOO
+  cmd!=1
+  EOI
+  cmd != 1
+  EOO
+
+  : end
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd != 1 <"foo"
+  EOI
+  testscript:1:10: error: expected newline instead of '<'
+  EOE
+}

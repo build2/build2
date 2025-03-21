@@ -270,7 +270,7 @@ namespace build2
           case '-': return make_token (type::minus);
           case '{':
             {
-              if (syntax_ == 2 && peek () == '{')
+              if (syntax_ >= 2 && peek () == '{')
               {
                 get ();
                 return make_token (type::double_lcbrace);
@@ -280,7 +280,7 @@ namespace build2
             }
           case '}':
             {
-              if (syntax_ == 2 && peek () == '}')
+              if (syntax_ >= 2 && peek () == '}')
               {
                 get ();
                 return make_token (type::double_rcbrace);

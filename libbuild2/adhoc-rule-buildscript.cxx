@@ -203,10 +203,10 @@ namespace build2
     if (script.depdb_clear)
       os << ind << "depdb clear" << endl;
 
-    script::dump (os, ind, script.depdb_preamble);
-    script::dump (os, ind, script.diag_preamble);
+    script::dump (os, ind, script.depdb_preamble, script.syntax);
+    script::dump (os, ind, script.diag_preamble, script.syntax);
 
-    script::dump (os, ind, script.body);
+    script::dump (os, ind, script.body, script.syntax);
     ind.resize (ind.size () - 2);
     os << ind << string (braces, '}');
   }

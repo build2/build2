@@ -17,3 +17,26 @@ cmd >foo
 EOI
 cmd >foo
 EOO
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : double-quote
+  :
+  $* <<EOI >>EOO
+  x = [cmdline] cmd \">-\" "'<-'"
+  $x
+  EOI
+  cmd '>-' '<-'
+  EOO
+
+  : literal-re-parse
+  :
+  $* <<EOI >>EOO
+  cmd >foo
+  EOI
+  cmd >foo
+  EOO
+}

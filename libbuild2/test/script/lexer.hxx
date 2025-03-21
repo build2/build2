@@ -51,8 +51,8 @@ namespace build2
             : base_lexer (is, name, 1 /* line */,
                           nullptr     /* escapes */,
                           false       /* set_mode */,
-                          redirect_aliases),
-              syntax_ (syntax)
+                          redirect_aliases,
+                          syntax)
         {
           mode (m, '\0', escapes);
         }
@@ -80,9 +80,6 @@ namespace build2
 
         virtual token
         word (const state&, bool) override;
-
-      private:
-        uint64_t syntax_;
       };
     }
   }

@@ -64,10 +64,10 @@ $* -s -i <<EOI >>EOO
 x = a
 .include foo.testscript
 EOI
-{
+{{
   { # 2-foo-1
   }
-}
+}}
 EOO
 
 : test-id
@@ -79,11 +79,11 @@ $* -s -i <<EOI >>EOO
 x = a
 .include foo.testscript
 EOI
-{
+{{
   { # 2-foo-1
     cmd
   }
-}
+}}
 EOO
 
 : invalid-path
@@ -101,3 +101,110 @@ $* <<EOI 2>>~/EOE/ != 0
 EOI
 /testscript:1:2: error: unable to read testscript foo.testscript: .+/
 EOE
+
+: syntax-1
+:
+{
+  test.options += -v 1
+
+  : none
+  :
+  $* <<EOI
+  .include
+  .include --once
+  EOI
+
+  : empty
+  :
+  touch foo.testscript;
+  $* <<EOI
+  .include foo.testscript
+  .include --once foo.testscript
+  EOI
+
+  : one
+  :
+  cat <"cmd" >=foo.testscript;
+  $* <<EOI >>EOO
+  .include foo.testscript
+  EOI
+  cmd
+  EOO
+
+  : multiple
+  :
+  cat <"cmd foo" >=foo.testscript;
+  cat <"cmd bar" >=bar.testscript;
+  $* <<EOI >>EOO
+  .include foo.testscript bar.testscript
+  EOI
+  cmd foo
+  cmd bar
+  EOO
+
+  : once
+  :
+  cat <"cmd" >=foo.testscript;
+  $* <<EOI >>EOO
+  .include foo.testscript
+  x
+  .include --once foo.testscript
+  .include --once bar/../foo.testscript
+  y
+  .include ../once/foo.testscript
+  EOI
+  cmd
+  x
+  y
+  cmd
+  EOO
+
+  : group-id
+  :
+  cat <<EOI >=foo.testscript;
+  {
+    x = b
+  }
+  EOI
+  $* -s -i <<EOI >>EOO
+  x = a
+  .include foo.testscript
+  EOI
+  {
+    { # 2-foo-1
+    }
+  }
+  EOO
+
+  : test-id
+  :
+  cat <<EOI >=foo.testscript;
+  cmd
+  EOI
+  $* -s -i <<EOI >>EOO
+  x = a
+  .include foo.testscript
+  EOI
+  {
+    { # 2-foo-1
+      cmd
+    }
+  }
+  EOO
+
+  : invalid-path
+  :
+  $* <<EOI 2>>EOE != 0
+  .include ""
+  EOI
+  testscript:1:2: error: invalid testscript include path ''
+  EOE
+
+  : unable-open
+  :
+  $* <<EOI 2>>~/EOE/ != 0
+  .include foo.testscript
+  EOI
+  /testscript:1:2: error: unable to read testscript foo.testscript: .+/
+  EOE
+}

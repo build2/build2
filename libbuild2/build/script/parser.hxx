@@ -71,13 +71,25 @@ namespace build2
                         optional<line_type> flow_control_type = nullopt);
 
         void
-        pre_parse_block_line (token&, token_type&, line_type block_type);
+        pre_parse_block (token&, token_type&);
+
+        void
+        pre_parse_block_line (token&, token_type&);
+
+        void
+        pre_parse_block_line_v1 (token&, token_type&, line_type block_type);
 
         void
         pre_parse_if_else (token&, token_type&);
 
         void
+        pre_parse_if_else_v1 (token&, token_type&);
+
+        void
         pre_parse_loop (token&, token_type&, line_type);
+
+        void
+        pre_parse_loop_v1 (token&, token_type&, line_type);
 
         command_expr
         parse_command_line (token&, token_type&);
