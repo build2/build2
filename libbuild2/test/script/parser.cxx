@@ -162,8 +162,6 @@ namespace build2
         return false;
       }
 
-      // Note: this function is not syntax-agnostic.
-      //
       token parser::
       pre_parse_group_body ()
       {
@@ -302,8 +300,6 @@ namespace build2
         }
       }
 
-      // Note: this function is not syntax-agnostic.
-      //
       unique_ptr<group> parser::
       pre_parse_group_block (token& t, type& tt, const string& id)
       {
@@ -372,8 +368,6 @@ namespace build2
 
       // If allow_semi is true, then semicolon and colon are allowed after
       // rcbrace.
-      //
-      // Note: this function is not syntax-agnostic.
       //
       unique_ptr<test> parser::
       pre_parse_test_block (token& t, type& tt,
@@ -1009,8 +1003,6 @@ namespace build2
         return semi;
       }
 
-      // Note: this function is not syntax-agnostic.
-      //
       bool parser::
       pre_parse_if_else (token& t, type& tt,
                          optional<description>& d,
@@ -1109,8 +1101,6 @@ namespace build2
       // is a scope. Otherwise (this is an if-command), return true if the
       // command is not the last in the test (has trailing semicolon) and
       // false otherwise (has trailing description).
-      //
-      // Note: this function is not syntax-agnostic.
       //
       pair<unique_ptr<test>, optional<bool>> parser::
       pre_parse_if_else_test (token& t, type& tt,
@@ -1350,8 +1340,6 @@ namespace build2
           semicolon || trailing_description ? semicolon : optional<bool> ());
       }
 
-      // Note: this function is not syntax-agnostic.
-      //
       bool parser::
       pre_parse_if_else_group (token& t, type& tt,
                                optional<description>& d,
