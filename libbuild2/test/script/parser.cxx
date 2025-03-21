@@ -424,7 +424,12 @@ namespace build2
           }
 
           optional<description> d;
-          bool semi (pre_parse_line (t, tt, d, &ts->tests_, true /* one */));
+          bool semi (pre_parse_line (t, tt,
+                                     d,
+                                     &ts->tests_,
+                                     true /* one */,
+                                     nullopt /* flow_control_type */,
+                                     true /* command_only_if */));
 
           assert (tt == type::newline);
 
@@ -454,9 +459,9 @@ namespace build2
         return ts;
       }
 
-      // Parse a logical line (as well as scope-if since the only way to
-      // recognize it is to parse the if line), handling the flow control
-      // constructs recursively.
+      // Parse a logical line (as well as scope-if, unless command_only_if is
+      // true, since the only way to recognize it is to parse the if line),
+      // handling the flow control constructs recursively.
       //
       // If one is true then only parse one line returning an indication of
       // whether the line ended with a semicolon. If the flow control
@@ -468,7 +473,8 @@ namespace build2
                       optional<description>& d,
                       lines* ls,
                       bool one,
-                      optional<line_type> fct)
+                      optional<line_type> fct,
+                      bool command_only_if)
       {
         // enter: next token is peeked at (type in tt)
         // leave: newline
@@ -788,9 +794,13 @@ namespace build2
         case line_type::cmd_if:
         case line_type::cmd_ifn:
           {
-            // Only allow parsing as a command if there is leading +/-.
+            // Only allow parsing as an if-command if requested so or there is
+            // leading +/-.
             //
-            semi = pre_parse_if_else (t, tt, d, *ls, st != type::eos);
+            semi = pre_parse_if_else (t, tt,
+                                      d,
+                                      *ls,
+                                      command_only_if || st != type::eos);
 
             // If this turned out to be scope-if, then ls is empty, semi is
             // false, and none of the below logic applies.
@@ -960,8 +970,16 @@ namespace build2
           case type::minus:
             fail (ll) << "teardown command in test" << endf;
           default:
-            semi = pre_parse_line (t, tt, d, ls);
-            assert (tt == type::newline); // End of last test line.
+            {
+              semi = pre_parse_line (t, tt,
+                                     d,
+                                     ls,
+                                     false /* one */,
+                                     nullopt /* flow_control_type */,
+                                     command_only_if);
+
+              assert (tt == type::newline); // End of last test line.
+            }
           }
         }
 
@@ -1184,7 +1202,9 @@ namespace build2
             semicolon = pre_parse_line (t, tt,
                                         trailing_description,
                                         &ts->tests_,
-                                        true /* one */);
+                                        true /* one */,
+                                        nullopt /* flow_control_type */,
+                                        true /* command_only_if */);
 
             assert (tt == type::newline);
 
@@ -1544,7 +1564,12 @@ namespace build2
         }
 
         optional<description> td;
-        bool semi (pre_parse_line (t, tt, td, &ls, true /* one */, fct));
+        bool semi (pre_parse_line (t, tt,
+                                   td,
+                                   &ls,
+                                   true /* one */,
+                                   fct,
+                                   true /* command_only_if */));
 
         assert (tt == type::newline);
 

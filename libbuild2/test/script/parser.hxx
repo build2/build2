@@ -68,7 +68,8 @@ namespace build2
                         optional<description>&,
                         lines* = nullptr,
                         bool one = false,
-                        optional<line_type> flow_control_type = nullopt);
+                        optional<line_type> flow_control_type = nullopt,
+                        bool command_only_if = false);
 
         bool
         pre_parse_block_line (token&, token_type&,
