@@ -26,7 +26,7 @@ namespace build2
     {
     public:
       // The zero syntax version means 'any syntax' and can only be specified
-      // if the planned function calls are all system-agnostic.
+      // if the planned function calls are all syntax-agnostic.
       //
       parser (context& c, uint64_t s)
         : build2::parser (c), syntax_ (s) {assert (s <= 2);}
