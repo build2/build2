@@ -809,7 +809,7 @@ namespace build2
           mg = ctx.sched->monitor (
             ctx.target_count,
             md.incr,
-            [&md, &ctx] (size_t, size_t c) -> size_t
+            [&md] (size_t, size_t c) -> size_t
             {
               diag_progress_lock pl;
               diag_progress  = ' ';
