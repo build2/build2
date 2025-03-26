@@ -33,7 +33,7 @@ namespace build2
       l5 ([&]{trace << "for " << rs;});
 
       // Enter module variables. Do it during boot in case they get assigned
-      // in bootstrap.build.
+      // in bootstrap.build. Note: most have project visibility (default).
       //
       // Most of the variables we enter are qualified so go straight for the
       // public variable pool.
@@ -107,7 +107,16 @@ namespace build2
 
         // Test target platform.
         //
-        vp.insert<target_triplet> ("test.target")
+        vp.insert<target_triplet> ("test.target"),
+
+        // Testscript syntax.
+        //
+        // Can be specified in the buildfile or as a first non-whitespace or
+        // comment line in the testscript file itself.
+        //
+        // Note: similar to {buildscript,shellscript}.syntax.
+        //
+        vp.insert<uint64_t> ("testscript.syntax")
       };
 
       // This one is used by other modules/rules.

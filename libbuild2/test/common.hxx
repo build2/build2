@@ -36,6 +36,8 @@ namespace build2
       const variable& test_input;
 
       const variable& test_target;
+
+      const variable& testscript_syntax;
     };
 
     struct common: common_data

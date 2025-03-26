@@ -740,6 +740,23 @@ namespace build2
     //
     const variable* var_build_meta_operation = nullptr;
 
+    // The *.syntax variables:
+    //
+    // buildscript.syntax
+    // shellscript.syntax
+    //
+    // The buildscript.syntax can be specified in the buildfile or as a first
+    // non-whitespace or comment line in the recipe itself.
+    //
+    // The shellscript.syntax can only be specified as a first non-whitespace
+    // or comment line in the script itself.
+    //
+    // See also testscript.syntax in the test module. In the future we may
+    // add buildfile.syntax.
+    //
+    const variable* var_buildscript_syntax = nullptr; // Only build ctor.
+    const variable* var_shellscript_syntax = nullptr; // Only shell ctor.
+
     // Known meta-operation and operation tables.
     //
     build2::meta_operation_table meta_operation_table;

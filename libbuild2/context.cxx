@@ -391,10 +391,13 @@ namespace build2
     // Setup the global scope before parsing any variable overrides since they
     // may reference these things.
     //
+    const auto v_g (variable_visibility::global);
+    const auto v_p (variable_visibility::project);
+    const auto v_t (variable_visibility::target);
+    const auto v_q (variable_visibility::prereq);
+
     scope& gs (global_scope.rw ());
     {
-      const auto v_g (variable_visibility::global);
-
       // Any variable assigned on the global scope should natually have the
       // global visibility.
       //
@@ -561,6 +564,8 @@ namespace build2
 
       var_build_meta_operation =
         &vp.insert<string> ("build.meta_operation", v_g);
+
+      var_buildscript_syntax = &vp.insert<uint64_t> ("buildscript.syntax", v_p);
     }
 
     // Register builtin target types.
@@ -607,7 +612,6 @@ namespace build2
     // Note that we must do global visibility prior to entering overrides
     // below but they cannot be typed. So it's a careful dance.
     //
-    const auto v_g (variable_visibility::global);
 
     // All config.** variables are overridable with global visibility.
     //
@@ -664,10 +668,6 @@ namespace build2
 
     // Enter remaining variable patterns and builtin variables.
     //
-    const auto v_p (variable_visibility::project);
-    const auto v_t (variable_visibility::target);
-    const auto v_q (variable_visibility::prereq);
-
     vpats.insert<bool> ("config.**.configured", false, v_p);
 
     // file.cxx:import()
@@ -880,6 +880,8 @@ namespace build2
       {
         fail << "unable to parse shell host '" << orig << "': " << e;
       }
+
+      var_shellscript_syntax = &vp.insert<uint64_t> ("shellscript.syntax", v_g);
     }
 
     // End of initialization.

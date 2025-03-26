@@ -9,6 +9,8 @@
 
 #include <libbuild2/module.hxx>
 
+#include <libbuild2/version/export.hxx>
+
 namespace build2
 {
   namespace version
@@ -27,7 +29,7 @@ namespace build2
 
     using dependencies = map<string, dependency>;
 
-    struct module: build2::module
+    struct LIBBUILD2_VERSION_SYMEXPORT module: build2::module
     {
       using dependencies_type = version::dependencies;
 
@@ -43,16 +45,25 @@ namespace build2
 
       dependencies_type dependencies;
 
+      // The build2 version required by this project, if any.
+      //
+      // This can be used, for example, to derive the default compatibility
+      // levels.
+      //
+      optional<standard_version_constraint> build2_version_constraint;
+
       module (const project_name& p,
               butl::standard_version v,
               bool c,
               bool r,
-              dependencies_type d)
+              dependencies_type d,
+              optional<standard_version_constraint> bvc)
           : project (p.variable ()),
             version (move (v)),
             committed (c),
             rewritten (r),
-            dependencies (move (d)) {}
+            dependencies (move (d)),
+            build2_version_constraint (move (bvc)) {}
     };
   }
 }
