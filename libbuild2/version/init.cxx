@@ -282,6 +282,9 @@ namespace build2
       // If there is a dependency on the build system itself, check it (so
       // there is no need for explicit using build@X.Y.Z).
       //
+      // Also save the version constraint if one can be determined.
+      //
+      optional<standard_version_constraint> build2_constraint;
       {
         auto i (ds.find ("build2"));
 
@@ -290,8 +293,9 @@ namespace build2
             !i->second.constraint.empty ())
         try
         {
-          check_build_version (
-            standard_version_constraint (i->second.constraint, v), l);
+          build2_constraint =
+            standard_version_constraint (i->second.constraint, v);
+          check_build_version (*build2_constraint, l);
         }
         catch (const invalid_argument& e)
         {
@@ -356,7 +360,8 @@ namespace build2
                     move (v),
                     committed,
                     rewritten,
-                    move (ds)));
+                    move (ds),
+                    move (build2_constraint)));
 
       // Initialize second (dist.package, etc).
       //
