@@ -81,6 +81,13 @@ namespace build2
         static bool
         special_variable (const string&) noexcept;
 
+        // Verify that variable with the specified name can be assigned. Issue
+        // diagnostics and throw failed if that's not the case (this is a
+        // special variable, etc).
+        //
+        static void
+        verify_variable_assignment (const string&, const location&);
+
         // Customization hooks.
         //
       protected:

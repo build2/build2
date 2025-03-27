@@ -188,6 +188,28 @@ namespace build2
       parsed_env
       parse_env_builtin (token&, token_type&);
 
+      // Try to pre-parse script line as a syntax version variable assignment.
+      // For example:
+      //
+      // shellscript.syntax = 1
+      //
+      // Specifically, peek the first token using the specified lexer mode
+      // and, if the peeked token is an unquoted word which matches the
+      // specified name, continue parsing the line as a variable assignment
+      // with a syntax version specified literally. Otherwise (peeked token
+      // doesn't match), do nothing, allowing the subsequent pre-parsing to
+      // handle this token. Override the syntax version on the successful line
+      // parsing and issue diagnostics and throw failed otherwise.
+      //
+      // Note: must be called for the first non-empty line during the script
+      //       pre-parsing.
+      //
+      void
+      try_parse_syntax_version (const char* name,
+                                lexer_mode,
+                                uint64_t min_syntax = 1,
+                                uint64_t max_syntax = 2);
+
       // Execute.
       //
     protected:

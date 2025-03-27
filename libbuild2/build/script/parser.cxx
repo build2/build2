@@ -76,8 +76,12 @@ namespace build2
           diag_weight_ = 4;
         }
 
-        s.syntax = syntax_;
         s.start_loc = location (*path_, line, 1);
+
+        try_parse_syntax_version ("buildscript.syntax",
+                                  lexer_mode::first_token);
+
+        s.syntax = syntax_;
 
         token t (pre_parse_script ());
 
@@ -280,11 +284,7 @@ namespace build2
         {
         case line_type::var:
           {
-            // Check if we are trying to modify any of the special variables.
-            //
-            if (special_variable (t.value))
-              fail (t) << "attempt to set '" << t.value << "' special "
-                       << "variable";
+            verify_variable_assignment (t.value, get_location (t));
 
             // We don't pre-enter variables.
             //
@@ -347,8 +347,7 @@ namespace build2
               if (n.find_first_of ("[*?") != string::npos)
                 fail (t) << "expected variable name instead of " << n;
 
-              if (special_variable (n))
-                fail (t) << "attempt to set '" << n << "' special variable";
+              verify_variable_assignment (n, get_location (t));
 
               // Parse out the element attributes, if present.
               //
@@ -3607,6 +3606,18 @@ namespace build2
       special_variable (const string& n) noexcept
       {
         return n == ">" || n == "<" || n == "~";
+      }
+
+      void parser::
+      verify_variable_assignment (const string& name, const location& loc)
+      {
+        if (special_variable (name))
+          build2::fail (loc) << "attempt to set '" << name
+                             << "' special variable";
+
+        if (name == "buildscript.syntax")
+          build2::fail (loc) << "variable buildscript.syntax should be "
+                             << "assigned on first line of the script";
       }
 
       lookup parser::

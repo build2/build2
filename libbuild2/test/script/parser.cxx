@@ -78,6 +78,11 @@ namespace build2
         //
         group_->start_loc_ = location (*path_, 1, 1);
 
+        try_parse_syntax_version ("testscript.syntax",
+                                  lexer_mode::first_token);
+
+        s.syntax = syntax_;
+
         token t (pre_parse_group_body ());
 
         if (t.type != type::eos)
@@ -568,12 +573,10 @@ namespace build2
         case line_type::var:
           {
             // Check if we are trying to modify any of the special aliases
-            // ($*, $N, $~, $@).
+            // ($*, $N, $~, $@) or the testscript.syntax variable.
             //
             string& n (t.value);
-
-            if (special_variable (n))
-              fail (t) << "attempt to set '" << n << "' variable directly";
+            verify_variable_assignment (t.value, get_location (t));
 
             // Pre-enter the variables now while we are executing serially.
             // Once parallel, it becomes a lot harder to do.
@@ -636,8 +639,7 @@ namespace build2
               if (n.find_first_of ("[*?") != string::npos)
                 fail (t) << "expected variable name instead of " << n;
 
-              if (special_variable (n))
-                fail (t) << "attempt to set '" << n << "' variable directly";
+              verify_variable_assignment (n, get_location (t));
 
               if (lexer_->peek_char ().first == '[')
               {
@@ -2677,6 +2679,18 @@ namespace build2
       special_variable (const string& n) noexcept
       {
         return n == "*" || n == "~" || n == "@" || digit (n);
+      }
+
+      void parser::
+      verify_variable_assignment (const string& name, const location& loc)
+      {
+        if (special_variable (name))
+          build2::fail (loc) << "attempt to set '" << name
+                             << "' variable directly";
+
+        if (name == "testscript.syntax")
+          build2::fail (loc) << "variable testscript.syntax should be "
+                             << "assigned on first line of the script";
       }
 
       lookup parser::

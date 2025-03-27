@@ -376,6 +376,8 @@ namespace build2
         optional<deadline> operation_deadline;
         optional<timeout>  test_timeout;
 
+        uint64_t syntax = 0; // Note: propagated by parser::pre_parse().
+
       public:
         script (const target& test_target,
                 const testscript& script_target,

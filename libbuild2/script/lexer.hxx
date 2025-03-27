@@ -112,6 +112,9 @@ namespace build2
       virtual token
       next () override;
 
+      virtual void
+      syntax (uint64_t s) {syntax_ = s;}
+
     public:
       const redirect_aliases_type& redirect_aliases;
 

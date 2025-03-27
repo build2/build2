@@ -2199,6 +2199,46 @@ namespace build2
       return r;
     }
 
+    void parser::
+    try_parse_syntax_version (const char* name,
+                              lexer_mode ftm,
+                              uint64_t min_syntax,
+                              uint64_t max_syntax)
+    {
+      type tt (peek (ftm));
+      const token& pt (peeked ());
+
+      if (tt == type::word                 &&
+          pt.qtype == quote_type::unquoted &&
+          pt.value == name)
+      {
+        token t;
+        next (t, tt); // Get variable name.
+
+        mode (lexer_mode::normal);
+
+        if (next (t, tt) != type::assign)
+          fail (t) << "expected '=' instead of " << t;
+
+        if (next (t, tt) != type::word)
+          fail (t) << "expected syntax version instead of " << t;
+
+        optional<uint64_t> s (parse_number (t.value, max_syntax));
+
+        if (!s || *s < min_syntax)
+          fail (t) << "expected syntax version in range [" << min_syntax
+                   << ' ' << max_syntax << "] instead of " << t;
+
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after syntax version";
+
+        expire_mode ();
+
+        syntax_ = *s;
+        lexer_->syntax (syntax_);
+      }
+    }
+
     optional<uint8_t> parser::
     exec_lines (lines::const_iterator i, lines::const_iterator e,
                 const function<exec_set_function>& exec_set,

@@ -130,8 +130,7 @@ namespace build2
       {
         // Check if we are trying to modify any of the special variables.
         //
-        if (parser::special_variable (nm))
-          fail (ll) << "attempt to set '" << nm << "' variable directly";
+        parser::verify_variable_assignment (nm, ll);
 
         // Set the variable value and attributes. Note that we need to aquire
         // unique lock before potentially changing the script's variable

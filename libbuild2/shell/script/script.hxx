@@ -61,6 +61,8 @@ namespace build2
         location start_loc;
         location end_loc;
 
+        uint64_t syntax = 0; // Note: propagated by parser::pre_parse().
+
         script () = default;
 
         // Move-constructible but not move-assignable.
