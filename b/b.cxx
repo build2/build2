@@ -72,7 +72,7 @@ namespace build2
   public:
     result_printer (const b_options& ops,
                     const action_targets& tgs,
-                    json::stream_serializer& js)
+                    json_stream_serializer& js)
         : ops_ (ops), tgs_ (tgs), json_serializer_ (js) {}
 
     ~result_printer ();
@@ -87,7 +87,7 @@ namespace build2
   private:
     const b_options& ops_;
     const action_targets& tgs_;
-    json::stream_serializer& json_serializer_;
+    json_stream_serializer& json_serializer_;
   };
 
   void result_printer::
@@ -135,7 +135,7 @@ namespace build2
   void result_printer::
   print_json ()
   {
-    json::stream_serializer& s (json_serializer_);
+    json_stream_serializer& s (json_serializer_);
 
     for (const action_target& at: tgs_)
     {
@@ -668,7 +668,7 @@ main (int argc, char* argv[])
     // Note also that we disable pretty-printing if there is also the JSON
     // dump and thus we need to combine the two in the JSON Lines format.
     //
-    json::stream_serializer js (cout, dump_fmt == dump_format::json ? 0 : 2);
+    json_stream_serializer js (cout, dump_fmt == dump_format::json ? 0 : 2);
 
     if (ops.structured_result_specified () &&
         ops.structured_result () == structured_result_format::json)

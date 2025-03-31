@@ -2535,6 +2535,19 @@ namespace build2
     process_path_type process_path_;
   };
 
+  class LIBBUILD2_SYMEXPORT json: public file
+  {
+  public:
+    json (context& c, dir_path d, dir_path o, string n)
+      : file (c, move (d), move (o), move (n))
+    {
+      dynamic_type = &static_type;
+    }
+
+  public:
+    static const target_type static_type;
+  };
+
   class LIBBUILD2_SYMEXPORT buildfile: public file
   {
   public:

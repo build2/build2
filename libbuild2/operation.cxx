@@ -1442,7 +1442,7 @@ namespace build2
   static void
   info_execute_json (action_targets& ts, bool subp)
   {
-    json::stream_serializer s (cout);
+    json_stream_serializer s (cout);
     s.begin_array ();
 
     for (size_t i (0); i != ts.size (); ++i)

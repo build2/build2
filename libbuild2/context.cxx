@@ -579,6 +579,7 @@ namespace build2
       t.insert<alias>        ();
       t.insert<dir>          ();
       t.insert<fsdir>        ();
+      t.insert<json>         ();
       t.insert<exe>          ();
       t.insert<doc>          ();
       t.insert<legal>        ();
@@ -593,6 +594,11 @@ namespace build2
       {
         auto& tt (t.insert<buildfile> ());
         t.insert_file ("buildfile", tt);
+      }
+
+      {
+        auto& tt (t.insert<buildscript> ());
+        t.insert_file ("buildscript", tt);
       }
     }
 

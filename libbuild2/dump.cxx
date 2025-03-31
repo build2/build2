@@ -71,7 +71,7 @@ namespace build2
   }
 
   static void
-  dump_quoted_target_name (json::stream_serializer& j,
+  dump_quoted_target_name (json_stream_serializer& j,
                            const names_view& ns,
                            bool rel)
   {
@@ -107,7 +107,7 @@ namespace build2
   }
 
   void
-  dump_quoted_target_name (json::stream_serializer& j,
+  dump_quoted_target_name (json_stream_serializer& j,
                            const target& t,
                            bool rel)
   {
@@ -117,7 +117,7 @@ namespace build2
   using target_name_cache = unordered_map<const target*, string>;
 
   static void
-  dump_quoted_target_name (json::stream_serializer& j,
+  dump_quoted_target_name (json_stream_serializer& j,
                            const target& t,
                            target_name_cache& tc)
   {
@@ -129,7 +129,7 @@ namespace build2
   }
 
   void
-  dump_display_target_name (json::stream_serializer& j,
+  dump_display_target_name (json_stream_serializer& j,
                             const target& t,
                             bool rel)
   {
@@ -158,7 +158,7 @@ namespace build2
   }
 
   static void
-  dump_value (json::stream_serializer& j, const value& v)
+  dump_value (json_stream_serializer& j, const value& v)
   {
     // Hints.
     //
@@ -447,7 +447,7 @@ namespace build2
 
 #ifndef BUILD2_BOOTSTRAP
   static void
-  dump_variable (json::stream_serializer& j,
+  dump_variable (json_stream_serializer& j,
                  const variable_map& vm,
                  const variable_map::const_iterator& vi,
                  const scope& s,
@@ -525,7 +525,7 @@ namespace build2
 
 #ifndef BUILD2_BOOTSTRAP
   static void
-  dump_variables (json::stream_serializer& j,
+  dump_variables (json_stream_serializer& j,
                   const variable_map& vars,
                   const scope& s,
                   variable_kind k)
@@ -920,7 +920,7 @@ namespace build2
 
 #ifndef BUILD2_BOOTSTRAP
   static void
-  dump_target (json::stream_serializer& j,
+  dump_target (json_stream_serializer& j,
                optional<action> a,
                const target& t,
                const scope& s,
@@ -1357,7 +1357,7 @@ namespace build2
 
 #ifndef BUILD2_BOOTSTRAP
   static void
-  dump_scope (json::stream_serializer& j,
+  dump_scope (json_stream_serializer& j,
               optional<action> a,
               scope_map::const_iterator& i,
               bool rel,
@@ -1500,7 +1500,7 @@ namespace build2
       {
 #ifndef BUILD2_BOOTSTRAP
         target_name_cache tc;
-        json::stream_serializer j (cout, 0 /* indent */);
+        json_stream_serializer j (cout, 0 /* indent */);
         dump_scope (j, a, i, false /* relative */, tc);
         cout << endl;
 #else
@@ -1541,7 +1541,7 @@ namespace build2
       {
 #ifndef BUILD2_BOOTSTRAP
         target_name_cache tc;
-        json::stream_serializer j (cout, 0 /* indent */);
+        json_stream_serializer j (cout, 0 /* indent */);
 
         if (s != nullptr)
           dump_scope (j, a, i, false /* relative */, tc);
@@ -1581,7 +1581,7 @@ namespace build2
       {
 #ifndef BUILD2_BOOTSTRAP
         target_name_cache tc;
-        json::stream_serializer j (cout, 0 /* indent */);
+        json_stream_serializer j (cout, 0 /* indent */);
 
         if (t != nullptr)
           dump_target (j, a, *t, *bs, false /* relative */, tc);

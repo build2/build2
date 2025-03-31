@@ -1621,6 +1621,8 @@ namespace build2
     target_type::flag::none
   };
 
+  // exe
+  //
   static optional<string>
   exe_target_extension (const target_key&,
                         const scope&,
@@ -1689,6 +1691,24 @@ namespace build2
     target_type::flag::none
   };
 
+  // json
+  //
+  extern const char json_ext_def[] = "json";
+  const target_type json::static_type
+  {
+    "json",
+    &file::static_type,
+    &target_factory<json>,
+    nullptr, /* fixed_extension */
+    &target_extension_var<json_ext_def>,
+    &target_pattern_var<json_ext_def>,
+    nullptr,
+    &file_search,
+    target_type::flag::none
+  };
+
+  // buildfile
+  //
   static const char*
   buildfile_fixed_target_extension (const target_key& tk, const scope* root)
   {
@@ -1793,6 +1813,8 @@ namespace build2
     target_type::flag::none
   };
 
+  // buildscript
+  //
   static const char*
   buildscript_target_extension (const target_key& tk, const scope*)
   {

@@ -70,6 +70,28 @@
 #include <libbutl/standard-version.hxx>
 #include <libbutl/move-only-function.hxx>
 
+// Forward declarations (and their aliases below) from:
+//
+// #include <libbutl/json/event.hxx>
+// #include <libbutl/json/parser.hxx>
+// #include <libbutl/json/serializer.hxx>
+//
+// Note that the definitions must still be included where used and they are
+// not available during bootstrap.
+//
+namespace butl
+{
+  namespace json
+  {
+    enum class event: uint8_t;
+    class parser;
+    class buffer_serializer;
+    class stream_serializer;
+    class invalid_json_input;
+    class invalid_json_output;
+  }
+}
+
 #include <libbuild2/export.hxx>
 
 namespace build2
@@ -462,6 +484,15 @@ namespace build2
   // <libbutl/project-name.hxx>
   //
   using butl::project_name;
+
+  // <libbutl/json/*.hxx>
+  //
+  using json_event = butl::json::event;
+  using json_parser = butl::json::parser;
+  using json_buffer_serializer = butl::json::buffer_serializer;
+  using json_stream_serializer = butl::json::stream_serializer;
+  using butl::json::invalid_json_input;
+  using butl::json::invalid_json_output;
 
   // Diagnostics location.
   //

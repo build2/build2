@@ -148,7 +148,7 @@ namespace build2
           s.end_array ();  // entries member
           s.end_object (); // target object
         }
-        catch (const json::invalid_json_output& e)
+        catch (const invalid_json_output& e)
         {
           fail << "invalid " << d.manifest_name << " json output: " << e;
         }
@@ -188,7 +188,7 @@ namespace build2
           s.member ("mode", mode);
           s.end_object ();
         }
-        catch (const json::invalid_json_output& e)
+        catch (const invalid_json_output& e)
         {
           fail << "invalid " << d.manifest_name << " json output: " << e;
         }
@@ -256,7 +256,7 @@ namespace build2
             d.manifest_autorm.cancel ();
           }
         }
-        catch (const json::invalid_json_output& e)
+        catch (const invalid_json_output& e)
         {
           fail << "invalid " << d.manifest_name << " json output: " << e;
         }

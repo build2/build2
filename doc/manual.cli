@@ -5635,9 +5635,9 @@ target types defined by a module refer to the respective module documentation.
                    |          |      |
               path_target*  group   dir
                    |
-        .---------file----.
-        |          |      |
-  .----doc-----.  exe  buildfile
+        .---------file----------.
+        |          |     |      |
+  .----doc-----.  exe  json  buildfile
   |     |      |
 legal  man  manifest
         |
@@ -5945,6 +5945,12 @@ h{generate}: exe{generate.bat}
 
 Here, without the explicit extension, the \c{.exe} extension would have been
 used by default.
+
+
+\h2#targets-types-json|\c{json{\}}|
+
+The \c{json{\}} target type represents a JSON text file. It is derived from
+\c{file{\}} and has the \c{.json} default extension.
 
 
 \h1#variables|Variables|

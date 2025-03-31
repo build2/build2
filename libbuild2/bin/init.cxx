@@ -583,7 +583,7 @@ namespace build2
           // @@ TODO: shouldn't this be wrapped in if(first) somehow?
 
           const target_type& wasm (
-            rs.derive_target_type(
+            rs.derive_target_type (
               target_type {
                 "wasm",
                 &file::static_type,
@@ -979,7 +979,7 @@ namespace build2
         // @@ TODO: shouldn't this be wrapped in if(first) somehow?
 
         const target_type& pdb (
-          rs.derive_target_type(
+          rs.derive_target_type (
             target_type {
               "pdb",
               &file::static_type,

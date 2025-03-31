@@ -9,27 +9,9 @@
 
 #include <libbuild2/export.hxx>
 
-namespace butl
-{
-  namespace json
-  {
-    enum class event: uint8_t;
-    class parser;
-    class buffer_serializer;
-    class stream_serializer;
-    class invalid_json_input;
-    class invalid_json_output;
-  }
-}
-
 namespace build2
 {
-  using json_event = butl::json::event;
-  using json_parser = butl::json::parser;
-  using json_buffer_serializer = butl::json::buffer_serializer;
-  using json_stream_serializer = butl::json::stream_serializer;
-  using butl::json::invalid_json_input;
-  using butl::json::invalid_json_output;
+  // NOTE: all the json_* aliases are defined in <libbuild2/types.hxx>.
 
 #ifndef BUILD2_BOOTSTRAP
   LIBBUILD2_SYMEXPORT const char*

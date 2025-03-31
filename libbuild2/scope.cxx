@@ -1074,6 +1074,10 @@ namespace build2
       dt->print = nullptr;
     }
 
+    // @@ TODO: maybe check if there is already same/compatible target type in
+    //    the global map. For example, when we've added json{}, some projects
+    //    already had a custom type with the same semantics.
+    //
     return root_extra->target_types.insert (name, move (dt));
   }
 
