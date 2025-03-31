@@ -250,8 +250,8 @@ namespace build2
               assert (syntax_ >= 2); // Wouldn't be here otherwise.
 
               const token& p (peeked ());
-              fail (get_location (p)) << "expected command instead of " << p
-                                      << endf;
+              fail (p) << "expected command or scope instead of " << p
+                       << " inside group scope" << endf;
             }
           case type::lcbrace:
             {
