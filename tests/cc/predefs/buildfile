@@ -1,0 +1,7 @@
+# file      : tests/cc/predefs/buildfile
+# license   : MIT; see accompanying LICENSE file
+
+# Test the predefs rule.
+#
+
+./: testscript $b

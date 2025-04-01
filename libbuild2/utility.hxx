@@ -82,6 +82,8 @@ namespace build2
   using butl::wspace;
 
   using butl::trim;
+  using butl::trim_left;
+  using butl::trim_right;
   using butl::next_word;
   using butl::sanitize_identifier;
   using butl::make_sanitized_identifier;

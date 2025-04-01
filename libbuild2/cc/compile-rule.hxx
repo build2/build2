@@ -77,6 +77,8 @@ namespace build2
       functions (function_family&, const char*); // functions.cxx
 
     private:
+      friend class predefs_rule;
+
       using environment = small_vector<const char*, 2>;
 
       template <typename T>
@@ -127,8 +129,19 @@ namespace build2
                     path&&, bool, bool,
                     optional<prefix_map>&, const srcout_map&) const;
 
+      pair<const file*, bool>
+      find_header (action, const scope&, const file&, linfo,
+                   path&&, bool, bool, bool,
+                   optional<prefix_map>&, const srcout_map&) const;
+
       optional<bool>
       inject_header (action, file&, const file&, timestamp, bool) const;
+
+      optional<bool>
+      inject_existing_header (action, file&, size_t,
+                              const file&, timestamp, bool) const;
+      void
+      verify_existing_header (action, const file&, size_t, const file&) const;
 
       void
       extract_headers (action, const scope&, file&, linfo,

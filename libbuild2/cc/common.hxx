@@ -107,6 +107,10 @@ namespace build2
       const variable& c_pkgconfig_include;
       const variable& c_pkgconfig_lib;
 
+      const variable* c_predefs_poptions; // Note: these are initialized by
+      const variable* c_predefs_default;  // the {c,cxx}.predefs modules.
+      const variable* c_predefs_macros;
+
       const variable& x_stdlib;       // x.stdlib
 
       const variable& c_runtime;      // cc.runtime

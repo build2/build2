@@ -5910,6 +5910,23 @@ namespace build2
       next (t, tt); // Swallow newline.
   }
 
+  const char* parser::
+  verify_variable_name (const string& n)
+  {
+    // We reserve:
+    //
+    // - Variable components that start with underscore (_x, x._y).
+    //
+    // - Variables in the `build`, `import`, and `export` namespaces.
+    //
+    return
+      n[0] == '_'                      ? "name starts with underscore" :
+      n.find ("._") != string::npos    ? "component starts with underscore" :
+      n.compare (0, 6, "build.") == 0  ? "is in 'build' namespace"  :
+      n.compare (0, 7, "import.") == 0 ? "is in 'import' namespace" :
+      n.compare (0, 7, "export.") == 0 ? "is in 'export' namespace" : nullptr;
+  }
+
   const variable& parser::
   parse_variable_name (string&& on, const location& l)
   {
@@ -5927,22 +5944,10 @@ namespace build2
       return r.first;
 
     // If it's newly entered, verify it's not reserved for the build2 core.
-    // We reserve:
-    //
-    // - Variable components that start with underscore (_x, x._y).
-    //
-    // - Variables in the `build`, `import`, and `export` namespaces.
     //
     const string& n (r.first.name);
 
-    const char* w (
-      n[0] == '_'                      ? "name starts with underscore" :
-      n.find ("._") != string::npos    ? "component starts with underscore" :
-      n.compare (0, 6, "build.") == 0  ? "is in 'build' namespace"  :
-      n.compare (0, 7, "import.") == 0 ? "is in 'import' namespace" :
-      n.compare (0, 7, "export.") == 0 ? "is in 'export' namespace" : nullptr);
-
-    if (w != nullptr)
+    if (const char* w = verify_variable_name (n))
       fail (l) << "variable name '" << n << "' is reserved" <<
         info << "variable " << w;
 

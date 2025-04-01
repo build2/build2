@@ -320,6 +320,14 @@ namespace build2
     const variable&
     parse_variable_name (names&&, const location&);
 
+  public:
+    // Verify variable name is not a reserved name. Return NULL if it's not
+    // and the description why it is reserved otherwise.
+    //
+    static const char*
+    verify_variable_name (const string&);
+
+  protected:
     // Note: calls attributes_push() that the caller must pop.
     //
     // If mode is false, assume the appropriate mode has already been switched

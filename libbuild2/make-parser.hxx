@@ -19,7 +19,7 @@ namespace build2
   //
   // Note that most tools (MinGW GCC, Qt moc, etc) do not escape `:` in
   // absolute Windows paths. To handle such cases the parser recognizes `:`
-  // that is a part of the driver letter component and does not treat it as
+  // that is a part of the drive letter component and does not treat it as
   // the target/prerequisite separator.
   //
   class LIBBUILD2_SYMEXPORT make_parser
