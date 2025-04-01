@@ -343,6 +343,12 @@ namespace build2
         vp["cc.pkgconfig.include"],
         vp["cc.pkgconfig.lib"],
 
+        // Note: initialized and aliased in predefs_init() below.
+        //
+        nullptr /*cc.predefs.poptions*/,
+        nullptr /*cc.predefs.default*/,
+        nullptr /*cc.predefs.macros*/,
+
         vp.insert_alias (vp["cc.stdlib"], "c.stdlib"), // Same as cc.stdlib.
 
         vp["cc.runtime"],
@@ -645,6 +651,20 @@ namespace build2
       if (mod == nullptr)
         fail (loc) << "c.predefs module must be loaded after c module";
 
+      // Initialize and alias cc.prederfs.* variables.
+      //
+      {
+        auto& vp (rs.var_pool (true /* public */)); // All qualified.
+
+        mod->c_predefs_poptions = &vp["cc.predefs.poptions"];
+        mod->c_predefs_default = &vp["cc.predefs.default"];
+        mod->c_predefs_macros = &vp["cc.predefs.macros"];
+
+        vp.insert_alias (*mod->c_predefs_poptions, "c.predefs.poptions");
+        vp.insert_alias (*mod->c_predefs_default, "c.predefs.default");
+        vp.insert_alias (*mod->c_predefs_macros, "c.predefs.macros");
+      }
+
       // Register the c.predefs rule.
       //
       // Why invent a separate module instead of just always registering it in
@@ -656,6 +676,14 @@ namespace build2
       rs.insert_rule<h> (perform_update_id,   r.rule_name, r);
       rs.insert_rule<h> (perform_clean_id,    r.rule_name, r);
       rs.insert_rule<h> (configure_update_id, r.rule_name, r);
+
+      rs.insert_rule<json> (perform_update_id,   r.rule_name, r);
+      rs.insert_rule<json> (perform_clean_id,    r.rule_name, r);
+      rs.insert_rule<json> (configure_update_id, r.rule_name, r);
+
+      rs.insert_rule<buildfile> (perform_update_id,   r.rule_name, r);
+      rs.insert_rule<buildfile> (perform_clean_id,    r.rule_name, r);
+      rs.insert_rule<buildfile> (configure_update_id, r.rule_name, r);
 
       return true;
     }

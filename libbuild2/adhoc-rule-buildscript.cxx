@@ -1246,7 +1246,8 @@ namespace build2
           }
 
           if (update)
-            l6 ([&]{trace << "restarting (cache)";});
+            l4 ([&]{trace << "outdated extracted dynamic dependencies "
+                          << "forcing update of " << t;});
         }
       }
 
@@ -1393,7 +1394,7 @@ namespace build2
     optional<target_state> ps (execute_update_prerequisites (a, t, md.mt));
 
     if (!ps)
-      md.mt = timestamp_nonexistent; // Update.
+      assert (md.mt == timestamp_nonexistent); // Otherwise no depdb state.
 
     build::script::environment& env (md.env);
     build::script::default_runner& run (md.run);

@@ -201,7 +201,7 @@ namespace build2
             compile_rule (move (d), rs),
             install_rule (move (d), *this),
             libux_install_rule (move (d), *this),
-            predefs_rule (move (d)) {}
+            predefs_rule (move (d), *this) {}
 
       void
       init (scope&,

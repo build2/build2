@@ -8,6 +8,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/rule.hxx>
+#include <libbuild2/dyndep.hxx>
 
 #include <libbuild2/cc/types.hxx>
 #include <libbuild2/cc/common.hxx>
@@ -16,16 +17,22 @@
 
 namespace build2
 {
+  class json_value;
+
   namespace cc
   {
+    class compile_rule;
+
     class LIBBUILD2_CC_SYMEXPORT predefs_rule: public rule,
-                                               virtual common
+                                               virtual common,
+                                               dyndep_rule
     {
     public:
       const string rule_name;
 
-      explicit
-      predefs_rule (data&&);
+      predefs_rule (data&&, const compile_rule&);
+
+      struct match_data;
 
       virtual bool
       match (action, target&, const string&, match_extra&) const override;
@@ -34,10 +41,36 @@ namespace build2
       apply (action, target&, match_extra&) const override;
 
       target_state
-      perform_update (action, const target&) const;
+      perform_update (action, const target&, match_data&) const;
+
+    private:
+      void
+      read_gcc (diag_buffer&, ifdstream&,
+                ofdstream&,
+                const function<void (string, const json_value&)>&,
+                const function<void (path)>&,
+                match_data&,
+                bool) const;
+
+      bool
+      read_msvc (diag_buffer&, ifdstream&,
+                 ofdstream&,
+                 const function<void (string, const json_value&)>&,
+                 const function<void (path)>&,
+                 match_data&,
+                 const path&) const;
+
+      void
+      write_macro_buildfile (ofdstream&,
+                             const string& n, const json_value&) const;
+
+      void
+      write_macro_json (json_buffer_serializer&,
+                        const string&, const json_value&) const;
 
     private:
       const string rule_id;
+      const compile_rule& c_rule;
     };
   }
 }

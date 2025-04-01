@@ -272,6 +272,41 @@ namespace build2
       vp.insert<dir_paths> ("cc.pkgconfig.include");
       vp.insert<dir_paths> ("cc.pkgconfig.lib");
 
+      // {c,cxx}.predefs rule settings.
+      //
+      // Note that these variables are aliased as {c,cxx}.predefs.*.
+      //
+      // The cc.predefs.poptions variable controls whether the *.poptions are
+      // included on the command line (in which case any macro definitions
+      // they may contain will end up in the output). It is false by default
+      // for pure predefs (i.e., when we preprocess an empty translation unit)
+      // and is required if we are preprocessing a user-specified file (since
+      // command line macros may affect what's in the user's file).
+      //
+      // The cc.predefs.poptions variable specifies the default macro value to
+      // use in the buildfile{} and json{} output for macros that are not
+      // defined to any value (e.g., just `#define FOO`). If not specified,
+      // then 1 is used (which is what macros specified on the command line as
+      // -DFOO end up being defined to by the C/C++ compilers).
+      //
+      // The cc.predefs.macros variable specifies the macros to extract for
+      // the buildfile{} and json{} output. Additionally, optional mapping to
+      // variable/member name (buildfile/json) can be specified as the second
+      // half of a pair for each macro. For example:
+      //
+      // cc.predefs.macros = BYTE_ORDER __SIZEOF_SIZE_T__@SIZEOF_SIZE_T
+      //
+      // Note that for the buildfile{} output specifying cc.predefs.macros
+      // is mandatory (since undefined macros need to be set to null).
+      //
+      // Note: it would have been better to enter these only if the
+      // {c,cxx}.predefs is loaded but that would require inventing yet another
+      // cc submodule.
+      //
+      vp.insert<bool>                          ("cc.predefs.poptions");
+      vp.insert<string>                        ("cc.predefs.default");
+      vp.insert<map<string, optional<string>>> ("cc.predefs.macros");
+
       // Hint variables (not overridable).
       //
       vp.insert<string>         ("config.cc.id",      false);

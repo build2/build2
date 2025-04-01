@@ -767,13 +767,13 @@ namespace build2
         }
         else
         {
-          // We do not support finishing off after the custom processing in
-          // the non-blocking mode unless forced to buffer (but could probably
-          // do if necessary).
-          //
-          assert (!(serial || nobuf) || force);
-
           fdstreambuf& sb (*static_cast<fdstreambuf*> (is.rdbuf ()));
+
+          // We do not support finishing off after the custom processing in
+          // the non-blocking mode unless forced to buffer or already at eof
+          // (but could probably do if necessary).
+          //
+          assert (!(serial || nobuf) || force || sb.in_avail () == -1);
 
           // Try not to allocate the buffer if there is no diagnostics (the
           // common case).

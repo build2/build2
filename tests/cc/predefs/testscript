@@ -1,0 +1,220 @@
+# file      : tests/cc/preprocessed/testscript
+# license   : MIT; see accompanying LICENSE file
+
+crosstest = false
+test.arguments = config.cxx=$quote($recall($cxx.path) $cxx.config.mode) update
+
+.include ../../common.testscript
+
++cat <<EOI >+build/bootstrap.build
+  EOI
+
+# Use C++ instead of C to sidestep issues with passing compiler mode above.
+#
++cat <<EOI >=build/root.build
+  cxx.std = latest
+  using cxx
+  using cxx.predefs
+  hxx{*}: extension = hxx
+  EOI
+
+: pure
+:
+{{
+  : header
+  :
+  {
+    $* <<EOI &predefs.hxx &predefs.hxx.d
+      cxx.poptions += -DHAVE_FOO
+
+      [rule_hint=cxx.predefs] hxx{predefs}:
+      {
+        cxx.predefs.poptions = true
+      }
+      % update
+      if ($cxx.id == 'msvc' && \
+          ($cxx.version.major < 19 || \
+          ($cxx.version.major == 19 && $cxx.version.minor < 20)))
+      {{
+        diag cxx-predefs $>
+        cat <<EOF >$path($>)
+          #define _WIN32
+          #define HAVE_FOO 1
+          EOF
+      }}
+      EOI
+    cat predefs.hxx >>~/EOO/
+      /.*/*
+      #define HAVE_FOO 1
+      /.*/*
+      EOO
+  }
+}}
+
+: impure
+:
+if ($cxx.id == 'msvc' ? \
+      ($cxx.version.major > 19 || \
+       ($cxx.version.major == 19 && $cxx.version.minor >= 20)) : \
+    $cxx.id.type == 'clang' ? \
+      $cxx.version.major >= 12 : \
+    true)
+{{
+  : header
+  :
+  {
+    cat <<EOI >=config.h
+      #define HAVE_BAR
+      EOI
+    $* <<EOI &predefs.hxx &predefs.hxx.d
+      cxx.poptions += -DHAVE_FOO
+
+      [rule_hint=cxx.predefs] hxx{predefs}: h{config}
+      {
+        cxx.predefs.poptions = true
+      }
+      EOI
+    cat predefs.hxx >>~/EOO/
+      /.*/*
+      /#define (HAVE_FOO 1|HAVE_BAR ?)/
+      /.*/*
+      /#define (HAVE_FOO 1|HAVE_BAR ?)/
+      /.*/*
+      EOO
+  }
+
+  : json
+  :
+  {
+    cat <<EOI >=config.h
+      #define HAVE_BAR
+      EOI
+    $* <<EOI &predefs.json &predefs.json.d
+      cxx.poptions += -DHAVE_FOO
+
+      [rule_hint=cxx.predefs] json{predefs}: h{config}
+      {
+        cxx.predefs.poptions = true
+        cxx.predefs.default = true
+      }
+      EOI
+    set <=predefs.json r [json_object]
+    if ($r[HAVE_BAR] != true || $r[HAVE_FOO] != 1)
+      exit "missing/incorrect macro values"
+  }
+
+  : buildfile
+  :
+  {
+    cat <<EOI >=config.h
+      #define HAVE_BAR
+      EOI
+    $* <<EOI &predefs.build &predefs.build.d
+      cxx.poptions += -DHAVE_FOO
+
+      [rule_hint=cxx.predefs] buildfile{predefs}: h{config}
+      {
+        cxx.predefs.poptions = true
+        cxx.predefs.default = true
+        cxx.predefs.macros = HAVE_FOO@foo HAVE_BAR@bar HAVE_BAZ@baz
+      }
+      EOI
+    $* --load-only <<EOI
+      source predefs.build
+      assert ($foo == 1 && \
+              $bar == true && \
+              $defined(baz) && $null($baz)) "missing/incorrect macro values"
+      ./:
+      EOI
+  }
+
+  : generated
+  :
+  {
+    cat <<EOI >=input.h
+      #include "config.h"
+      EOI
+    $* <<EOI &predefs.build &predefs.build.d &config.h &config.h.d
+      [rule_hint=cxx.predefs] buildfile{predefs}: h{input} h{config}
+      {
+        cxx.predefs.poptions = false
+        cxx.predefs.macros = \
+          HAVE_BOOL \
+          HAVE_SIG \
+          HAVE_NEG \
+          HAVE_HEX \
+          HAVE_VOID \
+          HAVE_EXPR \
+          _HAVE_RES@HAVE_RES \
+          HAVE_NOINT
+      }
+
+      h{config}:
+      {{
+        cat <<EOF >=$path($>)
+          #define HAVE_BOOL true
+          #define HAVE_SIG 123ll
+          #define HAVE_NEG -123
+          #define HAVE_HEX 0xffff
+          #define HAVE_VOID void
+          #define HAVE_EXPR ((x)+(y))
+          #define _HAVE_RES
+          #define HAVE_NOINT 123ULLL
+          EOF
+      }}
+      EOI
+    $* --load-only <<EOI
+      source predefs.build
+      assert ($type($HAVE_BOOL) == bool)                        "bad HAVE_BOOL"
+      assert ($type($HAVE_SIG) == int64 && $HAVE_SIG == 123)    "bad HAVE_SIG"
+      assert ($HAVE_NEG == -123)                                "bad HAVE_NEG"
+      assert ($HAVE_HEX == 0xffff)                              "bad HAVE_HEX"
+      assert ($HAVE_VOID == 'void')                             "bad HAVE_VOID"
+      #assert ($HAVE_EXPR == '((x)+(y))')                       "bad HAVE_EXPR"
+      assert ($regex.match($HAVE_EXPR, \
+                           '\( ?\( ?x ?\) ?\+ ?\( ?y ?\) ?\)')) "bad HAVE_EXPR"
+      assert ($HAVE_RES == 1)                                   "bad HAVE_RES"
+      assert ($HAVE_NOINT == '123ULLL')                         "bad HAVE_NOINT"
+      ./:
+      EOI
+  }
+
+  : dependeny
+  :
+  {
+    cat <<EOI >=input.h
+      #include "config.h"
+      EOI
+    cat <<EOI >=config.h
+      #define HAVE_BAR 2
+      EOI
+    $* <<EOI &predefs.build &predefs.build.d
+      [rule_hint=cxx.predefs] buildfile{predefs}: h{input}
+      {
+        cxx.predefs.poptions = false
+        cxx.predefs.macros = HAVE_BAR@bar
+      }
+      EOI
+    $* --load-only <<EOI
+      source predefs.build
+      assert ($bar == 2)
+      ./:
+      EOI
+    sleep 1
+    cat <<EOI >=config.h
+      #define HAVE_BAR 3
+      EOI
+    $* <<EOI &predefs.build &predefs.build.d
+      [rule_hint=cxx.predefs] buildfile{predefs}: h{input}
+      {
+        cxx.predefs.poptions = false
+        cxx.predefs.macros = HAVE_BAR@bar
+      }
+      EOI
+    $* --load-only <<EOI
+      source predefs.build
+      assert ($bar == 3)
+      ./:
+      EOI
+  }
+}}

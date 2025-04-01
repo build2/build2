@@ -1771,13 +1771,37 @@ namespace build2
         l.compare (pr.second, 9, "comdef.h:") != 0;   /* Not type library. */
     }
 
+    // Return true if the line matches the file name being compiled (printed
+    // by MSVC). Return false if it is one of the D9XXX warnings that may be
+    // printed before the file name. Return nullopt if it is something else
+    // (most likely error diagnostics). See the call site for details.
+    //
+    // Note: also used by the predefs rule thus not static.
+    //
+    optional<bool>
+    msvc_first_show (const string& l, const string& name)
+    {
+      if (l == name)
+        return true;
+
+      // D8XXX are errors while D9XXX are warnings.
+      //
+      size_t p (msvc_sense_diag (l, 'D').first);
+      if (p != string::npos && l[p] == '9')
+        return false;
+      else
+        return nullopt;
+    }
+
     // Extract the include path from the VC /showIncludes output line. Return
     // empty string if the line is not an include note or include error. Set
     // the good_error flag if it is an include error (which means the process
     // will terminate with the error status that needs to be ignored).
     //
-    static string
-    next_show (const string& l, bool& good_error)
+    // Note: also used by the predefs rule thus not static.
+    //
+    string
+    msvc_next_show (const string& l, bool& good_error)
     {
       // The include error should be the last line that we handle.
       //
@@ -3106,6 +3130,8 @@ namespace build2
                   optional<prefix_map>& pfx_map,
                   const srcout_map& so_map) const
     {
+      // NOTE: see also find_header() below.
+
       tracer trace (x, "compile_rule::enter_header");
 
       // It's reasonable to expect the same header to be included by multiple
@@ -3217,24 +3243,24 @@ namespace build2
       // If it is outside any project, or the project doesn't have such an
       // extension, assume it is a plain old C header.
       //
-      auto r (enter_file (
-                trace, "header",
-                a, bs, t,
-                fp, cache, norm,
-                [this] (const scope& bs, const string& n, const string& e)
-                {
-                  return map_extension (bs, n, e, x_incs);
-                },
-                h::static_type,
-                [this, &d] (action a, const scope& bs, const target& t)
-                  -> const prefix_map&
-                {
-                  if (!d.pfx_map)
-                    d.pfx_map = build_prefix_map (bs, a, t, d.li);
+      pair<const file*, bool> r (
+        enter_file (trace, "header",
+                    a, bs, t,
+                    fp, cache, norm,
+                    [this] (const scope& bs, const string& n, const string& e)
+                    {
+                      return map_extension (bs, n, e, x_incs);
+                    },
+                    h::static_type,
+                    [this, &d] (action a, const scope& bs, const target& t)
+                    -> const prefix_map&
+                    {
+                      if (!d.pfx_map)
+                        d.pfx_map = build_prefix_map (bs, a, t, d.li);
 
-                  return *d.pfx_map;
-                },
-                so_map));
+                      return *d.pfx_map;
+                    },
+                    so_map));
 
       // Cache.
       //
@@ -3284,6 +3310,121 @@ namespace build2
     // Note: this used to be a lambda inside extract_headers() so refer to the
     // body of that function for the overall picture.
     //
+    // Note: fp is expected to be absolute.
+    //
+    pair<const file*, bool> compile_rule::
+    find_header (action a, const scope& bs, const file& t, linfo li,
+                 path&& fp, bool cache, bool norm, bool dynamic,
+                 optional<prefix_map>& pfx_map,
+                 const srcout_map& so_map) const
+    {
+      // NOTE: see also enter_header() below.
+
+      tracer trace (x, "compile_rule::find_header");
+
+      const config_module& hc (*header_cache_);
+
+      // First check the cache.
+      //
+      config_module::header_key hk;
+
+      assert (fp.absolute ());
+      {
+        if (!norm)
+        {
+          normalize_external (fp, "header");
+          norm = true;
+        }
+
+        hk.file = move (fp);
+        hk.hash = hash<string> () (hk.file.string ());
+
+        slock l (hc.header_map_mutex);
+        auto i (hc.header_map.find (hk));
+        if (i != hc.header_map.end ())
+        {
+          //cache_hit.fetch_add (1, memory_order_relaxed);
+          return make_pair (i->second, false);
+        }
+
+        fp = move (hk.file);
+
+        //cache_mis.fetch_add (1, memory_order_relaxed);
+      }
+
+      struct data
+      {
+        linfo li;
+        optional<prefix_map>& pfx_map;
+      } d {li, pfx_map};
+
+      pair<const file*, bool> r (
+        find_file (trace, "header",
+                   a, bs, t,
+                   fp, cache, norm, dynamic,
+                   [this] (const scope& bs, const string& n, const string& e)
+                   {
+                     return map_extension (bs, n, e, x_incs);
+                   },
+                   h::static_type,
+                   [this, &d] (action a, const scope& bs, const target& t)
+                   -> const prefix_map&
+                   {
+                     if (!d.pfx_map)
+                       d.pfx_map = build_prefix_map (bs, a, t, d.li);
+
+                     return *d.pfx_map;
+                   },
+                   so_map));
+
+      // Cache.
+      //
+      if (r.first != nullptr)
+      {
+        hk.file = move (fp);
+
+        // Calculate the hash if the path has changed (header has been
+        // remapped).
+        //
+        if (r.second)
+          hk.hash = hash<string> () (hk.file.string ());
+
+        const file* f;
+        {
+          ulock l (hc.header_map_mutex);
+          auto p (hc.header_map.emplace (move (hk), r.first));
+          f = p.second ? nullptr : p.first->second;
+        }
+
+        if (f != nullptr)
+        {
+          //cache_cls.fetch_add (1, memory_order_relaxed);
+
+          // @@ TMP cleanup.
+          //
+#if 0
+          assert (r.first == f);
+#else
+          if (r.first != f)
+          {
+            info   << "inconsistent header cache content" <<
+              info << "encountered: " << *f <<
+              info << "expected: " << *r.first <<
+              info << "please report at "
+                   << "https://github.com/build2/build2/issues/390";
+
+            assert (r.first == f);
+          }
+#endif
+        }
+      }
+
+      return r;
+    }
+
+    // Note: this used to be a lambda inside extract_headers() so refer to the
+    // body of that function for the overall picture.
+    //
     optional<bool> compile_rule::
     inject_header (action a, file& t,
                    const file& pt, timestamp mt, bool fail) const
@@ -3291,6 +3432,30 @@ namespace build2
       tracer trace (x, "compile_rule::inject_header");
 
       return inject_file (trace, "header", a, t, pt, mt, fail);
+    }
+
+    // This one is only currently used by the predefs rule but we keep it
+    // here for consistency.
+    //
+    optional<bool> compile_rule::
+    inject_existing_header (action a, file& t, size_t pts_n,
+                            const file& pt, timestamp mt, bool fail) const
+    {
+      tracer trace (x, "compile_rule::inject_existing_header");
+
+      return inject_existing_file (trace, "header", a, t, pts_n, pt, mt, fail);
+    }
+
+    // This one is only currently used by the predefs rule but we keep it
+    // here for consistency.
+    //
+    void compile_rule::
+    verify_existing_header (action a, const file& t, size_t pts_n,
+                            const file& pt) const
+    {
+      tracer trace (x, "compile_rule::verify_existing_header");
+
+      verify_existing_file (trace, "header", a, t, pts_n, pt);
     }
 
     // Extract and inject header dependencies. Return (in result) the
@@ -4668,12 +4833,13 @@ namespace build2
                       {
                         if (cvariant != "clang")
                         {
-                          if (l != src.path ().leaf ().string ())
+                          optional<bool> r (
+                            msvc_first_show (
+                              l, src.path ().leaf ().string ()));
+
+                          if (!r || !*r)
                           {
-                            // D8XXX are errors while D9XXX are warnings.
-                            //
-                            size_t p (msvc_sense_diag (l, 'D').first);
-                            if (p != string::npos && l[p] == '9')
+                            if (r) // D9XXX warning.
                               ; // Skip.
                             else
                             {
@@ -4700,7 +4866,7 @@ namespace build2
                         continue;
                       }
 
-                      string f (next_show (l, good_error));
+                      string f (msvc_next_show (l, good_error));
 
                       if (f.empty ()) // Some other diagnostics.
                       {
