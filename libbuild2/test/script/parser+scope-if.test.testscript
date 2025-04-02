@@ -79,6 +79,42 @@ testscript.syntax = 2
     EOI
     testscript:3:1: error: expected '}}' at the end of the group scope
     EOE
+
+    : in-command
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd;
+    if false
+    {{
+      cmd1
+    }};
+    cmd2
+    EOI
+    testscript:3:1: error: expected command or '{' instead of '{{'
+    EOE
+
+    : semi-after-block
+    :
+    $* <<EOI 2>>EOE != 0
+    if false
+    {{
+      cmd1
+    }};
+    cmd2
+    EOI
+    testscript:4:3: error: expected newline after '}}'
+    EOE
+
+    : colon-after-block
+    :
+    $* <<EOI 2>>EOE != 0
+    if false
+    {{
+      cmd1
+    }} : description
+    EOI
+    testscript:4:4: error: expected newline after '}}'
+    EOE
   }}
 
   : elif
@@ -1125,6 +1161,42 @@ testscript.syntax = 2
     {
     EOI
     testscript:3:1: error: expected '}' at the end of the scope
+    EOE
+
+    : in-command
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd;
+    if false
+    {
+      cmd1
+    };
+    cmd2
+    EOI
+    testscript:3:1: error: expected command instead of '{'
+    EOE
+
+    : semi-after-block
+    :
+    $* <<EOI 2>>EOE != 0
+    if false
+    {
+      cmd1
+    };
+    cmd2
+    EOI
+    testscript:4:2: error: expected newline after '}'
+    EOE
+
+    : colon-after-block
+    :
+    $* <<EOI 2>>EOE != 0
+    if false
+    {
+      cmd1
+    } : description
+    EOI
+    testscript:4:3: error: expected newline after '}'
     EOE
   }}
 

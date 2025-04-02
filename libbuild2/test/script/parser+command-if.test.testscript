@@ -114,7 +114,7 @@ testscript.syntax = 2
   else
     cmd3 : description2
   EOI
-  testscript:2:1: error: both leading and trailing descriptions
+  testscript:6:8: error: both leading and trailing descriptions
   EOE
 
   : end
@@ -628,6 +628,7 @@ testscript.syntax = 2
 }}
 
 : contained
+:
 {{
   : semi
   :
@@ -640,7 +641,33 @@ testscript.syntax = 2
     }
   }
   EOI
-  testscript:4:5: error: ';' inside 'if'
+  testscript:4:8: error: ';' inside 'if'
+  EOE
+
+  : semi-after-block
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    if true
+    {
+      cmd
+    };
+    cmd2
+  }
+  EOI
+  testscript:5:4: error: ';' inside test scope
+  EOE
+
+  : semi-after-line
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    if true
+      cmd;
+    cmd2
+  }
+  EOI
+  testscript:3:8: error: ';' inside test scope
   EOE
 
   : colon-leading
@@ -667,7 +694,58 @@ testscript.syntax = 2
     }
   }
   EOI
-  testscript:4:5: error: description inside 'if'
+  testscript:4:9: error: description inside 'if'
+  EOE
+
+  : colon-after-block
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    if true
+    {
+      cmd
+    } : description
+  }
+  EOI
+  testscript:5:5: error: description inside test scope
+  EOE
+
+  : colon-after-line
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    if true
+      cmd : description
+  }
+  EOI
+  testscript:3:9: error: description inside test scope
+  EOE
+
+  : junk-after-block
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    if true
+    {
+      cmd
+    } +
+  }
+  EOI
+  testscript:5:5: error: expected newline, semicolon, or colon after '}'
+  EOE
+
+  : duplicate-id-trailing
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd1 : foo
+
+  cmd2;
+  if true
+  {
+    cmd3 : foo
+  }
+  EOI
+  testscript:6:8: error: description inside 'if'
   EOE
 
   : eos
@@ -770,7 +848,7 @@ if true
   cmd
 } : bar
 EOI
-testscript:2:1: error: both leading and trailing descriptions
+testscript:5:3: error: both leading and trailing descriptions
 EOE
 
 : leading-and-trailing-description-cmd
@@ -780,7 +858,7 @@ $* <<EOI 2>>EOE != 0
 if true
   cmd : bar
 EOI
-testscript:2:1: error: both leading and trailing descriptions
+testscript:3:7: error: both leading and trailing descriptions
 EOE
 
 : syntax-1
