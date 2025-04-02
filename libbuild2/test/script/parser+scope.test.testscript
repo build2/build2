@@ -200,7 +200,7 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
       cmd
     }
     EOI
-    testscript:2:3: error: ';' inside test scope
+    testscript:2:10: error: ';' inside test scope
     EOE
 
     : description
@@ -211,7 +211,7 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
       cmd : description
     }
     EOI
-    testscript:3:3: error: description inside test scope
+    testscript:3:7: error: description inside test scope
     EOE
 
     : semi-after-rcbrace
@@ -221,7 +221,27 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
       cmd
     };
     EOI
-    testscript:3:2: error: expected newline after '}'
+    testscript:3:2: error: ';' after test scope
+    EOE
+
+    : description-after-rcbrace
+    :
+    $* -s -i <<EOI 2>>EOE != 0
+    {
+      cmd
+    } : description
+    EOI
+    testscript:3:3: error: description after test scope
+    EOE
+
+    : junk-after-rcbrace
+    :
+    $* -s -i <<EOI 2>>EOE != 0
+    {
+      cmd
+    } +
+    EOI
+    testscript:3:3: error: expected newline after test scope
     EOE
   }}
 
@@ -325,6 +345,7 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
 }}
 
 : expected
+:
 {{
   : newline-lcbrace
   :
@@ -345,7 +366,7 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
     cmd;
   }
   EOI
-  testscript:2:3: error: ';' inside test scope
+  testscript:2:6: error: ';' inside test scope
   EOE
 
   : newline-rcbrace
@@ -354,7 +375,7 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
   {
   }
   EOI
-  testscript:2:2: error: expected newline after '}'
+  testscript:2:2: error: expected newline after test scope
   EOE
 
   : line-eof

@@ -428,7 +428,7 @@ $* <<EOI 2>>EOE != 0
 : foo
 cmd : bar
 EOI
-testscript:2:1: error: both leading and trailing descriptions
+testscript:2:1: error: both leading and trailing descriptions specified
 EOE
 
 : syntax-1
@@ -916,6 +916,6 @@ EOE
   : foo
   cmd : bar
   EOI
-  testscript:2:1: error: both leading and trailing descriptions
+  testscript:2:1: error: both leading and trailing descriptions specified
   EOE
 }}

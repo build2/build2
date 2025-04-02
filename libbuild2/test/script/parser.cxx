@@ -189,6 +189,29 @@ namespace build2
                  ? type (type::double_rcbrace)
                  : type (type::rcbrace));
 
+        // For syntax version 2 and above, make sure that there are no
+        // trailing semicolons or colons after nested explicit test scopes.
+        //
+        function<verify_semi_colon_function> vsc (
+          [this] (type tt, const location& ll)
+          {
+            switch (tt)
+            {
+            case type::semi:
+              {
+                fail (ll) << "';' after test scope" << endf;
+              }
+            case type::colon:
+              {
+                fail (ll) << "description after test scope" << endf;
+              }
+            default:
+              {
+                fail (ll) << "expected newline after test scope";
+              }
+            }
+          });
+
         for (;;)
         {
           // Start lexing each line recognizing leading '.+-{}{{}}'.
@@ -271,7 +294,7 @@ namespace build2
                 ? d->id
                 : insert_id (id_prefix_ + to_string (sl.line), sl));
 
-              unique_ptr<test> ts (pre_parse_test_block (t, tt, id));
+              unique_ptr<test> ts (pre_parse_test_block (t, tt, id, vsc));
 
               ts->desc = move (d);
 
@@ -355,14 +378,14 @@ namespace build2
         return g;
       }
 
-      // If semi_colon is NULL, then fail if a trailing semicolon or colon
-      // (description) is present. If it is not NULL, then save an indication
-      // of whether the block is followed by a semicolon (first=true) or colon
-      // (second contains the description) into the pointed object.
+      // If semi_colon is not NULL, then save an indication of whether the
+      // block is followed by a semicolon (first=true) or colon (second
+      // contains the description) into the pointed object.
       //
       unique_ptr<test> parser::
       pre_parse_test_block (token& t, type& tt,
                             const string& id,
+                            const function<verify_semi_colon_function>& vsc,
                             pair<bool, optional<description>>* semi_colon)
       {
         // enter: peeked first token of the line (lcbrace)
@@ -377,7 +400,7 @@ namespace build2
           pre_parse_command_block (t, tt,
                                    ts->tests_,
                                    nullopt /* block_type */,
-                                   semi_colon != nullptr));
+                                   vsc));
 
         ts->end_loc_ = get_location (t);
 
@@ -392,12 +415,15 @@ namespace build2
       // handling the flow control constructs recursively.
       //
       // If one is true then only parse one line returning an indication of
-      // whether the line ended with a semicolon. If the flow control
-      // construct type is specified, then it is assumed that this line can
-      // control further parsing/execution of such a construct. Note that it
-      // should not be specified for the first line of a construct and,
-      // starting from the syntax version 2, for the script command blocks it
-      // controls (see buildscript for the reasoning).
+      // whether the line ended with a semicolon. If verify_semi_colon
+      // function is not NULL, then call it if a trailing semicolon or
+      // (description) colon is present. Regardless of this argument, verify
+      // that leading and trailing descriptions are not specified both. If the
+      // flow control construct type is specified, then it is assumed that
+      // this line can control further parsing/execution of such a
+      // construct. Note that it should not be specified for the first line of
+      // a construct and, starting from the syntax version 2, for the script
+      // command blocks it controls (see buildscript for the reasoning).
       //
       bool parser::
       pre_parse_line (token& t, type& tt,
@@ -405,7 +431,8 @@ namespace build2
                       lines* ls,
                       bool one,
                       optional<line_type> fct,
-                      bool command_only_if)
+                      bool command_only_if,
+                      const function<verify_semi_colon_function>& vsc)
       {
         // enter: next token is peeked at (type in tt)
         // leave: newline
@@ -443,7 +470,8 @@ namespace build2
         // recognize them lexically, even when they are not valid tokens per
         // the grammar.
         //
-        auto parse_command_tail = [&t, &tt, &st, &lt, &d, &semi, &ll, this] ()
+        auto parse_command_tail =
+          [&t, &tt, &st, &lt, &d, &semi, &ll, &vsc, this] ()
         {
           if (tt != type::newline)
           {
@@ -461,14 +489,20 @@ namespace build2
           {
           case type::colon:
             {
+              if (vsc != nullptr)
+                vsc (tt, get_location (t));
+
               if (d)
-                fail (ll) << "both leading and trailing descriptions";
+                fail (ll) << "both leading and trailing descriptions specified";
 
               d = parse_trailing_description (t, tt);
               break;
             }
           case type::semi:
             {
+              if (vsc != nullptr)
+                vsc (tt, get_location (t));
+
               semi = true;
               replay_pop (); // See above for the reasoning.
               next (t, tt);  // Get newline.
@@ -580,6 +614,9 @@ namespace build2
 
             if (semi)
             {
+              if (vsc != nullptr)
+                vsc (tt, get_location (t));
+
               replay_pop ();
               next (t, tt);
             }
@@ -745,7 +782,8 @@ namespace build2
             semi = pre_parse_if_else (t, tt,
                                       d,
                                       *ls,
-                                      command_only_if || st != type::eos);
+                                      command_only_if || st != type::eos,
+                                      vsc);
 
             assert (tt == type::newline);
 
@@ -761,7 +799,7 @@ namespace build2
         case line_type::cmd_for_stream:
         case line_type::cmd_for_args:
           {
-            semi = pre_parse_loop (t, tt, lt, d, *ls);
+            semi = pre_parse_loop (t, tt, lt, d, *ls, vsc);
             break;
           }
         default: break;
@@ -912,7 +950,8 @@ namespace build2
                                      ls,
                                      false /* one */,
                                      nullopt /* flow_control_type */,
-                                     command_only_if);
+                                     true /* command_only_if */,
+                                     vsc);
             }
           }
         }
@@ -949,7 +988,8 @@ namespace build2
       pre_parse_if_else (token& t, type& tt,
                          optional<description>& d,
                          lines& ls,
-                         bool command_only)
+                         bool command_only,
+                         const function<verify_semi_colon_function>& vsc)
       {
         // enter: <newline> (previous line `if ...`)
         // leave: <newline>
@@ -963,6 +1003,13 @@ namespace build2
           if (tt == type::lcbrace && command_only)
             fail (peeked ()) << "expected command instead of '{'";
 
+          // Note that we don't propagate vsc to pre_parse_if_else_group()
+          // since it only expects newline after the closing curly brace
+          // anyway. Also, we don't propagate it to
+          // pre_parse_if_else_command_v1(), since all the *_v1() functions
+          // perform the verification themselves after the pre_parse_line()
+          // call.
+          //
           return tt == type::lcbrace
                  ? pre_parse_if_else_group (t, tt, d, ls)
                  : pre_parse_if_else_command_v1 (t, tt, d, ls);
@@ -973,6 +1020,10 @@ namespace build2
           if (command_only)
             fail (peeked ()) << "expected command or '{' instead of '{{'";
 
+          // Note that we don't propagate vsc to pre_parse_if_else_group()
+          // since it only expects newline after the closing double curly
+          // brace anyway.
+          //
           return pre_parse_if_else_group (t, tt, d, ls);
         }
 
@@ -990,7 +1041,7 @@ namespace build2
           const location ll (ls.back ().tokens.front ().location ());
 
           pair<unique_ptr<test>, bool> r (
-            pre_parse_if_else_test (t, tt, d, ls, ll));
+            pre_parse_if_else_test (t, tt, d, ls, ll, vsc));
 
           unique_ptr<test>& ts (r.first);
           bool semi (r.second);
@@ -1025,7 +1076,7 @@ namespace build2
           // Covert the explicit `if` test scope into an if-command.
           //
           // Specifically, erase the automatically generated test id from the
-          // map, move the condition and blocks' lines into the single test
+          // map, move the condition and blocks' lines into a single test
           // lines list, and terminate the construct with the special `end`
           // line.
           //
@@ -1060,17 +1111,22 @@ namespace build2
           return semi;
         }
 
-        return pre_parse_if_else_command (t, tt, d, ls);
+        return pre_parse_if_else_command (t, tt, d, ls, vsc);
       }
 
       // Parse an `if` flow control construct as a test scope-if and return it
-      // together with an indication whether it has a trailing semicolon.
+      // together with an indication whether it has a trailing semicolon. If
+      // verify_semi_colon function is not NULL, then call it if a trailing
+      // semicolon or (description) colon is present. Regardless of this
+      // argument, verify that leading and trailing descriptions are not
+      // specified both.
       //
       pair<unique_ptr<test>, bool> parser::
       pre_parse_if_else_test (token& t, type& tt,
                               optional<description>& d,
                               lines& ls,
-                              const location& loc)
+                              const location& loc,
+                              const function<verify_semi_colon_function>& vsc)
       {
         // enter: peeked first token of next line (potentially lcbrace)
         // leave: newline
@@ -1094,6 +1150,29 @@ namespace build2
         //
         line_type bt (line_type::cmd_if); // Current block.
 
+        // Let's intercept the trailing semicolon and colon verification, so
+        // that if it succeeds also verify that leading and trailing
+        // descriptions are not specified simultaneously.
+        //
+        // Let's "wrap up" all the required data into a single object to
+        // rely on the "small function object" optimization.
+        //
+        struct verification_data
+        {
+          const optional<description>& d;
+          const function<verify_semi_colon_function>& vsc;
+        } vd {d, vsc};
+
+        function<verify_semi_colon_function> vf (
+          [&vd, this] (type tt, const location& ll)
+          {
+            if (vd.vsc != nullptr)
+              vd.vsc (tt, ll);
+
+            if (tt == type::colon && vd.d)
+              fail (ll) << "both leading and trailing descriptions specified";
+          });
+
         for (unique_ptr<scope>* ps (&root);; ps = &(*ps)->if_chain)
         {
           unique_ptr<scope> sc;
@@ -1102,7 +1181,7 @@ namespace build2
           if (tt == type::lcbrace) // Parse branch enclosed into curly braces.
           {
             pair<bool, optional<description>> r;
-            sc = pre_parse_test_block (t, tt, *id, &r);
+            sc = pre_parse_test_block (t, tt, *id, vf, &r);
 
             semi = r.first;
             td = move (r.second);
@@ -1115,7 +1194,8 @@ namespace build2
             pair<bool, optional<description>> r (
               pre_parse_command_line (t, tt,
                                       ts->tests_,
-                                      nullopt /* block_type */));
+                                      nullopt /* block_type */,
+                                      vf));
 
             ts->end_loc_ = get_location (t);
 
@@ -1131,10 +1211,7 @@ namespace build2
           //
           if (td)
           {
-            // @@ Not the exact location of colon.
-            //
-            if (d)
-              fail (loc) << "both leading and trailing descriptions";
+            assert (!d); // Wouldn't be here otherwise.
 
             // Note that the previous id has been generated automatically,
             // since there were no leading description specified. Thus, only
@@ -1194,7 +1271,6 @@ namespace build2
           line_type lt (line_type::cmd_end);
           type pt (peek (lexer_mode::first_token));
           const token& p (peeked ());
-          const location ll (get_location (p));
 
           if (pt == type::word && p.qtype == quote_type::unquoted)
           {
@@ -1209,7 +1285,7 @@ namespace build2
           // Check if-else block sequencing.
           //
           if (bt == line_type::cmd_else)
-            fail (ll) << lt << " after " << bt;
+            fail (p) << lt << " after " << bt;
 
           // Parse just the condition line using pre_parse_line() in the "one"
           // mode and into ls so that it is naturally picked up as if_cond_ on
@@ -1314,7 +1390,6 @@ namespace build2
 
           type pt (peek (lexer_mode::first_token));
           const token& p (peeked ());
-          const location ll (get_location (p));
 
           if (pt == type::word && p.qtype == quote_type::unquoted)
           {
@@ -1329,7 +1404,7 @@ namespace build2
           // Check if-else block sequencing.
           //
           if (bt == line_type::cmd_else)
-            fail (ll) << lt << " after " << bt;
+            fail (p) << lt << " after " << bt;
 
           // Parse just the condition line using pre_parse_line() in the "one"
           // mode and into ls so that it is naturally picked up as if_cond_ on
@@ -1351,9 +1426,9 @@ namespace build2
           tt = peek (lexer_mode::first_token);
 
           if (tt != ot)
-            fail (ll) << (syntax_ >= 2
-                          ? "expected group scope after "
-                          : "expected scope after ") << lt;
+            fail (peeked ()) << (syntax_ >= 2
+                                 ? "expected group scope after "
+                                 : "expected scope after ") << lt;
 
           // Update current if-else block.
           //
@@ -1375,10 +1450,11 @@ namespace build2
 
       // Pre-parse either a flow control construct block or an explicit test
       // scope (both are the curly brace-enclosed sequences of command
-      // lines). If allow_semi_colon is true, then return an indication of
-      // whether the block is followed by a semicolon (first=true) or colon
-      // (second contains the description). Otherwise, fail if a trailing
-      // semicolon or description is present.
+      // lines). If verify_semi_colon_function callback is not NULL, then call
+      // it if any trailing token is present, assuming it may provide some
+      // context and details for tokens other than semicolon and colon. Return
+      // an indication of whether the block is followed by a semicolon
+      // (first=true) or colon (second contains the description).
       //
       // Note that the block type argument (bt) is only used for diagnostics.
       // If it is nullopt, then the test scope is assumed.
@@ -1387,7 +1463,7 @@ namespace build2
       pre_parse_command_block (token& t, type& tt,
                                lines& ls,
                                optional<line_type> bt,
-                               bool allow_semi_colon)
+                               const function<verify_semi_colon_function>& vsc)
       {
         // enter: peeked first token of the line (lcbrace)
         // leave: newline after rcbrace, semicolon, or trailing description
@@ -1398,6 +1474,32 @@ namespace build2
 
         if (next (t, tt) != type::newline)
           fail (t) << "expected newline after '{'";
+
+        // Make sure that there are no trailing semicolons or colons after the
+        // block lines.
+        //
+        function<verify_semi_colon_function> vf (
+          [&bt, this] (type tt, const location& ll)
+          {
+            switch (tt)
+            {
+            case type::semi:
+              {
+                fail (ll) << "';' inside "
+                          << (bt ? to_string (*bt) : "test scope") << endf;
+              }
+            case type::colon:
+              {
+                fail (ll) << "description inside "
+                            << (bt ? to_string (*bt) : "test scope") << endf;
+              }
+            default:
+              {
+                fail (ll) << "expected newline after command in "
+                          << (bt ? to_string (*bt) : "test scope");
+              }
+            }
+          });
 
         // Parse block lines until we see '}'.
         //
@@ -1410,32 +1512,22 @@ namespace build2
           if (tt == type::rcbrace)
             break;
 
-          const location ll (get_location (peeked ()));
-
           pair<bool, optional<description>> r (
-            pre_parse_command_line (t, tt, ls, bt));
+            pre_parse_command_line (t, tt, ls, bt, vf));
 
-          // The trailing semi or description is illegal.
-          //
-          // @@ Not the exact location of semi/colon.
-          //
-          if (r.first)
-            fail (ll) << "';' inside "
-                      << (bt ? to_string (*bt) : "test scope");
-
-          if (r.second)
-            fail (ll) << "description inside "
-                      << (bt ? to_string (*bt) : "test scope");
+          assert (!r.first && !r.second); // Wouldn't be here otherwise.
         }
 
         next (t, tt); // Get '}'.
         next (t, tt); // Get newline, semicolon, or colon.
 
-        if (tt != type::newline &&
-            (!allow_semi_colon || (tt != type::semi && tt != type::colon)))
-          fail (t) << "expected newline"
-                   << (allow_semi_colon ? ", semicolon, or colon" : "")
-                   << " after '}'";
+        // Verify any trailing token.
+        //
+        if (vsc != nullptr && tt != type::newline)
+          vsc (tt, get_location (t));
+
+        if (tt != type::newline && tt != type::semi && tt != type::colon)
+          fail (t) << "expected newline, semicolon, or colon after '}'";
 
         pair<bool, optional<description>> r (false, nullopt);
 
@@ -1464,7 +1556,8 @@ namespace build2
       pair<bool, optional<description>> parser::
       pre_parse_command_line (token& t, type& tt,
                               lines& ls,
-                              optional<line_type> bt)
+                              optional<line_type> bt,
+                              const function<verify_semi_colon_function>& vsc)
       {
         // enter: peeked first token of the line (type in tt)
         // leave: newline
@@ -1500,7 +1593,8 @@ namespace build2
                                    &ls,
                                    true /* one */,
                                    nullopt /* flow_control_type */,
-                                   true /* command_only_if */));
+                                   true /* command_only_if */,
+                                   vsc));
 
         return make_pair (semi, move (td));
       }
@@ -1583,7 +1677,7 @@ namespace build2
           if (td)
           {
             if (d)
-              fail (ll) << "both leading and trailing descriptions";
+              fail (ll) << "both leading and trailing descriptions specified";
 
             d = move (td);
           }
@@ -1593,7 +1687,8 @@ namespace build2
 
         // For any other line trailing semi or description is illegal.
         //
-        // @@ Not the exact location of semi/colon.
+        // @@ Not the exact location of semi/colon. We could potentially fix
+        //    that as we did for syntax 2, but let's keep it simple for now.
         //
         if (semi)
           fail (ll) << "';' inside " << bt;
@@ -1604,10 +1699,17 @@ namespace build2
         return false;
       }
 
+      // Parse an `if` flow control construct as a command-if and return an
+      // indication whether it has a trailing semicolon. If verify_semi_colon
+      // function is not NULL, then call it if a trailing semicolon or
+      // (description) colon is present. Regardless of this argument, verify
+      // that leading and trailing descriptions are not specified both.
+      //
       bool parser::
       pre_parse_if_else_command (token& t, type& tt,
                                  optional<description>& d,
-                                 lines& ls)
+                                 lines& ls,
+                                 const function<verify_semi_colon_function>& vsc)
       {
         // enter: peeked first token of next line (type in tt)
         // leave: newline
@@ -1616,9 +1718,28 @@ namespace build2
 
         bool semi (false);
 
-        // Use the first test token as the entire test location.
+        // Let's intercept the trailing semicolon and colon verification, so
+        // that if it succeeds also verify that leading and trailing
+        // descriptions are not specified both.
         //
-        const location tl (ls.front ().tokens.front ().location ());
+        // Let's "wrap up" all the required data into a single object to
+        // rely on the "small function object" optimization.
+        //
+        struct verification_data
+        {
+          const optional<description>& d;
+          const function<verify_semi_colon_function>& vsc;
+        } vd {d, vsc};
+
+        function<verify_semi_colon_function> vf (
+          [&vd, this] (type tt, const location& ll)
+          {
+            if (vd.vsc != nullptr)
+              vd.vsc (tt, ll);
+
+            if (tt == type::colon && vd.d)
+              fail (ll) << "both leading and trailing descriptions specified";
+          });
 
         // Parse the if-else block chain.
         //
@@ -1628,8 +1749,8 @@ namespace build2
         {
           pair<bool, optional<description>> r (
             tt == type::lcbrace
-            ? pre_parse_command_block (t, tt, ls, bt)
-            : pre_parse_command_line  (t, tt, ls, bt));
+            ? pre_parse_command_block (t, tt, ls, bt, vf)
+            : pre_parse_command_line  (t, tt, ls, bt, vf));
 
           semi = r.first;
 
@@ -1637,10 +1758,7 @@ namespace build2
 
           if (td)
           {
-            // @@ Not the exact location of colon.
-            //
-            if (d)
-              fail (tl) << "both leading and trailing descriptions";
+            assert (!d); // Wouldn't be here otherwise.
 
             d = move (*td);
           }
@@ -1661,7 +1779,6 @@ namespace build2
           line_type lt (line_type::cmd_end);
           type pt (peek (lexer_mode::first_token));
           const token& p (peeked ());
-          const location ll (get_location (p));
 
           if (pt == type::word && p.qtype == quote_type::unquoted)
           {
@@ -1678,7 +1795,7 @@ namespace build2
           // Check if-else block sequencing.
           //
           if (bt == line_type::cmd_else)
-            fail (ll) << lt << " after " << bt;
+            fail (p) << lt << " after " << bt;
 
           {
             optional<description> d;
@@ -1767,11 +1884,18 @@ namespace build2
         return false;
       }
 
+      // Parse a 'for' or 'while' command and return an indication whether it
+      // has a trailing semicolon. If verify_semi_colon function is not NULL,
+      // then call it if a trailing semicolon or (description) colon is
+      // present. Regardless of this argument, verify that leading and
+      // trailing descriptions are not specified both.
+      //
       bool parser::
       pre_parse_loop (token& t, type& tt,
                       line_type lt,
                       optional<description>& d,
-                      lines& ls)
+                      lines& ls,
+                      const function<verify_semi_colon_function>& vsc)
       {
         // enter: <newline> (previous line)
         // leave: <newline>
@@ -1783,24 +1907,40 @@ namespace build2
 
         tt = peek (lexer_mode::first_token);
 
-        // Use the first test token as the entire test location.
+        // Let's intercept the trailing semicolon and colon verification, so
+        // that if it succeeds also verify that leading and trailing
+        // descriptions are not specified both.
         //
-        const location tl (ls.front ().tokens.front ().location ());
+        // Let's "wrap up" all the required data into a single object to
+        // rely on the "small function object" optimization.
+        //
+        struct verification_data
+        {
+          const optional<description>& d;
+          const function<verify_semi_colon_function>& vsc;
+        } vd {d, vsc};
+
+        function<verify_semi_colon_function> vf (
+          [&vd, this] (type tt, const location& ll)
+          {
+            if (vd.vsc != nullptr)
+              vd.vsc (tt, ll);
+
+            if (tt == type::colon && vd.d)
+              fail (ll) << "both leading and trailing descriptions specified";
+          });
 
         pair<bool, optional<description>> r (
           tt == type::lcbrace
-          ? pre_parse_command_block (t, tt, ls, lt)
-          : pre_parse_command_line  (t, tt, ls, lt));
+          ? pre_parse_command_block (t, tt, ls, lt, vf)
+          : pre_parse_command_line  (t, tt, ls, lt, vf));
 
         bool semi (r.first);
         optional<description>& td (r.second);
 
         if (td)
         {
-          // @@ Not the exact location of colon.
-          //
-          if (d)
-            fail (tl) << "both leading and trailing descriptions";
+          assert (!d); // Wouldn't be here otherwise.
 
           d = move (*td);
         }

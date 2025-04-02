@@ -219,7 +219,33 @@ testscript.syntax = 2
     cmd
   }
   EOI
-  testscript:3:3: error: ';' inside 'while'
+  testscript:3:6: error: ';' inside 'while'
+  EOE
+
+  : semi-after-block
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    while true
+    {
+      cmd
+    };
+    cmd2
+  }
+  EOI
+  testscript:5:4: error: ';' inside test scope
+  EOE
+
+  : semi-after-line
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    while true
+      cmd;
+    cmd2
+  }
+  EOI
+  testscript:3:8: error: ';' inside test scope
   EOE
 
   : colon-leading
@@ -242,7 +268,45 @@ testscript.syntax = 2
     cmd : foo
   }
   EOI
-  testscript:3:3: error: description inside 'while'
+  testscript:3:7: error: description inside 'while'
+  EOE
+
+  : colon-after-block
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    while true
+    {
+      cmd
+    } : description
+  }
+  EOI
+  testscript:5:5: error: description inside test scope
+  EOE
+
+  : colon-after-line
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    while true
+      cmd : description
+  }
+  EOI
+  testscript:3:9: error: description inside test scope
+  EOE
+
+  : duplicate-id-trailing
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd1 : foo
+
+  cmd2;
+  while true
+  {
+    cmd3 : foo
+  }
+  EOI
+  testscript:6:8: error: description inside 'while'
   EOE
 
   : eos
@@ -309,7 +373,7 @@ while false
   cmd
 } : bar
 EOI
-testscript:2:1: error: both leading and trailing descriptions
+testscript:5:3: error: both leading and trailing descriptions specified
 EOE
 
 : leading-and-trailing-description-cmd
@@ -319,7 +383,7 @@ $* <<EOI 2>>EOE != 0
 while false
   cmd : bar
 EOI
-testscript:2:1: error: both leading and trailing descriptions
+testscript:3:7: error: both leading and trailing descriptions specified
 EOE
 
 : syntax-1
@@ -625,6 +689,6 @@ EOE
     cmd
   end : bar
   EOI
-  testscript:4:1: error: both leading and trailing descriptions
+  testscript:4:1: error: both leading and trailing descriptions specified
   EOE
 }}

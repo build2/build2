@@ -139,7 +139,7 @@ testscript.syntax = 2
   for x: a
     cmd $x : description2
   EOI
-  testscript:2:1: error: both leading and trailing descriptions
+  testscript:3:10: error: both leading and trailing descriptions specified
   EOE
 
   : setup
@@ -239,7 +239,7 @@ testscript.syntax = 2
       cmd
     }
     EOI
-    testscript:3:3: error: ';' inside 'for'
+    testscript:3:6: error: ';' inside 'for'
     EOE
 
     : colon-leading
@@ -262,7 +262,7 @@ testscript.syntax = 2
       cmd : foo
     }
     EOI
-    testscript:3:3: error: description inside 'for'
+    testscript:3:7: error: description inside 'for'
     EOE
 
     : eos
@@ -326,7 +326,7 @@ testscript.syntax = 2
     cmd
   } : bar
   EOI
-  testscript:2:1: error: both leading and trailing descriptions
+  testscript:5:3: error: both leading and trailing descriptions specified
   EOE
 }}
 
@@ -587,7 +587,7 @@ testscript.syntax = 2
       cmd
     }
     EOI
-    testscript:3:3: error: ';' inside 'for'
+    testscript:3:6: error: ';' inside 'for'
     EOE
 
     : colon-leading
@@ -610,7 +610,7 @@ testscript.syntax = 2
       cmd : foo
     }
     EOI
-    testscript:3:3: error: description inside 'for'
+    testscript:3:7: error: description inside 'for'
     EOE
 
     : eos
@@ -660,7 +660,7 @@ testscript.syntax = 2
   echo 'a b' | for x
     cmd : bar
   EOI
-  testscript:2:1: error: both leading and trailing descriptions
+  testscript:3:7: error: both leading and trailing descriptions specified
   EOE
 }}
 
@@ -934,7 +934,7 @@ testscript.syntax = 2
       cmd
     }
     EOI
-    testscript:3:3: error: ';' inside 'for'
+    testscript:3:6: error: ';' inside 'for'
     EOE
 
     : colon-leading
@@ -957,7 +957,7 @@ testscript.syntax = 2
       cmd : foo
     }
     EOI
-    testscript:3:3: error: description inside 'for'
+    testscript:3:7: error: description inside 'for'
     EOE
 
     : eos
@@ -1007,7 +1007,7 @@ testscript.syntax = 2
   for x <'a b'
     cmd : bar
   EOI
-  testscript:2:1: error: both leading and trailing descriptions
+  testscript:3:7: error: both leading and trailing descriptions specified
   EOE
 }}
 
@@ -1324,7 +1324,7 @@ testscript.syntax = 2
       cmd
     end : bar
     EOI
-    testscript:4:1: error: both leading and trailing descriptions
+    testscript:4:1: error: both leading and trailing descriptions specified
     EOE
   }}
 
@@ -1674,7 +1674,7 @@ testscript.syntax = 2
       cmd
     end : bar
     EOI
-    testscript:4:1: error: both leading and trailing descriptions
+    testscript:4:1: error: both leading and trailing descriptions specified
     EOE
   }}
 
@@ -2039,7 +2039,7 @@ testscript.syntax = 2
       cmd
     end : bar
     EOI
-    testscript:4:1: error: both leading and trailing descriptions
+    testscript:4:1: error: both leading and trailing descriptions specified
     EOE
   }}
 }}

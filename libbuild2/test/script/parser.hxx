@@ -58,22 +58,29 @@ namespace build2
         unique_ptr<group>
         pre_parse_group_block (token&, token_type&, const string&);
 
+        // Must be ready to handle token types other than semi and colon,
+        // issuing an appropriate diagnostics for them.
+        //
+        using verify_semi_colon_function = void (token_type, const location&);
+
         unique_ptr<test>
         pre_parse_test_block (
           token&, token_type&,
           const string&,
+          const function<verify_semi_colon_function>&,
           pair<bool, optional<description>>* semi_colon = nullptr);
 
         pair<bool, optional<description>>
         pre_parse_command_block (token&, token_type&,
                                  lines&,
                                  optional<line_type> block_type,
-                                 bool allow_semi_colon = true);
+                                 const function<verify_semi_colon_function>&);
 
         pair<bool, optional<description>>
         pre_parse_command_line (token&, token_type&,
                                 lines&,
-                                optional<line_type> block_type);
+                                optional<line_type> block_type,
+                                const function<verify_semi_colon_function>&);
 
         bool
         pre_parse_command_line_v1 (token&, token_type&,
@@ -85,7 +92,8 @@ namespace build2
         pre_parse_if_else (token&, token_type&,
                            optional<description>&,
                            lines&,
-                           bool command_only);
+                           bool command_only,
+                           const function<verify_semi_colon_function>&);
 
         bool
         pre_parse_if_else_group (token&, token_type&,
@@ -96,12 +104,14 @@ namespace build2
         pre_parse_if_else_test (token&, token_type&,
                                 optional<description>&,
                                 lines&,
-                                const location&);
+                                const location&,
+                                const function<verify_semi_colon_function>&);
 
         bool
         pre_parse_if_else_command (token&, token_type&,
                                    optional<description>&,
-                                   lines&);
+                                   lines&,
+                                   const function<verify_semi_colon_function>&);
 
         bool
         pre_parse_if_else_command_v1 (token&, token_type&,
@@ -112,7 +122,8 @@ namespace build2
         pre_parse_loop (token&, token_type&,
                         line_type,
                         optional<description>&,
-                        lines&);
+                        lines&,
+                        const function<verify_semi_colon_function>&);
 
         bool
         pre_parse_loop_v1 (token&, token_type&,
@@ -126,7 +137,8 @@ namespace build2
                         lines* = nullptr,
                         bool one = false,
                         optional<line_type> flow_control_type = nullopt,
-                        bool command_only_if = false);
+                        bool command_only_if = false,
+                        const function<verify_semi_colon_function>& = nullptr);
 
         void
         pre_parse_directive (token&, token_type&);
