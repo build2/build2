@@ -1224,17 +1224,9 @@ namespace build2
                                        true /* one */,
                                        line_type::cmd_if));
 
-            assert (ls.size () == 1 && ls.back ().type == lt);
-
-            // For any of these lines trailing semi or description is illegal.
+            // Wouldn't be here otherwise.
             //
-            // @@ Not the exact location of semi/colon.
-            //
-            if (semi)
-              fail (ll) << "';' after " << lt;
-
-            if (td)
-              fail (ll) << "description after " << lt;
+            assert (ls.size () == 1 && ls.back ().type == lt && !semi && !td);
           }
 
           // Can either be '{' or the first token of the command line.
@@ -1351,17 +1343,9 @@ namespace build2
                                      true /* one */,
                                      line_type::cmd_if));
 
-          assert (ls.size () == 1 && ls.back ().type == lt);
-
-          // For any of these lines trailing semi or description is illegal.
-          //
-          // @@ Not the exact location of semi/colon.
-          //
-          if (semi)
-            fail (ll) << "';' after " << lt;
-
-          if (td)
-            fail (ll) << "description after " << lt;
+            // Wouldn't be here otherwise.
+            //
+            assert (ls.size () == 1 && ls.back ().type == lt && !semi && !td);
 
           // Make sure what comes next is another scope.
           //
@@ -1705,15 +1689,9 @@ namespace build2
                                        true /* one */,
                                        line_type::cmd_if));
 
-            // The trailing semi or description is illegal.
+            // Wouldn't be here otherwise.
             //
-            // @@ Not the exact location of semi/colon.
-            //
-            if (semi)
-              fail (ll) << "';' inside test scope";
-
-            if (d)
-              fail (ll) << "description inside test scope";
+            assert (!ls.empty () && ls.back ().type == lt && !semi && !td);
           }
 
           // Can either be '{' or the first token of the command line.
