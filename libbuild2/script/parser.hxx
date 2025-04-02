@@ -29,7 +29,10 @@ namespace build2
       // if the planned function calls are all syntax-agnostic.
       //
       parser (context& c, uint64_t s)
-        : build2::parser (c), syntax_ (s) {assert (s <= 2);}
+        : build2::parser (c), syntax_ (s)
+      {
+        assert ((s >= min_syntax && s <= max_syntax) || s == 0);
+      }
 
       // Context-less parsing.
       //
@@ -188,8 +191,30 @@ namespace build2
       parsed_env
       parse_env_builtin (token&, token_type&);
 
-      // Try to pre-parse script line as a syntax version variable assignment
-      // and change the current syntax version on success. For example:
+    public:
+      // Supported script syntax range.
+      //
+      // Note: see also scope::root_extra_type::script_syntax and its
+      // calculation in the version module.
+      //
+      static const uint64_t min_syntax = 1;
+      static const uint64_t max_syntax = 2;
+
+      // Validate the syntax version issuing diagnostics and failing if it
+      // is out of range. The min_syntax/max_syntax defaults are what's
+      // supported by the base parser but the derived parser may restrict
+      // the versions further.
+      //
+      static void
+      validate_syntax_version (uint64_t syntax,
+                               const location& = {},
+                               uint64_t min = min_syntax,
+                               uint64_t max = max_syntax);
+
+    protected:
+      // Try to pre-parse script line as a syntax version variable assignment.
+      // If successful, validate it as above and change the current syntax
+      // version. For example:
       //
       // testscript.syntax = 1
       //
@@ -206,8 +231,8 @@ namespace build2
       void
       try_parse_syntax_version (const char* name,
                                 lexer_mode,
-                                uint64_t min_syntax = 1,
-                                uint64_t max_syntax = 2);
+                                uint64_t min = min_syntax,
+                                uint64_t max = max_syntax);
 
       // Execute.
       //

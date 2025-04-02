@@ -304,6 +304,29 @@ namespace build2
         }
       }
 
+      // Derive the default script syntax version from the build2 constraint.
+      //
+      // The key idea here is to pick the highest syntax version that is
+      // supported by the build2 version range allowed by this project.
+      //
+      if (const auto& c = build2_constraint)
+      {
+        // Syntax 2 is supported since 0.18.0-.
+        //
+        // Note that after some meditation, min_open doesn't appear to matter
+        // here. If it is true, then we may potentially pessimize things since
+        // there may be no versions between min_version and 0.18.0, but we
+        // have no way of knowing that.
+        //
+        // @@ Make 0.18.0- (aka earliest).
+        //
+        rs.root_extra->script_syntax =
+          (c->min_version &&
+           *c->min_version >= standard_version (1, 0, 18, 0))
+          ? 2
+          : 1;
+      }
+
       // Set all the version.* variables.
       //
       // Note also that we have "gifted" the config.version variable name to
