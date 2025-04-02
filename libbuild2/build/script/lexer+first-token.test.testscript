@@ -1,6 +1,8 @@
 # file      : libbuild2/build/script/lexer+first-token.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # Note: this mode auto-expires after each token.
 #
 test.arguments = first-token

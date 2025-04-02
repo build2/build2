@@ -1,6 +1,8 @@
 # file      : tests/directive/run.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # We are going to run the build system driver so no cross-testing.
 #
 crosstest = false

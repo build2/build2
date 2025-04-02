@@ -3,6 +3,8 @@
 
 # Test logical operators (eval-or, eval-and).
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 $* <'print (false || false)' >'false' : or-false
@@ -17,10 +19,10 @@ $* <'print (true  && true)'  >'true'  : and-true
 :
 : Also tests short-circuit.
 :
-{
+{{
   $* <'print (true  || $bogus($foo) || false)' >'true'  : or
   $* <'print (false && $bogus($foo) && false)' >'false' : and
-}
+}}
 
 : priority
 :

@@ -1,16 +1,37 @@
 # file      : tests/test/script/runner/while.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : basics
 :
 $c <<EOI && $b >>EOO
+  testscript.syntax = 2
+
   while ($v != "aa")
+  {
     echo "$v" >|
     v = "$(v)a"
-  end
+  }
   EOI
 
   a
   EOO
+
+: syntax-1
+:
+{{
+  : basics
+  :
+  $c <<EOI && $b >>EOO
+    while ($v != "aa")
+      echo "$v" >|
+      v = "$(v)a"
+    end
+    EOI
+
+    a
+    EOO
+}}

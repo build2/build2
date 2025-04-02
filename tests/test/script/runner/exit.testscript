@@ -1,100 +1,140 @@
 # file      : tests/test/script/runner/exit.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 empty_id = ''
 
 : special
 :
-{
+{{
   : pipelining
   :
-  {
+  {{
     : to
     :
-    $c <'exit | cat' && $b 2>>EOE != 0
-    testscript:1:1: error: exit builtin must be the only pipe command
-      info: test id: 1
+    $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
+    exit | cat
+    EOI
+    testscript:3:1: error: exit builtin must be the only pipe command
+      info: test id: 3
     EOE
 
     : from
     :
-    $c <'echo "foo" | exit' && $b 2>>EOE != 0
-    testscript:1:1: error: exit builtin must be the only pipe command
-      info: test id: 1
+    $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
+    echo "foo" | exit
+    EOI
+    testscript:3:1: error: exit builtin must be the only pipe command
+      info: test id: 3
     EOE
-  }
+  }}
 
   : redirecting
   :
-  {
+  {{
     : stdin
     :
-    $c <'exit <foo' && $b 2>>EOE != 0
-    testscript:1:1: error: exit builtin stdin cannot be redirected
-      info: test id: 1
+    $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
+    exit <foo
+    EOI
+    testscript:3:1: error: exit builtin stdin cannot be redirected
+      info: test id: 3
     EOE
 
     : stdout
     :
-    $c <'exit >foo' && $b 2>>EOE != 0
-    testscript:1:1: error: exit builtin stdout cannot be redirected
-      info: test id: 1
+    $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
+    exit >foo
+    EOI
+    testscript:3:1: error: exit builtin stdout cannot be redirected
+      info: test id: 3
     EOE
 
     : stderr
     :
-    $c <'exit 2>foo' && $b 2>>EOE != 0
-    testscript:1:1: error: exit builtin stderr cannot be redirected
-      info: test id: 1
+    $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
+    exit 2>foo
+    EOI
+    testscript:3:1: error: exit builtin stderr cannot be redirected
+      info: test id: 3
     EOE
-  }
+  }}
 
   : exit-code
   :
-  $c <'exit != 0' && $b 2>>EOE != 0
-  testscript:1:1: error: exit builtin exit code cannot be checked
-    info: test id: 1
+  $c <<EOI && $b 2>>EOE != 0
+  testscript.syntax = 2
+
+  exit != 0
+  EOI
+  testscript:3:1: error: exit builtin exit code cannot be checked
+    info: test id: 3
   EOE
-}
+}}
 
 : arguments
 :
-{
+{{
   : none
   :
-  $c <'exit' && $b
+  $c <<EOI && $b
+  testscript.syntax = 2
+
+  exit
+  EOI
 
   : diagnostics
   :
-  $c <'exit "foo"' && $b 2>>EOE != 0
-  testscript:1:1: error: foo
-    info: test id: 1
+  $c <<EOI && $b 2>>EOE != 0
+  testscript.syntax = 2
+
+  exit "foo"
+  EOI
+  testscript:3:1: error: foo
+    info: test id: 3
   EOE
 
   : unexpected
   :
-  $c <'exit "foo" "bar"' && $b 2>>EOE != 0
-  testscript:1:1: error: exit: unexpected argument 'bar'
-    info: test id: 1
+  $c <<EOI && $b 2>>EOE != 0
+  testscript.syntax = 2
+
+  exit "foo" "bar"
+  EOI
+  testscript:3:1: error: exit: unexpected argument 'bar'
+    info: test id: 3
   EOE
-}
+}}
 
 : execution
 :
 : Test that only expected commands are executed. Note that we rely on the fact
 : that their execution is performed serially (see ../common.testscript for details).
 :
-{
+{{
   : test-scope
   :
-  {
+  {{
     : success
     :
     : Note that we also test that cleanups are executed.
     :
     $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     touch a;
     echo foo >| && exit && echo bar >|;
     echo baz >|
@@ -111,235 +151,267 @@ empty_id = ''
     : stderr regarding non-existent file.
     :
     $c <<EOI && $b >>EOO 2>>EOE != 0
+    testscript.syntax = 2
+
     echo foo >| &b && exit 'message' && echo bar >|
     echo baz >|;
     echo boz >|
     EOI
     foo
     EOO
-    testscript:1:1: error: message
-      info: test id: 1
+    testscript:3:1: error: message
+      info: test id: 3
     EOE
-  }
+  }}
 
   : command-if
   :
-  {
+  {{
     : if-clause
     :
-    {
+    {{
       : success
       :
       $c <<EOI && $b
+      testscript.syntax = 2
+
       if true
+      {
         exit
         echo foo >|
+      }
       else
-        echo bar >|
-      end;
+        echo bar >|;
       echo baz >|
       EOI
 
       : failure
       :
       $c <<EOI && $b 2>>EOE != 0
+      testscript.syntax = 2
+
       if true
+      {
         exit 'message'
         echo foo >|
+      }
       else
         echo bar >|
-      end
       echo baz >|
       EOI
-      testscript:2:3: error: message
-        info: test id: 1
+      testscript:5:3: error: message
+        info: test id: 3
       EOE
-    }
+    }}
 
     : else-clause
     :
-    {
+    {{
       : success
       :
       $c <<EOI && $b
+      testscript.syntax = 2
+
       if false
         echo foo >|
       else
+      {
         exit
         echo bar >|
-      end;
+      };
       echo baz >|
       EOI
 
       : failure
       :
       $c <<EOI && $b 2>>EOE != 0
+      testscript.syntax = 2
+
       if false
         echo foo >|
       else
+      {
         exit 'message'
         echo bar >|
-      end
+      }
       echo baz >|
       EOI
-      testscript:4:3: error: message
-        info: test id: 1
+      testscript:7:3: error: message
+        info: test id: 3
       EOE
-    }
-  }
+    }}
+  }}
 
   : command-if-condition
   :
-  {
+  {{
     : if
     :
-    {
+    {{
       : success
       :
       $c <<EOI && $b
+      testscript.syntax = 2
+
       if exit
         echo foo >|
       else
-        echo bar >|
-      end;
+        echo bar >|;
       echo baz >|
       EOI
 
       : failure
       :
       $c <<EOI && $b 2>>EOE != 0
+      testscript.syntax = 2
+
       if exit 'message'
         echo foo >|
       else
-        echo bar >|
-      end;
+        echo bar >|;
       echo baz >|
       EOI
-      testscript:1:1: error: message
-        info: test id: 1
+      testscript:3:1: error: message
+        info: test id: 3
       EOE
-    }
+    }}
 
     : elif
     :
-    {
+    {{
       : success
       :
       $c <<EOI && $b
+      testscript.syntax = 2
+
       if false
+      {
+      }
       elif exit
         echo foo >|
       else
-        echo bar >|
-      end;
+        echo bar >|;
       echo baz >|
       EOI
 
       : failure
       :
       $c <<EOI && $b 2>>EOE != 0
+      testscript.syntax = 2
+
       if false
+      {
+      }
       elif exit 'message'
         echo foo >|
       else
-        echo bar >|
-      end;
+        echo bar >|;
       echo baz >|
       EOI
-      testscript:2:1: error: message
-        info: test id: 1
+      testscript:6:1: error: message
+        info: test id: 3
       EOE
-    }
-  }
+    }}
+  }}
 
   : scope-if-condition
   :
-  {
+  {{
     : if
     :
-    {
+    {{
       : success
       :
       $c <<EOI && $b
+      testscript.syntax = 2
+
       if exit
-      {
+      {{
         echo foo >|
-      }
+      }}
       else
-      {
+      {{
         echo bar >|
-      }
+      }}
       EOI
 
       : failure
       :
       $c <<EOI && $b 2>>"EOE" != 0
+      testscript.syntax = 2
+
       if exit 'message'
-      {
+      {{
         echo foo >|
-      }
+      }}
       else
-      {
+      {{
         echo bar >|
-      }
+      }}
       EOI
-      testscript:1:1: error: message
+      testscript:3:1: error: message
         info: test id: $empty_id
       EOE
-    }
+    }}
 
     : elif
     :
-    {
+    {{
       : success
       :
       $c <<EOI && $b
+      testscript.syntax = 2
+
       if false
-      {
-      }
+      {{
+      }}
       elif exit
-      {
+      {{
         echo foo >|
-      }
+      }}
       else
-      {
+      {{
         echo bar >|
-      }
+      }}
       EOI
 
       : failure
       :
       $c <<EOI && $b 2>>"EOE" != 0
+      testscript.syntax = 2
+
       if false
-      {
-      }
+      {{
+      }}
       elif exit 'message'
-      {
+      {{
         echo foo >|
-      }
+      }}
       else
-      {
+      {{
         echo bar >|
-      }
+      }}
       EOI
-      testscript:4:1: error: message
+      testscript:6:1: error: message
         info: test id: $empty_id
       EOE
-    }
-  }
+    }}
+  }}
 
   : group-scope
   :
-  {
+  {{
     : setup
     :
-    {
+    {{
       : success
       :
       : Test that teardown commands are executed (the 'a' file is removed), and
       : cleanups are executed as well (the 'b' file is removed).
       :
       $c <<EOI && $b
+      testscript.syntax = 2
+
       +touch --no-cleanup a
       +touch b
       +exit
@@ -356,6 +428,8 @@ empty_id = ''
       : file 'a').
       :
       $c <<EOI && $b 2>>"EOE" != 0
+      testscript.syntax = 2
+
       +true &a
       +exit 'message'
 
@@ -363,20 +437,22 @@ empty_id = ''
 
       -touch b/c
       EOI
-      testscript:2:2: error: message
+      testscript:4:2: error: message
         info: test id: $empty_id
       EOE
-    }
+    }}
 
     : inner-scope
     :
-    {
+    {{
       : success
       :
       : Test that teardown commands and cleanups are executed (see above), and
       : also that the independent inner scope is still executed.
       :
       $c <<EOI && $b >>EOO
+      testscript.syntax = 2
+
       +touch --no-cleanup a
       +touch b
 
@@ -396,6 +472,8 @@ empty_id = ''
       : execution).
       :
       $c <<EOI && $b 2>>EOE != 0
+      testscript.syntax = 2
+
       +true &a
 
       exit 'message'
@@ -404,19 +482,21 @@ empty_id = ''
 
       -touch b/c
       EOI
-      testscript:3:1: error: message
-        info: test id: 3
+      testscript:5:1: error: message
+        info: test id: 5
       EOE
-    }
+    }}
 
     : teardown
     :
-    {
+    {{
       : success
       :
       : Test that cleanups are executed.
       :
       $c <<EOI && $b
+      testscript.syntax = 2
+
       -touch a
       -exit
       -echo foo >|
@@ -427,13 +507,452 @@ empty_id = ''
       : Test that cleanups are not executed.
       :
       $c <<EOI && $b 2>>"EOE" != 0
+      testscript.syntax = 2
+
       -true &a
       -exit 'message'
       -echo foo >|
       EOI
-      testscript:2:2: error: message
+      testscript:4:2: error: message
         info: test id: $empty_id
       EOE
-    }
-  }
-}
+    }}
+  }}
+}}
+
+: syntax-1
+:
+{{
+  : special
+  :
+  {{
+    : pipelining
+    :
+    {{
+      : to
+      :
+      $c <'exit | cat' && $b 2>>EOE != 0
+      testscript:1:1: error: exit builtin must be the only pipe command
+        info: test id: 1
+      EOE
+
+      : from
+      :
+      $c <'echo "foo" | exit' && $b 2>>EOE != 0
+      testscript:1:1: error: exit builtin must be the only pipe command
+        info: test id: 1
+      EOE
+    }}
+
+    : redirecting
+    :
+    {{
+      : stdin
+      :
+      $c <'exit <foo' && $b 2>>EOE != 0
+      testscript:1:1: error: exit builtin stdin cannot be redirected
+        info: test id: 1
+      EOE
+
+      : stdout
+      :
+      $c <'exit >foo' && $b 2>>EOE != 0
+      testscript:1:1: error: exit builtin stdout cannot be redirected
+        info: test id: 1
+      EOE
+
+      : stderr
+      :
+      $c <'exit 2>foo' && $b 2>>EOE != 0
+      testscript:1:1: error: exit builtin stderr cannot be redirected
+        info: test id: 1
+      EOE
+    }}
+
+    : exit-code
+    :
+    $c <'exit != 0' && $b 2>>EOE != 0
+    testscript:1:1: error: exit builtin exit code cannot be checked
+      info: test id: 1
+    EOE
+  }}
+
+  : arguments
+  :
+  {{
+    : none
+    :
+    $c <'exit' && $b
+
+    : diagnostics
+    :
+    $c <'exit "foo"' && $b 2>>EOE != 0
+    testscript:1:1: error: foo
+      info: test id: 1
+    EOE
+
+    : unexpected
+    :
+    $c <'exit "foo" "bar"' && $b 2>>EOE != 0
+    testscript:1:1: error: exit: unexpected argument 'bar'
+      info: test id: 1
+    EOE
+  }}
+
+  : execution
+  :
+  : Test that only expected commands are executed. Note that we rely on the fact
+  : that their execution is performed serially (see ../common.testscript for details).
+  :
+  {{
+    : test-scope
+    :
+    {{
+      : success
+      :
+      : Note that we also test that cleanups are executed.
+      :
+      $c <<EOI && $b >>EOO
+      touch a;
+      echo foo >| && exit && echo bar >|;
+      echo baz >|
+      echo box >|
+      EOI
+      foo
+      box
+      EOO
+
+      : failure
+      :
+      : Note that we also register fake cleanup, and test that cleanups are
+      : not executed. If they were, there would be a diagnostics printed to
+      : stderr regarding non-existent file.
+      :
+      $c <<EOI && $b >>EOO 2>>EOE != 0
+      echo foo >| &b && exit 'message' && echo bar >|
+      echo baz >|;
+      echo boz >|
+      EOI
+      foo
+      EOO
+      testscript:1:1: error: message
+        info: test id: 1
+      EOE
+    }}
+
+    : command-if
+    :
+    {{
+      : if-clause
+      :
+      {{
+        : success
+        :
+        $c <<EOI && $b
+        if true
+          exit
+          echo foo >|
+        else
+          echo bar >|
+        end;
+        echo baz >|
+        EOI
+
+        : failure
+        :
+        $c <<EOI && $b 2>>EOE != 0
+        if true
+          exit 'message'
+          echo foo >|
+        else
+          echo bar >|
+        end
+        echo baz >|
+        EOI
+        testscript:2:3: error: message
+          info: test id: 1
+        EOE
+      }}
+
+      : else-clause
+      :
+      {{
+        : success
+        :
+        $c <<EOI && $b
+        if false
+          echo foo >|
+        else
+          exit
+          echo bar >|
+        end;
+        echo baz >|
+        EOI
+
+        : failure
+        :
+        $c <<EOI && $b 2>>EOE != 0
+        if false
+          echo foo >|
+        else
+          exit 'message'
+          echo bar >|
+        end
+        echo baz >|
+        EOI
+        testscript:4:3: error: message
+          info: test id: 1
+        EOE
+      }}
+    }}
+
+    : command-if-condition
+    :
+    {{
+      : if
+      :
+      {{
+        : success
+        :
+        $c <<EOI && $b
+        if exit
+          echo foo >|
+        else
+          echo bar >|
+        end;
+        echo baz >|
+        EOI
+
+        : failure
+        :
+        $c <<EOI && $b 2>>EOE != 0
+        if exit 'message'
+          echo foo >|
+        else
+          echo bar >|
+        end;
+        echo baz >|
+        EOI
+        testscript:1:1: error: message
+          info: test id: 1
+        EOE
+      }}
+
+      : elif
+      :
+      {{
+        : success
+        :
+        $c <<EOI && $b
+        if false
+        elif exit
+          echo foo >|
+        else
+          echo bar >|
+        end;
+        echo baz >|
+        EOI
+
+        : failure
+        :
+        $c <<EOI && $b 2>>EOE != 0
+        if false
+        elif exit 'message'
+          echo foo >|
+        else
+          echo bar >|
+        end;
+        echo baz >|
+        EOI
+        testscript:2:1: error: message
+          info: test id: 1
+        EOE
+      }}
+    }}
+
+    : scope-if-condition
+    :
+    {{
+      : if
+      :
+      {{
+        : success
+        :
+        $c <<EOI && $b
+        if exit
+        {
+          echo foo >|
+        }
+        else
+        {
+          echo bar >|
+        }
+        EOI
+
+        : failure
+        :
+        $c <<EOI && $b 2>>"EOE" != 0
+        if exit 'message'
+        {
+          echo foo >|
+        }
+        else
+        {
+          echo bar >|
+        }
+        EOI
+        testscript:1:1: error: message
+          info: test id: $empty_id
+        EOE
+      }}
+
+      : elif
+      :
+      {{
+        : success
+        :
+        $c <<EOI && $b
+        if false
+        {
+        }
+        elif exit
+        {
+          echo foo >|
+        }
+        else
+        {
+          echo bar >|
+        }
+        EOI
+
+        : failure
+        :
+        $c <<EOI && $b 2>>"EOE" != 0
+        if false
+        {
+        }
+        elif exit 'message'
+        {
+          echo foo >|
+        }
+        else
+        {
+          echo bar >|
+        }
+        EOI
+        testscript:4:1: error: message
+          info: test id: $empty_id
+        EOE
+      }}
+    }}
+
+    : group-scope
+    :
+    {{
+      : setup
+      :
+      {{
+        : success
+        :
+        : Test that teardown commands are executed (the 'a' file is removed), and
+        : cleanups are executed as well (the 'b' file is removed).
+        :
+        $c <<EOI && $b
+        +touch --no-cleanup a
+        +touch b
+        +exit
+
+        echo foo >|
+
+        -rm a
+        EOI
+
+        : failure
+        :
+        : Test that teardown commands are not executed (the touch would fail),
+        : and cleanups are also not executed (they would fail due to non-existent
+        : file 'a').
+        :
+        $c <<EOI && $b 2>>"EOE" != 0
+        +true &a
+        +exit 'message'
+
+        echo foo >|
+
+        -touch b/c
+        EOI
+        testscript:2:2: error: message
+          info: test id: $empty_id
+        EOE
+      }}
+
+      : inner-scope
+      :
+      {{
+        : success
+        :
+        : Test that teardown commands and cleanups are executed (see above), and
+        : also that the independent inner scope is still executed.
+        :
+        $c <<EOI && $b >>EOO
+        +touch --no-cleanup a
+        +touch b
+
+        exit
+
+        echo foo >|
+
+        -rm a
+        EOI
+        foo
+        EOO
+
+        : failure
+        :
+        : Test that teardown commands and cleanups are not executed (see above),
+        : as well as the independent inner scope (remember the sequential
+        : execution).
+        :
+        $c <<EOI && $b 2>>EOE != 0
+        +true &a
+
+        exit 'message'
+
+        echo foo >|
+
+        -touch b/c
+        EOI
+        testscript:3:1: error: message
+          info: test id: 3
+        EOE
+      }}
+
+      : teardown
+      :
+      {{
+        : success
+        :
+        : Test that cleanups are executed.
+        :
+        $c <<EOI && $b
+        -touch a
+        -exit
+        -echo foo >|
+        EOI
+
+        : failure
+        :
+        : Test that cleanups are not executed.
+        :
+        $c <<EOI && $b 2>>"EOE" != 0
+        -true &a
+        -exit 'message'
+        -echo foo >|
+        EOI
+        testscript:2:2: error: message
+          info: test id: $empty_id
+        EOE
+      }}
+    }}
+  }}
+}}

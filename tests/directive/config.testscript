@@ -1,12 +1,14 @@
 # file      : tests/directive/config.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 buildfile = true
 test.arguments =
 
 : default-value
 :
-{
+{{
   .include ../common.testscript
 
   +cat <<EOI >+build/bootstrap.build
@@ -58,11 +60,11 @@ test.arguments =
     error: invalid bool value 'junk' in variable config.test.fancy
       info: while converting 'junk'
     EOE
-}
+}}
 
 : default-null
 :
-{
+{{
   .include ../common.testscript
 
   +cat <<EOI >+build/bootstrap.build
@@ -112,11 +114,11 @@ test.arguments =
     error: invalid bool value 'junk' in variable config.test.fancy
       info: while converting 'junk'
     EOE
-}
+}}
 
 : default-none
 :
-{
+{{
   .include ../common.testscript
 
   +cat <<EOI >+build/bootstrap.build
@@ -163,11 +165,11 @@ test.arguments =
     error: invalid bool value 'junk' in variable config.test.fancy
       info: while converting 'junk'
     EOE
-}
+}}
 
 : non-nullable
 :
-{
+{{
   .include ../common.testscript
 
   +cat <<EOI >+build/bootstrap.build
@@ -194,11 +196,11 @@ test.arguments =
   $* noop      config.test.fancy=[null] 2>>~/EOE/ != 0
     /.+root.build:1:1: error: null value in non-nullable variable config\.test\.fancy/
     EOE
-}
+}}
 
 : report
 :
-{
+{{
   .include ../common.testscript
 
   +cat <<EOI >+build/bootstrap.build
@@ -270,4 +272,4 @@ test.arguments =
       p          false
     EOO
   $* disfigure
-}
+}}

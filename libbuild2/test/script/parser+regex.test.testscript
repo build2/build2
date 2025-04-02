@@ -1,12 +1,14 @@
 # file      : libbuild2/test/script/parser+regex.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : here-string
 :
-{
+{{
   : stdout
   :
-  {
+  {{
     : missed
     :
     $* <'cmd >~' 2>>EOE != 0
@@ -64,11 +66,11 @@
     : no-newline
     :
     $* <'cmd >:~/fo*/' >'cmd >:~/fo*/'
-  }
+  }}
 
   : stderr
   :
-  {
+  {{
     : missed
     :
     $* <'cmd 2>~' 2>>EOE != 0
@@ -84,21 +86,21 @@
     $* <'cmd 2>~""' 2>>EOE != 0
     testscript:1:8: error: no introducer character in stderr regex redirect
     EOE
-  }
+  }}
 
   : modifier-last
   :
   $* <'cmd >~/x' 2>>EOE != 0
   testscript:1:7: error: no closing introducer character in stdout regex redirect
   EOE
-}
+}}
 
 : here-doc
 :
-{
+{{
   : stdout
   :
-  {
+  {{
     : missed
     :
     $* <'cmd >>~' 2>>EOE != 0
@@ -180,7 +182,7 @@
 
     : end-marker-restore
     :
-    {
+    {{
       : idot
       :
       $* <<EOI >>EOO
@@ -204,37 +206,37 @@
       foo
       EOE
       EOO
-    }
-  }
+    }}
+  }}
 
   : stderr
   :
-  {
+  {{
     : missed
     :
     $* <'cmd 2>>~' 2>>EOE != 0
     testscript:1:9: error: expected here-document regex end marker
     EOE
-  }
+  }}
 
   : modifier-last
   :
   $* <'cmd >>~:/FOO/' 2>>EOE != 0
   testscript:1:8: error: expected here-document regex end marker
   EOE
-}
+}}
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : here-string
   :
-  {
+  {{
     : stdout
     :
-    {
+    {{
       : missed
       :
       $* <'cmd >~' 2>>EOE != 0
@@ -292,11 +294,11 @@
       : no-newline
       :
       $* <'cmd >:~/fo*/' >'cmd >:~/fo*/'
-    }
+    }}
 
     : stderr
     :
-    {
+    {{
       : missed
       :
       $* <'cmd 2>~' 2>>EOE != 0
@@ -312,21 +314,21 @@
       $* <'cmd 2>~""' 2>>EOE != 0
       testscript:1:8: error: no introducer character in stderr regex redirect
       EOE
-    }
+    }}
 
     : modifier-last
     :
     $* <'cmd >~/x' 2>>EOE != 0
     testscript:1:7: error: no closing introducer character in stdout regex redirect
     EOE
-  }
+  }}
 
   : here-doc
   :
-  {
+  {{
     : stdout
     :
-    {
+    {{
       : missed
       :
       $* <'cmd >>~' 2>>EOE != 0
@@ -408,7 +410,7 @@
 
       : end-marker-restore
       :
-      {
+      {{
         : idot
         :
         $* <<EOI >>EOO
@@ -432,23 +434,23 @@
         foo
         EOE
         EOO
-      }
-    }
+      }}
+    }}
 
     : stderr
     :
-    {
+    {{
       : missed
       :
       $* <'cmd 2>>~' 2>>EOE != 0
       testscript:1:9: error: expected here-document regex end marker
       EOE
-    }
+    }}
 
     : modifier-last
     :
     $* <'cmd >>~:/FOO/' 2>>EOE != 0
     testscript:1:8: error: expected here-document regex end marker
     EOE
-  }
-}
+  }}
+}}

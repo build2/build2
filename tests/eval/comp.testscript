@@ -3,6 +3,8 @@
 
 # Test comparison operators (eval-comp).
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 $* <'print (foo == bar)' >'false' : eq-false
@@ -31,7 +33,7 @@ $* <'print (foo == bar == false)' >'true'
 
 : type
 :
-{
+{{
   $* <'print ((foo bar) == foo bar)' >'true' : untyped-list
   $* <'print ("" == "")' >'true'             : untyped-empty
 
@@ -43,7 +45,7 @@ $* <'print (foo == bar == false)' >'true'
   $* <'print ([uint64] 00 < [string] 0)' 2>>EOE != 0 : uint64-string
   <stdin>:1:20: error: comparison between uint64 and string
   EOE
-}
+}}
 
 : null-equal-empty
 :

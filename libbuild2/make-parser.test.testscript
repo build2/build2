@@ -1,6 +1,8 @@
 # file      : libbuild2/make-parser.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 windows = ($cxx.target.class == 'windows')
 
 : valid
@@ -102,7 +104,7 @@ $* <<EOI >>EOO
 : windows
 :
 if $windows
-{
+{{
   $* <<EOI >>EOO
     foo: c:\tmp\bar
 
@@ -126,4 +128,4 @@ if $windows
     T c:\x
     P c:\y
     EOO
-}
+}}

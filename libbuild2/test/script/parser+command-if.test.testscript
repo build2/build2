@@ -1,9 +1,11 @@
 # file      : libbuild2/test/script/parser+command-if.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : if
 :
-{
+{{
   test.options += -s
 
   : true
@@ -265,11 +267,11 @@
   EOI
   testscript:2:1: error: description before/after setup/teardown variable-only 'if'
   EOE
-}
+}}
 
 : elif
 :
-{
+{{
   test.options += -s
 
   : true
@@ -411,11 +413,11 @@
   EOI
   testscript:6:3: error: 'elif' after 'else'
   EOE
-}
+}}
 
 : else
 :
-{
+{{
   test.options += -s
 
   : true
@@ -555,11 +557,11 @@
   EOI
   testscript:6:3: error: 'else' after 'else'
   EOE
-}
+}}
 
 : nested
 :
-{
+{{
   test.options += -s
 
   : take
@@ -623,10 +625,10 @@
     }
   }}
   EOO
-}
+}}
 
 : contained
-{
+{{
   : semi
   :
   $* <<EOI 2>>EOE != 0
@@ -714,7 +716,7 @@
   EOI
   testscript:3:5: error: teardown command inside 'if'
   EOE
-}
+}}
 
 : line-index
 :
@@ -783,12 +785,12 @@ EOE
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : if
   :
-  {
+  {{
     : true
     :
     $* <<EOI >>EOO
@@ -923,11 +925,11 @@ EOE
       -cmd foo
     }
     EOO
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : true
     :
     $* <<EOI >>EOO
@@ -1027,11 +1029,11 @@ EOE
     EOI
     testscript:5:1: error: 'elif' after 'else'
     EOE
-  }
+  }}
 
   : else
   :
-  {
+  {{
     : true
     :
     $* <<EOI >>EOO
@@ -1131,11 +1133,11 @@ EOE
     EOI
     testscript:5:1: error: 'else' after 'else'
     EOE
-  }
+  }}
 
   : end
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -1156,7 +1158,7 @@ EOE
 
     : before
     :
-    {
+    {{
       : semi
       :
       $* -s <<EOI >>EOO
@@ -1201,12 +1203,12 @@ EOE
         }
       }
       EOO
-    }
-  }
+    }}
+  }}
 
   : nested
   :
-  {
+  {{
     : take
     :
     $* <<EOI >>EOO
@@ -1254,10 +1256,10 @@ EOE
     ? false
     cmd
     EOO
-  }
+  }}
 
   : contained
-  {
+  {{
     : semi
     :
     $* <<EOI 2>>EOE != 0
@@ -1329,7 +1331,7 @@ EOE
     EOI
     testscript:2:3: error: teardown command inside 'if'
     EOE
-  }
+  }}
 
   : line-index
   :
@@ -1375,4 +1377,4 @@ EOE
   EOI
   testscript:4:1: error: both leading and trailing descriptions
   EOE
-}
+}}

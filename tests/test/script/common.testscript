@@ -18,11 +18,12 @@ EOI
 # levels up from our working directory.
 #
 +if! $empty($target)
+{
   cat <<"EOI" >=build/root.build
   target = \$src_root/../../$string([name] $target)
   testscript{*}: test = \$target
   EOI
-end
+}
 
 # The "cat & build" setup: first cat ($c) the testscript, then run build ($b)
 # which will execute the testscript. We have to quote stdin because of the

@@ -4,6 +4,8 @@
 # Test string literals (except raw).
 #
 
+testscript.syntax = 2
+
 : normal
 :
 $* <<EOI >>EOO

@@ -1,6 +1,8 @@
 # file      : libbuild2/test/script/parser+expansion.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : quote
 :
 : Make sure everything expanded as strings.
@@ -36,7 +38,7 @@ EOE
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : quote
@@ -71,4 +73,4 @@ EOE
   <string>:1:4: error: stdout merge redirect file descriptor must be 2
     testscript:2:5: info: while parsing string '1>&a'
   EOE
-}
+}}

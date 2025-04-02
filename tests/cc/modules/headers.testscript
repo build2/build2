@@ -4,6 +4,8 @@
 # Test header units.
 #
 
+testscript.syntax = 2
+
 .include common.testscript
 
 +$headers || exit
@@ -76,7 +78,7 @@ $* test clean config.cxx.translate_include="$~/core.hxx" <<EOI
 
 : module
 :
-{
+{{
   +cat <<EOI >=driver.cxx
     #define CORE_IN 1
     import foo.base;
@@ -118,7 +120,7 @@ $* test clean config.cxx.translate_include="$~/core.hxx" <<EOI
   $* test clean config.cxx.poptions=-DBASE_RE_EXPORT <<EOI
     exe{test}: cxx{driver} hxx{core} mxx{base}
     EOI
-}
+}}
 
 # @@ TODO
 #

@@ -3,6 +3,8 @@
 
 # See also tests in function/*/ (size(), find(), etc).
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : basics

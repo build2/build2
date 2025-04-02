@@ -3,6 +3,8 @@
 
 # Test the ternary operator (eval-ternary).
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 $* <'print (true  ? foo : bar)' >'foo' : true
@@ -10,20 +12,20 @@ $* <'print (false ? foo : bar)' >'bar' : false
 
 : associativity
 :
-{
+{{
   $* <'print (true  ? false ? foo : bar : baz)'               >'bar' : middle
   $* <'print (true  ? foo : true ? bar : baz)'                >'foo' : right
   $* <'print (true  ? false ? foo : bar : true ? baz : fox)'  >'bar' : both
   $* <'print (false ? foo ? false ? bar : false : baz : fox)' >'fox' : chain
-}
+}}
 
 : short-circuit
 :
-{
+{{
   $* <'print (false ? $bogus() : foo)'       >'foo' : middle
   $* <'print (true  ? foo      : $bogus())'  >'foo' : right
 
   # @@ TODO: complate pre-parse support in parse_name().
   #
   #$* <'print (true  ? foo      : $out_base/{foo bar})'  >'foo' : pre-parse
-}
+}}

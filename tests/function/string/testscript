@@ -1,179 +1,181 @@
 # file      : tests/function/string/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : icasecmp
 :
-{
+{{
   : equal
   :
-  {
+  {{
     $* <'print $icasecmp([string] "a", [string] "A")' >'true' : string-string
     $* <'print $icasecmp([string] "a", "A")'          >'true' : string-untyped
     $* <'print $icasecmp("a", [string] "A")'          >'true' : untyped-string
     $* <'print $string.icasecmp("a", "A")'            >'true' : untyped-untyped
-  }
+  }}
 
   : different
   :
-  {
+  {{
     $* <'print $icasecmp([string] "a", [string] "b")' >'false' : string-string
     $* <'print $icasecmp([string] "a", "b")'          >'false' : string-untyped
     $* <'print $icasecmp("a", [string] "b")'          >'false' : untyped-string
     $* <'print $string.icasecmp("a", "b")'            >'false' : untyped-untyped
-  }
-}
+  }}
+}}
 
 : contains
 :
-{
+{{
   : basics
   :
-  {
+  {{
     $* <'print $string.contains(  abcd, bc)' >'true'  : true
     $* <'print $string.contains(  abcd, ac)' >'false' : false
     $* <'print $contains([string] abcd, cd)' >'true'  : typed
-  }
+  }}
 
   : icase
   :
-  {
+  {{
     $* <'print $string.contains(aBcD, bC, icase)' >'true' : true
-  }
+  }}
 
   : once
   :
-  {
+  {{
     $* <'print $string.contains(abcdabcd, da, once)' >'true'  : true
     $* <'print $string.contains(abcdabcd, bc, once)' >'false' : false
     $* <'print $string.contains(abcdefgh, ab, once)' >'true'  : true-begin
-  }
-}
+  }}
+}}
 
 : starts_with
 :
-{
+{{
   : basics
   :
-  {
+  {{
     $* <'print $string.starts_with(  abcd, ab)'   >'true'  : true
     $* <'print $string.starts_with(  abcd, bc)'   >'false' : false
     $* <'print $starts_with([string] abcd, abcd)' >'true'  : typed
-  }
+  }}
 
   : icase
   :
-  {
+  {{
     $* <'print $string.starts_with(aBcD, Ab, icase)' >'true' : true
-  }
-}
+  }}
+}}
 
 : ends_with
 :
-{
+{{
   : basics
   :
-  {
+  {{
     $* <'print $string.ends_with(  abcd, cd)'   >'true'  : true
     $* <'print $string.ends_with(  abcd, bc)'   >'false' : false
     $* <'print $string.ends_with(  abcd, xxxx)' >'false' : false-equal-size
     $* <'print $ends_with([string] abcd, abcd)' >'true'  : typed
-  }
+  }}
 
   : icase
   :
-  {
+  {{
     $* <'print $string.ends_with(aBcD, Cd, icase)' >'true' : true
-  }
-}
+  }}
+}}
 
 : replace
 :
-{
+{{
   : basics
   :
-  {
+  {{
     $* <'print $string.replace(  abcb,      b, BB)' >'aBBcBB' : expand
     $* <'print $string.replace(  aabbccbb, bb,  B)' >'aaBccB' : shrink
     $* <'print $replace([string] abc,       b,  B)' >'aBc'    : typed
     $* <'print $replace([string]  "",       b,  B)' >''       : empty
     $* <'print $replace([string] bbb,       b, "")' >''       : to-empty
     $* <'print $replace([string] bb,        b, Bb)' >'BbBb'   : no-recursion
-  }
+  }}
 
   : icase
   :
-  {
+  {{
     $* <'print $string.replace(abcB, b, X, icase)' >'aXcX'
-  }
+  }}
 
   : first
   :
-  {
+  {{
     $* <'print $string.replace(babc, b, B, first_only)' >'Babc' : first
     $* <'print $string.replace(abcb, b, B, first_only)' >'aBcb' : middle
     $* <'print $string.replace(b,    b, B, first_only)' >'B'    : only
-  }
+  }}
 
   : last
   :
-  {
+  {{
     $* <'print $string.replace(babc, b, B, last_only)' >'baBc' : middle
     $* <'print $string.replace(abcb, b, B, last_only)' >'abcB' : last
     $* <'print $string.replace(b,    b, B, last_only)' >'B'    : only
-  }
+  }}
 
   : first-and-last
   :
-  {
+  {{
     $* <'print $string.replace(ac,   b, B, first_only last_only)' >'ac'   : zero
     $* <'print $string.replace(abc,  b, B, first_only last_only)' >'aBc'  : one
     $* <'print $string.replace(abcb, b, B, first_only last_only)' >'abcb' : two
     $* <'print $string.replace(b,    b, B, first_only last_only)' >'B'    : only
-  }
-}
+  }}
+}}
 
 : trim
 :
-{
+{{
   $* <'print $trim([string] "  a  ")' >'a' : string
   $* <'print $string.trim(  "  a  ")' >'a' : untyped
-}
+}}
 
 : sort
 :
-{
+{{
   $* <'print $sort([strings] a c b a)'        >'a a b c' : basics
   $* <'print $sort([strings] a c b a, dedup)' >'a b c'   : dedup
   $* <'print $sort([strings] a C B a, icase)' >'a a B C' : icase
-}
+}}
 
 : size
 :
-{
+{{
   $* <'print $size([string] abc)'             >'3' : basics
   $* <'print $size([string] )'                >'0' : zero
   $* <'print $size([strings] a b c)'          >'3' : strings
   $* <'print $size([string_set] a b b)'       >'2' : string-set
   $* <'print $size([string_map] a@1 b@2 b@3)' >'2' : string-map
-}
+}}
 
 : find
 :
-{
+{{
   $* <'print $find([strings] x y z, y)'        >'true'  : basics-true
   $* <'print $find([strings] x y z, Y)'        >'false' : basics-false
   $* <'print $find([strings] x y z, Y, icase)' >'true'  : icase
-}
+}}
 
 : find_index
 :
-{
+{{
   $* <'print $find_index([strings] x y z, y)'        >'1' : basics-true
   $* <'print $find_index([strings] x y z, Y)'        >'3' : basics-false
   $* <'print $find_index([strings] x y z, Y, icase)' >'1' : icase
-}
+}}
 
 : keys
 :

@@ -6,22 +6,30 @@
 # spread the feature tests among several places.
 #
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : after
 :
-{
+{{
   : keep
   :
-  {
+  {{
     : cleanup
     :
-    $c <'touch a' && $b config.test.output=keep;
-    test -f test/1/a
+    $c <<EOI && $b config.test.output=keep;
+      testscript.syntax = 2
+
+      touch a
+      EOI
+    test -f test/3/a
 
     : teardown
     :
     $c <<EOI && $b config.test.output=keep;
+      testscript.syntax = 2
+
       +touch a &!a
       -rm a
       EOI
@@ -32,21 +40,31 @@
     : There is no working directory created for a empty script, so add a dummy
     : assignment here.
     :
-    $c <'a=b' && $b config.test.output=keep;
+    $c <<EOI && $b config.test.output=keep;
+      testscript.syntax = 2
+
+      a=b
+      EOI
     test -d test
-  }
+  }}
 
   : clean
   :
-  {
+  {{
     : cleanup
     :
-    $c <'touch a' && $b config.test.output=clean;
+    $c <<EOI && $b config.test.output=clean;
+      testscript.syntax = 2
+
+      touch a
+      EOI
     test -f test/1/a == 1
 
     : teardown
     :
     $c <<EOI && $b config.test.output=clean;
+      testscript.syntax = 2
+
       +touch a &!a
       -rm a
       EOI
@@ -57,30 +75,127 @@
     : There is no working directory created for a empty script, so add a dummy
     : assignment here.
     :
-    $c <'a=b' && $b config.test.output=clean;
+    $c <<EOI && $b config.test.output=clean;
+      testscript.syntax = 2
+
+      a=b
+      EOI
     test -d test == 1
-  }
-}
+  }}
+}}
 
 : before
 :
-{
+{{
   : fail
   :
   mkdir test &!test/;
-  $c <'true' && $b config.test.output=fail@clean 2>>/EOE != 0
+  $c <<EOI && $b config.test.output=fail@clean 2>>/EOE != 0
+    testscript.syntax = 2
+
+    true
+    EOI
     error: working directory test/ exists at the beginning of the test
     EOE
 
   : warn
   :
   mkdir test &!test/;
-  $c <'true' && $b config.test.output=warn@clean 2>>/EOE
+  $c <<EOI && $b config.test.output=warn@clean 2>>/EOE
+    testscript.syntax = 2
+
+    true
+    EOI
     warning: working directory test/ exists at the beginning of the test
     EOE
 
   : clean
   :
   mkdir test &!test/;
-  $c <'true' && $b config.test.output=clean@clean
-}
+  $c <<EOI && $b config.test.output=clean@clean
+    testscript.syntax = 2
+
+    true
+    EOI
+}}
+
+: syntax-1
+:
+{{
+  : after
+  :
+  {{
+    : keep
+    :
+    {{
+      : cleanup
+      :
+      $c <'touch a' && $b config.test.output=keep;
+      test -f test/1/a
+
+      : teardown
+      :
+      $c <<EOI && $b config.test.output=keep;
+        +touch a &!a
+        -rm a
+        EOI
+      test -f test/a
+
+      : script-wd
+      :
+      : There is no working directory created for a empty script, so add a dummy
+      : assignment here.
+      :
+      $c <'a=b' && $b config.test.output=keep;
+      test -d test
+    }}
+
+    : clean
+    :
+    {{
+      : cleanup
+      :
+      $c <'touch a' && $b config.test.output=clean;
+      test -f test/1/a == 1
+
+      : teardown
+      :
+      $c <<EOI && $b config.test.output=clean;
+        +touch a &!a
+        -rm a
+        EOI
+      test -f test/a == 1
+
+      : script-wd
+      :
+      : There is no working directory created for a empty script, so add a dummy
+      : assignment here.
+      :
+      $c <'a=b' && $b config.test.output=clean;
+      test -d test == 1
+    }}
+  }}
+
+  : before
+  :
+  {{
+    : fail
+    :
+    mkdir test &!test/;
+    $c <'true' && $b config.test.output=fail@clean 2>>/EOE != 0
+      error: working directory test/ exists at the beginning of the test
+      EOE
+
+    : warn
+    :
+    mkdir test &!test/;
+    $c <'true' && $b config.test.output=warn@clean 2>>/EOE
+      warning: working directory test/ exists at the beginning of the test
+      EOE
+
+    : clean
+    :
+    mkdir test &!test/;
+    $c <'true' && $b config.test.output=clean@clean
+  }}
+}}

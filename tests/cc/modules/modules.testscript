@@ -4,6 +4,8 @@
 # Test modules proper.
 #
 
+testscript.syntax = 2
+
 .include common.testscript
 
 +$modules || exit
@@ -77,7 +79,7 @@ $* test clean <<EOI
 :
 : Test fuzzy/explicit match between module name and file name.
 :
-{
+{{
   # "Bad" match which we should better.
   #
   +cat <<EOI >=core.mxx
@@ -166,7 +168,7 @@ $* test clean <<EOI
   ln -s ../../core.mxx gtk-core.mxx;
   ln -s ../../core.cxx ../../driver.cxx ./;
   $* test clean <'exe{test}: cxx{driver core} mxx{gtk-ext-core gtk-core}'
-}
+}}
 
 : unresolved
 :
@@ -223,7 +225,7 @@ $* test clean <<EOI
 :
 : Test module re-exporting (export import M;)
 :
-{
+{{
   +cat <<EOI >=base.mxx
     export module foo.base;
     export import foo.core;
@@ -292,14 +294,14 @@ $* test clean <<EOI
     exe{test}: cxx{driver} mxx{foo} lib{foo}
     lib{foo}: mxx{core base extra} cxx{core}
     EOI
-}
+}}
 
 : import
 :
 : Test module import. Currently, all the implementation require access to the
 : entire, recursively-explored list of BMIs.
 :
-{
+{{
   +cat <<EOI >=base.mxx
     export module foo.base;
     import foo.core;
@@ -329,7 +331,7 @@ $* test clean <<EOI
     int main (int argc, char*[]) {return h (argc);}
     EOI
   $* test clean <'exe{test}: cxx{driver core} mxx{core base extra}'
-}
+}}
 
 : resolve-change
 :

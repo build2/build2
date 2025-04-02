@@ -1,10 +1,13 @@
 # file      : libbuild2/test/script/lexer+for-loop.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.arguments = for-loop
 
 : semi
-{
+:
+{{
   : immediate
   :
   $* <"cmd;" >>EOO
@@ -27,11 +30,11 @@ test.arguments = for-loop
   ;
   <newline>
   EOO
-}
+}}
 
 : colon
 :
-{
+{{
   : immediate
   :
   $* <"cmd: dsc" >>EOO
@@ -56,11 +59,11 @@ test.arguments = for-loop
   :
   <newline>
   EOO
-}
+}}
 
 : redirect
 :
-{
+{{
   : pass
   :
   $* <"cmd <| 1>|" >>EOO
@@ -173,11 +176,11 @@ test.arguments = for-loop
   'err'
   <newline>
   EOO
-}
+}}
 
 : cleanup
 :
-{
+{{
   : always
   :
   $* <"cmd &file" >>EOO
@@ -204,11 +207,11 @@ test.arguments = for-loop
   'file'
   <newline>
   EOO
-}
+}}
 
 : for
 :
-{
+{{
   : form-1
   :
   $* <"for x: a" >>EOO
@@ -228,4 +231,4 @@ test.arguments = for-loop
   'x'
   <newline>
   EOO
-}
+}}

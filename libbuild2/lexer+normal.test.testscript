@@ -1,6 +1,8 @@
 # file      : libbuild2/lexer+normal.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.arguments = normal
 
 : assign
@@ -38,7 +40,7 @@ EOO
 : percent
 : Leading percent sign recognition.
 :
-{
+{{
   : first
   :
   $* <:'%%' >>EOO
@@ -69,12 +71,12 @@ EOO
   $* <:'x%' >>EOO
   'x%'
   EOO
-}
+}}
 
 : multi-lcbrace
 : Leading multi-curly-brace recognition.
 :
-{
+{{
   : two
   :
   $* <:'{{' >>EOO
@@ -87,4 +89,4 @@ EOO
   {{{
   'c++'
   EOO
-}
+}}

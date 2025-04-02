@@ -4,6 +4,8 @@
 # Test numbers.
 #
 
+testscript.syntax = 2
+
 $* <'1'  >'<number literal>'
 $* <'.1' >'<number literal>'
 $* <'1.' >'<number literal>'

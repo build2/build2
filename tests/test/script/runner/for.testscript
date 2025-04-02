@@ -1,19 +1,22 @@
 # File      : tests/test/script/runner/for.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : form-1
 :
 : for x: ...
 :
-{
+{{
   : basics
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     for x: a b
       echo "$x" >|
-    end
     EOI
     a
     b
@@ -22,9 +25,10 @@
   : test-options
   :
   $c <<EOI && $b >>~%EOO%
+    testscript.syntax = 2
+
     for test.options: -a -b
       echo $* >|
-    end
     EOI
     %.+ -a%
     %.+ -b%
@@ -33,10 +37,11 @@
   : custom-iteration
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     j = $json.parse('[1, 2, 3]')
     for e: $j
       echo $e >|
-    end
     EOI
     1
     2
@@ -46,20 +51,24 @@
   : special-var
   :
   $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
     for ~: -a -b
       echo $~ >|
-    end
     EOI
-    testscript:1:5: error: attempt to set '~' variable directly
+    testscript:3:5: error: attempt to set '~' variable directly
     EOE
 
   : exit
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     for x: a b
+    {
       echo "$x" >|
       exit
-    end
+    }
     EOI
     a
     EOO
@@ -67,29 +76,33 @@
   : error
   :
   $c <<EOI && $b >>EOO 2>>EOE != 0
+    testscript.syntax = 2
+
     for x: a b
+    {
       echo "$x" >|
       exit 'fed up'
-    end
+    }
     EOI
     a
     EOO
-    testscript:3:3: error: fed up
-      info: test id: 1
+    testscript:6:3: error: fed up
+      info: test id: 3
     EOE
-}
+}}
 
 : form-2
 :
 : ... | for x
 :
-{
+{{
   : whitespace-split
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     echo " a b " | for -w x
       echo "'$x'" >|
-    end
     EOI
     'a'
     'b'
@@ -98,6 +111,8 @@
   : newline-split
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     cat <<EOF | for -n x
 
 
@@ -108,7 +123,6 @@
 
     EOF
       echo "'$x'" >|
-    end
     EOI
     ''
     ''
@@ -122,9 +136,10 @@
   : typed
   :
   $c <<EOI && $b >>/EOO
+    testscript.syntax = 2
+
     echo "a b" | for -w x [dir_path]
       echo $x >|
-    end
     EOI
     a/
     b/
@@ -133,11 +148,11 @@
   : nested
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     echo "a b" | for -w x
       echo "x y" | for -w y
         echo "'$x $y'" >|
-      end
-    end
     EOI
     'a x'
     'a y'
@@ -148,38 +163,41 @@
   : nested-diag
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
+    testscript.syntax = 2
+
     echo "a b" | for -w x
       echo "x y" | for -w y
         echo "'$x $y'" >"'a x'"
-      end
-    end
     EOI
-    testscript:3:5: error: echo stdout doesn't match expected
-      info: stdout: test/1/stdout-i1-i2-n3
-      info: expected stdout: test/1/stdout-i1-i2-n3.orig
-      info: stdout diff: test/1/stdout-i1-i2-n3.diff
+    testscript:5:5: error: echo stdout doesn't match expected
+      info: stdout: test/3/stdout-i1-i2-n3
+      info: expected stdout: test/3/stdout-i1-i2-n3.orig
+      info: stdout diff: test/3/stdout-i1-i2-n3.diff
     %.+
     EOE
 
   : nested-diag-test-id
   :
   $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
     echo "a b" | for -w x
       echo "x y" | for -w y
         test -f $x$y
-      end
-    end
     EOI
-    testscript:3:5: error: builtin test exited with code 1
-      info: test id: 1
+    testscript:5:5: error: builtin test exited with code 1
+      info: test id: 3
     EOE
 
   : var-value
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     x = 'x';
     echo "a b" | for -w x
-    end;
+    {
+    };
     echo $x >|
     EOI
     b
@@ -188,89 +206,99 @@
   : both-sep-options
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
+    testscript.syntax = 2
+
     echo "a b" | for -n -w x
       echo $x >|
-    end
     EOI
-    testscript:1:1: error: for: both -n|--newline and -w|--whitespace specified
+    testscript:3:1: error: for: both -n|--newline and -w|--whitespace specified
     %.+
     EOE
 
   : invalid-option
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
+    testscript.syntax = 2
+
     echo "a b" | for -a x
       echo $x >|
-    end
     EOI
-    testscript:1:1: error: for: unknown option '-a'
+    testscript:3:1: error: for: unknown option '-a'
     %.+
     EOE
 
   : no-variable
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
+    testscript.syntax = 2
+
     echo "a b" | for -w
       echo $x >|
-    end
     EOI
-    testscript:1:1: error: for: missing variable name
+    testscript:3:1: error: for: missing variable name
     %.+
     EOE
 
   : special-var
   :
   $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
     echo "a b" | for -w ~
       echo $* >|
-    end
     EOI
-    testscript:1:1: error: attempt to set '~' variable directly
-      info: test id: 1
+    testscript:3:1: error: attempt to set '~' variable directly
+      info: test id: 3
     EOE
 
   : unsep-attrs
   :
   $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
     echo "a b" | for -w x[string]
       echo $x >|
-    end
     EOI
-    testscript:1:1: error: for: expected variable name instead of x[string]
-      info: test id: 1
+    testscript:3:1: error: for: expected variable name instead of x[string]
+      info: test id: 3
     EOE
 
   : misuse
   :
-  {
+  {{
     : after-var
     :
     $c <<EOI && $b 2>>EOE != 0
+      testscript.syntax = 2
+
       echo "a b" | for v:
         echo $v >|
-      end
       EOI
-      testscript:1:19: error: expected newline instead of ':'
+      testscript:3:19: error: expected newline instead of ':'
       EOE
 
     : after-attrs
     :
     $c <<EOI && $b 2>>EOE != 0
+      testscript.syntax = 2
+
       echo "a b" | for v [string]:
         echo $v >|
-      end
       EOI
-      testscript:1:28: error: expected newline instead of ':'
+      testscript:3:28: error: expected newline instead of ':'
       EOE
-  }
+  }}
 
   : exit
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     echo "a b" | for x
+    {
       echo "$x" >|
       exit
-    end
+    }
     EOI
     a
     EOO
@@ -278,29 +306,33 @@
   : error
   :
   $c <<EOI && $b >>EOO 2>>EOE != 0
+    testscript.syntax = 2
+
     echo "a b" | for x
+    {
       echo "$x" >|
       exit 'fed up'
-    end
+    }
     EOI
     a
     EOO
-    testscript:3:3: error: fed up
-      info: test id: 1
+    testscript:6:3: error: fed up
+      info: test id: 3
     EOE
-}
+}}
 
 : form-3
 :
 : for x <...
 :
-{
+{{
   : whitespace-split
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     for -w x <" a b "
       echo "'$x'" >|
-    end
     EOI
     'a'
     'b'
@@ -309,19 +341,19 @@
   : quoted-opt
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     o = -n
     for "$o" x <<EOF
       a
       b
       EOF
-      echo "'$x'" >|
-    end;
+      echo "'$x'" >|;
     for "($o)" x <<EOF
       c
       d
       EOF
       echo "'$x'" >|
-    end
     EOI
     'a'
     'b'
@@ -332,6 +364,8 @@
   : newline-split
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     for -n x <<EOF
 
 
@@ -342,7 +376,6 @@
 
     EOF
       echo "'$x'" >|
-    end
     EOI
     ''
     ''
@@ -356,9 +389,10 @@
   : string-before-var
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     for <"a b" -w x
       echo "'$x'" >|
-    end
     EOI
     'a'
     'b'
@@ -367,12 +401,13 @@
   : here-doc-before-var
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     for <<EOF -n x
     a
     b
     EOF
       echo "'$x'" >|
-    end
     EOI
     'a'
     'b'
@@ -381,9 +416,10 @@
   : typed
   :
   $c <<EOI && $b >>/EOO
+    testscript.syntax = 2
+
     for -w x [dir_path] <"a b"
       echo $x >|
-    end
     EOI
     a/
     b/
@@ -392,9 +428,10 @@
   : typed-no-ops
   :
   $c <<EOI && $b >>/EOO
+    testscript.syntax = 2
+
     for x [dir_path] <"a b"
       echo $x >|
-    end
     EOI
     a/
     b/
@@ -403,11 +440,11 @@
   : nested
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     for -w x <"a b"
       for -w y <"x y"
         echo "'$x $y'" >|
-      end
-    end
     EOI
     'a x'
     'a y'
@@ -418,38 +455,41 @@
   : nested-diag
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
+    testscript.syntax = 2
+
     for -w x <"a b"
       for -w y <"x y"
         echo "'$x $y'" >"'a x'"
-      end
-    end
     EOI
-    testscript:3:5: error: echo stdout doesn't match expected
-      info: stdout: test/1/stdout-i1-i2-n3
-      info: expected stdout: test/1/stdout-i1-i2-n3.orig
-      info: stdout diff: test/1/stdout-i1-i2-n3.diff
+    testscript:5:5: error: echo stdout doesn't match expected
+      info: stdout: test/3/stdout-i1-i2-n3
+      info: expected stdout: test/3/stdout-i1-i2-n3.orig
+      info: stdout diff: test/3/stdout-i1-i2-n3.diff
     %.+
     EOE
 
   : nested-diag-test-id
   :
   $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
     for -w x <"a b"
       for -w y <"x y"
         test -f $x$y
-      end
-    end
     EOI
-    testscript:3:5: error: builtin test exited with code 1
-      info: test id: 1
+    testscript:5:5: error: builtin test exited with code 1
+      info: test id: 3
     EOE
 
   : var-value
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     x = 'x';
     for -w x <"a b"
-    end;
+    {
+    };
     echo $x >|
     EOI
     b
@@ -458,43 +498,48 @@
   : invalid-option
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
+    testscript.syntax = 2
+
     for -a x <"a b"
       echo $x >|
-    end
     EOI
-    testscript:1:1: error: for: unknown option '-a'
+    testscript:3:1: error: for: unknown option '-a'
     %.
     EOE
-
 
   : no-variable
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
+    testscript.syntax = 2
+
     for -w <"a b"
       echo $x >|
-    end
     EOI
-    testscript:1:1: error: for: missing variable name
+    testscript:3:1: error: for: missing variable name
     %.
     EOE
 
   : special-var
   :
   $c <<EOI && $b 2>>EOE != 0
+    testscript.syntax = 2
+
     for ~ <"a b"
       echo $~ >|
-    end
     EOI
-    testscript:1:5: error: attempt to set '~' variable directly
+    testscript:3:5: error: attempt to set '~' variable directly
     EOE
 
   : exit
   :
   $c <<EOI && $b >>EOO
+    testscript.syntax = 2
+
     for x <"a b"
+    {
       echo "$x" >|
       exit
-    end
+    }
     EOI
     a
     EOO
@@ -502,14 +547,531 @@
   : error
   :
   $c <<EOI && $b >>EOO 2>>EOE != 0
+    testscript.syntax = 2
+
     for x <"a b"
+    {
       echo "$x" >|
       exit 'fed up'
-    end
+    }
     EOI
     a
     EOO
-    testscript:3:3: error: fed up
-      info: test id: 1
+    testscript:6:3: error: fed up
+      info: test id: 3
     EOE
-}
+}}
+
+: syntax-1
+:
+{{
+  : form-1
+  :
+  : for x: ...
+  :
+  {{
+    : basics
+    :
+    $c <<EOI && $b >>EOO
+      for x: a b
+        echo "$x" >|
+      end
+      EOI
+      a
+      b
+      EOO
+
+    : test-options
+    :
+    $c <<EOI && $b >>~%EOO%
+      for test.options: -a -b
+        echo $* >|
+      end
+      EOI
+      %.+ -a%
+      %.+ -b%
+      EOO
+
+    : custom-iteration
+    :
+    $c <<EOI && $b >>EOO
+      j = $json.parse('[1, 2, 3]')
+      for e: $j
+        echo $e >|
+      end
+      EOI
+      1
+      2
+      3
+      EOO
+
+    : special-var
+    :
+    $c <<EOI && $b 2>>EOE != 0
+      for ~: -a -b
+        echo $~ >|
+      end
+      EOI
+      testscript:1:5: error: attempt to set '~' variable directly
+      EOE
+
+    : exit
+    :
+    $c <<EOI && $b >>EOO
+      for x: a b
+        echo "$x" >|
+        exit
+      end
+      EOI
+      a
+      EOO
+
+    : error
+    :
+    $c <<EOI && $b >>EOO 2>>EOE != 0
+      for x: a b
+        echo "$x" >|
+        exit 'fed up'
+      end
+      EOI
+      a
+      EOO
+      testscript:3:3: error: fed up
+        info: test id: 1
+      EOE
+  }}
+
+  : form-2
+  :
+  : ... | for x
+  :
+  {{
+    : whitespace-split
+    :
+    $c <<EOI && $b >>EOO
+      echo " a b " | for -w x
+        echo "'$x'" >|
+      end
+      EOI
+      'a'
+      'b'
+      EOO
+
+    : newline-split
+    :
+    $c <<EOI && $b >>EOO
+      cat <<EOF | for -n x
+
+
+      a
+
+
+      b
+
+      EOF
+        echo "'$x'" >|
+      end
+      EOI
+      ''
+      ''
+      'a'
+      ''
+      ''
+      'b'
+      ''
+      EOO
+
+    : typed
+    :
+    $c <<EOI && $b >>/EOO
+      echo "a b" | for -w x [dir_path]
+        echo $x >|
+      end
+      EOI
+      a/
+      b/
+      EOO
+
+    : nested
+    :
+    $c <<EOI && $b >>EOO
+      echo "a b" | for -w x
+        echo "x y" | for -w y
+          echo "'$x $y'" >|
+        end
+      end
+      EOI
+      'a x'
+      'a y'
+      'b x'
+      'b y'
+      EOO
+
+    : nested-diag
+    :
+    $c <<EOI && $b 2>>/~%EOE% != 0
+      echo "a b" | for -w x
+        echo "x y" | for -w y
+          echo "'$x $y'" >"'a x'"
+        end
+      end
+      EOI
+      testscript:3:5: error: echo stdout doesn't match expected
+        info: stdout: test/1/stdout-i1-i2-n3
+        info: expected stdout: test/1/stdout-i1-i2-n3.orig
+        info: stdout diff: test/1/stdout-i1-i2-n3.diff
+      %.+
+      EOE
+
+    : nested-diag-test-id
+    :
+    $c <<EOI && $b 2>>EOE != 0
+      echo "a b" | for -w x
+        echo "x y" | for -w y
+          test -f $x$y
+        end
+      end
+      EOI
+      testscript:3:5: error: builtin test exited with code 1
+        info: test id: 1
+      EOE
+
+    : var-value
+    :
+    $c <<EOI && $b >>EOO
+      x = 'x';
+      echo "a b" | for -w x
+      end;
+      echo $x >|
+      EOI
+      b
+      EOO
+
+    : both-sep-options
+    :
+    $c <<EOI && $b 2>>/~%EOE% != 0
+      echo "a b" | for -n -w x
+        echo $x >|
+      end
+      EOI
+      testscript:1:1: error: for: both -n|--newline and -w|--whitespace specified
+      %.+
+      EOE
+
+    : invalid-option
+    :
+    $c <<EOI && $b 2>>/~%EOE% != 0
+      echo "a b" | for -a x
+        echo $x >|
+      end
+      EOI
+      testscript:1:1: error: for: unknown option '-a'
+      %.+
+      EOE
+
+    : no-variable
+    :
+    $c <<EOI && $b 2>>/~%EOE% != 0
+      echo "a b" | for -w
+        echo $x >|
+      end
+      EOI
+      testscript:1:1: error: for: missing variable name
+      %.+
+      EOE
+
+    : special-var
+    :
+    $c <<EOI && $b 2>>EOE != 0
+      echo "a b" | for -w ~
+        echo $* >|
+      end
+      EOI
+      testscript:1:1: error: attempt to set '~' variable directly
+        info: test id: 1
+      EOE
+
+    : unsep-attrs
+    :
+    $c <<EOI && $b 2>>EOE != 0
+      echo "a b" | for -w x[string]
+        echo $x >|
+      end
+      EOI
+      testscript:1:1: error: for: expected variable name instead of x[string]
+        info: test id: 1
+      EOE
+
+    : misuse
+    :
+    {{
+      : after-var
+      :
+      $c <<EOI && $b 2>>EOE != 0
+        echo "a b" | for v:
+          echo $v >|
+        end
+        EOI
+        testscript:1:19: error: expected newline instead of ':'
+        EOE
+
+      : after-attrs
+      :
+      $c <<EOI && $b 2>>EOE != 0
+        echo "a b" | for v [string]:
+          echo $v >|
+        end
+        EOI
+        testscript:1:28: error: expected newline instead of ':'
+        EOE
+    }}
+
+    : exit
+    :
+    $c <<EOI && $b >>EOO
+      echo "a b" | for x
+        echo "$x" >|
+        exit
+      end
+      EOI
+      a
+      EOO
+
+    : error
+    :
+    $c <<EOI && $b >>EOO 2>>EOE != 0
+      echo "a b" | for x
+        echo "$x" >|
+        exit 'fed up'
+      end
+      EOI
+      a
+      EOO
+      testscript:3:3: error: fed up
+        info: test id: 1
+      EOE
+  }}
+
+  : form-3
+  :
+  : for x <...
+  :
+  {{
+    : whitespace-split
+    :
+    $c <<EOI && $b >>EOO
+      for -w x <" a b "
+        echo "'$x'" >|
+      end
+      EOI
+      'a'
+      'b'
+      EOO
+
+    : quoted-opt
+    :
+    $c <<EOI && $b >>EOO
+      o = -n
+      for "$o" x <<EOF
+        a
+        b
+        EOF
+        echo "'$x'" >|
+      end;
+      for "($o)" x <<EOF
+        c
+        d
+        EOF
+        echo "'$x'" >|
+      end
+      EOI
+      'a'
+      'b'
+      'c'
+      'd'
+      EOO
+
+    : newline-split
+    :
+    $c <<EOI && $b >>EOO
+      for -n x <<EOF
+
+
+      a
+
+
+      b
+
+      EOF
+        echo "'$x'" >|
+      end
+      EOI
+      ''
+      ''
+      'a'
+      ''
+      ''
+      'b'
+      ''
+      EOO
+
+    : string-before-var
+    :
+    $c <<EOI && $b >>EOO
+      for <"a b" -w x
+        echo "'$x'" >|
+      end
+      EOI
+      'a'
+      'b'
+      EOO
+
+    : here-doc-before-var
+    :
+    $c <<EOI && $b >>EOO
+      for <<EOF -n x
+      a
+      b
+      EOF
+        echo "'$x'" >|
+      end
+      EOI
+      'a'
+      'b'
+      EOO
+
+    : typed
+    :
+    $c <<EOI && $b >>/EOO
+      for -w x [dir_path] <"a b"
+        echo $x >|
+      end
+      EOI
+      a/
+      b/
+      EOO
+
+    : typed-no-ops
+    :
+    $c <<EOI && $b >>/EOO
+      for x [dir_path] <"a b"
+        echo $x >|
+      end
+      EOI
+      a/
+      b/
+      EOO
+
+    : nested
+    :
+    $c <<EOI && $b >>EOO
+      for -w x <"a b"
+        for -w y <"x y"
+          echo "'$x $y'" >|
+        end
+      end
+      EOI
+      'a x'
+      'a y'
+      'b x'
+      'b y'
+      EOO
+
+    : nested-diag
+    :
+    $c <<EOI && $b 2>>/~%EOE% != 0
+      for -w x <"a b"
+        for -w y <"x y"
+          echo "'$x $y'" >"'a x'"
+        end
+      end
+      EOI
+      testscript:3:5: error: echo stdout doesn't match expected
+        info: stdout: test/1/stdout-i1-i2-n3
+        info: expected stdout: test/1/stdout-i1-i2-n3.orig
+        info: stdout diff: test/1/stdout-i1-i2-n3.diff
+      %.+
+      EOE
+
+    : nested-diag-test-id
+    :
+    $c <<EOI && $b 2>>EOE != 0
+      for -w x <"a b"
+        for -w y <"x y"
+          test -f $x$y
+        end
+      end
+      EOI
+      testscript:3:5: error: builtin test exited with code 1
+        info: test id: 1
+      EOE
+
+    : var-value
+    :
+    $c <<EOI && $b >>EOO
+      x = 'x';
+      for -w x <"a b"
+      end;
+      echo $x >|
+      EOI
+      b
+      EOO
+
+    : invalid-option
+    :
+    $c <<EOI && $b 2>>/~%EOE% != 0
+      for -a x <"a b"
+        echo $x >|
+      end
+      EOI
+      testscript:1:1: error: for: unknown option '-a'
+      %.
+      EOE
+
+    : no-variable
+    :
+    $c <<EOI && $b 2>>/~%EOE% != 0
+      for -w <"a b"
+        echo $x >|
+      end
+      EOI
+      testscript:1:1: error: for: missing variable name
+      %.
+      EOE
+
+    : special-var
+    :
+    $c <<EOI && $b 2>>EOE != 0
+      for ~ <"a b"
+        echo $~ >|
+      end
+      EOI
+      testscript:1:5: error: attempt to set '~' variable directly
+      EOE
+
+    : exit
+    :
+    $c <<EOI && $b >>EOO
+      for x <"a b"
+        echo "$x" >|
+        exit
+      end
+      EOI
+      a
+      EOO
+
+    : error
+    :
+    $c <<EOI && $b >>EOO 2>>EOE != 0
+      for x <"a b"
+        echo "$x" >|
+        exit 'fed up'
+      end
+      EOI
+      a
+      EOO
+      testscript:3:3: error: fed up
+        info: test id: 1
+      EOE
+  }}
+}}

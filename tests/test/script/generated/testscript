@@ -1,6 +1,8 @@
 # file      : tests/test/script/generated/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.arguments = test clean
 
 # Note: using common.testscript from test/, not script/.
@@ -26,3 +28,16 @@ $* <<EOI
 testscript: in{testscript} $src_root/manifest #@@ in module
 testscript: in.symbol = '@'
 EOI
+
+: syntax-1
+:
+{{
+  : testscript
+  :
+  sed -e 's/^testscript.syntax.+$//' $src_base/testscript.in >=testscript.in;
+  $* <<EOI
+  ./: testscript
+  testscript: in{testscript} $src_root/manifest #@@ in module
+  testscript: in.symbol = '@'
+  EOI
+}}

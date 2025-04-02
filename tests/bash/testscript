@@ -1,12 +1,14 @@
 # file      : tests/bash/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # Only native testing on non-Windows platforms
 #
 : dummy
 :
 if ($test.target == $build.host && $build.host.class != 'windows')
-{
+{{
   buildfile = true
   test.arguments =
 
@@ -61,15 +63,15 @@ if ($test.target == $build.host && $build.host.class != 'windows')
   #
   : test
   :
-  {
+  {{
     : basics
     :
     {
-      cat <<EOI >=hello.bash;
+      cat <<EOI >=hello.bash
         function hello () { echo "Hello, $@!"; }
         EOI
 
-      cat <<EOI >=hello.in;
+      cat <<EOI >=hello.in
         #!/usr/bin/env bash
 
         if [[ "$OSTYPE" == darwin* ]]; then
@@ -88,16 +90,16 @@ if ($test.target == $build.host && $build.host.class != 'windows')
         hello "$@"
         EOI
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         exe{hello}: in{hello} bash{hello}
         exe{hello}: test.arguments = 'World'
         EOI
 
-      $* test >'Hello, World!';
+      $* test >'Hello, World!'
 
-      $* install config.install.root=tmp;
-      tmp/bin/hello 'John' >'Hello, John!';
-      $* uninstall config.install.root=tmp;
+      $* install config.install.root=tmp
+      tmp/bin/hello 'John' >'Hello, John!'
+      $* uninstall config.install.root=tmp
 
       $* clean
     }
@@ -105,7 +107,7 @@ if ($test.target == $build.host && $build.host.class != 'windows')
     : import
     :
     {
-      cat <<EOI >=driver.in;
+      cat <<EOI >=driver.in
         #!/usr/bin/env bash
 
         if [[ "$OSTYPE" == darwin* ]]; then
@@ -122,16 +124,16 @@ if ($test.target == $build.host && $build.host.class != 'windows')
         @import sub.bash/foo@
         EOI
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         import mods = sub.bash%bash{foo}
         exe{driver}: in{driver} $mods
         EOI
 
-      $* test >'sub';
+      $* test >'sub'
 
-      $* install config.install.root=tmp;
-      tmp/bin/driver >'sub';
-      $* uninstall config.install.root=tmp;
+      $* install config.install.root=tmp
+      tmp/bin/driver >'sub'
+      $* uninstall config.install.root=tmp
 
       $* clean
     }
@@ -139,11 +141,11 @@ if ($test.target == $build.host && $build.host.class != 'windows')
     : recursive
     :
     {
-      cat <<EOI >=test.bash.in;
+      cat <<EOI >=test.bash.in
         @import sub.bash/foo@
         EOI
 
-      cat <<EOI >=driver.in;
+      cat <<EOI >=driver.in
         #!/usr/bin/env bash
 
         if [[ "$OSTYPE" == darwin* ]]; then
@@ -167,30 +169,30 @@ if ($test.target == $build.host && $build.host.class != 'windows')
         @import test/recursive/test@
         EOI
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         import mods = sub.bash%bash{foo}
         exe{driver}: in{driver} bash{test}
         bash{test}: in{test} $mods
         EOI
 
-      $* test >'sub';
+      $* test >'sub'
 
-      $* install config.install.root=tmp;
+      $* install config.install.root=tmp
 
-      tmp/bin/driver >'sub';
+      tmp/bin/driver >'sub'
 
       # Test execution via symlink.
       #
-      mkdir bin;
-      ln -s ../tmp/bin/driver bin/driver;
-      bin/driver >'sub';
+      mkdir bin
+      ln -s ../tmp/bin/driver bin/driver
+      bin/driver >'sub'
 
       # Test execution via PATH.
       #
       #@@ TODO: add $~/bin to the PATH environment variable.
-      #driver >'sub';
+      #driver >'sub'
 
-      $* uninstall config.install.root=tmp;
+      $* uninstall config.install.root=tmp
       $* clean
     }
 
@@ -201,24 +203,24 @@ if ($test.target == $build.host && $build.host.class != 'windows')
       # Note that here we import the project as sub, not sub.bash in order
       # to avoid importing as a subproject.
       #
-      cat <<EOI >=driver.in;
+      cat <<EOI >=driver.in
         #!/usr/bin/env bash
         @import sub/foo@
         EOI
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         import mods = sub%bash{foo}
         exe{driver}: in{driver} $mods
         EOI
 
-      $* 'install(../../sub.bash/)' config.install.root=tmp;
+      $* 'install(../../sub.bash/)' config.install.root=tmp
 
       #@@ TODO: add $~/tmp/bin to the PATH environment variable.
-      $* test clean >'sub';
-      $* clean;
+      $* test clean >'sub'
+      $* clean
 
       $* 'uninstall(../../sub.bash/)' config.install.root=tmp
     }
     #\
-  }
-}
+  }}
+}}

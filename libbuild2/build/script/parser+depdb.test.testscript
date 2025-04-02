@@ -1,11 +1,13 @@
 # file      : libbuild2/build/script/parser+depdb.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.options += -d
 
 : clear
 :
-{
+{{
   : multiple
   :
   $* <<EOI 2>>EOE != 0
@@ -26,11 +28,11 @@ test.options += -d
     buildfile:13:1: error: 'depdb clear' should be the first 'depdb' builtin call
       buildfile:12:1: info: first 'depdb' call is here
     EOE
-}
+}}
 
 : preamble
 :
-{
+{{
   : no-body
   :
   $* <<EOI >>EOO
@@ -59,7 +61,7 @@ test.options += -d
 
   : temp_dir
   :
-  {
+  {{
     test.options += -t
 
     : no
@@ -88,12 +90,12 @@ test.options += -d
       depdb string "$s"
       foo "$f"
       EOI
-  }
-}
+  }}
+}}
 
 : impure-function
 :
-{
+{{
   : var-assignment
   :
   $* <<EOI 2>>~%EOE% != 0
@@ -133,20 +135,20 @@ test.options += -d
 
   : non-functions
   :
-  {
+  {{
     $* <'$getenv'             : var
     $* <'$getenv (v ? a : b)' : eval
-  }
-}
+  }}
+}}
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : clear
   :
-  {
+  {{
     : multiple
     :
     $* <<EOI 2>>EOE != 0
@@ -167,11 +169,11 @@ test.options += -d
       buildfile:13:1: error: 'depdb clear' should be the first 'depdb' builtin call
         buildfile:12:1: info: first 'depdb' call is here
       EOE
-  }
+  }}
 
   : preamble
   :
-  {
+  {{
     : no-body
     :
     $* <<EOI >>EOO
@@ -198,7 +200,7 @@ test.options += -d
 
     : temp_dir
     :
-    {
+    {{
       test.options += -t
 
       : no
@@ -227,12 +229,12 @@ test.options += -d
         depdb string "$s"
         foo "$f"
         EOI
-    }
-  }
+    }}
+  }}
 
   : impure-function
   :
-  {
+  {{
     : var-assignment
     :
     $* <<EOI 2>>~%EOE% != 0
@@ -273,9 +275,9 @@ test.options += -d
 
     : non-functions
     :
-    {
+    {{
       $* <'$getenv'             : var
       $* <'$getenv (v ? a : b)' : eval
-    }
-  }
-}
+    }}
+  }}
+}}

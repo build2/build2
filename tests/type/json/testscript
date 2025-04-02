@@ -3,11 +3,13 @@
 
 # See also tests in function/json/.
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : basics
 :
-{
+{{
   : empty-null
   :
   $* <<EOI >>EOO
@@ -102,11 +104,11 @@
   error: invalid json value in variable o: duplicate json object member 'one'
     <stdin>:1:5: info: variable o value is assigned here
   EOE
-}
+}}
 
 : compare
 :
-{
+{{
   : type
   :
   $* <<EOI >>EOO
@@ -178,11 +180,11 @@
   true
   true
   EOO
-}
+}}
 
 : append-prepend
 :
-{
+{{
   : array
   :
   $* <<EOI >'[0,1,2,3,4,5,6,7,8]'
@@ -281,11 +283,11 @@
   error: invalid json value in variable s: unable to append array to string
     <stdin>:3:6: info: variable s value is assigned here
   EOE
-}
+}}
 
 : subscript
 :
-{
+{{
   : null
   :
   $* <<EOI >>EOO
@@ -397,11 +399,11 @@
     info: json value type is array
     <stdin>:2:9: info: use the '\[' escape sequence if this is a wildcard pattern
   EOE
-}
+}}
 
 : iteration
 :
-{
+{{
   : null
   :
   $* <<EOI
@@ -453,11 +455,11 @@
   912559
   abc
   EOO
-}
+}}
 
 : json-map
 :
-{
+{{
   : basics
   :
   $* <<EOI >>EOO
@@ -482,11 +484,11 @@
 
 
   EOO
-}
+}}
 
 : json-set
 :
-{
+{{
   : basics
   :
   $* <<EOI >>EOO
@@ -501,4 +503,4 @@
   json {"x":1,"y":2}
   true
   EOO
-}
+}}

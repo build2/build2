@@ -1,6 +1,8 @@
 # file      : tests/function/path/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 windows = ($cxx.target.class == 'windows')
@@ -10,10 +12,10 @@ s = ($posix ? '/' : '\')
 
 : posix-string
 :
-{
+{{
   : relative
   :
-  {
+  {{
     s = ($posix ? '/' : '\\')
 
     $* <"print \$posix_string\([path] a$(s)b)"                 >'a/b'     : path
@@ -21,35 +23,35 @@ s = ($posix ? '/' : '\')
     $* <"print \$posix_string\([dir_path] a$(s)b)"             >'a/b'     : dir-path
     $* <"print \$posix_string\([dir_paths] a$(s)b a$(s)c$(s))" >'a/b a/c' : dir-paths
     $* <"print \$path.posix_string\(a$(s)b a$(s)c$(s))"        >'a/b a/c' : untyped
-  }
+  }}
 
   : absolute
   :
-  {
+  {{
     if $posix
-    {
+    {{
       $* <'print $posix_string([paths] /a/b /a/c/)'     >'/a/b /a/c' : paths
       $* <'print $posix_string([dir_paths] /a/b /a/c/)' >'/a/b /a/c' : dir-paths
       $* <'print $posix_string([dir_path] /)'           >'/'         : root-dir
       $* <'print $path.posix_string(/a/b /a/c/)'        >'/a/b /a/c' : untyped
-    }
+    }}
     else
-    {
+    {{
       $* <'print $posix_string([paths] "c:\\a\\b" "C:\\a\\c\\")'     >'c:/a/b C:/a/c' : paths
       $* <'print $posix_string([dir_paths] "c:\\a\\b" "C:\\a\\c\\")' >'c:/a/b C:/a/c' : dir-paths
       $* <'print $posix_string([dir_paths] "c:\\" "C:")'             >'c:/ C:/'       : root-dir
       $* <'print $path.posix_string("c:\\a\\b" "C:\\a\\c\\")'        >'c:/a/b C:/a/c' : untyped
       $* <'print $path.posix_string("c:\\" "C:")'                    >'c:/ C:/'       : untyped-root
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : posix-representation
 :
-{
+{{
   : relative
   :
-  {
+  {{
     s = ($posix ? '/' : '\\')
 
     $* <"print \$posix_representation\([path] a$(s)b)"                 >'a/b'       : path
@@ -57,104 +59,104 @@ s = ($posix ? '/' : '\')
     $* <"print \$posix_representation\([dir_path] a$(s)b)"             >'a/b/'      : dir-path
     $* <"print \$posix_representation\([dir_paths] a$(s)b a$(s)c$(s))" >'a/b/ a/c/' : dir-paths
     $* <"print \$path.posix_representation\(a$(s)b a$(s)c$(s))"        >'a/b a/c/'  : untyped
-  }
+  }}
 
   : absolute
   :
-  {
+  {{
     if $posix
-    {
+    {{
       $* <'print $posix_representation([paths] /a/b /a/c/)'     >'/a/b /a/c/'  : paths
       $* <'print $posix_representation([dir_paths] /a/b /a/c/)' >'/a/b/ /a/c/' : dir-paths
       $* <'print $posix_representation([dir_path] /)'           >'/'           : root-dir
       $* <'print $path.posix_representation(/a/b /a/c/)'        >'/a/b /a/c/'  : untyped
-    }
+    }}
     else
-    {
+    {{
       $* <'print $posix_representation([paths] "c:\\a\\b" "C:\\a\\c\\")'     >'c:/a/b C:/a/c/'  : paths
       $* <'print $posix_representation([dir_paths] "c:\\a\\b" "C:\\a\\c\\")' >'c:/a/b/ C:/a/c/' : dir-paths
       $* <'print $posix_representation([dir_paths] "c:\\" "C:")'             >'c:/ C:/'         : root-dir
       $* <'print $path.posix_representation("c:\\a\\b" "C:\\a\\c\\")'        >'c:/a/b C:/a/c/'  : untyped
       $* <'print $path.posix_representation("c:\\" "C:")'                    >'c:/ C:/'         : untyped-root
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : absolute
 :
-{
+{{
   $* <'print $absolute($src_root)' >"true"  : true
   $* <'print $path.absolute(a/b)'  >"false" : false
-}
+}}
 
 : simple
 :
-{
+{{
   $* <'print $simple([path] a)' >"true"  : true
   $* <'print $path.simple(a/b)' >"false" : false
-}
+}}
 
 : sub_path
 :
-{
+{{
   $* <'print $sub_path($src_base, $src_root)' >"true"  : true-absolute
   $* <'print $path.sub_path(a/b/c, a/b)'      >"true"  : true-relative
   $* <'print $path.sub_path(a/b/c, a/d)'      >"false" : false
-}
+}}
 
 : super_path
 :
-{
+{{
   $* <'print $super_path($src_base, true-absolute)' >"true"  : true-absolute
   $* <'print $path.super_path(a/b/c, b/c)'          >"true"  : true-relative
   $* <'print $path.super_path(a/b/c, c/a)'          >"false" : false
-}
+}}
 
 : directory
 :
-{
+{{
   $* <'print $directory([path] a/b)'           >"a/"    : path
   $* <'print $directory([dir_path] a/b)'       >"a/"    : dir-path
   $* <'print $directory([paths] a/b c/d/)'     >"a/ c/" : paths
   $* <'print $directory([dir_paths] a/b c/d/)' >"a/ c/" : dir-paths
   $* <'print $path.directory(a/b c/d/)'        >"a/ c/" : dir-names
-}
+}}
 
 : root_directory
 :
-{
+{{
   : posix
   :
   if $posix
-  {
+  {{
     $* <'print $root_directory([path] /a/b)' >'/' : basics
     $* <'print $root_directory([path] /)' >'/'    : root
-  }
+  }}
 
   : windows
   :
   if $windows
-  {
+  {{
     $* <'print $root_directory([path] "c:\\a\\b")' >'c:\' : basics
     $* <'print $root_directory([path] "c:")'       >'c:\' : root
-  }
+  }}
 
   $* <'print $root_directory([path] a/b)' >'' : relative
-}
+}}
 
 : base
 :
-{
+{{
   $* <'print $base([path] a.c)'               >"a"      : path
   $* <'print $base([dir_path] a.tmp)'         >"a$s"    : dir-path
   $* <'print $base([paths] a.c b.tmp/)'       >"a b/"   : paths
   $* <'print $base([dir_paths] a.tmp b.tmp/)' >"a$s b/" : dir-paths
   $* <'print $path.base(a.c b.tmp/)'          >"a b/"   : dir-names
-}
+}}
 
 : leaf
 :
-{
+{{
   $* <'print $leaf([path] a/b)'                          >"b"        : path
   $* <'print $leaf([dir_path] a/b)'                      >"b$s"      : dir-path
   $* <'print $leaf([path] a/b/c, [dir_path] a)'          >"b/c"      : sub-path
@@ -170,26 +172,26 @@ s = ($posix ? '/' : '\')
   error: 'a/d$s' is not a prefix of 'a/b/c'
     <stdin>:1:8: info: while calling leaf\(path, dir_path\)
   EOE
-}
+}}
 
 : relative
 :
-{
+{{
   $* <'print $relative([path] a/b/c, [dir_path] a/x/y)' >"..$s..$(s)b/c" : basics
-}
+}}
 
 : extension
 :
-{
+{{
   $* <'print $extension([path] a.c)'        >"c"      : path
   $* <'print $extension([dir_path] a.tmp/)' >"tmp"    : dir_path
   $* <'print $path.extension(a.c)'          >"c"      : untyped
   $* <'print $path.extension(a)'            >"[null]" : null
-}
+}}
 
 : combined
 :
-{
+{{
   mkdir -p a/b;
   touch a/b/c.t.cpp;
   $* <<EOI >>/EOO
@@ -202,58 +204,58 @@ s = ($posix ? '/' : '\')
   a/b/exe{c}
   a/b/c.t.cpp
   EOO
-}
+}}
 
 : complete
 :
-{
+{{
   $* <'print $complete([path] a)'     >"$~$(s)a"     : path
   $* <'print $complete([dir_path] a)' >"$~$(s)a$(s)" : dir-path
   $* <'print $path.complete(a)'       >"$~$(s)a"     : untyped
 
   echo $path.complete(a)              > "$~$(s)a"    : testscript
-}
+}}
 
 : canonicalize
 :
-{
+{{
   $* <'print $canonicalize([path] a/b)'           >"a$(s)b"            : path
   $* <'print $canonicalize([paths] a/b a/c)'      >"a$(s)b a$(s)c"     : paths
   $* <'print $canonicalize([dir_path] a/b)'       >"a$(s)b$s"          : dir-path
   $* <'print $canonicalize([dir_paths] a/b a/c/)' >"a$(s)b$s a$(s)c$s" : dir-paths
   $* <'print $path.canonicalize(a/b)'             >"a$(s)b"            : untyped
   $* <'print $path.canonicalize(a/b/ a/c)'        >"a$(s)b$s a$(s)c"   : mixed
-}
+}}
 
 : normalize
 :
-{
+{{
   $* <'print $normalize([path] a/../b)'              >"b"        : path
   $* <'print $normalize([paths] a/../b a/../c)'      >"b c"      : paths
   $* <'print $normalize([dir_path] a/../b)'          >"b$s"      : dir-path
   $* <'print $normalize([dir_paths] a/../b a/../c/)' >"b$s c$s"  : dir-paths
   $* <'print $path.normalize(a/../b)'                >"b"        : untyped
   $* <'print $path.normalize(a/../b/ a/../c)'        >"b$s c"    : mixed
-}
+}}
 
 : try_normalize
 :
-{
+{{
   $* <'print $try_normalize([path] a/../b)'                      >"b"      : valid
   $* <'print $path.try_normalize($root_directory($src_root)/..)' >"[null]" : invalid
-}
+}}
 
 : actualize
 :
 if! $posix
-{
+{{
   mkdir Foo;
   $* <'print $path.actualize($out_base/foo)' >~'/.+\\Foo/'
-}
+}}
 
 : sort
 :
-{
+{{
   $* <'print $sort([paths] a c b a)'        >'a a b c' : basics
   $* <'print $sort([paths] a c b a, dedup)' >'a b c'   : dedup
 
@@ -263,32 +265,32 @@ if! $posix
   {
     $* <'print $sort([paths] a C B a)' >'a a B C'
   }
-}
+}}
 
 : size
 :
-{
+{{
   $* <'print $size([path] abc)' >'3' : basics
   $* <'print $size([path] )'    >'0' : zero
 
   $* <'print $size([dir_path] abc)'  >'3' : dir-basics
   $* <'print $size([dir_path] abc/)' >'3' : dir-separator
   $* <'print $size([dir_path] )'     >'0' : dir-zero
-}
+}}
 
 : find
 :
-{
+{{
   $* <'print $find([paths] x y z, y)' >'true'  : basics-true
   $* <'print $find([paths] x y z, a)' >'false' : basics-false
-}
+}}
 
 : find_index
 :
-{
+{{
   $* <'print $find_index([dir_paths] x y z, y)' >'1' : basics-true
   $* <'print $find_index([dir_paths] x y z, a)' >'3' : basics-false
-}
+}}
 
 : invalid-path
 :
@@ -300,13 +302,13 @@ EOE
 
 : path-match
 :
-{
+{{
   : string
   :
   : Test overloads for at least one of the first two arguments being of the
   : string type.
   :
-  {
+  {{
     : string-string
     :
     $* <'print $path.match([string] "b", [string] "b*")' >'true'
@@ -322,14 +324,14 @@ EOE
     : path-string
     :
     $* <'print $match([path] "b", [string] "b*")' >'true'
-  }
+  }}
 
   : path
   :
   : Test overloads for at least one of the first two arguments being of the
   : path type.
   :
-  {
+  {{
     : path-path
     :
     $* <'print $match([path] "a/b", [path] "b**")' >'true'
@@ -349,19 +351,19 @@ EOE
     : path-untyped
     :
     $* <'print $match([path] "a/b", "b**")' >'true'
-  }
+  }}
 
   : untyped
   :
   : Test overloads for the first two arguments being untyped.
   :
-  {
+  {{
     : converted-to-strings
     :
     $* <'print $path.match("b", "b**")' >'true'
 
     : converted-to-paths-due-to
-    {
+    {{
       : pattern
       :
       $* <'print $path.match("a/b/", "b**/")' >'true'
@@ -373,6 +375,6 @@ EOE
       : start-dir
       :
       $* <'print $path.match("", "s***/", "$src_base")' >'true'
-    }
-  }
-}
+    }}
+  }}
+}}

@@ -4,11 +4,13 @@
 # Test reversal to canonical/original representation.
 #
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : name
 :
-{
+{{
   : dir
   :
   $* <<EOI >>EOO
@@ -55,11 +57,11 @@
   EOI
   pkcs11:object=SIGN%20key
   EOO
-}
+}}
 
 : dir-path
 :
-{
+{{
   : rel
   :
   $* <<EOI >>"EOO"
@@ -88,13 +90,13 @@
     -I/
     EOO
   }
-}
+}}
 
 : reduce
 :
 : Test empty simple value reduction heuristics.
 :
-{
+{{
   : typed
   :
   $* <<EOI >>"EOO"
@@ -143,4 +145,4 @@
   0
   true
   EOO
-}
+}}

@@ -1,18 +1,20 @@
 # file      : tests/function/filesystem/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : path-search
 :
-{
+{{
   +mkdir -p a/b
 
   : pattern-path
   :
   : Test overloads for pattern being of the path type.
   :
-  {
+  {{
     : start-abs-dir
     :
     $* <'print $path_search([path] "b**/", [dir_path] $src_base/../../a)' >/'b/'
@@ -35,13 +37,13 @@
     error: invalid argument: invalid dir_path value: multiple names
       <stdin>:1:8: info: while calling path_search(path, <untyped>)
     EOE
-  }
+  }}
 
   : pattern-untyped
   :
   : Test overloads for pattern being untyped.
   :
-  {
+  {{
     : start-dir
     :
     $* <'print $path_search("b**/", [dir_path] $src_base/../../a)' >/'b/'
@@ -54,16 +56,16 @@
     :
     if ($test.target == $build.host)
     {
-      touch b;
+      touch b
       $* <'print $path_search("$src_base/b*")' >>/"EOO"
       $out_base/test/$@/b
       EOO
     }
-  }
+  }}
 
   : pattern-multiple-names
   :
-  {
+  {{
     : dir
     :
     touch b;
@@ -71,12 +73,12 @@
     error: invalid argument: invalid path value: multiple names
       <stdin>:1:8: info: while calling path_search(<untyped>, dir_path)
     EOE
-  }
-}
+  }}
+}}
 
 : file_exists
 :
-{
+{{
   : file
   :
   touch f;
@@ -96,11 +98,11 @@
   :
   touch f;
   echo $file_exists(f) >'true'
-}
+}}
 
 : directory_exists
 :
-{
+{{
   : directory
   :
   mkdir d;
@@ -120,4 +122,4 @@
   :
   mkdir d;
   echo $directory_exists(d) >'true'
-}
+}}

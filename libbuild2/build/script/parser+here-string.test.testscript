@@ -1,6 +1,8 @@
 # file      : libbuild2/build/script/parser+here-string.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : empty
 :
 $* <<EOI >>EOO
@@ -35,7 +37,7 @@ EOO
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : empty
@@ -69,4 +71,4 @@ EOO
   EOI
   cmd <<<:''
   EOO
-}
+}}

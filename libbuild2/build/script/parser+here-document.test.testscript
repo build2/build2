@@ -1,9 +1,11 @@
 # file      : libbuild2/build/script/parser+here-document.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : end-marker
 :
-{
+{{
   : missing-newline
   :
   $* <'cmd <<=' 2>>EOE != 0
@@ -141,11 +143,11 @@
   foo
   EOF
   EOO
-}
+}}
 
 : indent
 :
-{
+{{
   : basic
   :
   $* <<EOI >>EOO
@@ -229,7 +231,7 @@
   EOI
   buildfile:12:1: error: unindented here-document line
   EOE
-}
+}}
 
 : blank
 :
@@ -273,12 +275,12 @@ EOO
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : end-marker
   :
-  {
+  {{
     : missing-newline
     :
     $* <'cmd <<=' 2>>EOE != 0
@@ -416,11 +418,11 @@ EOO
     foo
     EOF
     EOO
-  }
+  }}
 
   : indent
   :
-  {
+  {{
     : basic
     :
     $* <<EOI >>EOO
@@ -504,7 +506,7 @@ EOO
     EOI
     buildfile:12:1: error: unindented here-document line
     EOE
-  }
+  }}
 
   : blank
   :
@@ -545,4 +547,4 @@ EOO
   single double
   EOF
   EOO
-}
+}}

@@ -1,6 +1,8 @@
 # file      : libbuild2/test/script/parser+directive.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : not-directive
 :
 $* <<EOI >>EOO
@@ -74,7 +76,7 @@ EOE
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : not-directive
@@ -147,4 +149,4 @@ EOE
   EOI
   testscript:1:24: error: ';' after directive
   EOE
-}
+}}

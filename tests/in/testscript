@@ -1,6 +1,8 @@
 # file      : tests/in/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 crosstest = false
 test.arguments =
 
@@ -126,11 +128,11 @@ $* <<EOI 2>>EOE != 0
 :
 if ($test.target == $build.host && $build.host.class != 'windows')
 {
-  cat <<EOI >=hello.in;
+  cat <<EOI >=hello.in
     #!/bin/sh
     echo 'Hello, $name$!'
     EOI
-  $* <<EOI &hello &hello.d;
+  $* <<EOI &hello &hello.d
     exe{hello}: in{hello}
     exe{hello}: name = 'World'
     EOI

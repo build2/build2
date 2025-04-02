@@ -1,14 +1,18 @@
 # file      : tests/test/script/builtin/mkdir.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : dir
 :
-{
+{{
   : cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir a b
     EOI
 
@@ -17,24 +21,70 @@
   : Also test that `--` is handled properly.
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir --no-cleanup -- --no-cleanup;
     rmdir -- --no-cleanup
     EOI
-}
+}}
 
 : parent
 :
-{
+{{
   : cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir -p a/b
     EOI
 
   : no-cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir -p --no-cleanup a/b;
     rm -r a
     EOI
-}
+}}
+
+: syntax-1
+:
+{{
+  : dir
+  :
+  {{
+    : cleanup
+    :
+    $c <<EOI && $b
+      mkdir a b
+      EOI
+
+    : no-cleanup
+    :
+    : Also test that `--` is handled properly.
+    :
+    $c <<EOI && $b
+      mkdir --no-cleanup -- --no-cleanup;
+      rmdir -- --no-cleanup
+      EOI
+  }}
+
+  : parent
+  :
+  {{
+    : cleanup
+    :
+    $c <<EOI && $b
+      mkdir -p a/b
+      EOI
+
+    : no-cleanup
+    :
+    $c <<EOI && $b
+      mkdir -p --no-cleanup a/b;
+      rm -r a
+      EOI
+  }}
+}}

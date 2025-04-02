@@ -4,6 +4,8 @@
 # Test line continuations.
 #
 
+testscript.syntax = 2
+
 : identifier
 :
 $* <<EOI >"'foo123'"

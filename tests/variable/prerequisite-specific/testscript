@@ -1,6 +1,8 @@
 # file      : tests/variable/prerequisite-specific/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 # There is currently no support for expanding prerequisite-specific variables

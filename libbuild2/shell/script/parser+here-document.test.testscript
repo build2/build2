@@ -1,9 +1,11 @@
 # file      : libbuild2/shell/script/parser+here-document.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : end-marker
 :
-{
+{{
   : missing-newline
   :
   $* <'cmd <<=' 2>>EOE != 0
@@ -141,11 +143,11 @@
   foo
   EOF
   EOO
-}
+}}
 
 : indent
 :
-{
+{{
   : basic
   :
   $* <<EOI >>EOO
@@ -229,7 +231,7 @@
   EOI
   shellscript:12:1: error: unindented here-document line
   EOE
-}
+}}
 
 : blank
 :

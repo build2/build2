@@ -1,11 +1,13 @@
 # file      : tests/function/name/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : is_a
 :
-{
+{{
   $* <'print $is_a(file{foo},    path_target)' >'true'  : basics-true
   $* <'print $is_a(alias{foo},   path_target)' >'false' : basics-false
   $* <'print $is_a(file{foo}@./, path_target)' >'true'  : out
@@ -13,11 +15,11 @@
   define txt: file
   print $is_a(txt{foo}, path_target)
   EOI
-}
+}}
 
 : filter
 :
-{
+{{
   $* <<EOI >'file{foo}@./ txt{baz}' : basics
   define txt: file
   print $filter(file{foo}@./ alias{bar} dir{./} txt{baz}, file)
@@ -37,32 +39,32 @@
   define txt: file
   print $filter_out(file{foo}@./ alias{bar} dir{./} txt{baz}, txt dir)
   EOI
-}
+}}
 
 : size
 :
-{
+{{
   $* <'print $size(a b c@./)' >'3'      : basics
   $* <'print $type($size(a))' >'uint64' : type
-}
+}}
 
 : sort
 :
-{
+{{
   $* <'print $sort(d/t{a} t{c b} d/t{a})'        >'t{b} t{c} d/t{a} d/t{a}' : basics
   $* <'print $sort(d/t{a} t{c b} d/t{a}, dedup)' >'t{b} t{c} d/t{a}'        : dedup
-}
+}}
 
 : find
 :
-{
+{{
   $* <'print $find([names] d/t{a} t{a b}, t{a})'   >'true'  : basics-true
   $* <'print $find([names] d/t{a} t{a b}, d/t{b})' >'false' : basics-false
-}
+}}
 
 : find_index
 :
-{
-  $* <'print $find_index([names] d/t{a} t{a b}, t{a})'   >'1'  : basics-true
+{{
+  $* <'print $find_index([names] d/t{a} t{a b}, t{a})'   >'1' : basics-true
   $* <'print $find_index([names] d/t{a} t{a b}, d/t{b})' >'3' : basics-false
-}
+}}

@@ -1,29 +1,35 @@
 # file      : tests/test/script/builtin/rmdir.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : dir
 :
-{
+{{
   : test-scope
   :
   : Removing scope directory fails.
   :
   $c <<EOI && $b
-  rmdir ./ 2>/"rmdir: 'test/1/' contains test working directory 'test/1/'" == 1
+  testscript.syntax = 2
+
+  rmdir ./ 2>/"rmdir: 'test/3/' contains test working directory 'test/3/'" == 1
   EOI
 
   : outside-scope
   :
   : Need to use a path that unlikely exists (not to remove something useful).
   :
-  {
+  {{
     : fail
     :
     : Removing directory outside the testscript working directory fails.
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     rmdir ../../a/b/c 2>>/EOE == 1
     rmdir: 'a/b/c/' is out of working directory 'test/'
     EOE
@@ -35,5 +41,52 @@
     : option.
     :
     $c <'rmdir -f ../../a/b/c' && $b
-  }
-}
+  }}
+}}
+
+: syntax-1
+:
+{{
+  : dir
+  :
+  {{
+    : test-scope
+    :
+    : Removing scope directory fails.
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    rmdir ./ 2>/"rmdir: 'test/3/' contains test working directory 'test/3/'" == 1
+    EOI
+
+    : outside-scope
+    :
+    : Need to use a path that unlikely exists (not to remove something useful).
+    :
+    {{
+      : fail
+      :
+      : Removing directory outside the testscript working directory fails.
+      :
+      $c <<EOI && $b
+      testscript.syntax = 2
+
+      rmdir ../../a/b/c 2>>/EOE == 1
+      rmdir: 'a/b/c/' is out of working directory 'test/'
+      EOE
+      EOI
+
+      : force
+      :
+      : Removing path outside the testscript working directory succeeds with -f
+      : option.
+      :
+      $c <<EOI && $b
+        testscript.syntax = 2
+
+        rmdir -f ../../a/b/c
+        EOI
+    }}
+  }}
+}}

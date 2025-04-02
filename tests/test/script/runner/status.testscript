@@ -1,56 +1,82 @@
 # file      : tests/test/script/runner/status.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 b += --no-column
 
 : eq
 :
-{
+{{
   : true
   :
-  $c <'$* == 0' && $b
+  $c <<EOI && $b
+  testscript.syntax = 2
+
+  $* == 0
+  EOI
 
   : false
   :
-  $c <'$* -s 1 == 0' && $b 2>>/~%EOE%d != 0
-  %testscript:1: error: process ../../../../driver(.exe)? exit code 1 != 0%
-    info: test id: 1
+  $c <<EOI && $b 2>>/~%EOE%d != 0
+  testscript.syntax = 2
+
+  $* -s 1 == 0
+  EOI
+  %testscript:3: error: process ../../../../driver(.exe)? exit code 1 != 0%
+    info: test id: 3
   EOE
-}
+}}
 
 : ne
 :
-{
+{{
   : true
   :
-  $c <'$* -s 1 != 0' && $b
+  $c <<EOI && $b
+  testscript.syntax = 2
+
+  $* -s 1 != 0
+  EOI
 
   : false
   :
-  $c <'$* -s 1 != 1' && $b 2>>/~%EOE% != 0
-  %testscript:1: error: process ../../../../driver(.exe)? exit code 1 == 1%
-    info: test id: 1
+  $c <<EOI && $b 2>>/~%EOE% != 0
+  testscript.syntax = 2
+
+  $* -s 1 != 1
+  EOI
+  %testscript:3: error: process ../../../../driver(.exe)? exit code 1 == 1%
+    info: test id: 3
   EOE
-}
+}}
 
 : error
 :
-$c <'$* -s 1 -e "Error"' && $b 2>>/~%EOE% != 0
-%testscript:1: error: process ../../../driver(.exe)? exited with code 1%
-  info: stderr: test/1/stderr
+$c <<EOI && $b 2>>/~%EOE% != 0
+testscript.syntax = 2
+
+$* -s 1 -e "Error"
+EOI
+%testscript:3: error: process ../../../driver(.exe)? exited with code 1%
+  info: stderr: test/3/stderr
 Error
-  info: test id: 1
+  info: test id: 3
 EOE
 
 : error-check
 :
-$c <'$* -s 1 -e "Error" == 0' && $b 2>>/~%EOE% != 0
-%testscript:1: error: process ../../../driver(.exe)? exit code 1 != 0%
-  info: stderr: test/1/stderr
+$c <<EOI && $b 2>>/~%EOE% != 0
+testscript.syntax = 2
+
+$* -s 1 -e "Error" == 0
+EOI
+%testscript:3: error: process ../../../driver(.exe)? exit code 1 != 0%
+  info: stderr: test/3/stderr
 Error
-  info: test id: 1
+  info: test id: 3
 EOE
 
 #\
@@ -59,10 +85,80 @@ EOE
 : Can pop up dialog boxes on Windows or produce coredump on POSIX. Note that
 : under Wine some extra info is printed to STDOUT.
 :
-$c <'$* -t m' && $b 2>>/~%EOE% != 0
+$c <<EOI && $b 2>>/~%EOE% != 0
+testscript.syntax = 2
+
+$* -t m
+EOI
 %wine: .+%?
 %testscript:1: error: ../../../driver(.exe)? terminated abnormally%d
 %  info: .+%
 %  info: stdout: test\\1\\stdout%?
 EOE
 #\
+
+: syntax-1
+:
+{{
+  : eq
+  :
+  {{
+    : true
+    :
+    $c <'$* == 0' && $b
+
+    : false
+    :
+    $c <'$* -s 1 == 0' && $b 2>>/~%EOE%d != 0
+    %testscript:1: error: process ../../../../../driver(.exe)? exit code 1 != 0%
+      info: test id: 1
+    EOE
+  }}
+
+  : ne
+  :
+  {{
+    : true
+    :
+    $c <'$* -s 1 != 0' && $b
+
+    : false
+    :
+    $c <'$* -s 1 != 1' && $b 2>>/~%EOE% != 0
+    %testscript:1: error: process ../../../../../driver(.exe)? exit code 1 == 1%
+      info: test id: 1
+    EOE
+  }}
+
+  : error
+  :
+  $c <'$* -s 1 -e "Error"' && $b 2>>/~%EOE% != 0
+  %testscript:1: error: process ../../../../driver(.exe)? exited with code 1%
+    info: stderr: test/1/stderr
+  Error
+    info: test id: 1
+  EOE
+
+  : error-check
+  :
+  $c <'$* -s 1 -e "Error" == 0' && $b 2>>/~%EOE% != 0
+  %testscript:1: error: process ../../../../driver(.exe)? exit code 1 != 0%
+    info: stderr: test/1/stderr
+  Error
+    info: test id: 1
+  EOE
+
+  #\
+  : segmentation-fault
+  :
+  : Can pop up dialog boxes on Windows or produce coredump on POSIX. Note that
+  : under Wine some extra info is printed to STDOUT.
+  :
+  $c <'$* -t m' && $b 2>>/~%EOE% != 0
+  %wine: .+%?
+  %testscript:1: error: ../../../driver(.exe)? terminated abnormally%d
+  %  info: .+%
+  %  info: stdout: test\\1\\stdout%?
+  EOE
+  #\
+}}

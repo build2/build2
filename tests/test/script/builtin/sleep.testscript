@@ -1,18 +1,28 @@
 # file      : tests/test/script/builtin/sleep.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : success
 :
-$c <'sleep 1' && $b
+$c <<EOI && $b
+  testscript.syntax = 2
+
+  sleep 1
+  EOI
 
 : timeout
 :
-{
+{{
   : failure
   :
-  $c <'env -t 1 -- sleep 86400' && $b 2>>~%EOE% != 0
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    env -t 1 -- sleep 86400
+    EOI
     %testscript:.*: error: builtin sleep terminated: execution timeout expired%
     %.
     EOE
@@ -20,7 +30,35 @@ $c <'sleep 1' && $b
   : success
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     timeout --success 1;
     sleep 86400
     EOI
-}
+}}
+
+: syntax-1
+:
+{{
+  : success
+  :
+  $c <'sleep 1' && $b
+
+  : timeout
+  :
+  {{
+    : failure
+    :
+    $c <'env -t 1 -- sleep 86400' && $b 2>>~%EOE% != 0
+      %testscript:.*: error: builtin sleep terminated: execution timeout expired%
+      %.
+      EOE
+
+    : success
+    :
+    $c <<EOI && $b
+      timeout --success 1;
+      sleep 86400
+      EOI
+  }}
+}}

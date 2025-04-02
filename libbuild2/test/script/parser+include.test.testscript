@@ -1,6 +1,8 @@
 # file      : libbuild2/test/script/parser+include.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : none
 :
 $* <<EOI
@@ -104,7 +106,7 @@ EOE
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : none
@@ -207,4 +209,4 @@ EOE
   EOI
   /testscript:1:2: error: unable to read testscript foo.testscript: .+/
   EOE
-}
+}}

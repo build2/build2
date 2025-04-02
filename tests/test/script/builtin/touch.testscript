@@ -1,11 +1,13 @@
 # file      : tests/test/script/builtin/touch.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : cleanup
 :
-{
+{{
   : enabled
   :
   $c <'touch a' && $b
@@ -13,6 +15,8 @@
   : disabled
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     touch --no-cleanup a;
     rm a
     EOI
@@ -24,11 +28,47 @@
   : the cleanup registered by the first touch would fail.
   :
   $c <<EOI && $b
-    {
+    testscript.syntax = 2
+
+    {{
       +touch a
       {
         touch ../a
       }
-    }
+    }}
     EOI
-}
+}}
+
+: syntax-1
+:
+{{
+  : cleanup
+  :
+  {{
+    : enabled
+    :
+    $c <'touch a' && $b
+
+    : disabled
+    :
+    $c <<EOI && $b
+      touch --no-cleanup a;
+      rm a
+      EOI
+
+    : existing
+    :
+    : Test that touching an existing file does not register cleanup. If it does
+    : then the file would be removed while leaving the embedded scope, and so
+    : the cleanup registered by the first touch would fail.
+    :
+    $c <<EOI && $b
+      {
+        +touch a
+        {
+          touch ../a
+        }
+      }
+      EOI
+  }}
+}}

@@ -1,6 +1,8 @@
 # file      : libbuild2/shell/script/parser+pipe-expr.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : pipe
 :
 $* <<EOI >>EOO
@@ -89,10 +91,10 @@ EOE
 
 : redirected
 :
-{
+{{
   : input
   :
-  {
+  {{
     : first
     :
     $* <<EOI >>EOO
@@ -108,11 +110,11 @@ EOE
     EOI
     shellscript:11:13: error: stdin is both piped and redirected
     EOE
-  }
+  }}
 
   : output
   :
-  {
+  {{
     : last
     :
     $* <<EOI >>EOO
@@ -128,5 +130,5 @@ EOE
     EOI
     shellscript:11:11: error: stdout is both redirected and piped
     EOE
-  }
-}
+  }}
+}}

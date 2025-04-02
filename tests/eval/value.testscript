@@ -3,6 +3,8 @@
 
 # Test value part of the grammar (eval-value).
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 $* <'print (foo)' >'foo'           : value
@@ -13,10 +15,10 @@ $* <'print (!!true)'    >'true'    : not-double
 
 : attribute
 :
-{
+{{
   $* <'print $type([string] foo)'          >'string' : type
   $* <'print ([uint64] 001)'               >'1'      : value
   $* <'print $null([null])'                >'true'   : null
   $* <'print $type([string] (foo == bar))' >'string' : eval
   $* <'print $type([string] !true)'        >'string' : not
-}
+}}

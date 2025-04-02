@@ -1,9 +1,11 @@
 # file      : libbuild2/build/script/parser+pre-parse.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : attribute
 :
-{
+{{
   : name
   :
   $* <<EOI 2>>EOE != 0
@@ -19,16 +21,16 @@
   EOI
   buildfile:11:5: error: unknown value attribute foo=bar
   EOE
-}
+}}
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : attribute
   :
-  {
+  {{
     : name
     :
     $* <<EOI 2>>EOE != 0
@@ -44,5 +46,5 @@
     EOI
     buildfile:11:5: error: unknown value attribute foo=bar
     EOE
-  }
-}
+  }}
+}}
