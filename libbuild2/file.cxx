@@ -20,6 +20,8 @@
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/parser.hxx>
 
+#include <libbuild2/script/parser.hxx> // max_syntax
+
 #include <libbuild2/config/module.hxx>  // config::module::version
 #include <libbuild2/config/utility.hxx> // config::{lookup_*, save_*}()
 
@@ -671,7 +673,9 @@ namespace build2
         src_root_file    (a ? alt_src_root_file    : std_src_root_file),
         out_root_file    (a ? alt_out_root_file    : std_out_root_file),
 
-        var_pool (&root.ctx, &root.ctx.var_pool.rw (root), nullptr)
+        var_pool (&root.ctx, &root.ctx.var_pool.rw (root), nullptr),
+
+        script_syntax (script::parser::max_syntax)
   {
     root.var_pool_ = &var_pool;
   }

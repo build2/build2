@@ -137,6 +137,8 @@ namespace build2
                string&& t,
                attributes& as)
   {
+    context& ctx (s.ctx);
+
     // Handle and erase recipe-specific attributes.
     //
     optional<string> diag;
@@ -168,9 +170,27 @@ namespace build2
 
     istringstream is (move (t));
 
-    // @@ TMP Retrieve the syntax version from a variable.
+    // Determine the recipe syntax.
     //
-    build::script::parser p (s.ctx, 1 /* syntax */);
+    // Note that we lookup from the scope, not the target (the same recipe or
+    // rule may apply to multiple targets). But that's probably ok since it's
+    // more natural to specify a per-recipe syntax in the recipe itself.
+    //
+    uint64_t syntax;
+    if (lookup l = s[ctx.var_buildscript_syntax])
+    {
+      syntax = cast<uint64_t> (l);
+      build::script::parser::validate_syntax_version (syntax);
+    }
+    else
+    {
+      // Note: use the top-level source-based amalgamation, which is where the
+      // manifest with the build2 version constraint would reside.
+      //
+      syntax = s.strong_scope ()->root_extra->script_syntax;
+    }
+
+    build::script::parser p (ctx, syntax);
 
     script = p.pre_parse (s, tt, actions,
                           is, loc.file, loc.line + 1,

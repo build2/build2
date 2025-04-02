@@ -2210,10 +2210,29 @@ namespace build2
     }
 
     void parser::
+    validate_syntax_version (uint64_t syntax,
+                             const location& loc,
+                             uint64_t min,
+                             uint64_t max)
+    {
+      assert (min <= max && min >= min_syntax && max <= max_syntax);
+
+      if (syntax < min || syntax > max)
+      {
+        if (min != max)
+          build2::fail (loc) << "syntax version must be in [" << min << ','
+                             << max << "] range";
+        else
+          build2::fail (loc) << "only syntax version " << min
+                             << " is supported";
+      }
+    }
+
+    void parser::
     try_parse_syntax_version (const char* name,
                               lexer_mode ftm,
-                              uint64_t min_syntax,
-                              uint64_t max_syntax)
+                              uint64_t min,
+                              uint64_t max)
     {
       assert (syntax_ != 0); // Don't allow changing if syntax-agnostic.
 
@@ -2236,14 +2255,7 @@ namespace build2
         if (next (t, tt) != type::word || !(s = parse_number (t.value)))
           fail (t) << "expected literal syntax version instead of " << t;
 
-        if (*s < min_syntax || *s > max_syntax)
-        {
-          if (min_syntax != max_syntax)
-            fail (t) << "syntax version must be in [" << min_syntax
-                     << ',' << max_syntax << "] range";
-          else
-            fail (t) << "only syntax version " << min_syntax << " is supported";
-        }
+        validate_syntax_version (*s, get_location (t), min, max);
 
         if (next (t, tt) != type::newline)
           fail (t) << "expected newline after syntax version";

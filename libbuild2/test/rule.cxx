@@ -377,9 +377,27 @@ namespace build2
         build2::test::script::script s (t, ts, wd);
 
         {
-          // @@ TMP Retrieve the syntax version from a variable.
+          // Determine the recipe syntax.
           //
-          parser p (t.ctx, 1 /* syntax */);
+          // Note that we lookup from the testscript target, not the target
+          // being tested, since the syntax is the property of testscript.
+          //
+          uint64_t syntax;
+          if (lookup l = ts[c.testscript_syntax])
+          {
+            syntax = cast<uint64_t> (l);
+            parser::validate_syntax_version (syntax);
+          }
+          else
+          {
+            // Note: use the top-level source-based amalgamation, which is where
+            // the manifest with the build2 version constraint would reside.
+            //
+            syntax =
+              ts.root_scope ().strong_scope ()->root_extra->script_syntax;
+          }
+
+          parser p (t.ctx, syntax);
           p.pre_parse (s);
 
           default_runner r (c);

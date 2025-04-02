@@ -592,6 +592,13 @@ namespace build2
       //
       string environment_checksum;
 
+      // Default build/test-script syntax (for now the same).
+      //
+      // Note: may be overriden by the version module based on the build2
+      // version constraint.
+      //
+      uint64_t script_syntax;
+
       root_extra_type (scope&, bool altn); // file.cxx
     };
 
