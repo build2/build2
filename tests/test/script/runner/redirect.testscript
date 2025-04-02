@@ -1,6 +1,8 @@
 # file      : tests/test/script/runner/redirect.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 b += --no-column
@@ -10,44 +12,69 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 
 : pass
 :
-{
-  cat <'$* -i 1 -e bar <| >| 2>|' >=testscript;
+{{
+  cat <<EOI >=testscript;
+  testscript.syntax = 2
+
+  $* -i 1 -e bar <| >| 2>|
+  EOI
   cat <<EOI >=buildfile;
   testscript{testscript}: $target
   EOI
   $0 --no-default-options --serial-stop --quiet test <foo >foo 2>bar
-}
+}}
 
 : null
 :
-{
-  $c <'$* -o foo >-' && $b  : out
-  $c <'$* -e foo 2>-' && $b : err
-}
+{{
+  : out
+  :
+  $c <<EOI && $b
+  testscript.syntax = 2
+
+  $* -o foo >-
+  EOI
+
+  : err
+  :
+  $c <<EOI && $b
+  testscript.syntax = 2
+
+  $* -e foo 2>-
+  EOI
+}}
 
 : trace
 :
-{
+{{
   : default
   :
-  $c <'$* -o foo -e bar >! 2>!' && $b
+  $c <<EOI && $b
+  testscript.syntax = 2
+
+  $* -o foo -e bar >! 2>!
+  EOI
 
   : verbose
   :
-  {
+  {{
     b += -v
 
     : out
     :
-    $c <'$* -o foo >!' && $b >foo 2>>/~%EOE%
+    $c <<EOI && $b >foo 2>>/~%EOE%
+    testscript.syntax = 2
+
+    $* -o foo >!
+    EOI
     %test .+%
     mkdir test/
     touch test/.buildignore
     cd test/
-    mkdir test/1/
-    cd test/1/
+    mkdir test/3/
+    cd test/3/
     %.*/driver(.exe)? -o foo%
-    rmdir test/1/
+    rmdir test/3/
     cd test/
     rm test/.buildignore
     rmdir test/
@@ -56,91 +83,233 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 
     : err
     :
-    $c <'$* -e foo 2>!' && $b 2>>/~%EOE%
+    $c <<EOI && $b 2>>/~%EOE%
+    testscript.syntax = 2
+
+    $* -e foo 2>!
+    EOI
     %test .+%
     mkdir test/
     touch test/.buildignore
     cd test/
-    mkdir test/1/
-    cd test/1/
+    mkdir test/3/
+    cd test/3/
     %.*/driver(.exe)? -e foo%
     foo
-    rmdir test/1/
+    rmdir test/3/
     cd test/
     rm test/.buildignore
     rmdir test/
     cd ./
     EOE
-  }
-}
+  }}
+}}
 
 : str
 :
-{
+{{
   : literal
   :
-  {
-    $c <'$* -i 0 <<<=foo' && $b         : in
-    $c <'$* -i 0 <foo' && $b            : in-alias
-    $c <'$* -o foo >>>?foo' && $b       : out
-    $c <'$* -o foo >foo' && $b          : out-alias
-    $c <'$* -e foo 2>>>?foo' && $b      : err
-    $c <'$* -e foo 2>foo' && $b         : err-alias
-    $c <'$* -i 1 <<<=foo >>>?foo' && $b : inout
-    $c <'$* -i 1 <foo >foo' && $b       : inout-alias
+  {{
+    : in
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 0 <<<=foo
+    EOI
+
+    : in-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 0 <foo
+    EOI
+
+    : out
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -o foo >>>?foo
+    EOI
+
+    : out-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -o foo >foo
+    EOI
+
+    : err
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -e foo 2>>>?foo
+    EOI
+
+    : err-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -e foo 2>foo
+    EOI
+
+    : inout
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 1 <<<=foo >>>?foo
+    EOI
+
+    : inout-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 1 <foo >foo
+    EOI
 
     : inout-fail
     :
-    $c <'$* -i 1 <foo >bar' && $b 2>>/~%EOE%d != 0
-    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match expected%
-      info: stdout: test/1/stdout
-      info: expected stdout: test/1/stdout.orig
-      info: stdout diff: test/1/stdout.diff
-      info: stdin: test/1/stdin
+    $c <<EOI && $b 2>>/~%EOE%d != 0
+    testscript.syntax = 2
+
+    $* -i 1 <foo >bar
+    EOI
+    %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match expected%
+      info: stdout: test/3/stdout
+      info: expected stdout: test/3/stdout.orig
+      info: stdout diff: test/3/stdout.diff
+      info: stdin: test/3/stdin
     %--- \.*%
     %\+\+\+ \.*%
     %@@ \.*%
     -bar
     +foo
-      info: test id: 1
+      info: test id: 3
     EOE
 
-    $c <'$* -i 2 <<<=foo 2>>>?foo' && $b                 : inerr
-    $c <'$* -i 2 <foo 2>foo' && $b                       : inerr-alias
-    $c <'$* -i 1 -e bar <<<=foo 1>>>?foo 2>>>?bar' && $b : inout-err
-    $c <'$* -i 1 -e bar <foo 1>foo 2>bar' && $b          : inout-err-alias
-    $c <'$* -o "" >>>?""' && $b                          : empty
-    $c <'$* -o "" >""' && $b                             : empty-alias
-    $c <'$* -i 1 <<<=:"foo" >>>?:"foo"' && $b            : no-newline
-    $c <'$* -i 1 <:"foo" >:"foo"' && $b                  : no-newline-alias
-    $c <'$* -i 1 <<<=:"" >>>?:""' && $b                  : no-newline-empty
-    $c <'$* -i 1 <:"" >:""' && $b                        : no-newline-empty-alias
+    : inerr
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 2 <<<=foo 2>>>?foo
+    EOI
+
+    : inerr-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 2 <foo 2>foo
+    EOI
+
+    : inout-err
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 1 -e bar <<<=foo 1>>>?foo 2>>>?bar
+    EOI
+
+    : inout-err-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 1 -e bar <foo 1>foo 2>bar
+    EOI
+
+    : empty
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -o "" >>>?""
+    EOI
+
+    : empty-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -o "" >""
+    EOI
+
+    : no-newline
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 1 <<<=:"foo" >>>?:"foo"
+    EOI
+
+    : no-newline-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 1 <:"foo" >:"foo"
+    EOI
+
+    : no-newline-empty
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 1 <<<=:"" >>>?:""
+    EOI
+
+    : no-newline-empty-alias
+    :
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -i 1 <:"" >:""
+    EOI
 
     : no-newline-fail1
     :
-    $c <'$* -i 1 <:"foo" >"foo"' && $b 2>>~/EOE/ != 0
-    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+    $c <<EOI && $b 2>>~/EOE/ != 0
+    testscript.syntax = 2
+
+    $* -i 1 <:"foo" >"foo"
+    EOI
+    /testscript:3: error: .+driver(\.exe)? stdout doesn't match expected/
     /.{7}
     -foo
     +foo
     \ No newline at end of file
-      info: test id: 1
+      info: test id: 3
     EOE
 
     : no-newline-fail2
     :
-    $c <'$* -i 1 <"foo" >:"foo"' && $b 2>>~/EOE/ != 0
-    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+    $c <<EOI && $b 2>>~/EOE/ != 0
+    testscript.syntax = 2
+
+    $* -i 1 <"foo" >:"foo"
+    EOI
+    /testscript:3: error: .+driver(\.exe)? stdout doesn't match expected/
     /.{7}
     -foo
     \ No newline at end of file
     +foo
-      info: test id: 1
+      info: test id: 3
     EOE
 
     : merge
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -o foo -e bar 2>>?EOE 1>&2
     foo
     bar
@@ -150,6 +319,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : merge-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -o foo -e bar 2>>EOE 1>&2
     foo
     bar
@@ -158,35 +329,67 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 
     : portable-path
     :
-    {
-      $c <"\$* -i 1 </'foo/' >'foo$ps'" && $b  : in
-      $c <"\$* -i 1 <'foo$ps' >/'foo/'" && $b  : out
-      $c <"\$* -i 2 <'foo$ps' 2>/'foo/'" && $b : err
-    }
-  }
+    {{
+      : in
+      :
+      $c <<"EOI" && $b
+      testscript.syntax = 2
+
+      \$* -i 1 </'foo/' >'foo$ps'
+      EOI
+
+      : out
+      :
+      $c <<"EOI" && $b
+      testscript.syntax = 2
+
+      \$* -i 1 <'foo$ps' >/'foo/'
+      EOI
+
+      : err
+      :
+      $c <<"EOI" && $b
+      testscript.syntax = 2
+
+      \$* -i 2 <'foo$ps' 2>/'foo/'
+      EOI
+    }}
+  }}
 
   : regex
   :
   : Test regex matching. Note that tests that check regex parsing are located
   : in regex.testscript.
   :
-  {
+  {{
     : match
     :
-    $c <'$* -o foo >>>?~/Foo?/i' && $b
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -o foo >>>?~/Foo?/i
+    EOI
 
     : match-alias
     :
-    $c <'$* -o foo >~/Foo?/i' && $b
+    $c <<EOI && $b
+    testscript.syntax = 2
+
+    $* -o foo >~/Foo?/i
+    EOI
 
     : mismatch
     :
-    $c <'$* -o fooo >~/Foo?/i' && $b 2>>/~%EOE%d != 0
-    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
-      info: stdout: test/1/stdout
-      info: stdout regex: test/1/stdout.regex
+    $c <<EOI && $b 2>>/~%EOE%d != 0
+    testscript.syntax = 2
+
+    $* -o fooo >~/Foo?/i
+    EOI
+    %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match regex%
+      info: stdout: test/3/stdout
+      info: stdout regex: test/3/stdout.regex
     fooo
-      info: test id: 1
+      info: test id: 3
     EOE
 
     : portable-path-failure
@@ -194,43 +397,53 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : Note that we check not only build2 diagnostics being produced, but also
     : the correctness of regex being saved to file (for troubleshooting).
     :
-    {
+    {{
       : newline
       :
-      $c <"\$* -i 1 <'foo' >/~%bar/%" && $b 2>>/~%EOE%d != 0;
-      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
-        info: stdout: test/1/stdout
-        info: stdout regex: test/1/stdout.regex
-        info: stdin: test/1/stdin
+      $c <<"EOI" && $b 2>>/~%EOE%d != 0;
+      testscript.syntax = 2
+
+      \$* -i 1 <'foo' >/~%bar/%
+      EOI
+      %testscript:3: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
+        info: stdout: test/3/stdout
+        info: stdout regex: test/3/stdout.regex
+        info: stdin: test/3/stdin
       foo
-        info: test id: 1
+        info: test id: 3
       EOE
-      cat test/1/stdout.regex >"%bar$psr%"
+      cat test/3/stdout.regex >"%bar$psr%"
 
       : no-newline
       :
-      $c <"\$* -i 1 <'foo' >:/~%bar/%" && $b 2>>/~%EOE%d != 0;
-      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
-        info: stdout: test/1/stdout
-        info: stdout regex: test/1/stdout.regex
-        info: stdin: test/1/stdin
+      $c <<"EOI" && $b 2>>/~%EOE%d != 0;
+      testscript.syntax = 2
+
+      \$* -i 1 <'foo' >:/~%bar/%
+      EOI
+      %testscript:3: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
+        info: stdout: test/3/stdout
+        info: stdout regex: test/3/stdout.regex
+        info: stdin: test/3/stdin
       foo
-        info: test id: 1
+        info: test id: 3
       EOE
-      cat test/1/stdout.regex >:"%bar$psr%"
-    }
-  }
-}
+      cat test/3/stdout.regex >:"%bar$psr%"
+    }}
+  }}
+}}
 
 : doc
 :
-{
+{{
   : literal
   :
-  {
+  {{
     : in
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 0 <<=EOO
     foo
     bar
@@ -240,6 +453,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : in-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 0 <<EOO
     foo
     bar
@@ -249,6 +464,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : out
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -o foo -o bar >>?EOO
     foo
     bar
@@ -258,6 +475,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : out-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -o foo -o bar >>EOO
     foo
     bar
@@ -267,6 +486,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : err
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -e foo -e bar 2>>?EOO
     foo
     bar
@@ -276,6 +497,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : err-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -e foo -e bar 2>>EOO
     foo
     bar
@@ -285,6 +508,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : inout
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=EOF >>?EOO
     foo
     bar
@@ -297,6 +522,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : inout-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<EOF >>EOO
     foo
     bar
@@ -309,6 +536,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : inerr
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 2 <<=EOF 2>>?EOE
     foo
     bar
@@ -318,10 +547,11 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     EOE
     EOI
 
-
     : inerr-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 2 <<EOF 2>>EOE
     foo
     bar
@@ -334,6 +564,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : empty
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=EOF >>?EOO
     EOF
     EOO
@@ -342,6 +574,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : empty-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<EOF >>EOO
     EOF
     EOO
@@ -350,6 +584,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : shared
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=EOF >>?EOF
     foo
     bar
@@ -359,6 +595,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : shared-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<EOF >>EOF
     foo
     bar
@@ -368,6 +606,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : shared-in-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<EOF >>?EOF
     foo
     bar
@@ -377,6 +617,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : shared-out-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=EOF >>EOF
     foo
     bar
@@ -386,6 +628,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : extra-newline
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=EOF >>?EOO
 
     EOF
@@ -396,6 +640,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : no-newline
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=:EOF >>?:EOO
     foo
     EOF
@@ -406,40 +652,46 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : no-newline-fail1
     :
     $c <<EOI && $b 2>>~/EOE/ != 0
+    testscript.syntax = 2
+
     $* -i 1 <<=:EOF >>?EOO
     foo
     EOF
     foo
     EOO
     EOI
-    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+    /testscript:3: error: .+driver(\.exe)? stdout doesn't match expected/
     /.{7}
     -foo
     +foo
     \ No newline at end of file
-      info: test id: 1
+      info: test id: 3
     EOE
 
     : no-newline-fail2
     :
     $c <<EOI && $b 2>>~/EOE/ != 0
+    testscript.syntax = 2
+
     $* -i 1 <<=EOF >>?:EOO
     foo
     EOF
     foo
     EOO
     EOI
-    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+    /testscript:3: error: .+driver(\.exe)? stdout doesn't match expected/
     /.{7}
     -foo
     \ No newline at end of file
     +foo
-      info: test id: 1
+      info: test id: 3
     EOE
 
     : no-newline-empty
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=:EOF >>?:EOO
     EOF
     EOO
@@ -448,6 +700,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : no-newline-extra-newline
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=:EOF >>?:EOO
 
     EOF
@@ -458,6 +712,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : merge
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -i 1 <<=EOF -e baz >>?EOO 2>&1
     foo
     bar
@@ -474,6 +730,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : printed as a part of the diagnostics.
     :
     $c <<EOI && $b 2>>/~%EOE%d != 0
+    testscript.syntax = 2
+
     s="----------------------------------------------------------------------";
     s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
     $* -i 1 <<"EOF" >>"EOO"
@@ -482,20 +740,22 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     x$s
     EOO
     EOI
-    %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match expected%
-      info: stdout: test/1/stdout
-      info: expected stdout: test/1/stdout.orig
-      info: stdout diff: test/1/stdout.diff
-      info: stdin: test/1/stdin
-      info: test id: 1
+    %testscript:5: error: ../../../../../driver(.exe)? stdout doesn't match expected%
+      info: stdout: test/3/stdout
+      info: expected stdout: test/3/stdout.orig
+      info: stdout diff: test/3/stdout.diff
+      info: stdin: test/3/stdin
+      info: test id: 3
     EOE
 
     : portable-path
     :
-    {
+    {{
       : in
       :
       $c <<"EOI" && $b
+      testscript.syntax = 2
+
       \$* -i 1 <<=/EOF >>>?'foo$ps'
       foo/
       EOF
@@ -504,6 +764,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       : in-alias
       :
       $c <<"EOI" && $b
+      testscript.syntax = 2
+
       \$* -i 1 <</EOF >'foo$ps'
       foo/
       EOF
@@ -512,6 +774,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       : out
       :
       $c <<"EOI" && $b
+      testscript.syntax = 2
+
       \$* -i 1 <<<='foo$ps' >>?/EOO
       foo/
       EOO
@@ -520,6 +784,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       : out-alias
       :
       $c <<"EOI" && $b
+      testscript.syntax = 2
+
       \$* -i 1 <'foo$ps' >>/EOO
       foo/
       EOO
@@ -528,6 +794,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       : err
       :
       $c <<"EOI" && $b
+      testscript.syntax = 2
+
       \$* -i 2 <<<='foo$ps' 2>>?/EOE
       foo/
       EOE
@@ -536,22 +804,26 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       : err-alias
       :
       $c <<"EOI" && $b
+      testscript.syntax = 2
+
       \$* -i 2 <'foo$ps' 2>>/EOE
       foo/
       EOE
       EOI
-    }
-  }
+    }}
+  }}
 
   : regex
   :
   : Test regex matching. Note that tests that check regex parsing are located
   : in regex.testscript.
   :
-  {
+  {{
     : match
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -o foo -o foo -o bar >>?~/EOO/i
     /FO*/*
     bar
@@ -562,6 +834,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : match-empty
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* >>?:~/EOO/
     /.{0}
     EOO
@@ -570,6 +844,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : shared
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -o foo -e foo >>?~/EOF/ 2>>?~/EOF/
     foo
     EOF
@@ -578,39 +854,45 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : mismatch
     :
     $c <<EOI && $b 2>>/~%EOE%d != 0
+    testscript.syntax = 2
+
     $* -o foo >>?~/EOO/
     bar
     EOO
     EOI
-    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
-      info: stdout: test/1/stdout
-      info: stdout regex: test/1/stdout.regex
+    %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match regex%
+      info: stdout: test/3/stdout
+      info: stdout regex: test/3/stdout.regex
     foo
-      info: test id: 1
+      info: test id: 3
     EOE
 
     : mismatch-icase
     :
     $c <<EOI && $b 2>>/~%EOE%d != 0
+    testscript.syntax = 2
+
     $* -o foo >>?~/EOO/i
     bar
     EOO
     EOI
-    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
-      info: stdout: test/1/stdout
-      info: stdout regex: test/1/stdout.regex-i
+    %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match regex%
+      info: stdout: test/3/stdout
+      info: stdout regex: test/3/stdout.regex-i
     foo
-      info: test id: 1
+      info: test id: 3
     EOE
-  }
-}
+  }}
+}}
 
 : file
 :
-{
+{{
   : in
   :
   $c <<EOI && $b
+  testscript.syntax = 2
+
   $* -o foo >=out;
   $* -i 1 <=out >foo
   EOI
@@ -618,16 +900,20 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
   : in-alias
   :
   $c <<EOI && $b
+  testscript.syntax = 2
+
   $* -o foo >=out;
   $* -i 1 <<<out >foo
   EOI
 
   : out
   :
-  {
+  {{
     : match
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -o foo >=out;
     $* -e bar 2>+out;
     $* -i 1 <<EOF >?out
@@ -639,6 +925,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : match-alias
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     $* -o foo >=out;
     $* -e bar 2>+out;
     $* -i 1 <<EOF >>>out
@@ -650,25 +938,29 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : mismatch
     :
     $c <<EOI && $b 2>>/~%EOE%d != 0
+    testscript.syntax = 2
+
     $* -o foo >=out;
     $* -o bar >?out
     EOI
-    %testscript:2: error: ../../../../../driver(.exe)? stdout doesn't match expected%
-      info: stdout: test/1/stdout-n2
-      info: expected stdout: test/1/out
-      info: stdout diff: test/1/stdout-n2.diff
+    %testscript:4: error: ../../../../../driver(.exe)? stdout doesn't match expected%
+      info: stdout: test/3/stdout-n2
+      info: expected stdout: test/3/out
+      info: stdout diff: test/3/stdout-n2.diff
     %--- \.*%
     %\+\+\+ \.*%
     %@@ \.*%
     -foo
     +bar
-      info: test id: 1
+      info: test id: 3
     EOE
-  }
+  }}
 
   : merge
   :
   $c <<EOI && $b
+  testscript.syntax = 2
+
   $* -o foo -e bar 2>&1 >=out;
   $* -e baz -o biz 1>&2 2>+out;
   $* -i 1 <<<out >>EOO
@@ -678,4 +970,679 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
   biz
   EOO
   EOI
-}
+}}
+
+: syntax-1
+:
+{{
+  : pass
+  :
+  {{
+    cat <'$* -i 1 -e bar <| >| 2>|' >=testscript;
+    cat <<EOI >=buildfile;
+    testscript{testscript}: $target
+    EOI
+    $0 --no-default-options --serial-stop --quiet test <foo >foo 2>bar
+  }}
+
+  : null
+  :
+  {{
+    $c <'$* -o foo >-' && $b  : out
+    $c <'$* -e foo 2>-' && $b : err
+  }}
+
+  : trace
+  :
+  {{
+    : default
+    :
+    $c <'$* -o foo -e bar >! 2>!' && $b
+
+    : verbose
+    :
+    {{
+      b += -v
+
+      : out
+      :
+      $c <'$* -o foo >!' && $b >foo 2>>/~%EOE%
+      %test .+%
+      mkdir test/
+      touch test/.buildignore
+      cd test/
+      mkdir test/1/
+      cd test/1/
+      %.*/driver(.exe)? -o foo%
+      rmdir test/1/
+      cd test/
+      rm test/.buildignore
+      rmdir test/
+      cd ./
+      EOE
+
+      : err
+      :
+      $c <'$* -e foo 2>!' && $b 2>>/~%EOE%
+      %test .+%
+      mkdir test/
+      touch test/.buildignore
+      cd test/
+      mkdir test/1/
+      cd test/1/
+      %.*/driver(.exe)? -e foo%
+      foo
+      rmdir test/1/
+      cd test/
+      rm test/.buildignore
+      rmdir test/
+      cd ./
+      EOE
+    }}
+  }}
+
+  : str
+  :
+  {{
+    : literal
+    :
+    {{
+      $c <'$* -i 0 <<<=foo' && $b         : in
+      $c <'$* -i 0 <foo' && $b            : in-alias
+      $c <'$* -o foo >>>?foo' && $b       : out
+      $c <'$* -o foo >foo' && $b          : out-alias
+      $c <'$* -e foo 2>>>?foo' && $b      : err
+      $c <'$* -e foo 2>foo' && $b         : err-alias
+      $c <'$* -i 1 <<<=foo >>>?foo' && $b : inout
+      $c <'$* -i 1 <foo >foo' && $b       : inout-alias
+
+      : inout-fail
+      :
+      $c <'$* -i 1 <foo >bar' && $b 2>>/~%EOE%d != 0
+      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match expected%
+        info: stdout: test/1/stdout
+        info: expected stdout: test/1/stdout.orig
+        info: stdout diff: test/1/stdout.diff
+        info: stdin: test/1/stdin
+      %--- \.*%
+      %\+\+\+ \.*%
+      %@@ \.*%
+      -bar
+      +foo
+        info: test id: 1
+      EOE
+
+      $c <'$* -i 2 <<<=foo 2>>>?foo' && $b                 : inerr
+      $c <'$* -i 2 <foo 2>foo' && $b                       : inerr-alias
+      $c <'$* -i 1 -e bar <<<=foo 1>>>?foo 2>>>?bar' && $b : inout-err
+      $c <'$* -i 1 -e bar <foo 1>foo 2>bar' && $b          : inout-err-alias
+      $c <'$* -o "" >>>?""' && $b                          : empty
+      $c <'$* -o "" >""' && $b                             : empty-alias
+      $c <'$* -i 1 <<<=:"foo" >>>?:"foo"' && $b            : no-newline
+      $c <'$* -i 1 <:"foo" >:"foo"' && $b                  : no-newline-alias
+      $c <'$* -i 1 <<<=:"" >>>?:""' && $b                  : no-newline-empty
+      $c <'$* -i 1 <:"" >:""' && $b                        : no-newline-empty-alias
+
+      : no-newline-fail1
+      :
+      $c <'$* -i 1 <:"foo" >"foo"' && $b 2>>~/EOE/ != 0
+      /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+      /.{7}
+      -foo
+      +foo
+      \ No newline at end of file
+        info: test id: 1
+      EOE
+
+      : no-newline-fail2
+      :
+      $c <'$* -i 1 <"foo" >:"foo"' && $b 2>>~/EOE/ != 0
+      /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+      /.{7}
+      -foo
+      \ No newline at end of file
+      +foo
+        info: test id: 1
+      EOE
+
+      : merge
+      :
+      $c <<EOI && $b
+      $* -o foo -e bar 2>>?EOE 1>&2
+      foo
+      bar
+      EOE
+      EOI
+
+      : merge-alias
+      :
+      $c <<EOI && $b
+      $* -o foo -e bar 2>>EOE 1>&2
+      foo
+      bar
+      EOE
+      EOI
+
+      : portable-path
+      :
+      {{
+        $c <"\$* -i 1 </'foo/' >'foo$ps'" && $b  : in
+        $c <"\$* -i 1 <'foo$ps' >/'foo/'" && $b  : out
+        $c <"\$* -i 2 <'foo$ps' 2>/'foo/'" && $b : err
+      }}
+    }}
+
+    : regex
+    :
+    : Test regex matching. Note that tests that check regex parsing are located
+    : in regex.testscript.
+    :
+    {{
+      : match
+      :
+      $c <'$* -o foo >>>?~/Foo?/i' && $b
+
+      : match-alias
+      :
+      $c <'$* -o foo >~/Foo?/i' && $b
+
+      : mismatch
+      :
+      $c <'$* -o fooo >~/Foo?/i' && $b 2>>/~%EOE%d != 0
+      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
+        info: stdout: test/1/stdout
+        info: stdout regex: test/1/stdout.regex
+      fooo
+        info: test id: 1
+      EOE
+
+      : portable-path-failure
+      :
+      : Note that we check not only build2 diagnostics being produced, but also
+      : the correctness of regex being saved to file (for troubleshooting).
+      :
+      {{
+        : newline
+        :
+        $c <"\$* -i 1 <'foo' >/~%bar/%" && $b 2>>/~%EOE%d != 0;
+        %testscript:1: error: ../../../../../../../driver(.exe)? stdout doesn't match regex%
+          info: stdout: test/1/stdout
+          info: stdout regex: test/1/stdout.regex
+          info: stdin: test/1/stdin
+        foo
+          info: test id: 1
+        EOE
+        cat test/1/stdout.regex >"%bar$psr%"
+
+        : no-newline
+        :
+        $c <"\$* -i 1 <'foo' >:/~%bar/%" && $b 2>>/~%EOE%d != 0;
+        %testscript:1: error: ../../../../../../../driver(.exe)? stdout doesn't match regex%
+          info: stdout: test/1/stdout
+          info: stdout regex: test/1/stdout.regex
+          info: stdin: test/1/stdin
+        foo
+          info: test id: 1
+        EOE
+        cat test/1/stdout.regex >:"%bar$psr%"
+      }}
+    }}
+  }}
+
+  : doc
+  :
+  {{
+    : literal
+    :
+    {{
+      : in
+      :
+      $c <<EOI && $b
+      $* -i 0 <<=EOO
+      foo
+      bar
+      EOO
+      EOI
+
+      : in-alias
+      :
+      $c <<EOI && $b
+      $* -i 0 <<EOO
+      foo
+      bar
+      EOO
+      EOI
+
+      : out
+      :
+      $c <<EOI && $b
+      $* -o foo -o bar >>?EOO
+      foo
+      bar
+      EOO
+      EOI
+
+      : out-alias
+      :
+      $c <<EOI && $b
+      $* -o foo -o bar >>EOO
+      foo
+      bar
+      EOO
+      EOI
+
+      : err
+      :
+      $c <<EOI && $b
+      $* -e foo -e bar 2>>?EOO
+      foo
+      bar
+      EOO
+      EOI
+
+      : err-alias
+      :
+      $c <<EOI && $b
+      $* -e foo -e bar 2>>EOO
+      foo
+      bar
+      EOO
+      EOI
+
+      : inout
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=EOF >>?EOO
+      foo
+      bar
+      EOF
+      foo
+      bar
+      EOO
+      EOI
+
+      : inout-alias
+      :
+      $c <<EOI && $b
+      $* -i 1 <<EOF >>EOO
+      foo
+      bar
+      EOF
+      foo
+      bar
+      EOO
+      EOI
+
+      : inerr
+      :
+      $c <<EOI && $b
+      $* -i 2 <<=EOF 2>>?EOE
+      foo
+      bar
+      EOF
+      foo
+      bar
+      EOE
+      EOI
+
+      : inerr-alias
+      :
+      $c <<EOI && $b
+      $* -i 2 <<EOF 2>>EOE
+      foo
+      bar
+      EOF
+      foo
+      bar
+      EOE
+      EOI
+
+      : empty
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=EOF >>?EOO
+      EOF
+      EOO
+      EOI
+
+      : empty-alias
+      :
+      $c <<EOI && $b
+      $* -i 1 <<EOF >>EOO
+      EOF
+      EOO
+      EOI
+
+      : shared
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=EOF >>?EOF
+      foo
+      bar
+      EOF
+      EOI
+
+      : shared-alias
+      :
+      $c <<EOI && $b
+      $* -i 1 <<EOF >>EOF
+      foo
+      bar
+      EOF
+      EOI
+
+      : shared-in-alias
+      :
+      $c <<EOI && $b
+      $* -i 1 <<EOF >>?EOF
+      foo
+      bar
+      EOF
+      EOI
+
+      : shared-out-alias
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=EOF >>EOF
+      foo
+      bar
+      EOF
+      EOI
+
+      : extra-newline
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=EOF >>?EOO
+
+      EOF
+
+      EOO
+      EOI
+
+      : no-newline
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=:EOF >>?:EOO
+      foo
+      EOF
+      foo
+      EOO
+      EOI
+
+      : no-newline-fail1
+      :
+      $c <<EOI && $b 2>>~/EOE/ != 0
+      $* -i 1 <<=:EOF >>?EOO
+      foo
+      EOF
+      foo
+      EOO
+      EOI
+      /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+      /.{7}
+      -foo
+      +foo
+      \ No newline at end of file
+        info: test id: 1
+      EOE
+
+      : no-newline-fail2
+      :
+      $c <<EOI && $b 2>>~/EOE/ != 0
+      $* -i 1 <<=EOF >>?:EOO
+      foo
+      EOF
+      foo
+      EOO
+      EOI
+      /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+      /.{7}
+      -foo
+      \ No newline at end of file
+      +foo
+        info: test id: 1
+      EOE
+
+      : no-newline-empty
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=:EOF >>?:EOO
+      EOF
+      EOO
+      EOI
+
+      : no-newline-extra-newline
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=:EOF >>?:EOO
+
+      EOF
+
+      EOO
+      EOI
+
+      : merge
+      :
+      $c <<EOI && $b
+      $* -i 1 <<=EOF -e baz >>?EOO 2>&1
+      foo
+      bar
+      EOF
+      foo
+      bar
+      baz
+      EOO
+      EOI
+
+      : large-diff
+      :
+      : Make sure that the large (>4KB) expected/real output difference is not
+      : printed as a part of the diagnostics.
+      :
+      $c <<EOI && $b 2>>/~%EOE%d != 0
+      s="----------------------------------------------------------------------";
+      s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+      $* -i 1 <<"EOF" >>"EOO"
+      $s
+      EOF
+      x$s
+      EOO
+      EOI
+      %testscript:3: error: ../../../../../../driver(.exe)? stdout doesn't match expected%
+        info: stdout: test/1/stdout
+        info: expected stdout: test/1/stdout.orig
+        info: stdout diff: test/1/stdout.diff
+        info: stdin: test/1/stdin
+        info: test id: 1
+      EOE
+
+      : portable-path
+      :
+      {{
+        : in
+        :
+        $c <<"EOI" && $b
+        \$* -i 1 <<=/EOF >>>?'foo$ps'
+        foo/
+        EOF
+        EOI
+
+        : in-alias
+        :
+        $c <<"EOI" && $b
+        \$* -i 1 <</EOF >'foo$ps'
+        foo/
+        EOF
+        EOI
+
+        : out
+        :
+        $c <<"EOI" && $b
+        \$* -i 1 <<<='foo$ps' >>?/EOO
+        foo/
+        EOO
+        EOI
+
+        : out-alias
+        :
+        $c <<"EOI" && $b
+        \$* -i 1 <'foo$ps' >>/EOO
+        foo/
+        EOO
+        EOI
+
+        : err
+        :
+        $c <<"EOI" && $b
+        \$* -i 2 <<<='foo$ps' 2>>?/EOE
+        foo/
+        EOE
+        EOI
+
+        : err-alias
+        :
+        $c <<"EOI" && $b
+        \$* -i 2 <'foo$ps' 2>>/EOE
+        foo/
+        EOE
+        EOI
+      }}
+    }}
+
+    : regex
+    :
+    : Test regex matching. Note that tests that check regex parsing are located
+    : in regex.testscript.
+    :
+    {{
+      : match
+      :
+      $c <<EOI && $b
+      $* -o foo -o foo -o bar >>?~/EOO/i
+      /FO*/*
+      bar
+      /*
+      EOO
+      EOI
+
+      : match-empty
+      :
+      $c <<EOI && $b
+      $* >>?:~/EOO/
+      /.{0}
+      EOO
+      EOI
+
+      : shared
+      :
+      $c <<EOI && $b
+      $* -o foo -e foo >>?~/EOF/ 2>>?~/EOF/
+      foo
+      EOF
+      EOI
+
+      : mismatch
+      :
+      $c <<EOI && $b 2>>/~%EOE%d != 0
+      $* -o foo >>?~/EOO/
+      bar
+      EOO
+      EOI
+      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
+        info: stdout: test/1/stdout
+        info: stdout regex: test/1/stdout.regex
+      foo
+        info: test id: 1
+      EOE
+
+      : mismatch-icase
+      :
+      $c <<EOI && $b 2>>/~%EOE%d != 0
+      $* -o foo >>?~/EOO/i
+      bar
+      EOO
+      EOI
+      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
+        info: stdout: test/1/stdout
+        info: stdout regex: test/1/stdout.regex-i
+      foo
+        info: test id: 1
+      EOE
+    }}
+  }}
+
+  : file
+  :
+  {{
+    : in
+    :
+    $c <<EOI && $b
+    $* -o foo >=out;
+    $* -i 1 <=out >foo
+    EOI
+
+    : in-alias
+    :
+    $c <<EOI && $b
+    $* -o foo >=out;
+    $* -i 1 <<<out >foo
+    EOI
+
+    : out
+    :
+    {{
+      : match
+      :
+      $c <<EOI && $b
+      $* -o foo >=out;
+      $* -e bar 2>+out;
+      $* -i 1 <<EOF >?out
+      foo
+      bar
+      EOF
+      EOI
+
+      : match-alias
+      :
+      $c <<EOI && $b
+      $* -o foo >=out;
+      $* -e bar 2>+out;
+      $* -i 1 <<EOF >>>out
+      foo
+      bar
+      EOF
+      EOI
+
+      : mismatch
+      :
+      $c <<EOI && $b 2>>/~%EOE%d != 0
+      $* -o foo >=out;
+      $* -o bar >?out
+      EOI
+      %testscript:2: error: ../../../../../../driver(.exe)? stdout doesn't match expected%
+        info: stdout: test/1/stdout-n2
+        info: expected stdout: test/1/out
+        info: stdout diff: test/1/stdout-n2.diff
+      %--- \.*%
+      %\+\+\+ \.*%
+      %@@ \.*%
+      -foo
+      +bar
+        info: test id: 1
+      EOE
+    }}
+
+    : merge
+    :
+    $c <<EOI && $b
+    $* -o foo -e bar 2>&1 >=out;
+    $* -e baz -o biz 1>&2 2>+out;
+    $* -i 1 <<<out >>EOO
+    foo
+    bar
+    baz
+    biz
+    EOO
+    EOI
+  }}
+}}

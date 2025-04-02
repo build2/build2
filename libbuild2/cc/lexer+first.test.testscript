@@ -4,6 +4,8 @@
 # Test the first token of a logical line logic.
 #
 
+testscript.syntax = 2
+
 : basics
 :
 $* -f <<EOI >>EOO

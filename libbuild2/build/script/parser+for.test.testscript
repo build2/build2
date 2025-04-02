@@ -1,14 +1,16 @@
 # file      : libbuild2/build/script/parser+for.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : form-1
 :
 : for x: ...
 :
-{
+{{
   : for
   :
-  {
+  {{
     : no-var
     :
     $* <<EOI 2>>EOE != 0
@@ -97,11 +99,11 @@
     cmd b
     cmd b
     EOO
-  }
+  }}
 
   : rcbrace
   :
-  {
+  {{
     : without-end
     :
     $* <<EOI 2>>EOE != 0
@@ -111,11 +113,11 @@
     EOI
     buildfile:14:1: error: expected command instead of <end of file>
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -127,7 +129,7 @@
     EOI
     buildfile:13:3: error: 'elif' without preceding 'if'
     EOE
-  }
+  }}
 
   : nested
   :
@@ -164,7 +166,7 @@
 
   : contained
   :
-  {
+  {{
     : eos
     :
     $* <<EOI 2>>EOE != 0
@@ -172,17 +174,17 @@
     EOI
     buildfile:12:1: error: expected command instead of <end of file>
     EOE
-  }
-}
+  }}
+}}
 
 : form-2
 :
 : ... | for x
 :
-{
+{{
   : for
   :
-  {
+  {{
     : status
     :
     $* <<EOI 2>>EOE != 0
@@ -327,11 +329,11 @@
     EOI
     echo 'a b' | for -w x [dir_path]
     EOO
-  }
+  }}
 
   : rcbrace
   :
-  {
+  {{
     : without-end
     :
     $* <<EOI 2>>EOE != 0
@@ -341,11 +343,11 @@
     EOI
     buildfile:14:1: error: expected command instead of <end of file>
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -357,7 +359,7 @@
     EOI
     buildfile:13:3: error: 'elif' without preceding 'if'
     EOE
-  }
+  }}
 
   : nested
   :
@@ -382,16 +384,16 @@
     cmd6 # 9
     EOO
   }
-}
+}}
 
 : form-3
 :
 : for x <...
 :
-{
+{{
   : for
   :
-  {
+  {{
     : status
     :
     $* <<EOI 2>>EOE != 0
@@ -549,11 +551,11 @@
     EOI
     for -w x [dir_path] <'a b'
     EOO
-  }
+  }}
 
   : rcbrace
   :
-  {
+  {{
     : without-end
     :
     $* <<EOI 2>>EOE != 0
@@ -563,11 +565,11 @@
     EOI
     buildfile:14:1: error: expected command instead of <end of file>
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -579,7 +581,7 @@
     EOI
     buildfile:13:3: error: 'elif' without preceding 'if'
     EOE
-  }
+  }}
 
   : nested
   :
@@ -607,7 +609,7 @@
 
   : contained
   :
-  {
+  {{
     : eos
     :
     $* <<EOI 2>>EOE != 0
@@ -615,22 +617,22 @@
     EOI
     buildfile:12:1: error: expected command instead of <end of file>
     EOE
-  }
-}
+  }}
+}}
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : form-1
   :
   : for x: ...
   :
-  {
+  {{
     : for
     :
-    {
+    {{
       : no-var
       :
       $* <<EOI 2>>EOE != 0
@@ -728,11 +730,11 @@
       cmd b
       cmd b
       EOO
-    }
+    }}
 
     : end
     :
-    {
+    {{
       : without-end
       :
       $* <<EOI 2>>EOE != 0
@@ -741,11 +743,11 @@
       EOI
       buildfile:13:1: error: expected closing 'end'
       EOE
-    }
+    }}
 
     : elif
     :
-    {
+    {{
       : without-if
       :
       $* <<EOI 2>>EOE != 0
@@ -757,7 +759,7 @@
       EOI
       buildfile:12:3: error: 'elif' without preceding 'if'
       EOE
-    }
+    }}
 
     : nested
     :
@@ -793,7 +795,7 @@
 
     : contained
     :
-    {
+    {{
       : eos
       :
       $* <<EOI 2>>EOE != 0
@@ -801,17 +803,17 @@
       EOI
       buildfile:12:1: error: expected closing 'end'
       EOE
-    }
-  }
+    }}
+  }}
 
   : form-2
   :
   : ... | for x
   :
-  {
+  {{
     : for
     :
-    {
+    {{
       : status
       :
       $* <<EOI 2>>EOE != 0
@@ -972,11 +974,11 @@
       EOI
       echo 'a b' | for -w x [dir_path]
       EOO
-    }
+    }}
 
     : end
     :
-    {
+    {{
       : without-end
       :
       $* <<EOI 2>>EOE != 0
@@ -985,11 +987,11 @@
       EOI
       buildfile:13:1: error: expected closing 'end'
       EOE
-    }
+    }}
 
     : elif
     :
-    {
+    {{
       : without-if
       :
       $* <<EOI 2>>EOE != 0
@@ -1001,7 +1003,7 @@
       EOI
       buildfile:12:3: error: 'elif' without preceding 'if'
       EOE
-    }
+    }}
 
     : nested
     :
@@ -1025,16 +1027,16 @@
       cmd6 # 9
       EOO
     }
-  }
+  }}
 
   : form-3
   :
   : for x <...
   :
-  {
+  {{
     : for
     :
-    {
+    {{
       : status
       :
       $* <<EOI 2>>EOE != 0
@@ -1210,11 +1212,11 @@
       EOI
       for -w x [dir_path] <'a b'
       EOO
-    }
+    }}
 
     : end
     :
-    {
+    {{
       : without-end
       :
       $* <<EOI 2>>EOE != 0
@@ -1223,11 +1225,11 @@
       EOI
       buildfile:13:1: error: expected closing 'end'
       EOE
-    }
+    }}
 
     : elif
     :
-    {
+    {{
       : without-if
       :
       $* <<EOI 2>>EOE != 0
@@ -1239,7 +1241,7 @@
       EOI
       buildfile:12:3: error: 'elif' without preceding 'if'
       EOE
-    }
+    }}
 
     : nested
     :
@@ -1266,7 +1268,7 @@
 
     : contained
     :
-    {
+    {{
       : eos
       :
       $* <<EOI 2>>EOE != 0
@@ -1274,6 +1276,6 @@
       EOI
       buildfile:12:1: error: expected closing 'end'
       EOE
-    }
-  }
-}
+    }}
+  }}
+}}

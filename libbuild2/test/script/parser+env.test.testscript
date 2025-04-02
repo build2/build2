@@ -1,9 +1,11 @@
 # file      : libbuild2/test/script/parser+env.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : unset
 :
-{
+{{
   $* <'env -u a -- cmd'      >'env -u a -- cmd'      : short-opt
   $* <'env --unset a -- cmd' >'env -u a -- cmd'      : long-opt
   $* <'env --unset=a -- cmd' >'env -u a -- cmd'      : long-opt-eq
@@ -43,11 +45,11 @@
   $* <'env && cmd' 2>>EOE != 0
     testscript:1:5: error: env: expected option, variable, or '--' separator instead of '&&'
     EOE
-}
+}}
 
 : set
 :
-{
+{{
   $* <'env a=b -- cmd'      >'env a=b -- cmd'      : var
   $* <'env -u a b=c -- cmd' >'env -u a b=c -- cmd' : opt-var
   $* <'env a="b c" -- cmd'  >"env a='b c' -- cmd"  : quote
@@ -64,17 +66,17 @@
   $* <'env a -- cmd' 2>>EOE != 0
     testscript:1:5: error: env: expected variable assignment instead of 'a'
     EOE
-}
+}}
 
 : timeout
 :
-{
+{{
   $* <'env -t 5 -- cmd'        >'env -t 5 -- cmd'      : short-opt
   $* <'env --timeout 5 -- cmd' >'env -t 5 -- cmd'      : long-opt
   $* <'env --timeout=5 -- cmd' >'env -t 5 -- cmd'      : long-opt-eq
   $* <'env -u a -t 5 -- cmd'   >'env -t 5 -u a -- cmd' : mult-opt
   $* <'env -t 5 a=b -- cmd'    >'env -t 5 a=b -- cmd'  : args
-}
+}}
 
 : non-first
 :
@@ -88,12 +90,12 @@ $* <'env -u a --' 2>>EOE != 0
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : unset
   :
-  {
+  {{
     $* <'env -u a -- cmd'      >'env -u a -- cmd'      : short-opt
     $* <'env --unset a -- cmd' >'env -u a -- cmd'      : long-opt
     $* <'env --unset=a -- cmd' >'env -u a -- cmd'      : long-opt-eq
@@ -133,11 +135,11 @@ $* <'env -u a --' 2>>EOE != 0
     $* <'env && cmd' 2>>EOE != 0
       testscript:1:5: error: env: expected option, variable, or '--' separator instead of '&&'
       EOE
-  }
+  }}
 
   : set
   :
-  {
+  {{
     $* <'env a=b -- cmd'      >'env a=b -- cmd'      : var
     $* <'env -u a b=c -- cmd' >'env -u a b=c -- cmd' : opt-var
     $* <'env a="b c" -- cmd'  >"env a='b c' -- cmd"  : quote
@@ -154,17 +156,17 @@ $* <'env -u a --' 2>>EOE != 0
     $* <'env a -- cmd' 2>>EOE != 0
       testscript:1:5: error: env: expected variable assignment instead of 'a'
       EOE
-  }
+  }}
 
   : timeout
   :
-  {
+  {{
     $* <'env -t 5 -- cmd'        >'env -t 5 -- cmd'      : short-opt
     $* <'env --timeout 5 -- cmd' >'env -t 5 -- cmd'      : long-opt
     $* <'env --timeout=5 -- cmd' >'env -t 5 -- cmd'      : long-opt-eq
     $* <'env -u a -t 5 -- cmd'   >'env -t 5 -u a -- cmd' : mult-opt
     $* <'env -t 5 a=b -- cmd'    >'env -t 5 a=b -- cmd'  : args
-  }
+  }}
 
   : non-first
   :
@@ -175,4 +177,4 @@ $* <'env -u a --' 2>>EOE != 0
   $* <'env -u a --' 2>>EOE != 0
     testscript:1:12: error: env: expected program name instead of <newline>
     EOE
-}
+}}

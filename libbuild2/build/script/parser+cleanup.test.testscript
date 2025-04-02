@@ -1,6 +1,8 @@
 # file      : libbuild2/build/script/parser+cleanup.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : always
 :
 $* <<EOI >>EOO
@@ -35,7 +37,7 @@ EOE
 
 : missed-before
 :
-{
+{{
   : token
   :
   : Path missed before command next token
@@ -54,11 +56,11 @@ EOE
   EOI
   buildfile:11:6: error: missing cleanup path
   EOE
-}
+}}
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : always
@@ -95,7 +97,7 @@ EOE
 
   : missed-before
   :
-  {
+  {{
     : token
     :
     : Path missed before command next token
@@ -114,5 +116,5 @@ EOE
     EOI
     buildfile:11:6: error: missing cleanup path
     EOE
-  }
-}
+  }}
+}}

@@ -61,6 +61,7 @@ EOI
 #
 if ($cxx.target.class == 'windows' && \
     ($cxx.id == 'gcc' || $cxx.id.type == 'clang'))
+{
   modules = false
   headers = false
-end
+}

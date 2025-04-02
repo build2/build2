@@ -1,6 +1,8 @@
 # file      : tests/test/simple/generated/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.arguments = test clean
 
 .include ../../common.testscript
@@ -45,7 +47,7 @@ EOI
 
 : output-mismatch
 :
-{
+{{
   # Get rid of --serial-stop --quiet.
   #
   test.options = $regex.apply($test.options, '^(--serial-stop|--quiet)$', '')
@@ -53,8 +55,8 @@ EOI
   : verbose-0
   :
   {
-    echo '1.2.3' >=input;
-    echo '3.4.5' >=output;
+    echo '1.2.3' >=input
+    echo '3.4.5' >=output
     $* -q <<EOI 2>>/~%EOE% != 0
     driver = $src_root/../exe{driver}
     ./: test = $driver
@@ -73,8 +75,8 @@ EOI
   : verbose-1
   :
   {
-    echo '1.2.3' >=input;
-    echo '3.4.5' >=output;
+    echo '1.2.3' >=input
+    echo '3.4.5' >=output
     $* <<EOI 2>>/~%EOE% != 0
     driver = $src_root/../exe{driver}
     ./: test = $driver
@@ -97,8 +99,8 @@ EOI
   : verbose-2
   :
   {
-    echo '1.2.3' >=input;
-    echo '3.4.5' >=output;
+    echo '1.2.3' >=input
+    echo '3.4.5' >=output
     $* --verbose 2 <<EOI 2>>/~%EOE% != 0
     driver = $src_root/../exe{driver}
     ./: test = $driver
@@ -120,8 +122,8 @@ EOI
   : verbose-3
   :
   {
-    echo '1.2.3' >=input;
-    echo '3.4.5' >=output;
+    echo '1.2.3' >=input
+    echo '3.4.5' >=output
     $* --verbose 3 <<EOI 2>>/~%EOE% != 0
     driver = $src_root/../exe{driver}
     ./: test = $driver
@@ -143,8 +145,8 @@ EOI
   : input-not-found
   :
   {
-    echo '1.2.3' >=input;
-    echo '3.4.5' >=output;
+    echo '1.2.3' >=input
+    echo '3.4.5' >=output
     $* -q <<EOI 2>>/~%EOE% != 0
     driver = $src_root/../exe{driver}
     ./: test = $driver
@@ -158,14 +160,14 @@ EOI
     %  error: process .+/driver.* exited with code 1%
     EOE
   }
-}
+}}
 
 : timeout
 :
-{
+{{
   : operation
   :
-  {
+  {{
     : no-output
     :
     ln -s $src_base/output.in ./;
@@ -201,11 +203,11 @@ EOI
       info: while testing dir{./}
     info: failed to test dir{./}
     EOE
-  }
+  }}
 
   : test
   :
-  {
+  {{
     : no-output
     :
     ln -s $src_base/output.in ./;
@@ -218,14 +220,14 @@ EOI
     error: test dir{./} failed
     %  error: process .+driver.* terminated: execution timeout expired%
     EOE
-  }
-}
+  }}
+}}
 
 : runner
 :
 if ($cxx.target.class != 'windows')
 {
-  cat <<EOI >=run;
+  cat <<EOI >=run
     #!/bin/sh
     if test "$1" = "--trace"; then
       shift
@@ -234,10 +236,10 @@ if ($cxx.target.class != 'windows')
     "$@"
     EOI
 
-  chmod u+x run;
+  chmod u+x run
 
-  echo 'tracing'          >=output.in;
-  cat $src_base/output.in >+output.in;
+  echo 'tracing'          >=output.in
+  cat $src_base/output.in >+output.in
 
   $* config.test.runner="./run --trace" <<EOI
   driver = $src_root/../exe{driver}

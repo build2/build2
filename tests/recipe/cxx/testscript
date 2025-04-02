@@ -1,11 +1,13 @@
 # file      : tests/recipe/cxx/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # Ad hoc C++ recipes not supported in a statically-linked build system. Also
 # disable when cross-testing for the sake of simplicity.
 #
 if (!$static && $test.target == $build.host)
-{
+{{
   +mkdir build
   +cat <<EOI >=build/bootstrap.build
     project = test
@@ -31,9 +33,9 @@ if (!$static && $test.target == $build.host)
   : update-clean
   :
   {
-    echo 'bar' >=bar;
+    echo 'bar' >=bar
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo: bar
       % update clean
       {{ c++ 1
@@ -91,16 +93,16 @@ if (!$static && $test.target == $build.host)
       }}
       EOI
 
-    $* 2>>~%EOE%;
+    $* 2>>~%EOE%
       %^(c\+\+|ld).*%+
       cp file{bar} -> file{foo}
       EOE
 
-    cat <<<foo >'bar';
+    cat <<<foo >'bar'
 
     # While at it, make sure there is no rebuild.
     #
-    $* 2>/'info: dir{./} is up to date';
+    $* 2>/'info: dir{./} is up to date'
 
     $* clean 2>-
   }
@@ -108,9 +110,9 @@ if (!$static && $test.target == $build.host)
   : test
   :
   {
-    echo 'bar' >=bar;
+    echo 'bar' >=bar
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo: bar
       {{
         cp $path($<) $path($>)
@@ -155,7 +157,7 @@ if (!$static && $test.target == $build.host)
       }}
       EOI
 
-    $* test 2>>~%EOE%;
+    $* test 2>>~%EOE%
       %^(c\+\+|ld).*%+
       cp file{bar} -> file{foo}
       test file{foo}
@@ -168,7 +170,7 @@ if (!$static && $test.target == $build.host)
   : rule
   :
   {
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       alias{far}: alias{bar}
       alias{bar}:
 
@@ -208,4 +210,4 @@ if (!$static && $test.target == $build.host)
   # Clean recipe builds if the testscript is enabled (see above for details).
   #
   -$* clean 2>-
-}
+}}

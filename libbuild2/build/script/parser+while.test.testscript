@@ -1,9 +1,11 @@
 # file      : libbuild2/build/script/parser+while.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : while
 :
-{
+{{
   : true
   :
   $* <<EOI >>EOO
@@ -40,11 +42,11 @@
   EOI
   buildfile:11:6: error: missing program
   EOE
-}
+}}
 
 : rcbrace
 :
-{
+{{
   : without-end
   :
   $* <<EOI 2>>EOE != 0
@@ -54,11 +56,11 @@
   EOI
   buildfile:14:1: error: expected command instead of <end of file>
   EOE
-}
+}}
 
 : elif
 :
-{
+{{
   : without-if
   :
   $* <<EOI 2>>EOE != 0
@@ -70,7 +72,7 @@
   EOI
   buildfile:13:3: error: 'elif' without preceding 'if'
   EOE
-}
+}}
 
 : nested
 :
@@ -113,7 +115,7 @@
 
 : contained
 :
-{
+{{
   : eos
   :
   $* <<EOI 2>>EOE != 0
@@ -121,7 +123,7 @@
   EOI
   buildfile:12:1: error: expected command instead of <end of file>
   EOE
-}
+}}
 
 : var
 :
@@ -140,12 +142,12 @@ EOO
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : while
   :
-  {
+  {{
     : true
     :
     $* <<EOI >>EOO
@@ -181,11 +183,11 @@ EOO
     EOI
     buildfile:11:6: error: missing program
     EOE
-  }
+  }}
 
   : end
   :
-  {
+  {{
     : without-end
     :
     $* <<EOI 2>>EOE != 0
@@ -194,11 +196,11 @@ EOO
     EOI
     buildfile:13:1: error: expected closing 'end'
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -210,7 +212,7 @@ EOO
     EOI
     buildfile:12:3: error: 'elif' without preceding 'if'
     EOE
-  }
+  }}
 
   : nested
   :
@@ -250,7 +252,7 @@ EOO
 
   : contained
   :
-  {
+  {{
     : eos
     :
     $* <<EOI 2>>EOE != 0
@@ -258,7 +260,7 @@ EOO
     EOI
     buildfile:12:1: error: expected closing 'end'
     EOE
-  }
+  }}
 
   : var
   :
@@ -273,4 +275,4 @@ EOO
   ? false
   cmd a
   EOO
-}
+}}

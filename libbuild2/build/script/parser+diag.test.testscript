@@ -1,6 +1,8 @@
 # file      : libbuild2/build/script/parser+diag.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.options += -g
 
 : name
@@ -29,7 +31,7 @@ $* <<EOI >>EOO
 
 : preamble
 :
-{
+{{
   : disambiguate
   :
   $* <<EOI >>~%EOO%
@@ -69,7 +71,7 @@ $* <<EOI >>EOO
 
   : temp_dir
   :
-  {
+  {{
     test.options += -t
 
     : no
@@ -109,12 +111,12 @@ $* <<EOI >>EOO
       f = $~/f
       foo "$f"
       EOI
-  }
-}
+  }}
+}}
 
 : ambiguity
 :
-{
+{{
   : name
   :
   $* test <<EOI 2>>EOE != 0
@@ -149,7 +151,7 @@ $* <<EOI >>EOO
       info: consider specifying it explicitly with the 'diag' recipe attribute
       info: or provide custom low-verbosity diagnostics with the 'diag' builtin
     EOE
-}
+}}
 
 : inside-if
 :
@@ -199,7 +201,7 @@ $* <<EOI 2>>EOE != 0
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : name
@@ -228,7 +230,7 @@ $* <<EOI 2>>EOE != 0
 
   : preamble
   :
-  {
+  {{
     : disambiguate
     :
     $* <<EOI >>~%EOO%
@@ -268,7 +270,7 @@ $* <<EOI 2>>EOE != 0
 
     : temp_dir
     :
-    {
+    {{
       test.options += -t
 
       : no
@@ -308,12 +310,12 @@ $* <<EOI 2>>EOE != 0
         f = $~/f
         foo "$f"
         EOI
-    }
-  }
+    }}
+  }}
 
   : ambiguity
   :
-  {
+  {{
     : name
     :
     $* test <<EOI 2>>EOE != 0
@@ -348,7 +350,7 @@ $* <<EOI 2>>EOE != 0
         info: consider specifying it explicitly with the 'diag' recipe attribute
         info: or provide custom low-verbosity diagnostics with the 'diag' builtin
       EOE
-  }
+  }}
 
   : inside-if
   :
@@ -395,4 +397,4 @@ $* <<EOI 2>>EOE != 0
     buildfile:11:1: error: 'diag' builtin call before 'depdb' call
       buildfile:12:1: info: 'depdb' call is here
     EOE
-}
+}}

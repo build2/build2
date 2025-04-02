@@ -1,9 +1,11 @@
 # file      : libbuild2/test/script/parser+while.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : while
 :
-{
+{{
   : true
   :
   $* <<EOI >>EOO
@@ -134,11 +136,11 @@
     -cmd aa
   }}
   EOO
-}
+}}
 
 : end
 :
-{
+{{
   : without-end
   :
   $* <<EOI 2>>EOE != 0
@@ -148,11 +150,11 @@
   EOI
   testscript:4:1: error: expected command instead of <end of file> inside 'while'
   EOE
-}
+}}
 
 : elif
 :
-{
+{{
   : without-if
   :
   $* <<EOI 2>>EOE != 0
@@ -162,7 +164,7 @@
   EOI
   testscript:2:3: error: 'elif' without preceding 'if'
   EOE
-}
+}}
 
 : nested
 :
@@ -207,7 +209,7 @@
 
 : contained
 :
-{
+{{
   : semi
   :
   $* <<EOI 2>>EOE != 0
@@ -281,7 +283,7 @@
   EOI
   testscript:2:3: error: teardown command inside 'while'
   EOE
-}
+}}
 
 : var
 :
@@ -322,12 +324,12 @@ EOE
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : while
   :
-  {
+  {{
     : true
     :
     $* <<EOI >>EOO
@@ -456,11 +458,11 @@ EOE
       -cmd aa
     }
     EOO
-  }
+  }}
 
   : end
   :
-  {
+  {{
     : without-end
     :
     $* <<EOI 2>>EOE != 0
@@ -469,11 +471,11 @@ EOE
     EOI
     testscript:3:1: error: expected closing 'end'
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -485,7 +487,7 @@ EOE
     EOI
     testscript:2:3: error: 'elif' without preceding 'if'
     EOE
-  }
+  }}
 
   : nested
   :
@@ -527,7 +529,7 @@ EOE
 
   : contained
   :
-  {
+  {{
     : semi
     :
     $* <<EOI 2>>EOE != 0
@@ -599,7 +601,7 @@ EOE
     EOI
     testscript:2:3: error: teardown command inside 'while'
     EOE
-  }
+  }}
 
   : var
   :
@@ -625,4 +627,4 @@ EOE
   EOI
   testscript:4:1: error: both leading and trailing descriptions
   EOE
-}
+}}

@@ -1,9 +1,11 @@
 # file      : libbuild2/shell/script/parser+while.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : while
 :
-{
+{{
   : true
   :
   $* <<EOI >>EOO
@@ -40,11 +42,11 @@
   EOI
   shellscript:11:6: error: missing program
   EOE
-}
+}}
 
 : without-rcbrace
 :
-{
+{{
   : without-rcbrace
   :
   $* <<EOI 2>>EOE != 0
@@ -54,11 +56,11 @@
   EOI
   shellscript:14:1: error: expected command instead of <end of file>
   EOE
-}
+}}
 
 : elif
 :
-{
+{{
   : without-if
   :
   $* <<EOI 2>>EOE != 0
@@ -70,7 +72,7 @@
   EOI
   shellscript:13:3: error: 'elif' without preceding 'if'
   EOE
-}
+}}
 
 : nested
 :
@@ -113,7 +115,7 @@
 
 : contained
 :
-{
+{{
   : eos
   :
   $* <<EOI 2>>EOE != 0
@@ -121,7 +123,7 @@
   EOI
   shellscript:12:1: error: expected command instead of <end of file>
   EOE
-}
+}}
 
 : var
 :

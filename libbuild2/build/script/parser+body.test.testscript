@@ -1,6 +1,8 @@
 # file      : libbuild2/build/script/parser+body.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.options += -b
 
 : lines
@@ -21,7 +23,7 @@ $* <<EOI >>EOO
 
 : temp_dir
 :
-{
+{{
   test.options += -t
 
   : no
@@ -55,7 +57,7 @@ $* <<EOI >>EOO
     f2 = $~/f2
     foo "$f2"
     EOI
-}
+}}
 
 : command
 :
@@ -140,7 +142,7 @@ $* <:'foo' 2>>EOE != 0
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : lines
@@ -162,7 +164,7 @@ $* <:'foo' 2>>EOE != 0
 
   : temp_dir
   :
-  {
+  {{
     test.options += -t
 
     : no
@@ -196,7 +198,7 @@ $* <:'foo' 2>>EOE != 0
       f2 = $~/f2
       foo "$f2"
       EOI
-  }
+  }}
 
   : command
   :
@@ -271,4 +273,4 @@ $* <:'foo' 2>>EOE != 0
   $* <:'foo' 2>>EOE != 0
     buildfile:11:4: error: expected newline instead of <end of file>
     EOE
-}
+}}

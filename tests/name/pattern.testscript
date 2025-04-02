@@ -1,6 +1,8 @@
 # file      : tests/name/pattern.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 +cat <<EOI >=build/root.build
@@ -20,7 +22,7 @@ EOI
 
 : typed-concat
 :
-{
+{{
   : dir-path
   :
   touch foo.txt;
@@ -45,12 +47,12 @@ EOI
   : not-pattern
   :
   $* <'print {$src_base/foo.txt}' >/~'%.+/foo\.txt%'
-}
+}}
 
 : detect
 :
 : Test pattern_mode parsing logic.
-{
+{{
   : second-pattern
   :
   touch foo.txt;
@@ -65,11 +67,11 @@ EOI
   :
   touch foo.txt bar.txt;
   $* <'print {f*.txt +b*.txt}' >'foo.txt bar.txt'
-}
+}}
 
 : diagnostics
 :
-{
+{{
   : simple
   :
   $* <'print {*.txt +foo file{bar}}' 2>>EOE != 0
@@ -99,11 +101,11 @@ EOI
   $* <'print {*.txt +foo/}' 2>>EOE != 0
   <stdin>:1:8: error: inconsistent file/directory result in name pattern
   EOE
-}
+}}
 
 : basics
 :
-{
+{{
   touch foo.txt;
   $* <'print *.txt' >'foo.txt'                          : simple-file
 
@@ -169,22 +171,22 @@ EOI
   mkdir -p foo/bar;
   touch foo/bar/baz.txt;
   $* <'print $src_base/foo/{**}' >/"$~/foo/bar/baz.txt" : abs-start-dir
-}
+}}
 
 : escaping
 :
-{
+{{
   touch foo.txt;
   $* <'print \[fgh]oo.txt'  >'foo.txt'             : bracket
 
   touch true1.txt;
   $* <'print (true\?.txt')  >'true1.txt'           : question
-}
+}}
 
 : target-type
 :
 : Test target type-specific pattern amendment logic.
-{
+{{
   : append-extension
   :
   touch foo.txt bar.txt;
@@ -204,12 +206,12 @@ EOI
   :
   mkdir foo bar;
   $* <'print dir{*/ -bar/}' >/'dir{foo/}'
-}
+}}
 
 : dot
 :
 : Test filtering of hidden files/directories.
-{
+{{
   touch foo.txt .foo.txt;
   $* <'print *.txt' >'foo.txt'                       : file-excl
 
@@ -228,14 +230,14 @@ EOI
 
   mkdir dir .dir && touch dir/foo.txt .dir/foo.txt;
   $* <'print .*/*.txt' >/'.dir/foo.txt'              : dir-interm-incl
-}
+}}
 
 : buildignore
 :
 : Test filtering of a directory and its sub-entries if it contains the
 : .buildignore file.
 :
-{
+{{
   mkdir dir1 dir2;
   touch dir2/.buildignore;
   $* <'print */' >/'dir1/'                           : self-excl
@@ -243,12 +245,12 @@ EOI
   mkdir dir1 dir2;
   touch dir1/foo dir2/foo dir2/.buildignore;
   $* <'print f**' >/'dir1/foo'                       : sub-entry-excl
-}
+}}
 
 : expansion
 :
 : Test interaction with expansion/concatenation/re-parse.
-{
+{{
   # Do we want to recognize patterns in non-concatenating expansion?
   #
   # pat = '*.txt'
@@ -371,15 +373,15 @@ EOI
     ext = txt
     print $pat.$ext
     EOI
-}
+}}
 
 : command-line
 :
 : Test pattern expansion on the command line.
-{
+{{
   : variable
   :
-  {
+  {{
     mkdir dir;
     $* <'print $p.d' 'p.d=*/' >/'dir/'          : dir
 
@@ -388,11 +390,11 @@ EOI
 
     touch foo.txt;
     $* <'print $p.f' 'p.f=*.txt' >'foo.txt'     : feil
-  }
+  }}
 
   : buildspec
   :
-  {
+  {{
     test.arguments =
     test.options += --buildfile buildfile
 
@@ -401,5 +403,5 @@ EOI
 
     mkdir dir dir1 && cat <'./:' >=dir/buildfile;
     $* 'update(dir{* -dir1})'                      : dir-type
-  }
-}
+  }}
+}}

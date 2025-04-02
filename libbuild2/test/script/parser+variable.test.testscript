@@ -1,6 +1,8 @@
 # file      : libbuild2/test/script/parser+variable.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : assignment
 :
 $* <<EOI >>EOO
@@ -20,7 +22,7 @@ EOE
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : assignment
@@ -39,4 +41,4 @@ EOE
   EOI
   testscript:1:1: error: missing variable name
   EOE
-}
+}}

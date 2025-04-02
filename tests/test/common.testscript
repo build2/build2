@@ -18,7 +18,6 @@ EOI
 #
 if ($null($test.options))
   test.options = --buildfile -
-end
 
 test.options += --no-default-options --serial-stop --quiet
 
@@ -26,4 +25,3 @@ test.options += --no-default-options --serial-stop --quiet
 #
 if ($null($test.arguments))
   test.arguments = test
-end

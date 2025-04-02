@@ -1,6 +1,8 @@
 # file      : libbuild2/test/script/parser+exit.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : eq
 :
 $* <<EOI >>EOO
@@ -27,7 +29,7 @@ EOE
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : eq
@@ -53,4 +55,4 @@ EOE
   EOI
   testscript:1:10: error: expected newline instead of '<'
   EOE
-}
+}}

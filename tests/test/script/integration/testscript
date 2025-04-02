@@ -1,13 +1,15 @@
 # file      : tests/test/script/integration/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # Note: using common.testscript from test/, not script/.
 #
 .include ../../common.testscript
 
 : script-files
 :
-{
+{{
   +touch testscript foo.testscript bar.testscript
 
   : testscript-and-other
@@ -31,7 +33,7 @@
   $* <<EOI
   ./: testscript{../foo ../bar}
   EOI
-}
+}}
 
 : wd-is-file
 :

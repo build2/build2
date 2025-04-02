@@ -1,6 +1,8 @@
 # file      : tests/dependency/recipe/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 # Note: in the parser we have to handle recipes for the with/without
@@ -605,13 +607,13 @@ EOE
 
 : diag
 :
-{
+{{
   : builtins
   :
-  {
+  {{
     : weight-0
     :
-    {
+    {{
       : single-operation
       :
       {
@@ -646,7 +648,7 @@ EOE
             info: or provide custom low-verbosity diagnostics with the 'diag' builtin
           EOE
       }
-    }
+    }}
 
     : weight-1
     :
@@ -694,15 +696,15 @@ EOE
         info: consider specifying it explicitly with the 'diag' recipe attribute
         info: or provide custom low-verbosity diagnostics with the 'diag' builtin
       EOE
-  }
+  }}
 
   : process-path-ex
   :
   {
     config_cxx = config.cxx=$quote($recall($cxx.path) $cxx.config.mode)
 
-    mkdir build;
-    cat <<EOI >=build/bootstrap.build;
+    mkdir build
+    cat <<EOI >=build/bootstrap.build
       project = test
       amalgamation =
       subprojects =
@@ -710,7 +712,7 @@ EOE
       using config
       EOI
 
-    cat <<EOI >=build/root.build;
+    cat <<EOI >=build/root.build
       using cxx
       EOI
 
@@ -730,7 +732,7 @@ EOE
 
   : unrecognized
   :
-  {
+  {{
     : expansion-failure
     :
     $* <<EOI 2>>EOE != 0
@@ -830,11 +832,11 @@ EOE
         info: consider specifying it explicitly with the 'diag' recipe attribute
         info: or provide custom low-verbosity diagnostics with the 'diag' builtin
       EOE
-  }
+  }}
 
   : manual
   :
-  {
+  {{
     : attribute
     :
     $* <<EOI 2>>~%EOE%
@@ -875,5 +877,5 @@ EOE
           fo$v
         }}
       EOE
-  }
-}
+  }}
+}}

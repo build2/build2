@@ -1,17 +1,21 @@
 # file      : tests/test/script/runner/timeout.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : test
 :
-{
+{{
   : fragment-timeout
   :
-  {
+  {{
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       timeout 1;
       $* -l 3
       EOI
@@ -22,6 +26,8 @@
     : reset
     :
     $c <<EOI && $b
+      testscript.syntax = 2
+
       timeout 1;
       timeout 0;
       $* -l 3
@@ -30,14 +36,16 @@
     : override
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout /10
 
-      {
+      {{
         +timeout /10
 
         timeout 1;
         env -t 10 -- $* -l 3
-      }
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -46,40 +54,52 @@
     : successful
     :
     $c <<EOI && $b
+      testscript.syntax = 2
+
       timeout --success 1;
       $* -l 3
       EOI
-  }
+  }}
 
   : missing
   :
-  $c <'timeout' && $b 2>>~%EOE% != 0
-    testscript:1:1: error: timeout: missing timeout
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    timeout
+    EOI
+    testscript:3:1: error: timeout: missing timeout
     %.
     EOE
 
   : invalid
   :
-  $c <'timeout foo' && $b 2>>~%EOE% != 0
-    testscript:1:1: error: timeout: invalid test fragment timeout 'foo'
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    timeout foo
+    EOI
+    testscript:3:1: error: timeout: invalid test fragment timeout 'foo'
     %.
     EOE
-}
+}}
 
 : group
 :
-{
+{{
   : group-timeout
   :
-  {
+  {{
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      {
+      testscript.syntax = 2
+
+      {{
         +timeout 1
 
         $* -l 3
-      }
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -88,12 +108,14 @@
     : reset
     :
     $c <<EOI && $b
-      {
+      testscript.syntax = 2
+
+      {{
         +timeout 1
         +timeout 0
 
         $* -l 3
-      }
+      }}
       EOI
 
     : override
@@ -101,14 +123,16 @@
     : Also test slash usage inside the timeout value.
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout 10/10
 
-      {
+      {{
         +timeout 1/
 
         timeout 10;
         env -t 10 -- $* -l 3
-      }
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -117,26 +141,30 @@
     : invalid
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      {
+      testscript.syntax = 2
+
+      {{
         +timeout foo/
-      }
+      }}
       EOI
-      testscript:2:4: error: timeout: invalid test group timeout 'foo'
+      testscript:4:4: error: timeout: invalid test group timeout 'foo'
       %.
       EOE
-  }
+  }}
 
   : test-timeout
   :
-  {
+  {{
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      {
+      testscript.syntax = 2
+
+      {{
         +timeout /1
 
         $* -l 3
-      }
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -145,25 +173,29 @@
     : reset
     :
     $c <<EOI && $b
-      {
+      testscript.syntax = 2
+
+      {{
         +timeout /1
         +timeout /0
 
         $* -l 3
-      }
+      }}
       EOI
 
     : override
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout 10/10
 
-      {
+      {{
         +timeout /1
 
         timeout 10;
         env -t 10 -- $* -l 3
-      }
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -172,25 +204,29 @@
     : invalid
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      {
+      testscript.syntax = 2
+
+      {{
         +timeout /foo
-      }
+      }}
       EOI
-      testscript:2:4: error: timeout: invalid test timeout 'foo'
+      testscript:4:4: error: timeout: invalid test timeout 'foo'
       %.
       EOE
-  }
-}
+  }}
+}}
 
 : script
 :
-{
+{{
   : group-timeout
   :
-  {
+  {{
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout 1
 
       $* -l 3
@@ -202,6 +238,8 @@
     : reset
     :
     $c <<EOI && $b
+      testscript.syntax = 2
+
       +timeout 1
       +timeout 0
 
@@ -211,14 +249,16 @@
     : override
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout 1
 
-      {
+      {{
         +timeout 10
 
         timeout 10;
         env -t 10 -- $* -l 3
-      }
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -227,27 +267,33 @@
     : invalid
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout foo/
       EOI
-      testscript:1:2: error: timeout: invalid testscript timeout 'foo'
+      testscript:3:2: error: timeout: invalid testscript timeout 'foo'
       %.
       EOE
 
     : successful
     :
     $c <<EOI && $b
+      testscript.syntax = 2
+
       +timeout --success 1
 
       $* -l 3
       EOI
-  }
+  }}
 
   : test-timeout
   :
-  {
+  {{
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout /1
 
       $* -l 3
@@ -259,6 +305,8 @@
     : reset
     :
     $c <<EOI && $b
+      testscript.syntax = 2
+
       +timeout /1
       +timeout /0
 
@@ -268,18 +316,20 @@
     : override
     :
     $c <<EOI && $b 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout /1
 
-      {
+      {{
         +timeout --success /1
 
-        {
+        {{
           +timeout 10/10
 
           timeout 10;
           env -t 10 -- $* -l 3
-        }
-      }
+        }}
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -288,6 +338,8 @@
     : successful
     :
     $c <<EOI && $b
+      testscript.syntax = 2
+
       +timeout --success /1
 
       $* -l 3
@@ -296,25 +348,29 @@
     : invalid
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      {
+      testscript.syntax = 2
+
+      {{
         +timeout /foo
-      }
+      }}
       EOI
-      testscript:2:4: error: timeout: invalid test timeout 'foo'
+      testscript:4:4: error: timeout: invalid test timeout 'foo'
       %.
       EOE
-  }
-}
+  }}
+}}
 
 : config
 :
-{
+{{
   : operation
   :
-  {
+  {{
     : set
     :
     $c <<EOI && $b config.test.timeout=1 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       timeout 10;
       $* -l 3
       EOI
@@ -325,6 +381,8 @@
     : reset
     :
     $c <<EOI && $b config.test.timeout=1 config.test.timeout=0/10
+      testscript.syntax = 2
+
       timeout 10;
       $* -l 3
       EOI
@@ -332,14 +390,16 @@
     : override
     :
     $c <<EOI && $b config.test.timeout=1/10 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout 10
 
-      {
+      {{
         +timeout 10/10
 
         timeout 10;
         env -t 10 -- $* -l 3
-      }
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -350,14 +410,16 @@
     $c && $b config.test.timeout=foo 2>>EOE != 0
       error: invalid config.test.timeout test operation timeout value 'foo'
       EOE
-  }
+  }}
 
   : test
   :
-  {
+  {{
     : set
     :
     $c <<EOI && $b config.test.timeout=/1 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       timeout 10;
       $* -l 3
       EOI
@@ -368,6 +430,8 @@
     : reset
     :
     $c <<EOI && $b config.test.timeout=/1 config.test.timeout=10/0
+      testscript.syntax = 2
+
       timeout 10;
       $* -l 3
       EOI
@@ -375,14 +439,16 @@
     : override
     :
     $c <<EOI && $b config.test.timeout=10/1 2>>~%EOE% != 0
+      testscript.syntax = 2
+
       +timeout 10
 
-      {
+      {{
         +timeout 10/10
 
         timeout 10;
         env -t 10 -- $* -l 3
-      }
+      }}
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
       %.
@@ -393,17 +459,19 @@
     $c && $b config.test.timeout=/foo 2>>EOE != 0
       error: invalid config.test.timeout test timeout value 'foo'
       EOE
-  }
-}
+  }}
+}}
 
 : failures
 :
 : Here we test that the left-hand side processes are terminated on failure.
 :
-{
+{{
   : set
   :
   $c <<EOI && $b 2>>~%EOE% != 0
+  testscript.syntax = 2
+
   env -t 1 -- $* -l 86400 -o 'foo' | set --foo bar
   EOI
   %testscript:.*: error: set: unknown option '--foo'%
@@ -413,6 +481,8 @@
   : exit
   :
   $c <<EOI && $b 2>>~%EOE% != 0
+  testscript.syntax = 2
+
   env -t 1 -- $* -l 86400 -o 'foo' | exit 0
   EOI
   %testscript:.*: error: exit builtin must be the only pipe command%
@@ -422,6 +492,8 @@
   : redirect
   :
   $c <<EOI && $b 2>>~%EOE% != 0
+  testscript.syntax = 2
+
   env -t 1 -- $* -l 86400 -o 'foo' | touch $~/foo/bar
   EOI
   %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -429,14 +501,18 @@
   %testscript:.*: error: builtin touch exited with code 1%
   %.+
   EOE
-}
+}}
 
 : pipeline
 :
-{
+{{
   : prog-tm-prog
   :
-  $c <'$* -l 10 | env -t 1 -- $* -i 0' && $b 2>>~%EOE% != 0
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    $* -l 10 | env -t 1 -- $* -i 0
+    EOI
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
     %.
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -445,7 +521,11 @@
 
   : tm-prog-prog
   :
-  $c <'env -t 1 -- $* -l 10 | $* -i 0' && $b 2>>~%EOE% != 0
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    env -t 1 -- $* -l 10 | $* -i 0
+    EOI
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
     %.
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -454,7 +534,11 @@
 
   : tm-cat-prog
   :
-  $c <'env -t 3 -- cat <"test" | $* -l 10' && $b 2>>~%EOE% != 0
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    env -t 3 -- cat <"test" | $* -l 10
+    EOI
     %testscript:.*: error: builtin cat terminated: execution timeout expired%
     %.
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -463,7 +547,11 @@
 
   : cat-tm-prog
   :
-  $c <'cat <"test" | env -t 1 -- $* -l 10' && $b 2>>~%EOE% != 0
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    cat <"test" | env -t 1 -- $* -l 10
+    EOI
     %testscript:.*: error: builtin cat terminated: execution timeout expired%
     %.
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -472,7 +560,11 @@
 
   : tm-prog-cat
   :
-  $c <'env -t 1 -- $* -l 10 | cat >-' && $b 2>>~%EOE% != 0
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    env -t 1 -- $* -l 10 | cat >-
+    EOI
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
     %.
     %testscript:.*: error: builtin cat terminated: execution timeout expired%
@@ -481,7 +573,11 @@
 
   : tm-echo-prog
   :
-  $c <'env -t 3 -- echo "test" | $* -l 10' && $b 2>>~%EOE% != 0
+  $c <<EOI && $b 2>>~%EOE% != 0
+    testscript.syntax = 2
+
+    env -t 3 -- echo "test" | $* -l 10
+    EOI
     %testscript:.*: error: builtin echo terminated: execution timeout expired%
     %.
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -490,10 +586,12 @@
 
   : successful
   :
-  {
+  {{
     : prog-prog
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     timeout --success 1;
     $* -l 10 | $* -i 0
     EOI
@@ -501,6 +599,8 @@
     : prog-cat
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     timeout --success 1;
     $* -l 10 | cat
     EOI
@@ -508,6 +608,8 @@
     : cat-prog
     :
     $c <<EOI && $b
+    testscript.syntax = 2
+
     s="----------------------------------------------------------------------";
     s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
     s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
@@ -517,5 +619,526 @@
     %cat: unable to print stdin: .+%
     EOE
     EOI
-  }
-}
+  }}
+}}
+
+: syntax-1
+:
+{{
+  : test
+  :
+  {{
+    : fragment-timeout
+    :
+    {{
+      : set
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        timeout 1;
+        $* -l 3
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : reset
+      :
+      $c <<EOI && $b
+        timeout 1;
+        timeout 0;
+        $* -l 3
+        EOI
+
+      : override
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        +timeout /10
+
+        {
+          +timeout /10
+
+          timeout 1;
+          env -t 10 -- $* -l 3
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : successful
+      :
+      $c <<EOI && $b
+        timeout --success 1;
+        $* -l 3
+        EOI
+    }}
+
+    : missing
+    :
+    $c <'timeout' && $b 2>>~%EOE% != 0
+      testscript:1:1: error: timeout: missing timeout
+      %.
+      EOE
+
+    : invalid
+    :
+    $c <'timeout foo' && $b 2>>~%EOE% != 0
+      testscript:1:1: error: timeout: invalid test fragment timeout 'foo'
+      %.
+      EOE
+  }}
+
+  : group
+  :
+  {{
+    : group-timeout
+    :
+    {{
+      : set
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        {
+          +timeout 1
+
+          $* -l 3
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : reset
+      :
+      $c <<EOI && $b
+        {
+          +timeout 1
+          +timeout 0
+
+          $* -l 3
+        }
+        EOI
+
+      : override
+      :
+      : Also test slash usage inside the timeout value.
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        +timeout 10/10
+
+        {
+          +timeout 1/
+
+          timeout 10;
+          env -t 10 -- $* -l 3
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : invalid
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        {
+          +timeout foo/
+        }
+        EOI
+        testscript:2:4: error: timeout: invalid test group timeout 'foo'
+        %.
+        EOE
+    }}
+
+    : test-timeout
+    :
+    {{
+      : set
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        {
+          +timeout /1
+
+          $* -l 3
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : reset
+      :
+      $c <<EOI && $b
+        {
+          +timeout /1
+          +timeout /0
+
+          $* -l 3
+        }
+        EOI
+
+      : override
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        +timeout 10/10
+
+        {
+          +timeout /1
+
+          timeout 10;
+          env -t 10 -- $* -l 3
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : invalid
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        {
+          +timeout /foo
+        }
+        EOI
+        testscript:2:4: error: timeout: invalid test timeout 'foo'
+        %.
+        EOE
+    }}
+  }}
+
+  : script
+  :
+  {{
+    : group-timeout
+    :
+    {{
+      : set
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        +timeout 1
+
+        $* -l 3
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : reset
+      :
+      $c <<EOI && $b
+        +timeout 1
+        +timeout 0
+
+        $* -l 3
+        EOI
+
+      : override
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        +timeout 1
+
+        {
+          +timeout 10
+
+          timeout 10;
+          env -t 10 -- $* -l 3
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : invalid
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        +timeout foo/
+        EOI
+        testscript:1:2: error: timeout: invalid testscript timeout 'foo'
+        %.
+        EOE
+
+      : successful
+      :
+      $c <<EOI && $b
+        +timeout --success 1
+
+        $* -l 3
+        EOI
+    }}
+
+    : test-timeout
+    :
+    {{
+      : set
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        +timeout /1
+
+        $* -l 3
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : reset
+      :
+      $c <<EOI && $b
+        +timeout /1
+        +timeout /0
+
+        $* -l 3
+        EOI
+
+      : override
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        +timeout /1
+
+        {
+          +timeout --success /1
+
+          {
+            +timeout 10/10
+
+            timeout 10;
+            env -t 10 -- $* -l 3
+          }
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : successful
+      :
+      $c <<EOI && $b
+        +timeout --success /1
+
+        $* -l 3
+        EOI
+
+      : invalid
+      :
+      $c <<EOI && $b 2>>~%EOE% != 0
+        {
+          +timeout /foo
+        }
+        EOI
+        testscript:2:4: error: timeout: invalid test timeout 'foo'
+        %.
+        EOE
+    }}
+  }}
+
+  : config
+  :
+  {{
+    : operation
+    :
+    {{
+      : set
+      :
+      $c <<EOI && $b config.test.timeout=1 2>>~%EOE% != 0
+        timeout 10;
+        $* -l 3
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : reset
+      :
+      $c <<EOI && $b config.test.timeout=1 config.test.timeout=0/10
+        timeout 10;
+        $* -l 3
+        EOI
+
+      : override
+      :
+      $c <<EOI && $b config.test.timeout=1/10 2>>~%EOE% != 0
+        +timeout 10
+
+        {
+          +timeout 10/10
+
+          timeout 10;
+          env -t 10 -- $* -l 3
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : invalid
+      :
+      $c && $b config.test.timeout=foo 2>>EOE != 0
+        error: invalid config.test.timeout test operation timeout value 'foo'
+        EOE
+    }}
+
+    : test
+    :
+    {{
+      : set
+      :
+      $c <<EOI && $b config.test.timeout=/1 2>>~%EOE% != 0
+        timeout 10;
+        $* -l 3
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : reset
+      :
+      $c <<EOI && $b config.test.timeout=/1 config.test.timeout=10/0
+        timeout 10;
+        $* -l 3
+        EOI
+
+      : override
+      :
+      $c <<EOI && $b config.test.timeout=10/1 2>>~%EOE% != 0
+        +timeout 10
+
+        {
+          +timeout 10/10
+
+          timeout 10;
+          env -t 10 -- $* -l 3
+        }
+        EOI
+        %testscript:.*: error: .+ terminated: execution timeout expired%
+        %.
+        EOE
+
+      : invalid
+      :
+      $c && $b config.test.timeout=/foo 2>>EOE != 0
+        error: invalid config.test.timeout test timeout value 'foo'
+        EOE
+    }}
+  }}
+
+  : failures
+  :
+  : Here we test that the left-hand side processes are terminated on failure.
+  :
+  {{
+    : set
+    :
+    $c <<EOI && $b 2>>~%EOE% != 0
+    env -t 1 -- $* -l 86400 -o 'foo' | set --foo bar
+    EOI
+    %testscript:.*: error: set: unknown option '--foo'%
+    %.
+    EOE
+
+    : exit
+    :
+    $c <<EOI && $b 2>>~%EOE% != 0
+    env -t 1 -- $* -l 86400 -o 'foo' | exit 0
+    EOI
+    %testscript:.*: error: exit builtin must be the only pipe command%
+    %.
+    EOE
+
+    : redirect
+    :
+    $c <<EOI && $b 2>>~%EOE% != 0
+    env -t 1 -- $* -l 86400 -o 'foo' | touch $~/foo/bar
+    EOI
+    %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+    %.
+    %testscript:.*: error: builtin touch exited with code 1%
+    %.+
+    EOE
+  }}
+
+  : pipeline
+  :
+  {{
+    : prog-tm-prog
+    :
+    $c <'$* -l 10 | env -t 1 -- $* -i 0' && $b 2>>~%EOE% != 0
+      %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+      %.
+      %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+      %.
+      EOE
+
+    : tm-prog-prog
+    :
+    $c <'env -t 1 -- $* -l 10 | $* -i 0' && $b 2>>~%EOE% != 0
+      %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+      %.
+      %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+      %.
+      EOE
+
+    : tm-cat-prog
+    :
+    $c <'env -t 3 -- cat <"test" | $* -l 10' && $b 2>>~%EOE% != 0
+      %testscript:.*: error: builtin cat terminated: execution timeout expired%
+      %.
+      %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+      %.
+      EOE
+
+    : cat-tm-prog
+    :
+    $c <'cat <"test" | env -t 1 -- $* -l 10' && $b 2>>~%EOE% != 0
+      %testscript:.*: error: builtin cat terminated: execution timeout expired%
+      %.
+      %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+      %.
+      EOE
+
+    : tm-prog-cat
+    :
+    $c <'env -t 1 -- $* -l 10 | cat >-' && $b 2>>~%EOE% != 0
+      %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+      %.
+      %testscript:.*: error: builtin cat terminated: execution timeout expired%
+      %.
+      EOE
+
+    : tm-echo-prog
+    :
+    $c <'env -t 3 -- echo "test" | $* -l 10' && $b 2>>~%EOE% != 0
+      %testscript:.*: error: builtin echo terminated: execution timeout expired%
+      %.
+      %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
+      %.
+      EOE
+
+    : successful
+    :
+    {{
+      : prog-prog
+      :
+      $c <<EOI && $b
+      timeout --success 1;
+      $* -l 10 | $* -i 0
+      EOI
+
+      : prog-cat
+      :
+      $c <<EOI && $b
+      timeout --success 1;
+      $* -l 10 | cat
+      EOI
+
+      : cat-prog
+      :
+      $c <<EOI && $b
+      s="----------------------------------------------------------------------";
+      s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+      s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+      s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+      timeout --success 1;
+      cat <"$s" 2>>~%EOE% | $* -l 10 -i 0
+      %cat: unable to print stdin: .+%
+      EOE
+      EOI
+    }}
+  }}
+}}

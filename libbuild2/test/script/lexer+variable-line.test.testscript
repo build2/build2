@@ -1,6 +1,8 @@
 # file      : libbuild2/test/script/lexer+variable-line.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.arguments = variable-line
 
 : semi

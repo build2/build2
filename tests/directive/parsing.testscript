@@ -1,6 +1,8 @@
 # file      : tests/directive/parsing.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # Test overall directive parsing.
 #
 
@@ -9,7 +11,7 @@
 : assign
 : Test differentiation with variable assignment.
 :
-{
+{{
   # Note: ? is expanded as pattern.
 
   $* <'print +foo' >'+foo' : plus
@@ -20,4 +22,4 @@
 
   $* <'print +' >'+' : plus-only
   $* <'print ?' >''  : ques-only
-}
+}}

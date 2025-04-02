@@ -5,19 +5,21 @@
 # @@ Does it make sense to split into separate files - one per redirect type?
 #
 
+testscript.syntax = 2
+
 : trace
 :
-{
+{{
   $* <'cmd >!'  >'cmd >!'  : out
   $* <'cmd 2>!' >'cmd 2>!' : err
-}
+}}
 
 : str
 :
-{
+{{
   : literal
   :
-  {
+  {{
     : portable-path
     :
     $* <<EOI >>EOO
@@ -25,11 +27,11 @@
     EOI
     cmd <<<=/foo >>>?/bar 2>>>?/baz
     EOO
-  }
+  }}
 
   : regex
   :
-  {
+  {{
     : portable-path
     :
     $* <<EOI >>EOO
@@ -37,15 +39,15 @@
     EOI
     cmd >>>?/~%foo% 2>>>?/~%bar%
     EOO
-  }
-}
+  }}
+}}
 
 : doc
 :
-{
+{{
   : literal
   :
-  {
+  {{
     : portable-path
     :
     $* <<EOI >>EOO
@@ -68,7 +70,7 @@
 
     : sharing
     :
-    {
+    {{
       : in-out
       :
       $* <<EOI >>EOO
@@ -107,7 +109,7 @@
 
       : different
       :
-      {
+      {{
         : modifiers
         :
         $* <<EOI 2>>EOE != 0
@@ -127,13 +129,13 @@
         EOI
         buildfile:11:15: error: different quoting for shared here-document 'EOF'
         EOE
-      }
-    }
-  }
+      }}
+    }}
+  }}
 
   : regex
   :
-  {
+  {{
     : portable-path
     :
     $* <<EOI >>EOO
@@ -152,7 +154,7 @@
 
     : sharing
     :
-    {
+    {{
       : in-out
       :
       $* <<EOI >>EOO
@@ -167,7 +169,7 @@
 
       : different
       :
-      {
+      {{
         : introducers
         :
         $* <<EOI 2>>EOE != 0
@@ -187,19 +189,19 @@
         EOI
         buildfile:11:20: error: different global flags for shared here-document regex 'EOF'
         EOE
-      }
-    }
-  }
+      }}
+    }}
+  }}
 
   : overriding
   :
-  {
+  {{
     : literal
     :
-    {
+    {{
       : with
       :
-      {
+      {{
         : string
         :
         $* <<EOI >>EOO
@@ -245,12 +247,12 @@
         EOI
         buildfile:11:16: error: different modifiers for shared here-document 'EOF'
         EOE
-      }
-    }
+      }}
+    }}
 
     : shared
     :
-    {
+    {{
       : after-sharing
       :
       $* <<EOI >>EOO
@@ -274,13 +276,13 @@
       foo
       EOF
       EOO
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : file
 :
-{
+{{
   : cmp
   :
   $* <<EOI >>EOO
@@ -307,7 +309,7 @@
 
   : in
   :
-  {
+  {{
     : missed
     :
     $* <<EOI 2>>EOE !=0
@@ -323,11 +325,11 @@
     EOI
     buildfile:11:7: error: empty stdin redirect path
     EOE
-  }
+  }}
 
   : in-alias
   :
-  {
+  {{
     : missed
     :
     $* <<EOI 2>>EOE !=0
@@ -343,11 +345,11 @@
     EOI
     buildfile:11:6: error: empty stdin redirect path
     EOE
-  }
+  }}
 
   : out
   :
-  {
+  {{
     : missed
     :
     $* <<EOI 2>>EOE !=0
@@ -363,11 +365,11 @@
     EOI
     buildfile:11:7: error: empty stdout redirect path
     EOE
-  }
+  }}
 
   : out-alias
   :
-  {
+  {{
     : missed
     :
     $* <<EOI 2>>EOE !=0
@@ -383,11 +385,11 @@
     EOI
     buildfile:11:6: error: empty stdout redirect path
     EOE
-  }
+  }}
 
   : err
   :
-  {
+  {{
     : missed
     :
     $* <<EOI 2>>EOE !=0
@@ -403,11 +405,11 @@
     EOI
     buildfile:11:8: error: empty stderr redirect path
     EOE
-  }
+  }}
 
   : err-alias
   :
-  {
+  {{
     : missed
     :
     $* <<EOI 2>>EOE !=0
@@ -423,14 +425,14 @@
     EOI
     buildfile:11:7: error: empty stderr redirect path
     EOE
-  }
-}
+  }}
+}}
 
 : merge
-{
+{{
   : out
   :
-  {
+  {{
     : err
     :
     $* <<EOI >>EOO
@@ -470,10 +472,11 @@
     EOI
     buildfile:11:8: error: missing stdout file descriptor
     EOE
-  }
+  }}
 
   : err
-  {
+  :
+  {{
     : out
     :
     $* <<EOI >>EOO
@@ -513,7 +516,7 @@
     EOI
     buildfile:11:8: error: missing stderr file descriptor
     EOE
-  }
+  }}
 
   : mutual
   :
@@ -522,26 +525,26 @@
   EOI
   buildfile:11:14: error: stdout and stderr redirected to each other
   EOE
-}
+}}
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : trace
   :
-  {
+  {{
     $* <'cmd >!'  >'cmd >!'  : out
     $* <'cmd 2>!' >'cmd 2>!' : err
-  }
+  }}
 
   : str
   :
-  {
+  {{
     : literal
     :
-    {
+    {{
       : portable-path
       :
       $* <<EOI >>EOO
@@ -549,11 +552,11 @@
       EOI
       cmd <<<=/foo >>>?/bar 2>>>?/baz
       EOO
-    }
+    }}
 
     : regex
     :
-    {
+    {{
       : portable-path
       :
       $* <<EOI >>EOO
@@ -561,15 +564,15 @@
       EOI
       cmd >>>?/~%foo% 2>>>?/~%bar%
       EOO
-    }
-  }
+    }}
+  }}
 
   : doc
   :
-  {
+  {{
     : literal
     :
-    {
+    {{
       : portable-path
       :
       $* <<EOI >>EOO
@@ -592,7 +595,7 @@
 
       : sharing
       :
-      {
+      {{
         : in-out
         :
         $* <<EOI >>EOO
@@ -631,7 +634,7 @@
 
         : different
         :
-        {
+        {{
           : modifiers
           :
           $* <<EOI 2>>EOE != 0
@@ -651,13 +654,13 @@
           EOI
           buildfile:11:15: error: different quoting for shared here-document 'EOF'
           EOE
-        }
-      }
-    }
+        }}
+      }}
+    }}
 
     : regex
     :
-    {
+    {{
       : portable-path
       :
       $* <<EOI >>EOO
@@ -676,7 +679,7 @@
 
       : sharing
       :
-      {
+      {{
         : in-out
         :
         $* <<EOI >>EOO
@@ -691,7 +694,7 @@
 
         : different
         :
-        {
+        {{
           : introducers
           :
           $* <<EOI 2>>EOE != 0
@@ -711,19 +714,19 @@
           EOI
           buildfile:11:20: error: different global flags for shared here-document regex 'EOF'
           EOE
-        }
-      }
-    }
+        }}
+      }}
+    }}
 
     : overriding
     :
-    {
+    {{
       : literal
       :
-      {
+      {{
         : with
         :
-        {
+        {{
           : string
           :
           $* <<EOI >>EOO
@@ -769,12 +772,12 @@
           EOI
           buildfile:11:16: error: different modifiers for shared here-document 'EOF'
           EOE
-        }
-      }
+        }}
+      }}
 
       : shared
       :
-      {
+      {{
         : after-sharing
         :
         $* <<EOI >>EOO
@@ -798,13 +801,13 @@
         foo
         EOF
         EOO
-      }
-    }
-  }
+      }}
+    }}
+  }}
 
   : file
   :
-  {
+  {{
     : cmp
     :
     $* <<EOI >>EOO
@@ -831,7 +834,7 @@
 
     : in
     :
-    {
+    {{
       : missed
       :
       $* <<EOI 2>>EOE !=0
@@ -847,11 +850,11 @@
       EOI
       buildfile:11:7: error: empty stdin redirect path
       EOE
-    }
+    }}
 
     : in-alias
     :
-    {
+    {{
       : missed
       :
       $* <<EOI 2>>EOE !=0
@@ -867,11 +870,11 @@
       EOI
       buildfile:11:6: error: empty stdin redirect path
       EOE
-    }
+    }}
 
     : out
     :
-    {
+    {{
       : missed
       :
       $* <<EOI 2>>EOE !=0
@@ -887,11 +890,11 @@
       EOI
       buildfile:11:7: error: empty stdout redirect path
       EOE
-    }
+    }}
 
     : out-alias
     :
-    {
+    {{
       : missed
       :
       $* <<EOI 2>>EOE !=0
@@ -907,11 +910,11 @@
       EOI
       buildfile:11:6: error: empty stdout redirect path
       EOE
-    }
+    }}
 
     : err
     :
-    {
+    {{
       : missed
       :
       $* <<EOI 2>>EOE !=0
@@ -927,11 +930,11 @@
       EOI
       buildfile:11:8: error: empty stderr redirect path
       EOE
-    }
+    }}
 
     : err-alias
     :
-    {
+    {{
       : missed
       :
       $* <<EOI 2>>EOE !=0
@@ -947,14 +950,14 @@
       EOI
       buildfile:11:7: error: empty stderr redirect path
       EOE
-    }
-  }
+    }}
+  }}
 
   : merge
-  {
+  {{
     : out
     :
-    {
+    {{
       : err
       :
       $* <<EOI >>EOO
@@ -994,10 +997,10 @@
       EOI
       buildfile:11:8: error: missing stdout file descriptor
       EOE
-    }
+    }}
 
     : err
-    {
+    {{
       : out
       :
       $* <<EOI >>EOO
@@ -1037,7 +1040,7 @@
       EOI
       buildfile:11:8: error: missing stderr file descriptor
       EOE
-    }
+    }}
 
     : mutual
     :
@@ -1046,5 +1049,5 @@
     EOI
     buildfile:11:14: error: stdout and stderr redirected to each other
     EOE
-  }
-}
+  }}
+}}

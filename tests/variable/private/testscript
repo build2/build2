@@ -3,6 +3,8 @@
 
 # Test public/private variable mode.
 
+testscript.syntax = 2
+
 buildfile = true
 test.arguments = 'noop(../)'
 

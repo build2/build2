@@ -4,6 +4,8 @@
 # Test C and C++ comments.
 #
 
+testscript.syntax = 2
+
 : c-comment
 :
 $* <<EOI

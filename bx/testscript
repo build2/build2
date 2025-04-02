@@ -1,23 +1,25 @@
 # file      : bx/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.options += --no-default-options
 
 : script
 :
-{
+{{
   test.arguments += test.bx
 
   : variables
   :
-  {
+  {{
     : special
     :
-    {
+    {{
       : success
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo $*
           echo $0 $1 $2 $3 $4 $5 $6 $7 $8 $9 ($*[10])
           echo $~
@@ -32,11 +34,11 @@ test.options += --no-default-options
 
       : failure
       :
-      {
+      {{
         : multi-digit
         :
         {
-          cat <<EOI >=test.bx;
+          cat <<EOI >=test.bx
             echo $10
             EOI
 
@@ -49,7 +51,7 @@ test.options += --no-default-options
         : assign-special
         :
         {
-          cat <<EOI >=test.bx;
+          cat <<EOI >=test.bx
             0 = foo
             EOI
 
@@ -57,13 +59,13 @@ test.options += --no-default-options
             test.bx:1:1: error: attempt to set '0' special variable
             EOE
         }
-      }
-    }
+      }}
+    }}
 
     : global
     :
     {
-      cat <<EOI >=test.bx;
+      cat <<EOI >=test.bx
         echo "$shell.work" # Strip trailing slash.
         EOI
 
@@ -73,7 +75,7 @@ test.options += --no-default-options
     : assignment
     :
     {
-      cat <<EOI >=test.bx;
+      cat <<EOI >=test.bx
         foo = bar
         bar = $foo
         bar += baz
@@ -83,31 +85,31 @@ test.options += --no-default-options
 
       $* >'bar baz fox'
     }
-  }
+  }}
 
   : no-default-cleanups
   :
   {
-    cat <<EOI >=test.bx;
+    cat <<EOI >=test.bx
       touch foo
       echo "" >=bar
       EOI
 
-    $* &foo &bar;
+    $* &foo &bar
 
     test -f foo && test -f bar
   }
 
   : exit
   :
-  {
+  {{
     : success
     :
-    {
+    {{
       : code
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           exit 0
           echo 2
@@ -119,7 +121,7 @@ test.options += --no-default-options
       : no-code
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           exit
           echo 2
@@ -131,7 +133,7 @@ test.options += --no-default-options
       : diag
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           exit 0 'diagnostics'
           echo 2
@@ -145,22 +147,22 @@ test.options += --no-default-options
       : cleanups
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           touch foo &foo
           exit
           EOI
 
         $*
       }
-    }
+    }}
 
     : failure
     :
-    {
+    {{
       : code
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           exit 5
           echo 2
@@ -172,7 +174,7 @@ test.options += --no-default-options
       : no-code
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           exit 'diagnostics'
           echo 2
@@ -186,7 +188,7 @@ test.options += --no-default-options
       : diag
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           exit 5 'diagnostics'
           echo 2
@@ -200,7 +202,7 @@ test.options += --no-default-options
       : if-cond
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           if exit 5
             echo 2
@@ -213,7 +215,7 @@ test.options += --no-default-options
       : if-block
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           if true
           {
@@ -233,7 +235,7 @@ test.options += --no-default-options
       : elif-cond
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           if false
             echo 2
@@ -248,7 +250,7 @@ test.options += --no-default-options
       : elif-block
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           if false
             echo 2
@@ -270,7 +272,7 @@ test.options += --no-default-options
       : else-block
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           if false
             echo 2
@@ -292,7 +294,7 @@ test.options += --no-default-options
       : for-args
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           for i: 2 3
           {
@@ -311,7 +313,7 @@ test.options += --no-default-options
       : for-stream
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           echo 2 3 | for i
           {
@@ -330,7 +332,7 @@ test.options += --no-default-options
       : while-cond
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           while exit 5
             echo 2
@@ -343,7 +345,7 @@ test.options += --no-default-options
       : while-block
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 1
           while true
           {
@@ -363,25 +365,25 @@ test.options += --no-default-options
       : cleanups
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           touch foo &foo
           exit 5
           EOI
 
         $* == 5
       }
-    }
+    }}
 
     : error
     :
-    {
+    {{
       : big-code
       :
       : While at it, check that the cleanups are not performed on a script
       : execution error to help with troubleshooting.
       :
       {
-        cat <<EOI >=test.bx &foo;
+        cat <<EOI >=test.bx &foo
           touch foo &foo
           exit 555
           EOI
@@ -394,7 +396,7 @@ test.options += --no-default-options
       : unexpected-arg
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           exit 5 'diagnostics' junk
           EOI
 
@@ -402,16 +404,16 @@ test.options += --no-default-options
           test.bx:1:1: error: exit: unexpected argument 'junk'
           EOE
       }
-    }
-  }
+    }}
+  }}
 
   : if
   :
-  {
+  {{
     : success
     :
     {
-      cat <<EOI >=test.bx;
+      cat <<EOI >=test.bx
         echo 1
 
         if true
@@ -502,11 +504,11 @@ test.options += --no-default-options
 
     : failure
     :
-    {
+    {{
       : unexpected-lcbrace
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           if true
           {
             {
@@ -520,7 +522,7 @@ test.options += --no-default-options
       : unexpected-else
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           if true
           {
             else
@@ -535,7 +537,7 @@ test.options += --no-default-options
       : elif-after-else
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           if true
             echo ''
           else
@@ -548,16 +550,16 @@ test.options += --no-default-options
           test.bx:5:1: error: 'elif' after 'else'
           EOE
       }
-    }
-  }
+    }}
+  }}
 
   : for-args
   :
-  {
+  {{
     : success
     :
     {
-      cat <<EOI >=test.bx;
+      cat <<EOI >=test.bx
         echo 1
         for i: 2 3
         {
@@ -579,11 +581,11 @@ test.options += --no-default-options
 
     : failure
     :
-    {
+    {{
       : unexpected-lcbrace
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           for i: 2 3
           {
             {
@@ -597,7 +599,7 @@ test.options += --no-default-options
       : unexpected-else
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           for i: 2 3
           {
             else
@@ -608,16 +610,16 @@ test.options += --no-default-options
           test.bx:3:3: error: 'else' without preceding 'if'
           EOE
       }
-    }
-  }
+    }}
+  }}
 
   : for-stream
   :
-  {
+  {{
     : success
     :
     {
-      cat <<EOI >=test.bx;
+      cat <<EOI >=test.bx
         echo 1
         for i <<< "2 3"
         {
@@ -639,11 +641,11 @@ test.options += --no-default-options
 
     : failure
     :
-    {
+    {{
       : unexpected-lcbrace
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 4 5 | for i
           {
             {
@@ -657,7 +659,7 @@ test.options += --no-default-options
       : unexpected-else
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           echo 4 5 | for i
           {
             elif
@@ -668,16 +670,16 @@ test.options += --no-default-options
           test.bx:3:3: error: 'elif' without preceding 'if'
           EOE
       }
-    }
-  }
+    }}
+  }}
 
   : while
   :
-  {
+  {{
     : success
     :
     {
-      cat <<EOI >=test.bx;
+      cat <<EOI >=test.bx
         echo 1
         i = [uint64] 2
         while ($i != 4)
@@ -707,11 +709,11 @@ test.options += --no-default-options
 
     : failure
     :
-    {
+    {{
       : unexpected-lcbrace
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           while true
           {
             {
@@ -725,7 +727,7 @@ test.options += --no-default-options
       : unexpected-else
       :
       {
-        cat <<EOI >=test.bx;
+        cat <<EOI >=test.bx
           while true
           {
             elif
@@ -736,13 +738,13 @@ test.options += --no-default-options
           test.bx:3:3: error: 'elif' without preceding 'if'
           EOE
       }
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : task
 :
-{
+{{
   : named
   :
   {
@@ -760,4 +762,4 @@ test.options += --no-default-options
   {
     $* -- foo 2>'error: task running not yet implemented' != 0
   }
-}
+}}

@@ -1,9 +1,11 @@
 # file      : libbuild2/build/script/parser+if.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : if
 :
-{
+{{
   : true
   :
   $* <<EOI >>EOO
@@ -74,11 +76,11 @@
   EOI
   buildfile:11:3: error: missing program
   EOE
-}
+}}
 
 : elif
 :
-{
+{{
   : true
   :
   $* <<EOI >>EOO
@@ -187,11 +189,11 @@
   EOI
   buildfile:15:1: error: 'elif' after 'else'
   EOE
-}
+}}
 
 : else
 :
-{
+{{
   : true
   :
   $* <<EOI >>EOO
@@ -305,11 +307,11 @@
   EOI
   buildfile:15:1: error: 'else' after 'else'
   EOE
-}
+}}
 
 : rcbrace
 :
-{
+{{
   : without-if
   :
   $* <<EOI 2>>EOE != 0
@@ -320,7 +322,7 @@
   EOE
 
   : before
-  {
+  {{
     : command
     :
     $* <<EOI 2>>EOE != 0
@@ -331,8 +333,8 @@
     EOI
     buildfile:14:3: error: expected newline after '}'
     EOE
-  }
-}
+  }}
+}}
 
 : lcbrace
 :
@@ -345,7 +347,7 @@ EOE
 
 : nested
 :
-{
+{{
   : take
   :
   $* <<EOI >>EOO
@@ -395,11 +397,11 @@ EOE
   ? false
   cmd
   EOO
-}
+}}
 
 : contained
 :
-{
+{{
   : eos
   :
   $* <<EOI 2>>EOE != 0
@@ -407,7 +409,7 @@ EOE
   EOI
   buildfile:12:1: error: expected command instead of <end of file>
   EOE
-}
+}}
 
 : line-index
 :
@@ -444,12 +446,12 @@ EOO
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : if
   :
-  {
+  {{
     : true
     :
     $* <<EOI >>EOO
@@ -507,11 +509,11 @@ EOO
     EOI
     buildfile:11:3: error: missing program
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : true
     :
     $* <<EOI >>EOO
@@ -611,11 +613,11 @@ EOO
     EOI
     buildfile:15:1: error: 'elif' after 'else'
     EOE
-  }
+  }}
 
   : else
   :
-  {
+  {{
     : true
     :
     $* <<EOI >>EOO
@@ -715,10 +717,10 @@ EOO
     EOI
     buildfile:15:1: error: 'else' after 'else'
     EOE
-  }
+  }}
 
   : end
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -729,7 +731,7 @@ EOO
     EOE
 
     : before
-    {
+    {{
       : command
       :
       $* <<EOI 2>>EOE != 0
@@ -739,12 +741,12 @@ EOO
       EOI
       buildfile:13:5: error: expected newline instead of 'cmd'
       EOE
-    }
-  }
+    }}
+  }}
 
   : nested
   :
-  {
+  {{
     : take
     :
     $* <<EOI >>EOO
@@ -792,11 +794,11 @@ EOO
     ? false
     cmd
     EOO
-  }
+  }}
 
   : contained
   :
-  {
+  {{
     : eos
     :
     $* <<EOI 2>>EOE != 0
@@ -804,7 +806,7 @@ EOO
     EOI
     buildfile:12:1: error: expected closing 'end'
     EOE
-  }
+  }}
 
   : line-index
   :
@@ -839,4 +841,4 @@ EOO
   ? true
   cmd foo
   EOO
-}
+}}

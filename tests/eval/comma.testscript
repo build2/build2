@@ -1,6 +1,8 @@
 # file      : tests/eval/comma.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # Test value packs (eval-comma).
 
 .include ../common.testscript

@@ -1,11 +1,13 @@
 # file      : tests/function/builtin/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : defined
 :
-{
+{{
   : true
   :
   $* <<EOI >'true'
@@ -18,11 +20,11 @@
   $* <<EOI >'false'
   print $defined(foo)
   EOI
-}
+}}
 
 : type
 :
-{
+{{
   $* <'print $type([string])'      >'string'  : empty-typed
   $* <'print $type("")'            >''        : empty-untyped
 
@@ -31,19 +33,19 @@
 
   $* <'print $type([string] abc)'  >'string'  : value-typed
   $* <'print $type(abc)'           >''        : value-untyped
-}
+}}
 
 : null
 :
-{
+{{
   $* <'print $null("")'     >'false'       : empty
   $* <'print $null(abc)'    >'false'       : value
   $* <'print $null([null])' >'true'        : null
-}
+}}
 
 : empty
 :
-{
+{{
   $* <<EOI     >'true'                       : empty-untyped
   x =
   print $empty($x)
@@ -56,11 +58,11 @@
   $* <'print $empty([json] null)'  >'true'   : json-null
   $* <'print $empty([json] "[]")'  >'true'   : json-array
   $* <'print $empty([json] "{}")'  >'true'   : json-object
-}
+}}
 
 : first-second
 :
-{
+{{
   $* <'print $first(a@1)'     >'a'                            : first
   $* <'print $second(a@1)'    >'1'                            : second
 
@@ -81,11 +83,11 @@
 
   $* <'print $first([name_pair] a@1)'     >'a'                : first-typed
   $* <'print $second([name_pair] a@1)'    >'1'                : second-typed
-}
+}}
 
 : identity
 :
-{
+{{
   $* <'print       $identity([string])'        >'';
   $* <'print $type($identity([string]))'       >'string'   : empty-typed
 
@@ -103,11 +105,11 @@
 
   $* <'print       $identity(abc)'             >'abc';
   $* <'print $type($identity(abc))'            >''         : untyped
-}
+}}
 
 : getenv
 :
-{
+{{
   : set
   :
   : Here we rely on the facts that on POSIX PATH environment variable most
@@ -117,7 +119,7 @@
   : @@ TMP Use a custom variable, when an ability to set environment variables
   :    in testscript is implemented. It is now!
   :
-  {
+  {{
     : string
     :
     $* <'print $getenv([string] "PATH")' | set v;
@@ -149,9 +151,9 @@
     error: invalid argument: invalid string value: multiple names
       <stdin>:1:8: info: while calling getenv(<untyped>)
     EOE
-  }
+  }}
 
   : unset
   :
   $* <'print $getenv("non-existent-var-name")' >'[null]'
-}
+}}

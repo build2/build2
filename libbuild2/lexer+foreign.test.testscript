@@ -1,6 +1,8 @@
 # file      : libbuild2/lexer+foreign.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.arguments = foreign=2
 
 : basics
@@ -79,7 +81,7 @@ EOI
 
 : three
 :
-{
+{{
   test.arguments = foreign=3
 
   : basic
@@ -93,4 +95,4 @@ EOI
   }}}
   <newline>
   EOO
-}
+}}

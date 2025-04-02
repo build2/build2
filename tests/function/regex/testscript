@@ -1,14 +1,16 @@
 # file      : tests/function/regex/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : replace
 :
-{
+{{
   : arg-types
   :
-  {
+  {{
     : untyped-string-string
     :
     $* <<EOI >'foo.o'
@@ -65,7 +67,7 @@
     error: invalid argument: null value
       <stdin>:1:8: info: while calling regex.replace(<untyped>, <untyped>, <untyped>)
     EOE
-  }
+  }}
 
   : no-subs
   :
@@ -81,7 +83,7 @@
 
   : flags
   :
-  {
+  {{
     : icase
     :
     $* <<EOI >'Foo.o'
@@ -96,7 +98,7 @@
 
     : format_no_copy
     :
-    {
+    {{
       : all-matches
       :
       $* <<EOI >'xx'
@@ -108,7 +110,7 @@
       $* <<EOI >'x'
       print $regex.replace('abcabc', 'a', 'x', format_no_copy format_first_only)
       EOI
-    }
+    }}
 
     : unknown
     :
@@ -118,7 +120,7 @@
     error: invalid argument: invalid flag 'unknown'
       <stdin>:1:8: info: while calling regex.replace(<untyped>, <untyped>, <untyped>, <untyped>)
     EOE
-  }
+  }}
 
   : invalid-regex
   :
@@ -126,17 +128,17 @@
   /error: invalid argument: invalid regex '\['.*/
     <stdin>:1:8: info: while calling regex.replace(<untyped>, <untyped>, <untyped>)
   EOE
-}
+}}
 
 : replace_lines
 :
-{
+{{
   : untyped
   :
-  {
+  {{
     : return-list
     :
-    {
+    {{
       : non-null-fmt
       :
       $* <<EOI >'foo.hxx bar.txt'
@@ -163,13 +165,13 @@
 
         print $regex.replace_lines($v, '(.*)\.cxx', [null])
         EOI
-    }
+    }}
 
     : return-lines
     :
     : Note that print adds the trailing newline the value it prints.
     :
-    {
+    {{
       : non-null-fmt
       :
       $* <<EOI >>EOO
@@ -201,12 +203,12 @@
 
         print $regex.replace_lines($v, '(.*)\.cxx', [null], return_lines)
         EOI
-    }
-  }
+    }}
+  }}
 
   : strings
   :
-  {
+  {{
     : return-list
     :
     $* <<EOI >'foo.hxx bar.txt'
@@ -227,15 +229,15 @@
       foo.hxx
       bar.txt
       EOO
-  }
-}
+  }}
+}}
 
 : match
 :
-{
+{{
   : arg-types
   :
-  {
+  {{
     : untyped-string
     :
     $* <<EOI >'true'
@@ -247,11 +249,11 @@
     $* <<EOI >'true'
     print $regex.match('foo.cxx', '(^[^.]*).*')
     EOI
-  }
+  }}
 
   : flags
   :
-  {
+  {{
     : none
     :
     $* <<EOI >'false'
@@ -266,7 +268,7 @@
 
     : return_subs
     :
-    {
+    {{
       : success
       :
       $* <<EOI >'foo bar'
@@ -284,16 +286,16 @@
       $* <<EOI >'[null]'
       print $regex.match("   bar", '([^\s]+)\s+([^\s]+)', return_subs)
       EOI
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : search
 :
-{
+{{
   : arg-types
   :
-  {
+  {{
     : untyped-string
     :
     $* <<EOI >'true'
@@ -305,11 +307,11 @@
     $* <<EOI >'true'
     print $regex.search('.foo.cxx', '([^.]*)')
     EOI
-  }
+  }}
 
   : flags
   :
-  {
+  {{
     : none
     :
     $* <<EOI >'false'
@@ -324,7 +326,7 @@
 
     : return_subs
     :
-    {
+    {{
       : success
       :
       $* <<EOI >'foo bar'
@@ -342,11 +344,11 @@
       $* <<EOI >'[null]'
       print $regex.search("   bar", '([^\s]+)\s+([^\s]+)', return_subs)
       EOI
-    }
+    }}
 
     : return_match
     :
-    {
+    {{
       : success
       :
       $* <<EOI >'foo  bar'
@@ -364,8 +366,8 @@
       $* <<EOI >'[null]'
       print $regex.search("   bar", '([^\s]+)\s+([^\s]+)', return_match)
       EOI
-    }
-  }
+    }}
+  }}
 
   : empty-substring
   :
@@ -374,7 +376,7 @@
   :
   if (($cxx.id != 'gcc'   || $cxx.version.major >= 7) && \
       ($cxx.id != 'clang' || $cxx.version.major >= 6))
-  {
+  {{
     : empty
     :
     $* <<EOI >'true'
@@ -392,12 +394,12 @@
     $* <<EOI >'false'
     print $regex.search('aa', 'b*')
     EOI
-  }
-}
+  }}
+}}
 
 : split
 :
-{
+{{
   : all-parts
   :
   : Note that 3 parts a printed here ('|abc|', ' ' and '|def|'), separated by
@@ -427,7 +429,7 @@
 
   : include-options
   :
-  {
+  {{
     : quoted
     :
     $* <<EOI >'|-Ic:/dir 1| |-IC:/dir2| |-IC:/dir3| |-IC:/dir4| ||'
@@ -444,12 +446,12 @@
     opts = '"-Ic:/dir 1"   -IC:/dir2  "-IC:/dir3"   "-IC:/dir4" ""'
     print $regex.split($opts, '"([^"]*)"|([^" ]+)', '|\1\2|', format_no_copy)
     EOI
-  }
-}
+  }}
+}}
 
 : apply
 :
-{
+{{
   : all-parts
   :
   $* <<EOI >'xbc cbx'
@@ -461,14 +463,14 @@
   $* <<EOI >'bc cb'
   print $regex.apply(abc a cba, 'a', '')
   EOI
-}
+}}
 
 : find-match
 :
-{
+{{
   : match
   :
-  {
+  {{
     : string
     :
     $* <<EOI >'true'
@@ -492,25 +494,25 @@
     $* <<EOI >'false'
     print $regex.find_match(-g -O1, '-O[23]')
     EOI
-  }
+  }}
 
   : flags
   :
-  {
+  {{
     : icase
     :
     $* <<EOI >'true'
     print $regex.find_match(Foo.cxx, 'f[^.]+.*', icase)
     EOI
-  }
-}
+  }}
+}}
 
 : filter-match
 :
-{
+{{
   : match
   :
-  {
+  {{
     : string
     :
     $* <<EOI >'-O2 -O3'
@@ -534,11 +536,11 @@
     $* <<EOI >''
     print $regex.filter_match(-g -O1, '-O[23]')
     EOI
-  }
+  }}
 
   : filter-out
   :
-  {
+  {{
     : untyped
     :
     $* <<EOI >'-g'
@@ -550,25 +552,25 @@
     $* <<EOI >''
     print $regex.filter_out_match(-O2 -O3, '-O[23]')
     EOI
-  }
+  }}
 
   : flags
   :
-  {
+  {{
     : icase
     :
     $* <<EOI >'Foo.cxx'
     print $regex.filter_match(Foo.cxx, 'f[^.]+.*', icase)
     EOI
-  }
-}
+  }}
+}}
 
 : find-search
 :
-{
+{{
   : match
   :
-  {
+  {{
     : string
     :
     $* <<EOI >'true'
@@ -592,17 +594,17 @@
     $* <<EOI >'false'
     print $regex.find_search(-g, '-O')
     EOI
-  }
+  }}
 
   : flags
   :
-  {
+  {{
     : icase
     :
     $* <<EOI >'true'
     print $regex.find_search(Foo.cxx, 'f', icase)
     EOI
-  }
+  }}
 
   : empty-substring
   :
@@ -611,7 +613,7 @@
   :
   if (($cxx.id != 'gcc'   || $cxx.version.major >= 7) && \
       ($cxx.id != 'clang' || $cxx.version.major >= 6))
-  {
+  {{
     : empty
     :
     $* <<EOI >'true'
@@ -629,15 +631,15 @@
     $* <<EOI >'false'
     print $regex.find_search('aa', 'b*')
     EOI
-  }
-}
+  }}
+}}
 
 : filter-search
 :
-{
+{{
   : match
   :
-  {
+  {{
     : string
     :
     $* <<EOI >'-O2 -O3'
@@ -669,7 +671,7 @@
     :
     if (($cxx.id != 'gcc'   || $cxx.version.major >= 7) && \
         ($cxx.id != 'clang' || $cxx.version.major >= 6))
-    {
+    {{
       : empty
       :
       $* <<EOI >'{}'
@@ -687,12 +689,12 @@
       $* <<EOI >''
       print $regex.filter_search('aa', 'b*')
       EOI
-    }
-  }
+    }}
+  }}
 
   : filter-out
   :
-  {
+  {{
     : untyped
     :
     $* <<EOI >'-g'
@@ -704,22 +706,22 @@
     $* <<EOI >''
     print $regex.filter_out_search(-O2 -O3, '-O')
     EOI
-  }
+  }}
 
   : flags
   :
-  {
+  {{
     : icase
     :
     $* <<EOI >'Foo.cxx'
     print $regex.filter_search(Foo.cxx, 'f', icase)
     EOI
-  }
-}
+  }}
+}}
 
 : merge
 :
-{
+{{
   : all-parts
   :
   $* <<EOI >'xbccbx'
@@ -743,4 +745,4 @@
   $* <<EOI >'xbc-cbx'
   print $regex.merge(abc cba, 'a', 'x', [string] '-')
   EOI
-}
+}}

@@ -1,11 +1,13 @@
 # file      : tests/variable/override/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : cache-invalidation
 :
-{
+{{
   : value-version
   :
   $* p.x+=01 p.y+=01 <<EOI >>EOO
@@ -52,13 +54,13 @@
   001
   2
   EOO
-}
+}}
 
 : override-cached
 :
 : Test overriding cached target type/pattern-specific prepend/append
 :
-{
+{{
   $* p.x+=X <<EOI >>EOO
   p.x = 0
   file{*}: p.x += a
@@ -77,11 +79,11 @@
   1 a X
   1 a b X
   EOO
-}
+}}
 
 : order
 :
-{
+{{
   : after
   :
   $* p.x=1 p.x+=2 p.x=+0 <<EOI >>EOO
@@ -105,11 +107,11 @@
   EOI
   1 2
   EOO
-}
+}}
 
 : multiple
 :
-{
+{{
   : assign
   :
   $* p.x=0 !p.y=0 p.x=1 !p.y=1 <<EOI >>EOO
@@ -135,4 +137,4 @@
   EOI
   0 1 2
   EOO
-}
+}}

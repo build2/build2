@@ -17,11 +17,9 @@
 #
 if ($null($crosstest))
   crosstest = true
-end
 
 if (!$crosstest && $test.target != $build.host)
   test = $recall($build.path)
-end
 
 # Common bootstrap.build.
 #
@@ -38,10 +36,8 @@ test.options += --no-default-options --serial-stop --quiet
 #
 if ($null($buildfile) || !$buildfile)
   test.options += --buildfile -
-end
 
 # By default just load the buildfile.
 #
 if ($null($test.arguments))
   test.arguments = noop
-end

@@ -1,6 +1,8 @@
 # file      : tests/dependency/chain/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : basics

@@ -1,6 +1,8 @@
 # file      : tests/switch/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # Test switch.
 
 .include ../common.testscript

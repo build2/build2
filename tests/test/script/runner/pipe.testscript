@@ -1,44 +1,111 @@
 # file      : tests/test/script/runner/pipe.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
-$c <'cat <foo | $* -i 1 >foo' && $b  : builtin-to-process
-$c <'$* -o foo | cat >foo' && $b     : process-to-builtin
+: builtin-to-process
+:
+$c <<EOI && $b
+testscript.syntax = 2
+
+cat <foo | $* -i 1 >foo
+EOI
+
+: process-to-builtin
+:
+$c <<EOI && $b
+testscript.syntax = 2
+
+$* -o foo | cat >foo
+EOI
 
 : failure
 :
 : Note that while both commands for the pipe are faulty the diagnostics for
 : only the last one is printed.
 :
-{
+{{
   : exit-code
   :
   : Also verify that the command line is printed.
   :
-  $c <'$* -o foo -s 1 | $* -i 1 -s 2 >foo' && $b --verbose 1 2>>/~%EOE% != 0
+  $c <<EOI && $b --verbose 1 2>>/~%EOE% != 0
+  testscript.syntax = 2
+
+  $* -o foo -s 1 | $* -i 1 -s 2 >foo
+  EOI
   %.
-  %testscript:1:1: error: process .+ exited with code 1%
+  %testscript:3:1: error: process .+ exited with code 1%
   %  info: command line: .+driver.* -o foo -s 1%
-    info: test id: 1
+    info: test id: 3
   %.
-  %testscript:1:1: error: process .+ exited with code 2%
+  %testscript:3:1: error: process .+ exited with code 2%
   %  info: command line: .+driver.* -i 1 -s 2%
-    info: stdout: test/1/stdout-c2
-    info: test id: 1
+    info: stdout: test/3/stdout-c2
+    info: test id: 3
   %.{2}
   EOE
 
   : stderr
   :
-  $c <'$* -o foo -e foo 2>bar | $* -i 2 2>baz' && $b 2>>/~%EOE% != 0
-  %testscript:1:1: error: .+ stderr doesn't match expected%
-    info: stderr: test/1/stderr-c2
-    info: expected stderr: test/1/stderr-c2.orig
-    info: stderr diff: test/1/stderr-c2.diff
+  $c <<EOI && $b 2>>/~%EOE% != 0
+  testscript.syntax = 2
+
+  $* -o foo -e foo 2>bar | $* -i 2 2>baz
+  EOI
+  %testscript:3:1: error: .+ stderr doesn't match expected%
+    info: stderr: test/3/stderr-c2
+    info: expected stderr: test/3/stderr-c2.orig
+    info: stderr diff: test/3/stderr-c2.diff
   %.{3}
   -baz
   +foo
-    info: test id: 1
+    info: test id: 3
   EOE
-}
+}}
+
+: syntax-1
+:
+{{
+  $c <'cat <foo | $* -i 1 >foo' && $b  : builtin-to-process
+  $c <'$* -o foo | cat >foo' && $b     : process-to-builtin
+
+  : failure
+  :
+  : Note that while both commands for the pipe are faulty the diagnostics for
+  : only the last one is printed.
+  :
+  {{
+    : exit-code
+    :
+    : Also verify that the command line is printed.
+    :
+    $c <'$* -o foo -s 1 | $* -i 1 -s 2 >foo' && $b --verbose 1 2>>/~%EOE% != 0
+    %.
+    %testscript:1:1: error: process .+ exited with code 1%
+    %  info: command line: .+driver.* -o foo -s 1%
+      info: test id: 1
+    %.
+    %testscript:1:1: error: process .+ exited with code 2%
+    %  info: command line: .+driver.* -i 1 -s 2%
+      info: stdout: test/1/stdout-c2
+      info: test id: 1
+    %.{2}
+    EOE
+
+    : stderr
+    :
+    $c <'$* -o foo -e foo 2>bar | $* -i 2 2>baz' && $b 2>>/~%EOE% != 0
+    %testscript:1:1: error: .+ stderr doesn't match expected%
+      info: stderr: test/1/stderr-c2
+      info: expected stderr: test/1/stderr-c2.orig
+      info: stderr diff: test/1/stderr-c2.diff
+    %.{3}
+    -baz
+    +foo
+      info: test id: 1
+    EOE
+  }}
+}}

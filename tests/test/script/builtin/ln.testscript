@@ -1,16 +1,20 @@
 # file      : tests/test/script/builtin/ln.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : file
 :
 : Test creating a file symlink.
 :
-{
+{{
   : cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     touch a;
     ln -s a b
     EOI
@@ -18,20 +22,24 @@
   : no-cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     touch a;
     ln -s --no-cleanup a b;
     rm b
     EOI
-}
+}}
 
 : dir
 :
 : Test creating a directory symlink.
 :
-{
+{{
   : cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir a;
     touch a/b;
     ln -s a c
@@ -40,21 +48,25 @@
   : no-cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir a;
     touch a/b;
     ln -s --no-cleanup a c;
     rm -r c
     EOI
-}
+}}
 
 : multiple-targets
 :
 : Test creating links for multiple targets in the specified directory.
 :
-{
+{{
   : cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir b c;
     touch a b/c;
     ln -s ../a ../b c/
@@ -63,9 +75,82 @@
   : no-cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir b c;
     touch a b/c;
     ln -s --no-cleanup ../a ../b c/;
     rm -r c/a c/b
     EOI
-}
+}}
+
+: syntax-1
+:
+{{
+  : file
+  :
+  : Test creating a file symlink.
+  :
+  {{
+    : cleanup
+    :
+    $c <<EOI && $b
+      touch a;
+      ln -s a b
+      EOI
+
+    : no-cleanup
+    :
+    $c <<EOI && $b
+      touch a;
+      ln -s --no-cleanup a b;
+      rm b
+      EOI
+  }}
+
+  : dir
+  :
+  : Test creating a directory symlink.
+  :
+  {{
+    : cleanup
+    :
+    $c <<EOI && $b
+      mkdir a;
+      touch a/b;
+      ln -s a c
+      EOI
+
+    : no-cleanup
+    :
+    $c <<EOI && $b
+      mkdir a;
+      touch a/b;
+      ln -s --no-cleanup a c;
+      rm -r c
+      EOI
+  }}
+
+  : multiple-targets
+  :
+  : Test creating links for multiple targets in the specified directory.
+  :
+  {{
+    : cleanup
+    :
+    $c <<EOI && $b
+      mkdir b c;
+      touch a b/c;
+      ln -s ../a ../b c/
+      EOI
+
+    : no-cleanup
+    :
+    $c <<EOI && $b
+      mkdir b c;
+      touch a b/c;
+      ln -s --no-cleanup ../a ../b c/;
+      rm -r c/a c/b
+      EOI
+  }}
+}}

@@ -3,6 +3,8 @@
 
 # See also tests in type/json/.
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : type
@@ -132,7 +134,7 @@ EOO
 
 : parse
 :
-{
+{{
   : basics
   :
   $* <<EOI >>EOO
@@ -160,11 +162,11 @@ EOO
     info: line 1, column 11, byte offset 15
     <stdin>:1:8: info: while calling json.parse(<untyped>)
   EOE
-}
+}}
 
 : serialize
 :
-{
+{{
   : basics
   :
   $* <<EOI >>EOO
@@ -200,11 +202,11 @@ EOO
     EOE
   }
 
-}
+}}
 
 : load
 :
-{
+{{
   : basics
   :
   cat <<EOI >=input.json;
@@ -243,14 +245,14 @@ EOO
     info: byte offset 26
     <stdin>:1:6: info: while calling json.load(<untyped>)
   EOE
-}
+}}
 
 : size
 :
-{
+{{
   $* <'print $size([json_set] a b b)'       >'2' : json-set
   $* <'print $size([json_map] a@1 b@2 b@3)' >'2' : json-map
-}
+}}
 
 : keys
 :

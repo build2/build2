@@ -1,12 +1,14 @@
 # file      : libbuild2/test/script/parser+scope-if.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : group
 :
-{
+{{
   : if
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -77,11 +79,11 @@
     EOI
     testscript:3:1: error: expected '}}' at the end of the group scope
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -182,11 +184,11 @@
     EOI
     testscript:9:1: error: 'elif' after 'else'
     EOE
-  }
+  }}
 
   : else
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -309,11 +311,11 @@
     EOI
     testscript:9:1: error: 'else' after 'else'
     EOE
-  }
+  }}
 
   : nested
   :
-  {
+  {{
     : take
     :
     $* -s <<EOI >>EOO
@@ -395,7 +397,7 @@
       }}
     }}
     EOO
-  }
+  }}
 
   : line-index
   : Make sure command line index spans setup/if/teardown
@@ -525,14 +527,14 @@
   EOI
   testscript:4:4: error: expected newline after '}}'
   EOE
-}
+}}
 
 : test
 :
-{
+{{
   : if
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -599,12 +601,11 @@
     EOI
     testscript:3:1: error: expected command instead of <end of file> inside test scope
     EOE
-
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -701,11 +702,11 @@
     EOI
     testscript:9:1: error: 'elif' after 'else'
     EOE
-  }
+  }}
 
   : else
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -819,11 +820,11 @@
     EOI
     testscript:9:1: error: 'else' after 'else'
     EOE
-  }
+  }}
 
   : nested
   :
-  {
+  {{
     : take
     :
     $* -s <<EOI >>EOO
@@ -895,7 +896,7 @@
       }
     }}
     EOO
-  }
+  }}
 
   : line-index
   : Make sure command line index spans setup/if/teardown
@@ -1049,16 +1050,16 @@
     }
   }}
   EOO
-}
+}}
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : if
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -1125,12 +1126,11 @@
     EOI
     testscript:3:1: error: expected '}' at the end of the scope
     EOE
-
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -1227,11 +1227,11 @@
     EOI
     testscript:9:1: error: 'elif' after 'else'
     EOE
-  }
+  }}
 
   : else
   :
-  {
+  {{
     : true
     :
     $* -s <<EOI >>EOO
@@ -1350,11 +1350,11 @@
     EOI
     testscript:9:1: error: 'else' after 'else'
     EOE
-  }
+  }}
 
   : nested
   :
-  {
+  {{
     : take
     :
     $* -s <<EOI >>EOO
@@ -1436,11 +1436,11 @@
       }
     }
     EOO
-  }
+  }}
 
   : demote
   :
-  {
+  {{
     : group
     : Chain remains a group
     :
@@ -1498,7 +1498,7 @@
       }
     }
     EOO
-  }
+  }}
 
   : line-index
   : Make sure command line index spans setup/if/teardown
@@ -1630,4 +1630,4 @@
     }
   }
   EOO
-}
+}}

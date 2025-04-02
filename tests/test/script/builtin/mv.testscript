@@ -1,26 +1,30 @@
 # file      : tests/test/script/builtin/mv.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 : synopsis-1
 :
 : Move an entity to the specified path.
 :
-{
+{{
   : file
   :
-  {
+  {{
     : outside-scope
     :
     : Need to use a path that unlikely exists (not to remove something useful).
     :
-    {
+    {{
       : fail
       :
       : Moving path outside the testscript working directory fails.
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         mv ../../a/b/c ./c 2>>/EOE == 1
         mv: 'a/b/c' is out of working directory 'test/'
         EOE
@@ -33,18 +37,22 @@
       : exist.
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         mv -f ../../a/b/c ./c 2>>/~%EOE% == 1
         %mv: unable to move entry '.+/force/a/b/c' to '.+/c': .+%
         EOE
         EOI
-    }
+    }}
 
     : cleanup
     :
-    {
+    {{
       : enabled
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         touch a;
         mv a b
         EOI
@@ -52,6 +60,8 @@
       : disabled
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         touch a;
         mv --no-cleanup a b &!a;
         rm b
@@ -66,41 +76,49 @@
       : fail.
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         +touch b
         {
-          touch a;
+          touch a
           mv a ../b
         }
         EOI
-    }
-  }
+    }}
+  }}
 
   : dir
   :
-  {
+  {{
     : working-dir
     :
-    {
+    {{
       : src
       :
       $c <<EOI && $b
-        mv $~ b 2>/"mv: 'test/1/' contains test working directory 'test/1/'" != 0
+        testscript.syntax = 2
+
+        mv $~ b 2>/"mv: 'test/3/' contains test working directory 'test/3/'" != 0
         EOI
 
       : dst
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         mkdir a;
-        mv a "$~" 2>/"mv: 'test/1' contains test working directory 'test/1/'" != 0
+        mv a "$~" 2>/"mv: 'test/3' contains test working directory 'test/3/'" != 0
         EOI
-    }
+    }}
 
     : cleanup
     :
-    {
+    {{
       : enabled
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         mkdir a;
         mv a b
         EOI
@@ -108,6 +126,8 @@
       : disabled
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         mkdir a;
         mv --no-cleanup a b &!a/;
         rm -r b
@@ -116,6 +136,8 @@
       : sub-entry
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         mkdir a;
         touch a/b;
         mv a c
@@ -127,21 +149,25 @@
       : it, get removed before b/ after being renamed to b/c.
       :
       $c <<EOI && $b
+        testscript.syntax = 2
+
         mkdir a b;
         mv a b/c
         EOI
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : synopsis-2
 :
 : Move entities into the specified directory.
 :
-{
+{{
   : cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir a c;
     touch a/b b;
     mv a b c/
@@ -150,9 +176,169 @@
   : no-cleanup
   :
   $c <<EOI && $b
+    testscript.syntax = 2
+
     mkdir a c;
     touch a/b b;
     mv --no-cleanup a b c/ &!a/ &!a/b &!b;
     rm -r c/a/ c/b
     EOI
-}
+}}
+
+: syntax-1
+:
+{{
+  : synopsis-1
+  :
+  : Move an entity to the specified path.
+  :
+  {{
+    : file
+    :
+    {{
+      : outside-scope
+      :
+      : Need to use a path that unlikely exists (not to remove something useful).
+      :
+      {{
+        : fail
+        :
+        : Moving path outside the testscript working directory fails.
+        :
+        $c <<EOI && $b
+          mv ../../a/b/c ./c 2>>/EOE == 1
+          mv: 'a/b/c' is out of working directory 'test/'
+          EOE
+          EOI
+
+        : force
+        :
+        : Moving path outside the testscript working directory is allowed with -f
+        : option. We fail after this check succeeds as the source path does not
+        : exist.
+        :
+        $c <<EOI && $b
+          mv -f ../../a/b/c ./c 2>>/~%EOE% == 1
+          %mv: unable to move entry '.+/force/a/b/c' to '.+/c': .+%
+          EOE
+          EOI
+      }}
+
+      : cleanup
+      :
+      {{
+        : enabled
+        :
+        $c <<EOI && $b
+          touch a;
+          mv a b
+          EOI
+
+        : disabled
+        :
+        $c <<EOI && $b
+          touch a;
+          mv --no-cleanup a b &!a;
+          rm b
+          EOI
+
+        : existing
+        :
+        : Test that moving over an existing file does not move the cleanup. If
+        : it does, then the file would be removed while leaving the embedded
+        : scope, and so the cleanup registered by the outer touch would fail. We
+        : also test that the source path cleanup is removed, otherwise it would
+        : fail.
+        :
+        $c <<EOI && $b
+          +touch b
+          {
+            touch a;
+            mv a ../b
+          }
+          EOI
+      }}
+    }}
+
+    : dir
+    :
+    {{
+      : working-dir
+      :
+      {{
+        : src
+        :
+        $c <<EOI && $b
+          mv $~ b 2>/"mv: 'test/1/' contains test working directory 'test/1/'" != 0
+          EOI
+
+        : dst
+        :
+        $c <<EOI && $b
+          mkdir a;
+          mv a "$~" 2>/"mv: 'test/1' contains test working directory 'test/1/'" != 0
+          EOI
+      }}
+
+      : cleanup
+      :
+      {{
+        : enabled
+        :
+        $c <<EOI && $b
+          mkdir a;
+          mv a b
+          EOI
+
+        : disabled
+        :
+        $c <<EOI && $b
+          mkdir a;
+          mv --no-cleanup a b &!a/;
+          rm -r b
+          EOI
+
+        : sub-entry
+        :
+        $c <<EOI && $b
+          mkdir a;
+          touch a/b;
+          mv a c
+          EOI
+
+        : reorder
+        :
+        : Test that a/, that is created before b/ and so should be removed after
+        : it, get removed before b/ after being renamed to b/c.
+        :
+        $c <<EOI && $b
+          mkdir a b;
+          mv a b/c
+          EOI
+      }}
+    }}
+  }}
+
+  : synopsis-2
+  :
+  : Move entities into the specified directory.
+  :
+  {{
+    : cleanup
+    :
+    $c <<EOI && $b
+      mkdir a c;
+      touch a/b b;
+      mv a b c/
+      EOI
+
+    : no-cleanup
+    :
+    $c <<EOI && $b
+      mkdir a c;
+      touch a/b b;
+      mv --no-cleanup a b c/ &!a/ &!a/b &!b;
+      rm -r c/a/ c/b
+      EOI
+  }}
+}}

@@ -1,11 +1,13 @@
 # file      : tests/function/process/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : run
 :
-{
+{{
   : process
   :
   {
@@ -20,7 +22,7 @@
   : bultin
   :
   {
-    echo 'abc' >=f;
+    echo 'abc' >=f
 
     $* <<EOI >>EOO
       print $process.run(sed -e 's/abc/xyz/' f)
@@ -33,7 +35,7 @@
   :
   if ($cxx.target.class == 'linux')
   {
-    cat <<EOI >=f;
+    cat <<EOI >=f
       a
 
 
@@ -48,14 +50,14 @@
       b
       EOO
   }
-}
+}}
 
 : run-regex-match
 :
-{
+{{
   : process
   :
-  {
+  {{
     : success
     :
     {
@@ -76,15 +78,15 @@
         /.+
         EOE
     }
-  }
+  }}
 
   : builtin
   :
-  {
+  {{
     : success
     :
     {
-      cat <<EOI >=f;
+      cat <<EOI >=f
         123
         abc
         EOI
@@ -99,7 +101,7 @@
     : failure
     :
     {
-      echo 'a' >=f;
+      echo 'a' >=f
 
       $* <<EOI 2>>~/EOE/ != 0
         print $process.run_regex(cat f, 'a(.+')
@@ -108,12 +110,12 @@
         /.+
         EOE
     }
-  }
-}
+  }}
+}}
 
 : run-regex-replace
 :
-{
+{{
   : process
   :
   {
@@ -127,7 +129,7 @@
   : builtin
   :
   {
-    cat <<EOI >=f;
+    cat <<EOI >=f
       123
       abc
       EOI
@@ -138,4 +140,4 @@
       xbc
       EOO
   }
-}
+}}

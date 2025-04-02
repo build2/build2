@@ -1,6 +1,8 @@
 # file      : libbuild2/build/script/parser+expansion.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : quote
 :
 : Make sure everything expanded as strings.
@@ -53,7 +55,7 @@ EOO
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : quote
@@ -105,4 +107,4 @@ EOO
   cmd >foo
   cmd >foo
   EOO
-}
+}}

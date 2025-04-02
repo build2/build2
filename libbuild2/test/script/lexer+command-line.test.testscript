@@ -1,10 +1,13 @@
 # file      : libbuild2/test/script/lexer+command-line.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.arguments = command-line
 
 : semi
-{
+:
+{{
   : immediate
   :
   $* <"cmd;" >>EOO
@@ -27,11 +30,11 @@ test.arguments = command-line
   ;
   <newline>
   EOO
-}
+}}
 
 : colon
 :
-{
+{{
   : immediate
   :
   $* <"cmd: dsc" >>EOO
@@ -56,11 +59,11 @@ test.arguments = command-line
   :
   <newline>
   EOO
-}
+}}
 
 : redirect
 :
-{
+{{
   : pass
   :
   $* <"cmd <| 1>|" >>EOO
@@ -173,11 +176,11 @@ test.arguments = command-line
   'err'
   <newline>
   EOO
-}
+}}
 
 : cleanup
 :
-{
+{{
   : always
   :
   $* <"cmd &file" >>EOO
@@ -204,4 +207,4 @@ test.arguments = command-line
   'file'
   <newline>
   EOO
-}
+}}

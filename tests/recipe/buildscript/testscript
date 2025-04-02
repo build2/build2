@@ -1,6 +1,8 @@
 # file      : tests/recipe/buildscript/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 posix = ($cxx.target.class != 'windows')
 
 +mkdir build
@@ -18,26 +20,28 @@ posix = ($cxx.target.class != 'windows')
 
 : update
 :
-{
+{{
   : success
   :
   {
-    echo 'bar' >=bar;
+    echo 'bar' >=bar
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo: bar
       {{
+        buildscript.syntax = 2
+
         cp $path($<) $path($>)
       }}
       EOI
 
-    $* 2>'cp file{bar} -> file{foo}';
+    $* 2>'cp file{bar} -> file{foo}'
 
-    cat <<<foo >'bar';
+    cat <<<foo >'bar'
 
     # While at it, make sure there is no rebuild.
     #
-    $* 2>/'info: dir{./} is up to date';
+    $* 2>/'info: dir{./} is up to date'
 
     $* clean 2>-
   }
@@ -48,11 +52,13 @@ posix = ($cxx.target.class != 'windows')
   : successful update.
   :
   {
-    echo 'bar' >=bar;
+    echo 'bar' >=bar
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo: bar
       {{
+        buildscript.syntax = 2
+
         diag concat $<
 
         t = $path($>)
@@ -64,20 +70,20 @@ posix = ($cxx.target.class != 'windows')
       }}
       EOI
 
-    $* 2>>~%EOE% != 0;
+    $* 2>>~%EOE% != 0
       concat file{bar}
       %cat: unable to print '.+bar.baz': .+%
-      buildfile:10:3: error: builtin cat exited with code 1
+      buildfile:12:3: error: builtin cat exited with code 1
       %.+
       EOE
 
-    test -f foo != 0;
+    test -f foo != 0
 
-    echo 'baz' >=bar.baz;
+    echo 'baz' >=bar.baz
 
-    $* 2>'concat file{bar}';
+    $* 2>'concat file{bar}'
 
-    cat <<<foo >>EOO;
+    cat <<<foo >>EOO
       bar
       baz
       EOO
@@ -88,20 +94,22 @@ posix = ($cxx.target.class != 'windows')
   : mutual-redirects
   :
   {
-    echo 'bar' >=bar;
+    echo 'bar' >=bar
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo: bar
       % [diag=cp]
       {{
+        buildscript.syntax = 2
+
         echo 'copying' 2>&1
         cp $path($<) $path($>)
       }}
       EOI
 
-    $* 2>>~%EOE% != 0;
+    $* 2>>~%EOE% != 0
       cp file{bar} -> file{foo}
-      buildfile:4:3: error: stdout and stderr redirected to each other
+      buildfile:6:3: error: stdout and stderr redirected to each other
       %.+
       EOE
 
@@ -111,18 +119,20 @@ posix = ($cxx.target.class != 'windows')
   : computed-var
   :
   {
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       a = a
       b = b
       foo:
       {{
+        buildscript.syntax = 2
+
         x = true
         echo "$($x ? a : b)" >$path($>)
       }}
       EOI
 
     $* 2>>EOE != 0
-      buildfile:6:10: error: expansion of computed variable is only allowed in depdb preamble
+      buildfile:8:10: error: expansion of computed variable is only allowed in depdb preamble
         info: consider using 'depdb' builtin to track its value changes
       EOE
   }
@@ -130,11 +140,13 @@ posix = ($cxx.target.class != 'windows')
   : untracked-var
   :
   {
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       a = a
       b = b
       foo:
       {{
+        buildscript.syntax = 2
+
         x = true
         y = $($x ? a : b)
         depdb env BOGUS
@@ -142,8 +154,8 @@ posix = ($cxx.target.class != 'windows')
       }}
       EOI
 
-    $* 2>>~%EOE% != 0;
-      buildfile:6:8: error: use of untracked variable 'a'
+    $* 2>>~%EOE% != 0
+      buildfile:8:8: error: use of untracked variable 'a'
         info: use the 'depdb' builtin to manually track it
       %.+
       EOE
@@ -155,18 +167,22 @@ posix = ($cxx.target.class != 'windows')
   :
   if $posix
   {
-    cat <<EOI >=bar;
+    cat <<EOI >=bar
       #!/bin/sh
       echo "$message"
       EOI
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       exe{foo}: bar
       {{
+        buildscript.syntax = 2
+
         cp $path($<) $path($>)
       }}
       % test
       {{
+        buildscript.syntax = 2
+
         diag test $>
         export message=text1
         $> >>>?'text1'
@@ -174,7 +190,7 @@ posix = ($cxx.target.class != 'windows')
       }}
       EOI
 
-    $* test 2>>EOE;
+    $* test 2>>EOE
       cp file{bar} -> exe{foo}
       test exe{foo}
       EOE
@@ -185,9 +201,11 @@ posix = ($cxx.target.class != 'windows')
   : diag
   :
   {
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo:
       {{
+        buildscript.syntax = 2
+
         v1 = foo
         echo bar | set v2
         diag echo "$v1 $v2" -> $>
@@ -195,37 +213,39 @@ posix = ($cxx.target.class != 'windows')
       }}
       EOI
 
-      $* 2>'echo foo bar -> file{foo}';
-      cat <<<foo >'foo bar';
+      $* 2>'echo foo bar -> file{foo}'
+      cat <<<foo >'foo bar'
 
       $* clean 2>-
   }
 
   : depdb
   :
-  {
+  {{
     : track-var-auto
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         s = $process.run(cat bar)
         foo:
         {{
+          buildscript.syntax = 2
+
           echo "$s" >$path($>)
         }}
         EOI
 
-      $* 2>'echo file{foo}';
-      cat <<<foo >'bar';
+      $* 2>'echo file{foo}'
+      cat <<<foo >'bar'
 
-      $* 2>/'info: dir{./} is up to date';
+      $* 2>/'info: dir{./} is up to date'
 
-      echo 'baz' >=bar;
+      echo 'baz' >=bar
 
-      $* 2>'echo file{foo}';
-      cat <<<foo >'baz';
+      $* 2>'echo file{foo}'
+      cat <<<foo >'baz'
 
       $* clean 2>-
     }
@@ -233,13 +253,15 @@ posix = ($cxx.target.class != 'windows')
     : track-var-manual
     :
     {
-      echo 'bar' >=bar;
-      echo 'baz' >=baz;
+      echo 'bar' >=bar
+      echo 'baz' >=baz
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         a = $process.run(cat baz)
         foo: bar
         {{
+          buildscript.syntax = 2
+
           x = true
           y = $($x ? a : b)
           depdb hash "$a"
@@ -252,57 +274,59 @@ posix = ($cxx.target.class != 'windows')
         }}
         EOI
 
-      $* 2>'compose file{foo}';
+      $* 2>'compose file{foo}'
 
-      cat <<<foo >>EOO;
+      cat <<<foo >>EOO
         bar
         baz
         EOO
 
-      $* 2>/'info: dir{./} is up to date';
+      $* 2>/'info: dir{./} is up to date'
 
       # Make sure that on filesystems with a low file timestamps resolution
       # (for example HFS+) the file is considered as changed.
       #
-      sleep 1;
+      sleep 1
 
-      echo 'BAR' >=bar;
+      echo 'BAR' >=bar
 
-      $* 2>'compose file{foo}';
+      $* 2>'compose file{foo}'
 
-      cat <<<foo >>EOO;
+      cat <<<foo >>EOO
         BAR
         baz
         EOO
 
-      $* 2>/'info: dir{./} is up to date';
+      $* 2>/'info: dir{./} is up to date'
 
-      echo 'BAZ' >=baz;
+      echo 'BAZ' >=baz
 
-      $* 2>'compose file{foo}';
+      $* 2>'compose file{foo}'
 
-      cat <<<foo >>EOO;
+      cat <<<foo >>EOO
         BAR
         BAZ
         EOO
 
-      $* 2>/'info: dir{./} is up to date';
+      $* 2>/'info: dir{./} is up to date'
 
       $* clean 2>-
     }
 
     : preamble
     :
-    {
+    {{
       : valid
       :
       {
-        echo 'bar' >=bar;
+        echo 'bar' >=bar
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           s = $process.run(cat bar)
           foo:
           {{
+            buildscript.syntax = 2
+
             depdb clear
 
             s1 = 'abc'
@@ -312,7 +336,6 @@ posix = ($cxx.target.class != 'windows')
               v = "$s1"
             else
               echo "$s2" | set v
-            end
 
             depdb string "$v"
 
@@ -320,14 +343,14 @@ posix = ($cxx.target.class != 'windows')
           }}
           EOI
 
-        $* 2>'echo file{foo}';
-        cat <<<foo >'abc';
+        $* 2>'echo file{foo}'
+        cat <<<foo >'abc'
 
-        $* 2>/'info: dir{./} is up to date';
+        $* 2>/'info: dir{./} is up to date'
 
-        echo 'baz' >=bar;
-        $* 2>'echo file{foo}';
-        cat <<<foo >'xyz';
+        echo 'baz' >=bar
+        $* 2>'echo file{foo}'
+        cat <<<foo >'xyz'
 
         $* clean 2>-
       }
@@ -335,19 +358,21 @@ posix = ($cxx.target.class != 'windows')
       : invalid
       :
       {
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo:
           {{
+            buildscript.syntax = 2
+
             v = 'abc'
             echo "$v" >$path($>)
             depdb string "$v"
           }}
           EOI
 
-        $* 2>>~%EOE% != 0;
-          buildfile:4:3: error: disallowed command in depdb preamble
+        $* 2>>~%EOE% != 0
+          buildfile:6:3: error: disallowed command in depdb preamble
             info: only variable assignments are allowed in depdb preamble
-            buildfile:5:3: info: depdb preamble ends here
+            buildfile:7:3: info: depdb preamble ends here
           %.+
           EOE
 
@@ -357,16 +382,17 @@ posix = ($cxx.target.class != 'windows')
       : temp-dir
       :
       {
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo:
           {{
+            buildscript.syntax = 2
+
             touch $~/f | set dummy
 
             if test -f $~/f
               v = "yes"
             else
               v = "no"
-            end
 
             depdb string "$v"
             diag echo $>
@@ -376,36 +402,38 @@ posix = ($cxx.target.class != 'windows')
           }}
           EOI
 
-        $* 2>'echo file{foo}';
+        $* 2>'echo file{foo}'
 
         $* clean 2>-
       }
-    }
+    }}
 
     : string
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         s = $process.run(cat bar)
         foo:
         {{
+          buildscript.syntax = 2
+
           depdb clear
           depdb string "$s"
           echo "$s" >$path($>)
         }}
         EOI
 
-      $* 2>'echo file{foo}';
-      cat <<<foo >'bar';
+      $* 2>'echo file{foo}'
+      cat <<<foo >'bar'
 
-      $* 2>/'info: dir{./} is up to date';
+      $* 2>/'info: dir{./} is up to date'
 
-      echo 'baz' >=bar;
+      echo 'baz' >=bar
 
-      $* 2>'echo file{foo}';
-      cat <<<foo >'baz';
+      $* 2>'echo file{foo}'
+      cat <<<foo >'baz'
 
       $* clean 2>-
     }
@@ -413,40 +441,44 @@ posix = ($cxx.target.class != 'windows')
     : hash
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         s = $process.run(cat bar)
         foo:
         {{
+          buildscript.syntax = 2
+
           depdb clear
           depdb hash "$s"
           echo "$s" >$path($>)
         }}
         EOI
 
-      $* 2>'echo file{foo}';
-      cat <<<foo >'bar';
+      $* 2>'echo file{foo}'
+      cat <<<foo >'bar'
 
-      $* 2>/'info: dir{./} is up to date';
+      $* 2>/'info: dir{./} is up to date'
 
-      echo 'baz' >=bar;
+      echo 'baz' >=bar
 
-      $* 2>'echo file{foo}';
-      cat <<<foo >'baz';
+      $* 2>'echo file{foo}'
+      cat <<<foo >'baz'
 
       $* clean 2>-
     }
 
     : env
     :
-    {
+    {{
       : invalid
       :
       {
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo:
           {{
+            buildscript.syntax = 2
+
             s = $getenv(FOO)
 
             depdb clear
@@ -455,8 +487,8 @@ posix = ($cxx.target.class != 'windows')
           }}
           EOI
 
-        $* 2>>/EOE != 0;
-          buildfile:6:3: error: invalid 'depdb env' argument: invalid variable name 'FOO=bar': contains '='
+        $* 2>>/EOE != 0
+          buildfile:8:3: error: invalid 'depdb env' argument: invalid variable name 'FOO=bar': contains '='
             info: while updating file{foo}
             info: while updating dir{./}
           info: failed to update dir{./}
@@ -468,9 +500,11 @@ posix = ($cxx.target.class != 'windows')
       : valid
       :
       {
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo:
           {{
+            buildscript.syntax = 2
+
             s = $getenv(FOO)
 
             depdb clear
@@ -479,38 +513,38 @@ posix = ($cxx.target.class != 'windows')
           }}
           EOI
 
-        export FOO=foo;
+        export FOO=foo
 
-        $* 2>'echo file{foo}';
-        cat <<<foo >'foo';
+        $* 2>'echo file{foo}'
+        cat <<<foo >'foo'
 
-        $* 2>/'info: dir{./} is up to date';
+        $* 2>/'info: dir{./} is up to date'
 
-        export FOO=bar;
+        export FOO=bar
 
-        $* 2>'echo file{foo}';
-        cat <<<foo >'bar';
+        $* 2>'echo file{foo}'
+        cat <<<foo >'bar'
 
-        export -u FOO;
+        export -u FOO
 
-        $* 2>'echo file{foo}';
-        cat <<<foo >'';
+        $* 2>'echo file{foo}'
+        cat <<<foo >''
 
         $* clean 2>-
       }
-    }
+    }}
 
     : dyndep
     :
-    {
+    {{
       : normal
       :
       {
-        cat <<EOI >=bar.h;
+        cat <<EOI >=bar.h
           bar
           EOI
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           define h: file
           h{*}: extension = h
 
@@ -518,6 +552,8 @@ posix = ($cxx.target.class != 'windows')
 
           h{foo}:
           {{
+            buildscript.syntax = 2
+
             # Note that strictly speaking we should return $out_base/baz.h
             # on the second invocation (since it now exists). But our dyndep
             # machinery skips the entry which it has already seen, so this
@@ -533,17 +569,19 @@ posix = ($cxx.target.class != 'windows')
 
           h{baz}:
           {{
+            buildscript.syntax = 2
+
             diag gen $>
             echo baz >$path($>)
           }}
           EOI
 
-        $* 2>>EOE;
+        $* 2>>EOE
           gen h{baz}
           gen h{foo}
           EOE
 
-        cat foo.h >>EOO;
+        cat foo.h >>EOO
           bar
           baz
           EOO
@@ -554,16 +592,18 @@ posix = ($cxx.target.class != 'windows')
       : byproduct
       :
       {
-        cat <<EOI >=bar.h;
+        cat <<EOI >=bar.h
           bar
           EOI
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           define h: file
           h{*}: extension = h
 
           h{foo}: h{baz}
           {{
+            buildscript.syntax = 2
+
             o = $path($>)
             t = $path($>).t
 
@@ -576,45 +616,49 @@ posix = ($cxx.target.class != 'windows')
 
           h{baz}:
           {{
+            buildscript.syntax = 2
+
             diag gen $>
             echo baz >$path($>)
           }}
           EOI
 
-        $* 2>>EOE;
+        $* 2>>EOE
           gen h{baz}
           gen h{foo}
           EOE
 
-        cat foo.h >>EOO;
+        cat foo.h >>EOO
           bar
           baz
           EOO
 
         $* clean 2>-
       }
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : clean
 :
 {
-  echo 'bar' >=bar;
+  echo 'bar' >=bar
 
-  cat <<EOI >=buildfile;
+  cat <<EOI >=buildfile
     foo: bar
     {{
       cp $path($<) $path($>)
     }}
     % [diag=clean] clean
     {{
+      buildscript.syntax = 2
+
       t = $path($>)
       rm $t $(t).d
     }}
     EOI
 
-  $* 2>-;
+  $* 2>-
 
   # Rely on the cleanup machinery to verify that the build output files are
   # removed.
@@ -624,24 +668,26 @@ posix = ($cxx.target.class != 'windows')
 
 : test
 :
-{
+{{
   : success
   :
   {
-    echo 'bar' >=bar;
+    echo 'bar' >=bar
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo: bar
       {{
         cp $path($<) $path($>)
       }}
       % [diag=test] test
       {{
+        buildscript.syntax = 2
+
         cat <$path($>) >?$path($<)
       }}
       EOI
 
-    $* test 2>>EOE;
+    $* test 2>>EOE
       cp file{bar} -> file{foo}
       test file{foo}
       EOE
@@ -652,22 +698,24 @@ posix = ($cxx.target.class != 'windows')
   : depdb
   :
   {
-    echo 'bar' >=bar;
+    echo 'bar' >=bar
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo: bar
       {{
         cp $path($<) $path($>)
       }}
       % [diag=test] test
       {{
+        buildscript.syntax = 2
+
         depdb clear
         cat <$path($>) >?$path($<)
       }}
       EOI
 
     $* test 2>>EOE != 0
-      buildfile:7:3: error: 'depdb' builtin cannot be used to perform test
+      buildfile:9:3: error: 'depdb' builtin cannot be used to perform test
       EOE
   }
 
@@ -675,9 +723,9 @@ posix = ($cxx.target.class != 'windows')
   :
   if $posix
   {
-    echo 'bar' >=bar;
+    echo 'bar' >=bar
 
-    cat <<EOI >=run;
+    cat <<EOI >=run
       #!/bin/sh
       if test "$1" = "--trace"; then
         shift
@@ -686,30 +734,31 @@ posix = ($cxx.target.class != 'windows')
       "$@"
       EOI
 
-    chmod u+x run;
+    chmod u+x run
 
-    cat <<EOI >=buildfile;
+    cat <<EOI >=buildfile
       foo: bar
       {{
         cp $path($<) $path($>)
       }}
       % [diag=test] test
       {{
+        buildscript.syntax = 2
+
         if ($test.runner.path != [null])
           $test.runner.path $test.runner.options cat <$path($>)
         else
           cat <$path($>)
-        end
       }}
       EOI
 
-    $* test 2>>EOE;
+    $* test 2>>EOE
       cp file{bar} -> file{foo}
       test file{foo}
       bar
       EOE
 
-    $* test config.test.runner="./run --trace" 2>>EOE;
+    $* test config.test.runner="./run --trace" 2>>EOE
       test file{foo}
       cat
       bar
@@ -717,21 +766,23 @@ posix = ($cxx.target.class != 'windows')
 
     $* clean 2>-
   }
-}
+}}
 
 : diff-label
 :
 {
-  echo 'bar' >=bar;
+  echo 'bar' >=bar
 
-  cat <<EOI >=buildfile;
+  cat <<EOI >=buildfile
     foo: bar
     {{
+      buildscript.syntax = 2
+
       echo 'baz' >? $path($<)
     }}
     EOI
 
-  $* 2>>/~%EOE% != 0;
+  $* 2>>/~%EOE% != 0
     %.+
     %--- .+/bar%
     +++ stdout
@@ -744,9 +795,11 @@ posix = ($cxx.target.class != 'windows')
 : canned-cmdline
 :
 {
-  cat <<EOI >=buildfile;
+  cat <<EOI >=buildfile
     ./:
     {{
+      buildscript.syntax = 2
+
       x = echo >|
       y = [cmdline] echo >|
       diag update $>
@@ -768,28 +821,30 @@ posix = ($cxx.target.class != 'windows')
 : timeout
 :
 if $posix
-{
+{{
   : update
   :
-  {
+  {{
     : expired
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         foo: bar
         % [diag=update]
         {{
+          buildscript.syntax = 2
+
           cp $path($<) $path($>)
           timeout 1
           ^sleep 5
         }}
         EOI
 
-      $* 2>>~%EOE% != 0;
+      $* 2>>~%EOE% != 0
         update file{bar} -> file{foo}
-        buildfile:6:3: error: process ^sleep terminated: execution timeout expired
+        buildfile:8:3: error: process ^sleep terminated: execution timeout expired
           info: command line: sleep 5
           info: while updating file{foo}
         %.+
@@ -801,57 +856,61 @@ if $posix
     : successful-timeout
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         foo: bar
         % [diag=update]
         {{
+          buildscript.syntax = 2
+
           cp $path($<) $path($>)
           timeout --success 1
           ^sleep 5
         }}
         EOI
 
-      $* 2>>EOE;
+      $* 2>>EOE
         update file{bar} -> file{foo}
         EOE
 
       $* clean 2>-
     }
-  }
+  }}
 
   : test
   :
-  {
+  {{
     : expired
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         foo: bar
         {{
           cp $path($<) $path($>)
         }}
         % [diag=test] test
         {{
+          buildscript.syntax = 2
+
           ^sleep 5
         }}
         EOI
 
-      $* test config.test.timeout=1 2>>~%EOE% != 0;
+      $* test config.test.timeout=1 2>>~%EOE% != 0
         cp file{bar} -> file{foo}
         test file{foo}
-        buildfile:7:3: error: process ^sleep terminated: execution timeout expired
+        buildfile:9:3: error: process ^sleep terminated: execution timeout expired
           info: command line: sleep 5
           info: while testing file{foo}
         %.+
         EOE
 
-      $* test config.test.timeout=/1 2>>~%EOE% != 0;
+      $* test config.test.timeout=/1 2>>~%EOE% != 0
         test file{foo}
-        buildfile:7:3: error: process ^sleep terminated: execution timeout expired
+        buildfile:9:3: error: process ^sleep terminated: execution timeout expired
           info: command line: sleep 5
           info: while testing file{foo}
         %.+
@@ -863,42 +922,48 @@ if $posix
     : not-expired
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         foo: bar
         % [diag=cp]
         {{
+          buildscript.syntax = 2
+
           ^sleep 4
           cp $path($<) $path($>)
         }}
         % [diag=test] test
         {{
+          buildscript.syntax = 2
+
           ^sleep 1
         }}
         EOI
 
-      $* test config.test.timeout=3 2>>EOE;
+      $* test config.test.timeout=3 2>>EOE
         cp file{bar} -> file{foo}
         test file{foo}
         EOE
 
       $* clean 2>-
     }
-  }
-}
+  }}
+}}
 
 # @@ TODO: test $1 when implemented.
 #
 : rule
 :
 {
-  cat <<EOI >=buildfile;
+  cat <<EOI >=buildfile
     alias{far}: alias{bar}
     alias{bar}:
 
     alias{~'/f(.+)/'}: alias{~'/b\1/'}
     {{
+      buildscript.syntax = 2
+
       diag frob $< -> $>
     }}
     EOI
@@ -910,28 +975,29 @@ if $posix
 
 : loop
 :
-{
+{{
   : while
   :
-  {
+  {{
     : basics
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         foo: bar
         {{
+          buildscript.syntax = 2
+
           p = $path($>)
           while test -f $p != 0
             cp $path($<) $p
-          end
         }}
         EOI
 
-      $* 2>'cp file{bar} -> file{foo}';
+      $* 2>'cp file{bar} -> file{foo}'
 
-      cat <<<foo >'bar';
+      cat <<<foo >'bar'
 
       $* clean 2>-
     }
@@ -939,25 +1005,28 @@ if $posix
     : exit
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         foo: bar
         {{
+          buildscript.syntax = 2
+
           diag gen ($>)
 
           p = $path($>)
           while test -f $p != 0
+          {
             touch $p
             exit
             cp $path($<) $p
-          end
+          }
         }}
         EOI
 
-      $* 2>'gen file{foo}';
+      $* 2>'gen file{foo}'
 
-      cat <<<foo >:'';
+      cat <<<foo >:''
 
       $* clean 2>-
     }
@@ -965,25 +1034,28 @@ if $posix
     : error
     :
     {
-      echo 'bar' >=bar;
+      echo 'bar' >=bar
 
-      cat <<EOI >=buildfile;
+      cat <<EOI >=buildfile
         foo: bar
         {{
+          buildscript.syntax = 2
+
           diag gen ($>)
 
           p = $path($>)
           while test -f $p != 0
+          {
             touch $p
             exit 'fed up'
             cp $path($<) $p
-          end
+          }
         }}
         EOI
 
-      $* 2>>~%EOE% != 0;
+      $* 2>>~%EOE% != 0
         gen file{foo}
-        buildfile:8:5: error: fed up
+        buildfile:11:5: error: fed up
         %.{3}
         EOE
 
@@ -992,49 +1064,53 @@ if $posix
 
     : depdb
     :
-    {
+    {{
       : inside
       :
       {
-        echo 'bar' >=bar;
+        echo 'bar' >=bar
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             while test -f $p != 0
+            {
               depdb hash $p
               cp $path($<) $p
-            end
+            }
           }}
           EOI
 
         $* 2>>EOE != 0
-          buildfile:5:5: error: 'depdb' call inside flow control construct
+          buildfile:8:5: error: 'depdb' call inside flow control construct
           EOE
       }
 
       : after-commands
       :
       {
-        echo 'bar' >=bar;
+        echo 'bar' >=bar
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             while test -f $p != 0
               cp $path($<) $p
-            end
 
             depdb hash $p
           }}
           EOI
 
-        $* 2>>~%EOE% != 0;
-          buildfile:5:5: error: disallowed command in depdb preamble
+        $* 2>>~%EOE% != 0
+          buildfile:7:5: error: disallowed command in depdb preamble
             info: only variable assignments are allowed in depdb preamble
-            buildfile:8:3: info: depdb preamble ends here
+            buildfile:9:3: info: depdb preamble ends here
           %.{3}
           EOE
 
@@ -1044,17 +1120,18 @@ if $posix
       : after-vars
       :
       {
-        echo 'bar' >=bar;
+        echo 'bar' >=bar
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($<)
 
             h =
             while test -f $p != 0
               h += $p
-            end
 
             depdb hash $p
 
@@ -1062,41 +1139,42 @@ if $posix
           }}
           EOI
 
-        $* 2>'cat file{bar} -> file{foo}';
+        $* 2>'cat file{bar} -> file{foo}'
         $* clean 2>-
       }
-    }
-  }
+    }}
+  }}
 
   : for
   :
-  {
+  {{
     : form-1
     :
     : for x: ...
     :
-    {
+    {{
       : basics
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar baz
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             rm -f $p
 
             for f: $<
               cat $path($f) >>$p
-            end
           }}
           EOI
 
-        $* 2>'cat file{bar} -> file{foo}';
+        $* 2>'cat file{bar} -> file{foo}'
 
-        cat <<<foo >>EOO;
+        cat <<<foo >>EOO
           bar
           baz
           EOO
@@ -1107,30 +1185,31 @@ if $posix
       : pair
       :
       {
-        mkdir -p src/build;
-        echo 'bar' >=src/bar;
-        echo 'baz' >=src/baz;
+        mkdir -p src/build
+        echo 'bar' >=src/bar
+        echo 'baz' >=src/baz
 
-        echo 'project =' >=src/build/bootstrap.build;
+        echo 'project =' >=src/build/bootstrap.build
 
-        cat <<EOI >=src/buildfile;
+        cat <<EOI >=src/buildfile
           foo: file{bar}@./ file{baz}@./
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             rm -f $p
 
             for f: $<
               cat $path($f) >>$p
-            end
           }}
           EOI
 
-        $* src/@out/ 2>>/EOE;
+        $* src/@out/ 2>>/EOE
           mkdir fsdir{out/}
           cat src/file{bar} -> out/file{foo}
           EOE
 
-        cat <<<out/foo >>EOO;
+        cat <<<out/foo >>EOO
           bar
           baz
           EOO
@@ -1141,48 +1220,50 @@ if $posix
       : special-var
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             rm -f $p
 
             for ~: $<
               cat $path($f) >>$p
-            end
           }}
           EOI
 
         $* 2>>EOE != 0
-          buildfile:6:7: error: attempt to set '~' special variable
+          buildfile:8:7: error: attempt to set '~' special variable
           EOE
       }
 
       : exit
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             rm -f $p
 
             for f: $<
               cat $path($f) >>$p
               exit
-            end
           }}
           EOI
 
-        $* 2>'cat file{bar} -> file{foo}';
+        $* 2>'cat file{bar} -> file{foo}'
 
-        cat <<<foo >>EOO;
+        cat <<<foo >>EOO
           bar
           EOO
 
@@ -1192,25 +1273,28 @@ if $posix
       : error
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             rm -f $p
 
             for f: $<
+            {
               cat $path($f) >>$p
               exit 'fed up'
-            end
+            }
           }}
           EOI
 
-        $* 2>>~%EOE% != 0;
+        $* 2>>~%EOE% != 0
           cat file{bar} -> file{foo}
-          buildfile:8:5: error: fed up
+          buildfile:11:5: error: fed up
           %.{3}
           EOE
 
@@ -1219,53 +1303,54 @@ if $posix
 
       : depdb
       :
-      {
+      {{
         : inside
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               for f: $<
                 depdb hash $f
-              end
 
               p = $path($>)
               rm -f $p
 
               for f: $<
                 cat $path($f) >>$p
-              end
             }}
             EOI
 
           $* 2>>EOE != 0
-            buildfile:4:5: error: 'depdb' call inside flow control construct
+            buildfile:6:5: error: 'depdb' call inside flow control construct
             EOE
         }
 
         : after-commands
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               for f: $<
                 echo $path($f) >-
-              end
 
               depdb hash a
             }}
             EOI
 
-          $* 2>>~%EOE% != 0;
-            buildfile:4:5: error: disallowed command in depdb preamble
+          $* 2>>~%EOE% != 0
+            buildfile:6:5: error: disallowed command in depdb preamble
               info: only variable assignments are allowed in depdb preamble
-              buildfile:7:3: info: depdb preamble ends here
+              buildfile:8:3: info: depdb preamble ends here
             %.{3}
             EOE
 
@@ -1275,15 +1360,16 @@ if $posix
         : after-vars
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               h =
               for f: $<
                 h += $path($f)
-              end
 
               depdb hash $h
 
@@ -1292,30 +1378,31 @@ if $posix
 
               for f: $<
                 cat $path($f) >>$p
-              end
             }}
             EOI
 
-          $* 2>'cat file{bar} -> file{foo}';
+          $* 2>'cat file{bar} -> file{foo}'
           $* clean 2>-
         }
-      }
-    }
+      }}
+    }}
 
     : form-2
     :
     : ... | for x
     :
-    {
+    {{
       : basics
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar baz
           {{
+            buildscript.syntax = 2
+
             diag gen ($>)
 
             p = $path($>)
@@ -1323,13 +1410,12 @@ if $posix
 
             echo $path($<) | for -w f
               cat $f >>$p
-            end
           }}
           EOI
 
-        $* 2>'gen file{foo}';
+        $* 2>'gen file{foo}'
 
-        cat <<<foo >>EOO;
+        cat <<<foo >>EOO
           bar
           baz
           EOO
@@ -1340,12 +1426,14 @@ if $posix
       : special-var
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             diag gen ($>)
 
             p = $path($>)
@@ -1353,13 +1441,12 @@ if $posix
 
             echo $path($<) | for ~
               cat $f >>$p
-            end
           }}
           EOI
 
-        $* 2>>~%EOE% != 0;
+        $* 2>>~%EOE% != 0
           gen file{foo}
-          buildfile:8:3: error: attempt to set '~' special variable
+          buildfile:10:3: error: attempt to set '~' special variable
           %.{3}
           EOE
 
@@ -1368,15 +1455,17 @@ if $posix
 
       : misuse
       :
-      {
+      {{
         : after-var
         {
-          echo 'bar' >=bar;
-          echo 'baz' >=baz;
+          echo 'bar' >=bar
+          echo 'baz' >=baz
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               diag gen ($>)
 
               p = $path($>)
@@ -1384,13 +1473,12 @@ if $posix
 
               echo $path($<) | for x:
                 cat $f >>$p
-              end
             }}
             EOI
 
-          $* 2>>~%EOE% != 0;
+          $* 2>>~%EOE% != 0
             gen file{foo}
-            buildfile:8:3: error: for: ':' after variable name
+            buildfile:10:3: error: for: ':' after variable name
             %.+
             EOE
 
@@ -1399,12 +1487,14 @@ if $posix
 
         : after-attrs
         {
-          echo 'bar' >=bar;
-          echo 'baz' >=baz;
+          echo 'bar' >=bar
+          echo 'baz' >=baz
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               diag gen ($>)
 
               p = $path($>)
@@ -1412,46 +1502,48 @@ if $posix
 
               echo $path($<) | for x [path]:
                 cat $f >>$p
-              end
             }}
             EOI
 
-          $* 2>>~%EOE% != 0;
+          $* 2>>~%EOE% != 0
             gen file{foo}
             <attributes>:1:7: error: whitespace required after attributes
               <attributes>:1:1: info: use the '\[' escape sequence if this is a wildcard pattern
-              buildfile:8:3: info: while parsing attributes '[path]:'
+              buildfile:10:3: info: while parsing attributes '[path]:'
             %.+
             EOE
 
           $* clean 2>-
         }
-      }
+      }}
 
       : exit
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             diag gen ($>)
 
             p = $path($>)
             rm -f $p
 
             echo $path($<) | for -w f
+            {
               cat $f >>$p
               exit
-            end
+            }
           }}
           EOI
 
-        $* 2>'gen file{foo}';
+        $* 2>'gen file{foo}'
 
-        cat <<<foo >>EOO;
+        cat <<<foo >>EOO
           bar
           EOO
 
@@ -1461,27 +1553,30 @@ if $posix
       : error
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             diag gen ($>)
 
             p = $path($>)
             rm -f $p
 
             echo $path($<) | for -w f
+            {
               cat $f >>$p
               exit 'fed up'
-            end
+            }
           }}
           EOI
 
-        $* 2>>~%EOE% != 0;
+        $* 2>>~%EOE% != 0
           gen file{foo}
-          buildfile:10:5: error: fed up
+          buildfile:13:5: error: fed up
           %.{3}
           EOE
 
@@ -1490,53 +1585,54 @@ if $posix
 
       : depdb
       :
-      {
+      {{
         : inside
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               echo $path($<) | for -w f
                 depdb hash $f
-              end
 
               p = $path($>)
               rm -f $p
 
               echo $path($<) | for -w f
                 cat $f >>$p
-              end
             }}
             EOI
 
           $* 2>>EOE != 0
-            buildfile:4:5: error: 'depdb' call inside flow control construct
+            buildfile:6:5: error: 'depdb' call inside flow control construct
             EOE
         }
 
         : after-commands
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               echo $path($<) | for -w f
                 echo $f >-
-              end
 
               depdb hash $p
             }}
             EOI
 
-          $* 2>>~%EOE% != 0;
-            buildfile:4:5: error: disallowed command in depdb preamble
+          $* 2>>~%EOE% != 0
+            buildfile:6:5: error: disallowed command in depdb preamble
               info: only variable assignments are allowed in depdb preamble
-              buildfile:7:3: info: depdb preamble ends here
+              buildfile:8:3: info: depdb preamble ends here
             %.{3}
             EOE
 
@@ -1546,15 +1642,16 @@ if $posix
         : after-vars
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               h =
               echo $path($<) | for -w f
                 h += $f
-              end
 
               depdb hash $h
 
@@ -1565,30 +1662,31 @@ if $posix
 
               for f: $<
                 cat $path($f) >>$p
-              end
             }}
             EOI
 
-          $* 2>'gen file{foo}';
+          $* 2>'gen file{foo}'
           $* clean 2>-
         }
-      }
-    }
+      }}
+    }}
 
     : form-3
     :
     : for x <...
     :
-    {
+    {{
       : basics
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar baz
           {{
+            buildscript.syntax = 2
+
             diag gen ($>)
 
             p = $path($>)
@@ -1598,19 +1696,17 @@ if $posix
             $path($<)
             EOF
               cat $f >>$p
-            end
 
             for <<"EOF" -w f
             $path($<)
             EOF
               cat $f >>$p
-            end
           }}
           EOI
 
-        $* 2>'gen file{foo}';
+        $* 2>'gen file{foo}'
 
-        cat <<<foo >>EOO;
+        cat <<<foo >>EOO
           bar
           baz
           bar
@@ -1623,12 +1719,14 @@ if $posix
       : quoting
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar baz
           {{
+            buildscript.syntax = 2
+
             n = 'gen'
             diag "($n)" ($>)
 
@@ -1640,20 +1738,18 @@ if $posix
             $path($<)
             EOF
               cat $f >>$p
-            end
 
             o = -n
             for "($o)" f <<"EOF"
             $path($<)
             EOF
               echo $f >>$p
-            end
           }}
           EOI
 
-        $* 2>'gen file{foo}';
+        $* 2>'gen file{foo}'
 
-        cat <<<foo >>~%EOO%;
+        cat <<<foo >>~%EOO%
           bar
           baz
           %.+bar .+baz%
@@ -1665,48 +1761,52 @@ if $posix
       : special-var
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             rm -f $p
 
-           for ~ <<<$path($<)
+            for ~ <<<$path($<)
               cat $f >>$p
-            end
           }}
           EOI
 
         $* 2>>EOE != 0
-          buildfile:6:6: error: attempt to set '~' special variable
+          buildfile:8:7: error: attempt to set '~' special variable
           EOE
       }
 
       : exit
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             rm -f $p
 
            for f <<<$path($<)
+           {
               cat $f >>$p
               exit
-            end
+           }
           }}
           EOI
 
-        $* 2>'cat file{bar} -> file{foo}';
+        $* 2>'cat file{bar} -> file{foo}'
 
-        cat <<<foo >>EOO;
+        cat <<<foo >>EOO
           bar
           EOO
 
@@ -1716,25 +1816,28 @@ if $posix
       : error
       :
       {
-        echo 'bar' >=bar;
-        echo 'baz' >=baz;
+        echo 'bar' >=bar
+        echo 'baz' >=baz
 
-        cat <<EOI >=buildfile;
+        cat <<EOI >=buildfile
           foo: bar
           {{
+            buildscript.syntax = 2
+
             p = $path($>)
             rm -f $p
 
            for f <<<$path($<)
+           {
               cat $f >>$p
               exit 'fed up'
-            end
+           }
           }}
           EOI
 
-        $* 2>>~%EOE% != 0;
+        $* 2>>~%EOE% != 0
           cat file{bar} -> file{foo}
-          buildfile:8:5: error: fed up
+          buildfile:11:5: error: fed up
           %.{3}
           EOE
 
@@ -1743,53 +1846,54 @@ if $posix
 
       : depdb
       :
-      {
+      {{
         : inside
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               for -w f <<<$path($<)
                 depdb hash $f
-              end
 
               p = $path($>)
               rm -f $p
 
               echo $path($<) | for -w f
                 cat $f >>$p
-              end
             }}
             EOI
 
           $* 2>>EOE != 0
-            buildfile:4:5: error: 'depdb' call inside flow control construct
+            buildfile:6:5: error: 'depdb' call inside flow control construct
             EOE
         }
 
         : after-commands
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               for -w f <<<$path($<)
                 echo $f >-
-              end
 
               depdb hash a
             }}
             EOI
 
-          $* 2>>~%EOE% != 0;
-            buildfile:4:5: error: disallowed command in depdb preamble
+          $* 2>>~%EOE% != 0
+            buildfile:6:5: error: disallowed command in depdb preamble
               info: only variable assignments are allowed in depdb preamble
-              buildfile:7:3: info: depdb preamble ends here
+              buildfile:8:3: info: depdb preamble ends here
             %.{3}
             EOE
 
@@ -1799,15 +1903,16 @@ if $posix
         : after-vars
         :
         {
-          echo 'bar' >=bar;
+          echo 'bar' >=bar
 
-          cat <<EOI >=buildfile;
+          cat <<EOI >=buildfile
             foo: bar
             {{
+              buildscript.syntax = 2
+
               h =
               for -w f <<<$path($<)
                 h += $f
-              end
 
               depdb hash $h
 
@@ -1818,14 +1923,1831 @@ if $posix
 
               for f: $<
                 cat $path($f) >>$p
+            }}
+            EOI
+
+          $* 2>'gen file{foo}'
+          $* clean 2>-
+        }
+      }}
+    }}
+  }}
+}}
+
+: syntax-1
+:
+{{
+  : update
+  :
+  {{
+    : success
+    :
+    {
+      echo 'bar' >=bar
+
+      cat <<EOI >=buildfile
+        foo: bar
+        {{
+          cp $path($<) $path($>)
+        }}
+        EOI
+
+      $* 2>'cp file{bar} -> file{foo}'
+
+      cat <<<foo >'bar'
+
+      # While at it, make sure there is no rebuild.
+      #
+      $* 2>/'info: dir{./} is up to date'
+
+      $* clean 2>-
+    }
+
+    : error
+    :
+    : Test that the target file is removed on error and is created on subsequent
+    : successful update.
+    :
+    {
+      echo 'bar' >=bar
+
+      cat <<EOI >=buildfile
+        foo: bar
+        {{
+          diag concat $<
+
+          t = $path($>)
+          p = $path($<)
+
+          cp $p $t
+
+          cat $(p).baz >>$t
+        }}
+        EOI
+
+      $* 2>>~%EOE% != 0
+        concat file{bar}
+        %cat: unable to print '.+bar.baz': .+%
+        buildfile:10:3: error: builtin cat exited with code 1
+        %.+
+        EOE
+
+      test -f foo != 0
+
+      echo 'baz' >=bar.baz
+
+      $* 2>'concat file{bar}'
+
+      cat <<<foo >>EOO
+        bar
+        baz
+        EOO
+
+      $* clean 2>-
+    }
+
+    : mutual-redirects
+    :
+    {
+      echo 'bar' >=bar
+
+      cat <<EOI >=buildfile
+        foo: bar
+        % [diag=cp]
+        {{
+          echo 'copying' 2>&1
+          cp $path($<) $path($>)
+        }}
+        EOI
+
+      $* 2>>~%EOE% != 0
+        cp file{bar} -> file{foo}
+        buildfile:4:3: error: stdout and stderr redirected to each other
+        %.+
+        EOE
+
+      $* clean 2>-
+    }
+
+    : computed-var
+    :
+    {
+      cat <<EOI >=buildfile
+        a = a
+        b = b
+        foo:
+        {{
+          x = true
+          echo "$($x ? a : b)" >$path($>)
+        }}
+        EOI
+
+      $* 2>>EOE != 0
+        buildfile:6:10: error: expansion of computed variable is only allowed in depdb preamble
+          info: consider using 'depdb' builtin to track its value changes
+        EOE
+    }
+
+    : untracked-var
+    :
+    {
+      cat <<EOI >=buildfile
+        a = a
+        b = b
+        foo:
+        {{
+          x = true
+          y = $($x ? a : b)
+          depdb env BOGUS
+          echo $y >$path($>)
+        }}
+        EOI
+
+      $* 2>>~%EOE% != 0
+        buildfile:6:8: error: use of untracked variable 'a'
+          info: use the 'depdb' builtin to manually track it
+        %.+
+        EOE
+
+      $* clean 2>-
+    }
+
+    : export
+    :
+    if $posix
+    {
+      cat <<EOI >=bar
+        #!/bin/sh
+        echo "$message"
+        EOI
+
+      cat <<EOI >=buildfile
+        exe{foo}: bar
+        {{
+          cp $path($<) $path($>)
+        }}
+        % test
+        {{
+          diag test $>
+          export message=text1
+          $> >>>?'text1'
+          env message=text2 -- $> >>>?'text2'
+        }}
+        EOI
+
+      $* test 2>>EOE
+        cp file{bar} -> exe{foo}
+        test exe{foo}
+        EOE
+
+      $* clean 2>-
+    }
+
+    : diag
+    :
+    {
+      cat <<EOI >=buildfile
+        foo:
+        {{
+          v1 = foo
+          echo bar | set v2
+          diag echo "$v1 $v2" -> $>
+          echo "$v1 $v2" >$path($>)
+        }}
+        EOI
+
+        $* 2>'echo foo bar -> file{foo}'
+        cat <<<foo >'foo bar'
+
+        $* clean 2>-
+    }
+
+    : depdb
+    :
+    {{
+      : track-var-auto
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          s = $process.run(cat bar)
+          foo:
+          {{
+            echo "$s" >$path($>)
+          }}
+          EOI
+
+        $* 2>'echo file{foo}'
+        cat <<<foo >'bar'
+
+        $* 2>/'info: dir{./} is up to date'
+
+        echo 'baz' >=bar
+
+        $* 2>'echo file{foo}'
+        cat <<<foo >'baz'
+
+        $* clean 2>-
+      }
+
+      : track-var-manual
+      :
+      {
+        echo 'bar' >=bar
+        echo 'baz' >=baz
+
+        cat <<EOI >=buildfile
+          a = $process.run(cat baz)
+          foo: bar
+          {{
+            x = true
+            y = $($x ? a : b)
+            depdb hash "$a"
+
+            diag compose $>
+
+            cp $path($<) $path($>)
+
+            echo $y >>$path($>)
+          }}
+          EOI
+
+        $* 2>'compose file{foo}'
+
+        cat <<<foo >>EOO
+          bar
+          baz
+          EOO
+
+        $* 2>/'info: dir{./} is up to date'
+
+        # Make sure that on filesystems with a low file timestamps resolution
+        # (for example HFS+) the file is considered as changed.
+        #
+        sleep 1
+
+        echo 'BAR' >=bar
+
+        $* 2>'compose file{foo}'
+
+        cat <<<foo >>EOO
+          BAR
+          baz
+          EOO
+
+        $* 2>/'info: dir{./} is up to date'
+
+        echo 'BAZ' >=baz
+
+        $* 2>'compose file{foo}'
+
+        cat <<<foo >>EOO
+          BAR
+          BAZ
+          EOO
+
+        $* 2>/'info: dir{./} is up to date'
+
+        $* clean 2>-
+      }
+
+      : preamble
+      :
+      {{
+        : valid
+        :
+        {
+          echo 'bar' >=bar
+
+          cat <<EOI >=buildfile
+            s = $process.run(cat bar)
+            foo:
+            {{
+              depdb clear
+
+              s1 = 'abc'
+              s2 = 'xyz'
+
+              if echo "$s" >>>? 'bar'
+                v = "$s1"
+              else
+                echo "$s2" | set v
+              end
+
+              depdb string "$v"
+
+              echo "$v" >$path($>)
+            }}
+            EOI
+
+          $* 2>'echo file{foo}'
+          cat <<<foo >'abc'
+
+          $* 2>/'info: dir{./} is up to date'
+
+          echo 'baz' >=bar
+          $* 2>'echo file{foo}'
+          cat <<<foo >'xyz'
+
+          $* clean 2>-
+        }
+
+        : invalid
+        :
+        {
+          cat <<EOI >=buildfile
+            foo:
+            {{
+              v = 'abc'
+              echo "$v" >$path($>)
+              depdb string "$v"
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0
+            buildfile:4:3: error: disallowed command in depdb preamble
+              info: only variable assignments are allowed in depdb preamble
+              buildfile:5:3: info: depdb preamble ends here
+            %.+
+            EOE
+
+          $* clean 2>-
+        }
+
+        : temp-dir
+        :
+        {
+          cat <<EOI >=buildfile
+            foo:
+            {{
+              touch $~/f | set dummy
+
+              if test -f $~/f
+                v = "yes"
+              else
+                v = "no"
+              end
+
+              depdb string "$v"
+              diag echo $>
+
+              test -f $~/f
+              echo "$v" >$path($>)
+            }}
+            EOI
+
+          $* 2>'echo file{foo}'
+
+          $* clean 2>-
+        }
+      }}
+
+      : string
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          s = $process.run(cat bar)
+          foo:
+          {{
+            depdb clear
+            depdb string "$s"
+            echo "$s" >$path($>)
+          }}
+          EOI
+
+        $* 2>'echo file{foo}'
+        cat <<<foo >'bar'
+
+        $* 2>/'info: dir{./} is up to date'
+
+        echo 'baz' >=bar
+
+        $* 2>'echo file{foo}'
+        cat <<<foo >'baz'
+
+        $* clean 2>-
+      }
+
+      : hash
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          s = $process.run(cat bar)
+          foo:
+          {{
+            depdb clear
+            depdb hash "$s"
+            echo "$s" >$path($>)
+          }}
+          EOI
+
+        $* 2>'echo file{foo}'
+        cat <<<foo >'bar'
+
+        $* 2>/'info: dir{./} is up to date'
+
+        echo 'baz' >=bar
+
+        $* 2>'echo file{foo}'
+        cat <<<foo >'baz'
+
+        $* clean 2>-
+      }
+
+      : env
+      :
+      {{
+        : invalid
+        :
+        {
+          cat <<EOI >=buildfile
+            foo:
+            {{
+              s = $getenv(FOO)
+
+              depdb clear
+              depdb env FOO=bar
+              echo "$s" >$path($>)
+            }}
+            EOI
+
+          $* 2>>/EOE != 0
+            buildfile:6:3: error: invalid 'depdb env' argument: invalid variable name 'FOO=bar': contains '='
+              info: while updating file{foo}
+              info: while updating dir{./}
+            info: failed to update dir{./}
+            EOE
+
+          $* clean 2>-
+        }
+
+        : valid
+        :
+        {
+          cat <<EOI >=buildfile
+            foo:
+            {{
+              s = $getenv(FOO)
+
+              depdb clear
+              depdb env FOO
+              echo "$s" >$path($>)
+            }}
+            EOI
+
+          export FOO=foo
+
+          $* 2>'echo file{foo}'
+          cat <<<foo >'foo'
+
+          $* 2>/'info: dir{./} is up to date'
+
+          export FOO=bar
+
+          $* 2>'echo file{foo}'
+          cat <<<foo >'bar'
+
+          export -u FOO
+
+          $* 2>'echo file{foo}'
+          cat <<<foo >''
+
+          $* clean 2>-
+        }
+      }}
+
+      : dyndep
+      :
+      {{
+        : normal
+        :
+        {
+          cat <<EOI >=bar.h
+            bar
+            EOI
+
+          cat <<EOI >=buildfile
+            define h: file
+            h{*}: extension = h
+
+            ./: h{foo baz}
+
+            h{foo}:
+            {{
+              # Note that strictly speaking we should return $out_base/baz.h
+              # on the second invocation (since it now exists). But our dyndep
+              # machinery skips the entry which it has already seen, so this
+              # works for now.
+              #
+              depdb dyndep "-I$out_base" --what=header --default-type=h -- \
+                echo "$out_base/foo.h: $src_base/bar.h baz.h"
+
+              diag gen $>
+
+              cat $path($<) >$path($>)
+            }}
+
+            h{baz}:
+            {{
+              diag gen $>
+              echo baz >$path($>)
+            }}
+            EOI
+
+          $* 2>>EOE
+            gen h{baz}
+            gen h{foo}
+            EOE
+
+          cat foo.h >>EOO
+            bar
+            baz
+            EOO
+
+          $* clean 2>-
+        }
+
+        : byproduct
+        :
+        {
+          cat <<EOI >=bar.h
+            bar
+            EOI
+
+          cat <<EOI >=buildfile
+            define h: file
+            h{*}: extension = h
+
+            h{foo}: h{baz}
+            {{
+              o = $path($>)
+              t = $path($>).t
+
+              depdb dyndep --byproduct --what=header --default-type=h --file $t
+
+              diag gen $>
+              cat $src_base/bar.h $out_base/baz.h >$o
+              echo "$out_base/foo.h: $src_base/bar.h $out_base/baz.h" >$t
+            }}
+
+            h{baz}:
+            {{
+              diag gen $>
+              echo baz >$path($>)
+            }}
+            EOI
+
+          $* 2>>EOE
+            gen h{baz}
+            gen h{foo}
+            EOE
+
+          cat foo.h >>EOO
+            bar
+            baz
+            EOO
+
+          $* clean 2>-
+        }
+      }}
+    }}
+  }}
+
+  : clean
+  :
+  {
+    echo 'bar' >=bar
+
+    cat <<EOI >=buildfile
+      foo: bar
+      {{
+        cp $path($<) $path($>)
+      }}
+      % [diag=clean] clean
+      {{
+        t = $path($>)
+        rm $t $(t).d
+      }}
+      EOI
+
+    $* 2>-
+
+    # Rely on the cleanup machinery to verify that the build output files are
+    # removed.
+    #
+    $* clean 2>'clean file{foo}'
+  }
+
+  : test
+  :
+  {{
+    : success
+    :
+    {
+      echo 'bar' >=bar
+
+      cat <<EOI >=buildfile
+        foo: bar
+        {{
+          cp $path($<) $path($>)
+        }}
+        % [diag=test] test
+        {{
+          cat <$path($>) >?$path($<)
+        }}
+        EOI
+
+      $* test 2>>EOE
+        cp file{bar} -> file{foo}
+        test file{foo}
+        EOE
+
+      $* clean 2>-
+    }
+
+    : depdb
+    :
+    {
+      echo 'bar' >=bar
+
+      cat <<EOI >=buildfile
+        foo: bar
+        {{
+          cp $path($<) $path($>)
+        }}
+        % [diag=test] test
+        {{
+          depdb clear
+          cat <$path($>) >?$path($<)
+        }}
+        EOI
+
+      $* test 2>>EOE != 0
+        buildfile:7:3: error: 'depdb' builtin cannot be used to perform test
+        EOE
+    }
+
+    : runner
+    :
+    if $posix
+    {
+      echo 'bar' >=bar
+
+      cat <<EOI >=run
+        #!/bin/sh
+        if test "$1" = "--trace"; then
+          shift
+          echo "$*"
+        fi
+        "$@"
+        EOI
+
+      chmod u+x run
+
+      cat <<EOI >=buildfile
+        foo: bar
+        {{
+          cp $path($<) $path($>)
+        }}
+        % [diag=test] test
+        {{
+          if ($test.runner.path != [null])
+            $test.runner.path $test.runner.options cat <$path($>)
+          else
+            cat <$path($>)
+          end
+        }}
+        EOI
+
+      $* test 2>>EOE
+        cp file{bar} -> file{foo}
+        test file{foo}
+        bar
+        EOE
+
+      $* test config.test.runner="./run --trace" 2>>EOE
+        test file{foo}
+        cat
+        bar
+        EOE
+
+      $* clean 2>-
+    }
+  }}
+
+  : diff-label
+  :
+  {
+    echo 'bar' >=bar
+
+    cat <<EOI >=buildfile
+      foo: bar
+      {{
+        echo 'baz' >? $path($<)
+      }}
+      EOI
+
+    $* 2>>/~%EOE% != 0
+      %.+
+      %--- .+/bar%
+      +++ stdout
+      %.+
+      EOE
+
+    $* clean 2>-
+  }
+
+  : canned-cmdline
+  :
+  {
+    cat <<EOI >=buildfile
+      ./:
+      {{
+        x = echo >|
+        y = [cmdline] echo >|
+        diag update $>
+        $x foo
+        $y bar
+        ([cmdline] $x) baz
+      }}
+      EOI
+
+    $* >> EOO 2>>/EOE
+      bar
+      baz
+      EOO
+      update dir{./}
+      >| foo
+      EOE
+  }
+
+  : timeout
+  :
+  if $posix
+  {{
+    : update
+    :
+    {{
+      : expired
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          % [diag=update]
+          {{
+            cp $path($<) $path($>)
+            timeout 1
+            ^sleep 5
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0
+          update file{bar} -> file{foo}
+          buildfile:6:3: error: process ^sleep terminated: execution timeout expired
+            info: command line: sleep 5
+            info: while updating file{foo}
+          %.+
+          EOE
+
+        $* clean 2>-
+      }
+
+      : successful-timeout
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          % [diag=update]
+          {{
+            cp $path($<) $path($>)
+            timeout --success 1
+            ^sleep 5
+          }}
+          EOI
+
+        $* 2>>EOE
+          update file{bar} -> file{foo}
+          EOE
+
+        $* clean 2>-
+      }
+    }}
+
+    : test
+    :
+    {{
+      : expired
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            cp $path($<) $path($>)
+          }}
+          % [diag=test] test
+          {{
+            ^sleep 5
+          }}
+          EOI
+
+        $* test config.test.timeout=1 2>>~%EOE% != 0
+          cp file{bar} -> file{foo}
+          test file{foo}
+          buildfile:7:3: error: process ^sleep terminated: execution timeout expired
+            info: command line: sleep 5
+            info: while testing file{foo}
+          %.+
+          EOE
+
+        $* test config.test.timeout=/1 2>>~%EOE% != 0
+          test file{foo}
+          buildfile:7:3: error: process ^sleep terminated: execution timeout expired
+            info: command line: sleep 5
+            info: while testing file{foo}
+          %.+
+          EOE
+
+        $* clean 2>-
+      }
+
+      : not-expired
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          % [diag=cp]
+          {{
+            ^sleep 4
+            cp $path($<) $path($>)
+          }}
+          % [diag=test] test
+          {{
+            ^sleep 1
+          }}
+          EOI
+
+        $* test config.test.timeout=3 2>>EOE
+          cp file{bar} -> file{foo}
+          test file{foo}
+          EOE
+
+        $* clean 2>-
+      }
+    }}
+  }}
+
+  # @@ TODO: test $1 when implemented.
+  #
+  : rule
+  :
+  {
+    cat <<EOI >=buildfile
+      alias{far}: alias{bar}
+      alias{bar}:
+
+      alias{~'/f(.+)/'}: alias{~'/b\1/'}
+      {{
+        diag frob $< -> $>
+      }}
+      EOI
+
+    $* 2>>EOE
+      frob alias{bar} -> alias{far}
+      EOE
+  }
+
+  : loop
+  :
+  {{
+    : while
+    :
+    {{
+      : basics
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            p = $path($>)
+            while test -f $p != 0
+              cp $path($<) $p
+            end
+          }}
+          EOI
+
+        $* 2>'cp file{bar} -> file{foo}'
+
+        cat <<<foo >'bar'
+
+        $* clean 2>-
+      }
+
+      : exit
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            diag gen ($>)
+
+            p = $path($>)
+            while test -f $p != 0
+              touch $p
+              exit
+              cp $path($<) $p
+            end
+          }}
+          EOI
+
+        $* 2>'gen file{foo}'
+
+        cat <<<foo >:''
+
+        $* clean 2>-
+      }
+
+      : error
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            diag gen ($>)
+
+            p = $path($>)
+            while test -f $p != 0
+              touch $p
+              exit 'fed up'
+              cp $path($<) $p
+            end
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0
+          gen file{foo}
+          buildfile:8:5: error: fed up
+          %.{3}
+          EOE
+
+        $* clean 2>-
+      }
+
+      : depdb
+      :
+      {{
+        : inside
+        :
+        {
+          echo 'bar' >=bar
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($>)
+              while test -f $p != 0
+                depdb hash $p
+                cp $path($<) $p
               end
             }}
             EOI
 
-          $* 2>'gen file{foo}';
+          $* 2>>EOE != 0
+            buildfile:5:5: error: 'depdb' call inside flow control construct
+            EOE
+        }
+
+        : after-commands
+        :
+        {
+          echo 'bar' >=bar
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($>)
+              while test -f $p != 0
+                cp $path($<) $p
+              end
+
+              depdb hash $p
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0
+            buildfile:5:5: error: disallowed command in depdb preamble
+              info: only variable assignments are allowed in depdb preamble
+              buildfile:8:3: info: depdb preamble ends here
+            %.{3}
+            EOE
+
           $* clean 2>-
         }
-      }
-    }
-  }
-}
+
+        : after-vars
+        :
+        {
+          echo 'bar' >=bar
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($<)
+
+              h =
+              while test -f $p != 0
+                h += $p
+              end
+
+              depdb hash $p
+
+              cat $p >$path($>)
+            }}
+            EOI
+
+          $* 2>'cat file{bar} -> file{foo}'
+          $* clean 2>-
+        }
+      }}
+    }}
+
+    : for
+    :
+    {{
+      : form-1
+      :
+      : for x: ...
+      :
+      {{
+        : basics
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar baz
+            {{
+              p = $path($>)
+              rm -f $p
+
+              for f: $<
+                cat $path($f) >>$p
+              end
+            }}
+            EOI
+
+          $* 2>'cat file{bar} -> file{foo}'
+
+          cat <<<foo >>EOO
+            bar
+            baz
+            EOO
+
+          $* clean 2>-
+        }
+
+        : pair
+        :
+        {
+          mkdir -p src/build
+          echo 'bar' >=src/bar
+          echo 'baz' >=src/baz
+
+          echo 'project =' >=src/build/bootstrap.build
+
+          cat <<EOI >=src/buildfile
+            foo: file{bar}@./ file{baz}@./
+            {{
+              p = $path($>)
+              rm -f $p
+
+              for f: $<
+                cat $path($f) >>$p
+              end
+            }}
+            EOI
+
+          $* src/@out/ 2>>/EOE
+            mkdir fsdir{out/}
+            cat src/file{bar} -> out/file{foo}
+            EOE
+
+          cat <<<out/foo >>EOO
+            bar
+            baz
+            EOO
+
+          $* 'clean:' src/@out/ 2>-
+        }
+
+        : special-var
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($>)
+              rm -f $p
+
+              for ~: $<
+                cat $path($f) >>$p
+              end
+            }}
+            EOI
+
+          $* 2>>EOE != 0
+            buildfile:6:7: error: attempt to set '~' special variable
+            EOE
+        }
+
+        : exit
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($>)
+              rm -f $p
+
+              for f: $<
+                cat $path($f) >>$p
+                exit
+              end
+            }}
+            EOI
+
+          $* 2>'cat file{bar} -> file{foo}'
+
+          cat <<<foo >>EOO
+            bar
+            EOO
+
+          $* clean 2>-
+        }
+
+        : error
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($>)
+              rm -f $p
+
+              for f: $<
+                cat $path($f) >>$p
+                exit 'fed up'
+              end
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0
+            cat file{bar} -> file{foo}
+            buildfile:8:5: error: fed up
+            %.{3}
+            EOE
+
+          $* clean 2>-
+        }
+
+        : depdb
+        :
+        {{
+          : inside
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                for f: $<
+                  depdb hash $f
+                end
+
+                p = $path($>)
+                rm -f $p
+
+                for f: $<
+                  cat $path($f) >>$p
+                end
+              }}
+              EOI
+
+            $* 2>>EOE != 0
+              buildfile:4:5: error: 'depdb' call inside flow control construct
+              EOE
+          }
+
+          : after-commands
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                for f: $<
+                  echo $path($f) >-
+                end
+
+                depdb hash a
+              }}
+              EOI
+
+            $* 2>>~%EOE% != 0
+              buildfile:4:5: error: disallowed command in depdb preamble
+                info: only variable assignments are allowed in depdb preamble
+                buildfile:7:3: info: depdb preamble ends here
+              %.{3}
+              EOE
+
+            $* clean 2>-
+          }
+
+          : after-vars
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                h =
+                for f: $<
+                  h += $path($f)
+                end
+
+                depdb hash $h
+
+                p = $path($>)
+                rm -f $p
+
+                for f: $<
+                  cat $path($f) >>$p
+                end
+              }}
+              EOI
+
+            $* 2>'cat file{bar} -> file{foo}'
+            $* clean 2>-
+          }
+        }}
+      }}
+
+      : form-2
+      :
+      : ... | for x
+      :
+      {{
+        : basics
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar baz
+            {{
+              diag gen ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              echo $path($<) | for -w f
+                cat $f >>$p
+              end
+            }}
+            EOI
+
+          $* 2>'gen file{foo}'
+
+          cat <<<foo >>EOO
+            bar
+            baz
+            EOO
+
+          $* clean 2>-
+        }
+
+        : special-var
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              diag gen ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              echo $path($<) | for ~
+                cat $f >>$p
+              end
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0
+            gen file{foo}
+            buildfile:8:3: error: attempt to set '~' special variable
+            %.{3}
+            EOE
+
+          $* clean 2>-
+        }
+
+        : misuse
+        :
+        {{
+          : after-var
+          {
+            echo 'bar' >=bar
+            echo 'baz' >=baz
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                diag gen ($>)
+
+                p = $path($>)
+                rm -f $p
+
+                echo $path($<) | for x:
+                  cat $f >>$p
+                end
+              }}
+              EOI
+
+            $* 2>>~%EOE% != 0
+              gen file{foo}
+              buildfile:8:3: error: for: ':' after variable name
+              %.+
+              EOE
+
+            $* clean 2>-
+          }
+
+          : after-attrs
+          {
+            echo 'bar' >=bar
+            echo 'baz' >=baz
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                diag gen ($>)
+
+                p = $path($>)
+                rm -f $p
+
+                echo $path($<) | for x [path]:
+                  cat $f >>$p
+                end
+              }}
+              EOI
+
+            $* 2>>~%EOE% != 0
+              gen file{foo}
+              <attributes>:1:7: error: whitespace required after attributes
+                <attributes>:1:1: info: use the '\[' escape sequence if this is a wildcard pattern
+                buildfile:8:3: info: while parsing attributes '[path]:'
+              %.+
+              EOE
+
+            $* clean 2>-
+          }
+        }}
+
+        : exit
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              diag gen ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              echo $path($<) | for -w f
+                cat $f >>$p
+                exit
+              end
+            }}
+            EOI
+
+          $* 2>'gen file{foo}'
+
+          cat <<<foo >>EOO
+            bar
+            EOO
+
+          $* clean 2>-
+        }
+
+        : error
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              diag gen ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              echo $path($<) | for -w f
+                cat $f >>$p
+                exit 'fed up'
+              end
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0
+            gen file{foo}
+            buildfile:10:5: error: fed up
+            %.{3}
+            EOE
+
+          $* clean 2>-
+        }
+
+        : depdb
+        :
+        {{
+          : inside
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                echo $path($<) | for -w f
+                  depdb hash $f
+                end
+
+                p = $path($>)
+                rm -f $p
+
+                echo $path($<) | for -w f
+                  cat $f >>$p
+                end
+              }}
+              EOI
+
+            $* 2>>EOE != 0
+              buildfile:4:5: error: 'depdb' call inside flow control construct
+              EOE
+          }
+
+          : after-commands
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                echo $path($<) | for -w f
+                  echo $f >-
+                end
+
+                depdb hash $p
+              }}
+              EOI
+
+            $* 2>>~%EOE% != 0
+              buildfile:4:5: error: disallowed command in depdb preamble
+                info: only variable assignments are allowed in depdb preamble
+                buildfile:7:3: info: depdb preamble ends here
+              %.{3}
+              EOE
+
+            $* clean 2>-
+          }
+
+          : after-vars
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                h =
+                echo $path($<) | for -w f
+                  h += $f
+                end
+
+                depdb hash $h
+
+                diag gen ($>)
+
+                p = $path($>)
+                rm -f $p
+
+                for f: $<
+                  cat $path($f) >>$p
+                end
+              }}
+              EOI
+
+            $* 2>'gen file{foo}'
+            $* clean 2>-
+          }
+        }}
+      }}
+
+      : form-3
+      :
+      : for x <...
+      :
+      {{
+        : basics
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar baz
+            {{
+              diag gen ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              for -w f <<"EOF"
+              $path($<)
+              EOF
+                cat $f >>$p
+              end
+
+              for <<"EOF" -w f
+              $path($<)
+              EOF
+                cat $f >>$p
+              end
+            }}
+            EOI
+
+          $* 2>'gen file{foo}'
+
+          cat <<<foo >>EOO
+            bar
+            baz
+            bar
+            baz
+            EOO
+
+          $* clean 2>-
+        }
+
+        : quoting
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar baz
+            {{
+              n = 'gen'
+              diag "($n)" ($>)
+
+              p = $path($>)
+              rm -f $p
+
+              o = -w
+              for "$o" f <<"EOF"
+              $path($<)
+              EOF
+                cat $f >>$p
+              end
+
+              o = -n
+              for "($o)" f <<"EOF"
+              $path($<)
+              EOF
+                echo $f >>$p
+              end
+            }}
+            EOI
+
+          $* 2>'gen file{foo}'
+
+          cat <<<foo >>~%EOO%
+            bar
+            baz
+            %.+bar .+baz%
+            EOO
+
+          $* clean 2>-
+        }
+
+        : special-var
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($>)
+              rm -f $p
+
+             for ~ <<<$path($<)
+                cat $f >>$p
+              end
+            }}
+            EOI
+
+          $* 2>>EOE != 0
+            buildfile:6:6: error: attempt to set '~' special variable
+            EOE
+        }
+
+        : exit
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($>)
+              rm -f $p
+
+             for f <<<$path($<)
+                cat $f >>$p
+                exit
+              end
+            }}
+            EOI
+
+          $* 2>'cat file{bar} -> file{foo}'
+
+          cat <<<foo >>EOO
+            bar
+            EOO
+
+          $* clean 2>-
+        }
+
+        : error
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz
+
+          cat <<EOI >=buildfile
+            foo: bar
+            {{
+              p = $path($>)
+              rm -f $p
+
+             for f <<<$path($<)
+                cat $f >>$p
+                exit 'fed up'
+              end
+            }}
+            EOI
+
+          $* 2>>~%EOE% != 0
+            cat file{bar} -> file{foo}
+            buildfile:8:5: error: fed up
+            %.{3}
+            EOE
+
+          $* clean 2>-
+        }
+
+        : depdb
+        :
+        {{
+          : inside
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                for -w f <<<$path($<)
+                  depdb hash $f
+                end
+
+                p = $path($>)
+                rm -f $p
+
+                echo $path($<) | for -w f
+                  cat $f >>$p
+                end
+              }}
+              EOI
+
+            $* 2>>EOE != 0
+              buildfile:4:5: error: 'depdb' call inside flow control construct
+              EOE
+          }
+
+          : after-commands
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                for -w f <<<$path($<)
+                  echo $f >-
+                end
+
+                depdb hash a
+              }}
+              EOI
+
+            $* 2>>~%EOE% != 0
+              buildfile:4:5: error: disallowed command in depdb preamble
+                info: only variable assignments are allowed in depdb preamble
+                buildfile:7:3: info: depdb preamble ends here
+              %.{3}
+              EOE
+
+            $* clean 2>-
+          }
+
+          : after-vars
+          :
+          {
+            echo 'bar' >=bar
+
+            cat <<EOI >=buildfile
+              foo: bar
+              {{
+                h =
+                for -w f <<<$path($<)
+                  h += $f
+                end
+
+                depdb hash $h
+
+                diag gen ($>)
+
+                p = $path($>)
+                rm -f $p
+
+                for f: $<
+                  cat $path($f) >>$p
+                end
+              }}
+              EOI
+
+            $* 2>'gen file{foo}'
+            $* clean 2>-
+          }
+        }}
+      }}
+    }}
+  }}
+}}

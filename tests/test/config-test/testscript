@@ -1,6 +1,8 @@
 # file      : tests/test/config-test/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 # Setup a realistic test project that we will then exercise.
 #
 
@@ -46,14 +48,16 @@ EOI
 ./: testscript{basics.testscript}
 EOI
 +cat <<EOI >=proj/tests/script/basics.testscript
+testscript.syntax = 2
+
 echo 'tests/script/basics/foo' >| : foo
 echo 'tests/script/basics/bar' >| : bar
 
 : baz
-{
+{{
   echo 'tests/script/basics/baz/foo' >| : foo
   echo 'tests/script/basics/baz/bar' >| : bar
-}
+}}
 EOI
 
 # units/ - as a subdirectory
@@ -68,6 +72,7 @@ d = simple/ script/
 #include $d
 EOI
 +cat <<EOI >=proj/units/testscript
+testscript.syntax = 2
 echo 'units' >|
 EOI
 
@@ -94,9 +99,18 @@ EOI
 ./: testscript
 EOI
 +cat <<EOI >=proj/units/script/testscript
+testscript.syntax = 2
 echo 'units/script/foo' >| : foo
 echo 'units/script/bar' >| : bar
 EOI
+
+# Prepare a project for running the syntax 1 testscripts.
+#
++cp -p -R proj proj-s1
++for f [path]: tests/script/basics.testscript units/testscript units/script/testscript
+  sed -i -e 's/^testscript\.syntax.*$//' \
+         -e 's/^\{\{$/{/' \
+         -e 's/^\}\}$/}/' "proj-s1/$f"
 
 # Now the tests. Should all be top-level, no groups (or set test.arguments).
 #
@@ -190,3 +204,101 @@ EOO
 $* config.test=tests/@{basics/baz/bar} >>EOO
 tests/script/basics/baz/bar
 EOO
+
+: syntax-1
+:
+{{
+  test.arguments = $regex.apply($test.arguments, \
+                                '^test\(.+\)$',  \
+                                'test(../../proj-s1/@./)')
+
+  : all
+  :
+  $* >>EOO
+  tests/script/basics/foo
+  tests/script/basics/bar
+  tests/script/basics/baz/foo
+  tests/script/basics/baz/bar
+  units/simple
+  units/script/foo
+  units/script/bar
+  units
+  EOO
+
+  : alias-pass
+  : Test lead-up alias pass-through (but not test)
+  :
+  $* config.test=units/simple/file{driver} >>EOO
+  units/simple
+  EOO
+
+  : alias-test
+  : Test lead-up alias test (but not pass-through)
+  :
+  $* config.test=dir{units/} >>EOO
+  units
+  EOO
+
+  : alias-pass-test
+  : Test lead-up alias pass-through and test
+  :
+  $* config.test=units/ >>EOO
+  units/simple
+  units/script/foo
+  units/script/bar
+  units
+  EOO
+
+  : alias-pass-id-only
+  : Test lead-up alias pass-through (ids only)
+  :
+  $* config.test=bogus >>EOO
+  units/simple
+  EOO
+
+  : target-simple
+  :
+  $* config.test=units/simple/file{driver} >>EOO
+  units/simple
+  EOO
+
+  : target-script
+  :
+  $* config.test=dir{units/script/} >>EOO
+  units/script/foo
+  units/script/bar
+  EOO
+
+  : id
+  :
+  $* config.test=foo >>EOO
+  units/simple
+  units/script/foo
+  EOO
+
+  : target-id
+  :
+  $* config.test=dir{units/script/}@foo >>EOO
+  units/script/foo
+  EOO
+
+  : target-ids
+  :
+  $* 'config.test=dir{units/script/}@{foo bar}' >>EOO
+  units/script/foo
+  units/script/bar
+  EOO
+
+  : id-group
+  :
+  $* config.test=tests/@{basics/baz} >>EOO
+  tests/script/basics/baz/foo
+  tests/script/basics/baz/bar
+  EOO
+
+  : id-in-group
+  :
+  $* config.test=tests/@{basics/baz/bar} >>EOO
+  tests/script/basics/baz/bar
+  EOO
+}}

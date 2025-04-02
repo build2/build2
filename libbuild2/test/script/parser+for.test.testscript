@@ -1,14 +1,16 @@
 # file      : libbuild2/test/script/parser+for.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : form-1
 :
 : for x: ...
 :
-{
+{{
   : for
   :
-  {
+  {{
     : no-var
     :
     $* <<EOI 2>>EOE != 0
@@ -97,7 +99,7 @@
     cmd b
     -cmd x
     EOO
-  }
+  }}
 
   : after-semi
   :
@@ -166,7 +168,7 @@
 
   : rcbrace
   :
-  {
+  {{
     : without-rcbrace
     :
     $* <<EOI 2>>EOE != 0
@@ -176,11 +178,11 @@
     EOI
     testscript:4:1: error: expected command instead of <end of file> inside 'for'
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -190,7 +192,7 @@
     EOI
     testscript:2:3: error: 'elif' without preceding 'if'
     EOE
-  }
+  }}
 
   : nested
   :
@@ -227,7 +229,7 @@
 
   : contained
   :
-  {
+  {{
     : semi
     :
     $* <<EOI 2>>EOE != 0
@@ -301,7 +303,7 @@
     EOI
     testscript:2:3: error: teardown command inside 'for'
     EOE
-  }
+  }}
 
   : var
   :
@@ -326,16 +328,16 @@
   EOI
   testscript:2:1: error: both leading and trailing descriptions
   EOE
-}
+}}
 
 : form-2
 :
 : ... | for x
 :
-{
+{{
   : for
   :
-  {
+  {{
     : status
     :
     $* <<EOI 2>>EOE != 0
@@ -480,7 +482,7 @@
     EOI
     echo 'a b' | for -w x [dir_path]
     EOO
-  }
+  }}
 
   : after-semi
   :
@@ -521,7 +523,7 @@
 
   : rcbrace
   :
-  {
+  {{
     : without-rcbrace
     :
     $* <<EOI 2>>EOE != 0
@@ -531,11 +533,11 @@
     EOI
     testscript:4:1: error: expected command instead of <end of file> inside 'for'
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -547,7 +549,7 @@
     EOI
     testscript:3:3: error: 'elif' without preceding 'if'
     EOE
-  }
+  }}
 
   : nested
   :
@@ -575,7 +577,7 @@
 
   : contained
   :
-  {
+  {{
     : semi
     :
     $* <<EOI 2>>EOE != 0
@@ -649,7 +651,7 @@
     EOI
     testscript:2:3: error: teardown command inside 'for'
     EOE
-  }
+  }}
 
   : leading-and-trailing-description
   :
@@ -660,16 +662,16 @@
   EOI
   testscript:2:1: error: both leading and trailing descriptions
   EOE
-}
+}}
 
 : form-3
 :
 : for x <...
 :
-{
+{{
   : for
   :
-  {
+  {{
     : status
     :
     $* <<EOI 2>>EOE != 0
@@ -827,7 +829,7 @@
     EOI
     for -w x [dir_path] <'a b'
     EOO
-  }
+  }}
 
   : after-semi
   :
@@ -868,7 +870,7 @@
 
   : rcbrace
   :
-  {
+  {{
     : without-rcbrace
     :
     $* <<EOI 2>>EOE != 0
@@ -878,11 +880,11 @@
     EOI
     testscript:4:1: error: expected command instead of <end of file> inside 'for'
     EOE
-  }
+  }}
 
   : elif
   :
-  {
+  {{
     : without-if
     :
     $* <<EOI 2>>EOE != 0
@@ -894,7 +896,7 @@
     EOI
     testscript:3:3: error: 'elif' without preceding 'if'
     EOE
-  }
+  }}
 
   : nested
   :
@@ -922,7 +924,7 @@
 
   : contained
   :
-  {
+  {{
     : semi
     :
     $* <<EOI 2>>EOE != 0
@@ -996,7 +998,7 @@
     EOI
     testscript:2:3: error: teardown command inside 'for'
     EOE
-  }
+  }}
 
   : leading-and-trailing-description
   :
@@ -1007,21 +1009,21 @@
   EOI
   testscript:2:1: error: both leading and trailing descriptions
   EOE
-}
+}}
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : form-1
   :
   : for x: ...
   :
-  {
+  {{
     : for
     :
-    {
+    {{
       : no-var
       :
       $* <<EOI 2>>EOE != 0
@@ -1119,7 +1121,7 @@
       cmd b
       -cmd x
       EOO
-    }
+    }}
 
     : after-semi
     :
@@ -1166,7 +1168,7 @@
 
     : end
     :
-    {
+    {{
       : without-end
       :
       $* <<EOI 2>>EOE != 0
@@ -1175,11 +1177,11 @@
       EOI
       testscript:3:1: error: expected closing 'end'
       EOE
-    }
+    }}
 
     : elif
     :
-    {
+    {{
       : without-if
       :
       $* <<EOI 2>>EOE != 0
@@ -1191,7 +1193,7 @@
       EOI
       testscript:2:3: error: 'elif' without preceding 'if'
       EOE
-    }
+    }}
 
     : nested
     :
@@ -1227,7 +1229,7 @@
 
     : contained
     :
-    {
+    {{
       : semi
       :
       $* <<EOI 2>>EOE != 0
@@ -1299,7 +1301,7 @@
       EOI
       testscript:2:3: error: teardown command inside 'for'
       EOE
-    }
+    }}
 
     : var
     :
@@ -1324,16 +1326,16 @@
     EOI
     testscript:4:1: error: both leading and trailing descriptions
     EOE
-  }
+  }}
 
   : form-2
   :
   : ... | for x
   :
-  {
+  {{
     : for
     :
-    {
+    {{
       : status
       :
       $* <<EOI 2>>EOE != 0
@@ -1494,7 +1496,7 @@
       EOI
       echo 'a b' | for -w x [dir_path]
       EOO
-    }
+    }}
 
     : after-semi
     :
@@ -1538,7 +1540,7 @@
 
     : end
     :
-    {
+    {{
       : without-end
       :
       $* <<EOI 2>>EOE != 0
@@ -1547,11 +1549,11 @@
       EOI
       testscript:3:1: error: expected closing 'end'
       EOE
-    }
+    }}
 
     : elif
     :
-    {
+    {{
       : without-if
       :
       $* <<EOI 2>>EOE != 0
@@ -1563,7 +1565,7 @@
       EOI
       testscript:2:3: error: 'elif' without preceding 'if'
       EOE
-    }
+    }}
 
     : nested
     :
@@ -1590,7 +1592,7 @@
 
     : contained
     :
-    {
+    {{
       : semi
       :
       $* <<EOI 2>>EOE != 0
@@ -1662,7 +1664,7 @@
       EOI
       testscript:2:3: error: teardown command inside 'for'
       EOE
-    }
+    }}
 
     : leading-and-trailing-description
     :
@@ -1674,16 +1676,16 @@
     EOI
     testscript:4:1: error: both leading and trailing descriptions
     EOE
-  }
+  }}
 
   : form-3
   :
   : for x <...
   :
-  {
+  {{
     : for
     :
-    {
+    {{
       : status
       :
       $* <<EOI 2>>EOE != 0
@@ -1859,7 +1861,7 @@
       EOI
       for -w x [dir_path] <'a b'
       EOO
-    }
+    }}
 
     : after-semi
     :
@@ -1903,7 +1905,7 @@
 
     : end
     :
-    {
+    {{
       : without-end
       :
       $* <<EOI 2>>EOE != 0
@@ -1912,11 +1914,11 @@
       EOI
       testscript:3:1: error: expected closing 'end'
       EOE
-    }
+    }}
 
     : elif
     :
-    {
+    {{
       : without-if
       :
       $* <<EOI 2>>EOE != 0
@@ -1928,7 +1930,7 @@
       EOI
       testscript:2:3: error: 'elif' without preceding 'if'
       EOE
-    }
+    }}
 
     : nested
     :
@@ -1955,7 +1957,7 @@
 
     : contained
     :
-    {
+    {{
       : semi
       :
       $* <<EOI 2>>EOE != 0
@@ -2027,7 +2029,7 @@
       EOI
       testscript:2:3: error: teardown command inside 'for'
       EOE
-    }
+    }}
 
     : leading-and-trailing-description
     :
@@ -2039,5 +2041,5 @@
     EOI
     testscript:4:1: error: both leading and trailing descriptions
     EOE
-  }
-}
+  }}
+}}

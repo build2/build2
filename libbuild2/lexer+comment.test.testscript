@@ -1,9 +1,11 @@
 # file      : libbuild2/lexer+comment.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : single-line
 :
-{
+{{
   : only
   :
   $* <<EOI >>:EOO
@@ -66,11 +68,11 @@
   'bar'
   <newline>
   EOO
-}
+}}
 
 : multi-line
 :
-{
+{{
   : only
   :
   $* <<EOI >>:EOO
@@ -135,4 +137,4 @@
   EOI
   <stdin>:3:1: error: unterminated multi-line comment
   EOE
-}
+}}

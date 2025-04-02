@@ -1,6 +1,8 @@
 # file      : tests/name/extension.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../common.testscript
 
 +cat <<EOI >=build/root.build
@@ -10,7 +12,7 @@ EOI
 
 : name
 :
-{
+{{
   test.arguments = --match-only update
 
   : unspecified
@@ -105,7 +107,7 @@ EOI
 
   : trailing
   :
-  {
+  {{
     : no-extension
     :
     touch foo;
@@ -155,7 +157,7 @@ EOI
     :
     if ($cxx.target.class != 'windows')
     {
-      touch foo.;
+      touch foo.
       $* <<EOI >>EOO
       ./: txt{foo..}
       print $name(txt{foo..})
@@ -172,7 +174,7 @@ EOI
     :
     if ($cxx.target.class != 'windows')
     {
-      touch foo..;
+      touch foo..
       $* <<EOI >>EOO
       ./: txt{foo....}
       print $name(txt{foo....})
@@ -184,11 +186,11 @@ EOI
       txt{foo....}
       EOO
     }
-  }
+  }}
 
   : leading
   :
-  {
+  {{
     : single
     :
     touch .foo.txt;
@@ -236,7 +238,7 @@ EOI
     [null]
     txt{....foo}
     EOO
-  }
+  }}
 
   : specified-invalid
   :
@@ -249,11 +251,11 @@ EOI
   $* <'./: txt{..}' 2>>EOE != 0
   <stdin>:1:5: error: invalid target name '..'
   EOE
-}
+}}
 
 : pattern
 :
-{
+{{
   : specified-none
   :
   touch foo;
@@ -282,7 +284,7 @@ EOI
   :
   if ($cxx.target.class != 'windows')
   {
-    touch foo.;
+    touch foo.
     $* <'print txt{fo?..}' >'txt{foo..}'
   }
-}
+}}

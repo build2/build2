@@ -1,11 +1,13 @@
 # file      : libbuild2/script/lexer+command-expansion.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.arguments = command-expansion
 
 : pass-redirect
 :
-{
+{{
   : in
   :
   $* <:"0<|" >>EOO
@@ -33,11 +35,11 @@ test.arguments = command-expansion
   '1 '
   >|
   EOO
-}
+}}
 
 : null-redirect
 :
-{
+{{
   : in
   :
   $* <:"0<-" >>EOO
@@ -65,11 +67,11 @@ test.arguments = command-expansion
   '1 '
   >-
   EOO
-}
+}}
 
 : trace-redirect
 :
-{
+{{
   : out
   :
   $* <:"1>!" >>EOO
@@ -83,11 +85,11 @@ test.arguments = command-expansion
   '1 '
   >!
   EOO
-}
+}}
 
 : merge-redirect
 :
-{
+{{
   : out
   :
   $* <:"1>&2" >>EOO
@@ -103,14 +105,14 @@ test.arguments = command-expansion
   >&
   '2'
   EOO
-}
+}}
 
 : str-redirect
 :
-{
+{{
   : in
   :
-  {
+  {{
     : newline
     :
     $* <:"0<<<=a b" >>EOO
@@ -126,11 +128,11 @@ test.arguments = command-expansion
     <<<=:
     'a b'
     EOO
-  }
+  }}
 
   : in-alias
   :
-  {
+  {{
     : newline
     :
     $* <:"0<<<a b" >>EOO
@@ -146,11 +148,11 @@ test.arguments = command-expansion
     <<<:
     'a b'
     EOO
-  }
+  }}
 
   : out
   :
-  {
+  {{
     : newline
     :
     $* <:"1>>>?a b" >>EOO
@@ -166,15 +168,15 @@ test.arguments = command-expansion
     >>>?:
     'a b'
     EOO
-  }
-}
+  }}
+}}
 
 : doc-redirect
 :
-{
+{{
   : in
   :
-  {
+  {{
     : newline
     :
     $* <:"0<<=E O I" >>EOO
@@ -190,11 +192,11 @@ test.arguments = command-expansion
     <<=:
     'E O I'
     EOO
-  }
+  }}
 
   : in-alias
   :
-  {
+  {{
     : newline
     :
     $* <:"0<<E O I" >>EOO
@@ -210,11 +212,11 @@ test.arguments = command-expansion
     <<:
     'E O I'
     EOO
-  }
+  }}
 
   : out
   :
-  {
+  {{
     : newline
     :
     $* <:"1>>?E O O" >>EOO
@@ -230,12 +232,12 @@ test.arguments = command-expansion
     >>?:
     'E O O'
     EOO
-  }
-}
+  }}
+}}
 
 : file-redirect
 :
-{
+{{
   : in
   :
   $* <:"0<=a b" >>EOO
@@ -283,7 +285,7 @@ test.arguments = command-expansion
   >>
   'a b'
   EOO
-}
+}}
 
 : no-out-alias
 :
@@ -294,10 +296,9 @@ $* <:"1>>>a b" >>EOO
 'a b'
 EOO
 
-
 : cleanup
 :
-{
+{{
   : always
   :
   $* <:"&file" >>EOO
@@ -318,4 +319,4 @@ EOO
   &!
   'file'
   EOO
-}
+}}

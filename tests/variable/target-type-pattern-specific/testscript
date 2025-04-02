@@ -3,6 +3,8 @@
 
 # NOTE: see also old tests.
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 : basic
@@ -128,7 +130,7 @@ EOO
 
 : regex
 :
-{
+{{
   : flag-icase
   :
   $* <<EOI >>EOO
@@ -200,4 +202,4 @@ EOO
   EOI
   /<stdin>:1:1: error: invalid regex pattern .+/
   EOE
-}
+}}

@@ -1,6 +1,8 @@
 # file      : libbuild2/lexer+quoting.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 test.options += -q
 
 : unquoted
@@ -12,7 +14,7 @@ EOO
 
 : comp
 :
-{
+{{
   : single
   :
   $* <":'foo':" >>EOO
@@ -44,14 +46,14 @@ EOO
   '' [D/C]
   <newline>
   EOO
-}
+}}
 
 : part
 :
-{
+{{
   : quoted
   :
-  {
+  {{
     : start
     : Token start already quoted
     :
@@ -71,10 +73,10 @@ EOO
     '' [D/P]
     <newline>
     EOO
-  }
+  }}
 
   : unquoted
-  {
+  {{
     : start
     : Token starts with unquoted character
     :
@@ -98,8 +100,8 @@ EOO
     'fo"' [D/P/F]
     <newline>
     EOO
-  }
-}
+  }}
+}}
 
 : mixed
 :
@@ -110,7 +112,7 @@ EOO
 
 : first
 :
-{
+{{
   : empty-single
   :
   $* <"''+foo" >>EOO
@@ -124,4 +126,4 @@ EOO
   '+foo' [D/P/F]
   <newline>
   EOO
-}
+}}

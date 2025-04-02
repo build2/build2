@@ -1,9 +1,11 @@
 # file      : libbuild2/test/script/parser+description.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 : id
 :
-{
+{{
   : lead
   :
   $* <<EOI >>EOO
@@ -26,10 +28,10 @@
   : dup
   : Id uniqueness
   :
-  {
+  {{
     : test
     :
-    {
+    {{
       : test
       :
       $* <<EOI 2>>EOE != 0
@@ -67,11 +69,11 @@
       testscript:3:1: error: duplicate id 3
         testscript:1:1: info: previously used here
       EOE
-    }
+    }}
 
     : group
     :
-    {
+    {{
       : test
       :
       $* <<EOI 2>>EOE != 0
@@ -118,12 +120,13 @@
       testscript:3:1: error: duplicate id 3
         testscript:1:1: info: previously used here
       EOE
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : summary
-{
+:
+{{
   : lead
   :
   $* <<EOI >>EOO
@@ -154,10 +157,11 @@
   : sm:foo bar
   cmd
   EOO
-}
+}}
 
 : details
-{
+:
+{{
   : id
   :
   $* <<EOI >>EOO
@@ -176,7 +180,7 @@
 
   : summary
   :
-  {
+  {{
     : only
     :
     $* <<EOI >>EOO
@@ -236,14 +240,14 @@
     : baz fox
     cmd
     EOO
-  }
-}
+  }}
+}}
 
 : legal
 :
 : Legal places for description.
 :
-{
+{{
   : var
   :
   $* <<EOI >>EOO
@@ -254,13 +258,13 @@
   : sm:foo bar
   cmd y
   EOO
-}
+}}
 
 : illegal
 :
 : Illegal places for description.
 :
-{
+{{
   : eof
   :
   $* <": foo" 2>>EOE != 0
@@ -346,7 +350,7 @@
   EOI
   testscript:2:1: error: description inside test
   EOE
-}
+}}
 
 : blanks
 :
@@ -429,12 +433,12 @@ EOE
 
 : syntax-1
 :
-{
+{{
   test.options += -v 1
 
   : id
   :
-  {
+  {{
     : lead
     :
     $* <<EOI >>EOO
@@ -457,10 +461,10 @@ EOE
     : dup
     : Id uniqueness
     :
-    {
+    {{
       : test
       :
-      {
+      {{
         : test
         :
         $* <<EOI 2>>EOE != 0
@@ -498,11 +502,11 @@ EOE
         testscript:3:1: error: duplicate id 3
           testscript:1:1: info: previously used here
         EOE
-      }
+      }}
 
       : group
       :
-      {
+      {{
         : test
         :
         $* <<EOI 2>>EOE != 0
@@ -549,12 +553,12 @@ EOE
         testscript:3:1: error: duplicate id 3
           testscript:1:1: info: previously used here
         EOE
-      }
-    }
-  }
+      }}
+    }}
+  }}
 
   : summary
-  {
+  {{
     : lead
     :
     $* <<EOI >>EOO
@@ -585,10 +589,10 @@ EOE
     : sm:foo bar
     cmd
     EOO
-  }
+  }}
 
   : details
-  {
+  {{
     : id
     :
     $* <<EOI >>EOO
@@ -607,7 +611,7 @@ EOE
 
     : summary
     :
-    {
+    {{
       : only
       :
       $* <<EOI >>EOO
@@ -667,14 +671,14 @@ EOE
       : baz fox
       cmd
       EOO
-    }
-  }
+    }}
+  }}
 
   : legal
   :
   : Legal places for description.
   :
-  {
+  {{
     : var
     :
     $* <<EOI >>EOO
@@ -685,13 +689,13 @@ EOE
     : sm:foo bar
     cmd y
     EOO
-  }
+  }}
 
   : illegal
   :
   : Illegal places for description.
   :
-  {
+  {{
     : eof
     :
     $* <": foo" 2>>EOE != 0
@@ -766,13 +770,13 @@ EOE
     EOI
     testscript:2:1: error: description inside test
     EOE
-  }
+  }}
 
   : test-scope
   :
   : Interaction with test scope merging.
   :
-  {
+  {{
     : both
     :
     : No merge since both have description.
@@ -834,7 +838,7 @@ EOE
       }
     }
     EOO
-  }
+  }}
 
   : blanks
   :
@@ -914,4 +918,4 @@ EOE
   EOI
   testscript:2:1: error: both leading and trailing descriptions
   EOE
-}
+}}

@@ -1,6 +1,8 @@
 # file      : tests/function/install/testscript
 # license   : MIT; see accompanying LICENSE file
 
+testscript.syntax = 2
+
 .include ../../common.testscript
 
 +cat <<EOI >+build/bootstrap.build
@@ -17,7 +19,7 @@ EOI
 
 : realize
 :
-{
+{{
   : existing
   :
   a = ($cxx.target.class != 'windows' ? '/usr/lib/a/' : 'C:\lib\a\');
@@ -31,4 +33,4 @@ EOI
     info: specify !config.install.foo=... if installing from multiple projects
     <stdin>:1:8: info: while calling install.resolve(dir_path)
   EOE
-}
+}}
