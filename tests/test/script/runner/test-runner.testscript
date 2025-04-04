@@ -62,6 +62,10 @@ $c <<EOI && $b "config.test.runner=$run --trace"
 : syntax-1
 :
 {{
+  b = [cmdline] $regex.apply($b, \
+                             '^(.+testscript\{testscript\}:.+)$', \
+                             "\1'$\ntestscript{testscript}: testscript.syntax = 1'")
+
   : basic
   :
   $c <<EOI && $b "config.test.runner=$run --trace"

@@ -34,7 +34,8 @@ EOI
 {{
   : testscript
   :
-  sed -e 's/^testscript.syntax.+$//' $src_base/testscript.in >=testscript.in;
+  echo 'testscript.syntax = 1' >=testscript.in;
+  sed -e 's/^testscript.syntax.+$//' $src_base/testscript.in >+testscript.in;
   $* <<EOI
   ./: testscript
   testscript: in{testscript} $src_root/manifest #@@ in module

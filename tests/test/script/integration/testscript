@@ -87,3 +87,91 @@ $* <<EOI 2>>/EOE &test/*** != 0
 EOI
 error: working directory test/ is not empty at the end of the test
 EOE
+
+: syntax-version
+:
+{{
+  +mkdir build
+
+  +cat <<EOI >=build/bootstrap.build
+    project = test
+    amalgamation =
+    subprojects =
+
+    using config
+    using test
+    using version
+    EOI
+
+  test.redirects += <'./: testscript'
+
+  : depends-build2-0.17.0
+  :
+  {
+    cp -r ../build ./
+
+    cat <<EOI >=manifest
+      : 1
+      name: test
+      version: 1.0.0
+      depends: * build2 >= 0.17.0
+      depends: * bpkg >= 0.17.0
+      EOI
+
+    cat <<EOI >=testscript
+      for i: 1
+        echo $i >|
+      end
+      EOI
+
+    $* >'1'
+  }
+
+  : depends-build2-0.18.0
+  :
+  {
+    cp -r ../build ./
+
+    cat <<EOI >=manifest
+      : 1
+      name: test
+      version: 1.0.0
+      depends: * build2 >= 0.18.0-
+      depends: * bpkg >= 0.18.0-
+      EOI
+
+    cat <<EOI >=testscript
+      for i: 1
+      {
+        echo $i >|
+      }
+      EOI
+
+    $* >'1'
+  }
+
+  : variable
+  :
+  {
+    cp -r ../build ./
+
+    cat <<EOI >=manifest
+      : 1
+      name: test
+      version: 1.0.0
+      depends: * build2 >= 0.18.0-
+      depends: * bpkg >= 0.18.0-
+      EOI
+
+    cat <<EOI >=testscript
+      for i: 1
+        echo $i >|
+      end
+      EOI
+
+    $* <<EOI >'1'
+      ./: testscript
+      testscript: testscript.syntax = 1
+      EOI
+  }
+}}

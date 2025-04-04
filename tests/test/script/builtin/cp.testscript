@@ -134,6 +134,10 @@ testscript.syntax = 2
 : syntax-1
 :
 {{
+  b = [cmdline] $regex.apply($b, \
+                             '^(.+testscript\{testscript\}:.+)$', \
+                             "\1'$\ntestscript{testscript}: testscript.syntax = 1'")
+
   : file
   :
   : Test synopsis 1: make a file copy at the specified path.

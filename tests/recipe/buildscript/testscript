@@ -1934,9 +1934,123 @@ if $posix
   }}
 }}
 
+: syntax-version
+:
+{{
+  +mkdir build
+
+  +cat <<EOI >=build/bootstrap.build
+    project = test
+    amalgamation =
+    subprojects =
+
+    using config
+    using test
+    using version
+    EOI
+
+  : depends-build2-0.17.0
+  :
+  {
+    cp -r ../build ./
+
+    cat <<EOI >=manifest
+      : 1
+      name: test
+      version: 1.0.0
+      depends: * build2 >= 0.17.0
+      depends: * bpkg >= 0.17.0
+      EOI
+
+    cat <<EOI >=buildfile
+      foo:
+      {{
+        for i: 1
+          echo $i >= $path($>)
+        end
+      }}
+      EOI
+
+    $* 2>'echo file{foo}'
+    cat foo >'1'
+    $* clean 2>-
+  }
+
+  : depends-build2-0.18.0
+  :
+  {
+    cp -r ../build ./
+
+    cat <<EOI >=manifest
+      : 1
+      name: test
+      version: 1.0.0
+      depends: * build2 >= 0.18.0-
+      depends: * bpkg >= 0.18.0-
+      EOI
+
+    cat <<EOI >=buildfile
+      foo:
+      {{
+        for i: 1
+        {
+          echo $i >= $path($>)
+        }
+      }}
+      EOI
+
+    $* 2>'echo file{foo}'
+    cat foo >'1'
+    $* clean 2>-
+  }
+
+  : variable
+  :
+  {
+    cp -r ../build ./
+
+    cat <<EOI >=manifest
+      : 1
+      name: test
+      version: 1.0.0
+      depends: * build2 >= 0.18.0-
+      depends: * bpkg >= 0.18.0-
+      EOI
+
+    cat <<EOI >=buildfile
+      buildscript.syntax = 1
+
+      foo:
+      {{
+        for i: 1
+          echo $i >= $path($>)
+        end
+      }}
+      EOI
+
+    $* 2>'echo file{foo}'
+    cat foo >'1'
+    $* clean 2>-
+  }
+}}
+
 : syntax-1
 :
 {{
+  +mkdir build
+  +cat <<EOI >=build/bootstrap.build
+    project = test
+    amalgamation =
+    subprojects =
+
+    using config
+    using test
+    EOI
+
+  +cat <<EOI >=build/root.build
+    buildscript.syntax = 1
+    EOI
+
   : update
   :
   {{
@@ -3033,6 +3147,7 @@ if $posix
           echo 'baz' >=src/baz
 
           echo 'project =' >=src/build/bootstrap.build
+          echo 'buildscript.syntax = 1' >=src/build/root.build
 
           cat <<EOI >=src/buildfile
             foo: file{bar}@./ file{baz}@./

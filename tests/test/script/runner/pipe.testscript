@@ -69,6 +69,10 @@ EOI
 : syntax-1
 :
 {{
+  b = [cmdline] $regex.apply($b, \
+                             '^(.+testscript\{testscript\}:.+)$', \
+                             "\1'$\ntestscript{testscript}: testscript.syntax = 1'")
+
   $c <'cat <foo | $* -i 1 >foo' && $b  : builtin-to-process
   $c <'$* -o foo | cat >foo' && $b     : process-to-builtin
 

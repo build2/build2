@@ -725,6 +725,10 @@ if ($cxx.target.class == 'linux')
 : syntax-1
 :
 {{
+  b = [cmdline] $regex.apply($b, \
+                             '^(.+testscript\{testscript\}:.+)$', \
+                             "\1'$\ntestscript{testscript}: testscript.syntax = 1'")
+
   : short-circuit
   :
   : Test expression result calculation and short-circuiting. We verify the

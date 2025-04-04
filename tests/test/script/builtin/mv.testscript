@@ -188,6 +188,10 @@ testscript.syntax = 2
 : syntax-1
 :
 {{
+  b = [cmdline] $regex.apply($b, \
+                             '^(.+testscript\{testscript\}:.+)$', \
+                             "\1'$\ntestscript{testscript}: testscript.syntax = 1'")
+
   : synopsis-1
   :
   : Move an entity to the specified path.

@@ -108,7 +108,7 @@ EOI
 #
 +cp -p -R proj proj-s1
 +for f [path]: tests/script/basics.testscript units/testscript units/script/testscript
-  sed -i -e 's/^testscript\.syntax.*$//' \
+  sed -i -e 's/^testscript\.syntax.*$/testscript.syntax = 1/' \
          -e 's/^\{\{$/{/' \
          -e 's/^\}\}$/}/' "proj-s1/$f"
 
