@@ -23,6 +23,10 @@ $c <<EOI && $b >>EOO
 : syntax-1
 :
 {{
+  b = [cmdline] $regex.apply($b, \
+                             '^(.+testscript\{testscript\}:.+)$', \
+                             "\1'$\ntestscript{testscript}: testscript.syntax = 1'")
+
   : basics
   :
   $c <<EOI && $b >>EOO

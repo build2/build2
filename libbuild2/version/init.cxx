@@ -318,11 +318,10 @@ namespace build2
         // there may be no versions between min_version and 0.18.0, but we
         // have no way of knowing that.
         //
-        // @@ Make 0.18.0- (aka earliest).
-        //
         rs.root_extra->script_syntax =
           (c->min_version &&
-           *c->min_version >= standard_version (1, 0, 18, 0))
+           *c->min_version >=
+             standard_version (1, 0, 18, 0, standard_version::earliest_version))
           ? 2
           : 1;
       }
