@@ -1,8 +1,6 @@
 # file      : libbuild2/function+call.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 : qual-implicit
 :
 $* <'print $dummy.dummy0()' >'abc'

@@ -1,8 +1,6 @@
 # file      : libbuild2/build/script/parser+diag.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 test.options += -g
 
 : name

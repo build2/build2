@@ -1,8 +1,6 @@
 # file      : tests/test/script/integration/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 # Note: using common.testscript from test/, not script/.
 #
 .include ../../common.testscript

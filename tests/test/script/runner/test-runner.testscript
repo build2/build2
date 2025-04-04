@@ -1,8 +1,6 @@
 # file      : tests/test/script/runner/test-runner.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 +if ($cxx.target.class == 'windows')
@@ -24,8 +22,6 @@ run=$~/run
 : basic
 :
 $c <<EOI && $b "config.test.runner=$run --trace"
-  testscript.syntax = 2
-
   +cat <'text' >'text'         # Non-test program.
 
   +$* -o 'text' >>~%EOO%       # Test program.

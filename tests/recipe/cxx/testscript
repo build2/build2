@@ -1,8 +1,6 @@
 # file      : tests/recipe/cxx/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 # Ad hoc C++ recipes not supported in a statically-linked build system. Also
 # disable when cross-testing for the sake of simplicity.
 #

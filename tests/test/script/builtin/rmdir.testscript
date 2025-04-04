@@ -1,8 +1,6 @@
 # file      : tests/test/script/builtin/rmdir.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : dir
@@ -13,9 +11,7 @@ testscript.syntax = 2
   : Removing scope directory fails.
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
-  rmdir ./ 2>/"rmdir: 'test/3/' contains test working directory 'test/3/'" == 1
+  rmdir ./ 2>/"rmdir: 'test/1/' contains test working directory 'test/1/'" == 1
   EOI
 
   : outside-scope
@@ -28,8 +24,6 @@ testscript.syntax = 2
     : Removing directory outside the testscript working directory fails.
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     rmdir ../../a/b/c 2>>/EOE == 1
     rmdir: 'a/b/c/' is out of working directory 'test/'
     EOE
@@ -59,9 +53,7 @@ testscript.syntax = 2
     : Removing scope directory fails.
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
-    rmdir ./ 2>/"rmdir: 'test/3/' contains test working directory 'test/3/'" == 1
+    rmdir ./ 2>/"rmdir: 'test/1/' contains test working directory 'test/1/'" == 1
     EOI
 
     : outside-scope
@@ -74,8 +66,6 @@ testscript.syntax = 2
       : Removing directory outside the testscript working directory fails.
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       rmdir ../../a/b/c 2>>/EOE == 1
       rmdir: 'a/b/c/' is out of working directory 'test/'
       EOE
@@ -87,8 +77,6 @@ testscript.syntax = 2
       : option.
       :
       $c <<EOI && $b
-        testscript.syntax = 2
-
         rmdir -f ../../a/b/c
         EOI
     }}

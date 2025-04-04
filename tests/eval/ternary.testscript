@@ -3,8 +3,6 @@
 
 # Test the ternary operator (eval-ternary).
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 $* <'print (true  ? foo : bar)' >'foo' : true

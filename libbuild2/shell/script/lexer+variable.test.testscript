@@ -4,8 +4,6 @@
 # Test handling special variable names ($*, $NN, $~).
 #
 
-testscript.syntax = 2
-
 test.arguments = variable
 
 : command

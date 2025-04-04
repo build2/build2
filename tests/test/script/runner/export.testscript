@@ -1,8 +1,6 @@
 # file      : tests/test/script/runner/export.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 # Make sure that the foo variable, which may potentially be set in the build2
@@ -16,8 +14,6 @@ testscript.syntax = 2
   : add
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     {{
       +export foo=bar
 
@@ -28,8 +24,6 @@ testscript.syntax = 2
   : change
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     {{
       +export foo=bar
       +export foo=baz
@@ -41,8 +35,6 @@ testscript.syntax = 2
   : remove
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     {{
       +export foo=bar
       +export --unset foo
@@ -57,8 +49,6 @@ testscript.syntax = 2
     : added
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       {{
         +export foo=bar
         +export --clear foo
@@ -70,8 +60,6 @@ testscript.syntax = 2
     : removed
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       {{
         +export foo=bar
         +export --unset foo
@@ -84,8 +72,6 @@ testscript.syntax = 2
     : non-existent
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       {{
         +export --clear foo
 
@@ -97,8 +83,6 @@ testscript.syntax = 2
   : override
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     +export foo=bar
 
     {{
@@ -120,8 +104,6 @@ testscript.syntax = 2
   : override
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     {{
       export foo=bar;
       env foo=baz -- $* -v foo >'baz';
@@ -136,33 +118,27 @@ testscript.syntax = 2
   : set
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     export foo
     EOI
-    testscript:3:1: error: export: expected variable assignment instead of 'foo'
+    testscript:1:1: error: export: expected variable assignment instead of 'foo'
     %.+
     EOE
 
   : unset
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     export --unset foo=abc
     EOI
-    testscript:3:1: error: export: invalid value 'foo=abc' for option -u|--unset: contains '='
+    testscript:1:1: error: export: invalid value 'foo=abc' for option -u|--unset: contains '='
     %.+
     EOE
 
   : clear
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     export --clear foo=abc
     EOI
-    testscript:3:1: error: export: invalid value 'foo=abc' for option -c|--clear: contains '='
+    testscript:1:1: error: export: invalid value 'foo=abc' for option -c|--clear: contains '='
     %.+
     EOE
 }}

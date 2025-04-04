@@ -1,8 +1,6 @@
 # file      : libbuild2/test/script/parser+scope.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 $* testscript     <'cmd $@' >"cmd 1"     : id-testscript
 $* foo.testscript <'cmd $@' >"cmd foo/1" : id
 

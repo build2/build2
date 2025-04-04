@@ -1,8 +1,6 @@
 # file      : libbuild2/function+syntax.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 $* <'$dump()'           >:''                    : none
 $* <'$dump(  )'         >:''                    : none-in-spaces
 $* <'$dump("")'         >'{}'                   : one-empty

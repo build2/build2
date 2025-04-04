@@ -1,8 +1,6 @@
 # file      : libbuild2/lexer+utf8.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 : valid
 :
 $* <<EOI >>EOO

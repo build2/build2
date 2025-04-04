@@ -1,8 +1,6 @@
 # file      : libbuild2/test/script/parser+command-re-parse.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 : double-quote
 :
 $* <<EOI >>EOO

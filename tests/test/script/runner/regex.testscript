@@ -14,8 +14,6 @@
 # functionality, flags, portable-path modifier.
 #
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : basic
@@ -27,24 +25,18 @@ testscript.syntax = 2
     : out
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <foo >~/fo./
     EOI
 
     : err
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <foo 1>&2 2>~/fo./
     EOI
 
     : no-newline
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <:foo >:~/fo./
     EOI
 
@@ -54,28 +46,24 @@ testscript.syntax = 2
     : regex errors. For example '*' is parsed successfully.
     :
     $c <<EOI && $b 2>>~/EOE/ != 0
-    testscript.syntax = 2
-
     cat <foo >~/foo[/
     EOI
-    /testscript:3:12: error: invalid stdout regex redirect.*/
+    /testscript:1:12: error: invalid stdout regex redirect.*/
       info: regex: '/foo[/'
-      info: test id: 3
+      info: test id: 1
     EOE
 
     : no-match
     :
     $c <<EOI && $b 2>>/EOE != 0
-    testscript.syntax = 2
-
     cat <foo >~/bar/
     EOI
-    testscript:3:1: error: cat stdout doesn't match regex
-      info: stdout: test/3/stdout
-      info: stdout regex: test/3/stdout.regex
-      info: stdin: test/3/stdin
+    testscript:1:1: error: cat stdout doesn't match regex
+      info: stdout: test/1/stdout
+      info: stdout regex: test/1/stdout.regex
+      info: stdin: test/1/stdin
     foo
-      info: test id: 3
+      info: test id: 1
     EOE
   }}
 
@@ -85,8 +73,6 @@ testscript.syntax = 2
     : out
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <foo >>~/EOO/
     /foo/
     EOO
@@ -95,8 +81,6 @@ testscript.syntax = 2
     : err
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <foo 1>&2 2>>~/EOO/
     /fo./
     EOO
@@ -105,8 +89,6 @@ testscript.syntax = 2
     : no-newline
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <:foo >>:~/EOO/
     /fo./
     EOO
@@ -115,8 +97,6 @@ testscript.syntax = 2
     : line-char
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <<EOF >>~/EOO/
     foo
     bar
@@ -145,8 +125,6 @@ testscript.syntax = 2
     : expansion
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     s="O*/i
     bar
     ";
@@ -164,44 +142,38 @@ testscript.syntax = 2
     : invalid-syntax-char
     :
     $c <<EOI && $b 2>>EOE != 0
-    testscript.syntax = 2
-
     cat <foo >>~/EOO/
     /x
     EOO
     EOI
-    testscript:4:1: error: invalid syntax character 'x' in stdout regex redirect
+    testscript:2:1: error: invalid syntax character 'x' in stdout regex redirect
       info: regex line: '/x'
-      info: test id: 3
+      info: test id: 1
     EOE
 
     : invalid-char-regex
     :
     $c <<EOI && $b 2>>~/EOE/ != 0
-    testscript.syntax = 2
-
     cat <foo >>~/EOO/
     /foo[/
     EOO
     EOI
-    /testscript:4:1: error: invalid char-regex in stdout regex redirect.*/
+    /testscript:2:1: error: invalid char-regex in stdout regex redirect.*/
       info: regex line: '/foo[/'
-      info: test id: 3
+      info: test id: 1
     EOE
 
     : invalid-line-regex
     :
     $c <<EOI && $b 2>>/~%EOE% != 0
-    testscript.syntax = 2
-
     cat <foo >>~/EOO/
     a
     /{
     EOO
     EOI
-    %testscript:6:1: error: invalid stdout regex redirect.*%
-      info: stdout regex: test/3/stdout.regex
-      info: test id: 3
+    %testscript:4:1: error: invalid stdout regex redirect.*%
+      info: stdout regex: test/1/stdout.regex
+      info: test id: 1
     EOE
 
     : no-match
@@ -210,19 +182,17 @@ testscript.syntax = 2
       : leading-blank
       :
       $c <<EOI && $b 2>>/EOE != 0
-      testscript.syntax = 2
-
       cat <foo >>~/EOO/
 
       foo
       EOO
       EOI
-      testscript:3:1: error: cat stdout doesn't match regex
-        info: stdout: test/3/stdout
-        info: stdout regex: test/3/stdout.regex
-        info: stdin: test/3/stdin
+      testscript:1:1: error: cat stdout doesn't match regex
+        info: stdout: test/1/stdout
+        info: stdout regex: test/1/stdout.regex
+        info: stdin: test/1/stdin
       foo
-        info: test id: 3
+        info: test id: 1
       EOE
     }}
   }}
@@ -237,8 +207,6 @@ testscript.syntax = 2
     : i
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <Foo >~/foo/i
     EOI
 
@@ -251,8 +219,6 @@ testscript.syntax = 2
       : case).
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       cat <fio >~/f\\.o/d
       EOI
 
@@ -261,11 +227,9 @@ testscript.syntax = 2
       : Syntax dot becomes escaped dot and matches only '.' and so we fail.
       :
       $c <<EOI && $b 2>>~/EOE/ != 0
-      testscript.syntax = 2
-
       cat <fio >~/f.o/d
       EOI
-      testscript:3:1: error: cat stdout doesn't match regex
+      testscript:1:1: error: cat stdout doesn't match regex
       /.+
       EOE
     }}
@@ -276,8 +240,6 @@ testscript.syntax = 2
     : i
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <Foo >>~/EOO/
     /foo/i
     EOO
@@ -292,8 +254,6 @@ testscript.syntax = 2
       : escaped-dot
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       cat <fio >>~/EOO/
       /f\.o/d
       EOO
@@ -302,13 +262,11 @@ testscript.syntax = 2
       : syntax-dot
       :
       $c <<EOI && $b 2>>~/EOE/ != 0
-      testscript.syntax = 2
-
       cat <fio >>~/EOO/
       /f.o/d
       EOO
       EOI
-      testscript:3:1: error: cat stdout doesn't match regex
+      testscript:1:1: error: cat stdout doesn't match regex
       /.+
       EOE
     }}
@@ -319,8 +277,6 @@ testscript.syntax = 2
       : i
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       cat <Foo >>~/EOO/i
       /foo/
       EOO
@@ -332,8 +288,6 @@ testscript.syntax = 2
         : escaped-dot
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         cat <fio >>~/EOO/d
         /f\.o/
         EOO
@@ -342,13 +296,11 @@ testscript.syntax = 2
         : syntax-dot
         :
         $c <<EOI && $b 2>>~/EOE/ != 0
-        testscript.syntax = 2
-
         cat <fio >>~/EOO/d
         /f.o/
         EOO
         EOI
-        testscript:3:1: error: cat stdout doesn't match regex
+        testscript:1:1: error: cat stdout doesn't match regex
         /.+
         EOE
       }}
@@ -367,16 +319,12 @@ testscript.syntax = 2
     : out
     :
     $c <<"EOI" && $b
-    testscript.syntax = 2
-
     cat <'foo$ps' >/~%foo/%
     EOI
 
     : err
     :
     $c <<"EOI" && $b
-    testscript.syntax = 2
-
     cat <'foo$ps' 1>&2 2>/~%foo/%
     EOI
   }}
@@ -386,8 +334,6 @@ testscript.syntax = 2
     : out
     :
     $c <<"EOI" && $b
-    testscript.syntax = 2
-
     cat <'foo$ps' >>/~%EOO%
     foo/
     EOO
@@ -396,8 +342,6 @@ testscript.syntax = 2
     : err
     :
     $c <<"EOI" && $b
-    testscript.syntax = 2
-
     cat <'foo$ps' 1>&2 2>>/~%EOO%
     foo/
     EOO

@@ -5,8 +5,6 @@
 
 # @@ TODO: more test from old-tests/
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : null

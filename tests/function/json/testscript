@@ -3,8 +3,6 @@
 
 # See also tests in type/json/.
 
-testscript.syntax = 2
-
 .include ../../common.testscript
 
 : type

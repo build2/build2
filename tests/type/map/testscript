@@ -3,8 +3,6 @@
 
 # See also tests in function/*/ (size(), keys()), type/json/ (json_map).
 
-testscript.syntax = 2
-
 .include ../../common.testscript
 
 : basics

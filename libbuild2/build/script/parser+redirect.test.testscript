@@ -5,8 +5,6 @@
 # @@ Does it make sense to split into separate files - one per redirect type?
 #
 
-testscript.syntax = 2
-
 : trace
 :
 {{

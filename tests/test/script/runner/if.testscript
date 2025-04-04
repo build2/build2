@@ -1,15 +1,11 @@
 # file      : tests/test/script/runner/if.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : if-branch
 :
 $c <<EOI && $b >'if'
-testscript.syntax = 2
-
 {
   if cat <'foo' >'foo'
     echo 'if' >|
@@ -21,8 +17,6 @@ EOI
 : else-branch
 :
 $c <<EOI && $b >'else'
-testscript.syntax = 2
-
 {
   if cat <'foo' >'bar'
     echo 'if' >|

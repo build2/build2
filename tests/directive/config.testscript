@@ -1,8 +1,6 @@
 # file      : tests/directive/config.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 buildfile = true
 test.arguments =
 

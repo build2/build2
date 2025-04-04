@@ -4,8 +4,6 @@
 # Test header units.
 #
 
-testscript.syntax = 2
-
 .include common.testscript
 
 +$headers || exit

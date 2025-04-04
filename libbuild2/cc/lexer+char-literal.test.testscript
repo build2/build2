@@ -4,8 +4,6 @@
 # Test character literals.
 #
 
-testscript.syntax = 2
-
 : normal
 :
 $* <<EOI >>EOO

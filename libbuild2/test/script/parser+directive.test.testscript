@@ -1,8 +1,6 @@
 # file      : libbuild2/test/script/parser+directive.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 : not-directive
 :
 $* <<EOI >>EOO

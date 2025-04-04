@@ -1,8 +1,6 @@
 # file      : libbuild2/lexer+buildspec.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 test.arguments = buildspec
 
 : punctuation

@@ -1,8 +1,6 @@
 # file      : libbuild2/test/script/parser+pipe-expr.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 : pipe
 :
 $* <<EOI >>EOO

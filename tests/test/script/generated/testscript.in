@@ -1,6 +1,4 @@
 # file      : tests/test/script/generated/testscript.in
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 echo '@version@' >'1.2.3'

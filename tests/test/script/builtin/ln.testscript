@@ -1,8 +1,6 @@
 # file      : tests/test/script/builtin/ln.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : file
@@ -13,8 +11,6 @@ testscript.syntax = 2
   : cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     touch a;
     ln -s a b
     EOI
@@ -22,8 +18,6 @@ testscript.syntax = 2
   : no-cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     touch a;
     ln -s --no-cleanup a b;
     rm b
@@ -38,8 +32,6 @@ testscript.syntax = 2
   : cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     mkdir a;
     touch a/b;
     ln -s a c
@@ -48,8 +40,6 @@ testscript.syntax = 2
   : no-cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     mkdir a;
     touch a/b;
     ln -s --no-cleanup a c;
@@ -65,8 +55,6 @@ testscript.syntax = 2
   : cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     mkdir b c;
     touch a b/c;
     ln -s ../a ../b c/
@@ -75,8 +63,6 @@ testscript.syntax = 2
   : no-cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     mkdir b c;
     touch a b/c;
     ln -s --no-cleanup ../a ../b c/;
