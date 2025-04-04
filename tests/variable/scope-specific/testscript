@@ -1,8 +1,6 @@
 # file      : tests/variable/scope-specific/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../../common.testscript
 
 : basic-line

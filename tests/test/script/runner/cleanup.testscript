@@ -1,8 +1,6 @@
 # file      : tests/test/script/runner/cleanup.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 b += --no-column
@@ -13,24 +11,18 @@ b += --no-column
   : always
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   $* -f a &a
   EOI
 
   : maybe
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   $* &?a
   EOI
 
   : never
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   $* &!a
   EOI
 
@@ -41,8 +33,6 @@ b += --no-column
   : the file absence at the cleanup time.
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   touch ../../a;
   rm -f ../../a
   EOI
@@ -53,8 +43,6 @@ b += --no-column
   : that cleanup would fail as the file would be already deleted by rm.
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   touch a &!a;
   $* -o foo >+a;
   rm a
@@ -65,12 +53,10 @@ b += --no-column
   : Test cleanup of non-existing file.
   :
   $c <<EOI && $b 2>>/EOE != 0
-  testscript.syntax = 2
-
   $* &a
   EOI
-  testscript:3: error: registered for cleanup file test/3/a does not exist
-    info: test id: 3
+  testscript:1: error: registered for cleanup file test/1/a does not exist
+    info: test id: 1
   EOE
 
   : out-wd
@@ -78,12 +64,10 @@ b += --no-column
   : Test explicit cleanup of a file out of the testscript working directory.
   :
   $c <<EOI && $b 2>>/EOE != 0
-  testscript.syntax = 2
-
   $* &../../a
   EOI
-  testscript:3: error: file cleanup ../../a is out of working directory 'test/'
-    info: test id: 3
+  testscript:1: error: file cleanup ../../a is out of working directory 'test/'
+    info: test id: 1
   EOE
 
   : in-wd
@@ -92,12 +76,10 @@ b += --no-column
   : directory but inside the script working directory.
   :
   $c <<EOI && $b 2>>/EOE != 0
-  testscript.syntax = 2
-
   $* &../a
   EOI
-  testscript:3: error: registered for cleanup file test/a does not exist
-    info: test id: 3
+  testscript:1: error: registered for cleanup file test/a does not exist
+    info: test id: 1
   EOE
 
   : not-file
@@ -105,12 +87,10 @@ b += --no-column
   : Test cleanup of a directory as a file.
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
-  testscript.syntax = 2
-
   $* -d a &a
   EOI
-  %testscript:3: error: unable to remove file test/3/a: .+%
-    info: test id: 3
+  %testscript:1: error: unable to remove file test/1/a: .+%
+    info: test id: 1
   EOE
 }}
 
@@ -120,16 +100,12 @@ b += --no-column
   : always
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   $* -d a &a/
   EOI
 
   : maybe
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   $* &?a/
   EOI
 
@@ -140,8 +116,6 @@ b += --no-column
   : to the directory absence at the cleanup time.
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   mkdir ../../a;
   rm -rf ../../a
   EOI
@@ -151,12 +125,10 @@ b += --no-column
   : Test cleanup of non-existing directory.
   :
   $c <<EOI && $b 2>>/EOE != 0
-  testscript.syntax = 2
-
   $* &a/
   EOI
-  testscript:3: error: registered for cleanup directory test/3/a/ does not exist
-    info: test id: 3
+  testscript:1: error: registered for cleanup directory test/1/a/ does not exist
+    info: test id: 1
   EOE
 
   : out-wd
@@ -164,12 +136,10 @@ b += --no-column
   : Test cleanup of a directory out of the testscript working directory.
   :
   $c <<EOI && $b 2>>/EOE != 0
-  testscript.syntax = 2
-
   $* &../../a/
   EOI
-  testscript:3: error: directory cleanup ../../a/ is out of working directory 'test/'
-    info: test id: 3
+  testscript:1: error: directory cleanup ../../a/ is out of working directory 'test/'
+    info: test id: 1
   EOE
 
   : in-wd
@@ -178,12 +148,10 @@ b += --no-column
   : working directory but inside the testscript working directory.
   :
   $c <<EOI && $b 2>>/EOE != 0
-  testscript.syntax = 2
-
   $* &../a/
   EOI
-  testscript:3: error: registered for cleanup directory test/a/ does not exist
-    info: test id: 3
+  testscript:1: error: registered for cleanup directory test/a/ does not exist
+    info: test id: 1
   EOE
 
   : not-empty
@@ -194,27 +162,23 @@ b += --no-column
     : files
     :
     $c <<EOI && $b 2>>/~%EOE% != 0
-    testscript.syntax = 2
-
     $* -d a -f a/0 -f a/1 -f a/2 -f a/3 -f a/4 -f a/5 -f a/6 -f a/7 -f a/8 \
             -f a/9 -f a/a -f a/b &a/
     EOI
-    testscript:4: error: registered for cleanup directory test/3/a/ is not empty
+    testscript:2: error: registered for cleanup directory test/1/a/ is not empty
     %.%{10}
     and 2 more file(s)
-      info: test id: 3
+      info: test id: 1
     EOE
 
     : dir
     :
     $c <<EOI && $b 2>>/EOE != 0
-    testscript.syntax = 2
-
     $* -d a/b
     EOI
-    testscript:3: error: test working directory 'test/3/' is not empty
+    testscript:1: error: test working directory 'test/1/' is not empty
     a/
-      info: test id: 3
+      info: test id: 1
     EOE
   }}
 
@@ -223,12 +187,10 @@ b += --no-column
   : Test cleanup of a file as a directory.
   :
   $c <<EOI && $b 2>>/~%EOE% != 0
-  testscript.syntax = 2
-
   $* -f a &a/
   EOI
-  %testscript:3: error: unable to remove directory test/3/a/: .+%
-    info: test id: 3
+  %testscript:1: error: unable to remove directory test/1/a/: .+%
+    info: test id: 1
   EOE
 }}
 
@@ -244,30 +206,24 @@ b += --no-column
       : always
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       $* -d a/b -d a/b/c &a/***/
       EOI
 
       : maybe
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       $* &?a/***/
       EOI
 
       : not-empty
       :
       $c <<EOI && $b 2>>/EOE != 0
-      testscript.syntax = 2
-
       $* -d a/b -d a/b/c -f a/c &a/***/
       EOI
-      testscript:3: error: registered for cleanup directory test/3/a/ is not empty
+      testscript:1: error: registered for cleanup directory test/1/a/ is not empty
       c
-        info: wildcard: 'test/3/a/***/'
-        info: test id: 3
+        info: wildcard: 'test/1/a/***/'
+        info: test id: 1
       EOE
     }}
 
@@ -279,16 +235,12 @@ b += --no-column
       : always
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       $* -d a1/b -f a1/b/c -d a2/b -f a2/b/c &a?/***
       EOI
 
       : maybe
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       $* &?a/***
       EOI
 
@@ -297,12 +249,10 @@ b += --no-column
       : Test cleanup of a wildcard not matching any directory.
       :
       $c <<EOI && $b 2>>/EOE != 0
-      testscript.syntax = 2
-
       $* &a/***
       EOI
-      testscript:3: error: registered for cleanup directory test/3/a/ does not exist
-        info: test id: 3
+      testscript:1: error: registered for cleanup directory test/1/a/ does not exist
+        info: test id: 1
       EOE
 
       : out-wd
@@ -310,12 +260,10 @@ b += --no-column
       : Test cleanup of a wildcard out of the testscript working directory.
       :
       $c <<EOI && $b 2>>/EOE != 0
-      testscript.syntax = 2
-
       $* &../../a/***
       EOI
-      testscript:3: error: wildcard cleanup ../../a/*** is out of working directory 'test/'
-        info: test id: 3
+      testscript:1: error: wildcard cleanup ../../a/*** is out of working directory 'test/'
+        info: test id: 1
       EOE
 
       : in-wd
@@ -325,12 +273,10 @@ b += --no-column
       : directory.
       :
       $c <<EOI && $b 2>>/EOE != 0
-      testscript.syntax = 2
-
       $* &../a/***
       EOI
-      testscript:3: error: registered for cleanup directory test/a/ does not exist
-        info: test id: 3
+      testscript:1: error: registered for cleanup directory test/a/ does not exist
+        info: test id: 1
       EOE
 
       : not-dir
@@ -338,12 +284,10 @@ b += --no-column
       : Test cleanup of a file as a wildcard.
       :
       $c <<EOI && $b 2>>/~%EOE% != 0
-      testscript.syntax = 2
-
       $* -f a &a/***
       EOI
-      %testscript:3: error: unable to remove directory test/3/a/: .*%
-        info: test id: 3
+      %testscript:1: error: unable to remove directory test/1/a/: .*%
+        info: test id: 1
       EOE
     }}
   }}
@@ -357,16 +301,12 @@ b += --no-column
       : immediate
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       $* -d aa/b &aa/ &a*/*/
       EOI
 
       : recursive
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       $* -d aa/b/c &aa/ &a?/**/
       EOI
     }}
@@ -374,8 +314,6 @@ b += --no-column
     : maybe
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     $* &?a/**/
     EOI
 
@@ -384,12 +322,10 @@ b += --no-column
     : Test cleanup of a wildcard that doesn't match any directory.
     :
     $c <<EOI && $b 2>>/EOE != 0
-    testscript.syntax = 2
-
     $* &a/**/
     EOI
-    testscript:3: error: registered for cleanup wildcard test/3/a/**/ doesn't match any directory
-      info: test id: 3
+    testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match any directory
+      info: test id: 1
     EOE
 
     : not-dir
@@ -397,12 +333,10 @@ b += --no-column
     : Test cleanup of a file as a directory wildcard.
     :
     $c <<EOI && $b 2>>/EOE != 0
-    testscript.syntax = 2
-
     $* -f a &a/**/
     EOI
-    testscript:3: error: registered for cleanup wildcard test/3/a/**/ doesn't match any directory
-      info: test id: 3
+    testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match any directory
+      info: test id: 1
     EOE
 
     : not-empty
@@ -410,14 +344,12 @@ b += --no-column
     : Test cleanup of a non-empty directory as a wildcard.
     :
     $c <<EOI && $b 2>>/EOE != 0
-    testscript.syntax = 2
-
     $* -d a/b/c -f a/b/d &a/**/
     EOI
-    testscript:3: error: registered for cleanup directory test/3/a/b/ is not empty
+    testscript:1: error: registered for cleanup directory test/1/a/b/ is not empty
     d
-      info: wildcard: 'test/3/a/**/'
-      info: test id: 3
+      info: wildcard: 'test/1/a/**/'
+      info: test id: 1
     EOE
   }}
 
@@ -430,16 +362,12 @@ b += --no-column
       : immediate
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       $* -d aa -f aa/c &aa/ &a?/*
       EOI
 
       : recursive
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       $* -d aa/b -f aa/c -f aa/b/e &aa/ &aa/b/ &a*/**
       EOI
     }}
@@ -447,8 +375,6 @@ b += --no-column
     : maybe
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     $* &?a/**
     EOI
   }}
@@ -459,8 +385,6 @@ b += --no-column
 : Test that cleanup is performed in registration reversed order.
 :
 $c <<EOI && $b
-testscript.syntax = 2
-
 $* -d a/b &a/ &a/b/
 EOI
 
@@ -470,8 +394,6 @@ EOI
 : to remove them twice (normally and with wildcard cleanup).
 :
 $c <<EOI && $b
-testscript.syntax = 2
-
 $* -o foo >'foo';
 $* -f bar &*
 EOI
@@ -482,8 +404,6 @@ EOI
 : with wildcard cleanup).
 :
 $c <<EOI && $b
-testscript.syntax = 2
-
 true &***
 EOI
 
@@ -492,13 +412,11 @@ EOI
 : Test an implicit cleanup being overwritten with the explicit one,
 :
 $c <<EOI && $b 2>>/EOE != 0
-testscript.syntax = 2
-
 $* -o foo >=a &!a
 EOI
-testscript:3: error: test working directory 'test/3/' is not empty
+testscript:1: error: test working directory 'test/1/' is not empty
 a
-  info: test id: 3
+  info: test id: 1
 EOE
 
 : explicit-overwrite
@@ -506,14 +424,12 @@ EOE
 : Test an explicit cleanup not being overwritten with the implicit one.
 :
 $c <<EOI && $b 2>>/EOE != 0
-testscript.syntax = 2
-
 $* &!a;
 $* -o foo >=a
 EOI
-testscript:4: error: test working directory 'test/3/' is not empty
+testscript:2: error: test working directory 'test/1/' is not empty
 a
-  info: test id: 3
+  info: test id: 1
 EOE
 
 : syntax-1

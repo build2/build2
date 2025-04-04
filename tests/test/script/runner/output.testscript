@@ -6,8 +6,6 @@
 # spread the feature tests among several places.
 #
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : after
@@ -19,17 +17,13 @@ testscript.syntax = 2
     : cleanup
     :
     $c <<EOI && $b config.test.output=keep;
-      testscript.syntax = 2
-
       touch a
       EOI
-    test -f test/3/a
+    test -f test/1/a
 
     : teardown
     :
     $c <<EOI && $b config.test.output=keep;
-      testscript.syntax = 2
-
       +touch a &!a
       -rm a
       EOI
@@ -41,8 +35,6 @@ testscript.syntax = 2
     : assignment here.
     :
     $c <<EOI && $b config.test.output=keep;
-      testscript.syntax = 2
-
       a=b
       EOI
     test -d test
@@ -54,8 +46,6 @@ testscript.syntax = 2
     : cleanup
     :
     $c <<EOI && $b config.test.output=clean;
-      testscript.syntax = 2
-
       touch a
       EOI
     test -f test/1/a == 1
@@ -63,8 +53,6 @@ testscript.syntax = 2
     : teardown
     :
     $c <<EOI && $b config.test.output=clean;
-      testscript.syntax = 2
-
       +touch a &!a
       -rm a
       EOI
@@ -76,8 +64,6 @@ testscript.syntax = 2
     : assignment here.
     :
     $c <<EOI && $b config.test.output=clean;
-      testscript.syntax = 2
-
       a=b
       EOI
     test -d test == 1
@@ -91,8 +77,6 @@ testscript.syntax = 2
   :
   mkdir test &!test/;
   $c <<EOI && $b config.test.output=fail@clean 2>>/EOE != 0
-    testscript.syntax = 2
-
     true
     EOI
     error: working directory test/ exists at the beginning of the test
@@ -102,8 +86,6 @@ testscript.syntax = 2
   :
   mkdir test &!test/;
   $c <<EOI && $b config.test.output=warn@clean 2>>/EOE
-    testscript.syntax = 2
-
     true
     EOI
     warning: working directory test/ exists at the beginning of the test
@@ -113,8 +95,6 @@ testscript.syntax = 2
   :
   mkdir test &!test/;
   $c <<EOI && $b config.test.output=clean@clean
-    testscript.syntax = 2
-
     true
     EOI
 }}

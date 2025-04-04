@@ -1,8 +1,6 @@
 # file      : tests/test/script/runner/expr.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : short-circuit
@@ -30,8 +28,6 @@ testscript.syntax = 2
     : TERM
     :
     $c <<"EOI" && $b >>EOO
-    testscript.syntax = 2
-
     $true 1
     EOI
     1
@@ -46,8 +42,6 @@ testscript.syntax = 2
         : TERM
         :
         $c <<"EOI" && $b >>EOO
-        testscript.syntax = 2
-
         $true 1 || $true 2
         EOI
         1
@@ -60,8 +54,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 || $true 2 || $true 3
             EOI
             1
@@ -72,8 +64,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 || $true 2 || $false 3
             EOI
             1
@@ -88,8 +78,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 || $true 2 && $true 3
             EOI
             1
@@ -101,8 +89,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $true 1 || $true 2 && $false 3
             EOI
             1
@@ -118,8 +104,6 @@ testscript.syntax = 2
         : TERM
         :
         $c <<"EOI" && $b >>EOO
-        testscript.syntax = 2
-
         $true 1 || $false 2
         EOI
         1
@@ -132,8 +116,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 || $false 2 || $true 3
             EOI
             1
@@ -144,8 +126,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 || $false 2 || $false 3
             EOI
             1
@@ -160,8 +140,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 || $false 2 && $true 3
             EOI
             1
@@ -173,8 +151,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $true 1 || $false 2 && $false 3
             EOI
             1
@@ -194,8 +170,6 @@ testscript.syntax = 2
         : TERM
         :
         $c <<"EOI" && $b >>EOO
-        testscript.syntax = 2
-
         $true 1 && $true 2
         EOI
         1
@@ -209,8 +183,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 && $true 2 || $true 3
             EOI
             1
@@ -222,8 +194,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 && $true 2 || $false 3
             EOI
             1
@@ -239,8 +209,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 && $true 2 && $true 3
             EOI
             1
@@ -253,8 +221,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $true 1 && $true 2 && $false 3
             EOI
             1
@@ -271,8 +237,6 @@ testscript.syntax = 2
         : TERM
         :
         $c <<"EOI" && $bf >>EOO != 0
-        testscript.syntax = 2
-
         $true 1 && $false 2
         EOI
         1
@@ -286,8 +250,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $true 1 && $false 2 || $true 3
             EOI
             1
@@ -300,8 +262,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $true 1 && $false 2 || $false 3
             EOI
             1
@@ -318,8 +278,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $true 1 && $false 2 && $true 3
             EOI
             1
@@ -331,8 +289,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $true 1 && $false 2 && $false 3
             EOI
             1
@@ -350,8 +306,6 @@ testscript.syntax = 2
     : TERM
     :
     $c <<"EOI" && $bf >>EOO != 0
-    testscript.syntax = 2
-
     $false 1
     EOI
     1
@@ -366,8 +320,6 @@ testscript.syntax = 2
         : TERM
         :
         $c <<"EOI" && $b >>EOO
-        testscript.syntax = 2
-
         $false 1 || $true 2
         EOI
         1
@@ -381,8 +333,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $false 1 || $true 2 || $true 3
             EOI
             1
@@ -394,8 +344,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $false 1 || $true 2 || $false 3
             EOI
             1
@@ -411,8 +359,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $false 1 || $true 2 && $true 3
             EOI
             1
@@ -425,8 +371,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 || $true 2 && $false 3
             EOI
             1
@@ -443,8 +387,6 @@ testscript.syntax = 2
         : TERM
         :
         $c <<"EOI" && $bf >>EOO != 0
-        testscript.syntax = 2
-
         $false 1 || $false 2
         EOI
         1
@@ -458,8 +400,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $false 1 || $false 2 || $true 3
             EOI
             1
@@ -472,8 +412,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 || $false 2 || $false 3
             EOI
             1
@@ -490,8 +428,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 || $false 2 && $true 3
             EOI
             1
@@ -503,8 +439,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 || $false 2 && $false 3
             EOI
             1
@@ -524,8 +458,6 @@ testscript.syntax = 2
         : TERM
         :
         $c <<"EOI" && $bf >>EOO != 0
-        testscript.syntax = 2
-
         $false 1 && $true 2
         EOI
         1
@@ -538,8 +470,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $false 1 && $true 2 || $true 3
             EOI
             1
@@ -551,8 +481,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 && $true 2 || $false 3
             EOI
             1
@@ -568,8 +496,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 && $true 2 && $true 3
             EOI
             1
@@ -580,8 +506,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 && $true 2 && $false 3
             EOI
             1
@@ -596,8 +520,6 @@ testscript.syntax = 2
         : TERM
         :
         $c <<"EOI" && $bf >>EOO != 0
-        testscript.syntax = 2
-
         $false 1 && $false 2
         EOI
         1
@@ -610,8 +532,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $b >>EOO
-            testscript.syntax = 2
-
             $false 1 && $false 2 || $true 3
             EOI
             1
@@ -623,8 +543,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 && $false 2 || $false 3
             EOI
             1
@@ -640,8 +558,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 && $false 2 && $true 3
             EOI
             1
@@ -652,8 +568,6 @@ testscript.syntax = 2
           :
           {
             $c <<"EOI" && $bf >>EOO != 0
-            testscript.syntax = 2
-
             $false 1 && $false 2 && $false 3
             EOI
             1
@@ -676,27 +590,23 @@ testscript.syntax = 2
   : trailing
   :
   $c <<"EOI" && $b 2>>~/EOE/ != 0
-  testscript.syntax = 2
-
   $false 1 != 0 || $true && $false 2 != 0
   EOI
   /.{7}
   -X
   +2
-    info: test id: 3
+    info: test id: 1
   EOE
 
   : non-trailing
   :
   $c <<"EOI" && $b 2>>~/EOE/ != 0
-  testscript.syntax = 2
-
   $false 1 != 0 || $true && $false 2 != 0 && $true
   EOI
   /.{7}
   -X
   +2
-    info: test id: 3
+    info: test id: 1
   EOE
 }}
 
@@ -705,8 +615,6 @@ testscript.syntax = 2
 if ($cxx.target.class == 'linux')
 {
   $c <<EOI && $b
-    testscript.syntax = 2
-
     cat <<EOF >=f;
       x
 

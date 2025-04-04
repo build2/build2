@@ -1,8 +1,6 @@
 # file      : libbuild2/shell/script/parser+while.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 : while
 :
 {{

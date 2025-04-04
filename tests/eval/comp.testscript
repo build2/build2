@@ -3,8 +3,6 @@
 
 # Test comparison operators (eval-comp).
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 $* <'print (foo == bar)' >'false' : eq-false

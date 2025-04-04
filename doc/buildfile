@@ -122,6 +122,7 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
 
   ln = [uint64] 0 # Line number.
   for -n l <=$i
+  {
     ln += 1
 
     # Look for a C++ comments and extract its text.
@@ -133,41 +134,47 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
     # next block rather than after.
 
     if ($t == [null])
+    {
       if ($s != 'none')
+      {
         if ($s != 'blnk')
           exit "$i:$ln: blank line expected after description"
-        end
 
         # Close delayed code block (see below for details).
         #
         if ($p == 'code')
           echo "\\" >>$o # end code
-        end
 
         echo "\"" >>$o # end cli doc string
-      end
+      }
 
       p = $s
       s = 'none'
+    }
     else
+    {
       # This is a comment. What we do next depends on which state we are in.
       #
       if ($s == 'none' || $s == 'syno')
+      {
         p = $s
 
         # See if this is a synopsys line.
         #
         if $regex.match($t, '\$.+\(.+\)')
+        {
           if ($s == 'none')
+          {
             synopsis = [strings] # Accumulate synopsis lines.
             s = 'syno'
-          end
+          }
 
           synopsis += $t
+        }
         elif ($s == 'syno')
+        {
           if ($t != '')
             exit "$i:$ln: blank line expected after synopsis"
-          end
 
           echo "$\n\"" >>$o # start cli doc string
 
@@ -181,6 +188,7 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
           id = [null]
           hs = [strings]
           for t: $synopsis
+          {
             t = $regex.replace($t, '\$(.+)\(.+\)', '\1')  # Extract func name.
             f = $regex.match($t, '(.+)\..+', return_subs) # Extract family.
 
@@ -188,18 +196,15 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
               t = "$(family).$t" # Qualify.
             elif ($f != $family)
               exit "$i:$ln: function family in $t does not match $family"
-            end
 
             if ($id == [null]) # First.
               id = $regex.replace($t, '\.', '-')
-            end
 
             # Suppress duplicates.
             #
             if! $find($hs, $t)
               hs += $t
-            end
-          end
+          }
 
           h = $regex.merge($hs, '(.+)', '\\c{$\1()}', ', ')
 
@@ -208,56 +213,58 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
           echo "\\" >>$o # start synopsis
           for t: $synopsis
             echo $t >>$o # synopsis line
-          end
           echo "\\" >>$o # end synopsis
 
           s = 'blnk'
-        end
+        }
+      }
       else # para|code|blnk
+      {
         # See if this is a code line.
         #
-	c = $regex.match($t, '    (.+)', return_subs)
+        c = $regex.match($t, '    (.+)', return_subs)
 
         if ($c != [null])
+        {
           # Code line.
           #
           if ($s == 'para')
             exit "$i:$ln: blank line expected before code block"
-          end
 
           # Treat a single blank line between two code lines as belonging to
           # the code block rather than separating two code blocks (see above
           # for details).
           #
           if ($s == 'blnk')
+          {
             if ($p == 'code')
+            {
               echo '' >>$o # continue code, write preceding blank
               s = 'code'
+            }
             else
               echo "$\n\\" >>$o # start code
-            end
-          end
+          }
 
           echo $regex.replace($c, '"', '\\"') >>$o # write code line
 
           p = $s
           s = 'code'
+        }
         elif ($t != '')
+        {
           # Paragraph line.
           #
           if ($s == 'code')
             exit "$i:$ln: blank line expected after code block"
-          end
 
-	  # Close delayed code block (see above for details).
+          # Close delayed code block (see above for details).
           #
           if ($p == 'code')
             echo "\\" >>$o # end code
-          end
 
           if ($s == 'blnk')
             echo '' >>$o # start para
-          end
 
           t = $regex.replace($t, '\\', '\\\\') # Escape backslashed
           t = $regex.replace($t, '"', '\\"')   # Escape double quotes.
@@ -271,7 +278,9 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
 
           p = $s
           s = 'para'
+        }
         else
+        {
           # Blank line.
           #
 
@@ -281,16 +290,14 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
           #
           if ($s != 'code' && $p == 'code')
             echo "\\" >>$o # end code
-          end
 
           #if ($s == 'para')
             # end para
-          #end
 
           p = $s
           s = 'blnk'
-        end
-      end
-    end
-  end
+        }
+      }
+    }
+  }
 }}

@@ -4,8 +4,6 @@
 # Test reversal to canonical/original representation.
 #
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : name

@@ -1,8 +1,6 @@
 # file      : libbuild2/lexer+normal.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 test.arguments = normal
 
 : assign

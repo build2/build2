@@ -3,8 +3,6 @@
 
 # Test qualified name (eval-qual).
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 $* <'print (file{foo}:    bar)' >'bar:file{foo}'    : target

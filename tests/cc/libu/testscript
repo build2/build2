@@ -1,8 +1,6 @@
 # file      : tests/cc/libu/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 crosstest = false
 test.arguments = config.cxx=$quote($recall($cxx.path) $cxx.config.mode)
 

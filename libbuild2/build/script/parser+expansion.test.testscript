@@ -1,8 +1,6 @@
 # file      : libbuild2/build/script/parser+expansion.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 : quote
 :
 : Make sure everything expanded as strings.

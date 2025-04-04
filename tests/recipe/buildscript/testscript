@@ -1,8 +1,6 @@
 # file      : tests/recipe/buildscript/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 posix = ($cxx.target.class != 'windows')
 
 +mkdir build
@@ -29,8 +27,6 @@ posix = ($cxx.target.class != 'windows')
     cat <<EOI >=buildfile
       foo: bar
       {{
-        buildscript.syntax = 2
-
         cp $path($<) $path($>)
       }}
       EOI
@@ -57,8 +53,6 @@ posix = ($cxx.target.class != 'windows')
     cat <<EOI >=buildfile
       foo: bar
       {{
-        buildscript.syntax = 2
-
         diag concat $<
 
         t = $path($>)
@@ -73,7 +67,7 @@ posix = ($cxx.target.class != 'windows')
     $* 2>>~%EOE% != 0
       concat file{bar}
       %cat: unable to print '.+bar.baz': .+%
-      buildfile:12:3: error: builtin cat exited with code 1
+      buildfile:10:3: error: builtin cat exited with code 1
       %.+
       EOE
 
@@ -100,8 +94,6 @@ posix = ($cxx.target.class != 'windows')
       foo: bar
       % [diag=cp]
       {{
-        buildscript.syntax = 2
-
         echo 'copying' 2>&1
         cp $path($<) $path($>)
       }}
@@ -109,7 +101,7 @@ posix = ($cxx.target.class != 'windows')
 
     $* 2>>~%EOE% != 0
       cp file{bar} -> file{foo}
-      buildfile:6:3: error: stdout and stderr redirected to each other
+      buildfile:4:3: error: stdout and stderr redirected to each other
       %.+
       EOE
 
@@ -124,15 +116,13 @@ posix = ($cxx.target.class != 'windows')
       b = b
       foo:
       {{
-        buildscript.syntax = 2
-
         x = true
         echo "$($x ? a : b)" >$path($>)
       }}
       EOI
 
     $* 2>>EOE != 0
-      buildfile:8:10: error: expansion of computed variable is only allowed in depdb preamble
+      buildfile:6:10: error: expansion of computed variable is only allowed in depdb preamble
         info: consider using 'depdb' builtin to track its value changes
       EOE
   }
@@ -145,8 +135,6 @@ posix = ($cxx.target.class != 'windows')
       b = b
       foo:
       {{
-        buildscript.syntax = 2
-
         x = true
         y = $($x ? a : b)
         depdb env BOGUS
@@ -155,7 +143,7 @@ posix = ($cxx.target.class != 'windows')
       EOI
 
     $* 2>>~%EOE% != 0
-      buildfile:8:8: error: use of untracked variable 'a'
+      buildfile:6:8: error: use of untracked variable 'a'
         info: use the 'depdb' builtin to manually track it
       %.+
       EOE
@@ -175,14 +163,10 @@ posix = ($cxx.target.class != 'windows')
     cat <<EOI >=buildfile
       exe{foo}: bar
       {{
-        buildscript.syntax = 2
-
         cp $path($<) $path($>)
       }}
       % test
       {{
-        buildscript.syntax = 2
-
         diag test $>
         export message=text1
         $> >>>?'text1'
@@ -204,8 +188,6 @@ posix = ($cxx.target.class != 'windows')
     cat <<EOI >=buildfile
       foo:
       {{
-        buildscript.syntax = 2
-
         v1 = foo
         echo bar | set v2
         diag echo "$v1 $v2" -> $>
@@ -231,8 +213,6 @@ posix = ($cxx.target.class != 'windows')
         s = $process.run(cat bar)
         foo:
         {{
-          buildscript.syntax = 2
-
           echo "$s" >$path($>)
         }}
         EOI
@@ -260,8 +240,6 @@ posix = ($cxx.target.class != 'windows')
         a = $process.run(cat baz)
         foo: bar
         {{
-          buildscript.syntax = 2
-
           x = true
           y = $($x ? a : b)
           depdb hash "$a"
@@ -325,8 +303,6 @@ posix = ($cxx.target.class != 'windows')
           s = $process.run(cat bar)
           foo:
           {{
-            buildscript.syntax = 2
-
             depdb clear
 
             s1 = 'abc'
@@ -361,8 +337,6 @@ posix = ($cxx.target.class != 'windows')
         cat <<EOI >=buildfile
           foo:
           {{
-            buildscript.syntax = 2
-
             v = 'abc'
             echo "$v" >$path($>)
             depdb string "$v"
@@ -370,9 +344,9 @@ posix = ($cxx.target.class != 'windows')
           EOI
 
         $* 2>>~%EOE% != 0
-          buildfile:6:3: error: disallowed command in depdb preamble
+          buildfile:4:3: error: disallowed command in depdb preamble
             info: only variable assignments are allowed in depdb preamble
-            buildfile:7:3: info: depdb preamble ends here
+            buildfile:5:3: info: depdb preamble ends here
           %.+
           EOE
 
@@ -385,8 +359,6 @@ posix = ($cxx.target.class != 'windows')
         cat <<EOI >=buildfile
           foo:
           {{
-            buildscript.syntax = 2
-
             touch $~/f | set dummy
 
             if test -f $~/f
@@ -417,8 +389,6 @@ posix = ($cxx.target.class != 'windows')
         s = $process.run(cat bar)
         foo:
         {{
-          buildscript.syntax = 2
-
           depdb clear
           depdb string "$s"
           echo "$s" >$path($>)
@@ -447,8 +417,6 @@ posix = ($cxx.target.class != 'windows')
         s = $process.run(cat bar)
         foo:
         {{
-          buildscript.syntax = 2
-
           depdb clear
           depdb hash "$s"
           echo "$s" >$path($>)
@@ -477,8 +445,6 @@ posix = ($cxx.target.class != 'windows')
         cat <<EOI >=buildfile
           foo:
           {{
-            buildscript.syntax = 2
-
             s = $getenv(FOO)
 
             depdb clear
@@ -488,7 +454,7 @@ posix = ($cxx.target.class != 'windows')
           EOI
 
         $* 2>>/EOE != 0
-          buildfile:8:3: error: invalid 'depdb env' argument: invalid variable name 'FOO=bar': contains '='
+          buildfile:6:3: error: invalid 'depdb env' argument: invalid variable name 'FOO=bar': contains '='
             info: while updating file{foo}
             info: while updating dir{./}
           info: failed to update dir{./}
@@ -503,8 +469,6 @@ posix = ($cxx.target.class != 'windows')
         cat <<EOI >=buildfile
           foo:
           {{
-            buildscript.syntax = 2
-
             s = $getenv(FOO)
 
             depdb clear
@@ -552,8 +516,6 @@ posix = ($cxx.target.class != 'windows')
 
           h{foo}:
           {{
-            buildscript.syntax = 2
-
             # Note that strictly speaking we should return $out_base/baz.h
             # on the second invocation (since it now exists). But our dyndep
             # machinery skips the entry which it has already seen, so this
@@ -569,8 +531,6 @@ posix = ($cxx.target.class != 'windows')
 
           h{baz}:
           {{
-            buildscript.syntax = 2
-
             diag gen $>
             echo baz >$path($>)
           }}
@@ -602,8 +562,6 @@ posix = ($cxx.target.class != 'windows')
 
           h{foo}: h{baz}
           {{
-            buildscript.syntax = 2
-
             o = $path($>)
             t = $path($>).t
 
@@ -616,8 +574,6 @@ posix = ($cxx.target.class != 'windows')
 
           h{baz}:
           {{
-            buildscript.syntax = 2
-
             diag gen $>
             echo baz >$path($>)
           }}
@@ -651,8 +607,6 @@ posix = ($cxx.target.class != 'windows')
     }}
     % [diag=clean] clean
     {{
-      buildscript.syntax = 2
-
       t = $path($>)
       rm $t $(t).d
     }}
@@ -681,8 +635,6 @@ posix = ($cxx.target.class != 'windows')
       }}
       % [diag=test] test
       {{
-        buildscript.syntax = 2
-
         cat <$path($>) >?$path($<)
       }}
       EOI
@@ -707,15 +659,13 @@ posix = ($cxx.target.class != 'windows')
       }}
       % [diag=test] test
       {{
-        buildscript.syntax = 2
-
         depdb clear
         cat <$path($>) >?$path($<)
       }}
       EOI
 
     $* test 2>>EOE != 0
-      buildfile:9:3: error: 'depdb' builtin cannot be used to perform test
+      buildfile:7:3: error: 'depdb' builtin cannot be used to perform test
       EOE
   }
 
@@ -743,8 +693,6 @@ posix = ($cxx.target.class != 'windows')
       }}
       % [diag=test] test
       {{
-        buildscript.syntax = 2
-
         if ($test.runner.path != [null])
           $test.runner.path $test.runner.options cat <$path($>)
         else
@@ -776,8 +724,6 @@ posix = ($cxx.target.class != 'windows')
   cat <<EOI >=buildfile
     foo: bar
     {{
-      buildscript.syntax = 2
-
       echo 'baz' >? $path($<)
     }}
     EOI
@@ -798,8 +744,6 @@ posix = ($cxx.target.class != 'windows')
   cat <<EOI >=buildfile
     ./:
     {{
-      buildscript.syntax = 2
-
       x = echo >|
       y = [cmdline] echo >|
       diag update $>
@@ -834,8 +778,6 @@ if $posix
         foo: bar
         % [diag=update]
         {{
-          buildscript.syntax = 2
-
           cp $path($<) $path($>)
           timeout 1
           ^sleep 5
@@ -844,7 +786,7 @@ if $posix
 
       $* 2>>~%EOE% != 0
         update file{bar} -> file{foo}
-        buildfile:8:3: error: process ^sleep terminated: execution timeout expired
+        buildfile:6:3: error: process ^sleep terminated: execution timeout expired
           info: command line: sleep 5
           info: while updating file{foo}
         %.+
@@ -862,8 +804,6 @@ if $posix
         foo: bar
         % [diag=update]
         {{
-          buildscript.syntax = 2
-
           cp $path($<) $path($>)
           timeout --success 1
           ^sleep 5
@@ -893,8 +833,6 @@ if $posix
         }}
         % [diag=test] test
         {{
-          buildscript.syntax = 2
-
           ^sleep 5
         }}
         EOI
@@ -902,7 +840,7 @@ if $posix
       $* test config.test.timeout=1 2>>~%EOE% != 0
         cp file{bar} -> file{foo}
         test file{foo}
-        buildfile:9:3: error: process ^sleep terminated: execution timeout expired
+        buildfile:7:3: error: process ^sleep terminated: execution timeout expired
           info: command line: sleep 5
           info: while testing file{foo}
         %.+
@@ -910,7 +848,7 @@ if $posix
 
       $* test config.test.timeout=/1 2>>~%EOE% != 0
         test file{foo}
-        buildfile:9:3: error: process ^sleep terminated: execution timeout expired
+        buildfile:7:3: error: process ^sleep terminated: execution timeout expired
           info: command line: sleep 5
           info: while testing file{foo}
         %.+
@@ -928,15 +866,11 @@ if $posix
         foo: bar
         % [diag=cp]
         {{
-          buildscript.syntax = 2
-
           ^sleep 4
           cp $path($<) $path($>)
         }}
         % [diag=test] test
         {{
-          buildscript.syntax = 2
-
           ^sleep 1
         }}
         EOI
@@ -962,8 +896,6 @@ if $posix
 
     alias{~'/f(.+)/'}: alias{~'/b\1/'}
     {{
-      buildscript.syntax = 2
-
       diag frob $< -> $>
     }}
     EOI
@@ -987,8 +919,6 @@ if $posix
       cat <<EOI >=buildfile
         foo: bar
         {{
-          buildscript.syntax = 2
-
           p = $path($>)
           while test -f $p != 0
             cp $path($<) $p
@@ -1010,8 +940,6 @@ if $posix
       cat <<EOI >=buildfile
         foo: bar
         {{
-          buildscript.syntax = 2
-
           diag gen ($>)
 
           p = $path($>)
@@ -1039,8 +967,6 @@ if $posix
       cat <<EOI >=buildfile
         foo: bar
         {{
-          buildscript.syntax = 2
-
           diag gen ($>)
 
           p = $path($>)
@@ -1055,7 +981,7 @@ if $posix
 
       $* 2>>~%EOE% != 0
         gen file{foo}
-        buildfile:11:5: error: fed up
+        buildfile:9:5: error: fed up
         %.{3}
         EOE
 
@@ -1073,8 +999,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             while test -f $p != 0
             {
@@ -1085,7 +1009,7 @@ if $posix
           EOI
 
         $* 2>>EOE != 0
-          buildfile:8:5: error: 'depdb' call inside flow control construct
+          buildfile:6:5: error: 'depdb' call inside flow control construct
           EOE
       }
 
@@ -1097,8 +1021,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             while test -f $p != 0
               cp $path($<) $p
@@ -1108,9 +1030,9 @@ if $posix
           EOI
 
         $* 2>>~%EOE% != 0
-          buildfile:7:5: error: disallowed command in depdb preamble
+          buildfile:5:5: error: disallowed command in depdb preamble
             info: only variable assignments are allowed in depdb preamble
-            buildfile:9:3: info: depdb preamble ends here
+            buildfile:7:3: info: depdb preamble ends here
           %.{3}
           EOE
 
@@ -1125,8 +1047,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($<)
 
             h =
@@ -1162,8 +1082,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar baz
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             rm -f $p
 
@@ -1194,8 +1112,6 @@ if $posix
         cat <<EOI >=src/buildfile
           foo: file{bar}@./ file{baz}@./
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             rm -f $p
 
@@ -1226,8 +1142,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             rm -f $p
 
@@ -1237,7 +1151,7 @@ if $posix
           EOI
 
         $* 2>>EOE != 0
-          buildfile:8:7: error: attempt to set '~' special variable
+          buildfile:6:7: error: attempt to set '~' special variable
           EOE
       }
 
@@ -1250,8 +1164,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             rm -f $p
 
@@ -1279,8 +1191,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             rm -f $p
 
@@ -1294,7 +1204,7 @@ if $posix
 
         $* 2>>~%EOE% != 0
           cat file{bar} -> file{foo}
-          buildfile:11:5: error: fed up
+          buildfile:9:5: error: fed up
           %.{3}
           EOE
 
@@ -1312,8 +1222,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               for f: $<
                 depdb hash $f
 
@@ -1326,7 +1234,7 @@ if $posix
             EOI
 
           $* 2>>EOE != 0
-            buildfile:6:5: error: 'depdb' call inside flow control construct
+            buildfile:4:5: error: 'depdb' call inside flow control construct
             EOE
         }
 
@@ -1338,8 +1246,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               for f: $<
                 echo $path($f) >-
 
@@ -1348,9 +1254,9 @@ if $posix
             EOI
 
           $* 2>>~%EOE% != 0
-            buildfile:6:5: error: disallowed command in depdb preamble
+            buildfile:4:5: error: disallowed command in depdb preamble
               info: only variable assignments are allowed in depdb preamble
-              buildfile:8:3: info: depdb preamble ends here
+              buildfile:6:3: info: depdb preamble ends here
             %.{3}
             EOE
 
@@ -1365,8 +1271,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               h =
               for f: $<
                 h += $path($f)
@@ -1401,8 +1305,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar baz
           {{
-            buildscript.syntax = 2
-
             diag gen ($>)
 
             p = $path($>)
@@ -1432,8 +1334,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             diag gen ($>)
 
             p = $path($>)
@@ -1446,7 +1346,7 @@ if $posix
 
         $* 2>>~%EOE% != 0
           gen file{foo}
-          buildfile:10:3: error: attempt to set '~' special variable
+          buildfile:8:3: error: attempt to set '~' special variable
           %.{3}
           EOE
 
@@ -1464,8 +1364,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               diag gen ($>)
 
               p = $path($>)
@@ -1478,7 +1376,7 @@ if $posix
 
           $* 2>>~%EOE% != 0
             gen file{foo}
-            buildfile:10:3: error: for: ':' after variable name
+            buildfile:8:3: error: for: ':' after variable name
             %.+
             EOE
 
@@ -1493,8 +1391,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               diag gen ($>)
 
               p = $path($>)
@@ -1509,7 +1405,7 @@ if $posix
             gen file{foo}
             <attributes>:1:7: error: whitespace required after attributes
               <attributes>:1:1: info: use the '\[' escape sequence if this is a wildcard pattern
-              buildfile:10:3: info: while parsing attributes '[path]:'
+              buildfile:8:3: info: while parsing attributes '[path]:'
             %.+
             EOE
 
@@ -1526,8 +1422,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             diag gen ($>)
 
             p = $path($>)
@@ -1559,8 +1453,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             diag gen ($>)
 
             p = $path($>)
@@ -1576,7 +1468,7 @@ if $posix
 
         $* 2>>~%EOE% != 0
           gen file{foo}
-          buildfile:13:5: error: fed up
+          buildfile:11:5: error: fed up
           %.{3}
           EOE
 
@@ -1594,8 +1486,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               echo $path($<) | for -w f
                 depdb hash $f
 
@@ -1608,7 +1498,7 @@ if $posix
             EOI
 
           $* 2>>EOE != 0
-            buildfile:6:5: error: 'depdb' call inside flow control construct
+            buildfile:4:5: error: 'depdb' call inside flow control construct
             EOE
         }
 
@@ -1620,8 +1510,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               echo $path($<) | for -w f
                 echo $f >-
 
@@ -1630,9 +1518,9 @@ if $posix
             EOI
 
           $* 2>>~%EOE% != 0
-            buildfile:6:5: error: disallowed command in depdb preamble
+            buildfile:4:5: error: disallowed command in depdb preamble
               info: only variable assignments are allowed in depdb preamble
-              buildfile:8:3: info: depdb preamble ends here
+              buildfile:6:3: info: depdb preamble ends here
             %.{3}
             EOE
 
@@ -1647,8 +1535,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               h =
               echo $path($<) | for -w f
                 h += $f
@@ -1685,8 +1571,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar baz
           {{
-            buildscript.syntax = 2
-
             diag gen ($>)
 
             p = $path($>)
@@ -1725,8 +1609,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar baz
           {{
-            buildscript.syntax = 2
-
             n = 'gen'
             diag "($n)" ($>)
 
@@ -1767,8 +1649,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             rm -f $p
 
@@ -1778,7 +1658,7 @@ if $posix
           EOI
 
         $* 2>>EOE != 0
-          buildfile:8:7: error: attempt to set '~' special variable
+          buildfile:6:7: error: attempt to set '~' special variable
           EOE
       }
 
@@ -1791,8 +1671,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             rm -f $p
 
@@ -1822,8 +1700,6 @@ if $posix
         cat <<EOI >=buildfile
           foo: bar
           {{
-            buildscript.syntax = 2
-
             p = $path($>)
             rm -f $p
 
@@ -1837,7 +1713,7 @@ if $posix
 
         $* 2>>~%EOE% != 0
           cat file{bar} -> file{foo}
-          buildfile:11:5: error: fed up
+          buildfile:9:5: error: fed up
           %.{3}
           EOE
 
@@ -1855,8 +1731,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               for -w f <<<$path($<)
                 depdb hash $f
 
@@ -1869,7 +1743,7 @@ if $posix
             EOI
 
           $* 2>>EOE != 0
-            buildfile:6:5: error: 'depdb' call inside flow control construct
+            buildfile:4:5: error: 'depdb' call inside flow control construct
             EOE
         }
 
@@ -1881,8 +1755,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               for -w f <<<$path($<)
                 echo $f >-
 
@@ -1891,9 +1763,9 @@ if $posix
             EOI
 
           $* 2>>~%EOE% != 0
-            buildfile:6:5: error: disallowed command in depdb preamble
+            buildfile:4:5: error: disallowed command in depdb preamble
               info: only variable assignments are allowed in depdb preamble
-              buildfile:8:3: info: depdb preamble ends here
+              buildfile:6:3: info: depdb preamble ends here
             %.{3}
             EOE
 
@@ -1908,8 +1780,6 @@ if $posix
           cat <<EOI >=buildfile
             foo: bar
             {{
-              buildscript.syntax = 2
-
               h =
               for -w f <<<$path($<)
                 h += $f

@@ -1,8 +1,6 @@
 # file      : tests/test/script/runner/timeout.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : test
@@ -14,8 +12,6 @@ testscript.syntax = 2
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       timeout 1;
       $* -l 3
       EOI
@@ -26,8 +22,6 @@ testscript.syntax = 2
     : reset
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       timeout 1;
       timeout 0;
       $* -l 3
@@ -36,8 +30,6 @@ testscript.syntax = 2
     : override
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout /10
 
       {{
@@ -54,8 +46,6 @@ testscript.syntax = 2
     : successful
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       timeout --success 1;
       $* -l 3
       EOI
@@ -64,22 +54,18 @@ testscript.syntax = 2
   : missing
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     timeout
     EOI
-    testscript:3:1: error: timeout: missing timeout
+    testscript:1:1: error: timeout: missing timeout
     %.
     EOE
 
   : invalid
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     timeout foo
     EOI
-    testscript:3:1: error: timeout: invalid test fragment timeout 'foo'
+    testscript:1:1: error: timeout: invalid test fragment timeout 'foo'
     %.
     EOE
 }}
@@ -93,8 +79,6 @@ testscript.syntax = 2
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       {{
         +timeout 1
 
@@ -108,8 +92,6 @@ testscript.syntax = 2
     : reset
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       {{
         +timeout 1
         +timeout 0
@@ -123,8 +105,6 @@ testscript.syntax = 2
     : Also test slash usage inside the timeout value.
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout 10/10
 
       {{
@@ -141,13 +121,11 @@ testscript.syntax = 2
     : invalid
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       {{
         +timeout foo/
       }}
       EOI
-      testscript:4:4: error: timeout: invalid test group timeout 'foo'
+      testscript:2:4: error: timeout: invalid test group timeout 'foo'
       %.
       EOE
   }}
@@ -158,8 +136,6 @@ testscript.syntax = 2
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       {{
         +timeout /1
 
@@ -173,8 +149,6 @@ testscript.syntax = 2
     : reset
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       {{
         +timeout /1
         +timeout /0
@@ -186,8 +160,6 @@ testscript.syntax = 2
     : override
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout 10/10
 
       {{
@@ -204,13 +176,11 @@ testscript.syntax = 2
     : invalid
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       {{
         +timeout /foo
       }}
       EOI
-      testscript:4:4: error: timeout: invalid test timeout 'foo'
+      testscript:2:4: error: timeout: invalid test timeout 'foo'
       %.
       EOE
   }}
@@ -225,8 +195,6 @@ testscript.syntax = 2
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout 1
 
       $* -l 3
@@ -238,8 +206,6 @@ testscript.syntax = 2
     : reset
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       +timeout 1
       +timeout 0
 
@@ -249,8 +215,6 @@ testscript.syntax = 2
     : override
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout 1
 
       {{
@@ -267,19 +231,15 @@ testscript.syntax = 2
     : invalid
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout foo/
       EOI
-      testscript:3:2: error: timeout: invalid testscript timeout 'foo'
+      testscript:1:2: error: timeout: invalid testscript timeout 'foo'
       %.
       EOE
 
     : successful
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       +timeout --success 1
 
       $* -l 3
@@ -292,8 +252,6 @@ testscript.syntax = 2
     : set
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout /1
 
       $* -l 3
@@ -305,8 +263,6 @@ testscript.syntax = 2
     : reset
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       +timeout /1
       +timeout /0
 
@@ -316,8 +272,6 @@ testscript.syntax = 2
     : override
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout /1
 
       {{
@@ -338,8 +292,6 @@ testscript.syntax = 2
     : successful
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       +timeout --success /1
 
       $* -l 3
@@ -348,13 +300,11 @@ testscript.syntax = 2
     : invalid
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       {{
         +timeout /foo
       }}
       EOI
-      testscript:4:4: error: timeout: invalid test timeout 'foo'
+      testscript:2:4: error: timeout: invalid test timeout 'foo'
       %.
       EOE
   }}
@@ -369,8 +319,6 @@ testscript.syntax = 2
     : set
     :
     $c <<EOI && $b config.test.timeout=1 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       timeout 10;
       $* -l 3
       EOI
@@ -381,8 +329,6 @@ testscript.syntax = 2
     : reset
     :
     $c <<EOI && $b config.test.timeout=1 config.test.timeout=0/10
-      testscript.syntax = 2
-
       timeout 10;
       $* -l 3
       EOI
@@ -390,8 +336,6 @@ testscript.syntax = 2
     : override
     :
     $c <<EOI && $b config.test.timeout=1/10 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout 10
 
       {{
@@ -418,8 +362,6 @@ testscript.syntax = 2
     : set
     :
     $c <<EOI && $b config.test.timeout=/1 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       timeout 10;
       $* -l 3
       EOI
@@ -430,8 +372,6 @@ testscript.syntax = 2
     : reset
     :
     $c <<EOI && $b config.test.timeout=/1 config.test.timeout=10/0
-      testscript.syntax = 2
-
       timeout 10;
       $* -l 3
       EOI
@@ -439,8 +379,6 @@ testscript.syntax = 2
     : override
     :
     $c <<EOI && $b config.test.timeout=10/1 2>>~%EOE% != 0
-      testscript.syntax = 2
-
       +timeout 10
 
       {{
@@ -470,8 +408,6 @@ testscript.syntax = 2
   : set
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-  testscript.syntax = 2
-
   env -t 1 -- $* -l 86400 -o 'foo' | set --foo bar
   EOI
   %testscript:.*: error: set: unknown option '--foo'%
@@ -481,8 +417,6 @@ testscript.syntax = 2
   : exit
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-  testscript.syntax = 2
-
   env -t 1 -- $* -l 86400 -o 'foo' | exit 0
   EOI
   %testscript:.*: error: exit builtin must be the only pipe command%
@@ -492,8 +426,6 @@ testscript.syntax = 2
   : redirect
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-  testscript.syntax = 2
-
   env -t 1 -- $* -l 86400 -o 'foo' | touch $~/foo/bar
   EOI
   %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -509,8 +441,6 @@ testscript.syntax = 2
   : prog-tm-prog
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     $* -l 10 | env -t 1 -- $* -i 0
     EOI
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -522,8 +452,6 @@ testscript.syntax = 2
   : tm-prog-prog
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     env -t 1 -- $* -l 10 | $* -i 0
     EOI
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -535,8 +463,6 @@ testscript.syntax = 2
   : tm-cat-prog
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     env -t 3 -- cat <"test" | $* -l 10
     EOI
     %testscript:.*: error: builtin cat terminated: execution timeout expired%
@@ -548,8 +474,6 @@ testscript.syntax = 2
   : cat-tm-prog
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     cat <"test" | env -t 1 -- $* -l 10
     EOI
     %testscript:.*: error: builtin cat terminated: execution timeout expired%
@@ -561,8 +485,6 @@ testscript.syntax = 2
   : tm-prog-cat
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     env -t 1 -- $* -l 10 | cat >-
     EOI
     %testscript:.*: error: process .+driver.* terminated: execution timeout expired%
@@ -574,8 +496,6 @@ testscript.syntax = 2
   : tm-echo-prog
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     env -t 3 -- echo "test" | $* -l 10
     EOI
     %testscript:.*: error: builtin echo terminated: execution timeout expired%
@@ -590,8 +510,6 @@ testscript.syntax = 2
     : prog-prog
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     timeout --success 1;
     $* -l 10 | $* -i 0
     EOI
@@ -599,8 +517,6 @@ testscript.syntax = 2
     : prog-cat
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     timeout --success 1;
     $* -l 10 | cat
     EOI
@@ -608,8 +524,6 @@ testscript.syntax = 2
     : cat-prog
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     s="----------------------------------------------------------------------";
     s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
     s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";

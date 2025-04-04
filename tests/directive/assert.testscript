@@ -1,8 +1,6 @@
 # file      : tests/directive/assert.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 $* <'assert true'                     : true

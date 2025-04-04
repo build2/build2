@@ -1,8 +1,6 @@
 # file      : libbuild2/test/script/lexer+for-loop.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 test.arguments = for-loop
 
 : semi

@@ -1,8 +1,6 @@
 # file      : tests/test/script/builtin/touch.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : cleanup
@@ -15,8 +13,6 @@ testscript.syntax = 2
   : disabled
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     touch --no-cleanup a;
     rm a
     EOI
@@ -28,8 +24,6 @@ testscript.syntax = 2
   : the cleanup registered by the first touch would fail.
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     {{
       +touch a
       {

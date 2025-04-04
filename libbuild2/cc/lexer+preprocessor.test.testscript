@@ -4,8 +4,6 @@
 # Test preprocessor lines.
 #
 
-testscript.syntax = 2
-
 : normal
 :
 $* <<EOI

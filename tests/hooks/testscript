@@ -1,8 +1,6 @@
 # file      : tests/hooks/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 +cat <'print bootstrap'  >+build/bootstrap.build

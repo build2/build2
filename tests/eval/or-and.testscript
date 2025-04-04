@@ -3,8 +3,6 @@
 
 # Test logical operators (eval-or, eval-and).
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 $* <'print (false || false)' >'false' : or-false

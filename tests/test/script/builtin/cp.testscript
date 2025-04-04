@@ -1,8 +1,6 @@
 # file      : tests/test/script/builtin/cp.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : file
@@ -16,8 +14,6 @@ testscript.syntax = 2
     : enabled
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       touch a;
       cp a b
       EOI
@@ -25,8 +21,6 @@ testscript.syntax = 2
     : disabled
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       touch a;
       cp --no-cleanup a b;
       rm b
@@ -39,8 +33,6 @@ testscript.syntax = 2
     : and so the cleanup registered by the outer touch would fail.
     :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       +touch b
       {
         touch a
@@ -58,8 +50,6 @@ testscript.syntax = 2
   : cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     mkdir a;
     touch a/b;
     cp -r a b
@@ -68,8 +58,6 @@ testscript.syntax = 2
   : no-cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     mkdir a;
     touch a/b;
     cp --no-cleanup -r a b;
@@ -85,8 +73,6 @@ testscript.syntax = 2
   : cleanup
   :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       touch a b;
       mkdir c;
       cp a b c/
@@ -95,8 +81,6 @@ testscript.syntax = 2
   : no-cleanup
   :
     $c <<EOI && $b
-      testscript.syntax = 2
-
       touch a b;
       mkdir c;
       cp --no-cleanup a b c/;
@@ -112,8 +96,6 @@ testscript.syntax = 2
   : cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     mkdir a b;
     touch c a/c;
     cp -R a c b/
@@ -122,8 +104,6 @@ testscript.syntax = 2
   : no-cleanup
   :
   $c <<EOI && $b
-    testscript.syntax = 2
-
     mkdir a b;
     touch c a/c;
     cp --no-cleanup -R a c b/;

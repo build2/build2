@@ -1,8 +1,6 @@
 # file      : tests/bash/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 # Only native testing on non-Windows platforms
 #
 : dummy

@@ -1,8 +1,6 @@
 # file      : libbuild2/build/script/parser+for.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 : form-1
 :
 : for x: ...

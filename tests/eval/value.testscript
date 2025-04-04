@@ -3,8 +3,6 @@
 
 # Test value part of the grammar (eval-value).
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 $* <'print (foo)' >'foo'           : value

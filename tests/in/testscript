@@ -1,8 +1,6 @@
 # file      : tests/in/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 crosstest = false
 test.arguments =
 

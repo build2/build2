@@ -1,8 +1,6 @@
 # file      : tests/test/simple/generated/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 test.arguments = test clean
 
 .include ../../common.testscript

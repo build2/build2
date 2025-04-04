@@ -7,8 +7,6 @@
 # NOTE: currently header unit imports don't produce anything.
 #
 
-testscript.syntax = 2
-
 : module-iface
 :
 $* <<EOI >>EOI

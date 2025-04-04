@@ -3,8 +3,6 @@
 
 # Test subscript expansion.
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : basics

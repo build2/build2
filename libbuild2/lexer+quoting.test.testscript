@@ -1,8 +1,6 @@
 # file      : libbuild2/lexer+quoting.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 test.options += -q
 
 : unquoted

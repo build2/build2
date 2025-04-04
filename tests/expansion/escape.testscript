@@ -3,8 +3,6 @@
 
 # Test escape sequence expansion.
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : simple

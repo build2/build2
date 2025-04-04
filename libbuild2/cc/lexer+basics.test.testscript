@@ -4,8 +4,6 @@
 # Test lexer basics (token recognition, etc)
 #
 
-testscript.syntax = 2
-
 # colon-scope
 #
 $* <<EOI >>EOO

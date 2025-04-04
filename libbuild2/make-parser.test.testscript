@@ -1,8 +1,6 @@
 # file      : libbuild2/make-parser.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 windows = ($cxx.target.class == 'windows')
 
 : valid

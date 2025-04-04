@@ -1,8 +1,6 @@
 # file      : tests/test/script/runner/set.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../common.testscript
 
 : special
@@ -11,12 +9,10 @@ testscript.syntax = 2
   : pipelining
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set foo | cat >bar
   EOI
-  testscript:3:1: error: set builtin must be the last pipe command
-    info: test id: 3
+  testscript:1:1: error: set builtin must be the last pipe command
+    info: test id: 1
   EOE
 
   : redirecting
@@ -25,35 +21,29 @@ testscript.syntax = 2
     : stdout
     :
     $c <<EOI && $b 2>>EOE != 0
-    testscript.syntax = 2
-
     set foo >bar
     EOI
-    testscript:3:1: error: set builtin stdout cannot be redirected
-      info: test id: 3
+    testscript:1:1: error: set builtin stdout cannot be redirected
+      info: test id: 1
     EOE
 
     : stderr
     :
     $c <<EOI && $b 2>>EOE != 0
-    testscript.syntax = 2
-
     set foo 2>bar
     EOI
-    testscript:3:1: error: set builtin stderr cannot be redirected
-      info: test id: 3
+    testscript:1:1: error: set builtin stderr cannot be redirected
+      info: test id: 1
     EOE
   }}
 
   : status
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set foo == 1
   EOI
-  testscript:3:1: error: set builtin exit code cannot be checked
-    info: test id: 3
+  testscript:1:1: error: set builtin exit code cannot be checked
+    info: test id: 1
   EOE
 }}
 
@@ -63,23 +53,19 @@ testscript.syntax = 2
   : unknown
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set -u
   EOI
-  testscript:3:1: error: set: unknown option '-u'
-    info: test id: 3
+  testscript:1:1: error: set: unknown option '-u'
+    info: test id: 1
   EOE
 
   : both-newline-whitespace
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set -nw
   EOI
-  testscript:3:1: error: set: both -n|--newline and -w|--whitespace specified
-    info: test id: 3
+  testscript:1:1: error: set: both -n|--newline and -w|--whitespace specified
+    info: test id: 1
   EOE
 }}
 
@@ -89,45 +75,37 @@ testscript.syntax = 2
   : none
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set -e
   EOI
-  testscript:3:1: error: set: missing variable name
-    info: test id: 3
+  testscript:1:1: error: set: missing variable name
+    info: test id: 1
   EOE
 
   : unexpected
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set foo bar baz
   EOI
-  testscript:3:1: error: set: unexpected argument 'baz'
-    info: test id: 3
+  testscript:1:1: error: set: unexpected argument 'baz'
+    info: test id: 1
   EOE
 
   : empty-attrs
   :
   $c <<"EOI" && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set baz ''
   EOI
-  testscript:3:1: error: set: empty variable attributes
-    info: test id: 3
+  testscript:1:1: error: set: empty variable attributes
+    info: test id: 1
   EOE
 
   : empty-var
   :
   $c <<"EOI" && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set ''
   EOI
-  testscript:3:1: error: set: empty variable name
-    info: test id: 3
+  testscript:1:1: error: set: empty variable name
+    info: test id: 1
   EOE
 }}
 
@@ -140,8 +118,6 @@ testscript.syntax = 2
     : non-empty
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set -w baz <' foo   bar ';
     echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar"'
     EOI
@@ -149,8 +125,6 @@ testscript.syntax = 2
     : empty
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set -w baz <:'';
     echo $regex.apply($baz, '^(.*)$', '"\1"') >''
     EOI
@@ -158,8 +132,6 @@ testscript.syntax = 2
     : spaces
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set -w baz <'  ';
     echo $regex.apply($baz, '^(.*)$', '"\1"') >''
     EOI
@@ -171,8 +143,6 @@ testscript.syntax = 2
     : trailing-ws
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set --exact --whitespace baz <' foo   bar ';
     echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar" ""'
     EOI
@@ -183,8 +153,6 @@ testscript.syntax = 2
     : ':' modifier.
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set -e -w baz <:' foo bar';
     echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar"'
     EOI
@@ -192,8 +160,6 @@ testscript.syntax = 2
     : empty
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set -e -w baz <:'';
     echo $regex.apply($baz, '^(.*)$', '"\1"') >''
     EOI
@@ -201,8 +167,6 @@ testscript.syntax = 2
     : spaces
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set -e -w baz <'  ';
     echo $regex.apply($baz, '^(.*)$', '"\1"') >'""'
     EOI
@@ -215,8 +179,6 @@ testscript.syntax = 2
   : non-exact
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   set -n baz <<EOF;
 
   foo
@@ -233,8 +195,6 @@ testscript.syntax = 2
     : trailing-newline
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set --exact --newline baz <<EOF;
 
     foo
@@ -248,8 +208,6 @@ testscript.syntax = 2
     : no-trailing-newline
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set --exact --newline baz <<:EOF;
 
     foo
@@ -267,8 +225,6 @@ testscript.syntax = 2
   : non-exact
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   set baz <<EOF;
 
   foo
@@ -288,8 +244,6 @@ testscript.syntax = 2
   : roundtrip
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   echo 'foo' | set bar;
   echo "$bar" >'foo'
   EOI
@@ -303,8 +257,6 @@ testscript.syntax = 2
     : trailing-newline
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set -e baz <<EOF;
 
     foo
@@ -323,8 +275,6 @@ testscript.syntax = 2
     : no-trailing-newline
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     set -e baz <<:EOF;
 
     foo
@@ -345,8 +295,6 @@ testscript.syntax = 2
 :
 {
   $c <<EOI && $b
-    testscript.syntax = 2
-
     set -w test.options <'-o foo';
     $* >'foo'
     EOI
@@ -358,8 +306,6 @@ testscript.syntax = 2
   : not-reached
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   env -t 10 -- $* -o 'foo' | set bar;
   echo "$bar" >'foo'
   EOI
@@ -367,8 +313,6 @@ testscript.syntax = 2
   : non-pipe
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   env -t 10 -- set bar <'foo';
   echo "$bar" >'foo'
   EOI
@@ -376,8 +320,6 @@ testscript.syntax = 2
   : set-reached
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-  testscript.syntax = 2
-
   $* -o 'foo' -l 10 | env -t 1 -- set bar
   EOI
   %testscript:.*: error: .+driver.* terminated: execution timeout expired%
@@ -387,8 +329,6 @@ testscript.syntax = 2
   : driver-reached
   :
   $c <<EOI && $b 2>>~%EOE% != 0
-  testscript.syntax = 2
-
   env -t 1 -- $* -o 'foo' -l 10 | set bar
   EOI
   %testscript:.*: error: .+driver.* terminated: execution timeout expired%
@@ -405,8 +345,6 @@ testscript.syntax = 2
     : failure
     :
     $c <<EOI && $b 2>>~%EOE% != 0
-    testscript.syntax = 2
-
     echo "$s" >=f;
     $* -o 'foo' -l 10 | cat f - | env -t 2 -- set bar
     EOI
@@ -419,8 +357,6 @@ testscript.syntax = 2
     : success
     :
     $c <<EOI && $b
-    testscript.syntax = 2
-
     echo "$s" >=f;
     timeout --success 2;
 
@@ -445,8 +381,6 @@ testscript.syntax = 2
         : non-empty
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set -w baz <' foo   bar ';
         echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar"'
@@ -455,8 +389,6 @@ testscript.syntax = 2
         : empty
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set -w baz <:'';
         echo $regex.apply($baz, '^(.*)$', '"\1"') >''
@@ -465,8 +397,6 @@ testscript.syntax = 2
         : spaces
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set -w baz <'  ';
         echo $regex.apply($baz, '^(.*)$', '"\1"') >''
@@ -479,8 +409,6 @@ testscript.syntax = 2
         : trailing-ws
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set --exact --whitespace baz <' foo   bar ';
         echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar" ""'
@@ -492,8 +420,6 @@ testscript.syntax = 2
         : ':' modifier.
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set -e -w baz <:' foo bar';
         echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar"'
@@ -502,8 +428,6 @@ testscript.syntax = 2
         : empty
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set -e -w baz <:'';
         echo $regex.apply($baz, '^(.*)$', '"\1"') >''
@@ -512,8 +436,6 @@ testscript.syntax = 2
         : spaces
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set -e -w baz <'  ';
         echo $regex.apply($baz, '^(.*)$', '"\1"') >'""'
@@ -527,8 +449,6 @@ testscript.syntax = 2
       : non-exact
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       timeout 10;
       set -n baz <<EOF;
 
@@ -546,8 +466,6 @@ testscript.syntax = 2
         : trailing-newline
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set --exact --newline baz <<EOF;
 
@@ -562,8 +480,6 @@ testscript.syntax = 2
         : no-trailing-newline
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set --exact --newline baz <<:EOF;
 
@@ -582,8 +498,6 @@ testscript.syntax = 2
       : non-exact
       :
       $c <<EOI && $b
-      testscript.syntax = 2
-
       timeout 10;
       set baz <<EOF;
 
@@ -610,8 +524,6 @@ testscript.syntax = 2
         : trailing-newline
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set -e baz <<EOF;
 
@@ -631,8 +543,6 @@ testscript.syntax = 2
         : no-trailing-newline
         :
         $c <<EOI && $b
-        testscript.syntax = 2
-
         timeout 10;
         set -e baz <<:EOF;
 
@@ -658,8 +568,6 @@ testscript.syntax = 2
   : dir_path
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   set bar [dir_path] <'foo';
   echo $bar >/'foo/'
   EOI
@@ -667,8 +575,6 @@ testscript.syntax = 2
   : null
   :
   $c <<EOI && $b
-  testscript.syntax = 2
-
   set foo [null] <-;
   echo $foo >''
   EOI
@@ -676,12 +582,10 @@ testscript.syntax = 2
   : none
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set -w baz <'foo bar';
   echo "$baz"
   EOI
-  testscript:4:8: error: concatenating variable expansion contains multiple values
+  testscript:2:8: error: concatenating variable expansion contains multiple values
   EOE
 
   # @@ Move the following tests to build2 parser unit tests when created.
@@ -689,60 +593,50 @@ testscript.syntax = 2
   : empty-brackets
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set -w baz '[]' <'foo bar';
   echo "$baz"
   EOI
-  testscript:4:8: error: concatenating variable expansion contains multiple values
+  testscript:2:8: error: concatenating variable expansion contains multiple values
   EOE
 
   : no-left-bracket
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set -w baz x
   EOI
   <attributes>:1:1: error: expected '[' instead of 'x'
-    testscript:3:1: info: while parsing attributes 'x'
-    info: test id: 3
+    testscript:1:1: info: while parsing attributes 'x'
+    info: test id: 1
   EOE
 
   : unknown
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set -w baz [x]
   EOI
   <attributes>:1:1: error: unknown value attribute x
-    testscript:3:1: info: while parsing attributes '[x]'
-    info: test id: 3
+    testscript:1:1: info: while parsing attributes '[x]'
+    info: test id: 1
   EOE
 
   : junk
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   set -w baz '[string] x'
   EOI
   <attributes>:1:10: error: trailing junk after ']'
-    testscript:3:1: info: while parsing attributes '[string] x'
-    info: test id: 3
+    testscript:1:1: info: while parsing attributes '[string] x'
+    info: test id: 1
   EOE
 
   : any-syntax
   :
   $c <<EOI && $b 2>>EOE != 0
-  testscript.syntax = 2
-
   echo true | set foo [bool{{]
   EOI
   <attributes>:1:1: error: unknown value attribute bool{{
-    testscript:3:1: info: while parsing attributes '[bool{{]'
-    info: test id: 3
+    testscript:1:1: info: while parsing attributes '[bool{{]'
+    info: test id: 1
   EOE
 }}
 

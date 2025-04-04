@@ -1,8 +1,6 @@
 # file      : tests/dependency/recipe/testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 .include ../../common.testscript
 
 # Note: in the parser we have to handle recipes for the with/without

@@ -1,8 +1,6 @@
 # file      : libbuild2/script/lexer+command-expansion.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-testscript.syntax = 2
-
 test.arguments = command-expansion
 
 : pass-redirect
