@@ -3,4 +3,6 @@
 	url = ../style.git
 [submodule "config"]
 	path = config
-	url = https://git.savannah.gnu.org/r/config.git
+	#url = https://git.savannah.gnu.org/r/config.git
+	#url = https://git.savannah.gnu.org/git/config.git
+	url = https://github.com/build2/config.git
