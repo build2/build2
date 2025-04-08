@@ -76,10 +76,14 @@ namespace build2
                                  optional<line_type> block_type,
                                  const function<verify_semi_colon_function>&);
 
+        token
+        pre_parse_command_lines (lines&, optional<line_type> block_type);
+
         pair<bool, optional<description>>
         pre_parse_command_line (token&, token_type&,
                                 lines&,
                                 optional<line_type> block_type,
+                                const char* forbid_directive,
                                 const function<verify_semi_colon_function>&);
 
         bool
@@ -138,13 +142,14 @@ namespace build2
                         bool one = false,
                         optional<line_type> flow_control_type = nullopt,
                         bool command_only_if = false,
+                        const char* forbid_directive = nullptr,
                         const function<verify_semi_colon_function>& = nullptr);
 
         void
-        pre_parse_directive (token&, token_type&);
+        pre_parse_directive (token&, token_type&, lines* test_scope);
 
         void
-        pre_parse_include_line (names, location);
+        pre_parse_include_line (names, lines* test_scope, location);
 
         description
         pre_parse_leading_description (token&, token_type&);

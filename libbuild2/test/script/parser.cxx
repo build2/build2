@@ -415,12 +415,20 @@ namespace build2
       // handling the flow control constructs recursively.
       //
       // If one is true then only parse one line returning an indication of
-      // whether the line ended with a semicolon. If verify_semi_colon
-      // function is not NULL, then call it if a trailing semicolon or
-      // (description) colon is present. Regardless of this argument, verify
-      // that leading and trailing descriptions are not specified both. If the
-      // flow control construct type is specified, then it is assumed that
-      // this line can control further parsing/execution of such a
+      // whether the line ended with a semicolon.
+      //
+      // If forbid_directive is not NULL, then, if the first line is a
+      // directive, issue diagnostics specified by this argument and throw
+      // failed. Always fail for a directive on the subsequent lines (after
+      // semicolon).
+      //
+      // If verify_semi_colon function is not NULL, then call it if a trailing
+      // semicolon or (description) colon is present. Regardless of this
+      // argument, verify that leading and trailing descriptions are not
+      // specified both.
+      //
+      // If the flow control construct type is specified, then it is assumed
+      // that this line can control further parsing/execution of such a
       // construct. Note that it should not be specified for the first line of
       // a construct and, starting from the syntax version 2, for the script
       // command blocks it controls (see buildscript for the reasoning).
@@ -432,6 +440,7 @@ namespace build2
                       bool one,
                       optional<line_type> fct,
                       bool command_only_if,
+                      const char* forbid_directive,
                       const function<verify_semi_colon_function>& vsc)
       {
         // enter: next token is peeked at (type in tt)
@@ -526,15 +535,18 @@ namespace build2
             if (tt != type::word || t.qtype != quote_type::unquoted)
               fail (t) << "expected directive name instead of " << t;
 
-            // Make sure we are not inside a test (i.e., after semi).
+            // Make sure directive is not allowed inside a test for syntax 1.
             //
-            if (ls != nullptr)
-              fail (ll) << "directive inside test";
+            if (syntax_ == 1)
+              assert (ls == nullptr || forbid_directive != nullptr);
+
+            if (forbid_directive != nullptr)
+              fail (ll) << forbid_directive;
 
             const string& n (t.value);
 
             if (n == "include")
-              pre_parse_directive (t, tt);
+              pre_parse_directive (t, tt, ls);
             else
               fail (t) << "unknown directive '" << n << "'";
 
@@ -951,6 +963,7 @@ namespace build2
                                      false /* one */,
                                      nullopt /* flow_control_type */,
                                      true /* command_only_if */,
+                                     "directive after ';'",
                                      vsc);
             }
           }
@@ -1192,10 +1205,12 @@ namespace build2
             ts->start_loc_ = get_location (peeked ());
 
             pair<bool, optional<description>> r (
-              pre_parse_command_line (t, tt,
-                                      ts->tests_,
-                                      nullopt /* block_type */,
-                                      vf));
+              pre_parse_command_line (
+                t, tt,
+                ts->tests_,
+                nullopt /* block_type */,
+                "expected command or '{' instead of directive",
+                vf));
 
             ts->end_loc_ = get_location (t);
 
@@ -1475,6 +1490,56 @@ namespace build2
         if (next (t, tt) != type::newline)
           fail (t) << "expected newline after '{'";
 
+        t = pre_parse_command_lines (ls, bt);
+
+        if (t.type != type::rcbrace)
+          fail (t) << "expected '}' at the end of "
+                   << (bt ? to_string (*bt) : "test scope");
+
+        next (t, tt); // Get newline, semicolon, or colon.
+
+        // Verify any trailing token.
+        //
+        if (vsc != nullptr && tt != type::newline)
+          vsc (tt, get_location (t));
+
+        if (tt != type::newline && tt != type::semi && tt != type::colon)
+          fail (t) << "expected newline, semicolon, or colon after '}'";
+
+        pair<bool, optional<description>> r (false, nullopt);
+
+        if (tt == type::semi)
+        {
+          if (next (t, tt) != type::newline)
+            fail (t) << "expected newline after ';'";
+
+          r.first = true;
+        }
+        else if (tt == type::colon)
+          r.second = parse_trailing_description (t, tt);
+
+        assert (tt == type::newline);
+        return r;
+      }
+
+      // Pre-parse sequence of command lines (see pre_parse_command_line() for
+      // details) until rcbrace or eos is encountered and return the
+      // terminating token.
+      //
+      // Note that it's the caller's responsibility to verify if the
+      // terminating token is valid for the current context.
+      //
+      token parser::
+      pre_parse_command_lines (lines& ls, optional<line_type> bt)
+      {
+        // enter: next token is first token of a line, rcbrace or eos
+        // leave: rcbrace or eos (returned)
+
+        assert (syntax_ >= 2); // Wouldn't be here otherwise.
+
+        token t;
+        type tt;
+
         // Make sure that there are no trailing semicolons or colons after the
         // block lines.
         //
@@ -1509,46 +1574,31 @@ namespace build2
           //
           tt = peek (lexer_mode::first_token);
 
-          if (tt == type::rcbrace)
+          if (tt == type::rcbrace || tt == type::eos)
             break;
 
           pair<bool, optional<description>> r (
-            pre_parse_command_line (t, tt, ls, bt, vf));
+            pre_parse_command_line (t, tt,
+                                    ls,
+                                    bt,
+                                    nullptr /* forbid_directive */,
+                                    vf));
 
           assert (!r.first && !r.second); // Wouldn't be here otherwise.
         }
 
-        next (t, tt); // Get '}'.
-        next (t, tt); // Get newline, semicolon, or colon.
-
-        // Verify any trailing token.
-        //
-        if (vsc != nullptr && tt != type::newline)
-          vsc (tt, get_location (t));
-
-        if (tt != type::newline && tt != type::semi && tt != type::colon)
-          fail (t) << "expected newline, semicolon, or colon after '}'";
-
-        pair<bool, optional<description>> r (false, nullopt);
-
-        if (tt == type::semi)
-        {
-          if (next (t, tt) != type::newline)
-            fail (t) << "expected newline after ';'";
-
-          r.first = true;
-        }
-        else if (tt == type::colon)
-          r.second = parse_trailing_description (t, tt);
-
-        assert (tt == type::newline);
-        return r;
+        next (t, tt); // Get '}' or eos.
+        return t;
       }
 
       // Pre-parse a single command line which belongs to either a flow
-      // control construct block or an explicit test scope. Return an
-      // indication of whether the line is followed by a semicolon
-      // (first=true) or colon (second contains the description).
+      // control construct block, explicit test scope, or file referred to by
+      // the include directive. Return an indication of whether the line is
+      // followed by a semicolon (first=true) or colon (second contains the
+      // description).
+      //
+      // If forbid_directive is not NULL, then, if this line is a directive,
+      // issue diagnostics specified by this argument and throw failed.
       //
       // Note that the block type argument (bt) is only used for diagnostics.
       // If it is nullopt, then the test scope is assumed.
@@ -1557,6 +1607,7 @@ namespace build2
       pre_parse_command_line (token& t, type& tt,
                               lines& ls,
                               optional<line_type> bt,
+                              const char* forbid_directive,
                               const function<verify_semi_colon_function>& vsc)
       {
         // enter: peeked first token of the line (type in tt)
@@ -1594,6 +1645,7 @@ namespace build2
                                    true /* one */,
                                    nullopt /* flow_control_type */,
                                    true /* command_only_if */,
+                                   forbid_directive,
                                    vsc));
 
         return make_pair (semi, move (td));
@@ -1661,12 +1713,15 @@ namespace build2
         }
 
         optional<description> td;
-        bool semi (pre_parse_line (t, tt,
-                                   td,
-                                   &ls,
-                                   true /* one */,
-                                   fct,
-                                   true /* command_only_if */));
+
+        bool semi (
+          pre_parse_line (t, tt,
+                          td,
+                          &ls,
+                          true /* one */,
+                          fct,
+                          true /* command_only_if */,
+                          "expected command instead of directive"));
 
         line_type lt (ls[i].type);
 
@@ -1743,6 +1798,8 @@ namespace build2
 
         // Parse the if-else block chain.
         //
+        const char* dd ("expected command or '{' instead of directive");
+
         for (line_type bt (line_type::cmd_if); // Current block.
              ;
              tt = peek (lexer_mode::first_token))
@@ -1750,7 +1807,7 @@ namespace build2
           pair<bool, optional<description>> r (
             tt == type::lcbrace
             ? pre_parse_command_block (t, tt, ls, bt, vf)
-            : pre_parse_command_line  (t, tt, ls, bt, vf));
+            : pre_parse_command_line  (t, tt, ls, bt, dd, vf));
 
           semi = r.first;
 
@@ -1930,10 +1987,12 @@ namespace build2
               fail (ll) << "both leading and trailing descriptions specified";
           });
 
+        const char* dd ("expected command or '{' instead of directive");
+
         pair<bool, optional<description>> r (
           tt == type::lcbrace
           ? pre_parse_command_block (t, tt, ls, lt, vf)
-          : pre_parse_command_line  (t, tt, ls, lt, vf));
+          : pre_parse_command_line  (t, tt, ls, lt, dd, vf));
 
         bool semi (r.first);
         optional<description>& td (r.second);
@@ -1985,7 +2044,7 @@ namespace build2
       }
 
       void parser::
-      pre_parse_directive (token& t, type& tt)
+      pre_parse_directive (token& t, type& tt, lines* test_scope)
       {
         // enter: directive name
         // leave: newline
@@ -2014,13 +2073,17 @@ namespace build2
           fail (t) << t << " after directive";
 
         if (d == "include")
-          pre_parse_include_line (move (args), move (l));
+          pre_parse_include_line (move (args), test_scope, move (l));
         else
           assert (false); // Unhandled directive.
       }
 
+      // If test_scope is not NULL, then pre-parse the specified files into
+      // this test scope. Otherwise, pre-parse them into the current group
+      // scope (group_).
+      //
       void parser::
-      pre_parse_include_line (names args, location dl)
+      pre_parse_include_line (names args, lines* test_scope, location dl)
       {
         auto i (args.begin ());
 
@@ -2037,7 +2100,9 @@ namespace build2
 
         // Process arguments.
         //
-        auto include = [&dl, once, this] (string n) // throw invalid_path
+        // Note: can throw invalid_path.
+        //
+        auto include = [&dl, once, test_scope, this] (string n)
         {
           // It may be tempting to use relative paths in diagnostics but it
           // most likely will be misguided.
@@ -2083,7 +2148,10 @@ namespace build2
               id_prefix_ += p.leaf ().base ().string ();
               id_prefix_ += '-';
 
-              token t (pre_parse_group_body ());
+              token t (
+                test_scope == nullptr
+                ? pre_parse_group_body ()
+                : pre_parse_command_lines (*test_scope, nullopt /* block_type */));
 
               if (t.type != type::eos)
                 fail (t) << "stray " << t;
