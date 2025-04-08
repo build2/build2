@@ -633,7 +633,7 @@
     if
     {
     EOI
-    testscript:3:1: error: expected command instead of <end of file> inside test scope
+    testscript:3:1: error: expected '}' at the end of test scope
     EOE
   }}
 

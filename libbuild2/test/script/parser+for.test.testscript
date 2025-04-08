@@ -174,7 +174,7 @@
     {
       cmd
     EOI
-    testscript:4:1: error: expected command instead of <end of file> inside 'for'
+    testscript:4:1: error: expected '}' at the end of 'for'
     EOE
   }}
 
@@ -529,7 +529,7 @@
     {
       cmd
     EOI
-    testscript:4:1: error: expected command instead of <end of file> inside 'for'
+    testscript:4:1: error: expected '}' at the end of 'for'
     EOE
   }}
 
@@ -876,7 +876,7 @@
     {
       cmd
     EOI
-    testscript:4:1: error: expected command instead of <end of file> inside 'for'
+    testscript:4:1: error: expected '}' at the end of 'for'
     EOE
   }}
 

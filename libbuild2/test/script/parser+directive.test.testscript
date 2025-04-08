@@ -60,7 +60,7 @@ $* <<EOI 2>>EOE != 0
 cmd;
 .include foo.testscript
 EOI
-testscript:2:1: error: directive inside test
+testscript:2:1: error: directive after ';'
 EOE
 
 : semi-after
@@ -71,6 +71,111 @@ cmd
 EOI
 testscript:1:24: error: ';' after directive
 EOE
+
+: instead-if-line
+:
+$* <<EOI 2>>EOE != 0
+cmd;
+if true
+  .include foo.testscript
+EOI
+testscript:3:3: error: expected command or '{' instead of directive
+EOE
+
+: inside-test-scope
+:
+echo 'cmd' >=foo.testscript;
+echo '.include foo.testscript' >=bar.testscript;
+$* -s <<EOI >>EOO
+{
+  .include bar.testscript
+}
+EOI
+{{
+  {
+    cmd
+  }
+}}
+EOO
+
+: setup-inside-test-scope
+:
+cat <<EOI >=foo.testscript;
++cmd
+EOI
+echo '.include foo.testscript' >=bar.testscript;
+$* -s <<EOI 2>>EOE != 0
+{
+  .include bar.testscript
+}
+EOI
+foo.testscript:1:1: error: setup command inside test scope
+EOE
+
+: setup-inside-group-scope
+:
+cat <<EOI >=foo.testscript;
++cmd
+EOI
+echo '.include foo.testscript' >=bar.testscript;
+$* -s <<EOI >>EOO
+.include bar.testscript
+EOI
+{{
+  +cmd
+}}
+EOO
+
+: inside-if-command
+:
+echo 'cmd1' >=foo.testscript;
+$* -s <<EOI >>EOO
+if true
+{
+  .include foo.testscript
+}
+elif true
+  cmd2;
+cmd3
+EOI
+{{
+  {
+    ? true
+    cmd1
+    cmd3
+  }
+}}
+EOO
+
+: semi-inside-test-scope
+:
+echo 'cmd;' >=foo.testscript;
+$* <<EOI 2>"foo.testscript:1:4: error: ';' inside test scope" != 0
+{
+  .include foo.testscript
+}
+EOI
+
+: semi-inside-group-scope
+:
+cat <<EOI >=foo.testscript;
+cmd1;
+cmd2
+EOI
+$* -s <<EOI >>EOO
+{{
+  .include foo.testscript
+}}
+EOI
+{{
+  {{
+    {
+      cmd1
+      cmd2
+    }
+  }}
+}}
+EOO
 
 : syntax-1
 :
@@ -136,7 +241,7 @@ EOE
   cmd;
   .include foo.testscript
   EOI
-  testscript:2:1: error: directive inside test
+  testscript:2:1: error: directive after ';'
   EOE
 
   : semi-after
@@ -146,5 +251,16 @@ EOE
   cmd
   EOI
   testscript:1:24: error: ';' after directive
+  EOE
+
+  : inside-if
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd;
+  if true
+    .include foo.testscript
+  end
+  EOI
+  testscript:3:3: error: expected command instead of directive
   EOE
 }}

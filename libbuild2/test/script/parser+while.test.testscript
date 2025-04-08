@@ -146,7 +146,7 @@
   {
     cmd
   EOI
-  testscript:4:1: error: expected command instead of <end of file> inside 'while'
+  testscript:4:1: error: expected '}' at the end of 'while'
   EOE
 }}
 

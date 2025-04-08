@@ -354,7 +354,7 @@ $* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?
   : rcbrace
   :
   $* <"{" 2>>EOE != 0
-  testscript:2:1: error: expected command instead of <end of file> inside test scope
+  testscript:2:1: error: expected '}' at the end of test scope
   EOE
 
   : line-rcbrace
