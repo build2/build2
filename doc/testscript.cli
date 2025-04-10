@@ -387,7 +387,7 @@ Testscript we can combine related tests into groups. For example:
 
 \
 : config
-{
+{{
   conf = $~/hello.conf
 
   +cat <<EOI >=$conf
@@ -397,7 +397,7 @@ Testscript we can combine related tests into groups. For example:
 
   $* -c $conf 'John' >'Howdy, John!' : custom-greet
   $* -c $conf 'Jack' >'Hello, Jack!' : default-greet
-}
+}}
 \
 
 A test group is a scope that contains several tests. Variables set inside a
@@ -430,10 +430,12 @@ example, for better visual separation of complex tests:
 {
   conf = hello.conf
 
-  cat <'Jane = Good day' >=$conf;
+  cat <'Jane = Good day' >=$conf
   $* -c $conf 'Jane' >'Good day, Jane!'
 }
 \
+
+@@ Note the absence of ';' in the above example?
 
 We can conditionally exclude sections of a testscript using the \c{if-else}
 branching. This can be done both at the scope level to exclude test or group
@@ -457,19 +459,24 @@ else
 Note that the scopes in the \c{if-else} chain are treated as variants of the
 same test or group thus the single description at the beginning.
 
+@@ Provide an example for group if-else?
+
 Let's now see an example of command-level \c{if-else} by reimplementing
 the above as a single test with some branching and without using the
-\c{nul} device on Windows (notice the semicolon after \c{end}):
+\c{nul} device on Windows (notice the semicolon after \c{\}}):
 
 \
 : config-empty
 :
 if ($cxx.target.class != windows)
+{
   conf = /dev/null
+}
 else
+{
   conf = empty
   touch $conf
-end;
+};
 $* -c $conf 'Jane' >'Hello, Jane!'
 \
 
@@ -559,7 +566,7 @@ Hello, John!
 EOO
 
 : config
-{
+{{
   conf = $~/hello.conf
 
   +cat <<EOI >=$conf
@@ -569,7 +576,7 @@ EOO
 
   $* -c $conf 'John' >'Howdy, John!' : custom-greet
   $* -c $conf 'Jack' >'Hello, Jack!' : default-greet
-}
+}}
 
 $* 2>>\"EOE\" != 0            : missing-name
 error: missing name
@@ -661,11 +668,9 @@ this testscript and buildfile pair:
 
 if ($cxx.target.class == windows)
   test.arguments += $foo
-end
 
 if $windows
   test.arguments += $bar
-end
 \
 
 \
@@ -883,15 +888,15 @@ called \c{basics.testscript}:
 test0: test0
 
 : group
-{
+{{
   test1
 
   : test2
   {
-    test2a;
+    test2a
     test2b
   }
-}
+}}
 \
 
 Below is its version annotated with the id paths that also shows all the
@@ -899,14 +904,14 @@ implicit scopes:
 
 \
 # basics
-{
+{{
   # basics/test0
   {
     test0
   }
 
   # basics/group
-  {
+  {{
     # basics/group/5
     {
       test1
@@ -914,11 +919,11 @@ implicit scopes:
 
     # basics/group/test2
     {
-      test2a;
+      test2a
       test2b
     }
-  }
-}
+  }}
+}}
 \
 
 A scope establishes a nested variable context. A variable set within a scope
@@ -945,7 +950,7 @@ is \c{$out_base/test/}).
 
 \
 : group
-{
+{{
   foo = FOO
   bar = BAR
 
@@ -958,7 +963,7 @@ is \c{$out_base/test/}).
   }
 
   test2 $bar: test2
-}
+}}
 
 test3 $foo &out-test
 \
@@ -966,8 +971,8 @@ test3 $foo &out-test
 Below is its annotated version:
 
 \
-{                          # $~ = $out_base/test/basics/
-  {                        # $~ = .../test/basics/group/
+{{                         # $~ = $out_base/test/basics/
+  {{                       # $~ = .../test/basics/group/
     foo = FOO
     bar = BAR
 
@@ -981,12 +986,12 @@ Below is its annotated version:
     {                      # $~ = .../basics/group/test2/
       test2 $bar           # test2 BAR
     }
-  }                        # Remove out-setup.
+  }}                       # Remove out-setup.
 
   {                        # $~ = .../test/basics/17/
     test3 $foo &out-test   # test3
   }                        # Remove out-test.
-}
+}}
 \
 
 A test should normally create files or directories, if any, in its working
@@ -996,24 +1001,24 @@ of this nested directory structure this can be done using \c{../}-based
 relative paths, for example:
 
 \
-{
+{{
   +setup >=test.conf
 
   test1 ../test.conf
   test2 ../test.conf
-}
+}}
 \
 
 Alternatively, we can use an absolute path:
 
 \
-{
+{{
   conf = $~/test.conf
   +setup >=$conf
 
   test1 $conf
   test2 $conf
-}
+}}
 \
 
 Inside the scope working directory filesystem names that start with \c{stdin},
@@ -1047,7 +1052,7 @@ As an example, consider the following version of \c{basics.testscript}:
 test0
 
 : group
-{
+{{
   +setup1
   +setup2
 
@@ -1057,7 +1062,7 @@ test0
 
   -teardown2
   -teardown1
-}
+}}
 \
 
 At the top level, both \c{test0} and \c{group} can start executing in
@@ -1072,12 +1077,12 @@ The following annotated version illustrates a possible thread scheduling
 for this example:
 
 \
-{               # thread 1
+{{              # thread 1
 
   test0         # thread 2
 
   : group       # thread 1
-  {
+  {{
     +setup1     # thread 1
     +setup2     # thread 1
 
@@ -1089,9 +1094,9 @@ for this example:
 
     -teardown2  # thread 1
     -teardown1  # thread 1
-  }
+  }}
                 # thread 1 (wait for 2)
-}
+}}
 \
 
 A testscript would normally contain multiple tests and sometimes it is
@@ -1103,10 +1108,10 @@ example, consider the following testscript file called \c{basics.testscript}:
 $* foo : foo
 
 : fox
-{
+{{
   $* fox bar : bar
   $* fox baz : baz
-}
+}}
 \
 
 The id paths for these three test will then be:
@@ -1266,7 +1271,7 @@ in here-documents quotes are taken literally).
 The lexical structure of a line depends on its type. The line type could be
 dictated by the preceding construct, as is the case for here-document
 fragments. Otherwise, the line type is determined by examining the leading
-character and, if that fails to determine the line type, leading tokens,
+character(s) and, if that fails to determine the line type, leading tokens,
 as described next.
 
 A character is said to be \i{unquoted} and \i{unescaped} if it is not escaped
@@ -1284,6 +1289,9 @@ unescaped at the beginning of the line:
 '+'  - setup command line
 '-'  - teardown command line
 \
+
+@@ Mention {{ }} in the above list and note that { } not only enclose test
+   scope but also flow control construct blocks?
 
 If the line doesn't start with any of these characters then the first token of
 the line is examined in the \c{first_token} mode (see below). If the first
@@ -1499,6 +1507,232 @@ The complete grammar of the Testscript language is presented next with the
 following sections discussing the semantics of each production rule.
 
 \
+@@ New grammar suggestion:
+
+script:
+  group-body
+
+group-body:
+  *setup
+  *(group|test|directive)
+  *tdown
+
+group:
+  group-scope|group-if
+
+group-scope:
+  ?description
+  group-block
+
+group-block:
+  '{{'
+  group-body
+  '}}'
+
+group-if:
+  ?description
+  ('if'|'if!') command-line
+  group-block
+  *group-elif
+  ?group-else
+
+group-elif:
+  ('elif'|'elif!') command-line
+  group-block
+
+group-else:
+  'else'
+  group-block
+
+setup:
+  variable-like|setup-line
+
+tdown:
+  variable-like|tdown-line
+
+setup-line: '+' command-like
+tdown-line: '-' command-like
+
+test:
+  test-explicit-scope|test-if|test-implicit-scope
+
+test-explicit-scope:
+  ?description
+  test-block
+
+test-block:
+  '{'
+  *(test-command|directive)
+  '}'
+
+test-command:
+  variable-line|command-like
+
+test-if:
+  ?description
+  ('if'|'if!') command-line
+  test-block|test-command
+  *test-elif
+  ?test-else
+
+test-elif:
+  ('elif'|'elif!') command-line
+  test-block|test-command
+
+test-else:
+  'else'
+  test-block|test-command
+
+test-implicit-scope:
+  test-implicit-scope-leading-description | \
+  test-implicit-scope-trailing-description
+
+test-implicit-scope-leading-description:
+  ?description
+  *(test-command ';')
+    test-command
+
+test-implicit-scope-trailing-description:
+  *(test-command ';')
+    test-command ':' <text>
+
+directive:
+  '.' include
+
+include: 'include' (' '+'--once')*(' '+<path>)*
+
+variable-like:
+  variable-line|variable-flow
+
+variable-line:
+  <variable-name> ('='|'+='|'=+') value-attributes? <value>
+
+value-attributes: '[' <key-value-pairs> ']'
+
+variable-flow:
+  variable-if|variable-for|variable-while
+
+variable-if:
+  ('if'|'if!') command-line
+  variable-block|variable-like
+  *variable-elif
+  ?variable-else
+
+variable-elif:
+  ('elif'|'elif!') command-line
+  variable-block|variable-like
+
+variable-else:
+  'else'
+  variable-block|variable-like
+
+variable-block:
+  '{'
+  *variable-like
+  '}'
+
+variable-for:
+  variable-for-args|variable-for-stream
+
+variable-for-args:
+  'for' <variable-name> element-attributes? ':' \
+  value-attributes? <value>
+  variable-block|variable-like
+
+element-attributes: value-attributes
+
+variable-for-stream:
+  (command-pipe '|')? \
+  'for' (<opt>|stdin)* <variable-name> element-attributes? (stdin)*
+  variable-block|variable-like
+
+variable-while:
+  'while' command-line
+  variable-block|variable-like
+
+command-like:
+  command-line|command-flow
+
+command-line: command-expr
+  *here-document
+
+command-expr: command-pipe (('||'|'&&') command-pipe)*
+
+command-pipe: command ('|' command)*
+
+command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
+
+command-exit: ('=='|'!=') <exit-status>
+
+command-flow:
+  command-if|command-for|command-while
+
+command-if:
+  ('if'|'if!') command-line
+  test-block|test-command
+  *command-elif
+  ?command-else
+
+command-elif:
+  ('elif'|'elif!') command-line
+  test-block|test-command
+
+command-else:
+  'else'
+  test-block|test-command
+
+command-for:
+  command-for-args|command-for-stream
+
+command-for-args:
+  'for' <variable-name> element-attributes? ':' \
+  value-attributes? <value>
+  test-block|test-command
+
+command-for-stream:
+  (command-pipe '|')? \
+  'for' (<opt>|stdin)* <variable-name> element-attributes? (stdin)*
+  test-block|test-command
+
+command-while:
+  'while' command-line
+  test-block|test-command
+
+redirect: stdin|stdout|stderr
+
+stdin:  '0'?(in-redirect)
+stdout: '1'?(out-redirect)
+stderr: '2'(out-redirect)
+
+in-redirect:  '<-'|\
+              '<|'|\
+              ('<<<'|'<=') <file>|\
+              ('<<'|'<<='){':'?'/'?} <here-end>|\
+              ('<'|'<<<='){':'?'/'?} <text>
+
+out-redirect: '>-'|\
+              '>|'|\
+              '>!'|\
+              '>=' <file>|\
+              '>+' <file>|\
+              '>&' ('1'|'2')|\
+              ('>>>'|'>?') <file>|\
+              ('>>'|'>>?'){':'?'/'?}'~'? <here-end>|\
+              ('>'|'>>>?'){':'?'/'?}'~'? <text>
+
+here-document:
+  *<text>
+  <here-end>
+
+cleanup: ('&'|'&?'|'&!') (<file>|<dir>)
+
+description:
+  +(':' <text>)
+\
+
+\
+@@ Old grammar:
+
 script:
   scope-body
 
@@ -1694,6 +1928,8 @@ setup/teardown.
 
 \h#syntax-script|Script|
 
+@@ Redo as per above?
+
 \
 script:
   scope-body
@@ -1704,6 +1940,8 @@ Execution} for details).
 
 
 \h#syntax-scope|Scope|
+
+@@ Redo as per above, making it Group?
 
 \
 scope-body:
@@ -1730,6 +1968,8 @@ scope for a test, one is established implicitly.
 
 \h#syntax-scope-if|Scope-If|
 
+@@ Redo as per above, making it Group-If?
+
 \
 scope-if:
   ('if'|'if!') command-line
@@ -1755,6 +1995,8 @@ scope, then all the others are treated as groups as well.
 
 \h#syntax-directive|Directive|
 
+@@ Move it down after Test?
+
 \
 directive:
   '.' include
@@ -1774,6 +2016,9 @@ buildfile. For example:
 \
 include: 'include' (' '+'--once')*(' '+<path>)*
 \
+
+@@ Note that it may appear inside test scopes, in particular, inside flow
+   control commands blocks?
 
 While in the grammar the \c{include} directive is shown to only appear
 interleaving with scopes and tests, it can be used anywhere in the scope
@@ -1806,6 +2051,8 @@ encountered in this scope and as a teardown otherwise.
 
 
 \h#syntax-test|Test|
+
+@@ Redo as per above?
 
 \
 test:
@@ -1848,11 +2095,15 @@ args = [strings] foo   bar 'fox   baz'
 echo $args # foo bar fox   baz
 \
 
+@@ ... inside an implicit test scope ...
+
 The value can only be followed by \c{;} inside a test to signal the test
 continuation.
 
 
 \h#syntax-variable-if|Variable-If|
+
+@@ Redo as per above?
 
 \
 variable-if:
@@ -1879,12 +2130,15 @@ semantics is the same as in \c{scope-if}. For example:
 
 \
 if ($cxx.target.class == 'windows')
+{
   slash = \\\\
   case = false
+}
 else
+{
   slash = /
   case = true
-end
+}
 \
 
 When conditionally setting a single variable, using the evaluation context
@@ -1896,6 +2150,8 @@ slash = ($cxx.target.class == 'windows' ? \\\\ : /)
 
 
 \h#syntax-variable-for|Variable-For|
+
+@@ Redo as per above?
 
 \
 variable-for:
@@ -1924,7 +2180,6 @@ list. The iteration semantics is the same as in \c{command-for}. For example:
 uvalues =
 for v: $values
   uvalues += $string.ucase($v)
-end
 \
 
 Another example:
@@ -1933,7 +2188,6 @@ Another example:
 uvalues =
 cat values.txt | for -n v
   uvalues += $string.ucase($v)
-end
 \
 
 Or using the \c{stdin} redirect:
@@ -1942,11 +2196,12 @@ Or using the \c{stdin} redirect:
 uvalues =
 for -n v <=values.txt
   uvalues += $string.ucase($v)
-end
 \
 
 
 \h#syntax-variable-while|Variable-While|
+
+@@ Redo as per above?
 
 \
 variable-while:
@@ -1967,13 +2222,16 @@ uvalues =
 i = [uint64] 0
 n = $size($values)
 while ($i != $n)
+{
   uvalues += $string.ucase($values[$i])
   i += 1
-end
+}
 \
 
 
 \h#syntax-command|Command|
+
+@@ Redo as per above?
 
 \
 command-like:
@@ -2020,6 +2278,8 @@ and expression).
 
 \h#syntax-command-if|Command-If|
 
+@@ Redo as per above?
+
 \
 command-if:
   ('if'|'if!') command-line
@@ -2047,17 +2307,20 @@ compound test, commands inside \c{command-if} must not end with \c{;}. Rather,
 
 \
 if ($cxx.target.class == 'windows')
+{
   foo = windows
   setup1
   setup2
+}
 else
-  foo = posix
-end;
+  foo = posix;
 test1 $foo
 \
 
 
 \h#syntax-command-for|Command-For|
+
+@@ Redo as per above?
 
 \
 command-for:
@@ -2093,8 +2356,7 @@ literal values. For example:
 
 \
 for v: $values
-  test1 $v
-end;
+  test1 $v;
 test2
 \
 
@@ -2107,7 +2369,6 @@ Overall, this form supports the same set of options as the \l{#builtins-set
 \
 cat values.txt | for -n v
   test1 $v
-end
 \
 
 Or using the \c{stdin} redirect:
@@ -2115,7 +2376,6 @@ Or using the \c{stdin} redirect:
 \
 for -n v <=values.txt
   test1 $v
-end
 \
 
 Both forms can include value attributes enclosed in \c{[]} to be applied to
@@ -2123,6 +2383,8 @@ each element, again similar to the \l{#builtins-set \c{set}} pseudo-builtin.
 
 
 \h#syntax-command-while|Command-While|
+
+@@ Redo as per above?
 
 \
 command-while:
@@ -2143,9 +2405,10 @@ must not end with \c{;}. Rather, \c{;} may follow \c{end}. For example:
 i = [uint64] 0;
 n = $size($values);
 while ($i != $n)
+{
   test1 ($values[$i])
   i += 1
-end;
+};
 test2
 \
 
@@ -2153,8 +2416,8 @@ Another example:
 
 \
 while test -f $file
-  test1 $file
-end
+  test1 $file;
+test2
 \
 
 
@@ -2539,6 +2802,8 @@ description:
 Description lines start with a colon (\c{:}) and are used to document tests
 and test groups. In a sense they are formalized comments.
 
+@@ Redo?
+
 A description can be \i{leading}, that is, specified before the test or
 group. For tests it can also be \i{trailing} \- specified as a single line
 after the (last) command of the test. It is an error to specify both leading
@@ -2570,6 +2835,8 @@ start line number (inside the included file) is prefixed with the line number
 of the \c{include} directive followed by the included file name (without the
 extension) in the form \c{<line>-<file>-}. This process is repeated
 recursively in case of nested inclusions.
+
+@@ Redo?
 
 The start line for a scope (either test or group) is the line containing its
 opening brace (\c{{}) and for a test \- the first test line.
@@ -3485,10 +3752,10 @@ tests. It is also a good idea to give the summary of the group, for example:
 : custom
 : Test custom greetings
 :
-{
+{{
   $* John >'Hi, John!'       : john
   $* World >'Hello, World!'  : world
-}
+}}
 \
 
 In the same vein, don't repeat the testscript id in group or test ids. For
