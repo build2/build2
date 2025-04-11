@@ -4,10 +4,6 @@
 #ifndef LIBBUILD2_DUMP_HXX
 #define LIBBUILD2_DUMP_HXX
 
-#ifndef BUILD2_BOOTSTRAP
-#  include <libbutl/json/serializer.hxx>
-#endif
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
@@ -41,14 +37,14 @@ namespace build2
   // tree).
   //
   LIBBUILD2_SYMEXPORT void
-  dump_quoted_target_name (butl::json::stream_serializer&,
+  dump_quoted_target_name (json_stream_serializer&,
                            const target&,
                            bool relative = false);
 
   // Dump display target name, optionally relative (to the out tree).
   //
   LIBBUILD2_SYMEXPORT void
-  dump_display_target_name (butl::json::stream_serializer&,
+  dump_display_target_name (json_stream_serializer&,
                             const target&,
                             bool relative = false);
 #endif

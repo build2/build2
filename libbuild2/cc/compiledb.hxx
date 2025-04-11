@@ -161,7 +161,7 @@ namespace build2
       mutex mutex_;
       enum class state {init, empty, full, failed} state_;
       size_t nesting_;
-      butl::json::stream_serializer js_;
+      json_stream_serializer js_;
     };
 
     // Implementation that maintains a file.

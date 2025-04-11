@@ -536,7 +536,7 @@ namespace build2
         }
         js_.end_object ();
       }
-      catch (const json::invalid_json_output& e)
+      catch (const invalid_json_output& e)
       {
         // There is no way (nor reason; the output will most likely be invalid
         // anyway) to reuse the failed json serializer so make sure we ignore
@@ -641,7 +641,7 @@ namespace build2
             //
             auto throw_invalid_input = [] (const string& d)
             {
-              throw json::invalid_json_input ("", 0, 1, 0, d);
+              throw invalid_json_input ("", 0, 1, 0, d);
             };
 
             enum {first, second, next, last, end} s (first);
@@ -694,9 +694,9 @@ namespace build2
 
               // Parse just the output target path, which must come first.
               //
-              json::parser jp (l, "" /* name */);
+              json_parser jp (l, "" /* name */);
 
-              jp.next_expect (json::event::begin_object);
+              jp.next_expect (json_event::begin_object);
               string op (move (jp.next_expect_member_string ("output")));
 
               auto r (db_.emplace (move (op), entry {entry_status::absent, l}));
@@ -708,7 +708,7 @@ namespace build2
             if (s != end)
               throw_invalid_input ("corrupt input text");
           }
-          catch (const json::invalid_json_input& e)
+          catch (const invalid_json_input& e)
           {
             state_ = state::failed;
 
@@ -831,7 +831,7 @@ namespace build2
       try
       {
         e.json.clear ();
-        json::buffer_serializer js (e.json, 0 /* indentation */);
+        json_buffer_serializer js (e.json, 0 /* indentation */);
 
         js.begin_object ();
         {
@@ -869,7 +869,7 @@ namespace build2
         }
         js.end_object ();
       }
-      catch (const json::invalid_json_output& e)
+      catch (const invalid_json_output& e)
       {
         // There is no way (nor reason; the output will most likely be invalid
         // anyway) to reuse the failed json serializer so make sure we ignore

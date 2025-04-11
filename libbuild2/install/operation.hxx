@@ -35,7 +35,7 @@ namespace build2
       ofdstream manifest_ofs;
       ostream&  manifest_os;
       auto_rmfile manifest_autorm;
-      butl::json::stream_serializer manifest_json;
+      json_stream_serializer manifest_json;
       const target* manifest_target = nullptr; // Target being installed.
       struct manifest_target_entry
       {

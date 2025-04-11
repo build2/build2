@@ -6,6 +6,8 @@
 #ifndef BUILD2_BOOTSTRAP
 #  include <iostream>  // cout
 #  include <unordered_map>
+
+#  include <libbutl/json/serializer.hxx>
 #endif
 
 #include <libbuild2/rule.hxx>
