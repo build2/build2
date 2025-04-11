@@ -1046,14 +1046,29 @@
   :
   $* -s <<EOI >>EOO
   if true
+    cmd : test summary
+  EOI
+  {{
+    : sm:test summary
+    {
+      ? true
+      cmd
+    }
+  }}
+  EOO
+
+  : trailing-desc-block
+  :
+  $* -s <<EOI >>EOO
+  if true
   {
     cmd
   } : test summary
   EOI
   {{
-    ? true
     : sm:test summary
     {
+      ? true
       cmd
     }
   }}

@@ -1043,9 +1043,9 @@ namespace build2
         // Unless parsing only as a command is requested, if this `if` line is
         // first in the test, then parse this flow control construct as an
         // explicit test scope. However, if this construct turned out to not
-        // be an explicit scope (is followed by `;` or is variable-only), then
-        // convert it into an if-command and continue parsing as a
-        // (potentially multi-command) test in an implicit scope.
+        // be an explicit scope (is followed by `;` or (description) ':' or is
+        // variable-only), then convert it into an if-command and continue
+        // parsing as a (potentially multi-command) test in an implicit scope.
         //
         if (!command_only && ls.size () == 1)
         {
@@ -1053,16 +1053,19 @@ namespace build2
           //
           const location ll (ls.back ().tokens.front ().location ());
 
+          bool leading_description (d.has_value ());
+
           pair<unique_ptr<test>, bool> r (
             pre_parse_if_else_test (t, tt, d, ls, ll, vsc));
 
           unique_ptr<test>& ts (r.first);
           bool semi (r.second);
 
-          if (!semi)
+          // Note: the construct cannot have both the trailing and leading
+          // descriptions.
+          //
+          if (!semi && (!d.has_value () || leading_description))
           {
-            bool var_only (true);
-
             for (test* t (ts.get ());
                  t != nullptr;
                  t = dynamic_cast <test*> (t->if_chain.get ()))
@@ -1072,17 +1075,11 @@ namespace build2
                              return l.type == line_type::cmd;
                            }) != t->tests_.end ())
               {
-                var_only = false;
-                break;
+                verify_no_teardown ("test scope", ll);
+
+                group_->scopes.push_back (move (ts));
+                return false;
               }
-            }
-
-            if (!var_only)
-            {
-              verify_no_teardown ("test scope", ll);
-
-              group_->scopes.push_back (move (ts));
-              return false;
             }
           }
 
