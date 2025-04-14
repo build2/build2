@@ -18,6 +18,9 @@ name: test
 version: 1.2.3
 EOI
 
+# @@ TMP Drop testscript.syntax assignment when support for syntax 1 is
+#        dropped (see libbuild2/script/parser.hxx for details).
+#
 : testscript
 :
 ln -s $src_base/testscript.in ./;
@@ -25,6 +28,7 @@ $* <<EOI
 ./: testscript
 testscript: in{testscript} $src_root/manifest #@@ in module
 testscript: in.symbol = '@'
+testscript: testscript.syntax = 2
 EOI
 
 : syntax-1

@@ -98,17 +98,31 @@ echo 'units/script/foo' >| : foo
 echo 'units/script/bar' >| : bar
 EOI
 
-# Prepare a project for running the syntax 1 testscripts.
+# @@ TMP Drop this when support for syntax 1 is dropped (see
+#        libbuild2/script/parser.hxx for details).
+#
+# Prepare a project for running the syntax 1 testscripts. Also specify syntax
+# version explicitly for the original syntax 2 testscripts.
 #
 +cp -p -R proj proj-s1
 +for f [path]: tests/script/basics.testscript units/testscript units/script/testscript
 {
-  f = [path] "proj-s1/$f"
+  # Prepare syntax 2 testscripts.
+  #
+  t = [path] "proj/$f"
 
-  sed -e 's/^\{\{$/{/' -e 's/^\}\}$/}/' $f >=tmp
+  mv $t tmp
+  echo 'testscript.syntax = 2' >=$t
+  cat tmp                      >+$t
 
-  echo 'testscript.syntax = 1' >=$f
-  cat tmp                      >+$f
+  # Prepare syntax 1 testscripts.
+  #
+  t = [path] "proj-s1/$f"
+
+  sed -e 's/^\{\{$/{/' -e 's/^\}\}$/}/' $t >=tmp
+
+  echo 'testscript.syntax = 1' >=$t
+  cat tmp                      >+$t
 }
 
 # Now the tests. Should all be top-level, no groups (or set test.arguments).

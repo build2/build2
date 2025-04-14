@@ -160,9 +160,7 @@
 : syntax-1
 :
 {{
-  b = [cmdline] $regex.apply($b, \
-                             '^(.+testscript\{testscript\}:.+)$', \
-                             "\1'$\ntestscript{testscript}: testscript.syntax = 1'")
+  b = [cmdline] $regex.apply($b, '(.+testscript.syntax).+', "\1 = 1'")
 
   : synopsis-1
   :

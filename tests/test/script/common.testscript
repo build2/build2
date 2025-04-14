@@ -33,6 +33,10 @@ EOI
 # automatically becoming dir{./}'s prerequisite.
 #
 c = [cmdline] cat >=testscript
+
+# @@ TMP Drop testscript.syntax assignment when support for syntax 1 is
+#        dropped (see libbuild2/script/parser.hxx for details).
+#
 b = [cmdline] $0 --no-default-options --serial-stop --quiet --buildfile - test \
-<"'testscript{testscript}: \$target'" \
+<"'testscript{testscript}: \$target$\ntestscript{testscript}: testscript.syntax = 2'" \
 &?test/***

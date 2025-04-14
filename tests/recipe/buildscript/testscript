@@ -13,7 +13,11 @@ posix = ($cxx.target.class != 'windows')
   using test
   EOI
 
+# @@ TMP Drop testscript.syntax assignment when support for syntax 1 is
+#        dropped (see libbuild2/script/parser.hxx for details).
+#
 +cat <<EOI >=build/root.build
+  buildscript.syntax = 2
   EOI
 
 : update
@@ -1108,6 +1112,11 @@ if $posix
         echo 'baz' >=src/baz
 
         echo 'project =' >=src/build/bootstrap.build
+
+        # @@ TMP Drop this when support for syntax 1 is dropped (see
+        #        libbuild2/script/parser.hxx for details).
+        #
+        echo 'buildscript.syntax = 2' >=src/build/root.build
 
         cat <<EOI >=src/buildfile
           foo: file{bar}@./ file{baz}@./
