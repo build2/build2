@@ -7,6 +7,7 @@
 
 #include <libbutl/manifest-parser.hxx>
 
+#include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
@@ -78,6 +79,12 @@ namespace build2
 
       context& ctx (rs.ctx);
 
+      // True if we have fallen back to the source amalgamation's manifest. In
+      // this case, we skip everything except verifying the build2 version
+      // constraint (and deriving the script syntax from it).
+      //
+      bool amalgam (false);
+
       // Extract the version from the manifest file. As well as summary and
       // url while at it.
       //
@@ -89,13 +96,72 @@ namespace build2
 
       standard_version v;
       dependencies ds;
+      optional<standard_version_constraint> build2_constraint;
       {
-        path f (rs.src_path () / manifest_file);
+        const dir_path& src_root (rs.src_path ());
 
+        path f (src_root / manifest_file);
         try
         {
           if (!file_exists (f))
-            fail (l) << "no manifest file in " << rs.src_path ();
+          {
+            // See if we have the manifest in the source amalgamation.
+            //
+            // The root_extra::amalgamation is not yet initialized unless
+            // overridden or set to null/empty. So check that first and
+            // fallback to querying (see bootstrap_src() for details).
+            //
+            dir_path ad;
+            try
+            {
+              if (rs.root_extra->amalgamation)
+              {
+                if (*rs.root_extra->amalgamation != nullptr)
+                {
+                  ad = src_root / **rs.root_extra->amalgamation;
+                  ad.normalize ();
+                }
+              }
+              else if (const dir_path* d =
+                         cast_null<dir_path> (rs.vars[ctx.var_amalgamation]))
+              {
+                assert (!d->empty ());
+
+                if (d->absolute ())
+                  fail << "absolute directory in variable "
+                       << *ctx.var_amalgamation << " value";
+
+                ad = src_root / *d;
+                ad.normalize ();
+              }
+              else if (!src_root.root ())
+              {
+                // By default we only check the parent directory (which is
+                // consistent with the automatic subproject/amalgamation
+                // discovery). Make sure it looks like a build2 project for
+                // good measure.
+                //
+                ad = src_root.directory (); // Already normalized.
+
+                // We assume this subproject uses the same naming scheme.
+                //
+                optional<bool> altn (rs.root_extra->altn);
+                if (!is_src_root (ad, altn, true /* ignore_errors */))
+                  ad.clear ();
+              }
+            }
+            catch (const invalid_path&)
+            {
+              ad.clear ();
+            }
+
+            if (!ad.empty () && file_exists ((f = ad / manifest_file)))
+            {
+              amalgam = true;
+            }
+            else
+              fail (l) << "no manifest file in " << src_root;
+          }
 
           ifdstream ifs (f);
           manifest_parser p (ifs, f.string ());
@@ -106,44 +172,9 @@ namespace build2
 
           for (nv = p.next (); !nv.empty (); nv = p.next ())
           {
-            if (nv.name == "name")
-            {
-              const project_name& pn (project (rs));
+            location ml (f, nv.value_line, nv.value_column);
 
-              if (pn.empty ())
-                fail (l) << "version module loaded in unnamed project";
-
-              if (nv.value != pn.string ())
-              {
-                path bf (rs.src_path () / rs.root_extra->bootstrap_file);
-                location ml (f, nv.value_line, nv.value_column);
-                location bl (bf);
-
-                fail (ml) << "package name " << nv.value << " does not match "
-                          << "build system project name " << pn <<
-                  info (bl) << "build system project name specified here";
-              }
-            }
-            if (nv.name == "summary")
-              sum = move (nv.value);
-            else if (nv.name == "url")
-              url = move (nv.value);
-            else if (nv.name == "version")
-            {
-              try
-              {
-                // Allow the package stub versions in the 0+<revision> form.
-                // While not standard, we want to use the version module for
-                // packaging stubs.
-                //
-                v = standard_version (nv.value, standard_version::allow_stub);
-              }
-              catch (const invalid_argument& e)
-              {
-                fail << "invalid standard version '" << nv.value << "': " << e;
-              }
-            }
-            else if (nv.name == "depends")
+            if (nv.name == "depends")
             {
               string v (move (nv.value));
 
@@ -184,7 +215,7 @@ namespace build2
               size_t b (buildtime ? v.find_first_not_of (" \t", 1) : 0);
 
               if (b == string::npos)
-                fail (l) << "invalid dependency " << v << ": no package name";
+                fail (ml) << "invalid dependency " << v << ": no package name";
 
               // Find the end of the dependency package name.
               //
@@ -227,16 +258,94 @@ namespace build2
               //
               try
               {
-                package_name pn (move (n));
-                string v (pn.variable ());
+                // If there is a dependency on the build system itself, check
+                // it (so there is no need for explicit using build@X.Y.Z).
+                //
+                // Also save the version constraint if one can be determined.
+                //
+                if (n == "build2")
+                {
+                  if (buildtime && !vc.empty ())
+                  try
+                  {
+                    // Note: we can reasonably assume this constraint does not
+                    // use $ and so can omit the dependent version (which we
+                    // may not have).
+                    //
+                    build2_constraint = standard_version_constraint (vc);
+                    check_build_version (*build2_constraint, ml);
+                  }
+                  catch (const invalid_argument& e)
+                  {
+                    fail (ml) << "invalid version constraint for dependency "
+                              << "build2 " << vc << ": " << e;
+                  }
 
-                ds.emplace (move (v),
-                            dependency {move (pn), move (vc), buildtime});
+                  // Bail out of the loop if we don't need to see anything
+                  // else.
+                  //
+                  if (amalgam)
+                    break;
+                }
+
+                if (!amalgam)
+                {
+                  package_name pn (move (n));
+                  string v (pn.variable ());
+
+                  ds.emplace (move (v),
+                              dependency {move (pn), move (vc), buildtime});
+                }
               }
               catch (const invalid_argument& e)
               {
-                fail (l) << "invalid dependency package name '" << n << "': "
-                         << e;
+                fail (ml) << "invalid dependency package name '" << n << "': "
+                          << e;
+              }
+
+              continue;
+            }
+
+            // Skip the rest if using amalgamation manifest.
+            //
+            if (amalgam)
+              continue;
+
+            if (nv.name == "name")
+            {
+              const project_name& pn (project (rs));
+
+              if (pn.empty ())
+                fail (l) << "manifest in unnamed project";
+
+              if (nv.value != pn.string ())
+              {
+                path bf (rs.src_path () / rs.root_extra->bootstrap_file);
+                location bl (bf);
+
+                fail (ml) << "package name " << nv.value << " does not match "
+                          << "build system project name " << pn <<
+                  info (bl) << "build system project name specified here";
+              }
+            }
+            if (nv.name == "summary")
+              sum = move (nv.value);
+            else if (nv.name == "url")
+              url = move (nv.value);
+            else if (nv.name == "version")
+            {
+              try
+              {
+                // Allow the package stub versions in the 0+<revision> form.
+                // While not standard, we want to use the version module for
+                // packaging stubs.
+                //
+                v = standard_version (nv.value, standard_version::allow_stub);
+              }
+              catch (const invalid_argument& e)
+              {
+                fail (ml) << "invalid standard version '" << nv.value << "': "
+                          << e;
               }
             }
           }
@@ -255,53 +364,8 @@ namespace build2
           fail (l) << "unable to access manifest " << f << ": " << e;
         }
 
-        if (v.empty ())
+        if (v.empty () && !amalgam)
           fail (l) << "no version in " << f;
-      }
-
-      // If this is the latest snapshot (i.e., the -a.1.z kind), then load the
-      // snapshot number and id (e.g., commit date and id from git).
-      //
-      bool committed (true);
-      bool rewritten (false);
-      if (v.snapshot () && v.snapshot_sn == standard_version::latest_sn)
-      {
-        snapshot ss (extract_snapshot (rs));
-
-        if (!ss.empty ())
-        {
-          v.snapshot_sn = ss.sn;
-          v.snapshot_id = move (ss.id);
-          committed = ss.committed;
-          rewritten = true;
-        }
-        else
-          committed = false;
-      }
-
-      // If there is a dependency on the build system itself, check it (so
-      // there is no need for explicit using build@X.Y.Z).
-      //
-      // Also save the version constraint if one can be determined.
-      //
-      optional<standard_version_constraint> build2_constraint;
-      {
-        auto i (ds.find ("build2"));
-
-        if (i != ds.end ()      &&
-            i->second.buildtime &&
-            !i->second.constraint.empty ())
-        try
-        {
-          build2_constraint =
-            standard_version_constraint (i->second.constraint, v);
-          check_build_version (*build2_constraint, l);
-        }
-        catch (const invalid_argument& e)
-        {
-          fail (l) << "invalid version constraint for dependency build2 "
-                   << i->second.constraint << ": " << e;
-        }
       }
 
       // Derive the default script syntax version from the build2 constraint.
@@ -324,6 +388,40 @@ namespace build2
              standard_version (1, 0, 18, 0, standard_version::earliest_version))
           ? 2
           : 1;
+      }
+
+      // Skip the rest if we are using the amalgamation manifest.
+      //
+      if (amalgam)
+      {
+        extra.set_module (
+          new module (project_name {},
+                      standard_version {},
+                      false,
+                      false,
+                      dependencies {},
+                      move (build2_constraint)));
+        return;
+      }
+
+      // If this is the latest snapshot (i.e., the -a.1.z kind), then load the
+      // snapshot number and id (e.g., commit date and id from git).
+      //
+      bool committed (true);
+      bool rewritten (false);
+      if (v.snapshot () && v.snapshot_sn == standard_version::latest_sn)
+      {
+        snapshot ss (extract_snapshot (rs));
+
+        if (!ss.empty ())
+        {
+          v.snapshot_sn = ss.sn;
+          v.snapshot_id = move (ss.id);
+          committed = ss.committed;
+          rewritten = true;
+        }
+        else
+          committed = false;
       }
 
       // Set all the version.* variables.
@@ -397,12 +495,19 @@ namespace build2
           const location& l,
           bool first,
           bool,
-          module_init_extra&)
+          module_init_extra& extra)
     {
       tracer trace ("version::init");
 
       if (!first)
         fail (l) << "multiple version module initializations";
+
+      module& m (extra.module_as<module> ());
+
+      // Skip the rest if we are using the amalgamation manifest.
+      //
+      if (m.version.empty ())
+        return true;
 
       // Load in.base (in.* variables, in{} target type).
       //

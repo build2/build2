@@ -194,6 +194,18 @@ namespace build2
     public:
       // Supported script syntax range.
       //
+      // @@ TMP:
+      //
+      // Currently we default to version 1 if unable to derive anything more
+      // accurate based on the build2 version constraint (in the version
+      // module). The plan is to deprecate and then remove support for
+      // syntax 1 as follows:
+      //
+      // 0.18.0 -- document as deprecated
+      // 0.20.0 -- warning if still used
+      // 0.22.0 -- error if still used
+      // 0.24.0 -- drop support (so old syntax becomes generally invalid)
+      //
       // Note: see also scope::root_extra_type::script_syntax and its
       // calculation in the version module.
       //

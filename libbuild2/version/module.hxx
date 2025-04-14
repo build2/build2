@@ -35,6 +35,12 @@ namespace build2
 
       static const string name;
 
+      // Note that if using amalgamation manifest, everything (version,
+      // dependencies, etc) except for build2_version_constraint will be
+      // empty. We could, however, change that if there is a use-case (for now
+      // this feels like a waste, especially the version snapshot extraction
+      // from git).
+
       // The project variable value sanitized for use in variable names.
       //
       const string project;

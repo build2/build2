@@ -20,7 +20,7 @@
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/parser.hxx>
 
-#include <libbuild2/script/parser.hxx> // max_syntax
+#include <libbuild2/script/parser.hxx> // min_syntax
 
 #include <libbuild2/config/module.hxx>  // config::module::version
 #include <libbuild2/config/utility.hxx> // config::{lookup_*, save_*}()
@@ -74,11 +74,48 @@ namespace build2
   // Check if the standard/alternative file/directory exists, returning empty
   // path if it does not.
   //
-  template <typename T>
-  static T
-  exists (const dir_path& d, const T& s, const T& a, optional<bool>& altn)
+  static path
+  exists (const dir_path& d,
+          const path& s,
+          const path& a,
+          optional<bool>& altn,
+          bool ie = false)
   {
-    T p;
+    path p;
+    bool e;
+
+    if (altn)
+    {
+      p = d / (*altn ? a : s);
+      e = exists (p, true /* follow_symlinks */, ie);
+    }
+    else
+    {
+      // Check the alternative name first since it is more specific.
+      //
+      p = d / a;
+
+      if ((e = exists (p, true, ie)))
+        altn = true;
+      else
+      {
+        p = d / s;
+
+        if ((e = exists (p, true, ie)))
+          altn = false;
+      }
+    }
+
+    return e ? p : path ();
+  }
+
+  static dir_path
+  exists (const dir_path& d,
+          const dir_path& s,
+          const dir_path& a,
+          optional<bool>& altn)
+  {
+    dir_path p;
     bool e;
 
     if (altn)
@@ -103,15 +140,16 @@ namespace build2
       }
     }
 
-    return e ? p : T ();
+    return e ? p : dir_path ();
   }
 
+
   bool
-  is_src_root (const dir_path& d, optional<bool>& altn)
+  is_src_root (const dir_path& d, optional<bool>& altn, bool ie)
   {
     // We can't have root without bootstrap.build.
     //
-    return !exists (d, std_bootstrap_file, alt_bootstrap_file, altn).empty ();
+    return !exists (d, std_bootstrap_file, alt_bootstrap_file, altn, ie).empty ();
   }
 
   bool
@@ -673,9 +711,7 @@ namespace build2
         src_root_file    (a ? alt_src_root_file    : std_src_root_file),
         out_root_file    (a ? alt_out_root_file    : std_out_root_file),
 
-        var_pool (&root.ctx, &root.ctx.var_pool.rw (root), nullptr),
-
-        script_syntax (script::parser::max_syntax)
+        var_pool (&root.ctx, &root.ctx.var_pool.rw (root), nullptr)
   {
     root.var_pool_ = &var_pool;
   }
@@ -1100,7 +1136,7 @@ namespace build2
 
       // @@ We will still have original values in the variables during
       //    bootstrap. Not sure what we can do about that. But it seems
-      //    harmless.
+      //    harmless. Note: version module relies on the current semantics.
       //
       if (aovr)
         rs.root_extra->amalgamation = aovr->empty () ? nullptr : &*aovr;

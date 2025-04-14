@@ -170,6 +170,8 @@ namespace build2
 
     istringstream is (move (t));
 
+    using parser = build::script::parser;
+
     // Determine the recipe syntax.
     //
     // Note that we lookup from the scope, not the target (the same recipe or
@@ -180,17 +182,36 @@ namespace build2
     if (lookup l = s[ctx.var_buildscript_syntax])
     {
       syntax = cast<uint64_t> (l);
-      build::script::parser::validate_syntax_version (syntax);
+      parser::validate_syntax_version (syntax);
     }
     else
     {
-      // Note: use the top-level source-based amalgamation, which is where the
-      // manifest with the build2 version constraint would reside.
+      // Look in the outer source-based amalgamations (which is where the
+      // manifest with the build2 version constraint would reside).
       //
-      syntax = s.strong_scope ()->root_extra->script_syntax;
+      // Actually, we now load the version module even in subprojects (to deal
+      // with standalone builds) but this is probably still correct (it will
+      // handle cases where the version module is not loaded).
+      //
+      const scope* rs (s.root_scope ());
+      const scope* ss (rs->strong_scope ());
+      for (;; rs = rs->parent_scope ()->root_scope ())
+      {
+        if (const auto& s = rs->root_extra->script_syntax)
+        {
+          syntax = *s;
+          break;
+        }
+
+        if (rs == ss)
+        {
+          syntax = parser::min_syntax;
+          break;
+        }
+      }
     }
 
-    build::script::parser p (ctx, syntax);
+    parser p (ctx, syntax);
 
     script = p.pre_parse (s, tt, actions,
                           is, loc.file, loc.line + 1,

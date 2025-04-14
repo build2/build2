@@ -390,11 +390,29 @@ namespace build2
           }
           else
           {
-            // Note: use the top-level source-based amalgamation, which is where
-            // the manifest with the build2 version constraint would reside.
+            // Look in the outer source-based amalgamations (which is where the
+            // manifest with the build2 version constraint would reside).
             //
-            syntax =
-              ts.root_scope ().strong_scope ()->root_extra->script_syntax;
+            // Actually, we now load the version module even in subprojects (to deal
+            // with standalone builds) but this is probably still correct (it will
+            // handle cases where the version module is not loaded).
+            //
+            const build2::scope* rs (&ts.root_scope ());
+            const build2::scope* ss (rs->strong_scope ());
+            for (;; rs = rs->parent_scope ()->root_scope ())
+            {
+              if (const auto& s = rs->root_extra->script_syntax)
+              {
+                syntax = *s;
+                break;
+              }
+
+              if (rs == ss)
+              {
+                syntax = parser::min_syntax;
+                break;
+              }
+            }
           }
 
           parser p (t.ctx, syntax);

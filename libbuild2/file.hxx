@@ -64,7 +64,7 @@ namespace build2
   // only look for things in this scheme.
   //
   LIBBUILD2_SYMEXPORT bool
-  is_src_root (const dir_path&, optional<bool>& altn);
+  is_src_root (const dir_path&, optional<bool>& altn, bool ignore_error = false);
 
   LIBBUILD2_SYMEXPORT bool
   is_out_root (const dir_path&, optional<bool>& altn);
