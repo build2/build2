@@ -7374,8 +7374,16 @@ the snapshot information (sequence number and id).
 
 The \c{version} module must be loaded in the project's \c{bootstrap.build}.
 While being loaded, it reads the project's manifest and extracts its version
-(which must be in the standard form). The version is then parsed and presented
-as the following build system variables (which can be used in the buildfiles):
+(which must be in the standard form).
+
+\N|Another function of the \c{version} module is to check the \c{build2}
+version requirement that is customarily specified in the manifest. This check
+is also the reason why we normally load the \c{version} module in subprojects,
+such as \c{tests/}, which don't have their own manifest file. In this case
+the \c{version} module loads the amalgamating project's manifest.|
+
+The extracted version is parsed and presented as the following build system
+variables (which can be used in the buildfiles):
 
 \
 [string] version                     # +2-1.2.3-b.4.1234567.deadbeef+3
