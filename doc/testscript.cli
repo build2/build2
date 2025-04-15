@@ -2599,7 +2599,7 @@ cat <file>...
 \
 
 Read files in order and write their contents to \c{stdout}. Read from
-\c{stdin} if no file is specified or \c{-} is specified as a file name.
+\c{stdin} if no file is specified or \c{-} is specified as the file name.
 
 
 \h#builtins-cp|\c{cp}|
@@ -3222,6 +3222,52 @@ set $foo [null] <-
 \li|\n\c{-w|--whitespace}
 
   Split the input into a list of elements at whitespaces.||
+
+
+\h#builtins-sha256sum|\c{sha256sum}|
+
+\
+sha256sum [-b|-t] [--sum-only] <file>...
+\
+
+Read files in order, compute their SHA256 checksums, and print them to
+\c{stdout}, one per line. Read from \c{stdin} if no file is specified or \c{-}
+is specified as the file name.
+
+Unless the \c{-b} option is specified, the files are read in the text mode. On
+POSIX systems the binary and text modes are the same. On Windows, when reading
+in the text mode the sequence of \c{0xD}, \c{0xA} characters is translated
+into the single \c{OxA} character and \c{0x1A} is interpreted as EOF.
+
+Unless the \c{--sum-only} option is specified, then a line in the following
+form is printed for each file:
+
+\
+  <checksum> (*| )<path>
+\
+
+The \c{*} character is printed in the binary mode and the space character in
+the text mode.
+
+If the \c{--sum-only} option is specified, then only the checksum is printed
+for each file, one per line.
+
+Note that the implementation only supports a subset of the GNU \c{sha256sum}
+utility options but extends it with the \c{--sum-only} option.
+
+\dl|
+
+\li|\n\c{-b|--binary}
+
+  Read files in binary mode.|
+
+\li|\n\c{-t|--text}
+
+  Read files in text mode.|
+
+\li|\n\c{--sum-only}
+
+  Print only file checksums.||
 
 
 \h#builtins-sleep|\c{sleep}|
