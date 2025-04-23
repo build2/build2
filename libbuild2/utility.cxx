@@ -15,8 +15,9 @@
 #  include <locale>
 #endif
 
-#include <cerrno>   // ENOENT
+#include <cerrno>   // ENOENT, ERANGE
 #include <cstring>  // strlen(), str[n]cmp(), strchr()
+#include <cstdlib>  // strtoull()
 #include <iostream> // cerr
 
 #include <libbuild2/target.hxx>

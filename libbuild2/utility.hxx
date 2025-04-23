@@ -1122,7 +1122,6 @@ namespace build2
   optional<uint64_t>
   parse_number (const string&, uint64_t max = UINT64_MAX);
 
-
   // Write a string to a stream, single or double-quoting it unconditionally.
   //
   // If no quote characters are present in the string, then it is single-
