@@ -46,16 +46,18 @@ namespace build2
     private:
       void
       read_gcc (diag_buffer&, ifdstream&,
+                ofdstream&,
                 const function<void (string, const json_value&)>&,
                 const function<void (path)>&,
-                match_data&) const;
+                match_data&,
+                bool) const;
 
       bool
       read_msvc (diag_buffer&, ifdstream&,
+                 ofdstream&,
                  const function<void (string, const json_value&)>&,
                  const function<void (path)>&,
                  match_data&,
-                 ofdstream&,
                  const path&) const;
 
       void

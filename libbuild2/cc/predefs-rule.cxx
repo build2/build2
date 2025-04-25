@@ -583,6 +583,8 @@ namespace build2
       path relo (relative (tp));
       path rels (s != nullptr ? relative (sp) : path ());
 
+      bool mhdr (false); // True if we are writing header manually.
+
       // Add compiler-specific command-line arguments.
       //
       switch (cclass)
@@ -645,9 +647,18 @@ namespace build2
             // However, using -M and omitting -MF produces the same result in
             // this case (confirmed with GCC 4.9).
             //
+            // There is just one snag: if we are writing directly into the
+            // header (e.g., with -o predefs.h), then the dependency
+            // information goes there as well. Seems like writing the header
+            // manually (similar to the MSVC case below) is the least bad
+            // workaround.
+            //
             if (ctype == compiler_type::gcc && cmaj < 8)
             {
               args.push_back ("-M");
+
+              if (ot == output_type::header)
+                mhdr = true;
             }
             else
             {
@@ -668,7 +679,7 @@ namespace build2
 
           // Output.
           //
-          if (ot == output_type::header)
+          if (ot == output_type::header && !mhdr)
           {
             // Output goes directly to the target file.
             //
@@ -758,26 +769,33 @@ namespace build2
           args.push_back ("/PD"); // Print all macro definitions.
           args.push_back ("/Zc:preprocessor"); // Preproc. conformance mode.
 
-          // We can only write directly into the header in case of a pure
-          // predefs. Otherwise, we have to filter out the preprocessed output
-          // (unlike GCC/Clang, MSVC still produces regular output with /PD
-          // and there doesn't seem to be any way to suppress it).
-          //
-          if (ot == output_type::header && s == nullptr)
+          if (ot == output_type::header)
           {
-            // /EP may seem like it contradicts /P but it's the recommended
-            // way to suppress `#line`s from the output of the /P option (see
-            // /P in the "MSVC Compiler Options" documentation).
+            // We can only write directly into the header in case of a pure
+            // predefs. Otherwise, we have to write the header manually
+            // filtering out the preprocessed output (unlike GCC/Clang, MSVC
+            // still produces regular output with /PD and there doesn't seem
+            // to be any way to suppress it).
             //
-            args.push_back ("/P");  // Write preprocessor output to a file.
+            if (s == nullptr)
+            {
+              // /EP may seem like it contradicts /P but it's the recommended
+              // way to suppress `#line`s from the output of the /P option
+              // (see /P in the "MSVC Compiler Options" documentation).
+              //
+              args.push_back ("/P");  // Write preprocessor output to a file.
 
-            // Output (note that while the /Fi: variant is only availbale
-            // starting with VS2013, /Zc:preprocessor is only available
-            // starting from VS2019).
-            //
-            args.push_back ("/Fi:");
-            args.push_back (relo.string ().c_str ());
+              // Output (note that while the /Fi: variant is only availbale
+              // starting with VS2013, /Zc:preprocessor is only available
+              // starting from VS2019).
+              //
+              args.push_back ("/Fi:");
+              args.push_back (relo.string ().c_str ());
+            }
+            else
+              mhdr = true;
           }
+
 
           // Input.
           //
@@ -865,9 +883,7 @@ namespace build2
         function<void (string, const json_value&)> add_macro;
 
         auto_rmfile rmo (relo);
-        if (cclass != compiler_class::msvc
-            ? ot != output_type::header
-            : ot != output_type::header || s != nullptr)
+        if (ot != output_type::header || mhdr)
         try
         {
           od.os.open (tp);
@@ -963,7 +979,7 @@ namespace build2
             }
           case output_type::header:
             {
-              assert (cclass == compiler_class::msvc);
+              assert (mhdr);
               break;
             }
           }
@@ -1069,7 +1085,7 @@ namespace build2
           // Note: somewhat similar logic as in compile_rule.
           //
           bool msvc (cclass == compiler_class::msvc);
-          bool rstdout (!msvc || ot != output_type::header || s != nullptr);
+          bool rstdout (!msvc || ot != output_type::header || mhdr);
 
           process pr (
             cpath,
@@ -1104,9 +1120,9 @@ namespace build2
             // to input, not output.
             //
             if (ctype == compiler_type::msvc)
-              ee = read_msvc (dbuf, is, add_macro, add_dep, md, od.os, rels);
+              ee = read_msvc (dbuf, is, od.os, add_macro, add_dep, md, rels);
             else
-              read_gcc (dbuf, is, add_macro, add_dep, md);
+              read_gcc (dbuf, is, od.os, add_macro, add_dep, md, mhdr);
 
             if (rstdout)
               is.close ();
@@ -1415,9 +1431,11 @@ namespace build2
 
     void predefs_rule::
     read_gcc (diag_buffer& dbuf, ifdstream& is,
+              ofdstream& os,
               const function<void (string, const json_value&)>& add_mac,
               const function<void (path)>& add_dep,
-              match_data& md) const
+              match_data& md,
+              bool mhdr) const
     {
       tracer trace (x, "predefs_rule::read_gcc");
 
@@ -1434,13 +1452,13 @@ namespace build2
       fdselect_state& ist (fds[0]);
       fdselect_state& dst (fds[1]);
 
-      // First we should see a bunch of #define lines, unless writing a
-      // header, followed by the first line of the make dependency information
-      // that starts with `^:` and can span multiple lines.
+      // First we should see a bunch of #define lines, unless writing a header
+      // directly, followed by the first line of the make dependency
+      // information that starts with `^:` and can span multiple lines.
       //
       enum class state {macro_first, macro_next, dep_first, dep_next, end};
-      state st (md.ot != output_type::header ? state::macro_first :
-                dep                          ? state::dep_first   :
+      state st (md.ot != output_type::header || mhdr ? state::macro_first :
+                dep                                  ? state::dep_first   :
                 state::end);
 
       // Parse a line of make dependency information returning true if more
@@ -1498,11 +1516,25 @@ namespace build2
                   if (st == state::macro_first)
                     st = state::macro_next;
 
-                  size_t p (8);
-                  string n (parse_macro_name (trace, l, p, md.mmap));
+                  if (md.ot != output_type::header)
+                  {
+                    size_t p (8);
+                    string n (parse_macro_name (trace, l, p, md.mmap));
 
-                  if (!n.empty ())
-                    add_mac (move (n), parse_macro_value (l, p, md.def_val));
+                    if (!n.empty ())
+                      add_mac (move (n), parse_macro_value (l, p, md.def_val));
+                  }
+                  else
+                  {
+                    try
+                    {
+                      os << l << '\n';
+                    }
+                    catch (const io_error& e)
+                    {
+                      fail << "unable to write to " << md.tp << ": " << e;
+                    }
+                  }
 
                   break;
                 }
@@ -1564,9 +1596,9 @@ namespace build2
           //
           if (ctype == compiler_type::gcc && md.src == nullptr)
           {
-            if (st == (md.ot == output_type::header
-                       ? state::dep_first
-                       : state::macro_next))
+            if (st == (md.ot != output_type::header || mhdr
+                       ? state::macro_next
+                       : state::dep_first))
               return;
           }
 
@@ -1587,10 +1619,10 @@ namespace build2
 
     bool predefs_rule::
     read_msvc (diag_buffer& dbuf, ifdstream& is,
+               ofdstream& os,
                const function<void (string, const json_value&)>& add_mac,
                const function<void (path)>& add_dep,
                match_data& md,
-               ofdstream& os,
                const path& rels) const
     {
       tracer trace (x, "predefs_rule::read_msvc");
