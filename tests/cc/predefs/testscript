@@ -39,7 +39,7 @@ test.arguments = config.cxx=$quote($recall($cxx.path) $cxx.config.mode) update
         diag cxx-predefs $>
         cat <<EOF >$path($>)
           #define _WIN32
-          #define HAVE_FOO
+          #define HAVE_FOO 1
           EOF
       }}
       EOI

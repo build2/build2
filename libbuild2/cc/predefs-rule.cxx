@@ -807,7 +807,10 @@ namespace build2
 
       // Switch to the absolute source file path.
       //
-      if (!rels.empty ()) // Not `-`.
+      // Note that if it's the empty .t, then we keep the relative path since
+      // it doesn't contain any #include's.
+      //
+      if (s != nullptr)
         *(args.end () - 2) = sp.string ().c_str ();
 
       if (verb >= 3)
@@ -1355,7 +1358,8 @@ namespace build2
 
             if (u (i))
             {
-              i += l (++i);
+              ++i;
+              i += l (i);
             }
             else if (size_t d = l (i))
             {
