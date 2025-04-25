@@ -765,6 +765,8 @@ namespace build2
 
           args.push_back ("/nologo");
 
+          args.push_back ("/showIncludes");
+
           args.push_back ("/EP"); // Preprocess to stdout without `#line`s.
           args.push_back ("/PD"); // Print all macro definitions.
           args.push_back ("/Zc:preprocessor"); // Preproc. conformance mode.

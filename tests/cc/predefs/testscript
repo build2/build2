@@ -200,7 +200,7 @@ if ($cxx.id == 'msvc' ? \
       assert ($bar == 2)
       ./:
       EOI
-    sleep 2 # For Windows.
+    sleep 1
     cat <<EOI >=config.h
       #define HAVE_BAR 3
       EOI
