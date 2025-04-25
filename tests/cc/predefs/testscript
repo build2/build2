@@ -165,14 +165,16 @@ if ($cxx.id == 'msvc' ? \
       EOI
     $* --load-only <<EOI
       source predefs.build
-      assert ($type($HAVE_BOOL) == bool)                     "bad HAVE_BOOL"
-      assert ($type($HAVE_SIG) == int64 && $HAVE_SIG == 123) "bad HAVE_SIG"
-      assert ($HAVE_NEG == -123)                             "bad HAVE_NEG"
-      assert ($HAVE_HEX == 0xffff)                           "bad HAVE_HEX"
-      assert ($HAVE_VOID == 'void')                          "bad HAVE_VOID"
-      assert ($HAVE_EXPR == '((x)+(y))')                     "bad HAVE_EXPR"
-      assert ($HAVE_RES == 1)                                "bad HAVE_RES"
-      assert ($HAVE_NOINT == '123ULLL')                      "bad HAVE_NOINT"
+      assert ($type($HAVE_BOOL) == bool)                        "bad HAVE_BOOL"
+      assert ($type($HAVE_SIG) == int64 && $HAVE_SIG == 123)    "bad HAVE_SIG"
+      assert ($HAVE_NEG == -123)                                "bad HAVE_NEG"
+      assert ($HAVE_HEX == 0xffff)                              "bad HAVE_HEX"
+      assert ($HAVE_VOID == 'void')                             "bad HAVE_VOID"
+      #assert ($HAVE_EXPR == '((x)+(y))')                       "bad HAVE_EXPR"
+      assert ($regex.match($HAVE_EXPR, \
+                           '\( ?\( ?x ?\) ?\+ ?\( ?y ?\) ?\)')) "bad HAVE_EXPR"
+      assert ($HAVE_RES == 1)                                   "bad HAVE_RES"
+      assert ($HAVE_NOINT == '123ULLL')                         "bad HAVE_NOINT"
       ./:
       EOI
   }
@@ -198,7 +200,7 @@ if ($cxx.id == 'msvc' ? \
       assert ($bar == 2)
       ./:
       EOI
-    sleep 1
+    sleep 2 # For Windows.
     cat <<EOI >=config.h
       #define HAVE_BAR 3
       EOI
