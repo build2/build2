@@ -704,6 +704,11 @@ namespace build2
           //
           // ^: /usr/include/stdc-predef.h
           //
+          // Note also that if there are no prerequisites, GCC omits the
+          // entire dependency declararion (Clang still prints ^:). We deal
+          // with that ad hoc in read_gcc() below. Can be reproduced with
+          // -nostdinc.
+          //
           args.push_back (rels.empty ()
                           ? "-"
                           : rels.string ().c_str ()); // Note: expected last.
@@ -1552,7 +1557,21 @@ namespace build2
       if (st != state::end)
       {
         if (dep)
+        {
+          // GCC may not have the dependency information if we are compiling
+          // stdin and there are no implied prerequisites (see above for
+          // details).
+          //
+          if (ctype == compiler_type::gcc && md.src == nullptr)
+          {
+            if (st == (md.ot == output_type::header
+                       ? state::dep_first
+                       : state::macro_next))
+              return;
+          }
+
           throw io_error ("missing dependency information");
+        }
         else if (st == state::macro_first)
           throw io_error ("missing macro information");
       }
