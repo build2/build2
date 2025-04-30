@@ -825,7 +825,14 @@ namespace build2
       // Run the compiler.
       //
       if (verb == 1)
-        print_diag ((string (x_name) + "-predefs").c_str (), t);
+      {
+        string n (string (x_name) + "-predefs");
+
+        if (s == nullptr)
+          print_diag (n.c_str (), t);
+        else
+          print_diag (n.c_str (), *s, t);
+      }
       else if (verb == 2)
         print_process (args);
 
