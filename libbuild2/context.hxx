@@ -55,6 +55,15 @@ namespace build2
     bool
     unlocked () const;
 
+    // Wait until it may become possible to join the specified phase. Note
+    // that there is no guarantee that it will be and, since we do not express
+    // the "interest" in that phase, there needs to be a timeout. Note also
+    // that if the mutex is unlocked or is already in the desired phase, then
+    // this function returns immediately. Return false on failure.
+    //
+    bool
+    wait (run_phase, duration);
+
     // Statistics.
     //
   public:
@@ -801,15 +810,15 @@ namespace build2
 
     // Update-during-load state.
     //
-    // If update_during_load is present, then the value indicates whether
-    // this is initial (0) or interruping (>0) load.
+    // If update_during_load is not 0, then the value indicates whether this
+    // is initial (1) or interruping (>1) load.
     //
     // In the updated_during_load map the key is the target that has been
     // notionally updated and the value is the target that was actually
     // updated, which can be the same as the key or the corresponding target
     // from update_during_load_context. See update_during_load() for details.
     //
-    optional<size_t> update_during_load = nullopt;
+    relaxed_atomic<size_t> update_during_load = 0;
     map<const target*, const target*> updated_during_load;
     context* update_during_load_context = nullptr;
     unique_ptr<context> update_during_load_context_storage;

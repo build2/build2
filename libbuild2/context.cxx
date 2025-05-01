@@ -1100,7 +1100,7 @@ namespace build2
     // main context). Note also that the u-d-l context will be gone at the end
     // of the main context operation.
     //
-    assert (!update_during_load);
+    assert (update_during_load == 0);
 
     if (update_during_load_context != this)
     {
@@ -1321,6 +1321,42 @@ namespace build2
     return lc_ == 0 && mc_ == 0 && ec_ == 0;
   }
 
+  bool run_phase_mutex::
+  wait (run_phase n, duration d)
+  {
+    bool r;
+
+    mlock l (m_);
+
+    if (ctx_.phase == n ||
+        (lc_ == 0 && mc_ == 0 && ec_ == 0)) // Unlocked.
+    {
+      r = !fail_;
+    }
+    else
+    {
+      condition_variable* v (nullptr);
+      switch (n)
+      {
+      case run_phase::load:    v = &lv_; break;
+      case run_phase::match:   v = &mv_; break;
+      case run_phase::execute: v = &ev_; break;
+      }
+
+      ctx_.sched->deactivate (false /* external */);
+#if 0
+      for (; ctx_.phase != n; v->wait_for (l, d)) ;
+#else
+      v->wait_for (l, d);
+#endif
+      r = !fail_;
+      l.unlock (); // Important: activate() can block.
+      ctx_.sched->activate (false /* external */);
+    }
+
+    return r;
+  }
+
   // C++17 deprecated uncaught_exception() so use uncaught_exceptions() if
   // available.
   //
@@ -1413,6 +1449,7 @@ namespace build2
     {
       bool r (ctx->phase_mutex.lock (lock_->phase));
       phase_lock_instance = lock_;
+      lock_ = nullptr;
 
       // Fail unless we are already failing. Note that we keep the phase
       // locked since there will be phase_lock down the stack to unlock it.
@@ -1420,7 +1457,7 @@ namespace build2
       if (!r && !uncaught_exception ())
         throw failed ();
 
-      //text << this_thread::get_id () << " phase lock    " << lock_->phase;
+      //text << this_thread::get_id () << " phase lock    " << phase_lock_instance->phase;
     }
   }
 

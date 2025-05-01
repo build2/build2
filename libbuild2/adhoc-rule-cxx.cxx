@@ -595,7 +595,7 @@ namespace build2
 
         // If the project has already been loaded then, as an optimization,
         // check if the target has already been updated (this will make a
-        // difference we if we have identical recipes in several buildfiles,
+        // difference if we have identical recipes in several buildfiles,
         // especially to the location update that comes next).
         //
         if (!source_once (rs, rs, bf))

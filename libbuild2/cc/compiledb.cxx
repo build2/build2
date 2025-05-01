@@ -1064,8 +1064,7 @@ namespace build2
               //
               // Or if we are updating during (initial) load (see above).
               //
-              if (nctx || (ctx.update_during_load &&
-                           *ctx.update_during_load == 0))
+              if (nctx || ctx.update_during_load == 1)
                 e.status = entry_status::present;
               else
               {

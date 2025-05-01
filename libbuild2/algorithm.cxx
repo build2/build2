@@ -3529,6 +3529,11 @@ namespace build2
     // But if not, additional targets will automatically get updated via the
     // separate context.
     //
+    // Finally, note that in case of an error while updating during load a
+    // target, we may end up with slightly different diagnostics depending on
+    // whether this is initial or interrupting load. In the former case we
+    // won't get the info message for the main targets.
+    //
     if (ctx.current_mif->id == perform_id)
     {
       // If the operation was not set, assume it's some special build mode
@@ -3609,11 +3614,11 @@ namespace build2
           // that can involve loading of additional buildfiles which may
           // contain update directives.
           //
-          if (ctx.update_during_load)
+          if (ctx.update_during_load != 0)
             fail (loc) << "recursive update during load";
 
-          auto udlg = make_guard ([&ctx] () {ctx.update_during_load = nullopt;});
-          ctx.update_during_load = 0; // Initial load.
+          auto udlg = make_guard ([&ctx] () {ctx.update_during_load = 0;});
+          ctx.update_during_load = 1; // Initial load.
 
           // Clear the match-only mode. While we ignore match-only by calling
           // perform_execute() unconditionally, the rules may still adjust
@@ -3671,8 +3676,7 @@ namespace build2
           // load, see below). The only possibility is dir{} as an update-
           // during-load target/prerequisite, which we disallowed.
           //
-          if (in_uctx || (ctx.update_during_load &&
-                          *ctx.update_during_load == 0))
+          if (in_uctx || ctx.update_during_load == 1)
             fail (loc) << "recursive update during load";
 
           // But it can be recursive interrupting load case and it can be
@@ -3681,16 +3685,14 @@ namespace build2
           auto udlg = make_guard (
             [&ctx] ()
             {
-              if (*ctx.update_during_load == 1)
-                ctx.update_during_load = nullopt;
-              else
-                --*ctx.update_during_load;
+              if (--ctx.update_during_load == 1)
+                ctx.update_during_load = 0;
             });
 
-          if (!ctx.update_during_load)
-            ctx.update_during_load = 1; // Interrupting load.
+          if (ctx.update_during_load == 0)
+            ctx.update_during_load = 2; // Interrupting load.
           else
-            ++*ctx.update_during_load;
+            ++ctx.update_during_load;
 
           // This means there is a perform update action already in progress
           // in this context. So we are going to switch the phase and perform
@@ -3701,6 +3703,12 @@ namespace build2
           // in paralellel with us.
           //
           // A couple of nuances:
+          //
+          // - When we switch to the match phase, there is a partially loaded
+          //   buildfile which may have already "advertised" its targets (for
+          //   example, via the export stub) but haven't yet defined them. We
+          //   deal with that in dir_search(), which feels like the only place
+          //   we can load additional buildfiles during interrupting load.
           //
           // - While we ignore match-only by calling execute unconditionally,
           //   the rules may still adjust their logic based on this mode. In

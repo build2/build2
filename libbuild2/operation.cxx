@@ -272,8 +272,7 @@ namespace build2
 
     context& ctx (ts[0].as<target> ().ctx);
 
-    assert (!ctx.update_during_load ||
-            *ctx.update_during_load == 0); // Initial load.
+    assert (ctx.update_during_load <= 1); // Initial load.
 
     {
       phase_lock l (ctx, run_phase::match);
@@ -352,11 +351,11 @@ namespace build2
               // match". But that's probably ok since it means the update
               // during load happened very fast.
               //
-              if (ctx.update_during_load)
+              if (ctx.update_during_load != 0)
               {
                 md.exec_load = true;
 
-                if (*ctx.update_during_load != 0)
+                if (ctx.update_during_load != 1)
                   md.exec_match = true;
               }
               else
@@ -594,7 +593,7 @@ namespace build2
       // normal perform_match() call at the end). Note: only applies to the
       // initial load case.
       //
-      if (a == perform_update_id && !ctx.update_during_load)
+      if (a == perform_update_id && ctx.update_during_load == 0)
         verify_targets (ctx, a);
     }
 
@@ -620,8 +619,7 @@ namespace build2
 
     context& ctx (ts[0].as<target> ().ctx);
 
-    assert (!ctx.update_during_load ||
-            *ctx.update_during_load == 0); // Initial load.
+    assert (ctx.update_during_load <= 1); // Initial load.
 
     bool posthoc_fail (false);
     auto execute_posthoc = [&ctx, &posthoc_fail] ()
@@ -745,7 +743,7 @@ namespace build2
       // Set the dry-run flag, unless this is update-during-load. Note: only
       // applies to the initial load case.
       //
-      ctx.dry_run = ctx.dry_run_option && !ctx.update_during_load;
+      ctx.dry_run = ctx.dry_run_option && ctx.update_during_load == 0;
 
       // Setup progress reporting if requested.
       //
@@ -763,7 +761,7 @@ namespace build2
       {
         md.init = ctx.target_count.load (memory_order_relaxed);
 
-        if (!ctx.update_during_load)
+        if (ctx.update_during_load == 0)
         {
           md.incr = md.init > 100 ? md.init / 100 : 1; // 1%.
 
@@ -839,7 +837,7 @@ namespace build2
       if (ctx.current_mode == execution_mode::last)
       {
         if (!ctx.current_posthoc_targets_matched.empty () &&
-            !ctx.update_during_load)
+            ctx.update_during_load == 0)
           execute_posthoc ();
       }
 
@@ -878,7 +876,7 @@ namespace build2
       {
         if (!ctx.current_posthoc_targets_matched.empty () &&
             (!fail || ctx.keep_going) &&
-            !ctx.update_during_load)
+            ctx.update_during_load == 0)
           execute_posthoc ();
       }
 
@@ -952,7 +950,7 @@ namespace build2
     // normal perform_execute() call at the end). Note: only applies to the
     // initial load case.
     //
-    if (prog && verb != 0 && !ctx.update_during_load)
+    if (prog && verb != 0 && ctx.update_during_load == 0)
     {
       if (size_t s = ctx.skip_count.load (memory_order_relaxed))
       {
@@ -1012,7 +1010,7 @@ namespace build2
     // executing posthoc targets (see above). Note: only applies to the
     // initial load case.
     //
-    if (ctx.update_during_load)
+    if (ctx.update_during_load != 0)
       return;
 
 #ifndef NDEBUG

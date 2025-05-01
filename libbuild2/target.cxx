@@ -1541,8 +1541,58 @@ namespace build2
 
           if (exists (bf))
           {
+            // The match phase we end up in could be the (nested) one for
+            // update-during-load (see update_during_load(), interrupting load
+            // case). Which means there is a partially loaded buildfile which
+            // may have already "advertised" its targets (for example, via the
+            // export stub) but haven't yet defined them. If this happens to
+            // be the buildfile we are loading (or will load later), then us
+            // continuing in the nested match phase is not going to end up
+            // well. So we are going to block here and wait until we switch to
+            // the non-u-d-l match. Actually, there is a feeling that loading
+            // any buildfile while there is a partially-loaded one could end
+            // up badly; for example such a buildfile could import the same
+            // advertised but not yet defined target.
+            //
+            // One potential issue with this approach is that we may be
+            // holding locks on targets that are also prerequisites of the
+            // targets being updated during load. However, normally, dir{}
+            // targets only appear as prerequisites of other dir{} (and maybe
+            // alias{}) targets. And we have banned dir{}/alias{} from
+            // participating in update- during-load (see update_during_load()
+            // for details). So feels like this should not be an issue in
+            // practice.
+            //
+            while (ctx.update_during_load > 1) // We are in serial load phase.
+            {
+              // This voodoo is necessary to keep scheduler phases straight.
+              //
+              phase_switch ps (ctx, run_phase::match);
+              phase_unlock pu (ctx);
+
+              do
+              {
+                // In case wait() returns immediately.
+                //
+                ctx.sched->deactivate (false /* external */);
+                this_thread::yield ();
+                ctx.sched->activate (false /* external */);
+
+                ctx.phase_mutex.wait (run_phase::load, chrono::milliseconds (1));
+
+              } while (ctx.update_during_load.load (memory_order_consume) > 1);
+
+              // We could be trying to load the same partially-loaded (for
+              // example, via import) buildfile and naturally wouldn't find
+              // the target above. So retest below.
+              //
+              retest = true;
+
+              // Note: recheck now that we are again in the serial load phase.
+            }
+
             l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
-            retest = source_once (root, base, bf);
+            retest = source_once (root, base, bf) || retest;
           }
           else if (exists (src_base))
           {

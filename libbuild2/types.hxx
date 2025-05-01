@@ -182,8 +182,21 @@ namespace build2
 
     T operator= (T v) noexcept {
       this->store (v, memory_order_relaxed); return v;}
+
     T operator= (const relaxed_atomic& a) noexcept {
       return *this = a.load (memory_order_relaxed);}
+
+    T operator++ () noexcept {
+      return this->fetch_add (1, memory_order_relaxed) + 1;}
+
+    T operator++ (int) noexcept {
+      return this->fetch_add (1, memory_order_relaxed);}
+
+    T operator-- () noexcept {
+      return this->fetch_sub (1, memory_order_relaxed) - 1;}
+
+    T operator-- (int) noexcept {
+      return this->fetch_sub (1, memory_order_relaxed);}
   };
 
   template <typename T>
