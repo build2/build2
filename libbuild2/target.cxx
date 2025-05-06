@@ -1454,6 +1454,37 @@ namespace build2
   {
     tracer trace ("dir_search");
 
+    auto wait_out_udl = [&ctx] (run_phase rp)
+    {
+      do
+      {
+        // In case wait() returns immediately.
+        //
+        ctx.sched->deactivate (false /* external */);
+        this_thread::yield ();
+        ctx.sched->activate (false /* external */);
+
+        ctx.phase_mutex.wait (rp, chrono::milliseconds (1));
+
+      } while (ctx.update_during_load.load (memory_order_consume) > 1);
+    };
+
+    // In update during load a target could be partially defined (missing
+    // prerequisites, compile options, etc). See the buildfile loading code
+    // below for the overall picture.
+    //
+    while (ctx.update_during_load.load (memory_order_consume) > 1)
+    {
+      phase_unlock pu (ctx);
+
+      // We know in u-d-l there will be a switch back to load before returning
+      // to the non-u-d-l match. So wait for that.
+      //
+      wait_out_udl (run_phase::load);
+
+      // Note: recheck now that we are again in the match phase.
+    }
+
     // The first step is like in alias_search(): looks for an existing target
     // (but unlike alias, no implied, think `test/: install=false`).
     //
@@ -1570,17 +1601,7 @@ namespace build2
               phase_switch ps (ctx, run_phase::match);
               phase_unlock pu (ctx);
 
-              do
-              {
-                // In case wait() returns immediately.
-                //
-                ctx.sched->deactivate (false /* external */);
-                this_thread::yield ();
-                ctx.sched->activate (false /* external */);
-
-                ctx.phase_mutex.wait (run_phase::load, chrono::milliseconds (1));
-
-              } while (ctx.update_during_load.load (memory_order_consume) > 1);
+              wait_out_udl (run_phase::load);
 
               // We could be trying to load the same partially-loaded (for
               // example, via import) buildfile and naturally wouldn't find
@@ -1604,6 +1625,19 @@ namespace build2
     }
 
     assert (ctx.phase == run_phase::match);
+
+    // Same as above: make sure we are not in the u-d-l match.
+    //
+    while (ctx.update_during_load.load (memory_order_consume) > 1)
+    {
+      phase_unlock pu (ctx);
+
+      wait_out_udl (run_phase::load);
+
+      // Same reasoning as above.
+      //
+      retest = true;
+    }
 
     // If we loaded/implied the buildfile, examine the target again.
     //
