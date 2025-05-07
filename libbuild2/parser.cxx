@@ -334,9 +334,71 @@ namespace build2
       fail (t) << "unexpected " << t;
   }
 
+  void parser::
+  detect_include_cycle (const path_name& pn,
+                        const char* what,
+                        const location& loc) const
+  {
+    assert (root_ != nullptr && path_ != nullptr);
+
+    // The check and the attribute to suppress it are only available since
+    // 0.18.0-.
+    //
+    // @@ TMP: drop this check once we no longer care about 0.17.0 and earlier
+    //         (say, in 0.20.0). But: we may still have packages in the repo
+    //         with this issue. Maybe in such cases make it a warning?
+    //
+    if (root_->root_extra == nullptr ||
+        !root_->root_extra->enable_since (
+          standard_version (1, 0, 18, 0, standard_version::earliest_version)))
+      return;
+
+    // Add a would-be entry to handle self-inclusion. Note that if
+    // allow_cycles were true, we wouldn't have been called.
+    //
+    prev_path pp {path_, loc, false /* allow_cycles */, "unused", prev_path_};
+
+    for (const prev_path* i (&pp); i != nullptr; i = i->prev)
+    {
+      // Note: no need to continue checking if allowed since any ealier
+      // cycles should have already been detected.
+      //
+      if (i->allow_cycle)
+        break;
+
+      if (i->path->path != nullptr)
+      {
+        if (*i->path->path == *pn.path)
+        {
+          diag_record dr (fail (loc));
+
+          dr << what << " cycle involving " << pn;
+
+          if (i != &pp)
+          {
+            const path_name* p (path_);
+            for (const prev_path* j (prev_path_);; j = j->prev)
+            {
+              dr << info (j->loc) << *p << ' ' << j->what << " from here";
+
+              if (j == i)
+                break;
+
+              p = j->path;
+            }
+          }
+
+          dr << info << "mark " << what << " directive within cycle "
+             << "with attribute [allow_cycle] if this is intentional";
+        }
+      }
+    }
+  }
+
   names parser::
   parse_export_stub (istream& is, const path_name& name,
-                     const scope& rs, scope& gs, scope& ts)
+                     const scope& rs, scope& gs, scope& ts,
+                     const parser* p, const location& loc)
   {
     // Enter the export stub manually with correct out.
     //
@@ -349,7 +411,41 @@ namespace build2
       enter_buildfile<buildfile> (*name.path, move (out));
     }
 
+    prev_path pp {nullptr, loc, false /* allow_cycle */, "imported", nullptr};
+    if (p != nullptr)
+    {
+      // Check for import cycles. Only consider real paths.
+      //
+      // After some meditation, it seem correct to allow cycles in export
+      // stubs. In a sense, they may consist of multiple "entry points"
+      // (targets being imported) and there is nothing wrong with one such
+      // entry point importing another (see icu-tools for an example).
+      //
+#if 0
+      if (name.path != nullptr)
+      {
+        root_ = &const_cast<scope&> (rs); // Harmless.
+        path_ = p->path_;
+        prev_path_ = p->prev_path_;
+
+        detect_include_cycle (name, "import", loc);
+
+        prev_path_ = nullptr;
+        path_ = nullptr;
+        root_ = nullptr;
+      }
+#endif
+
+      pp.path = p->path_;
+      pp.prev = p->prev_path_;
+      prev_path_ = &pp;
+    }
+
     parse_buildfile (is, name, &gs, ts, nullptr, nullptr, false /* enter */);
+
+    if (p != nullptr)
+      prev_path_ = nullptr;
+
     return move (export_value);
   }
 
@@ -3406,7 +3502,9 @@ namespace build2
   source_buildfile (istream& is,
                     const path_name& in,
                     const location& loc,
-                    optional<bool> deft)
+                    optional<bool> deft,
+                    bool allow_cycle,
+                    const char* what) // sourced|included|imported
   {
     tracer trace ("parser::source_buildfile", &path_);
 
@@ -3416,8 +3514,11 @@ namespace build2
                          ? &enter_buildfile<buildfile> (*in.path)
                          : nullptr);
 
-    const path_name* op (path_);
+    assert (path_ != nullptr);
+
+    prev_path pp {path_, loc, allow_cycle, what, prev_path_};
     path_ = &in;
+    prev_path_ = &pp;
 
     lexer l (is, *path_);
     lexer* ol (lexer_);
@@ -3448,7 +3549,8 @@ namespace build2
       default_target_ = odt;
 
     lexer_ = ol;
-    path_ = op;
+    prev_path_ = pp.prev;
+    path_ = pp.path;
 
     l5 ([&]{trace (loc) << "leaving " << in;});
   }
@@ -3468,6 +3570,7 @@ namespace build2
     attributes_push (t, tt);
 
     bool nodt (false); // Source buildfile without default target semantics.
+    bool acyc (false); // Allow source cycle involving this directive.
     {
       attributes as (attributes_pop ());
       const location& l (as.loc);
@@ -3479,6 +3582,10 @@ namespace build2
         if (n == "no_default_target")
         {
           nodt = true;
+        }
+        else if (n == "allow_cycle")
+        {
+          acyc = true;
         }
         else
           fail (l) << "unknown source directive attribute " << a;
@@ -3508,13 +3615,23 @@ namespace build2
 
       p.normalize ();
 
+      path_name pn (p);
+      location loc (get_location (t));
+
+      // Check for source cycles.
+      //
+      if (!acyc)
+        detect_include_cycle (pn, "source", loc);
+
       try
       {
         ifdstream ifs (p);
         source_buildfile (ifs,
-                          path_name (p),
-                          get_location (t),
-                          nodt ? optional<bool> {} : false);
+                          pn,
+                          loc,
+                          nodt ? optional<bool> {} : false,
+                          acyc,
+                          "sourced");
       }
       catch (const io_error& e)
       {
@@ -3528,7 +3645,7 @@ namespace build2
   void parser::
   parse_include (token& t, type& tt)
   {
-    // include <path>+
+    // include [<attrs>] <path>+
     //
 
     tracer trace ("parser::parse_include", &path_);
@@ -3537,10 +3654,31 @@ namespace build2
       fail (t) << "inclusion during bootstrap";
 
     // The rest should be a list of buildfiles. Parse them as names in the
-    // value mode to get variable expansion and directory prefixes.
+    // value mode to get variable expansion and directory prefixes. Also
+    // handle optional attributes.
     //
     mode (lexer_mode::value, '@');
-    next (t, tt);
+    next_with_attributes (t, tt);
+    attributes_push (t, tt);
+
+    bool acyc (false); // Allow source cycle involving this directive.
+    {
+      attributes as (attributes_pop ());
+      const location& l (as.loc);
+
+      for (const attribute& a: as)
+      {
+        const string& n (a.name);
+
+        if (n == "allow_cycle")
+        {
+          acyc = true;
+        }
+        else
+          fail (l) << "unknown include directive attribute " << a;
+      }
+    }
+
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
               ? parse_names (t, tt, pattern_mode::expand, "path", nullptr)
@@ -3639,6 +3777,19 @@ namespace build2
 
       l6 ([&]{trace (l) << "absolute path " << p;});
 
+      path_name pn (p);
+      location loc (get_location (t));
+
+      // Check for include cycles.
+      //
+      // @@ Note also that we have implied includes (see dir_search()). Those
+      // are currently not factored into this check (and it won't be easy to
+      // do). Thankfully, most practical cases of cycles seem to involve
+      // explicit inclusion.
+      //
+      if (!acyc)
+        detect_include_cycle (pn, "include", loc);
+
       // Note: may be "new" root.
       //
       if (!root_->root_extra->insert_buildfile (p))
@@ -3665,9 +3816,11 @@ namespace build2
       {
         ifdstream ifs (p);
         source_buildfile (ifs,
-                          path_name (p),
-                          get_location (t),
-                          true /* default_target */);
+                          pn,
+                          loc,
+                          true /* default_target */,
+                          acyc,
+                          "included");
       }
       catch (const io_error& e)
       {
@@ -3753,7 +3906,9 @@ namespace build2
         source_buildfile (is,
                           path_name ("<stdout>"),
                           l,
-                          false /* default_target */);
+                          false /* default_target */,
+                          false /* allow_cycles */,
+                          "source");
       }
 
       is.close (); // Detect errors.
@@ -4531,7 +4686,8 @@ namespace build2
                 ph2 ? ph2 : bf ? optional<string> (string ()) : nullopt,
                 opt,
                 meta,
-                loc));
+                loc,
+                this));
 
       names& r (ir.name);
 
@@ -4581,6 +4737,12 @@ namespace build2
         name& n (r.front ());
         path p (n.dir / n.value); // Should already include extension.
 
+        path_name pn (p);
+
+        // Check for import cycles.
+        //
+        detect_include_cycle (pn, "import", loc);
+
         // Note: similar to parse_include().
         //
         // Nuance: we insert this buildfile even with once=false in case it
@@ -4616,9 +4778,11 @@ namespace build2
           //    in that, just inaccurate.
           //
           source_buildfile (ifs,
-                            path_name (p),
+                            pn,
                             loc,
-                            nodt ? optional<bool> {} : false);
+                            nodt ? optional<bool> {} : false,
+                            false /* allow_cycles */,
+                            "imported");
         }
         catch (const io_error& e)
         {

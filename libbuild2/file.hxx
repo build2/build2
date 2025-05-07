@@ -386,13 +386,16 @@ namespace build2
   // Note that import_result<scope>::target may be NULL even if name is not
   // empty (e.g, out of project target imported via phase 2).
   //
+  // The parser is used to detect include/import cycles.
+  //
   LIBBUILD2_SYMEXPORT import_result<scope>
   import (scope& base,
           name,
           const optional<string>& phase2,
           bool optional,
           bool metadata,
-          const location&);
+          const location&,
+          const parser* = nullptr);
 
   // Import phase 2.
   //
@@ -418,6 +421,8 @@ namespace build2
   // The what argument specifies what triggered the import (for example,
   // "module load") and is used in diagnostics.
   //
+  // The parser is used to detect include/import cycles.
+  //
   // This function also returns the stable exported target name (see
   // target::as_name() for details) as well as the kind of import that was
   // performed.
@@ -439,7 +444,8 @@ namespace build2
                  bool optional,
                  bool metadata,
                  const location&,
-                 const char* what = "import");
+                 const char* what = "import",
+                 const parser* = nullptr);
 
   // As above but also return (in new_value) an indication of whether this
   // import is based on a new config.* value. See config::lookup_config() for
@@ -454,8 +460,8 @@ namespace build2
                  bool optional,
                  bool metadata,
                  const location&,
-                 const char* what = "import");
-
+                 const char* what = "import",
+                 const parser* = nullptr);
 
   // As above but also cast the target and pass phase2 as bool (primarily
   // for use in build system modules).
@@ -522,12 +528,15 @@ namespace build2
   // Note that the what argument should make sense with the -ed and -ing
   // suffixes (e.g., "load").
   //
+  // The parser is used to detect include/import cycles.
+  //
   LIBBUILD2_SYMEXPORT pair<names, const scope&>
   import_load (context&,
                pair<name, optional<dir_path /* out_root/base */>>,
                bool metadata,
                const location&,
-               const char* what = "import");
+               const char* what = "import",
+               const parser* = nullptr);
 
   // Create scopes, bootstrap the project, enter variable overrides, and load
   // the buildfile in the new build context based on the exemplar. Note that

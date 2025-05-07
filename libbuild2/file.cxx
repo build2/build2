@@ -2777,7 +2777,8 @@ namespace build2
                pair<name, optional<dir_path>> x,
                bool meta,
                const location& loc,
-               const char* what)
+               const char* what,
+               const parser* prev_parser)
   {
     tracer trace ("import_load");
 
@@ -3211,7 +3212,8 @@ namespace build2
             });
 
           parser p (ctx);
-          v = p.parse_export_stub (ifs, path_name (es), *rs, gs, ts);
+          v = p.parse_export_stub (
+            ifs, path_name (es), *rs, gs, ts, prev_parser, loc);
         }
 
         // If there were no export directive executed in an export stub,
@@ -3432,7 +3434,8 @@ namespace build2
           const optional<string>& ph2,
           bool opt,
           bool metadata,
-          const location& loc)
+          const location& loc,
+          const parser* prev_parser)
   {
     tracer trace ("import");
 
@@ -3454,7 +3457,8 @@ namespace build2
     if (metadata)
     {
       import_result<target> r (
-        import_direct (base, move (tgt), ph2, opt, metadata, loc));
+        import_direct (
+          base, move (tgt), ph2, opt, metadata, loc, "import", prev_parser));
 
       return import_result<scope> {
         r.target != nullptr ? r.target->base_scope ().root_scope () : nullptr,
@@ -3536,7 +3540,8 @@ namespace build2
                    : import_kind::normal);
 
     pair<names, const scope&> p (
-      import_load (base.ctx, move (r), false /* metadata */, loc));
+      import_load (
+        base.ctx, move (r), false /* metadata */, loc, "import", prev_parser));
 
     return import_result<scope> {&p.second, move (p.first), k};
   }
@@ -3858,7 +3863,8 @@ namespace build2
                  bool opt,
                  bool metadata,
                  const location& loc,
-                 const char* what)
+                 const char* what,
+                 const parser* prev_parser)
   {
     // This is like normal import() except we return the target in addition to
     // its name.
@@ -3954,7 +3960,7 @@ namespace build2
       k = r.first.absolute () ? import_kind::adhoc : import_kind::normal;
 
       pair<names, const scope&> p (
-        import_load (base.ctx, move (r), metadata, loc, what));
+        import_load (base.ctx, move (r), metadata, loc, what, prev_parser));
 
       rns = ns = move (p.first);
       iroot = &p.second;

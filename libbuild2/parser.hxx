@@ -82,7 +82,8 @@ namespace build2
 
     names
     parse_export_stub (istream& is, const path_name& name,
-                       const scope& rs, scope& gs, scope& ts);
+                       const scope& rs, scope& gs, scope& ts,
+                       const parser* prev_parser, const location&);
 
     buildspec
     parse_buildspec (istream&, const path_name&);
@@ -428,11 +429,28 @@ namespace build2
     // start with a new default_value and call process_default_target() at
     // the end.
     //
+    // The allow_cycle argument indicates whether cycles involving this
+    // sourcing should be allowed.
+    //
+    // The what argument should be `sourced`, `included`, or `imported`.
+    //
     void
     source_buildfile (istream&,
                       const path_name&,
                       const location&,
-                      optional<bool> default_target);
+                      optional<bool> default_target,
+                      bool allow_cycle,
+                      const char* what);
+
+    // Detect source/include/import cycles.
+    //
+    // The path name argument should be a real path. The what argument should
+    // be `source`, `include` or `import`.
+    //
+    void
+    detect_include_cycle (const path_name&,
+                          const char* what,
+                          const location&) const;
 
     // The what argument is used in diagnostics (e.g., "expected <what>
     // instead of ...".
@@ -990,8 +1008,22 @@ namespace build2
 
     bool pre_parse_ = false;
 
-    const path_name* path_; // Current path name.
-    lexer*           lexer_;
+    struct prev_path
+    {
+      const path_name* path;
+
+      // Note that this describes the inclusion by path, not of path.
+      //
+      const location&  loc;
+      bool             allow_cycle;
+      const char*      what;
+
+      const prev_path* prev;
+    };
+
+    const path_name* path_ = nullptr;      // Current path name.
+    const prev_path* prev_path_ = nullptr; // Prev paths via source_buildfile().
+    lexer*           lexer_;               // Current lexer
 
     prerequisite* prerequisite_ = nullptr; // Current prerequisite, if any.
     target*       target_       = nullptr; // Current target, if any.

@@ -47,10 +47,10 @@ namespace build2
   import_direct (scope& base,
                  name tgt,
                  const optional<string>& ph2, bool opt, bool md,
-                 const location& loc, const char* w)
+                 const location& loc, const char* w, const parser* pp)
   {
     bool dummy (false);
-    return import_direct (dummy, base, move (tgt), ph2, opt, md, loc, w);
+    return import_direct (dummy, base, move (tgt), ph2, opt, md, loc, w, pp);
   }
 
   template <typename T>
