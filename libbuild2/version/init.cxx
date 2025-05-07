@@ -368,24 +368,20 @@ namespace build2
           fail (l) << "no version in " << f;
       }
 
-      // Derive the default script syntax version from the build2 constraint.
-      //
-      // The key idea here is to pick the highest syntax version that is
-      // supported by the build2 version range allowed by this project.
-      //
-      if (const auto& c = build2_constraint)
+      if (build2_constraint)
       {
+        rs.root_extra->build2_constraint = move (build2_constraint);
+
+        // Derive the default script syntax version from the build2 constraint.
+        //
+        // The key idea here is to pick the highest syntax version that is
+        // supported by the build2 version range allowed by this project.
+        //
         // Syntax 2 is supported since 0.18.0-.
         //
-        // Note that after some meditation, min_open doesn't appear to matter
-        // here. If it is true, then we may potentially pessimize things since
-        // there may be no versions between min_version and 0.18.0, but we
-        // have no way of knowing that.
-        //
         rs.root_extra->script_syntax =
-          (c->min_version &&
-           *c->min_version >=
-             standard_version (1, 0, 18, 0, standard_version::earliest_version))
+          rs.root_extra->enable_since (
+            standard_version (1, 0, 18, 0, standard_version::earliest_version))
           ? 2
           : 1;
       }
@@ -399,8 +395,7 @@ namespace build2
                       standard_version {},
                       false,
                       false,
-                      dependencies {},
-                      move (build2_constraint)));
+                      dependencies {}));
         return;
       }
 
@@ -480,8 +475,7 @@ namespace build2
                     move (v),
                     committed,
                     rewritten,
-                    move (ds),
-                    move (build2_constraint)));
+                    move (ds)));
 
       // Initialize second (dist.package, etc).
       //

@@ -51,25 +51,16 @@ namespace build2
 
       dependencies_type dependencies;
 
-      // The build2 version required by this project, if any.
-      //
-      // This can be used, for example, to derive the default compatibility
-      // levels.
-      //
-      optional<standard_version_constraint> build2_version_constraint;
-
       module (const project_name& p,
               butl::standard_version v,
               bool c,
               bool r,
-              dependencies_type d,
-              optional<standard_version_constraint> bvc)
+              dependencies_type d)
           : project (p.variable ()),
             version (move (v)),
             committed (c),
             rewritten (r),
-            dependencies (move (d)),
-            build2_version_constraint (move (bvc)) {}
+            dependencies (move (d)) {}
     };
   }
 }

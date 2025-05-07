@@ -592,6 +592,34 @@ namespace build2
       //
       string environment_checksum;
 
+      // The build2 version required by this project, if any.
+      //
+      // This can be used, for example, to derive the default compatibility
+      // levels.
+      //
+      // Note: extracted by the version module from the manifest.
+      //
+      optional<standard_version_constraint> build2_constraint;
+
+      // Return true if the project does not support build2 versions earlier
+      // than the specified version. This is normally used to check whether to
+      // enable new functionality that would require changes to the project
+      // buildfile and that would render it incompatible with the previous
+      // versions of build2.
+      //
+      bool
+      enable_since (const standard_version& v)
+      {
+        const auto& c (build2_constraint);
+
+        // Note that after some meditation, min_open doesn't appear to matter
+        // here. If it is true, then we may potentially pessimize things since
+        // there may be no versions between min_version and v, but we have no
+        // way of knowing that.
+        //
+        return c && c->min_version && *c->min_version >= v;
+      }
+
       // Default build/test-script syntax (for now the same).
       //
       // Note: derived by the version module based on the build2 version
