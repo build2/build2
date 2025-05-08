@@ -12,7 +12,13 @@ bundled_modules = bash/ bin/ c/ cc/ cli/ cxx/ in/ version/
 # imports processed before the $config.save() call below. Failed that, we will
 # get a warning about saving unused config.import.* values.
 #
-include $bundled_modules
+# Note also that each module buildfile in turn include us (in case it is built
+# directly) thus causing an include cycle. However, this cycle is harmless
+# since all it needs is the definition of the lib{build2} target and only
+# during match/execute, by which time the rest of this buildfile would have
+# been loaded.
+#
+include [allow_cycle] $bundled_modules
 
 # A module should treat lib{build2} as an "implied interface dependency"
 # meaning that it can link it as an implementation dependency and assume that
