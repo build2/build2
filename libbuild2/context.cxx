@@ -1335,6 +1335,21 @@ namespace build2
     }
     else
     {
+      ctx_.sched->deactivate (false /* external */);
+
+      // GCC prior to version 12 and Clang prior to version 12 do not handle
+      // wait_for() correctly in their TSAN implementations. See GCC bug
+      // #101978 for background and further references.
+      //
+      // Note: the Clang check must come first since it also defines __GNUC__.
+      //
+#if defined(__SANITIZE_THREAD__)                && \
+  ((defined(__clang__) && __clang_major__ < 12) || \
+   (defined(__GNUC__) && __GNUC__ < 12))
+      l.unlock ();
+      scheduler::active_sleep (d);
+      l.lock ();
+#else
       condition_variable* v (nullptr);
       switch (n)
       {
@@ -1343,12 +1358,9 @@ namespace build2
       case run_phase::execute: v = &ev_; break;
       }
 
-      ctx_.sched->deactivate (false /* external */);
-#if 0
-      for (; ctx_.phase != n; v->wait_for (l, d)) ;
-#else
       v->wait_for (l, d);
 #endif
+
       r = !fail_;
       l.unlock (); // Important: activate() can block.
       ctx_.sched->activate (false /* external */);

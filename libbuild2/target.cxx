@@ -1464,7 +1464,7 @@ namespace build2
         this_thread::yield ();
         ctx.sched->activate (false /* external */);
 
-        ctx.phase_mutex.wait (rp, chrono::milliseconds (1));
+        ctx.phase_mutex.wait (rp, chrono::microseconds (50));
 
       } while (ctx.update_during_load.load (memory_order_consume) > 1);
     };

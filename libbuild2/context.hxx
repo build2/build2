@@ -57,9 +57,10 @@ namespace build2
 
     // Wait until it may become possible to join the specified phase. Note
     // that there is no guarantee that it will be and, since we do not express
-    // the "interest" in that phase, there needs to be a timeout. Note also
-    // that if the mutex is unlocked or is already in the desired phase, then
-    // this function returns immediately. Return false on failure.
+    // the "interest" in that phase, there needs to be a timeout, which should
+    // be pretty small. Note also that if the mutex is unlocked or is already
+    // in the desired phase, then this function returns immediately. Return
+    // false on failure.
     //
     bool
     wait (run_phase, duration);
