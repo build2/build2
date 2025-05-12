@@ -283,7 +283,7 @@ namespace build2
       // and is required if we are preprocessing a user-specified file (since
       // command line macros may affect what's in the user's file).
       //
-      // The cc.predefs.poptions variable specifies the default macro value to
+      // The cc.predefs.default variable specifies the default macro value to
       // use in the buildfile{} and json{} output for macros that are not
       // defined to any value (e.g., just `#define FOO`). If not specified,
       // then 1 is used (which is what macros specified on the command line as

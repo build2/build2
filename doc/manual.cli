@@ -6289,25 +6289,25 @@ the C/C++ compilation, the only reliable source of this information are the
 compiler macros. To extract this information from the compiler and make it
 available during the \c{buildfile} evaluation, we can generate a \c{buildfile}
 fragment during load and then source it into the main \c{buildfile}. For
-example (the actual extraction is omitted):
+example (see \l{#c-predefs C Compiler Predefined Macro Extraction} for the
+actual extraction):
 
 \
-./: exe{hello}: cxx{hello}
+./: buildfile{byte-order} # Make sure it gets cleaned.
 
-./: buildfile{byteorder} # Make sure it gets cleaned.
-
-buildfile{byteorder}:
+buildfile{byte-order}:
 {{
   diag gen $>
-  echo 'byteorder = little' >$path($>)
+  echo 'little_endian = true' >$path($>)
 }}
 
-update buildfile{byteorder}
+update buildfile{byte-order}
 
-source $path(buildfile{byteorder})
+source $path(buildfile{byte-order})
 
-exe{hello}: cxx{hello-big}:    include = ($byteorder == big)
-exe{hello}: cxx{hello-little}: include = ($byteorder == little)
+./: exe{hello}: cxx{hello}
+exe{hello}: cxx{hello-big}:    include = (!$little_endian)
+exe{hello}: cxx{hello-little}: include = $little_endian
 \
 
 Once a target is updated during load, its path can be queried with the
@@ -6345,41 +6345,40 @@ counter-intuitive behavior during operations other than \c{update}. Since
 updating such targets is required to continue evaluating the \c{buildfile},
 this is performed regardless of the operation requested by the user,
 including, for example, during \c{clean}. As a result, the user may see
-targets being updated in unexpected contexts.
+targets being updated in unexpected situations.
 
 While there is nothing we can do about \c{clean}, we can limit update during
 load to the \c{perform} meta-operation only. This will be especially helpful
 for the \c{configure} meta-operation since seeing update commands during
-configuration will likely to be surprising, especially if they are coming from
-a third-party dependency.
+configuration will be surprising, especially if they are coming from a
+third-party dependency.
 
 Limiting update during load to \c{perform} is safe to do if the accurate
 information is only required during \c{perform} and we are able to provide a
 suitable fallback for other meta-operations. For example:
 
 \
-./: exe{hello}: cxx{hello}
+./: buildfile{byte-order} # Make sure it gets cleaned.
 
-./: buildfile{byteorder} # Make sure it gets cleaned.
-
-buildfile{byteorder}:
+buildfile{byte-order}:
 {{
   diag gen $>
-  echo 'byteorder = little' >$path($>)
+  echo 'little_endian = true' >$path($>)
 }}
 
 if ($build.meta_operation == 'perform')
 {
-  update buildfile{byteorder}
-  source $path(buildfile{byteorder})
+  update buildfile{byte-order}
+  source $path(buildfile{byte-order})
 }
 else
 {
-  byteorder = little
+  little_endian = true
 }
 
-exe{hello}: cxx{hello-big}:    include = ($byteorder == big)
-exe{hello}: cxx{hello-little}: include = ($byteorder == little)
+./: exe{hello}: cxx{hello}
+exe{hello}: cxx{hello-big}:    include = (!$little_endian)
+exe{hello}: cxx{hello-little}: include = $little_endian
 \
 
 \N|One scenario where limiting update during load to \c{perform} would not
@@ -8048,6 +8047,196 @@ to the symbol auto-importing support in Windows linkers. Note, however, that
 auto-importing only works for functions and not for global variables.
 
 
+\h#cc-predefs|Compiler Predefined Macro Extraction|
+
+The \c{cc}-based modules provide the \c{*.predefs} submodule which can be
+loaded in order to register a rule that extracts predefined compiler macros.
+Note that the \c{*.predefs} module must be loaded after the respective main
+module and the rule will only match with an explicit rule hint. Typical usage:
+
+\
+# root.build
+#
+using c
+using c.predefs
+\
+
+\
+# buildfile
+#
+[rule_hint=c.predefs] h{predefs}:
+\
+
+The \c{predefs} rule has two modes: the so-called \"pure predefs\", where we
+preprocess an empty translation unit with the resulting set of macros
+consisting of only what is pre-defined by the compiler, and \"custom predefs\"
+where we preprocess a custom input header with the resulting set of macros
+including what is defined by such a header and headers that it includes.
+
+The mode is determined by the presence or absence of a prerequisite of a
+header type. For example:
+
+\
+[rule_hint=c.predefs] h{predefs}:           # Pure.
+[rule_hint=c.predefs] h{predefs}: h{config} # Custom.
+\
+
+\N|Note that the explicit rule hint is required in both modes.|
+
+\N|If the custom input header is only used to extract the predefined macros
+during the build, then you will want to make sure it does not get installed.|
+
+\N|The \l{https://github.com/build2/libbuild2-autoconf/ \c{autoconf}} build
+system module can be used to generate the custom input header for a number
+of common checks.|
+
+The \c{predefs} rule can produce its output in three forms: a header file
+containing a number of \c{#define} directive, a JSON file containing an object
+with each macro recorded as its member, and a \c{buildfile} with each macro
+recorded as a variable assignment. For example:
+
+\
+/* config.h */
+#define FOO 1
+#define BAR 123ULL
+#define BAZ 0xFFFF
+#undef  BIZ
+\
+
+\
+c.poptions += -DFOX
+
+c.predefs.poptions = true # Include *.poptions.
+
+[rule_hint=c.predefs] h{predefs}:         h{config}
+[rule_hint=c.predefs] json{predefs}:      h{config}
+[rule_hint=c.predefs] buildfile{predefs}: h{config}
+{
+  c.predefs.macros = FOO BAR BAZ BIZ FOX
+}
+\
+
+The resulting \c{predefs.h} header would have the following contents:
+
+\
+#define FOO 1
+#define BAR 123ULL
+#define BAZ 0xffff
+#define FOX 1
+...
+\
+
+The resulting \c{predefs.json} file would have the following contents:
+
+\
+{
+  \"FOO\": 1,
+  \"BAR\": 123,
+  \"BAZ\": 65535,
+  \"FOX\": 1,
+  ...
+}
+\
+
+The resulting \c{predefs.build} file would have the following contents:
+
+\
+FOO = [uint64] 1
+BAR = [uint64] 123
+BAZ = [uint64] 0xffff
+FOX = [uint64] 1
+BIZ = [null]
+\
+
+\N|The \c{buildfile} output of the \c{predefs} rule is typically used with the
+update during load functionality (see \l{#directives-update \c{update}
+directive}) in order to communicate macro values to the \c{buildfiles}.|
+
+\N|Note that macro values do not undergo recursive macro-expansion. Instead,
+we get the value as defined, which could be another macro. This could be a
+problem for the JSON and \c{buildfile} output since the extracted value may
+not be directly usable. The \c{__BYTE_ORDER__} macro provides a good
+illustration of this problem:
+
+\
+#define __ORDER_BIG_ENDIAN__ 4321
+#define __ORDER_LITTLE_ENDIAN__ 1234
+#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
+\
+
+As a result, you may need to implement custom evaluation logic in your header
+in order to communicate the actual value of a macro. For example:
+
+\
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define BYTE_ORDER_LITTLE_ENDIAN true
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#  define BYTE_ORDER_LITTLE_ENDIAN false
+#else
+#  error unexpected byte order
+#endif
+\
+
+In the future the \c{predefs} rule may perform simple macro expansions and
+expression evaluations automatically.|
+
+A number of variables control the behavior of the \c{predefs} rule:
+
+\
+[bool]       *.predefs.poptions
+[string]     *.predefs.default
+[string_map] *.predefs.macros
+\
+
+The \c{*.predefs.poptions} variable controls whether \c{*.poptions} are
+included on the compiler command line, in which case any macro definitions
+they may contain will end up in the output. It is \c{false} by default for
+pure predefs and is required if we are preprocessing a custom header (since
+command line macros may affect its contents).
+
+The \c{*.predefs.default} variable specifies the default macro value to use in
+the JSON and \c{buildfile} output for macros that are not defined to any value
+(that is, just \c{#define\ FOO}). If not specified, then \c{1} is used (which
+is what macros specified on the command line as \c{-DFOO} end up being defined
+to by the compilers).
+
+The \c{*.predefs.macros} variable specifies the macros to extract for the JSON
+and \c{buildfile} output. Additionally, optional mapping to member/variable
+name can be specified as the second half of a pair for each macro. For
+example:
+
+\
+c.predefs.macros = FOO BAR __SIZEOF_SIZE_T__@SIZEOF_SIZE_T
+\
+
+Note that for the \c{buildfile} output specifying \c{*.predefs.macros} is
+mandatory (since undefined macros need to be explicitly set to \c{null}).
+
+Finally note also that the MSVC compiler only supports the predefined macro
+extraction starting from Visual Studio 2019 (16.0; \c{cl.exe} version
+19.20). If support for earlier versions is required, then you will need to
+provide a fallback implementation appropriate for your project. For example:
+
+\
+[rule_hint=c.predefs] h{predefs}:
+% update
+if ($c.id == 'msvc' && \
+    ($c.version.major < 19 || \
+     ($c.version.major == 19 && $c.version.minor < 20)))
+{{
+  diag c-predefs $>
+
+  cat <<EOF >$path($>)
+  #define _WIN32
+  EOF
+}}
+\
+
+Similarly, custom predefs extraction is only supported in Clang version 12 and
+later due to bugs in earlier versions related to producing both macros and
+header dependency information into the same stream.
+
+
 \h#cc-import-installed|Importation of Installed Libraries|
 
 As discussed in \l{#intro-import Target Importation}, searching for installed
@@ -8932,25 +9121,7 @@ using c.predefs
 [rule_hint=c.predefs] h{predefs}:
 \
 
-Note also that the MSVC compiler only supports the predefined macro extraction
-starting from Visual Studio 2019 (16.0; \c{cl.exe} version 19.20). If support
-for earlier versions is required, then you will need to provide a fallback
-implementation appropriate for your project. For example:
-
-\
-[rule_hint=c.predefs] h{predefs}:
-% update
-if ($c.id == 'msvc' && \
-    ($c.version.major < 19 || \
-     ($c.version.major == 19 && $c.version.minor < 20)))
-{{
-  diag c-predefs $>
-
-  cat <<EOF >$path($>)
-  #define _WIN32
-  EOF
-}}
-\
+See \l{#cc-predefs Compiler Predefined Macro Extraction} for details.
 
 
 \h1#module-cxx|\c{cxx} Module|
@@ -10294,26 +10465,7 @@ using cxx.predefs
 [rule_hint=cxx.predefs] hxx{predefs}:
 \
 
-Note also that the MSVC compiler only supports the predefined macro extraction
-starting from Visual Studio 2019 (16.0; \c{cl.exe} version 19.20). If support
-for earlier versions is required, then you will need to provide a fallback
-implementation appropriate for your project. For example:
-
-\
-[rule_hint=cxx.predefs] hxx{predefs}:
-% update
-if ($cxx.id == 'msvc' && \
-    ($cxx.version.major < 19 || \
-     ($cxx.version.major == 19 && $cxx.version.minor < 20)))
-{{
-  diag c++-predefs $>
-
-  cat <<EOF >$path($>)
-  #define _WIN32
-  #define __cplusplus 201402L
-  EOF
-}}
-\
+See \l{#cc-predefs Compiler Predefined Macro Extraction} for details.
 
 
 \h1#module-in|\c{in} Module|
