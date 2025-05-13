@@ -1550,13 +1550,15 @@ description:
 
 group-if:
   ?description
-  ('if'|'if!') command-line
+  ('if'|'if!') command-line | \
+  ('ifn'|'ifn!'|'ife'|'ife!') value-line
   group-block
   *group-elif
   ?group-else
 
 group-elif:
-  ('elif'|'elif!') command-line
+  ('elif'|'elif!') command-line | \
+  ('elifn'|'elifn!'|'elife'|'elife!') value-line
   group-block
 
 group-else:
@@ -1602,13 +1604,15 @@ test-block:
 
 test-if:
   ?description
-  ('if'|'if!') command-line
+  ('if'|'if!') command-line | \
+  ('ifn'|'ifn!'|'ife'|'ife!') value-line
   test-block|test-command
   *test-elif
   ?test-else
 
 test-elif:
-  ('elif'|'elif!') command-line
+  ('elif'|'elif!') command-line | \
+  ('elifn'|'elifn!'|'elife'|'elife!') value-line
   test-block|test-command
 
 test-else:
@@ -1624,7 +1628,9 @@ variable-like:
   variable-line|variable-flow
 
 variable-line:
-  <variable-name> ('='|'+='|'=+') value-attributes? <value>
+  <variable-name> ('='|'+='|'=+') value-line
+
+value-line: value-attributes? <value>
 
 value-attributes: '[' <key-value-pairs> ']'
 
@@ -1632,7 +1638,8 @@ variable-flow:
   variable-if|variable-for|variable-while
 
 variable-if:
-  ('if'|'if!') command-line
+  ('if'|'if!') command-line | \
+  ('ifn'|'ifn!'|'ife'|'ife!') value-line
   variable-block|variable-like
   *variable-elif
   ?variable-else
@@ -1643,7 +1650,8 @@ variable-block:
   '}'
 
 variable-elif:
-  ('elif'|'elif!') command-line
+  ('elif'|'elif!') command-line | \
+  ('elifn'|'elifn!'|'elife'|'elife!') value-line
   variable-block|variable-like
 
 variable-else:
@@ -1651,11 +1659,10 @@ variable-else:
   variable-block|variable-like
 
 variable-for:
-  variable-for-args|variable-for-stream
+  variable-for-value|variable-for-stream
 
-variable-for-args:
-  'for' <variable-name> element-attributes? ':' \
-  value-attributes? <value>
+variable-for-value:
+  'for' <variable-name> element-attributes? ':' value-line
   variable-block|variable-like
 
 element-attributes: value-attributes
@@ -1688,7 +1695,8 @@ command-flow:
   command-if|command-for|command-while
 
 command-if:
-  ('if'|'if!') command-line
+  ('if'|'if!') command-line | \
+  ('ifn'|'ifn!'|'ife'|'ife!') value-line
   command-block|command-or-variable
   *command-elif
   ?command-else
@@ -1702,7 +1710,8 @@ command-or-variable:
   variable-line|command-like
 
 command-elif:
-  ('elif'|'elif!') command-line
+  ('elif'|'elif!') command-line | \
+  ('elifn'|'elifn!'|'elife'|'elife!') value-line
   command-block|command-or-variable
 
 command-else:
@@ -1710,11 +1719,10 @@ command-else:
   command-block|command-or-variable
 
 command-for:
-  command-for-args|command-for-stream
+  command-for-value|command-for-stream
 
-command-for-args:
-  'for' <variable-name> element-attributes? ':' \
-  value-attributes? <value>
+command-for-value:
+  'for' <variable-name> element-attributes? ':' value-line
   command-block|command-or-variable
 
 command-for-stream:
@@ -1759,6 +1767,53 @@ Note that the only purpose of having separate (from the command flow control
 constructs) variable-only flow control constructs is to remove the error-prone
 requirement of having to specify \c{+} and \c{-} prefixes in group
 setup/teardown.
+
+
+\h#syntax-if|Group/Test/Variable/Command-If|
+
+The \c{if} and \c{elif} branches of the \c{*-if} flow control constructs are
+taken if their condition \c{command-line} terminates normally with the zero
+code. The \c{if!} and \c{elif!} branches, on the contrary, are taken if their
+\c{command-line} terminates normally with a non-zero code. If the
+\c{command-line} terminates abnormally, then the flow control construct is
+considered to have failed.
+
+Besides these general \c{if}-constructs there is also a number of specialized
+shortcuts for checking whether a value is/is-not \c{null} or empty:
+
+\
+ifn ...     ~  if $null(...)
+ife ...     ~  if $empty(...)
+
+ifn! ...    ~  if! $null(...)
+ife! ...    ~  if! $empty(...)
+
+elifn ...   ~  elif $null(...)
+elife ...   ~  elif $empty(...)
+
+elifn! ...  ~  elif! $null(...)
+elife! ...  ~  elif! $empty(...)
+\
+
+For example, the following two script fragments are equivalent:
+
+\
+if $null($foo)
+  ...
+elif! $empty($bar)
+  ...
+\
+
+\
+ifn $foo
+  ...
+elife! $bar
+  ...
+\
+
+Note that unlike the general \c{if}-constructs, conditions for these shortcuts
+are values rather than commands. Note also that a \c{null} value is considered
+empty.
 
 
 \h#syntax-script|Script|
@@ -1849,13 +1904,15 @@ containing its opening brace (\c{{} or \c{{{}) and for an implicit test scope
 \
 group-if:
   ?description
-  ('if'|'if!') command-line
+  ('if'|'if!') command-line | \
+  ('ifn'|'ifn!'|'ife'|'ife!') value-line
   group-block
   *group-elif
   ?group-else
 
 group-elif:
-  ('elif'|'elif!') command-line
+  ('elif'|'elif!') command-line | \
+  ('elifn'|'elifn!'|'elife'|'elife!') value-line
   group-block
 
 group-else:
@@ -1864,9 +1921,12 @@ group-else:
 \
 
 A group scope can be executed conditionally. The condition \c{command-line} is
-executed in the context of the outer scope. Note that all the scopes in an
-\c{if-else} chain are alternative implementations of the same group (thus
-the single description).
+executed in the context of the outer scope. Similarly, the condition
+\c{value-line} is expanded in the context of the outer scope. See
+\l{#syntax-if Group/Test/Variable/Command If} for details on the semantics.
+
+Note that all the scopes in an \c{if-else} chain are alternative
+implementations of the same group (thus the single description).
 
 
 \h#syntax-setup-teardown|Setup and Teardown|
@@ -1946,13 +2006,15 @@ place them into a single compound test.|
 \
 test-if:
   ?description
-  ('if'|'if!') command-line
+  ('if'|'if!') command-line | \
+  ('ifn'|'ifn!'|'ife'|'ife!') value-line
   test-block|test-command
   *test-elif
   ?test-else
 
 test-elif:
-  ('elif'|'elif!') command-line
+  ('elif'|'elif!') command-line | \
+  ('elifn'|'elifn!'|'elife'|'elife!') value-line
   test-block|test-command
 
 test-else:
@@ -1961,9 +2023,12 @@ test-else:
 \
 
 A test scope can be executed conditionally. The condition \c{command-line} is
-executed in the context of the outer scope. Note that all the scopes in an
-\c{if-else} chain are alternative implementations of the same test (thus the
-single description).
+executed in the context of the outer scope. Similarly, the condition
+\c{value-line} is expanded in the context of the outer scope. See
+\l{#syntax-if Group/Test/Variable/Command If} for details on the semantics.
+
+Note that all the scopes in an \c{if-else} chain are alternative
+implementations of the same test (thus the single description).
 
 
 \h#syntax-directive|Directive|
@@ -2010,7 +2075,9 @@ variable-like:
   variable-line|variable-flow
 
 variable-line:
-  <variable-name> ('='|'+='|'=+') value-attributes? <value>
+  <variable-name> ('='|'+='|'=+') value-line
+
+value-line: value-attributes? <value>
 
 value-attributes: '[' <key-value-pairs> ']'
 
@@ -2026,15 +2093,17 @@ args = [strings] foo   bar 'fox   baz'
 echo $args # foo bar fox   baz
 \
 
-Inside an implicit test scope the value can be followed by a semicolon to
-signal the test continuation.
+The value can contain variable expansions, function calls, eval contexts, and
+literal values. Inside an implicit test scope the value can be followed by a
+semicolon to signal the test continuation.
 
 
 \h#syntax-variable-if|Variable-If|
 
 \
 variable-if:
-  ('if'|'if!') command-line
+  ('if'|'if!') command-line | \
+  ('ifn'|'ifn!'|'ife'|'ife!') value-line
   variable-block|variable-like
   *variable-elif
   ?variable-else
@@ -2045,7 +2114,8 @@ variable-block:
   '}'
 
 variable-elif:
-  ('elif'|'elif!') command-line
+  ('elif'|'elif!') command-line | \
+  ('elifn'|'elifn!'|'elife'|'elife!') value-line
   variable-block|variable-like
 
 variable-else:
@@ -2054,7 +2124,7 @@ variable-else:
 \
 
 A group of variables can be set conditionally. The condition \c{command-line}
-semantics is the same as in \c{test-if}. For example:
+and \c{value-line} semantics are the same as in \c{test-if}. For example:
 
 \
 if ($cxx.target.class == 'windows')
@@ -2081,11 +2151,10 @@ slash = ($cxx.target.class == 'windows' ? \\\\ : /)
 
 \
 variable-for:
-  variable-for-args|variable-for-stream
+  variable-for-value|variable-for-stream
 
-variable-for-args:
-  'for' <variable-name> element-attributes? ':' \
-  value-attributes? <value>
+variable-for-value:
+  'for' <variable-name> element-attributes? ':' value-line
   variable-block|variable-like
 
 element-attributes: value-attributes
@@ -2132,7 +2201,7 @@ variable-while:
 
 A group of variables can be set in a loop while the condition evaluates to
 \c{true}. The condition \c{command-line} semantics is the same as in
-\c{test-if}. For example:
+\c{variable-if}. For example:
 
 \
 uvalues =
@@ -2200,7 +2269,8 @@ and expression).
 
 \
 command-if:
-  ('if'|'if!') command-line
+  ('if'|'if!') command-line | \
+  ('ifn'|'ifn!'|'ife'|'ife!') value-line
   command-block|command-or-variable
   *command-elif
   ?command-else
@@ -2214,7 +2284,8 @@ command-or-variable:
   variable-line|command-like
 
 command-elif:
-  ('elif'|'elif!') command-line
+  ('elif'|'elif!') command-line | \
+  ('elifn'|'elifn!'|'elife'|'elife!') value-line
   command-block|command-or-variable
 
 command-else:
@@ -2224,9 +2295,12 @@ command-else:
 
 A group of commands can be executed conditionally. The condition
 \c{command-line} is executed in the context of the test scope the
-\c{command-if} construct belongs to. Note that in a compound test, commands
-inside \c{command-if} must not end with \c{;}. Rather, \c{;} may follow
-\c{command-if}. For example:
+\c{command-if} construct belongs to. Similarly, the condition \c{value-line}
+is expanded in the context of the mentioned test scope. See \l{#syntax-if
+Group/Test/Variable/Command If} for details on the semantics.
+
+Note that in a compound test, commands inside \c{command-if} must not end with
+\c{;}. Rather, \c{;} may follow \c{command-if}. For example:
 
 \
 if ($cxx.target.class == 'windows')
@@ -2275,8 +2349,9 @@ baz
 \
 
 The \c{test-if} construct differs from \c{command-if} in that its condition
-\c{command-line} is executed in the context of the group scope containing
-the test scope.
+\c{command-line} is executed in the context of the group scope containing the
+test scope. Similarly, for c{test-if}, the condition \c{value-line} is
+expanded in the context of the mentioned group scope.
 
 Below is the version of the above example that also shows all the implicit
 scopes with annotations that explain which scope the commands and variable
@@ -2313,11 +2388,10 @@ assignments are executed in:
 
 \
 command-for:
-  command-for-args|command-for-stream
+  command-for-value|command-for-stream
 
-command-for-args:
-  'for' <variable-name> element-attributes? ':' \
-  value-attributes? <value>
+command-for-value:
+  'for' <variable-name> element-attributes? ':' value-line
   command-block|command-or-variable
 
 command-for-stream:

@@ -16,12 +16,12 @@ EOI
 
 # By default read buildfile from stdin.
 #
-if ($null($test.options))
+ifn $test.options
   test.options = --buildfile -
 
 test.options += --no-default-options --serial-stop --quiet
 
 # By default perform test.
 #
-if ($null($test.arguments))
+ifn $test.arguments
   test.arguments = test

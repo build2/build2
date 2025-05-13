@@ -569,6 +569,548 @@
   EOE
 }}
 
+: if-predicate
+:
+{{
+  test.options += -s
+
+  : ifn
+  :
+  {{
+    : null
+    :
+    $* <<EOI >>EOO
+    {
+      ifn $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd1
+        cmd2
+      }
+    }}
+    EOO
+
+    : not-null
+    :
+    $* <<EOI >>EOO
+    {
+      foo =
+      ifn $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd3
+        cmd4
+      }
+    }}
+    EOO
+
+    : end
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      ifn foo
+        cmd
+      end
+    }
+    EOI
+    testscript:4:3: error: flow-control constructs use {} in syntax version 2
+    EOE
+
+    : without-value
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      ifn
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    testscript:2:6: error: expected value after 'ifn'
+    EOE
+  }}
+
+  : elifn
+  :
+  {{
+    : null
+    :
+    $* <<EOI >>EOO
+    {
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn $foo
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd3
+        cmd4
+      }
+    }}
+    EOO
+
+    : not-null
+    :
+    $* <<EOI >>EOO
+    {
+      foo =
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn $foo
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+      }
+    }}
+    EOO
+
+    : without-if
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      cmd
+      elifn foo
+        cmd
+    }
+    EOI
+    testscript:3:3: error: 'elifn' without preceding 'if'
+    EOE
+
+    : after-else
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      ifn foo
+        cmd
+      else
+        cmd
+      elifn bar
+        cmd
+    }
+    EOI
+    testscript:6:3: error: 'elifn' after 'else'
+    EOE
+  }}
+
+  : ifnn
+  :
+  {{
+    : null
+    :
+    $* <<EOI >>EOO
+    {
+      ifn! $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd3
+        cmd4
+      }
+    }}
+    EOO
+
+    : not-null
+    :
+    $* <<EOI >>EOO
+    {
+      foo =
+      ifn! $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd1
+        cmd2
+      }
+    }}
+    EOO
+  }}
+
+  : elifnn
+  :
+  {{
+    : null
+    :
+    $* <<EOI >>EOO
+    {
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn! $foo
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+      }
+    }}
+    EOO
+
+    : not-null
+    :
+    $* <<EOI >>EOO
+    {
+      foo =
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn! $foo
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd3
+        cmd4
+      }
+    }}
+    EOO
+  }}
+
+  : ife
+  :
+  {{
+    : empty
+    :
+    $* <<EOI >>EOO
+    {
+      foo =
+      ife $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd1
+        cmd2
+      }
+    }}
+    EOO
+
+    : not-empty
+    :
+    $* <<EOI >>EOO
+    {
+      foo = 'abc'
+      ife $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd3
+        cmd4
+      }
+    }}
+    EOO
+
+    : end
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      ife foo
+        cmd
+      end
+    }
+    EOI
+    testscript:4:3: error: flow-control constructs use {} in syntax version 2
+    EOE
+
+    : without-value
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      ife
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    testscript:2:6: error: expected value after 'ife'
+    EOE
+  }}
+
+  : elife
+  :
+  {{
+    : empty
+    :
+    $* <<EOI >>EOO
+    {
+      foo =
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife $foo
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd3
+        cmd4
+      }
+    }}
+    EOO
+
+    : not-empty
+    :
+    $* <<EOI >>EOO
+    {
+      foo = 'abc'
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife $foo
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+      }
+    }}
+    EOO
+
+    : without-if
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      cmd
+      elife foo
+        cmd
+    }
+    EOI
+    testscript:3:3: error: 'elife' without preceding 'if'
+    EOE
+
+    : after-else
+    :
+    $* <<EOI 2>>EOE != 0
+    {
+      ife foo
+        cmd
+      else
+        cmd
+      elife bar
+        cmd
+    }
+    EOI
+    testscript:6:3: error: 'elife' after 'else'
+    EOE
+  }}
+
+  : ifen
+  :
+  {{
+    : empty
+    :
+    $* <<EOI >>EOO
+    {
+      foo =
+      ife! $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd3
+        cmd4
+      }
+    }}
+    EOO
+
+    : not-empty
+    :
+    $* <<EOI >>EOO
+    {
+      foo = 'abc'
+      ife! $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd1
+        cmd2
+      }
+    }}
+    EOO
+  }}
+
+  : elifen
+  :
+  {{
+    : empty
+    :
+    $* <<EOI >>EOO
+    {
+      foo =
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife! $foo
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+      }
+    }}
+    EOO
+
+    : not-empty
+    :
+    $* <<EOI >>EOO
+    {
+      foo = 'abc'
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife! $foo
+      {
+        cmd3
+        cmd4
+      }
+    }
+    EOI
+    {{
+      {
+        cmd3
+        cmd4
+      }
+    }}
+    EOO
+  }}
+}}
+
 : nested
 :
 {{

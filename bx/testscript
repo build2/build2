@@ -481,7 +481,47 @@ test.options += --no-default-options
           if true
             echo 24
 
-        echo 25
+        ifn [null]
+          echo 25
+        else
+          echo 26
+
+        ifn foo
+          echo 27
+        elifn $foo
+          echo 28
+
+        ifn! [null]
+          echo 29
+        else
+          echo 30
+
+        ifn! foo
+          echo 31
+        elifn! $foo
+          echo 32
+
+        ife ()
+          echo 33
+        else
+          echo 34
+
+        ife foo
+          echo 35
+        elife $foo
+          echo 36
+
+        ife! ()
+          echo 37
+        else
+          echo 38
+
+        ife! foo
+          echo 39
+        elife! $foo
+          echo 40
+
+        echo 41
         EOI
 
       $* >>EOO
@@ -497,6 +537,14 @@ test.options += --no-default-options
         22
         23
         25
+        28
+        30
+        31
+        33
+        36
+        38
+        39
+        41
         EOO
     }
 

@@ -43,11 +43,59 @@ $* <<EOF >>EOF
     {
       baz
     }
+    ifn $foo
+    {
+      bar
+    }
+    elifn [null]
+    {
+      box
+    }
+    else
+    {
+      fix
+    }
+    ife $foo
+    {
+      bar
+    }
+    elife ()
+    {
+      box
+    }
+    else
+    {
+      fix
+    }
     biz
   }
   if! foo
   {
     bar
+    ifn! $foo
+    {
+      bar
+    }
+    elifn! [null]
+    {
+      box
+    }
+    else
+    {
+      fix
+    }
+    ife! $foo
+    {
+      bar
+    }
+    elife! ()
+    {
+      box
+    }
+    else
+    {
+      fix
+    }
   }
   elif! fox
   {

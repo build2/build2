@@ -20,17 +20,25 @@ namespace build2
     {
       switch (lt)
       {
-      case line_type::var:            return  "variable";
-      case line_type::cmd:            return  "command";
-      case line_type::cmd_if:         return  "'if'";
-      case line_type::cmd_ifn:        return  "'if!'";
-      case line_type::cmd_elif:       return  "'elif'";
-      case line_type::cmd_elifn:      return  "'elif!'";
-      case line_type::cmd_else:       return  "'else'";
-      case line_type::cmd_while:      return  "'while'";
-      case line_type::cmd_for_args:   return  "'for'";
-      case line_type::cmd_for_stream: return  "'for'";
-      case line_type::cmd_end:        return  "'end'";
+      case line_type::var:             return  "variable";
+      case line_type::cmd:             return  "command";
+      case line_type::cmd_if:          return  "'if'";
+      case line_type::cmd_ifn:         return  "'if!'";
+      case line_type::cmd_if_null:     return  "'ifn'";
+      case line_type::cmd_ifn_null:    return  "'ifn!'";
+      case line_type::cmd_if_empty:    return  "'ife'";
+      case line_type::cmd_ifn_empty:   return  "'ife!'";
+      case line_type::cmd_elif:        return  "'elif'";
+      case line_type::cmd_elifn:       return  "'elif!'";
+      case line_type::cmd_elif_null:   return  "'elifn'";
+      case line_type::cmd_elifn_null:  return  "'elifn!'";
+      case line_type::cmd_elif_empty:  return  "'elife'";
+      case line_type::cmd_elifn_empty: return  "'elife!'";
+      case line_type::cmd_else:        return  "'else'";
+      case line_type::cmd_while:       return  "'while'";
+      case line_type::cmd_for_args:    return  "'for'";
+      case line_type::cmd_for_stream:  return  "'for'";
+      case line_type::cmd_end:         return  "'end'";
       }
 
       assert (false); // Can't be here.
@@ -204,6 +212,10 @@ namespace build2
         {
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
+        case line_type::cmd_elif_null:
+        case line_type::cmd_elifn_null:
+        case line_type::cmd_elif_empty:
+        case line_type::cmd_elifn_empty:
         case line_type::cmd_else:
         case line_type::cmd_end:
           {
@@ -238,8 +250,16 @@ namespace build2
         {
         case line_type::cmd_if:
         case line_type::cmd_ifn:
+        case line_type::cmd_if_null:
+        case line_type::cmd_ifn_null:
+        case line_type::cmd_if_empty:
+        case line_type::cmd_ifn_empty:
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
+        case line_type::cmd_elif_null:
+        case line_type::cmd_elifn_null:
+        case line_type::cmd_elif_empty:
+        case line_type::cmd_elifn_empty:
         case line_type::cmd_else:
         case line_type::cmd_while:
         case line_type::cmd_for_args:

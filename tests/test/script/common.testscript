@@ -17,7 +17,7 @@ EOI
 # We assume the specified target if any is in out_base which would be two
 # levels up from our working directory.
 #
-+if! $empty($target)
++ife! $target
 {
   cat <<"EOI" >=build/root.build
   target = \$src_root/../../$string([name] $target)

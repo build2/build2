@@ -15,7 +15,7 @@
 # the build system driver we are testing is not the one being cross-compiled
 # but rather the one doing the cross-compilation.
 #
-if ($null($crosstest))
+ifn $crosstest
   crosstest = true
 
 if (!$crosstest && $test.target != $build.host)
@@ -39,5 +39,5 @@ if ($null($buildfile) || !$buildfile)
 
 # By default just load the buildfile.
 #
-if ($null($test.arguments))
+ifn $test.arguments
   test.arguments = noop

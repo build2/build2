@@ -576,6 +576,10 @@ namespace build2
               //
               if      (n == "if")    lt = line_type::cmd_if;
               else if (n == "if!")   lt = line_type::cmd_ifn;
+              else if (n == "ifn")   lt = line_type::cmd_if_null;
+              else if (n == "ifn!")  lt = line_type::cmd_ifn_null;
+              else if (n == "ife")   lt = line_type::cmd_if_empty;
+              else if (n == "ife!")  lt = line_type::cmd_ifn_empty;
               else if (n == "while") lt = line_type::cmd_while;
               else if (n == "for")   lt = line_type::cmd_for_stream;
             }
@@ -632,6 +636,32 @@ namespace build2
               replay_pop ();
               next (t, tt);
             }
+
+            if (tt != type::newline)
+              fail (t) << "expected newline instead of " << t;
+
+            break;
+          }
+        case line_type::cmd_elif_null:
+        case line_type::cmd_elifn_null:
+        case line_type::cmd_elif_empty:
+        case line_type::cmd_elifn_empty:
+          {
+            if (!fct || *fct != line_type::cmd_if)
+              fail (t) << lt << " without preceding 'if'";
+          }
+          // Fall through.
+        case line_type::cmd_if_null:
+        case line_type::cmd_ifn_null:
+        case line_type::cmd_if_empty:
+        case line_type::cmd_ifn_empty:
+          {
+            type ft;
+            mode (lexer_mode::variable_line);
+            parse_variable_line (t, tt, &ft);
+
+            if (ft == type::newline)
+              fail (t) << "expected value after " << lt;
 
             if (tt != type::newline)
               fail (t) << "expected newline instead of " << t;
@@ -787,6 +817,10 @@ namespace build2
         {
         case line_type::cmd_if:
         case line_type::cmd_ifn:
+        case line_type::cmd_if_null:
+        case line_type::cmd_ifn_null:
+        case line_type::cmd_if_empty:
+        case line_type::cmd_ifn_empty:
           {
             // Only allow parsing as an if-command if requested so or there is
             // leading +/-.
@@ -830,6 +864,10 @@ namespace build2
           {
           case line_type::cmd_elif:
           case line_type::cmd_elifn:
+          case line_type::cmd_elif_null:
+          case line_type::cmd_elifn_null:
+          case line_type::cmd_elif_empty:
+          case line_type::cmd_elifn_empty:
           case line_type::cmd_else:
           case line_type::cmd_end:
             {
@@ -837,6 +875,10 @@ namespace build2
             }
           case line_type::cmd_if:
           case line_type::cmd_ifn:
+          case line_type::cmd_if_null:
+          case line_type::cmd_ifn_null:
+          case line_type::cmd_if_empty:
+          case line_type::cmd_ifn_empty:
           case line_type::cmd_while:
           case line_type::cmd_for_stream:
           case line_type::cmd_for_args:
@@ -1286,9 +1328,13 @@ namespace build2
 
           if (pt == type::word && p.qtype == quote_type::unquoted)
           {
-            if      (p.value == "elif")  lt = line_type::cmd_elif;
-            else if (p.value == "elif!") lt = line_type::cmd_elifn;
-            else if (p.value == "else")  lt = line_type::cmd_else;
+            if      (p.value == "elif")   lt = line_type::cmd_elif;
+            else if (p.value == "elif!")  lt = line_type::cmd_elifn;
+            else if (p.value == "elifn")  lt = line_type::cmd_elif_null;
+            else if (p.value == "elifn!") lt = line_type::cmd_elifn_null;
+            else if (p.value == "elife")  lt = line_type::cmd_elif_empty;
+            else if (p.value == "elife!") lt = line_type::cmd_elifn_empty;
+            else if (p.value == "else")   lt = line_type::cmd_else;
           }
 
           if (lt == line_type::cmd_end)
@@ -1325,8 +1371,12 @@ namespace build2
           switch (lt)
           {
           case line_type::cmd_elif:
-          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
-          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          case line_type::cmd_elifn:
+          case line_type::cmd_elif_null:
+          case line_type::cmd_elifn_null:
+          case line_type::cmd_elif_empty:
+          case line_type::cmd_elifn_empty: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:        bt = line_type::cmd_else; break;
           default: break;
           }
         }
@@ -1405,9 +1455,13 @@ namespace build2
 
           if (pt == type::word && p.qtype == quote_type::unquoted)
           {
-            if      (p.value == "elif")  lt = line_type::cmd_elif;
-            else if (p.value == "elif!") lt = line_type::cmd_elifn;
-            else if (p.value == "else")  lt = line_type::cmd_else;
+            if      (p.value == "elif")   lt = line_type::cmd_elif;
+            else if (p.value == "elif!")  lt = line_type::cmd_elifn;
+            else if (p.value == "elifn")  lt = line_type::cmd_elif_null;
+            else if (p.value == "elifn!") lt = line_type::cmd_elifn_null;
+            else if (p.value == "elife")  lt = line_type::cmd_elif_empty;
+            else if (p.value == "elife!") lt = line_type::cmd_elifn_empty;
+            else if (p.value == "else")   lt = line_type::cmd_else;
           }
 
           if (lt == line_type::cmd_end)
@@ -1447,8 +1501,12 @@ namespace build2
           switch (lt)
           {
           case line_type::cmd_elif:
-          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
-          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          case line_type::cmd_elifn:
+          case line_type::cmd_elif_null:
+          case line_type::cmd_elifn_null:
+          case line_type::cmd_elif_empty:
+          case line_type::cmd_elifn_empty: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:        bt = line_type::cmd_else; break;
           default: break;
           }
         }
@@ -1692,8 +1750,16 @@ namespace build2
         {
         case line_type::cmd_if:
         case line_type::cmd_ifn:
+        case line_type::cmd_if_null:
+        case line_type::cmd_ifn_null:
+        case line_type::cmd_if_empty:
+        case line_type::cmd_ifn_empty:
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
+        case line_type::cmd_elif_null:
+        case line_type::cmd_elifn_null:
+        case line_type::cmd_elif_empty:
+        case line_type::cmd_elifn_empty:
         case line_type::cmd_else:
           {
             fct = line_type::cmd_if;
@@ -1836,9 +1902,13 @@ namespace build2
 
           if (pt == type::word && p.qtype == quote_type::unquoted)
           {
-            if      (p.value == "elif")  lt = line_type::cmd_elif;
-            else if (p.value == "elif!") lt = line_type::cmd_elifn;
-            else if (p.value == "else")  lt = line_type::cmd_else;
+            if      (p.value == "elif")   lt = line_type::cmd_elif;
+            else if (p.value == "elif!")  lt = line_type::cmd_elifn;
+            else if (p.value == "elifn")  lt = line_type::cmd_elif_null;
+            else if (p.value == "elifn!") lt = line_type::cmd_elifn_null;
+            else if (p.value == "elife")  lt = line_type::cmd_elif_empty;
+            else if (p.value == "elife!") lt = line_type::cmd_elifn_empty;
+            else if (p.value == "else")   lt = line_type::cmd_else;
           }
 
           // Bail out if we reached the end of the if-construct.
@@ -1873,8 +1943,12 @@ namespace build2
           switch (lt)
           {
           case line_type::cmd_elif:
-          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
-          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          case line_type::cmd_elifn:
+          case line_type::cmd_elif_null:
+          case line_type::cmd_elifn_null:
+          case line_type::cmd_elif_empty:
+          case line_type::cmd_elifn_empty: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:        bt = line_type::cmd_else; break;
           default: break;
           }
         }
@@ -1917,9 +1991,13 @@ namespace build2
           //
           if (bt == line_type::cmd_else)
           {
-            if (lt == line_type::cmd_else ||
-                lt == line_type::cmd_elif ||
-                lt == line_type::cmd_elifn)
+            if (lt == line_type::cmd_else       ||
+                lt == line_type::cmd_elif       ||
+                lt == line_type::cmd_elifn      ||
+                lt == line_type::cmd_elif_null  ||
+                lt == line_type::cmd_elifn_null ||
+                lt == line_type::cmd_elif_empty ||
+                lt == line_type::cmd_elifn_empty)
               fail (ll) << lt << " after " << bt;
           }
 
@@ -1928,8 +2006,12 @@ namespace build2
           switch (lt)
           {
           case line_type::cmd_elif:
-          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
-          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          case line_type::cmd_elifn:
+          case line_type::cmd_elif_null:
+          case line_type::cmd_elifn_null:
+          case line_type::cmd_elif_empty:
+          case line_type::cmd_elifn_empty: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:        bt = line_type::cmd_else; break;
           default: break;
           }
         }
@@ -2688,44 +2770,79 @@ namespace build2
 
                 next (t, tt);
                 const location ll (get_location (t));
-                next (t, tt); // Skip to start of command.
 
                 bool take;
-                if (lt != line_type::cmd_else)
+                switch (lt)
                 {
-                  // Note: the line index count continues from setup.
-                  //
-                  command_expr ce (parse_command_line (t, tt));
-
-                  try
+                case line_type::cmd_if:
+                case line_type::cmd_ifn:
+                case line_type::cmd_elif:
+                case line_type::cmd_elifn:
                   {
-                    take = runner_->run_cond (
-                      *scope_, ce, nullptr /* iteration_index */, li++, ll);
-                  }
-                  catch (const exit_scope& e)
-                  {
-                    // Bail out if the scope is exited with a non-zero code.
-                    // Otherwise leave the scope normally.
-                    //
-                    if (!e)
-                      throw failed ();
+                    next (t, tt); // Skip to start of command.
 
-                    // Stop iterating through if conditions, and stop executing
-                    // inner scopes.
+                    // Note: the line index count continues from setup.
                     //
-                    exec_scope = false;
-                    replay_stop ();
+                    command_expr ce (parse_command_line (t, tt));
+
+                    try
+                    {
+                      take = runner_->run_cond (
+                        *scope_, ce, nullptr /* iteration_index */, li++, ll);
+                    }
+                    catch (const exit_scope& e)
+                    {
+                      // Bail out if the scope is exited with a non-zero code.
+                      // Otherwise leave the scope normally.
+                      //
+                      if (!e)
+                        throw failed ();
+
+                      // Stop iterating through if conditions, and stop
+                      // executing inner scopes.
+                      //
+                      exec_scope = false;
+                      replay_stop ();
+                    }
+
                     break;
                   }
+                case line_type::cmd_if_null:
+                case line_type::cmd_ifn_null:
+                case line_type::cmd_elif_null:
+                case line_type::cmd_elifn_null:
+                  {
+                    take = parse_value_null (t, tt);
+                    break;
+                  }
+                case line_type::cmd_if_empty:
+                case line_type::cmd_ifn_empty:
+                case line_type::cmd_elif_empty:
+                case line_type::cmd_elifn_empty:
+                  {
+                    take = parse_value_empty (t, tt);
+                    break;
+                  }
+                case line_type::cmd_else:
+                  {
+                    next (t, tt);
+                    assert (tt == type::newline);
+                    take = true;
+                    break;
+                  }
+                default: assert (false);
+                }
 
-                  if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
-                    take = !take;
-                }
-                else
-                {
-                  assert (tt == type::newline);
-                  take = true;
-                }
+                if (!exec_scope)
+                  break;
+
+                if (lt == line_type::cmd_ifn        ||
+                    lt == line_type::cmd_ifn_null   ||
+                    lt == line_type::cmd_ifn_empty  ||
+                    lt == line_type::cmd_elifn      ||
+                    lt == line_type::cmd_elifn_null ||
+                    lt == line_type::cmd_elifn_empty)
+                  take = !take;
 
                 replay_stop ();
 
