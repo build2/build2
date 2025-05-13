@@ -300,6 +300,38 @@ namespace build2
 
             break;
           }
+        case line_type::cmd_elif_null:
+        case line_type::cmd_elifn_null:
+        case line_type::cmd_elif_empty:
+        case line_type::cmd_elifn_empty:
+          {
+            if (!fct || *fct != line_type::cmd_if)
+              fail (t) << lt << " without preceding 'if'";
+          }
+          // Fall through.
+        case line_type::cmd_if_null:
+        case line_type::cmd_ifn_null:
+        case line_type::cmd_if_empty:
+        case line_type::cmd_ifn_empty:
+          {
+            if (lt == line_type::cmd_if_null  ||
+                lt == line_type::cmd_ifn_null ||
+                lt == line_type::cmd_if_empty ||
+                lt == line_type::cmd_ifn_empty)
+              ++level_;
+
+            type ft;
+            mode (lexer_mode::variable_line);
+            parse_variable_line (t, tt, &ft);
+
+            if (ft == type::newline)
+              fail (t) << "expected value after " << lt;
+
+            if (tt != type::newline)
+              fail (t) << "expected newline instead of " << t;
+
+            break;
+          }
           //
           // See pre_parse_line_start() for details.
           //
@@ -495,6 +527,10 @@ namespace build2
         {
         case line_type::cmd_if:
         case line_type::cmd_ifn:
+        case line_type::cmd_if_null:
+        case line_type::cmd_ifn_null:
+        case line_type::cmd_if_empty:
+        case line_type::cmd_ifn_empty:
           {
             tt = peek (lexer_mode::first_token);
 
@@ -594,8 +630,16 @@ namespace build2
         {
         case line_type::cmd_if:
         case line_type::cmd_ifn:
+        case line_type::cmd_if_null:
+        case line_type::cmd_ifn_null:
+        case line_type::cmd_if_empty:
+        case line_type::cmd_ifn_empty:
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
+        case line_type::cmd_elif_null:
+        case line_type::cmd_elifn_null:
+        case line_type::cmd_elif_empty:
+        case line_type::cmd_elifn_empty:
         case line_type::cmd_else:
           {
             fct = line_type::cmd_if;
@@ -647,9 +691,13 @@ namespace build2
 
           if (pt == type::word && p.qtype == quote_type::unquoted)
           {
-            if      (p.value == "elif")  lt = line_type::cmd_elif;
-            else if (p.value == "elif!") lt = line_type::cmd_elifn;
-            else if (p.value == "else")  lt = line_type::cmd_else;
+            if      (p.value == "elif")   lt = line_type::cmd_elif;
+            else if (p.value == "elif!")  lt = line_type::cmd_elifn;
+            else if (p.value == "elifn")  lt = line_type::cmd_elif_null;
+            else if (p.value == "elifn!") lt = line_type::cmd_elifn_null;
+            else if (p.value == "elife")  lt = line_type::cmd_elif_empty;
+            else if (p.value == "elife!") lt = line_type::cmd_elifn_empty;
+            else if (p.value == "else")   lt = line_type::cmd_else;
           }
 
           // Bail out if we reached the end of the if-construct.
@@ -673,8 +721,12 @@ namespace build2
           switch (lt)
           {
           case line_type::cmd_elif:
-          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
-          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          case line_type::cmd_elifn:
+          case line_type::cmd_elif_null:
+          case line_type::cmd_elifn_null:
+          case line_type::cmd_elif_empty:
+          case line_type::cmd_elifn_empty: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:        bt = line_type::cmd_else; break;
           default: break;
           }
         }
@@ -722,9 +774,13 @@ namespace build2
           //
           if (bt == line_type::cmd_else)
           {
-            if (lt == line_type::cmd_else ||
-                lt == line_type::cmd_elif ||
-                lt == line_type::cmd_elifn)
+            if (lt == line_type::cmd_else       ||
+                lt == line_type::cmd_elif       ||
+                lt == line_type::cmd_elifn      ||
+                lt == line_type::cmd_elif_null  ||
+                lt == line_type::cmd_elifn_null ||
+                lt == line_type::cmd_elif_empty ||
+                lt == line_type::cmd_elifn_empty)
               fail (ll) << lt << " after " << bt;
           }
 
@@ -733,8 +789,12 @@ namespace build2
           switch (lt)
           {
           case line_type::cmd_elif:
-          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
-          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          case line_type::cmd_elifn:
+          case line_type::cmd_elif_null:
+          case line_type::cmd_elifn_null:
+          case line_type::cmd_elif_empty:
+          case line_type::cmd_elifn_empty: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:        bt = line_type::cmd_else; break;
           default: break;
           }
         }
