@@ -347,6 +347,512 @@
     EOE
   }}
 
+  : if-predicate
+  :
+  {{
+    test.options += -s
+
+    : ifn
+    :
+    {{
+      : null
+      :
+      $* <<EOI >>EOO
+      ifn $foo
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd1
+          }
+          {
+            cmd2
+          }
+        }}
+      }}
+      EOO
+
+      : not-null
+      :
+      $* <<EOI >>EOO
+      foo =
+      ifn $foo
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd3
+          }
+          {
+            cmd4
+          }
+        }}
+      }}
+      EOO
+
+      : without-value
+      :
+      $* <<EOI 2>>EOE != 0
+      ifn
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      testscript:1:4: error: expected value after 'ifn'
+      EOE
+    }}
+
+    : elifn
+    :
+    {{
+      : null
+      :
+      $* <<EOI >>EOO
+      ifn foo
+      {{
+        cmd1
+        cmd2
+      }}
+      elifn $foo
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd3
+          }
+          {
+            cmd4
+          }
+        }}
+      }}
+      EOO
+
+      : not-null
+      :
+      $* <<EOI >>EOO
+      foo =
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+      }}
+      EOO
+
+      : after-else
+      :
+      $* <<EOI 2>>EOE != 0
+      ifn foo
+      {{
+        cmd
+      }}
+      else
+      {{
+        cmd
+      }}
+      elifn bar
+      {{
+        cmd
+      }}
+      EOI
+      testscript:9:1: error: 'elifn' after 'else'
+      EOE
+    }}
+
+    : ifnn
+    :
+    {{
+      : null
+      :
+      $* <<EOI >>EOO
+      ifn! $foo
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd3
+          }
+          {
+            cmd4
+          }
+        }}
+      }}
+      EOO
+
+      : not-null
+      :
+      $* <<EOI >>EOO
+      foo =
+      ifn! $foo
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd1
+          }
+          {
+            cmd2
+          }
+        }}
+      }}
+      EOO
+    }}
+
+    : elifnn
+    :
+    {{
+      : null
+      :
+      $* <<EOI >>EOO
+      ifn foo
+      {{
+        cmd1
+        cmd2
+      }}
+      elifn! $foo
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+      }}
+      EOO
+
+      : not-null
+      :
+      $* <<EOI >>EOO
+      foo =
+      ifn foo
+      {{
+        cmd1
+        cmd2
+      }}
+      elifn! $foo
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd3
+          }
+          {
+            cmd4
+          }
+        }}
+      }}
+      EOO
+    }}
+
+    : ife
+    :
+    {{
+      : empty
+      :
+      $* <<EOI >>EOO
+      foo =
+      ife $foo
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd1
+          }
+          {
+            cmd2
+          }
+        }}
+      }}
+      EOO
+
+      : not-empty
+      :
+      $* <<EOI >>EOO
+      foo = 'abc'
+      ife $foo
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd3
+          }
+          {
+            cmd4
+          }
+        }}
+      }}
+      EOO
+
+      : without-value
+      :
+      $* <<EOI 2>>EOE != 0
+      ife
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      testscript:1:4: error: expected value after 'ife'
+      EOE
+    }}
+
+    : elife
+    :
+    {{
+      : empty
+      :
+      $* <<EOI >>EOO
+      foo =
+      ife foo
+      {{
+        cmd1
+        cmd2
+      }}
+      elife $foo
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd3
+          }
+          {
+            cmd4
+          }
+        }}
+      }}
+      EOO
+
+      : not-empty
+      :
+      $* <<EOI >>EOO
+      foo = 'abc'
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+      }}
+      EOO
+
+      : after-else
+      :
+      $* <<EOI 2>>EOE != 0
+      ife foo
+      {{
+        cmd
+      }}
+      else
+      {{
+        cmd
+      }}
+      elife bar
+      {{
+        cmd
+      }}
+      EOI
+      testscript:9:1: error: 'elife' after 'else'
+      EOE
+    }}
+
+    : ifen
+    :
+    {{
+      : empty
+      :
+      $* <<EOI >>EOO
+      foo =
+      ife! $foo
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd3
+          }
+          {
+            cmd4
+          }
+        }}
+      }}
+      EOO
+
+      : not-empty
+      :
+      $* <<EOI >>EOO
+      foo = 'abc'
+      ife! $foo
+      {{
+        cmd1
+        cmd2
+      }}
+      else
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd1
+          }
+          {
+            cmd2
+          }
+        }}
+      }}
+      EOO
+    }}
+
+    : elifen
+    :
+    {{
+      : empty
+      :
+      $* <<EOI >>EOO
+      foo =
+      ife foo
+      {{
+        cmd1
+        cmd2
+      }}
+      elife! $foo
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+      }}
+      EOO
+
+      : not-empty
+      :
+      $* <<EOI >>EOO
+      foo = 'abc'
+      ife foo
+      {{
+        cmd1
+        cmd2
+      }}
+      elife! $foo
+      {{
+        cmd3
+        cmd4
+      }}
+      EOI
+      {{
+        {{
+          {
+            cmd3
+          }
+          {
+            cmd4
+          }
+        }}
+      }}
+      EOO
+    }}
+  }}
+
   : nested
   :
   {{
@@ -856,6 +1362,464 @@
     EOE
   }}
 
+  : if-predicate
+  :
+  {{
+    test.options += -s
+
+    : ifn
+    :
+    {{
+      : null
+      :
+      $* <<EOI >>EOO
+      ifn $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd1
+          cmd2
+        }
+      }}
+      EOO
+
+      : not-null
+      :
+      $* <<EOI >>EOO
+      foo =
+      ifn $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd3
+          cmd4
+        }
+      }}
+      EOO
+
+      : without-value
+      :
+      $* <<EOI 2>>EOE != 0
+      ifn
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      testscript:1:4: error: expected value after 'ifn'
+      EOE
+    }}
+
+    : elifn
+    :
+    {{
+      : null
+      :
+      $* <<EOI >>EOO
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd3
+          cmd4
+        }
+      }}
+      EOO
+
+      : not-null
+      :
+      $* <<EOI >>EOO
+      foo =
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+      }}
+      EOO
+
+      : after-else
+      :
+      $* <<EOI 2>>EOE != 0
+      ifn foo
+      {
+        cmd
+      }
+      else
+      {
+        cmd
+      }
+      elifn bar
+      {
+        cmd
+      }
+      EOI
+      testscript:9:1: error: 'elifn' after 'else'
+      EOE
+    }}
+
+    : ifnn
+    :
+    {{
+      : null
+      :
+      $* <<EOI >>EOO
+      ifn! $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd3
+          cmd4
+        }
+      }}
+      EOO
+
+      : not-null
+      :
+      $* <<EOI >>EOO
+      foo =
+      ifn! $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd1
+          cmd2
+        }
+      }}
+      EOO
+    }}
+
+    : elifnn
+    :
+    {{
+      : null
+      :
+      $* <<EOI >>EOO
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn! $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+      }}
+      EOO
+
+      : not-null
+      :
+      $* <<EOI >>EOO
+      foo =
+      ifn foo
+      {
+        cmd1
+        cmd2
+      }
+      elifn! $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd3
+          cmd4
+        }
+      }}
+      EOO
+    }}
+
+    : ife
+    :
+    {{
+      : empty
+      :
+      $* <<EOI >>EOO
+      foo =
+      ife $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd1
+          cmd2
+        }
+      }}
+      EOO
+
+      : not-empty
+      :
+      $* <<EOI >>EOO
+      foo = 'abc'
+      ife $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd3
+          cmd4
+        }
+      }}
+      EOO
+
+      : without-value
+      :
+      $* <<EOI 2>>EOE != 0
+      ife
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      testscript:1:4: error: expected value after 'ife'
+      EOE
+    }}
+
+    : elife
+    :
+    {{
+      : empty
+      :
+      $* <<EOI >>EOO
+      foo =
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd3
+          cmd4
+        }
+      }}
+      EOO
+
+      : not-empty
+      :
+      $* <<EOI >>EOO
+      foo = 'abc'
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+      }}
+      EOO
+
+      : after-else
+      :
+      $* <<EOI 2>>EOE != 0
+      ife foo
+      {
+        cmd
+      }
+      else
+      {
+        cmd
+      }
+      elife bar
+      {
+        cmd
+      }
+      EOI
+      testscript:9:1: error: 'elife' after 'else'
+      EOE
+    }}
+
+    : ifen
+    :
+    {{
+      : empty
+      :
+      $* <<EOI >>EOO
+      foo =
+      ife! $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd3
+          cmd4
+        }
+      }}
+      EOO
+
+      : not-empty
+      :
+      $* <<EOI >>EOO
+      foo = 'abc'
+      ife! $foo
+      {
+        cmd1
+        cmd2
+      }
+      else
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd1
+          cmd2
+        }
+      }}
+      EOO
+    }}
+
+    : elifen
+    :
+    {{
+      : empty
+      :
+      $* <<EOI >>EOO
+      foo =
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife! $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+      }}
+      EOO
+
+      : not-empty
+      :
+      $* <<EOI >>EOO
+      foo = 'abc'
+      ife foo
+      {
+        cmd1
+        cmd2
+      }
+      elife! $foo
+      {
+        cmd3
+        cmd4
+      }
+      EOI
+      {{
+        {
+          cmd3
+          cmd4
+        }
+      }}
+      EOO
+    }}
+  }}
+
   : nested
   :
   {{
@@ -936,21 +1900,27 @@
   : Make sure command line index spans setup/if/teardown
   :
   $* -s -l <<EOI >>EOO
-  +setup          # 1
+  +setup1         # 1
 
-  if false one    # 2
+  +ifn [null]
+    setup2        # 2
+
+  +ife ()
+    setup3        # 3
+
+  if false one    # 4
   {
     cmd
   }
-  elif false two  # 3
+  elif false two  # 5
   {
     cmd
   }
-  elif true       # 4
+  elif true       # 6
   {
     cmd1
   }
-  elif false      # 5
+  elif false      # 7
   {
     cmd
   }
@@ -959,11 +1929,11 @@
     cmd
   }
 
-  if false one    # 6
+  if false one    # 8
   {
     cmd
   }
-  elif false two  # 7
+  elif false two  # 9
   {
     cmd
   }
@@ -972,22 +1942,32 @@
     cmd2
   }
 
-  -tdown          # 8
+  -ife! foo
+    tdown1        # 10
+
+  -ifn! foo
+    tdown2        # 11
+
+  -tdown3         # 12
   EOI
   {{
-    +setup # 1
-    ? false one # 2
-    ? false two # 3
-    ? true # 4
+    +setup1 # 1
+    +setup2 # 2
+    +setup3 # 3
+    ? false one # 4
+    ? false two # 5
+    ? true # 6
     {
       cmd1 # 0
     }
-    ? false one # 6
-    ? false two # 7
+    ? false one # 8
+    ? false two # 9
     {
       cmd2 # 0
     }
-    -tdown # 8
+    -tdown1 # 10
+    -tdown2 # 11
+    -tdown3 # 12
   }}
   EOO
 

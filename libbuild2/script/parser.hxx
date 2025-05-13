@@ -74,8 +74,10 @@ namespace build2
       // used for both stages.
       //
     protected:
+      // Optionally, return the first parsed token type.
+      //
       value
-      parse_variable_line (token&, token_type&);
+      parse_variable_line (token&, token_type&, token_type* first = nullptr);
 
       // Ordered sequence of here-document redirects that we can expect to
       // see after the command line.
@@ -190,6 +192,21 @@ namespace build2
 
       parsed_env
       parse_env_builtin (token&, token_type&);
+
+      bool
+      parse_value_predicate (token&, token_type&, const char* name);
+
+      bool
+      parse_value_null (token& t, token_type& tt)
+      {
+        return parse_value_predicate (t, tt, "null");
+      }
+
+      bool
+      parse_value_empty (token& t, token_type& tt)
+      {
+        return parse_value_predicate (t, tt, "empty");
+      }
 
     public:
       // Supported script syntax range.

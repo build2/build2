@@ -25,6 +25,79 @@ $c <<EOI && $b >'else'
 }
 EOI
 
+: ifn-branch
+:
+$c <<EOI && $b >'if'
+{
+  ifn $foo
+    echo 'if' >|
+  else
+    echo 'else' >|
+}
+EOI
+
+: ifnn-branch
+:
+$c <<EOI && $b >'if'
+{
+  foo =
+  ifn! $foo
+    echo 'if' >|
+  else
+    echo 'else' >|
+}
+EOI
+
+: ife-branch
+:
+$c <<EOI && $b >'if'
+{
+  foo =
+  ife $foo
+    echo 'if' >|
+  else
+    echo 'else' >|
+}
+EOI
+
+: ifen-branch
+:
+$c <<EOI && $b >'if'
+{
+  foo = 'abc'
+  ife! $foo
+    echo 'if' >|
+  else
+    echo 'else' >|
+}
+EOI
+
+: ifen-group
+:
+$c <<EOI && $b >'a.txt'
++touch a.txt
+fs = $path_search('*.txt', $~)
+ife! $fs
+{{
+  echo $fs >|
+}}
+else
+{{
+  echo 'no files' >|
+}}
+EOI
+
+: ifen-test
+:
+$c <<EOI && $b >'a.txt'
++touch a.txt
+fs = $path_search('*.txt', $~)
+ife! $fs
+  echo $fs >|
+else
+  echo 'no files' >|
+EOI
+
 : syntax-1
 :
 {{
