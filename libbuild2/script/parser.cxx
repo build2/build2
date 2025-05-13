@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include <libbuild2/variable.hxx>
+#include <libbuild2/function.hxx>
 
 #include <libbuild2/script/run.hxx>             // exit, stream_reader
 #include <libbuild2/script/lexer.hxx>
@@ -48,12 +49,15 @@ namespace build2
     }
 
     value parser::
-    parse_variable_line (token& t, type& tt)
+    parse_variable_line (token& t, type& tt, type* ft)
     {
-      // enter: assignment
+      // enter: token which precedes the value tokens (variable assignment, etc)
       // leave: newline or unknown token
 
       next_with_attributes (t, tt);
+
+      if (ft != nullptr)
+        *ft = tt;
 
       // Parse value attributes if any. Note that it's ok not to have
       // anything after the attributes (e.g., foo=[null]).
@@ -2064,6 +2068,38 @@ namespace build2
         : parsed_doc (rs ? move (*rs) : string (), l.line, l.column);
     }
 
+    bool parser::
+    parse_value_predicate (token& t, type& tt, const char* name)
+    {
+      // enter: token which precedes the value tokens ('ifn' 'ifn!', etc)
+      // leave: newline
+
+      const location ll (get_location (t));
+
+      // Parse the value with the potential attributes.
+      //
+      // Note that we don't really need to change the mode since we are
+      // replaying the tokens.
+      //
+      value val;
+      apply_value_attributes (nullptr /* variable */,
+                              val,
+                              parse_variable_line (t, tt),
+                              type::assign);
+
+      pair<value, bool> p (
+        functions_->try_call (scope_,
+                              name,
+                              vector_view<value> (&val, 1),
+                              ll));
+
+      if (!p.second)
+        fail (ll) << (val.type != nullptr ? val.type->name : "<untyped>")
+                  << " cannot be " << name;
+
+      return convert<bool> (move (p.first));
+    }
+
     size_t parser::
     quoted () const
     {
@@ -2168,8 +2204,16 @@ namespace build2
 
         if      (n == "if")                  r = line_type::cmd_if;
         else if (n == "if!")                 r = line_type::cmd_ifn;
+        else if (n == "ifn")                 r = line_type::cmd_if_null;
+        else if (n == "ifn!")                r = line_type::cmd_ifn_null;
+        else if (n == "ife")                 r = line_type::cmd_if_empty;
+        else if (n == "ife!")                r = line_type::cmd_ifn_empty;
         else if (n == "elif")                r = line_type::cmd_elif;
         else if (n == "elif!")               r = line_type::cmd_elifn;
+        else if (n == "elifn")               r = line_type::cmd_elif_null;
+        else if (n == "elifn!")              r = line_type::cmd_elifn_null;
+        else if (n == "elife")               r = line_type::cmd_elif_empty;
+        else if (n == "elife!")              r = line_type::cmd_elifn_empty;
         else if (n == "else")                r = line_type::cmd_else;
         else if (n == "while")               r = line_type::cmd_while;
         else if (n == "for")                 r = line_type::cmd_for_stream;
@@ -2317,6 +2361,10 @@ namespace build2
 
               if (lt == line_type::cmd_if         ||
                   lt == line_type::cmd_ifn        ||
+                  lt == line_type::cmd_if_null    ||
+                  lt == line_type::cmd_ifn_null   ||
+                  lt == line_type::cmd_if_empty   ||
+                  lt == line_type::cmd_ifn_empty  ||
                   lt == line_type::cmd_while      ||
                   lt == line_type::cmd_for_stream ||
                   lt == line_type::cmd_for_args)
@@ -2331,6 +2379,10 @@ namespace build2
                 {
                 case line_type::cmd_elif:
                 case line_type::cmd_elifn:
+                case line_type::cmd_elif_null:
+                case line_type::cmd_elifn_null:
+                case line_type::cmd_elif_empty:
+                case line_type::cmd_elifn_empty:
                 case line_type::cmd_else:
                   if (end) break;
                   // Fall through.
@@ -2344,19 +2396,26 @@ namespace build2
 
               if (skip)
               {
-                // Note that we don't count else, end, and 'for x: ...' as
-                // commands.
+                // Note that we don't count else and 'for x: ...' as commands.
                 //
                 switch (lt)
                 {
                 case line_type::cmd:
                 case line_type::cmd_if:
                 case line_type::cmd_ifn:
+                case line_type::cmd_if_null:
+                case line_type::cmd_ifn_null:
+                case line_type::cmd_if_empty:
+                case line_type::cmd_ifn_empty:
                 case line_type::cmd_elif:
                 case line_type::cmd_elifn:
+                case line_type::cmd_elif_null:
+                case line_type::cmd_elifn_null:
+                case line_type::cmd_elif_empty:
+                case line_type::cmd_elifn_empty:
                 case line_type::cmd_for_stream:
-                case line_type::cmd_while:      ++li; break;
-                default:                              break;
+                case line_type::cmd_while:       ++li; break;
+                default:                               break;
                 }
               }
             }
@@ -2410,25 +2469,64 @@ namespace build2
             }
           case line_type::cmd_if:
           case line_type::cmd_ifn:
+          case line_type::cmd_if_null:
+          case line_type::cmd_ifn_null:
+          case line_type::cmd_if_empty:
+          case line_type::cmd_ifn_empty:
           case line_type::cmd_elif:
           case line_type::cmd_elifn:
+          case line_type::cmd_elif_null:
+          case line_type::cmd_elifn_null:
+          case line_type::cmd_elif_empty:
+          case line_type::cmd_elifn_empty:
           case line_type::cmd_else:
             {
-              next (t, tt); // Skip to start of command.
-
               bool take;
-              if (lt != line_type::cmd_else)
+              switch (lt)
               {
-                take = exec_cond (t, tt, ii, li++, ll);
+              case line_type::cmd_if:
+              case line_type::cmd_ifn:
+              case line_type::cmd_elif:
+              case line_type::cmd_elifn:
+                {
+                  next (t, tt); // Skip to start of command.
 
-                if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
-                  take = !take;
+                  take = exec_cond (t, tt, ii, li++, ll);
+                  break;
+                }
+              case line_type::cmd_if_null:
+              case line_type::cmd_ifn_null:
+              case line_type::cmd_elif_null:
+              case line_type::cmd_elifn_null:
+                {
+                  take = parse_value_null (t, tt);
+                  break;
+                }
+              case line_type::cmd_if_empty:
+              case line_type::cmd_ifn_empty:
+              case line_type::cmd_elif_empty:
+              case line_type::cmd_elifn_empty:
+                {
+                  take = parse_value_empty (t, tt);
+                  break;
+                }
+              case line_type::cmd_else:
+                {
+                  next (t, tt);
+                  assert (tt == type::newline);
+                  take = true;
+                  break;
+                }
+              default: assert (false);
               }
-              else
-              {
-                assert (tt == type::newline);
-                take = true;
-              }
+
+              if (lt == line_type::cmd_ifn        ||
+                  lt == line_type::cmd_ifn_null   ||
+                  lt == line_type::cmd_ifn_empty  ||
+                  lt == line_type::cmd_elifn      ||
+                  lt == line_type::cmd_elifn_null ||
+                  lt == line_type::cmd_elifn_empty)
+                take = !take;
 
               replay_stop ();
 

@@ -39,10 +39,15 @@ test.options += -d
       f = 'baz'
     else
       f = 'fox'
+    ifn $s
+      n = 'baz'
+    else
+      n = 'fox'
     depdb clear
     depdb string "$s"
     depdb hash "$f"
-    foo "$s" "$f"
+    depdb hash "$n"
+    foo "$s" "$f" "$n"
     EOI
     s = 'foo'
     if echo "$s" | sed 's/o/a/p' >>>? 'bar'
@@ -53,8 +58,17 @@ test.options += -d
     {
       f = 'fox'
     }
+    ifn $s
+    {
+      n = 'baz'
+    }
+    else
+    {
+      n = 'fox'
+    }
     depdb string "$s"
     depdb hash "$f"
+    depdb hash "$n"
     EOO
 
   : temp_dir
