@@ -3901,6 +3901,26 @@ elif! $regex.match($x, '[A-Z]')
   ...
 \
 
+Besides that, there are \c{ifn}, \c{elifn}, \c{ifn!}, \c{elifn!} and \c{ife},
+\c{elife}, \c{ife!}, \c{elife!} shortcuts for the \c{if $null()}, \c{elif
+$null()}, \c{if! $null()}, \c{elif! $null()} and \c{if $empty()}, \c{elif
+$empty()}, \c{if! $empty()}, \c{elif! $empty()} directives, respectively. For
+example, the following two constructs are equivalent:
+
+\
+if $null($foo)
+  ...
+elif! $empty($bar)
+  ...
+\
+
+\
+ifn $foo
+  ...
+elife! $bar
+  ...
+\
+
 Note also that there is no notion of variable locality in \c{if-else} blocks
 and any value set inside is visible outside. For example:
 

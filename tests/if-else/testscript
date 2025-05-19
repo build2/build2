@@ -15,3 +15,57 @@ if [null]
 EOI
 <stdin>:1:4: error: invalid bool value: null
 EOE
+
+: predicate
+:
+{
+  $* <<EOI >>EOO
+  ifn [null]
+    print 1
+  else
+    print 0
+
+  ifn $foo
+    print 1
+  else
+    print 0
+
+  ifn! $foo
+    print 0
+  elifn $foo
+    print 1
+
+  ifn! $foo
+    print 0
+  elifn! $foo
+    print 0
+  else
+    print 1
+
+  foo =
+  ife $foo
+    print 1
+  else
+    print 0
+
+  ife! $foo
+    print 0
+  elife $foo
+    print 1
+
+  ife! $foo
+    print 0
+  elife! $foo
+    print 0
+  else
+    print 1
+  EOI
+  1
+  1
+  1
+  1
+  1
+  1
+  1
+  EOO
+}
