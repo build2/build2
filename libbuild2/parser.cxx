@@ -682,14 +682,22 @@ namespace build2
         {
           f = &parser::parse_update;
         }
-        else if (n == "if" ||
-                 n == "if!")
+        else if (n == "if"   ||
+                 n == "if!"  ||
+                 n == "ifn"  ||
+                 n == "ifn!" ||
+                 n == "ife"  ||
+                 n == "ife!")
         {
           f = &parser::parse_if_else;
         }
-        else if (n == "else" ||
-                 n == "elif" ||
-                 n == "elif!")
+        else if (n == "else"   ||
+                 n == "elif"   ||
+                 n == "elif!"  ||
+                 n == "elifn"  ||
+                 n == "elifn!" ||
+                 n == "elife"  ||
+                 n == "elife!")
         {
           // Valid ones are handled in parse_if_else().
           //
@@ -2031,7 +2039,7 @@ namespace build2
     // Parse a recipe chain.
     //
     // % [<attrs>] [<buildspec>]
-    // [if|if!|switch|recipe ...]
+    // [if|if!|ifn|ifn!|ife|ife!|switch|recipe ...]
     // {{ [<lang> ...]
     //   ...
     // }}
@@ -2649,7 +2657,12 @@ namespace build2
           // handy if we want to provide a custom recipe but only on certain
           // platforms or some such).
 
-          if (n == "if" || n == "if!")
+          if (n == "if"   ||
+              n == "if!"  ||
+              n == "ifn"  ||
+              n == "ifn!" ||
+              n == "ife"  ||
+              n == "ife!")
           {
             parse_if_else (t, tt, true /* multi */,
                            parse_block, parse_recipe_directive);
@@ -5201,15 +5214,40 @@ namespace build2
 
           try
           {
+            value val (parse_value_with_attributes (t, tt,
+                                                    pattern_mode::expand,
+                                                    "expression",
+                                                    nullptr));
+
+            const char* predicate (
+              k == "ifn"   ||
+              k == "ifn!"  ||
+              k == "elifn" ||
+              k == "elifn!" ? "null"  :
+              k == "ife"   ||
+              k == "ife!"  ||
+              k == "elife" ||
+              k == "elife!" ? "empty" :
+              nullptr);
+
+            if (predicate != nullptr)
+            {
+              pair<value, bool> p (
+                functions_->try_call (scope_,
+                                      predicate,
+                                      vector_view<value> (&val, 1),
+                                      l));
+
+              if (!p.second)
+                fail (l) << (val.type != nullptr ? val.type->name : "<untyped>")
+                         << " cannot be " << predicate;
+
+              val = move (p.first);
+            }
+
             // Should evaluate to 'true' or 'false'.
             //
-            bool e (
-              convert<bool> (
-                parse_value_with_attributes (t, tt,
-                                             pattern_mode::expand,
-                                             "expression",
-                                             nullptr)));
-
+            bool e (convert<bool> (move (val)));
             take = (k.back () == '!' ? !e : e);
           }
           catch (const invalid_argument& e) { fail (l) << e; }
@@ -5307,7 +5345,13 @@ namespace build2
       {
         const string& n (t.value);
 
-        if (n == "else" || n == "elif" || n == "elif!")
+        if (n == "else"   ||
+            n == "elif"   ||
+            n == "elif!"  ||
+            n == "elifn"  ||
+            n == "elifn!" ||
+            n == "elife"  ||
+            n == "elife!")
           continue;
       }
 

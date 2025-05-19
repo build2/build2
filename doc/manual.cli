@@ -3901,6 +3901,42 @@ elif! $regex.match($x, '[A-Z]')
   ...
 \
 
+\N|Besides these general \c{if}-directives there is also a number of
+specialized shortcuts for checking whether a value is/is-not \c{null} or
+empty:
+
+\
+ifn ...     ~  if $null(...)
+ife ...     ~  if $empty(...)
+
+ifn! ...    ~  if! $null(...)
+ife! ...    ~  if! $empty(...)
+
+elifn ...   ~  elif $null(...)
+elife ...   ~  elif $empty(...)
+
+elifn! ...  ~  elif! $null(...)
+elife! ...  ~  elif! $empty(...)
+\
+
+For example, the following two constructs are equivalent:
+
+\
+if $null($foo)
+  ...
+elif! $empty($bar)
+  ...
+\
+
+\
+ifn $foo
+  ...
+elife! $bar
+  ...
+\
+
+Note that a \c{null} value is considered empty.|
+
 Note also that there is no notion of variable locality in \c{if-else} blocks
 and any value set inside is visible outside. For example:
 
