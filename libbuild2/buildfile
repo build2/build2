@@ -139,7 +139,7 @@ for l: $regex.replace_lines(                                                   \
     }
   }
 
-  if ($h != [null])
+  ifn! $h
     host_config_lines += $h
 
   build2_config_lines += $l
@@ -167,7 +167,7 @@ for l: $regex.replace_lines(                                                   \
     }
   }
 
-  if ($h != [null])
+  ifn! $h
     host_config_no_warnings_lines += $h
 
   build2_config_no_warnings_lines += $l
@@ -262,7 +262,7 @@ if! $cross
 # Note that while the -installed object file should only be linked when we
 # are installing, it will be compiled even in the uninstalled case.
 #
-if ($install.root != [null])
+ifn! $install.root
 {
   # Only if installed.
   #

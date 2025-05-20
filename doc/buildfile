@@ -127,13 +127,13 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
 
     # Look for a C++ comments and extract its text.
     #
-    t = $regex.match($l, '\s*// ?(.*)', return_subs)
+    t = [string] $regex.match($l, '\s*// ?(.*)', return_subs)
 
     # Note that when writing the output we use the "leading blank line" rather
     # than trailing approach. That is, we write the blank before starting the
     # next block rather than after.
 
-    if ($t == [null])
+    ifn $t
     {
       if ($s != 'none')
       {
@@ -173,7 +173,7 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
         }
         elif ($s == 'syno')
         {
-          if ($t != '')
+          ife! $t
             exit "$i:$ln: blank line expected after synopsis"
 
           echo "$\n\"" >>$o # start cli doc string
@@ -192,12 +192,12 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
             t = $regex.replace($t, '\$(.+)\(.+\)', '\1')  # Extract func name.
             f = $regex.match($t, '(.+)\..+', return_subs) # Extract family.
 
-            if ($f == [null])
+            ifn $f
               t = "$(family).$t" # Qualify.
             elif ($f != $family)
               exit "$i:$ln: function family in $t does not match $family"
 
-            if ($id == [null]) # First.
+            ifn $id # First.
               id = $regex.replace($t, '\.', '-')
 
             # Suppress duplicates.
@@ -224,7 +224,7 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
         #
         c = $regex.match($t, '    (.+)', return_subs)
 
-        if ($c != [null])
+        ifn! $c
         {
           # Code line.
           #
@@ -251,7 +251,7 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
           p = $s
           s = 'code'
         }
-        elif ($t != '')
+        elife! $t
         {
           # Paragraph line.
           #
