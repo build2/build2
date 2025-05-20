@@ -279,6 +279,12 @@ namespace build2
         if (!wq)
           return target_lock {a, nullptr, e - b, false};
 
+        // Don't work the queue if in the update during load during
+        // interrupting load. Failed that we may deadlock via dir_search().
+        //
+        if (ctx.update_during_load > 1)
+          *wq = scheduler::work_none;
+
         // We also unlock the phase for the duration of the wait. Why?
         // Consider this scenario: we are trying to match a dir{} target whose
         // buildfile still needs to be loaded. Let's say someone else started
@@ -3685,8 +3691,12 @@ namespace build2
           auto udlg = make_guard (
             [&ctx] ()
             {
-              if (--ctx.update_during_load == 1)
+              // Note: runs in the serial load phase.
+              //
+              if (ctx.update_during_load == 2)
                 ctx.update_during_load = 0;
+              else
+                --ctx.update_during_load;
             });
 
           if (ctx.update_during_load == 0)

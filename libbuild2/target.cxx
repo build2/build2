@@ -1456,6 +1456,8 @@ namespace build2
 
     auto wait_out_udl = [&ctx] (run_phase rp)
     {
+      // Note: executed with unlocked phase.
+      //
       do
       {
         // In case wait() returns immediately.
@@ -1593,6 +1595,11 @@ namespace build2
             // participating in update- during-load (see update_during_load()
             // for details). So feels like this should not be an issue in
             // practice.
+            //
+            // Note also that this means we have to call scheduler::wait()
+            // with work_none when u-d-l in the interrupting load. Failed
+            // that, we may and up here with the update_during_load() call
+            // below in the stack, which is a deadlock.
             //
             while (ctx.update_during_load > 1) // We are in serial load phase.
             {
