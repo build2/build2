@@ -279,11 +279,15 @@ namespace build2
         if (!wq)
           return target_lock {a, nullptr, e - b, false};
 
+        // @@ TMP: remove if the queue_mark approach pans out.
+        //
+#if 0
         // Don't work the queue if in the update during load during
         // interrupting load. Failed that we may deadlock via dir_search().
         //
         if (ctx.update_during_load > 1)
           *wq = scheduler::work_none;
+#endif
 
         // We also unlock the phase for the duration of the wait. Why?
         // Consider this scenario: we are trying to match a dir{} target whose
@@ -3731,7 +3735,12 @@ namespace build2
           //   usable during load. Again, there is nothing we can easily do
           //   about it. Note that the perform_execute() call recreates the
           //   the same semantics, for consistency.
+
+          // Mark the queue so that we don't work any already enqueued tasks.
+          // Failed that we may deadlock via dir_search().
           //
+          scheduler::queue_mark qm (*ctx.sched);
+
           if (ts.size () == 1) // Common case.
           {
             const target& t (ts.front ().as<target> ());

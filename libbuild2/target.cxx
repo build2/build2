@@ -1599,7 +1599,8 @@ namespace build2
             // Note also that this means we have to call scheduler::wait()
             // with work_none when u-d-l in the interrupting load. Failed
             // that, we may and up here with the update_during_load() call
-            // below in the stack, which is a deadlock.
+            // below in the stack, which is a deadlock. @@ TMP: remove if
+            // the queue_mark approach pans out.
             //
             while (ctx.update_during_load > 1) // We are in serial load phase.
             {

@@ -59,11 +59,15 @@ namespace build2
   inline void wait_guard::
   wait (bool wq)
   {
+    // @@ TMP: remove if the queue_mark approach pans out.
+    //
+#if 0
     // Don't work the queue if in the update during load during interrupting
     // load. Failed that we may deadlock via dir_search().
     //
     if (ctx->update_during_load > 1)
       wq = false;
+#endif
 
     phase_unlock u (phase ? ctx : nullptr, true /* delay */);
     ctx->sched->wait (start_count,
