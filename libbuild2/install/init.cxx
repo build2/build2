@@ -330,7 +330,12 @@ namespace build2
 
       // Enter module variables.
       //
-      rs.var_pool ().insert<bool> ("for_install", variable_visibility::prereq);
+      // Note that this variable is used as prerequisite-specific to mark
+      // prerequisites that should/should not be included for install as well
+      // as target-specific to mark a target that should be built for install
+      // even if it is first being executed not for install.
+      //
+      rs.var_pool ().insert<bool> ("for_install", variable_visibility::target);
 
       // The rest of the variables we enter are qualified so go straight
       // for the public variable pool.

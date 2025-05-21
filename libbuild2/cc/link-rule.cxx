@@ -3130,18 +3130,48 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      // Unless the outer install rule signalled that this is update for
-      // install, signal back that we've performed plain update.
-      //
-      if (!md.for_install)
-        md.for_install = false;
-
-      bool for_install (*md.for_install);
-
       ltype lt (link_type (t));
       otype ot (lt.type);
       linfo li (link_info (bs, ot));
       compile_target_types tts (compile_types (ot));
+
+      const variable* var_for_install (rs.var_pool ().find ("for_install"));
+
+      // Unless the outer install rule signalled that this is update for
+      // install, signal back that we've performed plain update. Unless we
+      // were explicitly told to update for install.
+      //
+      if (!md.for_install)
+      {
+        action ca (ctx.current_action ());
+
+        if (ca.outer ())
+        {
+          operation_id o (ca.outer_operation ());
+
+          if (o == install_id || o == uninstall_id)
+          {
+            // We currently only allow this for executables since it feels
+            // unlikely to work for libraries (rpath, etc; but maybe for
+            // static libraries).
+            //
+            if (lt.executable ())
+            {
+              if (var_for_install != nullptr &&
+                  cast_false<bool> (t.vars[var_for_install]))
+              {
+
+                md.for_install = true;
+              }
+            }
+          }
+        }
+
+        if (!md.for_install)
+          md.for_install = false;
+      }
+
+      bool for_install (*md.for_install);
 
       bool binless (md.binless);
       assert (!lt.executable() || !binless); // Sanity check.
@@ -3198,7 +3228,7 @@ namespace build2
       // those that don't match. Note that we have to do it after updating
       // prerequisites to keep the dependency counts straight.
       //
-      if (const variable* var_fi = rs.var_pool ().find ("for_install"))
+      if (var_for_install != nullptr)
       {
         // Parallel prerequisites/prerequisite_targets loop.
         //
@@ -3210,7 +3240,10 @@ namespace build2
           if (pt == nullptr)
             continue;
 
-          if (lookup l = p.prerequisite.vars[var_fi])
+          // Note: search directly on vars since the variable has target
+          // visibility (see above).
+          //
+          if (lookup l = p.prerequisite.vars[var_for_install])
           {
             if (cast<bool> (l) != for_install)
             {

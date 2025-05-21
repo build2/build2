@@ -27,6 +27,15 @@ Version 0.18.0
     Note that on Windows, the shared library name/path should refer to the
     import library, not the DLL.
 
+  * Ability to mark an executable as always built for install during the
+    update-for-install operation.
+
+    Specifically, it is now possible to set the for_install=true target-
+    specific variable on an executable to signal that it should be built for
+    install during update-for-install even if it would otherwise be built for
+    plain update, which happens if the executable is also executed during the
+    build. See GH issue #472 for details and implications.
+
 Version 0.17.0
 
   * C++20 modules support improvements:

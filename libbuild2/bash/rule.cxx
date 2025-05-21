@@ -42,11 +42,40 @@ namespace build2
       target_state
       operator() (action a, const target& t)
       {
+        context& ctx (t.ctx);
+
         // Unless the outer install rule signalled that this is update for
-        // install, signal back that we've performed plain update.
+        // install, signal back that we've performed plain update. Unless we
+        // were explicitly told to update for install.
         //
         if (!for_install)
-          for_install = false;
+        {
+          action ca (ctx.current_action ());
+
+          if (ca.outer ())
+          {
+            operation_id o (ca.outer_operation ());
+
+            if (o == install_id || o == uninstall_id)
+            {
+              // We allow this for both executables and modules (no rpath
+              // issues; but see the import difference below).
+              //
+              const scope& rs (t.root_scope ());
+
+              if (const variable* var_fi = rs.var_pool ().find ("for_install"))
+              {
+                if (cast_false<bool> (t.vars[var_fi]))
+                {
+                  for_install = true;
+                }
+              }
+            }
+          }
+
+          if (!for_install)
+            for_install = false;
+        }
 
         //@@ TODO: need to verify all the modules we depend on are compatible
         //         with our for_install value, similar to cc::link_rule's

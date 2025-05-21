@@ -305,9 +305,32 @@ namespace build2
         // build).
         //
         // So the current thinking is that a project shall not try to use its
-        // own "for install" (or, naturally, cross-compilation) build for
-        // update since it may not be usable. Instead, it should rely on
-        // another, "usable" build.
+        // own "for install" (or, naturally, cross-compilation) build of an
+        // executable for update since it may not be usable. Instead, it
+        // should rely on another, "usable" build.
+        //
+        // However, sometimes, such an executable is always built the same and
+        // doesn't depend on any shared libraries and thus is perfectly
+        // runnable and functional even if built for install (or, more
+        // generally, the for-install build is sufficiently functional for
+        // what's needed during the build). At the same time, applying one of
+        // the workarounds (such as a "bootstrap executable") may not be easy
+        // or practical for various reasons (for example, a large number of
+        // executables). For one such example, see icu-tools package in the
+        // ICU project.
+        //
+        // So we have a mechanism to mark such executables as always built
+        // for install during the update-for-install operation by setting
+        // the for_install=true target-specific variable.
+        //
+        // Note also that a project that would use this functionality will
+        // most likely not be cross-compilable (unless it makes alternative
+        // arrangements for this case). While not ideal, it can be acceptable
+        // in cases like icu-tools which are normally only built in the
+        // (native) host configuration. Especially when the alternative is a
+        // major surgery on the package structure and potentially even how
+        // things work (in short, ICU tools need data files that are generated
+        // using these same tools). See GH issue #472 for background.
         //
         optional<bool> for_install;
 
