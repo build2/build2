@@ -972,6 +972,47 @@ namespace build2
 
     argv0 = process::path_search (a0, true);
 
+    // Convert relative $install.{lib,buildfile,data} paths (which we may end
+    // up with in the relocatable installation mode; see buildfile for
+    // details) to absolute.
+    //
+    auto to_absolute = [bin = dir_path()] (const dir_path& d,
+                                           const char* what) mutable
+    {
+      if (bin.empty ())
+      try
+      {
+        bin = path (argv0.effect_string ()).directory ();
+      }
+      catch (const invalid_path& e)
+      {
+        fail << "invalid build2 executable path '" << e.path << "'";
+      }
+
+      try
+      {
+        dir_path r (bin / d);
+        r.normalize ();
+        return r;
+      }
+      catch (const invalid_path& e)
+      {
+        fail << "invalid " << what << " absolute path '" << e.path << "'"
+             << endf;
+      }
+    };
+
+    if (!build_install_lib.empty () && build_install_lib.relative ())
+      build_install_lib = to_absolute (build_install_lib, "$install.lib");
+
+    if (!build_install_buildfile.empty () &&
+        build_install_buildfile.relative ())
+      build_install_buildfile = to_absolute (build_install_buildfile,
+                                             "$install.buildfile");
+
+    if (!build_install_data.empty () && build_install_data.relative ())
+      build_install_data = to_absolute (build_install_data, "$install.data");
+
     mtime_check_option = mc;
 
     config_sub = move (cs);

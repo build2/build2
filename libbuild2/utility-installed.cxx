@@ -12,15 +12,15 @@ namespace build2
   const bool build_installed = true;
 
 #ifdef BUILD2_INSTALL_LIB
-  const dir_path build_install_lib (BUILD2_INSTALL_LIB);
+  dir_path build_install_lib (BUILD2_INSTALL_LIB);
 #endif
 
 #ifdef BUILD2_INSTALL_BUILDFILE
-  const dir_path build_install_buildfile (BUILD2_INSTALL_BUILDFILE);
+  dir_path build_install_buildfile (BUILD2_INSTALL_BUILDFILE);
 #endif
 
 #ifdef BUILD2_INSTALL_DATA
-  const dir_path build_install_data (BUILD2_INSTALL_DATA);
+  dir_path build_install_data (BUILD2_INSTALL_DATA);
 #endif
 }
 

@@ -268,7 +268,10 @@ ifn! $install.root
   #
   {obja objs}{utility-installed}: cxx.poptions += \
     -DBUILD2_INSTALL_LIB=\"$regex.replace(\
-      $install.resolve($install.lib), '\\', '\\\\')\"
+      $install.resolve($install.lib, \
+                       $install.relocatable ? $install.bin : [dir_path]), \
+                       '\\', \
+                       '\\\\')\"
 
   # Only if configured.
   #
@@ -276,16 +279,22 @@ ifn! $install.root
   #
   # @@ TMP drop after 0.16.0 release.
   #
-  install_buildfile = ($install.buildfile != [null] \
-                       ? $directory($install.resolve($install.buildfile)) \
-                       :)
+  install_buildfile = \
+    ($install.buildfile != [null] \
+     ? $directory(\
+         $install.resolve($install.buildfile, \
+                          $install.relocatable ? $install.bin : [dir_path]))\
+     :)
   {obja objs}{utility-installed utility-uninstalled}: cxx.poptions += \
     -DBUILD2_INSTALL_BUILDFILE=\"$regex.replace($install_buildfile, '\\', '\\\\')\"
 
   #\
   {obja objs}{utility-installed utility-uninstalled}: cxx.poptions += \
     -DBUILD2_INSTALL_BUILDFILE=\"$regex.replace(\
-      $directory($install.resolve($install.buildfile)), '\\', '\\\\')\"
+      $directory(\
+        $install.resolve(\
+          $install.buildfile, \
+          $install.relocatable ? $install.bin : [dir_path])), '\\', '\\\\')\"
   #\
 
   # Data directory or src_root if not installed.
@@ -294,7 +303,10 @@ ifn! $install.root
   #
   {obja objs}{utility-installed}: cxx.poptions += \
     -DBUILD2_INSTALL_DATA=\"$regex.replace(\
-      $install.resolve($install.data), '\\', '\\\\')\"
+      $install.resolve($install.data, \
+                       $install.relocatable ? $install.bin : [dir_path]), \
+      '\\', \
+      '\\\\')\"
 
   {obja objs}{utility-uninstalled}: cxx.poptions += \
     -DBUILD2_INSTALL_DATA=\"$regex.replace(\
