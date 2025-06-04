@@ -1111,6 +1111,13 @@ namespace build2
       // logical amalgamation view during bootstrap (note that the bootstrap
       // pre hooks will still see physical amalgamation).
       //
+      // Note that we treat empty and null values differently: empty means
+      // amalgamation is disabled while null is equivalent to it not being
+      // set. This can be useful if we want to disable amalgamation but only
+      // in certain cases:
+      //
+      // amalgamation = (... ? : [null])
+      //
       optional<value> pv, av;
       try
       {
@@ -1140,7 +1147,7 @@ namespace build2
       //
       if (aovr)
         rs.root_extra->amalgamation = aovr->empty () ? nullptr : &*aovr;
-      else if (av && (av->null || av->empty ()))
+      else if (av && !av->null && av->empty ())
         rs.root_extra->amalgamation = nullptr;
 
       {
@@ -1196,8 +1203,13 @@ namespace build2
       auto rp (rs.vars.insert (*ctx.var_amalgamation)); // Set NULL by default.
       value& v (rp.first);
 
-      if (v && v.empty ()) // Convert empty to NULL.
-        v = nullptr;
+      if (!rp.second)
+      {
+        if (v.null)
+          rp.second = true;  // Carry on as if undefined (see above).
+        else if (v.empty ())
+          v = nullptr;       // Convert empty to NULL.
+      }
 
       scope* ars (rs.parent_scope ()->root_scope ());
 

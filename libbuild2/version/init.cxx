@@ -108,8 +108,8 @@ namespace build2
             // See if we have the manifest in the source amalgamation.
             //
             // The root_extra::amalgamation is not yet initialized unless
-            // overridden or set to null/empty. So check that first and
-            // fallback to querying (see bootstrap_src() for details).
+            // overridden or set to empty. So check that first and fallback to
+            // querying (see bootstrap_src() for details).
             //
             dir_path ad;
             try
