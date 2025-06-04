@@ -509,6 +509,8 @@ namespace build2
       // Build system interface version. In particular, it is embedded into
       // build system modules as load_suffix.
       //
+      // See also lib{build2}:interface_version in buildfile.
+      //
       set ("build.version.interface", build_version_interface);
 
       // Allow detection (for example, in tests) whether this is a staged

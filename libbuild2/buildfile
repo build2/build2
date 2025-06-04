@@ -339,6 +339,14 @@ lib{build2}:
 {
   cxx.export.poptions = "-I$out_root" "-I$src_root"
   cxx.export.libs = $intf_libs
+
+  # Export interface version to be used by build system modules.
+  #
+  # Note: see also build_version_interface in utility.cxx.
+  #
+  interface_version = ($version.pre_release  \
+                       ? $version.project_id \
+                       : "$version.major.$version.minor")
 }
 
 # While we don't call any pthread_*() functions in our API, this appears to be
