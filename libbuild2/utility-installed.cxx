@@ -22,6 +22,18 @@ namespace build2
 #ifdef BUILD2_INSTALL_DATA
   dir_path build_install_data (BUILD2_INSTALL_DATA);
 #endif
+
+#ifdef BUILD2_INSTALL_ROOT
+  const dir_path build_install_root (BUILD2_INSTALL_ROOT);
+#else
+  const dir_path build_install_root; // Empty (not relocatable).
+#endif
+
+#ifdef BUILD2_INSTALL_ROOT_RELATIVE
+  const dir_path build_install_root_relative (BUILD2_INSTALL_ROOT_RELATIVE);
+#else
+  const dir_path build_install_root_relative; // Empty (not relocatable).
+#endif
 }
 
 #endif

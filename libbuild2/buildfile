@@ -311,6 +311,21 @@ ifn! $install.root
   {obja objs}{utility-uninstalled}: cxx.poptions += \
     -DBUILD2_INSTALL_DATA=\"$regex.replace(\
       $src_root, '\\', '\\\\')\"
+
+  # Only if installed and is relocatable.
+  #
+  if $install.relocatable
+  {
+    {obja objs}{utility-installed}: cxx.poptions += \
+      -DBUILD2_INSTALL_ROOT=\"$regex.replace($install.root, '\\', '\\\\')\"
+
+    {obja objs}{utility-installed}: cxx.poptions += \
+      -DBUILD2_INSTALL_ROOT_RELATIVE=\"$regex.replace(\
+        $path.relative($install.root, \
+                       $install.resolve($install.bin, [dir_path])), \
+        '\\', \
+        '\\\\')\"
+  }
 }
 
 if ($cxx.target.class != 'windows')

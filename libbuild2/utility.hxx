@@ -203,13 +203,21 @@ namespace build2
   // installation directory (only if installed, src_root otherwise).
   //
   // Note that in the relocatable installation mode these directory paths are
-  // relative against the executable directory path (see buildfile for
-  // details), until the init() function call which completes them.
+  // relative against the executable directory path ($install.bin; see
+  // buildfile for details), until the init() function call which completes
+  // them.
   //
   LIBBUILD2_SYMEXPORT extern const bool build_installed;
   LIBBUILD2_SYMEXPORT extern dir_path build_install_lib;       // $install.lib
   LIBBUILD2_SYMEXPORT extern dir_path build_install_buildfile; // $install.buildfile
   LIBBUILD2_SYMEXPORT extern dir_path build_install_data;      // $install.data
+
+  // Root installation directory paths (only if installed and relocatable,
+  // empty otherwise): the first is absolute and the second is relative to the
+  // executable directory path ($install.bin; see buildfile for details).
+  //
+  LIBBUILD2_SYMEXPORT extern const dir_path build_install_root; // $install.root
+  LIBBUILD2_SYMEXPORT extern const dir_path build_install_root_relative;
 
   // --[no-]mtime-check
   //

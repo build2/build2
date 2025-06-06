@@ -19,4 +19,7 @@ namespace build2
 #else
   dir_path build_install_data; // Empty (during bootstrap).
 #endif
+
+  const dir_path build_install_root;          // Empty.
+  const dir_path build_install_root_relative; // Empty.
 }
