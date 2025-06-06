@@ -5,6 +5,7 @@
 
 #include <sstream>
 #include <cstdlib> // getenv()
+#include <cstring> // strstr()
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/rule.hxx>
@@ -501,13 +502,93 @@ namespace build2
 #ifdef BUILD2_BOOTSTRAP
               assert (false);
 #else
-              istringstream is (s[1] == 'h'
-                                ? (s.size () == 5
-                                   ? host_config
-                                   : host_config_no_warnings)
-                                : (s.size () == 7
-                                   ? build2_config
-                                   : build2_config_no_warnings));
+              // In the relocatable installation mode
+              // (build_install_root_relative is not empty) overwrite the
+              // installation root directory paths, recorded in the
+              // configuration at update-for-install time, with an actual path
+              // deduced at runtime based on the executable directory path.
+              //
+              const char* config (s[1] == 'h'
+                                  ? (s.size () == 5
+                                     ? host_config
+                                     : host_config_no_warnings)
+                                  : (s.size () == 7
+                                     ? build2_config
+                                     : build2_config_no_warnings));
+
+              auto overwrite_install_root = [] (const char* config) -> string
+              {
+                assert (build_install_root.absolute ()          &&
+                        build_install_root_relative.relative () &&
+                        !build_install_root_relative.empty ());
+
+                // Deduce the actual installation root directory.
+                //
+                dir_path rd;
+
+                try
+                {
+                  rd = path (argv0.effect_string ()).directory ();
+                }
+                catch (const invalid_path& e)
+                {
+                  fail << "invalid build2 executable path '" << e.path << "'";
+                }
+
+                try
+                {
+                  rd /= build_install_root_relative;
+                  rd.normalize ();
+                }
+                catch (const invalid_path& e)
+                {
+                  fail << "deduction of $install.root value results in "
+                       << "invalid path '" << e.path << "'";
+                }
+
+                // If the root directory didn't change, then return the
+                // configuration as is.
+                //
+                if (rd == build_install_root)
+                  return config;
+
+                // Replace the original installation root directory entries
+                // with the actual root path.
+                //
+                // Note that we rely on the fact that all such entries are
+                // terminated with the directory separator. This approach also
+                // handles the installation subdirectories.
+                //
+                // Also note that since we don't properly parse the
+                // configuration, we may potentially end up with some unwanted
+                // replacements. Let's, however, wait and see for some
+                // real-word unwanted replacements.
+                //
+                string orig_root (build_install_root.representation ());
+                string actual_root (rd.representation ());
+
+                string r;
+                const char* c (config); // Unprocessed part of the config.
+
+                while (const char* p = strstr (c, orig_root.c_str ()))
+                {
+                  if (p != c)
+                    r.append (c, p - c);
+
+                  r += actual_root;
+
+                  c = p + orig_root.size ();
+                }
+
+                r += c;
+
+                return r;
+              };
+
+              istringstream is (build_install_root_relative.empty ()
+                                ? config
+                                : overwrite_install_root (config));
+
               load_config (is, path_name (s), l);
 #endif
             }

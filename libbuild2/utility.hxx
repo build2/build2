@@ -211,6 +211,14 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern dir_path build_install_buildfile; // $install.buildfile
   LIBBUILD2_SYMEXPORT extern dir_path build_install_data;      // $install.data
 
+  // Root installation directory paths: absolute (only if installed, empty
+  // otherwise) and relative against the executable directory path (only if
+  // installed and is relocatable, empty otherwise; see buildfile for
+  // details).
+  //
+  LIBBUILD2_SYMEXPORT extern const dir_path build_install_root; // $install.root
+  LIBBUILD2_SYMEXPORT extern const dir_path build_install_root_relative;
+
   // --[no-]mtime-check
   //
   LIBBUILD2_SYMEXPORT extern optional<bool> mtime_check_option;
