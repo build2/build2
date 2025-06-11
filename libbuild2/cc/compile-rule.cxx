@@ -6420,7 +6420,7 @@ namespace build2
           // pkgconfig.cxx).
           //
           const target& mt (
-            ctx.targets.insert_locked (
+            ctx.targets.insert (
               *x_mod,
               sm.path.directory (),
               dir_path (),
