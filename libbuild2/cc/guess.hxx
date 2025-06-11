@@ -236,12 +236,13 @@ namespace build2
       string c_stdlib;
       string x_stdlib;
 
-      // System library/header/module search paths and number of leading mode
-      // entries, if extracted at the guess stage.
+      // System library/header search paths with the number of leading mode
+      // entries as well as the standard library modules, if extracted at the
+      // guess stage.
       //
       optional<pair<dir_paths, size_t>> sys_lib_dirs;
       optional<pair<dir_paths, size_t>> sys_hdr_dirs;
-      optional<pair<dir_paths, size_t>> sys_mod_dirs;
+      optional<std_modules>             std_mods;
 
       // Optional list of environment variables that affect the compiler and
       // its target platform.

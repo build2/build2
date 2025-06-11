@@ -19,9 +19,11 @@ namespace build2
   dir_path build_install_buildfile (BUILD2_INSTALL_BUILDFILE);
 #endif
 
+/*
 #ifdef BUILD2_INSTALL_DATA
   dir_path build_install_data (BUILD2_INSTALL_DATA);
 #endif
+*/
 
 #ifdef BUILD2_INSTALL_ROOT
   const dir_path build_install_root (BUILD2_INSTALL_ROOT);

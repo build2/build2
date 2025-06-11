@@ -70,7 +70,13 @@ namespace build2
                               bool, bool) const;
 
       optional<path>
-      find_system_header (const path&) const;
+      find_system_header (const path& f) const
+      {
+        return find_system_header (f, sys_hdr_dirs);
+      }
+
+      static optional<path>
+      find_system_header (const path&, const dir_paths& sys_hdr_dirs);
 
     protected:
       static void

@@ -14,11 +14,13 @@ namespace build2
   dir_path build_install_buildfile; // Empty.
 #endif
 
+/*
 #ifdef BUILD2_INSTALL_DATA
   dir_path build_install_data (BUILD2_INSTALL_DATA);
 #else
   dir_path build_install_data; // Empty (during bootstrap).
 #endif
+*/
 
   const dir_path build_install_root;          // Empty.
   const dir_path build_install_root_relative; // Empty.

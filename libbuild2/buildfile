@@ -301,6 +301,9 @@ ifn! $install.root
   #
   # Note: normalized in both cases.
   #
+  # NOTE: currenly unused.
+  #
+  #\
   {obja objs}{utility-installed}: cxx.poptions += \
     -DBUILD2_INSTALL_DATA=\"$regex.replace(\
       $install.resolve($install.data, \
@@ -311,6 +314,7 @@ ifn! $install.root
   {obja objs}{utility-uninstalled}: cxx.poptions += \
     -DBUILD2_INSTALL_DATA=\"$regex.replace(\
       $src_root, '\\', '\\\\')\"
+  #\
 
   # Only if installed and is relocatable.
   #

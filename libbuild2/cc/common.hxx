@@ -213,14 +213,17 @@ namespace build2
       //
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
       const dir_paths& sys_hdr_dirs; // x.sys_hdr_dirs
-      const dir_paths* sys_mod_dirs; // compiler_info::sys_mod_dirs
 
       size_t sys_lib_dirs_mode;  // Number of mode entries (0 if none).
       size_t sys_hdr_dirs_mode;
-      size_t sys_mod_dirs_mode;
 
       size_t sys_lib_dirs_extra; // Number of extra entries (0 if none).
       size_t sys_hdr_dirs_extra;
+
+      // Standard library modules. NULL if modules are not enabled, empty if
+      // no std modules available.
+      //
+      const std_modules* std_mods; // config_modules::std_mods
 
       // Note that x_obj is patched in by the x.objx module. So it stays NULL
       // if Objective-X compilation is not enabled. Similarly for x_asp except
@@ -298,9 +301,9 @@ namespace build2
             const strings* cils, const strings* xils,
             const dir_paths& sld,
             const dir_paths& shd,
-            const dir_paths* smd,
-            size_t slm, size_t shm, size_t smm,
+            size_t slm, size_t shm,
             size_t sle, size_t she,
+            const std_modules* sms,
             const target_type& src,
             const target_type* mod,
             const target_type& inc,
@@ -321,10 +324,10 @@ namespace build2
             iscope (is), iscope_current (isc),
             c_ilibs (cils), x_ilibs (xils),
             importable_headers (nullptr),
-            sys_lib_dirs (sld), sys_hdr_dirs (shd), sys_mod_dirs (smd),
+            sys_lib_dirs (sld), sys_hdr_dirs (shd),
             sys_lib_dirs_mode (slm), sys_hdr_dirs_mode (shm),
-            sys_mod_dirs_mode (smm),
             sys_lib_dirs_extra (sle), sys_hdr_dirs_extra (she),
+            std_mods (sms),
             x_src (src), x_mod (mod), x_inc (inc),
             x_obj (nullptr), x_asp (nullptr),
             x_hdrs (hdrs), x_incs (incs) {}

@@ -1012,8 +1012,10 @@ namespace build2
       build_install_buildfile = to_absolute (build_install_buildfile,
                                              "$install.buildfile");
 
+    /*
     if (!build_install_data.empty () && build_install_data.relative ())
       build_install_data = to_absolute (build_install_data, "$install.data");
+    */
 
     mtime_check_option = mc;
 

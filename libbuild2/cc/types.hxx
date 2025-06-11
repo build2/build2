@@ -83,6 +83,17 @@ namespace build2
       build2::cc::module_info module_info;
     };
 
+    // Standard library modules. Loosely based on the information described by
+    // P3286.
+    //
+    struct std_module
+    {
+      string name;
+      build2::path path; // Absolute and normalized.
+      strings poptions;
+    };
+    using std_modules = vector<std_module>;
+
     // Ad hoc (as opposed to marked with x.importable) importable headers.
     //
     // Note that these are only searched for in the system header search

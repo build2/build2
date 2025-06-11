@@ -378,16 +378,21 @@ namespace build2
 #  endif
 #endif
 
-    // Extracting search dirs can be expensive (we may need to run the
-    // compiler several times) so we cache the result.
-    //
-    struct search_dirs
-    {
-      pair<dir_paths, size_t> lib;
-      pair<dir_paths, size_t> hdr;
-    };
+     // Extracting search directories can be expensive (we may need to run the
+     // compiler several times) so we cache the result.
+     //
+     struct search_dirs
+     {
+       pair<dir_paths, size_t> lib;
+       pair<dir_paths, size_t> hdr;
+     };
 
-    static global_cache<search_dirs> dirs_cache;
+     static global_cache<search_dirs> dirs_cache;
+
+     // Extracting standard library modules can be expensive (we may need to
+     // run the compiler and/or stat the filesystem) so we cache the result.
+     //
+     static global_cache<std_modules> mods_cache;
 
     void config_module::
     init (scope& rs, const location& loc, const variable_map&)
@@ -462,6 +467,7 @@ namespace build2
       // config.x.std overrides x.std
       //
       strings& mode (cast<strings> (rs.assign (x_mode))); // Set by guess.
+      bool modules;
       {
         lookup l (lookup_config (rs, config_x_std));
 
@@ -477,7 +483,7 @@ namespace build2
         // Translate x_std value (if any) to the compiler option(s) (if any)
         // and fold them into the compiler mode.
         //
-        translate_std (xi, tt, rs, mode, v);
+        modules = translate_std (xi, tt, rs, mode, v);
       }
 
       // config.x.internal.scope
@@ -583,21 +589,31 @@ namespace build2
       {
         if (lookup l = lookup_config (rs, *config_x_translate_include))
         {
-          // @@ MODHDR: if(modules) ? Yes.
-          //
-          rs.assign (x_translate_include).prepend (
-            cast<translatable_headers> (l));
+          if (modules)
+          {
+            rs.assign (x_translate_include).prepend (
+              cast<translatable_headers> (l));
+          }
         }
       }
 
-      // Extract system header/library search paths from the compiler and
-      // determine if we need any additional search paths.
+      // Cache key.
       //
-      // Note that for now module search paths only come from compiler_info.
+      string key;
+      if (!xi.sys_lib_dirs || !xi.sys_hdr_dirs || (modules && !xi.std_mods))
+      {
+        sha256 cs;
+        cs.append (static_cast<size_t> (x_lang));
+        cs.append (xi.path.effect_string ());
+        append_options (cs, mode);
+        key = cs.string ();
+      }
+
+      // Extract system header/library search paths and determine if we need
+      // any additional search paths.
       //
       pair<dir_paths, size_t> lib_dirs;
       pair<dir_paths, size_t> hdr_dirs;
-      const optional<pair<dir_paths, size_t>>& mod_dirs (xi.sys_mod_dirs);
 
       if (xi.sys_lib_dirs && xi.sys_hdr_dirs)
       {
@@ -606,15 +622,6 @@ namespace build2
       }
       else
       {
-        string key;
-        {
-          sha256 cs;
-          cs.append (static_cast<size_t> (x_lang));
-          cs.append (xi.path.effect_string ());
-          append_options (cs, mode);
-          key = cs.string ();
-        }
-
         // Because the compiler info (xi) is also cached, we can assume that
         // if dirs come from there, then they do so consistently.
         //
@@ -665,7 +672,6 @@ namespace build2
 
       sys_lib_dirs_mode = lib_dirs.second;
       sys_hdr_dirs_mode = hdr_dirs.second;
-      sys_mod_dirs_mode = mod_dirs ? mod_dirs->second : 0;
 
       sys_lib_dirs_extra = 0;
       sys_hdr_dirs_extra = 0;
@@ -767,6 +773,51 @@ namespace build2
       }
 #endif
 
+      // Extract the standard library modules from the compiler.
+      //
+      if (modules)
+      {
+        if (xi.std_mods)
+        {
+          std_mods = &*xi.std_mods;
+        }
+        else
+        {
+          const std_modules* sm (mods_cache.find (key));
+
+          if (sm != nullptr)
+            std_mods = sm;
+          else
+          {
+            std_modules sm;
+            switch (xi.class_)
+            {
+            case compiler_class::gcc:
+              {
+                // For Clang targeting MSVC the standard modules are always
+                // returned by guess() (and if that changes, calling
+                // msvc_std_modules() should also work).
+                //
+                if (xi.id.type == compiler_type::clang)
+                  assert (xi.x_stdlib != "msvcp");
+
+                sm = gcc_std_modules (xi);
+                break;
+              }
+            case compiler_class::msvc:
+              {
+                sm = msvc_std_modules (xi, hdr_dirs.first);
+                break;
+              }
+            }
+
+            std_mods = &mods_cache.insert (move (key), move (sm));
+          }
+        }
+      }
+      else
+        std_mods = nullptr;
+
       // If this is a configuration with new values, then print the report
       // at verbosity level 2 and up (-v).
       //
@@ -838,10 +889,6 @@ namespace build2
           dr << "\n  pattern    " << xi.pattern;
         }
 
-        auto& mods (mod_dirs ? mod_dirs->first : dir_paths ());
-        auto& incs (hdr_dirs.first);
-        auto& libs (lib_dirs.first);
-
         if (verb >= 3 && iscope)
         {
           dr << "\n  int scope  ";
@@ -852,40 +899,44 @@ namespace build2
             dr << *iscope_str;
         }
 
-        if (verb >= 3 && !mods.empty ())
+        if (verb >= 3 && std_mods != nullptr && !std_mods->empty ())
         {
-          dr << "\n  mod dirs";
-          for (const dir_path& d: mods)
+          dr << "\n  std modules";
+          for (const std_module& m: *std_mods)
           {
-            dr << "\n    " << d;
+            dr << "\n    " << m.name << " -> " << m.path;
           }
         }
 
-        if (verb >= 3 && !incs.empty ())
+        if (verb >= 3 && !hdr_dirs.first.empty ())
         {
+          auto& dirs (hdr_dirs.first);
+
           dr << "\n  hdr dirs";
-          for (size_t i (0); i != incs.size (); ++i)
+          for (size_t i (0); i != dirs.size (); ++i)
           {
             if ((sys_hdr_dirs_mode  != 0 && i == sys_hdr_dirs_mode) ||
                 (sys_hdr_dirs_extra != 0 &&
                  i == sys_hdr_dirs_extra + sys_hdr_dirs_mode))
               dr << "\n    --";
 
-            dr << "\n    " << incs[i];
+            dr << "\n    " << dirs[i];
           }
         }
 
-        if (verb >= 3 && !libs.empty ())
+        if (verb >= 3 && !lib_dirs.first.empty ())
         {
+          auto& dirs (lib_dirs.first);
+
           dr << "\n  lib dirs";
-          for (size_t i (0); i != libs.size (); ++i)
+          for (size_t i (0); i != dirs.size (); ++i)
           {
             if ((sys_lib_dirs_mode  != 0 && i == sys_lib_dirs_mode) ||
                 (sys_lib_dirs_extra != 0 &&
                  i == sys_lib_dirs_extra + sys_lib_dirs_mode))
               dr << "\n    --";
 
-            dr << "\n    " << libs[i];
+            dr << "\n    " << dirs[i];
           }
         }
       }

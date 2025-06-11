@@ -217,7 +217,7 @@ namespace build2
     }
 
     optional<path> compile_rule::
-    find_system_header (const path& f) const
+    find_system_header (const path& f, const dir_paths& sys_hdr_dirs)
     {
       path p; // Reuse the buffer.
       for (const dir_path& d: sys_hdr_dirs)
@@ -5869,7 +5869,7 @@ namespace build2
     }
 
     inline bool
-    std_module (const string& m)
+    std_module_name (const string& m)
     {
       size_t n (m.size ());
       return (n >= 3 &&
@@ -6251,7 +6251,7 @@ namespace build2
         {
           module_import& m (imports[i]);
 
-          if (std_module (m.name)) // No fuzzy std.* matches.
+          if (std_module_name (m.name)) // No fuzzy std.* matches.
             continue;
 
           if (m.score > match_max (m.name)) // Resolved to module name.
@@ -6389,6 +6389,7 @@ namespace build2
       // Pre-resolve standard library modules (std and std.compat) in an ad
       // hoc way.
       //
+      assert (std_mods != nullptr); // Shouldn't be NULL if modules are enabled.
 
       // Similar logic to check_exact() above.
       //
@@ -6398,101 +6399,72 @@ namespace build2
       {
         module_import& m (imports[i]);
 
-        if (m.name == "std" || m.name == "std.compat")
+        if (std_module_name (m.name))
         {
+          auto j (find_if (std_mods->begin (), std_mods->end (),
+                           [&m] (const std_module& sm)
+                           {
+                             return m.name == sm.name;
+                           }));
+
+          if (j == std_mods->end ())
+            fail << "standard library module " << m.name
+                 << " is not available" <<
+              info << "using standard library " << cast<string> (rs[x_stdlib]) <<
+              info << "available modules reported by "
+                 << cast<string> (rs[x_signature]);
+
+          const std_module& sm (*j);
+
+          // Find or insert the module source target (similar code to
+          // pkgconfig.cxx).
+          //
+          const target& mt (
+            ctx.targets.insert_locked (
+              *x_mod,
+              sm.path.directory (),
+              dir_path (),
+              sm.path.leaf ().base ().string (),
+              sm.path.extension (),
+              target_decl::implied,
+              trace).first);
+
+          // Determine the BMI type.
+          //
           otype ot (otype::e);
-          const target* mt (nullptr);
-
-          switch (ctype)
+          switch (cclass)
           {
-          case compiler_type::clang:
+          case compiler_class::gcc:
             {
-              // @@ TODO: cache x_stdlib value.
-              //
-              if (cast<string> (rs[x_stdlib]) != "libc++")
-                fail << "standard library module '" << m.name << "' is "
-                     << "currently only supported in libc++" <<
-                  info << "try adding -stdlib=libc++ as compiler mode option";
-
-              if (cmaj < 18)
-                fail << "standard library module '" << m.name << "' is "
-                     << "only supported in Clang 18 or later";
-
-              // Find or insert std*.cppm (similar code to pkgconfig.cxx).
-              //
-              // Note: build_install_data is absolute and normalized.
-              //
-              mt = &ctx.targets.insert_locked (
-                *x_mod,
-                (dir_path (build_install_data) /= "libbuild2") /= "cc",
-                dir_path (),
-                m.name,
-                string ("cppm"), // For C++14 during bootstrap.
-                target_decl::implied,
-                trace).first;
-
               // Which output type should we use, static or shared? The
               // correct way would be to detect whether static or shared
-              // version of libc++ is to be linked and use the corresponding
-              // type. And we could do that by looking for -static-libstdc++
-              // in loption (and no, it's not -static-libc++).
+              // version of the standard library is to be linked and use the
+              // corresponding type. And we could do that by looking for
+              // -static-libstdc++ in loption (no, it's not -static-libc++)
+              // and something analogous for Clang targeting MSVC.
               //
-              // But, looking at the object file produced from std*.cppm, they
-              // only contain one symbol, the static object initializer. And
-              // this is unlikely to change since all other non-inline or
-              // template symbols should be in libc++. So feels like it's not
-              // worth the trouble and one variant should be good enough for
-              // both cases. Let's use the shared one for less surprising
-              // diagnostics (as in, "why are you linking obje{} to a shared
-              // library?")
+              // But, looking at the object files produced for the various
+              // stanard libraries, they only contain one symbol, the static
+              // object initializer. And this is unlikely to change since all
+              // other non-inline or template symbols should be in the
+              // standard library. So feels like it's not worth the trouble
+              // and one variant should be good enough for both cases. Let's
+              // use the shared one for less surprising diagnostics (as in,
+              // "why are you linking obje{} to a shared library?")
               //
-              // (Of course, theoretically, std*.cppm could detect via a macro
-              // whether they are being compiled with -fPIC or not and do
-              // things differently, but this seems far-fetched).
+              // (Of course, theoretically, the standard library sources could
+              // detect via a macro whether they are being compiled with -fPIC
+              // or not and do things differently, but it seems far-fetched).
+              //
+              // @@ Maybe we should do it more accurately for Clang targeting
+              //    MSVC since there we are linking different libraries...
               //
               ot = otype::s;
 
               break;
             }
-          case compiler_type::msvc:
+          case compiler_class::msvc:
             {
-              // For MSVC, the source files std.ixx and std.compat.ixx are
-              // found in the modules/ subdirectory which is a sibling of
-              // include/ in the MSVC toolset (and "that is a contract with
-              // customers" to quote one of the developers).
-              //
-              // The problem of course is that there are multiple system
-              // header search directories (for example, as specified in the
-              // INCLUDE environment variable) and which one of them is for
-              // the MSVC toolset is not specified. So what we are going to do
-              // is search for one of the well-known standard C++ headers and
-              // assume that the directory where we found it is the one we are
-              // looking for. Or we could look for something MSVC-specific
-              // like vcruntime.h.
-              //
-              dir_path modules;
-              if (optional<path> p = find_system_header (path ("vcruntime.h")))
-              {
-                p->make_directory (); // Strip vcruntime.h.
-                if (p->leaf () == path ("include")) // Sanity check.
-                {
-                  modules = path_cast<dir_path> (move (p->make_directory ()));
-                  modules /= "modules";
-                }
-              }
-
-              if (modules.empty ())
-                fail << "unable to locate MSVC standard modules directory";
-
-              mt = &ctx.targets.insert_locked (
-                *x_mod,
-                move (modules),
-                dir_path (),
-                m.name,
-                string ("ixx"), // For C++14 during bootstrap.
-                target_decl::implied,
-                trace).first;
-
               // For MSVC it's easier to detect the runtime being used since
               // it's specified with the compile options (/MT[d], /MD[d]).
               //
@@ -6515,22 +6487,31 @@ namespace build2
 
               break;
             }
-          case compiler_type::gcc:
-          case compiler_type::icc:
-            {
-              fail << "standard library module '" << m.name << "' is "
-                   << "not yet supported in this compiler";
-            }
-          };
+          }
 
           pair<target&, ulock> tl (
             this->make_module_sidebuild ( // GCC 4.9
-              a, bs, nullptr, ot, *mt, m.name));
+              a, bs, nullptr, ot, mt, m.name));
 
           if (tl.second.owns_lock ())
           {
-            // Special compile options for the std modules.
+            // Special poptions/coptions for the standard library modules.
             //
+            if (!sm.poptions.empty ())
+            {
+              value& v (tl.first.append_locked (x_poptions));
+
+              if (v.null)
+                v = strings {};
+
+              strings& pops (v.as<strings> ());
+
+              // Note: prepend.
+              //
+              pops.insert (pops.begin (),
+                           sm.poptions.begin (), sm.poptions.end ());
+            }
+
             if (ctype == compiler_type::clang)
             {
               value& v (tl.first.append_locked (x_coptions));
@@ -6540,20 +6521,7 @@ namespace build2
 
               strings& cops (v.as<strings> ());
 
-              switch (ctype)
-              {
-              case compiler_type::clang:
-                {
-                  cops.push_back ("-Wno-reserved-module-identifier");
-                  break;
-                }
-              case compiler_type::msvc:
-                // It appears nothing special is needed to compile MSVC
-                // standard modules.
-              case compiler_type::gcc:
-              case compiler_type::icc:
-                assert (false);
-              };
+              cops.push_back ("-Wno-reserved-module-identifier");
             }
 
             tl.second.unlock ();
@@ -6688,7 +6656,7 @@ namespace build2
       {
         for (size_t i (0); i != n; ++i)
         {
-          if (pts[start + i] == nullptr && !std_module (imports[i].name))
+          if (pts[start + i] == nullptr && !std_module_name (imports[i].name))
           {
             // It would have been nice to print the location of the import
             // declaration. And we could save it during parsing at the expense

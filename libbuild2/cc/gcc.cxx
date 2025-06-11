@@ -1,6 +1,10 @@
 // file      : libbuild2/cc/gcc.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
+#ifndef BUILD2_BOOTSTRAP
+#  include <libbutl/json/parser.hxx>
+#endif
+
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/variable.hxx>
@@ -419,5 +423,292 @@ namespace build2
 
       return make_pair (move (r), rn);
     }
+
+    // Extract the standard library modules and their compile (only
+    // preprocessor, actually) options from GCC (g++) or compatible (Clang)
+    // using the -print-file-name option. Return empty vector if none are
+    // available.
+    //
+    std_modules config_module::
+
+#ifdef BUILD2_BOOTSTRAP
+    gcc_std_modules (const compiler_info&) const
+    {
+      return {};
+    }
+#else
+    gcc_std_modules (const compiler_info& xi) const
+    {
+      // Note that this currently only works for libstdc++ and, in case of
+      // Clang, for libc++.
+      //
+      if (xi.x_stdlib == "none")
+        return {};
+
+      // See llvm-project GH issues #73089 for some background.
+      //
+      string pfn ("-print-file-name=" + xi.x_stdlib + ".modules.json");
+
+      // Note that the compiler mode does not matter here. In particular,
+      // we specify the desired standard library as part of the file name.
+      //
+      cstrings args {xi.path.recall_string (), pfn.c_str (), nullptr};
+
+      if (verb >= 3)
+        print_process (xi.path, args);
+
+      // Open pipe to stdout.
+      //
+      // Note: this function is called in the serial load phase and so no
+      // diagnostics buffering is needed.
+      //
+      process pr (run_start (xi.path,
+                             args,
+                             0, /* stdin */
+                             -1 /* stdout */));
+      string l;
+      try
+      {
+        ifdstream is (
+          move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
+
+        // We are only interested in the first (and normally only) line.
+        //
+        getline (is, l);
+        is.close (); // Don't block.
+      }
+      catch (const io_error& e)
+      {
+        if (run_wait (args, pr))
+          fail << "io error reading " << args[0] << " -print-file-name "
+               << "output: " << e;
+
+        // If the child process has failed then assume the io error was caused
+        // by that and let run_finish() deal with it.
+      }
+
+      run_finish (args, pr, 2 /* verbosity */);
+
+      // Note that normally GCC reports the "not found/known" condition by
+      // printing the requested name back. While the found/known name will be
+      // an absolute path.
+      //
+      if (l.empty () || !path_traits::absolute (l))
+        return {};
+
+      path f;
+      try
+      {
+        f = path (move (l));
+      }
+      catch (const invalid_path& e)
+      {
+        fail << "invalid path '" << e.path << " returned by "
+             << args[0] << ' ' << pfn;
+      }
+
+      auto df = make_diag_frame (
+        [&f, &args, &pfn](const diag_record& dr)
+        {
+          dr << info << f << " returned by " << args[0] << ' ' << pfn;
+        });
+
+      // The format is documented in P3286R0. All relative paths are relative
+      // to the JSON file path.
+      //
+      std_modules r;
+      try
+      {
+        ifdstream is (f);
+        json_parser p (is, f.string ());
+
+        using event = json_event;
+
+        auto throw_invalid_json_input = [&f, &p] (const char* d)
+        {
+          throw invalid_json_input (
+            f.string (), p.line (), p.column (), p.position (), d);
+        };
+
+        // Convert a string to an absolute and normalized path.
+        //
+        auto to_path = [&f] (const string& s, const char* what)
+        {
+          path r;
+          try
+          {
+            if (path_traits::absolute (s))
+              r = path (s);
+            else
+            {
+              r = f.directory ();
+              r /= path (s);
+            }
+
+            r.normalize ();
+          }
+          catch (const invalid_path& e)
+          {
+            fail << "invalid path in " << what << " value: '" << e.path << "'";
+          }
+
+          return r;
+        };
+
+        // version:  <integer>
+        // revision: <integer>
+        // modules:  [{...}]
+        //
+        p.next_expect (event::begin_object);
+
+        if (p.next_expect_member_number<uint64_t> ("version") != 1 ||
+            p.next_expect_member_number<uint64_t> ("revision") != 1)
+        {
+          fail << "unsupported format version/revision in " << f;
+        }
+
+        if (*p.peek () == event::name)
+        {
+          p.next_expect_member_array ("modules");
+          while (p.next_expect (event::begin_object, event::end_array))
+          {
+            std_module m;
+            bool std (false);
+
+            // logical-name:    <string>
+            // source-path:     <string>
+            // is-interface:    <boolean>
+            // is-std-library:  <boolean>
+            // local-arguments: {...}
+            // vendor:          ...
+            //
+            while (p.next_expect (event::name, event::end_object))
+            {
+              const string& n (p.name ());
+
+              if (n == "logical-name") // Required.
+              {
+                m.name = p.next_expect_string ();
+              }
+              else if (n == "source-path") // Required.
+              {
+                m.path = to_path (p.next_expect_string (), "source-path");
+              }
+              else if (n == "is-interface") // Default true.
+              {
+                if (!p.next_expect_boolean<bool> ())
+                  fail << "unexpected internal partition";
+              }
+              else if (n == "is-std-library") // Default false.
+              {
+                std = p.next_expect_boolean<bool> ();
+              }
+              else if (n == "local-arguments")
+              {
+                p.next_expect (event::begin_object);
+
+                // include-directories:        [<string>]
+                // system-include-directories: [<string>]
+                // definitions:                [{...}]
+                // vendor:                     ...
+                //
+                while (p.next_expect (event::name, event::end_object))
+                {
+                  const string& n (p.name ());
+
+                  bool sys (false);
+                  if (n == "include-directories" ||
+                      (sys = (n == "system-include-directories")))
+                  {
+                    p.next_expect (event::begin_array);
+                    while (p.next_expect (event::string, event::end_array))
+                    {
+                      m.poptions.push_back (sys ? "-isystem" : "-I");
+                      m.poptions.push_back (
+                        to_path (p.value (), n.c_str ()).string ());
+                    }
+                  }
+                  else if (n == "definitions")
+                  {
+                    p.next_expect (event::begin_array);
+                    while (p.next_expect (event::begin_object, event::end_array))
+                    {
+                      string name;
+                      optional<string> value (empty_string);
+
+                      // name:   <string>
+                      // value:  <string>
+                      // undef:  <boolean>
+                      // vendor: ...
+                      //
+                      while (p.next_expect (event::name, event::end_object))
+                      {
+                        const string& n (p.name ());
+
+                        if (n == "name")
+                          name = p.next_expect_string ();
+                        else if (n == "value")
+                        {
+                          // Note that in P3286R0, the schema says the type is
+                          // string but an example shows an integer.
+                          //
+                          if (const string* v = p.next_expect_string_null ())
+                            value = *v;
+                        }
+                        else if (n == "undef")
+                        {
+                          if (p.next_expect_boolean<bool> ())
+                            value = nullopt;
+                        }
+                        else
+                          p.next_expect_value_skip ();
+                      }
+
+                      name.insert (0, value ? "-D" : "-U");
+
+                      if (value && !value->empty ())
+                      {
+                        name += '=';
+                        name += *value;
+                      }
+
+                      m.poptions.push_back (move (name));
+                    }
+                  }
+                  else
+                    p.next_expect_value_skip ();
+                }
+              }
+              else
+                p.next_expect_value_skip ();
+            }
+
+            if (m.name.empty ())
+              throw_invalid_json_input ("missing logical-name member");
+
+            if (m.path.empty ())
+              throw_invalid_json_input ("missing source-path member");
+
+            if (!std)
+              fail << "unexpected non-stanard library module " << m.name;
+
+            r.push_back (move (m));
+          }
+        }
+
+        p.next_expect (event::end_object);
+      }
+      catch (const invalid_json_input& e)
+      {
+        fail (location (f, e.line, e.column)) << "invalid json input: " << e;
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to read from " << f << ": " << e;
+      }
+
+      return r;
+    }
+#endif
   }
 }

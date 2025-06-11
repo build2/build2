@@ -84,7 +84,10 @@ namespace build2
       // This function may also check/set [config.]x.features.* variables on
       // the root scope.
       //
-      virtual void
+      // Return true if modules (currently only C++, but who knows what the
+      // future holds) are enabled.
+      //
+      virtual bool
       translate_std (const compiler_info&,
                      const target_triplet&,
                      scope&,
@@ -101,14 +104,15 @@ namespace build2
       optional<internal_scope> iscope;
       const scope*             iscope_current = nullptr;
 
-      // Temporary storage for data::sys_*_dirs_*.
+      // Temporary storage for data::{sys_*_dirs_*, std_mods}.
       //
       size_t sys_lib_dirs_mode;
       size_t sys_hdr_dirs_mode;
-      size_t sys_mod_dirs_mode;
 
       size_t sys_lib_dirs_extra;
       size_t sys_hdr_dirs_extra;
+
+      const std_modules* std_mods;
 
       bool new_config = false; // See guess() and init() for details.
 
@@ -175,6 +179,9 @@ namespace build2
       pair<dir_paths, size_t>
       gcc_library_search_dirs (const compiler_info&, scope&) const;
 
+      std_modules
+      gcc_std_modules (const compiler_info&) const;
+
       // Defined in msvc.cxx.
       //
       pair<dir_paths, size_t>
@@ -182,6 +189,9 @@ namespace build2
 
       pair<dir_paths, size_t>
       msvc_library_search_dirs (const compiler_info&, scope&) const;
+
+      std_modules
+      msvc_std_modules (const compiler_info&, const dir_paths&) const;
     };
 
     // x module

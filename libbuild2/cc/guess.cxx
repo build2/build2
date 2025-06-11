@@ -1576,20 +1576,22 @@ namespace build2
       return make_pair (move (r), rn);
     }
 
-    // Return the MSVC system module search paths (i.e., what the Visual
-    // Studio command prompt puts into IFCPATH) including any paths from the
-    // compiler mode and their count.
+    // Return the MSVC standard library modules.
     //
-    static pair<dir_paths, size_t>
-    msvc_mod (const msvc_info& mi, const strings&, const char* cpu)
+    static std_modules
+    msvc_mod (const msvc_info& mi)
     {
-      //@@ TODO: mode.
+      // Similar to msvc_std_modules() from msvc.cxx except here we know
+      // exactly where the modules are.
+      //
+      // Note that this function is called regardless of whether modules are
+      // enabled or not, so it should be cheap to call.
+      //
+      dir_path d (dir_path (mi.msvc_dir) /= "modules");
 
-      dir_paths r;
-
-      r.push_back ((dir_path (mi.msvc_dir) /= "ifc") /= cpu);
-
-      return make_pair (move (r), size_t (0));
+      return std_modules {
+        std_module {"std",        d / "std.ixx",        {}},
+        std_module {"std.compat", d / "std.compat.ixx", {}}};
     }
 
     // Return the MSVC system library search paths (i.e., what the Visual
@@ -1847,11 +1849,12 @@ namespace build2
 
       // If we have the MSVC installation information, then this means we are
       // running out of the Visual Studio command prompt and will have to
-      // supply PATH/INCLUDE/LIB/IFCPATH equivalents ourselves.
+      // supply PATH/INCLUDE/LIB equivalents ourselves. In this case we can
+      // also provide the list of the standard library modules.
       //
       optional<pair<dir_paths, size_t>> lib_dirs;
       optional<pair<dir_paths, size_t>> hdr_dirs;
-      optional<pair<dir_paths, size_t>> mod_dirs;
+      optional<std_modules>             std_mods;
       string bpat;
 
       if (const msvc_info* mi = static_cast<msvc_info*> (gr.info.get ()))
@@ -1860,7 +1863,7 @@ namespace build2
 
         lib_dirs = msvc_lib (*mi, x_mo, cpu);
         hdr_dirs = msvc_hdr (*mi, x_mo);
-        mod_dirs = msvc_mod (*mi, x_mo, cpu);
+        std_mods = xl == lang::cxx ? msvc_mod (*mi) : std_modules {};
 
         bpat = msvc_bin (*mi, cpu);
       }
@@ -1904,7 +1907,7 @@ namespace build2
         move (xsl),
         move (lib_dirs),
         move (hdr_dirs),
-        move (mod_dirs),
+        move (std_mods),
         msvc_env,
         nullptr};
     }
@@ -2724,6 +2727,7 @@ namespace build2
       // MSVC's.
       //
       optional<pair<dir_paths, size_t>> lib_dirs;
+      optional<std_modules>             std_mods;
       string bpat;
 
       if (tt.system == "windows-msvc")
@@ -2766,6 +2770,11 @@ namespace build2
         // the natural way for Clang to report it. But no luck.
         //
         lib_dirs = msvc_lib (mi, x_mo, cpu);
+
+        // We know the MSVC installation directory so might as well return the
+        // standard library modules.
+        //
+        std_mods = xl == lang::cxx ? msvc_mod (mi) : std_modules {};
 
         // Binutils search paths.
         //
@@ -2924,7 +2933,7 @@ namespace build2
         move (xsl),
         move (lib_dirs),
         nullopt,
-        nullopt,
+        move (std_mods),
         c_env,
         p_env};
     }

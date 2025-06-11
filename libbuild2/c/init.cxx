@@ -40,7 +40,7 @@ namespace build2
       explicit
       config_module (config_data&& d): cc::config_module (move (d)) {}
 
-      virtual void
+      virtual bool
       translate_std (const compiler_info&,
                      const target_triplet&,
                      scope&,
@@ -50,7 +50,7 @@ namespace build2
 
     using cc::module;
 
-    void config_module::
+    bool config_module::
     translate_std (const compiler_info& ci,
                    const target_triplet&,
                    scope& rs,
@@ -163,6 +163,8 @@ namespace build2
           break;
         }
       }
+
+      return false; // No modules in C yet.
     }
 
     // See cc::data::x_{hdr,inc} for background.
@@ -484,14 +486,14 @@ namespace build2
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_hdr_dirs]),
-        cm.x_info->sys_mod_dirs ? &cm.x_info->sys_mod_dirs->first : nullptr,
 
         cm.sys_lib_dirs_mode,
         cm.sys_hdr_dirs_mode,
-        cm.sys_mod_dirs_mode,
 
         cm.sys_lib_dirs_extra,
         cm.sys_hdr_dirs_extra,
+
+        cm.std_mods,
 
         c::static_type,
         nullptr,        // No C modules yet.

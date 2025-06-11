@@ -200,7 +200,8 @@ namespace build2
   // Whether running installed build as well as the library installation
   // directory (only if installed, empty otherwise), the exported buildfile
   // installation directory (only if configured, empty otherwise), and data
-  // installation directory (only if installed, src_root otherwise).
+  // installation directory (only if installed, src_root otherwise; currenly
+  // unused).
   //
   // Note that in the relocatable installation mode these directory paths are
   // relative against the executable directory path ($install.bin; see
@@ -210,7 +211,7 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern const bool build_installed;
   LIBBUILD2_SYMEXPORT extern dir_path build_install_lib;       // $install.lib
   LIBBUILD2_SYMEXPORT extern dir_path build_install_buildfile; // $install.buildfile
-  LIBBUILD2_SYMEXPORT extern dir_path build_install_data;      // $install.data
+  //LIBBUILD2_SYMEXPORT extern dir_path build_install_data;    // $install.data
 
   // Root installation directory paths (only if installed and relocatable,
   // empty otherwise): the first is absolute and the second is relative to the

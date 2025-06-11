@@ -41,7 +41,7 @@ namespace build2
       explicit
       config_module (config_data&& d): cc::config_module (move (d)) {}
 
-      virtual void
+      virtual bool
       translate_std (const compiler_info&,
                      const target_triplet&,
                      scope&,
@@ -51,7 +51,7 @@ namespace build2
 
     using cc::module;
 
-    void config_module::
+    bool config_module::
     translate_std (const compiler_info& ci,
                    const target_triplet& tt,
                    scope& rs,
@@ -583,7 +583,7 @@ namespace build2
               //
               // 11 -- 201810
               //
-              prepend ("-fmodules-ts");
+              prepend (mj >= 15 ? "-fmodules" : "-fmodules-ts");
               modules = true;
             }
 
@@ -596,7 +596,7 @@ namespace build2
             // that (it's not practically usable anyway).
             //
             // Clang enables modules by default in c++20 or later but they
-            // don't yet (as of Clang 18) define __cpp_modules. When they
+            // don't yet (as of Clang 20) define __cpp_modules. When they
             // do, we can consider enabling modules by default on our side.
             // For now, we only enable modules if forced with explicit
             // cxx.features.modules=true.
@@ -632,6 +632,8 @@ namespace build2
 
       set_feature (modules);
       //set_feature (concepts);
+
+      return modules.result;
     }
 
     // See cc::data::x_{hdr,inc} for background.
@@ -1123,14 +1125,14 @@ namespace build2
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_hdr_dirs]),
-        cm.x_info->sys_mod_dirs ? &cm.x_info->sys_mod_dirs->first : nullptr,
 
         cm.sys_lib_dirs_mode,
         cm.sys_hdr_dirs_mode,
-        cm.sys_mod_dirs_mode,
 
         cm.sys_lib_dirs_extra,
         cm.sys_hdr_dirs_extra,
+
+        cm.std_mods,
 
         cxx::static_type,
         modules ? &mxx::static_type : nullptr,

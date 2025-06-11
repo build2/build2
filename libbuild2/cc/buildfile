@@ -25,15 +25,6 @@ libul{build2-cc}: cxx{pkgconfig-libpkg-config}: include = (!$libpkgconf)
 
 libul{build2-cc}: $intf_libs $impl_libs
 
-# libc++ std module interface translation units.
-#
-# Hopefully temporary, see llvm-project GH issues #73089.
-#
-# @@ TMP: make sure sync'ed with upstream before release (keep this note).
-#
-lib{build2-cc}: file{std.cppm std.compat.cppm}
-file{std.cppm}@./ file{std.compat.cppm}@./: install = data/libbuild2/cc/
-
 # Unit tests.
 #
 exe{*.test}:

@@ -696,5 +696,59 @@ namespace build2
         search ("lib", "")    ||
         search ("",    "dll") ? make_pair (s, true) : make_pair (nullptr, b);
     }
+
+    std_modules config_module::
+    msvc_std_modules (const compiler_info& xi,
+                      const dir_paths& sys_hdr_dirs) const
+    {
+      assert (xi.x_stdlib == "msvcp");
+
+      // For MSVC, the source files std.ixx and std.compat.ixx are found in
+      // the modules/ subdirectory which is a sibling of include/ in the MSVC
+      // toolset (and "that is a contract with customers" to quote one of the
+      // developers).
+      //
+      // The problem of course is that there are multiple system header search
+      // directories (for example, as specified in the INCLUDE environment
+      // variable) and which one of them is for the MSVC toolset is not
+      // specified. So what we are going to do is search for one of the
+      // well-known standard C++ headers and assume that the directory where
+      // we found it is the one we are looking for. Or, even bettre, look for
+      // something MSVC-specific like vcruntime.h.
+      //
+      // Note that there is also modules.json in modules/ but, at least as of
+      // MSVC 17.14, it does not follow the P3286 format (or at least not
+      // version 1, revision 1 of it). It doesn't contain anything useful so
+      // we ignore it.
+      //
+      // Finally note that we don't check for the source file's presence
+      // assuming they are there. There doesn't seem to be a way to not
+      // install them in MSVC so if they are absent, it's a broken
+      // installation.
+      //
+      // NOTE: see also msvc_mod() in guess.cxx.
+      //
+      dir_path d;
+      if (optional<path> p =
+            compile_rule::find_system_header (path ("vcruntime.h"),
+                                              sys_hdr_dirs))
+      {
+        p->make_directory (); // Strip vcruntime.h.
+        if (p->leaf () == path ("include")) // Sanity check.
+        {
+          d = path_cast<dir_path> (move (p->make_directory ()));
+          d /= "modules";
+        }
+      }
+
+      std_modules r;
+      if (!d.empty ())
+      {
+        r.push_back (std_module {"std",        d / "std.ixx",        {}});
+        r.push_back (std_module {"std.compat", d / "std.compat.ixx", {}});
+      }
+
+      return r;
+    }
   }
 }
