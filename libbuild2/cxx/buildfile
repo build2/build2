@@ -45,7 +45,8 @@ cross = ($cxx.target.cpu != $build.host.cpu || \
 #
 if! $cross
   {obja objs}{init}: cxx.poptions += \
-    -DBUILD2_NATIVE_CXX=\"$regex.replace($recall($cxx.path), '\\', '\\\\')\"
+    -DBUILD2_NATIVE_CXX=\"$regex.replace(\
+      $quote($recall($cxx.path)), '\\', '\\\\')\"
 
 if $defined(config.build2.default_cxx)
   {obja objs}{init}: cxx.poptions += \
