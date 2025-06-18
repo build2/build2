@@ -5,6 +5,8 @@
 
 #include <iomanip> // left, setw()
 
+#include <libbutl/string-parser.hxx> // string_parser::parse_quoted()
+
 #include <libbuild2/scope.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/diagnostics.hxx>
@@ -105,21 +107,23 @@ namespace build2
           strings d;
 
           if (cc_loaded)
+          {
             d = guess_default (x_lang,
                                cast<string>  (rs["cc.id"]),
                                cast<string>  (rs["cc.pattern"]),
                                cast<strings> (rs["cc.mode"]));
+          }
           else
           {
-            // Note that we don't have the default mode: it doesn't feel
-            // correct to default to, say, -m64 simply because that's how
-            // build2 was built.
-            //
-            d.push_back (x_default);
-
-            if (d.front ().empty ())
+            if (*x_default == '\0')
               fail << "not built with default " << x_lang << " compiler" <<
                 info << "use " << config_x << " to specify";
+
+            // We currently only support values that can be quoted with single
+            // quotes (and if the result were to contain double quotes, it
+            // won't get past the preprocessor).
+            //
+            d = string_parser::parse_quoted (x_default, true /*unquote*/);
           }
 
           // If this value was hinted, save it as commented out so that if the

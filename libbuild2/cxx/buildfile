@@ -40,12 +40,17 @@ objs{*}: cxx.poptions += -DLIBBUILD2_CXX_SHARED_BUILD
 cross = ($cxx.target.cpu != $build.host.cpu || \
          $cxx.target.system != $build.host.system)
 
-# Pass native C++ compiler path (not forgetting to escape backslashes on
-# Windows). It is used as defaults for BUILD2_DEFAULT_CXX.
+# Pass native/default C++ compiler paths (not forgetting to escape backslashes
+# on Windows).
 #
 if! $cross
   {obja objs}{init}: cxx.poptions += \
     -DBUILD2_NATIVE_CXX=\"$regex.replace($recall($cxx.path), '\\', '\\\\')\"
+
+if $defined(config.build2.default_cxx)
+  {obja objs}{init}: cxx.poptions += \
+    -DBUILD2_DEFAULT_CXX=\"$regex.replace(\
+      $quote($config.build2.default_cxx), '\\', '\\\\')\"
 
 # Export options.
 #

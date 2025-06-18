@@ -75,7 +75,8 @@ libul{build2}: config/{hxx ixx txx cxx}{** -host-config -**.test...} \
 # want to cross-compile a build system).
 #
 # For the ~host configuration we only want c/cxx/cc and bin that they load.
-# For ~build2 we want to keep everything except dist.
+# For ~build2 we want to keep everything except config.dist.* and
+# config.build2.* (none of them currently affect the interface).
 #
 # We also remove comment lines which could be confused with preprocessor
 # directives by some lesser compilers and blank lines between groups of
@@ -107,11 +108,22 @@ build2_config_lines = [strings]
 host_config_no_warnings_lines = [strings]
 build2_config_no_warnings_lines = [strings]
 
-for l: $regex.replace_lines(                                                   \
-  $config.save(),                                                              \
-  '^( *(#|(config\.(test[. ]|dist\.|install\.chroot|config\.hermetic))).*|)$', \
+for l: $regex.replace_lines(                                                            \
+  $config.save(),                                                                       \
+  '^( *(#|(config\.(build2\.|test[. ]|dist\.|install\.chroot|config\.hermetic))).*|)$', \
   [null])
 {
+
+  if ($defined(config.build2.host_c) && $regex.match($l, 'config\.c[ =].*'))
+  {
+    l = "config.c = $quote($config.build2.host_c)"
+  }
+
+  if ($defined(config.build2.host_cxx) && $regex.match($l, 'config\.cxx[ =].*'))
+  {
+    l = "config.cxx = $quote($config.build2.host_cxx)"
+  }
+
   # Note: also preserve config.version.
   #
   h = [null]
