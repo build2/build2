@@ -113,16 +113,39 @@ for l: $regex.replace_lines(                                                    
   '^( *(#|(config\.(build2\.|test[. ]|dist\.|install\.chroot|config\.hermetic))).*|)$', \
   [null])
 {
-
   if ($defined(config.build2.host_c) && $regex.match($l, 'config\.c[ =].*'))
-  {
     l = "config.c = $quote($config.build2.host_c)"
-  }
 
   if ($defined(config.build2.host_cxx) && $regex.match($l, 'config\.cxx[ =].*'))
-  {
     l = "config.cxx = $quote($config.build2.host_cxx)"
-  }
+
+  # config.c.[pcl]options
+  #
+  if ($defined(config.build2.host_c_poptions) && \
+      $regex.match($l, 'config\.c\.poptions[ =].*'))
+    l = "config.c.poptions = $quote($config.build2.host_c_poptions)"
+
+  if ($defined(config.build2.host_c_coptions) && \
+      $regex.match($l, 'config\.c\.coptions[ =].*'))
+    l = "config.c.coptions = $quote($config.build2.host_c_coptions)"
+
+  if ($defined(config.build2.host_c_loptions) && \
+      $regex.match($l, 'config\.c\.loptions[ =].*'))
+    l = "config.c.loptions = $quote($config.build2.host_c_loptions)"
+
+  # config.cxx.[pcl]options
+  #
+  if ($defined(config.build2.host_cxx_poptions) && \
+      $regex.match($l, 'config\.cxx\.poptions[ =].*'))
+    l = "config.cxx.poptions = $quote($config.build2.host_cxx_poptions)"
+
+  if ($defined(config.build2.host_cxx_coptions) && \
+      $regex.match($l, 'config\.cxx\.coptions[ =].*'))
+    l = "config.cxx.coptions = $quote($config.build2.host_cxx_coptions)"
+
+  if ($defined(config.build2.host_cxx_loptions) && \
+      $regex.match($l, 'config\.cxx\.loptions[ =].*'))
+    l = "config.cxx.loptions = $quote($config.build2.host_cxx_loptions)"
 
   # Note: also preserve config.version.
   #

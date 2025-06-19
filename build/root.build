@@ -27,6 +27,26 @@ config [strings] config.build2.default_cxx
 config [strings] config.build2.host_c
 config [strings] config.build2.host_cxx
 
+# Host preprocess/compile/link options for C and C++ compilers. These are used
+# as the values for config.c.[pcl]options and config.cxx.[pcl]options,
+# respectively, in embedded ~host and ~build2 configurations.
+#
+# If not specified, the options used to build the build system are used as the
+# defaults. Note that if specified, they should be compatible with the rest of
+# the ~host/~build2 configuration (compiler, etc) and ABI-compatible with the
+# build system build.
+#
+# Note: overriding these is normally only necessary when building binary
+# distribution packages. Note also that currently we assume config.cc.*
+# variants are not used (as is the case for bpkg-pkg-bindist).
+#
+config [strings] config.build2.host_c_poptions
+config [strings] config.build2.host_c_coptions
+config [strings] config.build2.host_c_loptions
+config [strings] config.build2.host_cxx_poptions
+config [strings] config.build2.host_cxx_coptions
+config [strings] config.build2.host_cxx_loptions
+
 # Temporary ability to build with now deprecated libpkgconf instead of
 # libpkg-config. Note that libpkgconf is known to have issues on Windows and
 # Mac OS so this should only be used on Linux and maybe BSDs. Also note that
