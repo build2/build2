@@ -31,7 +31,8 @@ main ()
   // Test line_char.
   //
   {
-    static_assert (is_trivial<lc>::value         &&
+    static_assert (is_trivially_default_constructible<lc>::value &&
+                   is_trivially_copyable<lc>::value &&
                    is_standard_layout<lc>::value &&
                    !is_array<lc>::value,
                    "line_char must be char-like");
