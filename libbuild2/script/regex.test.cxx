@@ -31,11 +31,20 @@ main ()
   // Test line_char.
   //
   {
-    static_assert (is_trivially_default_constructible<lc>::value &&
-                   is_trivially_copyable<lc>::value &&
-                   is_standard_layout<lc>::value &&
-                   !is_array<lc>::value,
-                   "line_char must be char-like");
+    // std::is_trivial is deprecated in C++26 but some older compilers
+    // (like GCC 4.9) don't have C++11 std::is_trivially_copyable and
+    // std::is_trivially_default_constructible.
+    //
+    static_assert (
+#if __cplusplus > 202302
+      is_trivially_default_constructible<lc>::value &&
+      is_trivially_copyable<lc>::value &&
+#else
+      is_trivial<lc>::value &&
+#endif
+      is_standard_layout<lc>::value &&
+      !is_array<lc>::value,
+      "line_char must be char-like");
 
     // Zero-initialed line_char should be the null-char as required by
     // char_traits<>::length() specification.
