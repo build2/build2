@@ -47,6 +47,12 @@ config [strings] config.build2.host_cxx_poptions
 config [strings] config.build2.host_cxx_coptions
 config [strings] config.build2.host_cxx_loptions
 
+# Host rpaths. These are used as the value for config.bin.rpath in embedded
+# ~host (but not ~build2) configuration. If not specified, the ~host rpath
+# is set to [null] (even if the build system itself is built with rpath).
+#
+config [dir_paths] config.build2.host_rpath
+
 # Temporary ability to build with now deprecated libpkgconf instead of
 # libpkg-config. Note that libpkgconf is known to have issues on Windows and
 # Mac OS so this should only be used on Linux and maybe BSDs. Also note that

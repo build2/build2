@@ -87,7 +87,7 @@ libul{build2}: config/{hxx ixx txx cxx}{** -host-config -**.test...} \
 # library build/link preferences). In particular, we don't want to force
 # config.bin.lib=shared since that will cause static libraries to link shared
 # versions of their prerequisites (see mysql-client for a case where this can
-# make a difference).
+# make a difference). Also sanitize config.bin.rpath*.
 #
 # For ~build2 also filter out config.install.chroot -- we definitely don't
 # want it carried through. Also filter out variables that control tests
@@ -113,39 +113,39 @@ for l: $regex.replace_lines(                                                    
   '^( *(#|(config\.(build2\.|test[. ]|dist\.|install\.chroot|config\.hermetic))).*|)$', \
   [null])
 {
-  if ($defined(config.build2.host_c) && $regex.match($l, 'config\.c[ =].*'))
-    l = "config.c = $quote($config.build2.host_c)"
+  if ($defined(config.build2.host_c) && $regex.match($l, ' *config\.c[ =].*'))
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_c)")
 
-  if ($defined(config.build2.host_cxx) && $regex.match($l, 'config\.cxx[ =].*'))
-    l = "config.cxx = $quote($config.build2.host_cxx)"
+  if ($defined(config.build2.host_cxx) && $regex.match($l, ' *config\.cxx[ =].*'))
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_cxx)")
 
   # config.c.[pcl]options
   #
   if ($defined(config.build2.host_c_poptions) && \
-      $regex.match($l, 'config\.c\.poptions[ =].*'))
-    l = "config.c.poptions = $quote($config.build2.host_c_poptions)"
+      $regex.match($l, ' *config\.c\.poptions[ =].*'))
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_c_poptions)")
 
   if ($defined(config.build2.host_c_coptions) && \
-      $regex.match($l, 'config\.c\.coptions[ =].*'))
-    l = "config.c.coptions = $quote($config.build2.host_c_coptions)"
+      $regex.match($l, ' *config\.c\.coptions[ =].*'))
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_c_coptions")
 
   if ($defined(config.build2.host_c_loptions) && \
-      $regex.match($l, 'config\.c\.loptions[ =].*'))
-    l = "config.c.loptions = $quote($config.build2.host_c_loptions)"
+      $regex.match($l, ' *config\.c\.loptions[ =].*'))
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_c_loptions")
 
   # config.cxx.[pcl]options
   #
   if ($defined(config.build2.host_cxx_poptions) && \
-      $regex.match($l, 'config\.cxx\.poptions[ =].*'))
-    l = "config.cxx.poptions = $quote($config.build2.host_cxx_poptions)"
+      $regex.match($l, ' *config\.cxx\.poptions[ =].*'))
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_cxx_poptions)")
 
   if ($defined(config.build2.host_cxx_coptions) && \
-      $regex.match($l, 'config\.cxx\.coptions[ =].*'))
-    l = "config.cxx.coptions = $quote($config.build2.host_cxx_coptions)"
+      $regex.match($l, ' *config\.cxx\.coptions[ =].*'))
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_cxx_coptions)")
 
   if ($defined(config.build2.host_cxx_loptions) && \
-      $regex.match($l, 'config\.cxx\.loptions[ =].*'))
-    l = "config.cxx.loptions = $quote($config.build2.host_cxx_loptions)"
+      $regex.match($l, ' *config\.cxx\.loptions[ =].*'))
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_cxx_loptions)")
 
   # Note: also preserve config.version.
   #
@@ -168,6 +168,20 @@ for l: $regex.replace_lines(                                                    
       if $regex.match($l, ' *config\.(c|cxx|cc)\.(coptions|loptions)[ =].*')
       {
         h = $regex.replace($l, ' ?-f(no-)?sanitize[=-][^ ]+', '')
+      }
+      # Sanitize/override config.bin.{rpath,rpath_link}.
+      #
+      elif $regex.match($l, ' *config\.bin\.rpath[ =].*')
+      {
+        h = $regex.replace($l,     \
+                           '=.*$', \
+                           ($defined(config.build2.host_rpath)      \
+                            ? "= $quote($config.build2.host_rpath)" \
+                            : '= [null]'))
+      }
+      elif $regex.match($l, ' *config\.bin\.rpath_link[ =].*')
+      {
+        h = $regex.replace($l, '=.*$', '= [null]')
       }
       else
         h = $l
