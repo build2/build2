@@ -127,11 +127,11 @@ for l: $regex.replace_lines(                                                    
 
   if ($defined(config.build2.host_c_coptions) && \
       $regex.match($l, ' *config\.c\.coptions[ =].*'))
-    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_c_coptions")
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_c_coptions)")
 
   if ($defined(config.build2.host_c_loptions) && \
       $regex.match($l, ' *config\.c\.loptions[ =].*'))
-    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_c_loptions")
+    l = $regex.replace($l, '=.*$', "= $quote($config.build2.host_c_loptions)")
 
   # config.cxx.[pcl]options
   #
