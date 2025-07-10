@@ -2796,9 +2796,8 @@ namespace build2
                 else
                 {
                   if (cmd.exit)
-                    *dr << "exit code " << ec
-                        << (cmp == exit_comparison::eq ? " != " : " == ")
-                        << exc;
+                    *dr << "exit code " << ec << ", expected "
+                        << (cmp == exit_comparison::eq ? "" : "!= ") << exc;
                   else
                     *dr << "exited with code " << ec;
                 }
