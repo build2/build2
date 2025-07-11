@@ -38,7 +38,7 @@ b += --no-column
   $c <<EOI && $b 2>>/~%EOE% != 0
   $* -s 1 != 1
   EOI
-  %testscript:1: error: process ../../../../driver(.exe)? exit code 1, expected != 1%
+  %testscript:1: error: process ../../../../driver(.exe)? exit code 1, expected not 1%
     info: test id: 1
   EOE
 }}
@@ -111,7 +111,7 @@ EOE
     : false
     :
     $c <'$* -s 1 != 1' && $b 2>>/~%EOE% != 0
-    %testscript:1: error: process ../../../../../driver(.exe)? exit code 1, expected != 1%
+    %testscript:1: error: process ../../../../../driver(.exe)? exit code 1, expected not 1%
       info: test id: 1
     EOE
   }}
