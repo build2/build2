@@ -1167,19 +1167,62 @@ namespace build2
         // database until later which will sure complicate (and slow down)
         // things.
         //
-        if (dir != nullptr)
         {
-          // We can do it properly by using execute_direct(). But this means
-          // we will be switching to the execute phase with all the associated
-          // overheads. At the same time, in case of update, creation of a
-          // directory is not going to change the external state in any way
-          // that would affect any parallel efforts in building the internal
-          // state. So we are just going to create the directory directly.
-          // Note, however, that we cannot modify the fsdir{} target since
-          // this can very well be happening in parallel. But that's not a
-          // problem since fsdir{}'s update is idempotent.
+          const fsdir* d (dir);
+
+          // Consider the following setup:
           //
-          fsdir_rule::perform_update_direct (a, *dir);
+          // gen/cxx{foo}: fsdir{gen/}
+          // {{
+          //    ...
+          // }}
+          //
+          // exe{foo}: ... get/cxx{foo}
+          //
+          // For this to work, the synthesized get/obje{foo}:gen/cxx{foo}
+          // dependency also needs to include fsdir{gen/} as a prerequisite.
+          // After some meditation, it becomes clear that we should just copy
+          // the fsdir{} prerequisite from the source file, if one exists.
+          // However, doing this during the dependency synthesis in the link
+          // rule is not exactly easy, or even possible: to copy the
+          // prerequisite we need to search the source file, but that can only
+          // be done by the rule that matches the object file (maybe we could
+          // relax that rule and allow searching for prerequisites that
+          // resolve to defined targets -- that part should always be done
+          // first and cannot be customized away by a rule). As a result, we
+          // have the somewhat-equivalent logic here for now.
+          //
+          if (d == nullptr)
+          {
+            const auto& spts (src.prerequisite_targets[a]);
+
+            // Static sources will have no prerequisites.
+            //
+            if (spts.size () != 0)
+            {
+              for (const target* pt: spts)
+              {
+                if (pt != nullptr && (d = pt->is_a<fsdir> ()) != nullptr)
+                  break;
+              }
+            }
+          }
+
+          if (d != nullptr)
+          {
+            // We can do it properly by using execute_direct(). But this means
+            // we will be switching to the execute phase with all the
+            // associated overheads. At the same time, in case of update,
+            // creation of a directory is not going to change the external
+            // state in any way that would affect any parallel efforts in
+            // building the internal state. So we are just going to create the
+            // directory directly.  Note, however, that we cannot modify the
+            // fsdir{} target since this can very well be happening in
+            // parallel. But that's not a problem since fsdir{}'s update is
+            // idempotent.
+            //
+            fsdir_rule::perform_update_direct (a, *d);
+          }
         }
 
         // Use the subset of the depdb checks to detect changes to the

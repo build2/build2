@@ -2108,6 +2108,10 @@ namespace build2
           {
             prerequisites ps;
 
+            // @@ TODO: we should also copy fsdir{} prerequisite from the
+            //    source target, if any. For now we have a somewhat hackish
+            //    fix in compile_rule::apply(), read there for details.
+
             // Add source.
             //
             // Remove the update variable (we may have stray update=execute
