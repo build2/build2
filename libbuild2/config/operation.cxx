@@ -54,6 +54,81 @@ namespace build2
     }
 
     static void
+    link_src_root (const scope& rs)
+    {
+      const dir_path& out_root (rs.out_path ());
+      const dir_path& src_root (rs.src_path ());
+
+      path sf (src_root / rs.root_extra->src_root_file);
+      path of (out_root / rs.root_extra->src_root_file);
+
+      // Note that we don't issue any diagnostics if making the hard link is
+      // not possible and we fall back to copying. While it may seem like a
+      // warning to the user would be appropriate, this is an infrastructural
+      // feature meant primarily for other tools which can issue appropriate
+      // diagnostics themselves.
+      //
+      auto link = [] (const path& target, const path& link, bool copy)
+      {
+        // Note that this implementation is inspired by libbutl's mkanylink()
+        // function.
+        //
+        try
+        {
+          mkhardlink (target, link);
+
+          if (verb >= 2)
+            text << "ln " << target << ' ' << link;
+        }
+        catch (const system_error& e)
+        {
+          int c (e.code ().value ());
+          if (!(e.code ().category () == generic_category () &&
+                (c == ENOSYS || // Not implemented.
+                 c == EPERM  || // Not supported by the filesystem(s).
+                 c == EXDEV)))  // On different filesystems.
+          {
+            if (verb >= 2)
+              text << "ln " << target << ' ' << link;
+
+            fail << "unable to create hard link " << link << " to " << target
+                 << ": " << e;
+          }
+
+          if (copy)
+          try
+          {
+            if (verb >= 2)
+              text << "cp " << target << ' ' << link;
+
+            cpfile (target, link);
+          }
+          catch (const system_error& e)
+          {
+            fail << "unable to copy file " << target << " to " << link
+                 << ": " << e;
+          }
+        }
+      };
+
+      if (exists (sf))
+      {
+        // If unable to make a hard link, let's copy it in case it contains
+        // something custom.
+        //
+        link (sf, of, true /* copy */);
+      }
+      else
+      {
+        // Let's not copy the file to src_root if unable to make a hard link
+        // (the absence could be used by the caller as an indication).
+        //
+        save_src_root (rs);
+        link (of, sf, false /* copy */);
+      }
+    }
+
+    static void
     save_out_root (const scope& rs)
     {
       const dir_path& out_root (rs.out_path ());
@@ -693,7 +768,8 @@ namespace build2
                        const scope& rs,
                        const variable* c_s, // config.config.save
                        const module& mod,
-                       project_set& projects)
+                       project_set& projects,
+                       bool hardlink)
     {
       tracer trace ("configure_project");
 
@@ -714,6 +790,12 @@ namespace build2
       {
         mkdir_p (out_root / rs.root_extra->build_dir, 1);
         mkdir (out_root / rs.root_extra->bootstrap_dir, 2);
+
+        if (hardlink)
+        {
+          mkdir (src_root / rs.root_extra->build_dir, 2); // Simple project?
+          mkdir (src_root / rs.root_extra->bootstrap_dir, 2);
+        }
       }
 
       // We distinguish between a complete configure and operation-specific.
@@ -728,10 +810,15 @@ namespace build2
         if (cast_false<bool> (rs["config.config.hermetic"]))
           save_environment (const_cast<scope&> (rs), const_cast<module&> (mod));
 
-        // Save src-root.build unless out_root is the same as src.
+        // Save/link src-root.build unless out_root is the same as src.
         //
         if (c_s == nullptr && out_root != src_root)
-          save_src_root (rs);
+        {
+          if (hardlink)
+            link_src_root (rs);
+          else
+            save_src_root (rs);
+        }
 
         // Save config.build unless an alternative is specified with
         // config.config.save. Similar to config.config.load we will only save
@@ -802,7 +889,15 @@ namespace build2
           {
             if (const module* m = nrs.find_module<module> (module::name))
             {
-              configure_project (a, nrs, c_s, *m, projects);
+              // Note that we never hardlink subprojects, only the top-level
+              // project.
+              //
+              configure_project (a,
+                                 nrs,
+                                 c_s,
+                                 *m,
+                                 projects,
+                                 false /* hardlink */);
             }
           }
 
@@ -867,25 +962,85 @@ namespace build2
     // Though using commas instead spaces and '=' instead of '@' would have
     // been nicer.
     //
-    static bool
-    forward (const values& params,
-             const char* mo = nullptr,
-             const location& l = location ())
+    struct configure_parameters
     {
+      bool forward = false;
+      bool hardlink = false;
+    };
+
+    struct disfigure_parameters
+    {
+      bool forward = false;
+    };
+
+    static configure_parameters
+    configure_params (const values& params, const location& l = location ())
+    {
+      configure_parameters r;
+
       if (params.size () == 1)
       {
         const names& ns (cast<names> (params[0]));
 
-        if (ns.size () == 1 && ns[0].simple () && ns[0].value == "forward")
-          return true;
-        else if (!ns.empty ())
+        for (const name& n: ns)
+        {
+          if (n.simple () && !n.pair)
+          {
+            if (n.value == "forward")
+            {
+              r.forward = true;
+              continue;
+            }
+
+            if (n.value == "hardlink")
+            {
+              r.hardlink = true;
+              continue;
+            }
+          }
+
           fail (l) << "unexpected parameter '" << ns << "' for "
-                   << "meta-operation " << mo;
+                   << "meta-operation configure";
+        }
       }
       else if (!params.empty ())
-        fail (l) << "unexpected parameters for meta-operation " << mo;
+        fail (l) << "unexpected parameters for meta-operation configure";
 
-      return false;
+      if (r.forward && r.hardlink)
+        fail (l) << "forward and hardlink parameters are mutually exclusive "
+                 << "for meta-operation configure";
+
+      return r;
+    }
+
+    static disfigure_parameters
+    disfigure_params (const values& params, const location& l = location ())
+    {
+      disfigure_parameters r;
+
+      if (params.size () == 1)
+      {
+        const names& ns (cast<names> (params[0]));
+
+        for (const name& n: ns)
+        {
+          if (n.simple () && !n.pair)
+          {
+            if (n.value == "forward")
+            {
+              r.forward = true;
+              continue;
+            }
+          }
+
+          fail (l) << "unexpected parameter '" << ns << "' for "
+                   << "meta-operation disfigure";
+        }
+      }
+      else if (!params.empty ())
+        fail (l) << "unexpected parameters for meta-operation disfigure";
+
+      return r;
     }
 
     static void
@@ -893,7 +1048,7 @@ namespace build2
     {
       // Note: see pkg_configure() in bpkg if changing anything here.
       //
-      forward (params, "configure", l); // Validate.
+      configure_params (params, l); // Validate.
     }
 
     static void
@@ -904,7 +1059,7 @@ namespace build2
                     const dir_path& src_base,
                     const location& l)
     {
-      if (forward (params))
+      if (configure_params (params).forward)
       {
         // We don't need to load the buildfiles in order to configure
         // forwarding but in order to configure subprojects we have to
@@ -930,7 +1085,7 @@ namespace build2
                       const location& l,
                       action_targets& ts)
     {
-      if (forward (params))
+      if (configure_params (params).forward)
       {
         // For forwarding we only collect the projects (again, similar to
         // disfigure).
@@ -954,7 +1109,9 @@ namespace build2
                        uint16_t,
                        bool)
     {
-      bool fwd (forward (params));
+      configure_parameters cps (configure_params (params));
+
+      bool fwd (cps.forward);
 
       context& ctx (fwd ? ts[0].as<scope> ().ctx : ts[0].as<target> ().ctx);
 
@@ -1041,7 +1198,8 @@ namespace build2
                              *rs,
                              c_s,
                              *rs->find_module<module> (module::name),
-                             projects);
+                             projects,
+                             cps.hardlink);
         }
       }
     }
@@ -1227,7 +1385,7 @@ namespace build2
     static void
     disfigure_pre (context&, const values& params, const location& l)
     {
-      forward (params, "disfigure", l); // Validate.
+      disfigure_params (params, l); // Validate.
     }
 
     static operation_id
@@ -1280,7 +1438,7 @@ namespace build2
     {
       tracer trace ("disfigure_execute");
 
-      bool fwd (forward (params));
+      bool fwd (disfigure_params (params).forward);
 
       project_set projects;
 

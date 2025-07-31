@@ -215,6 +215,11 @@ namespace build2
          $ b configure: src/@out/,forward
          \
 
+         Use the \cb{hardlink} parameter to configure an out of source build
+         that instead hard-links \cb{src-root.build} from the source
+         directory. This is primarily useful to keep track of the source
+         directory use count (as this file's hard link count).
+
          |
 
      \li|\cb{disfigure}
