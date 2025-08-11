@@ -205,8 +205,7 @@ namespace build2
         explicit
         operator T () const
         {
-          assert (type () == line_type::special);
-          return static_cast<T> (special ());
+          return static_cast<T> (type () == line_type::special ? special () : '\a'); // BELL.
         }
       };
 
