@@ -135,9 +135,15 @@ namespace build2
         // particular libstdc++ appends them to an internal line_string).
         //
         // Also note that we extend the valid characters set (see above) with
-        // 'p', 'n' (used by libstdc++ for positive/negative look-ahead
-        // tokens representation), and '\n', '\r', u'\u2028', u'\u2029' (used
-        // by libstdc++ for newline/newparagraph matching).
+        // 'p', 'n' (used by libstdc++ for positive/negative look-ahead tokens
+        // representation), and '\n', '\r', u'\u2028', u'\u2029' (used by
+        // libstdc++ for newline/newparagraph matching). Also, we accept '\a'
+        // to support "round-tripping" through the implementation-specific
+        // numeric values returned by the cast operator (see operator T()
+        // below for details). Note that such a "round-tripping" applied to a
+        // non-special character results in a special character and it's only
+        // up to msvcrt to decide on how to use that (see GH pull request #478
+        // for details).
         //
         line_char (int);
 
@@ -201,11 +207,17 @@ namespace build2
         // explicitly cast line_chars to implementation-specific numeric
         // types (enums, msvcrt's _Uelem, etc).
         //
+        // Similar to operator char(), return '\a' for the line characters of
+        // types other than special (see above for the reasoning; also see GH
+        // pull request #478 for details).
+        //
         template <typename T>
         explicit
         operator T () const
         {
-          return static_cast<T> (type () == line_type::special ? special () : '\a'); // BELL.
+          return static_cast<T> (type () == line_type::special
+                                 ? special ()
+                                 : '\a'); // BELL.
         }
       };
 
