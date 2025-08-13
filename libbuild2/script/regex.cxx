@@ -52,7 +52,13 @@ namespace build2
         // @@ How can we allow anything for basic_regex but only subset
         //    for our own code?
         //
+#ifndef _MSC_VER
+        const char ex[] = "pn\n\r";
+        const size_t exn (4);
+#else
         const char ex[] = "pn\n\r\a";
+        const size_t exn (5);
+#endif
 
         assert (c == 0  || // Null character.
 
@@ -70,9 +76,9 @@ namespace build2
                   //
                   syntax (c) ||
 
-                  // libstdc++ look-ahead tokens, newline chars.
+                  // libstdc++ look-ahead tokens, msvcrt \a, newline chars.
                   //
-                  string::traits_type::find (ex, 5, c) != nullptr)));
+                  string::traits_type::find (ex, exn, c) != nullptr)));
       }
 
       template <typename S>
