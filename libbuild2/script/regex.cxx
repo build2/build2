@@ -52,7 +52,7 @@ namespace build2
         // @@ How can we allow anything for basic_regex but only subset
         //    for our own code?
         //
-        const char ex[] = "pn\n\r";
+        const char ex[] = "pn\n\r\a";
 
         assert (c == 0  || // Null character.
 
@@ -72,7 +72,7 @@ namespace build2
 
                   // libstdc++ look-ahead tokens, newline chars.
                   //
-                  string::traits_type::find (ex, 4, c) != nullptr)));
+                  string::traits_type::find (ex, 5, c) != nullptr)));
       }
 
       template <typename S>
