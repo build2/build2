@@ -450,7 +450,10 @@ namespace build2
 
     // $process.run(<prog>[ <args>...])
     //
-    // Run builtin or external program and return trimmed `stdout` output.
+    // Run builtin or external program and return trimmed `stdout` output as a
+    // single value. If you need to split the output into lines, see the
+    // `$process.run_regex()` function. If you need to split the output in
+    // other ways (words, etc), see the `$regex.*()` function family.
     //
     // Note that if the result of executing the program can be affected by
     // environment variables and this result can in turn affect the build
@@ -473,7 +476,8 @@ namespace build2
     // $process.run_regex(<prog>[ <args>...], <pat>[, <fmt>])
     //
     // Run builtin or external program and return `stdout` output lines
-    // matched and optionally processed with a regular expression.
+    // matched and optionally processed with a regular expression. The result
+    // is a list of values, one per line.
     //
     // Each line of stdout (including the customary trailing blank) is matched
     // (as a whole) against <pat> and, if successful, returned, optionally
