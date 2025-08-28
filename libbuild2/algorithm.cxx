@@ -2496,7 +2496,7 @@ namespace build2
   }
 
   static optional<backlink_mode>
-  backlink_test (action a, target& t)
+  backlink_test (action a, const target& t)
   {
     using mode = backlink_mode;
 
@@ -2800,7 +2800,9 @@ namespace build2
       backlinks bls;
       optional<backlink_mode> blm;
 
-      if (t.group == nullptr) // Matched so must be already resolved.
+      // Matched so must be already resolved.
+      //
+      if (t.group == nullptr || !backlink_test (a, *t.group))
       {
         blm = backlink_test (a, t);
 
