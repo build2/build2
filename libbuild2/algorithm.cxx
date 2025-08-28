@@ -2496,7 +2496,7 @@ namespace build2
   }
 
   static optional<backlink_mode>
-  backlink_test (action a, target& t)
+  backlink_test (action a, const target& t)
   {
     using mode = backlink_mode;
 
@@ -2586,7 +2586,7 @@ namespace build2
     // inherit the one from the group (so if the user asked to copy
     // .exe, we will also copy .pdb).
     //
-    // Note that we want to avoid group or tt/patter-spec lookup. And
+    // Note that we want to avoid group or tt/pattern-spec lookup. And
     // since this is an ad hoc member (which means it was either declared
     // in the buildfile or added by the rule), we assume that the value,
     // if any, will be set as a target or rule-specific variable.
@@ -2705,15 +2705,30 @@ namespace build2
       //
       if (verb == 1)
       {
+        auto entry_exists = [] (const path& p)
+        {
+          return butl::entry_exists (p,
+                                     false /* follow_symlinks */,
+                                     true  /* ignore_errors */);
+        };
+
         bool changed (ts == target_state::changed);
 
         if (!changed)
         {
-          for (const backlink& bl: bls)
+          for (backlink& bl: bls)
           {
-            changed = !butl::entry_exists (bl.path,
-                                           false /* follow_symlinks */,
-                                           true  /* ignore_errors */);
+            // Don't print non-existing targets (normally adhoc members),
+            // since we won't backlink them. Reset the print flag not to
+            // re-stat the filesystem entry below.
+            //
+            bool te (entry_exists (bl.target));
+
+            if (!te)
+              bl.print = false;
+
+            changed = te && !entry_exists (bl.path);
+
             if (changed)
               break;
           }
@@ -2734,7 +2749,7 @@ namespace build2
             tks.reserve (bls.size ());
 
             for (const backlink& bl: bls)
-              if (bl.print)
+              if (bl.print && entry_exists (bl.target))
                 tks.push_back (bl.member->key ());
 
             print_diag (c, move (tks), d);
@@ -2794,13 +2809,25 @@ namespace build2
       // which is ok since such targets are probably not interesting for
       // backlinking.
       //
-      // Note also that for group members (both ad hoc and non) backlinking
-      // is handled when updating/cleaning the group.
+      // Note also that for group members (both ad hoc and non) backlinking is
+      // handled when updating/cleaning the group.
       //
       backlinks bls;
       optional<backlink_mode> blm;
 
-      if (t.group == nullptr) // Matched so must be already resolved.
+      // Note that we may have a group but it may not be built so we also
+      // checked that it's matched (and thus will be executed). Likewise,
+      // the group may not be backlinked as a whole, but the member might.
+      //
+      // The matched() test is not perfect (the group may end up being matched
+      // in order to be resolved but not executed) but it's good enough for
+      // now.
+      //
+      // Note: matched so the group must be already resolved.
+      //
+      if (t.group == nullptr    ||
+          !t.group->matched (a) ||
+          !backlink_test (a, *t.group))
       {
         blm = backlink_test (a, t);
 
