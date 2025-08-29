@@ -3,6 +3,8 @@
 
 #include <libbuild2/config/operation.hxx>
 
+#include <libbutl/filesystem.hxx> // readsymlink(), path_entry()
+
 #include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
@@ -1378,6 +1380,114 @@ namespace build2
       //
       r = rmfile (ctx, src_root / rs.root_extra->out_root_file)    || r;
       r = rmdir  (ctx, src_root / rs.root_extra->bootstrap_dir, 2) || r;
+
+      // If configured out of source, remove the backlinks since they may
+      // potentially become dangling under certain scenarios (see GH issue
+      // #389 for details).
+      //
+      // Note that there is no easy way to distinguish backlinks from other
+      // filesystem entries. Also, only backlinks implemented as symlinks are
+      // actually causing troubles. Thus, we will just remove all the symlinks
+      // in the source directory, which refer into the output directory.
+      //
+      if (out_root != src_root)
+      {
+        // Traverse the specified directory recursively, removing symlinks
+        // which refer into the output directory.
+        //
+        auto remove_backlinks = [&out_root,
+                                 &ctx] (const dir_path& d,
+                                        const auto& remove_backlinks) -> void
+        {
+          try
+          {
+            for (const dir_entry& de: dir_iterator (d, dir_iterator::no_follow))
+            {
+              // Skip entries which may not be or contain backlinks.
+              //
+              const string& s (de.path ().string ());
+
+              if (s.compare (0, 4, ".git") == 0 &&
+                  s == ".bdep"                  &&
+                  s == ".bpkg"                  &&
+                  s == ".build2")
+                continue;
+
+              path p (d / de.path ());
+
+              entry_type t;
+
+              try
+              {
+                t = de.ltype ();
+              }
+              catch (const system_error& e)
+              {
+                fail << "unable to stat " << p << ": " << e;
+              }
+
+              switch (t)
+              {
+              case entry_type::symlink:
+                {
+                  path tp; // Symlink target path.
+
+                  try
+                  {
+                    tp = readsymlink (p);
+
+                    if (tp.relative ())
+                      tp = p.directory () / tp;
+                  }
+                  catch (const system_error& e)
+                  {
+                    fail << "unable to read symlink " << p << ": " << e;
+                  }
+
+                  try
+                  {
+                    if (!tp.normalized ())
+                      tp.normalize ();
+                  }
+                  catch (const invalid_path&)
+                  {
+                    fail << "invalid symlink " << p << " target path: " << tp;
+                  }
+
+                  if (tp.sub (out_root))
+                  {
+                    pair<bool, entry_stat> pe (
+                      path_entry (tp,
+                                  false /* follow_symlinks */,
+                                  true /* ignore_error */));
+
+                    rmsymlink (ctx,
+                               p,
+                               (pe.first &&
+                                pe.second.type == entry_type::directory),
+                               2);
+                  }
+
+                  break;
+                }
+              case entry_type::directory:
+                {
+                  remove_backlinks (path_cast<dir_path> (move (p)),
+                                    remove_backlinks);
+                  break;
+                }
+              default: break; // Skip entries of other types.
+              }
+            }
+          }
+          catch (const system_error& e)
+          {
+            fail << "unable to iterate over " << d << ": " << e;
+          }
+        };
+
+        remove_backlinks (src_root, remove_backlinks);
+      }
 
       return r;
     }
