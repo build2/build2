@@ -680,6 +680,9 @@ namespace build2
         // the notion of VCS root at this level). So let's keep it simple for
         // now.
         //
+        // NOTE: consider updating disfigure_forward() if changing the above
+        //       list of ignored targets.
+        //
         add_subdir (rs, dir_path (), files);
       }
 

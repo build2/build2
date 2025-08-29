@@ -3,6 +3,8 @@
 
 #include <libbuild2/config/operation.hxx>
 
+#include <libbutl/filesystem.hxx> // readsymlink(), path_entry()
+
 #include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
@@ -1378,6 +1380,124 @@ namespace build2
       //
       r = rmfile (ctx, src_root / rs.root_extra->out_root_file)    || r;
       r = rmdir  (ctx, src_root / rs.root_extra->bootstrap_dir, 2) || r;
+
+      // Remove backlinks since they may potentially become dangling under
+      // certain scenarios (see GH issue #389 for details).
+      //
+      // Note that there is no easy way to distinguish backlinks from other
+      // filesystem entries. Also, only backlinks implemented as symlinks are
+      // actually causing troubles. Thus, we will just remove all the symlinks
+      // in the source directory with targers in the output directory.
+      //
+      if (out_root != src_root) // Check for good measure.
+      {
+        // Traverse the specified directory recursively, removing symlinks
+        // which refer into the output directory.
+        //
+        auto remove_backlinks = [&out_root,
+                                 &ctx] (const dir_path& d,
+                                        const auto& remove_backlinks) -> void
+        {
+          try
+          {
+            for (const dir_entry& de: dir_iterator (d, dir_iterator::no_follow))
+            {
+              // Skip entries which may not contain (or be) backlinks.
+              //
+              // NOTE: consider updating dist_project() if changing the list
+              //       of skipped entries.
+              //
+              const string& s (de.path ().string ());
+
+              if (s.compare (0, 4, ".git") == 0 &&
+                  s == ".bdep"                  &&
+                  s == ".bpkg"                  &&
+                  s == ".build2")
+                continue;
+
+              path p (d / de.path ());
+
+              entry_type t;
+
+              try
+              {
+                t = de.ltype ();
+              }
+              catch (const system_error& e)
+              {
+                fail << "unable to stat " << p << ": " << e;
+              }
+
+              switch (t)
+              {
+              case entry_type::symlink:
+                {
+                  path tp; // Symlink target path.
+
+                  try
+                  {
+                    tp = readsymlink (p);
+
+                    // Skip the symlink if it's target path is relative, since
+                    // it may not be a backlink.
+                    //
+                    if (tp.relative ())
+                      continue;
+                  }
+                  catch (const system_error& e)
+                  {
+                    fail << "unable to read symlink " << p << ": " << e;
+                  }
+
+                  // Skip the symlink if it's target path is not normalized,
+                  // since it may not be a backlink.
+                  //
+                  if (!tp.normalized ())
+                    continue;
+
+                  if (tp.sub (out_root))
+                  {
+                    // Don't fail on dangling backlinks.
+                    //
+                    pair<bool, entry_stat> pe (
+                      path_entry (tp,
+                                  false /* follow_symlinks */,
+                                  true /* ignore_error */));
+
+                    // Note that we are unable to detect the symlink type for
+                    // a dangling backlink. However, the underlying
+                    // try_rmsymlink() function doesn't actually distinguish
+                    // between the directory and file symlinks and thus we
+                    // always remove the dangling backlinks as the file
+                    // symlinks.
+                    //
+                    rmsymlink (ctx,
+                               p,
+                               (pe.first &&
+                                pe.second.type == entry_type::directory),
+                               2);
+                  }
+
+                  break;
+                }
+              case entry_type::directory:
+                {
+                  remove_backlinks (path_cast<dir_path> (move (p)),
+                                    remove_backlinks);
+                  break;
+                }
+              default: break; // Skip entries of other types.
+              }
+            }
+          }
+          catch (const system_error& e)
+          {
+            fail << "unable to iterate over " << d << ": " << e;
+          }
+        };
+
+        remove_backlinks (src_root, remove_backlinks);
+      }
 
       return r;
     }

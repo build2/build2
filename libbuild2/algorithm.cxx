@@ -2278,6 +2278,9 @@ namespace build2
         if (!(d ? dir_exists (p) : file_exists (p)))
           return;
 
+        // NOTE: in disfigure_forward() we assume backlink symlinks have
+        //       absolute and normalized target paths.
+        //
         switch (m)
         {
         case mode::link:
