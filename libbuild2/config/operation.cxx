@@ -1456,27 +1456,7 @@ namespace build2
                     continue;
 
                   if (tp.sub (out_root))
-                  {
-                    // Don't fail on dangling backlinks.
-                    //
-                    pair<bool, entry_stat> pe (
-                      path_entry (tp,
-                                  false /* follow_symlinks */,
-                                  true /* ignore_error */));
-
-                    // Note that we are unable to detect the symlink type for
-                    // a dangling backlink. However, the underlying
-                    // try_rmsymlink() function doesn't actually distinguish
-                    // between the directory and file symlinks and thus we
-                    // always remove the dangling backlinks as the file
-                    // symlinks.
-                    //
-                    rmsymlink (ctx,
-                               p,
-                               (pe.first &&
-                                pe.second.type == entry_type::directory),
-                               2);
-                  }
+                    rmsymlink (ctx, p, 2);
 
                   break;
                 }

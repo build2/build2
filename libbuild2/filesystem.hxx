@@ -111,7 +111,7 @@ namespace build2
   // Similar to rmfile() but for symlinks.
   //
   LIBBUILD2_SYMEXPORT fs_status<rmfile_status>
-  rmsymlink (context&, const path&, bool dir, uint16_t verbosity);
+  rmsymlink (context&, const path&, uint16_t verbosity);
 
   // Similar to rmfile() but for directories (note: not -r).
   //

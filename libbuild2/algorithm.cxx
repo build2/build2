@@ -2220,7 +2220,7 @@ namespace build2
       {
       case mode::link:
       case mode::symbolic:
-      case mode::hard:      try_rmsymlink (l, true /* directory */, ie); break;
+      case mode::hard:      try_rmsymlink (l, ie);                       break;
       case mode::copy:      try_rmdir_r   (path_cast<dir_path> (l), ie); break;
       case mode::overwrite:                                              break;
       }
@@ -2388,7 +2388,7 @@ namespace build2
       {
       case mode::link:
       case mode::symbolic:
-      case mode::hard:  rmsymlink (ctx, l, true /* directory */, v);     break;
+      case mode::hard:  rmsymlink (ctx, l, v);                           break;
       case mode::copy:  rmdir_r (ctx, path_cast<dir_path> (l), true, v); break;
       case mode::overwrite:                                              break;
       }

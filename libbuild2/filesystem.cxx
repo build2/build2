@@ -144,7 +144,7 @@ namespace build2
   }
 
   fs_status<rmfile_status>
-  rmsymlink (context& ctx, const path& p, bool d, uint16_t v)
+  rmsymlink (context& ctx, const path& p, uint16_t v)
   {
     auto print = [&p, v] (bool ovr)
     {
@@ -168,7 +168,7 @@ namespace build2
         ? (butl::entry_exists (p)
            ? rmfile_status::success
            : rmfile_status::not_exist)
-        : try_rmsymlink (p, d);
+        : try_rmsymlink (p);
     }
     catch (const system_error& e)
     {
