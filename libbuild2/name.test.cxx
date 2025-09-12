@@ -73,6 +73,7 @@ namespace build2
       // Normal quoting.
       //
       assert (ts (name (dir ("bar baz/"), "dir", "foo fox")) == "'bar baz/'dir{'foo fox'}");
+      assert (ts (name (dir ("bar baz/"), "",    "foo fox")) == "'bar baz/foo fox'");
 
       // Effective quoting.
       //
@@ -91,6 +92,7 @@ namespace build2
       assert (ts (name (dir ("/bar/"),     "dir", ""))    == "dir{./}");
       assert (ts (name (dir ("/bar/"),     "",    "foo")) == "foo");
       assert (ts (name (dir ("/bar/baz/"), "dir", ""))    == "dir{baz/}");
+      assert (ts (name (dir ("/bar/b az"), "",    "foo")) == "'b az/foo'");
 #endif
     }
 

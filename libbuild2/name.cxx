@@ -210,9 +210,14 @@ namespace build2
       bool curly = false)
     {
       if (q != quote_mode::none)
+      {
+        // Note that diag_relative() just returns a directory representation
+        // for a relative path.
+        //
         write_string (dv < 1 ? diag_relative (d) : d.representation (),
                       pat,
                       curly);
+      }
       else
         os << d;
     };
@@ -239,9 +244,37 @@ namespace build2
     bool v (!n.value.empty ());
     bool t (!n.type.empty ());
 
-    // Note: relative() may return empty.
+    // If both the name directory and value are not empty but the type is
+    // empty, then the directory and value are written sequentially. If any of
+    // them needs to be quoted, then we will end up with a valid but strange-
+    // looking construct, for example:
     //
-    const dir_path& rd (dv < 1 ? relative (n.dir) : n.dir); // Relative.
+    // 'f oo/'bar
+    // foo/'b ar'
+    // 'f oo'/'b ar'
+    //
+    // Let's handle such cases specially to quote the whole name
+    // representation. Note that this approach doesn't work well for name
+    // patterns, since in this case the special character sets will differ for
+    // the directory and value parts.
+    //
+    if (q != quote_mode::none && d && v && !t && !n.pattern)
+    {
+      // Note that we request diag_relative() to return an empty path rather
+      // than `./` if the name directory is a relative base.
+      //
+      string s (dv < 1
+                ? diag_relative (n.dir, false /* current */)
+                : n.dir.representation ());
+
+      s += n.value;
+      write_string (s);
+      return os;
+    }
+
+    // Note: relative() may potentially return empty or absolute path.
+    //
+    const dir_path& rd (dv < 1 ? relative (n.dir) : n.dir);
     const dir_path& pd (v ? rd              :
                         t ? rd.directory () :
                         dir_path ());
