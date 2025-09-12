@@ -242,6 +242,29 @@ namespace build2
     // Note: relative() may return empty.
     //
     const dir_path& rd (dv < 1 ? relative (n.dir) : n.dir); // Relative.
+
+    // If both the name directory and value are not empty but the type is
+    // empty, then the directory and value are written sequentially. If any of
+    // them needs to be quoted, then we will end up with a valid but strange-
+    // looking construct, for example:
+    //
+    // 'f oo/'bar
+    // foo/'b ar'
+    // 'f oo'/'b ar'
+    //
+    // Let's handle such cases specially to quote the whole name
+    // representation. Note that this approach doesn't work well for name
+    // patterns, since in this case the special character sets will differ for
+    // the directory and value parts.
+    //
+    if (q != quote_mode::none && !rd.empty () && v && !t && !n.pattern)
+    {
+      string s (dv < 1 ? diag_relative (rd) : rd.representation ());
+      s += n.value;
+      write_string (s);
+      return os;
+    }
+
     const dir_path& pd (v ? rd              :
                         t ? rd.directory () :
                         dir_path ());
