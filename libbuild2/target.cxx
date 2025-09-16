@@ -312,12 +312,13 @@ namespace build2
     //   Having multiple triple dots is illegal.
     //
     // - Otherwise, we treat a single trailing dot as the "specified no
-    // - extension".
+    // - extension" (for example, cxx{foo.} for foo).
     //
     // - Finally, double dots are used as an escape sequence to make sure the
     //   dot is not treated as an extension separator (or as special by any of
     //   the above rules, for example, libfoo.u..a). In case of trailing
-    //   double dots, we naturally assume there is no default extension.
+    //   double dots, we naturally assume there is no default extension (for
+    //   example, cxx{foo..} for foo.).
     //
     // An odd number of dots other than one or three is illegal. This means,
     // in particular, that it's impossible to specify a base/extension pair
@@ -559,7 +560,12 @@ namespace build2
 
     if (v.back () == '.') // Name had (before escaping) trailing dot.
     {
-      assert (e && e->empty ());
+      // Note that the extension can either be unspecified, if the caller
+      // decides not to add it (see the below to_stream() function for the use
+      // case), and empty otherwise (see split_name() for unescaping trailing
+      // double dots).
+      //
+      assert (!e || e->empty ());
     }
     else if (e)
     {
