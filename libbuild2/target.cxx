@@ -312,17 +312,19 @@ namespace build2
     //   Having multiple triple dots is illegal.
     //
     // - Otherwise, we treat a single trailing dot as the "specified no
-    // - extension".
+    //   extension" (for example, hxx{foo.} for foo).
     //
     // - Finally, double dots are used as an escape sequence to make sure the
     //   dot is not treated as an extension separator (or as special by any of
     //   the above rules, for example, libfoo.u..a). In case of trailing
-    //   double dots, we naturally assume there is no default extension.
+    //   double dots, we naturally assume there is no default extension (for
+    //   example, hxx{foo..} for foo.).
     //
     // An odd number of dots other than one or three is illegal. This means,
     // in particular, that it's impossible to specify a base/extension pair
     // where either the base ends with a dot or the extension begins with one
-    // (or both). We are ok with that.
+    // (or both). We are ok with that. Also, an even number of dots is always
+    // treated as a sequence of double dots.
     //
     // Dot-only sequences are illegal. Note though, that dir{.} and dir{..}
     // are handled ad hoc outside this function and are valid.
@@ -528,7 +530,10 @@ namespace build2
           if (name)
           {
             if (i == n - 1)
+            {
               esc = true;
+              ext = false;
+            }
 
             if (ext && (i == 0 || path::traits_type::is_separator (s[i - 1])))
               ext = false;
@@ -559,7 +564,12 @@ namespace build2
 
     if (v.back () == '.') // Name had (before escaping) trailing dot.
     {
-      assert (e && e->empty ());
+      // Note that the extension can either be unspecified, if the caller
+      // decides not to add it (for the use case, see to_stream() which
+      // doesn't print extension for the stream's verbosity level 0), or empty
+      // otherwise (see split_name() for unescaping trailing double dots).
+      //
+      assert (!e || e->empty ());
     }
     else if (e)
     {

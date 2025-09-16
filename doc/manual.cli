@@ -5760,7 +5760,11 @@ More generally, anywhere in a name, a double dot can be used to specify a dot
 that should not be considered the extension separator while a triple dot \-
 which should. For example, in \c{obja{foo.a.o\}} the extension is \c{.o} and
 if instead we wanted \c{.a.o} to be considered the extension, then we could
-rewrite it either as \c{obja{foo.a..o\}} or as \c{obja{foo...a.o\}}.|
+rewrite it either as \c{obja{foo.a..o\}} or as \c{obja{foo...a.o\}}. The
+trailing triple dots signify the \"unspecified (default) extension\", for
+example, \c{cxx{foo.test...\}} for \c{foo.test.cxx}. Note that an even number
+of dots is always treated as a sequence of double dots and the odd number of
+dots other than one or three is illegal.|
 
 To derive a new target type in a \c{buildfile} we use the \c{define}
 directive. Such target types are project-local, meaning they cannot be

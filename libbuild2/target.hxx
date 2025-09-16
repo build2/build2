@@ -1382,7 +1382,9 @@ namespace build2
 
   public:
     // Split the name (not necessarily a simple path) into target name (in
-    // place) and extension (returned).
+    // place) and extension (returned). Return empty string to indicate no
+    // extension (trailing single or escaped dot) and nullopt to indicate
+    // default extension (trailing triple dot or no unescaped dots).
     //
     static optional<string>
     split_name (string&, const location&);
