@@ -153,7 +153,8 @@ namespace build2
                            move (ofd.out) /* stdout */,
                            nullfd         /* stderr */,
                            cwd,
-                           cb));
+                           cb,
+                           max_stack));
 
       try
       {

@@ -378,7 +378,6 @@ namespace build2
            size_t init_active,
            size_t max_threads,
            size_t queue_depth,
-           optional<size_t> max_stack,
            size_t orig_max_active)
   {
     if (orig_max_active == 0)
@@ -390,8 +389,6 @@ namespace build2
     // threads.
     //
     lock l (mutex_);
-
-    max_stack_ = max_stack;
 
     // Use 8x max_active on 32-bit and 32x max_active on 64-bit. Unless we
     // were asked to run serially.
@@ -803,6 +800,9 @@ namespace build2
     //
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
 
+  // NOTE: don't forget to update async_impl() in libbutl if changing anything
+  //       here.
+  //
 #ifndef LIBBUILD2_DEFAULT_STACK_SIZE
 #  define LIBBUILD2_DEFAULT_STACK_SIZE 8388608 // 8MB
 #endif
@@ -882,10 +882,10 @@ namespace build2
 
     // Cap the size if necessary.
     //
-    if (max_stack_)
+    if (max_stack)
     {
-      if (*max_stack_ != 0 && stack_size > *max_stack_)
-        stack_size = *max_stack_;
+      if (*max_stack != 0 && stack_size > *max_stack)
+        stack_size = *max_stack;
     }
     else if (stack_size > LIBBUILD2_SANE_STACK_SIZE)
       stack_size = LIBBUILD2_DEFAULT_STACK_SIZE;

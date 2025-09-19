@@ -583,6 +583,7 @@ main (int argc, char* argv[])
     init (&::terminate,
           argv[0],
           true    /* serial_stop  */,
+          nullopt /* max_stack */,
           false   /* mtime_check  */,
           nullopt /* config_sub   */,
           nullopt /* config_guess */);
