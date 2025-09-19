@@ -351,6 +351,7 @@ main (int argc, char* argv[])
     init (&::terminate,
           argv[0],
           ops.serial_stop (),
+          cmdl.max_stack,
           cmdl.mtime_check,
           cmdl.config_sub,
           cmdl.config_guess);
@@ -379,8 +380,7 @@ main (int argc, char* argv[])
     sched.startup (cmdl.jobs,
                    1 /* init_active */,
                    cmdl.max_jobs,
-                   cmdl.jobs * ops.queue_depth (),
-                   cmdl.max_stack);
+                   cmdl.jobs * ops.queue_depth ());
 
     global_mutexes mutexes (sched.shard_size ());
     file_cache fcache (cmdl.fcache_compress);

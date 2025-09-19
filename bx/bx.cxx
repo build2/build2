@@ -580,9 +580,12 @@ main (int argc, char* argv[])
 
     // Initialize the global state.
     //
+    // @@ Should we add support for the --max-stack option?
+    //
     init (&::terminate,
           argv[0],
           true    /* serial_stop  */,
+          nullopt /* max_stack */,
           false   /* mtime_check  */,
           nullopt /* config_sub   */,
           nullopt /* config_guess */);
