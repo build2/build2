@@ -183,6 +183,7 @@ namespace build2
   init (void (*terminate) (bool),
         const char* argv0,
         bool serial_stop,
+        optional<size_t> max_stack = nullopt,
         optional<bool> mtime_check = nullopt,
         optional<path> config_sub = nullopt,
         optional<path> config_guess = nullopt);
@@ -223,6 +224,10 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT extern const dir_path build_install_root; // $install.root
   LIBBUILD2_SYMEXPORT extern const dir_path build_install_root_relative;
+
+  // --max-stack (converted to bytes)
+  //
+  LIBBUILD2_SYMEXPORT extern optional<size_t> max_stack;
 
   // --[no-]mtime-check
   //

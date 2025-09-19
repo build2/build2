@@ -336,6 +336,8 @@ namespace build2
     verbose_specified_ (false),
     diag_color_ (),
     no_diag_color_ (),
+    max_stack_ (),
+    max_stack_specified_ (false),
     pager_ (),
     pager_specified_ (false),
     pager_option_ (),
@@ -462,6 +464,13 @@ namespace build2
         this->no_diag_color_, a.no_diag_color_);
     }
 
+    if (a.max_stack_specified_)
+    {
+      ::build2::build::cli::parser< size_t>::merge (
+        this->max_stack_, a.max_stack_);
+      this->max_stack_specified_ = true;
+    }
+
     if (a.pager_specified_)
     {
       ::build2::build::cli::parser< string>::merge (
@@ -554,6 +563,21 @@ namespace build2
        << "\033[1m--no-diag-color\033[0m         Don't use color in diagnostics." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--max-stack\033[0m \033[4mnum\033[0m         The maximum stack size in KBytes to allow for newly" << ::std::endl
+       << "                        created threads. For \033[4mpthreads\033[0m-based systems the driver" << ::std::endl
+       << "                        queries the stack size of the main thread and uses the" << ::std::endl
+       << "                        same size for creating additional threads. This allows" << ::std::endl
+       << "                        adjusting the stack size using familiar mechanisms," << ::std::endl
+       << "                        such as \033[1mulimit\033[0m. Sometimes, however, the stack size of" << ::std::endl
+       << "                        the main thread is excessively large. As a result, the" << ::std::endl
+       << "                        driver checks if it is greater than a predefined limit" << ::std::endl
+       << "                        (64MB on 64-bit systems and 32MB on 32-bit ones) and" << ::std::endl
+       << "                        caps it to a more sensible value (8MB) if that's the" << ::std::endl
+       << "                        case. This option allows you to override this check" << ::std::endl
+       << "                        with the special zero value indicating that the main" << ::std::endl
+       << "                        thread stack size should be used as is." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--pager\033[0m \033[4mpath\033[0m            The pager program to be used to show long text." << ::std::endl
        << "                        Commonly used pager programs are \033[1mless\033[0m and \033[1mmore\033[0m. You can" << ::std::endl
        << "                        also specify additional options that should be passed" << ::std::endl
@@ -634,6 +658,9 @@ namespace build2
       &::build2::build::cli::thunk< bx_options, &bx_options::diag_color_ >;
       _cli_bx_options_map_["--no-diag-color"] =
       &::build2::build::cli::thunk< bx_options, &bx_options::no_diag_color_ >;
+      _cli_bx_options_map_["--max-stack"] =
+      &::build2::build::cli::thunk< bx_options, size_t, &bx_options::max_stack_,
+        &bx_options::max_stack_specified_ >;
       _cli_bx_options_map_["--pager"] =
       &::build2::build::cli::thunk< bx_options, string, &bx_options::pager_,
         &bx_options::pager_specified_ >;

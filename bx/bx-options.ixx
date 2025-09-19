@@ -68,6 +68,18 @@ namespace build2
     return this->no_diag_color_;
   }
 
+  inline const size_t& bx_options::
+  max_stack () const
+  {
+    return this->max_stack_;
+  }
+
+  inline bool bx_options::
+  max_stack_specified () const
+  {
+    return this->max_stack_specified_;
+  }
+
   inline const string& bx_options::
   pager () const
   {

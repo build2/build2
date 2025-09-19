@@ -160,6 +160,8 @@ namespace build2
     : (to_string (build_version.major ()) + '.' +
        to_string (build_version.minor ())));
 
+  optional<size_t> max_stack;
+
   optional<bool> mtime_check_option;
 
   optional<path> config_sub;
@@ -981,6 +983,7 @@ namespace build2
   init (void (*t) (bool),
         const char* a0,
         bool ss,
+        optional<size_t> ms,
         optional<bool> mc,
         optional<path> cs,
         optional<path> cg)
@@ -1031,6 +1034,8 @@ namespace build2
     if (!build_install_data.empty () && build_install_data.relative ())
       build_install_data = to_absolute (build_install_data, "$install.data");
     */
+
+    max_stack = ms;
 
     mtime_check_option = mc;
 

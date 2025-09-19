@@ -95,6 +95,12 @@ namespace build2
     const bool&
     no_diag_color () const;
 
+    const size_t&
+    max_stack () const;
+
+    bool
+    max_stack_specified () const;
+
     const string&
     pager () const;
 
@@ -156,6 +162,8 @@ namespace build2
     bool verbose_specified_;
     bool diag_color_;
     bool no_diag_color_;
+    size_t max_stack_;
+    bool max_stack_specified_;
     string pager_;
     bool pager_specified_;
     strings pager_option_;

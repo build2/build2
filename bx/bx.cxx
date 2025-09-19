@@ -55,6 +55,7 @@ namespace build2
     //
     uint16_t verbosity = 1;
     optional<bool> diag_color;
+    optional<size_t> max_stack;
   };
 
   static bx_cmdline
@@ -462,6 +463,10 @@ parse_bx_cmdline (tracer& trace, int argc, char* argv[], bx_options& ops)
   r.diag_color = (ops.diag_color ()    ? optional<bool> (true)  :
                   ops.no_diag_color () ? optional<bool> (false) : nullopt);
 
+  r.max_stack = (ops.max_stack_specified ()
+                 ? optional<size_t> (ops.max_stack () * 1024)
+                 : nullopt);
+
   return r;
 }
 
@@ -583,6 +588,7 @@ main (int argc, char* argv[])
     init (&::terminate,
           argv[0],
           true    /* serial_stop  */,
+          cmdl.max_stack,
           false   /* mtime_check  */,
           nullopt /* config_sub   */,
           nullopt /* config_guess */);

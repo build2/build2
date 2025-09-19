@@ -3135,7 +3135,8 @@ namespace build2
                                    c.arguments,
                                    move (ifd), move (ofd.out), move (efd),
                                    cwd,
-                                   bcs));
+                                   bcs,
+                                   max_stack));
           pc.bltn = &b;
 
           // If the right-hand part of the pipe fails, then make sure we don't
