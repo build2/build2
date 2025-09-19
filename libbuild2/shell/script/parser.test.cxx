@@ -167,6 +167,7 @@ namespace build2
         init (nullptr,
               argv[0],
               true    /* serial_stop  */,
+              nullopt /* max_stack */,
               false   /* mtime_check  */,
               nullopt /* config_sub   */,
               nullopt /* config_guess */);
