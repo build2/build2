@@ -1036,7 +1036,48 @@ namespace build2
             if (path_pattern (n.dir))
               fail (nloc) << "pattern in directory " << n.dir.representation ();
 
+            // Stash the scope the target pattern is declared in.
+            //
+            const scope* s (scope_);
+
             sg = enter_scope (*this, move (n.dir));
+
+            // If the entered scope doesn't have a root scope, then it means
+            // that the pattern's directory is outside of any loaded project
+            // output directory, in which case we fail. But let's also help
+            // the user a bit, who often thinks that the following target
+            // patterns are the same:
+            //
+            // file{$src_base/bar/*}
+            // file{bar/*}
+            //
+            const scope* rs (scope_->root_scope ());
+
+            if (rs == nullptr)
+            {
+              assert (pbase_ != nullptr); // Refers to the pattern's directory.
+
+              // Root scope of the project the target pattern is declared in.
+              //
+              const scope* prs (s->root_scope ());
+              assert (prs != nullptr);
+
+              diag_record dr (fail (nloc));
+              dr << "target type/pattern directory "
+                 << pbase_->representation ()
+                 << " is outside of output directory "
+                 << prs->out_path ().representation ();
+
+              // If the pattern's directory belongs to the project source
+              // directory, then print its path as relative to the stashed
+              // scope source directory.
+              //
+              if (pbase_->sub (prs->src_path ()))
+              {
+                dr << info << "perhaps you meant directory "
+                           << pbase_->relative (s->src_path ());
+              }
+            }
           }
 
           // Resolve target type. If none is specified, then it's file{}.
@@ -1048,9 +1089,14 @@ namespace build2
                                     : scope_->find_target_type (n.type));
 
           if (ttype == nullptr)
+          {
+            const scope* rs (scope_->root_scope ());
+            assert (rs != nullptr); // Wouldn't be here otherwise.
+
             fail (nloc) << "unknown target type " << n.type <<
               info << "perhaps the module that defines this target type is "
-                   << "not loaded by project " << *scope_->root_scope ();
+                   << "not loaded by project " << *rs;
+          }
 
           f (t, tt, nullopt, n.pattern, ttype, move (n.value), nloc);
         };
