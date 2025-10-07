@@ -11,6 +11,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
+#include <libbuild2/version-snapshot.hxx>
 
 #include <libbuild2/config/utility.hxx>
 
@@ -19,7 +20,6 @@
 #include <libbuild2/version/rule.hxx>
 #include <libbuild2/version/module.hxx>
 #include <libbuild2/version/utility.hxx>
-#include <libbuild2/version/snapshot.hxx>
 
 using namespace std;
 using namespace butl;
@@ -406,7 +406,7 @@ namespace build2
       bool rewritten (false);
       if (v.snapshot () && v.snapshot_sn == standard_version::latest_sn)
       {
-        snapshot ss (extract_snapshot (rs));
+        version_snapshot ss (extract_version_snapshot (rs));
 
         if (!ss.empty ())
         {
