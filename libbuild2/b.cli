@@ -345,6 +345,14 @@ namespace build2
          $ b info: libfoo/,no_subprojects
          \
 
+         To ignore any uncommitted or untracked changes while calculating the
+         project version information, use the \cb{committed_version}
+         parameter, for example:
+
+         \
+         $ b info: libfoo/,committed_version
+         \
+
          To instead print this information in the JSON format, use the
          \cb{json} parameter, for example:
 

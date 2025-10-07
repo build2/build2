@@ -493,6 +493,7 @@ namespace build2
   // <libbutl/standard-version.hxx>
   //
   using butl::standard_version;
+  using butl::parse_standard_version;
   using butl::standard_version_constraint;
 
   // <libbutl/project-name.hxx>

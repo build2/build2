@@ -17,6 +17,7 @@
 #include <libbuild2/variable.hxx>
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/diagnostics.hxx>
+#include <libbuild2/version-snapshot.hxx>
 
 #if 0
 #include <libbuild2/adhoc-rule-buildscript.hxx> // @@ For a hack below.
@@ -1241,6 +1242,7 @@ namespace build2
   {
     bool json = false;
     bool subprojects = true;
+    bool committed_version = false;
   };
 
   // Note: should not fail if mo is NULL (see info_subprojects() below).
@@ -1267,6 +1269,12 @@ namespace build2
           if (n.value == "no_subprojects")
           {
             r.subprojects = false;
+            continue;
+          }
+
+          if (n.value == "committed_version")
+          {
+            r.committed_version = true;
             continue;
           }
 
@@ -1348,8 +1356,38 @@ namespace build2
     ts.push_back (&rs);
   }
 
+  // If the specified version is a standard snapshot version (snapshot number
+  // is present) without snapshot id and the snapshot information can be
+  // queried for the latest commit in the source directory of the specified
+  // root scope, then use it to update the snapshot information of the
+  // specified version and return the result. Otherwise, return the specified
+  // version unchanged.
+  //
+  static string
+  committed_version (const scope& rs, string&& v)
+  {
+    if (optional<standard_version> sv =
+        parse_standard_version (v, standard_version::allow_stub))
+    {
+      if (sv->snapshot () && sv->snapshot_id.empty ())
+      {
+        version_snapshot ss (
+          extract_version_snapshot (rs, true /* committed_version */));
+
+        if (!ss.empty ())
+        {
+          sv->snapshot_sn = ss.sn;
+          sv->snapshot_id = move (ss.id);
+          return sv->string ();
+        }
+      }
+    }
+
+    return move (v);
+  }
+
   static void
-  info_execute_lines (action_targets& ts, bool subp)
+  info_execute_lines (action_targets& ts, bool subp, bool cver)
   {
     for (size_t i (0); i != ts.size (); ++i)
     {
@@ -1414,11 +1452,27 @@ namespace build2
           print_dir (*d);
       };
 
+      // If the committed_version parameter is specified (cver is true), then
+      // print the version of the latest project commit, if present, ignoring
+      // any uncommitted or untracked changes, instead of the version provided
+      // by the version module (see committed_version() for details).
+      //
+      // Note that this approach doesn't feel exactly clean since the printed
+      // version may differ from the one used to parse the buildfiles, which
+      // could theoretically result in different behavior. This, however,
+      // feels too far fetched for the info meta-operation and there is no
+      // easy way to do it differently, at the moment.
+      //
+      string v (cast_empty<string> (rs[ctx.var_version]));
+
+      if (cver)
+        v = committed_version (rs, move (v));
+
       // This could be a simple project that doesn't set project name.
       //
       cout
         << "project:"        ; print_empty (project (rs)); cout << endl
-        << "version:"        ; print_empty (cast_empty<string> (rs[ctx.var_version])); cout << endl
+        << "version:"        ; print_empty (v); cout << endl
         << "summary:"        ; print_empty (cast_empty<string> (rs[ctx.var_project_summary])); cout << endl
         << "url:"            ; print_empty (cast_empty<string> (rs[ctx.var_project_url])); cout << endl
         << "src_root:"       ; print_dir (cast<dir_path> (rs[ctx.var_src_root])); cout << endl
@@ -1438,7 +1492,7 @@ namespace build2
 
 #ifndef BUILD2_BOOTSTRAP
   static void
-  info_execute_json (action_targets& ts, bool subp)
+  info_execute_json (action_targets& ts, bool subp, bool cver)
   {
     json_stream_serializer s (cout);
     s.begin_array ();
@@ -1495,12 +1549,21 @@ namespace build2
         s.end_array ();
       };
 
+      // If the committed_version parameter is specified (cver is true), then
+      // print the version of the latest project commit (see
+      // info_execute_lines() function implementation for details).
+      //
+      string v (cast_empty<string> (rs[ctx.var_version]));
+
+      if (cver)
+        v = committed_version (rs, move (v));
+
       // Note that we won't check some values for being valid UTF-8, since
       // their characters belong to even stricter character sets and/or are
       // read from buildfile which is already verified to be valid UTF-8.
       //
       print_string ("project", project (rs).string ());
-      print_string ("version", cast_empty<string> (rs[ctx.var_version]));
+      print_string ("version", v);
       print_string ("summary", cast_empty<string> (rs[ctx.var_project_summary]));
       print_string ("url", cast_empty<string> (rs[ctx.var_project_url]));
       print_dir    ("src_root", cast<dir_path> (rs[ctx.var_src_root]));
@@ -1591,9 +1654,9 @@ namespace build2
     // well.
     //
     if (ip.json)
-      info_execute_json (ts, ip.subprojects);
+      info_execute_json (ts, ip.subprojects, ip.committed_version);
     else
-      info_execute_lines (ts, ip.subprojects);
+      info_execute_lines (ts, ip.subprojects, ip.committed_version);
   }
 
   const meta_operation_info mo_info {
