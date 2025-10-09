@@ -1748,9 +1748,12 @@ namespace build2
             //
             n = t->path ().leaf ().base ().base ().string ();
 
-            if (path::traits_type::compare (n.c_str (), n.size (),
-                                       l.name.c_str (), l.name.size ()) != 0)
-              strip_lib ();
+            if (cclass != compiler_class::msvc)
+            {
+              if (path_traits::compare (n.c_str (), n.size (),
+                                        l.name.c_str (), l.name.size ()) != 0)
+                strip_lib ();
+            }
           }
           else
           {

@@ -688,12 +688,18 @@ namespace build2
 
       // Try:
       //      foo.lib
+      //   libfoo.dll.lib
       //   libfoo.lib
       //      foodll.lib
       //
+      // The libfoo.dll.lib must come before libfoo.dll; it makes sure we
+      // find the import library rather than the static library when the
+      // binary was prefixed with `lib` (GH #486).
+      //
       return
-        search ("",    "")    ||
-        search ("lib", "")    ||
+        search ("",    "")     ||
+        search ("lib", ".dll") ||
+        search ("lib", "")     ||
         search ("",    "dll") ? make_pair (s, true) : make_pair (nullptr, b);
     }
 
