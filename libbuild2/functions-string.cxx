@@ -424,6 +424,30 @@ namespace build2
     f["size"] += [] (map<string, string> v) {return v.size ();};
     f["size"] += [] (string v)              {return v.size ();};
 
+    // $front(<strings>)
+    //
+    // Return the first string in the sequence.
+    //
+    f["front"] += [] (strings v)
+    {
+      if (v.empty ())
+        fail << "empty strings sequence";
+
+      return move (v.front ());
+    };
+
+    // $back(<strings>)
+    //
+    // Return the last string in the sequence.
+    //
+    f["back"] += [] (strings v)
+    {
+      if (v.empty ())
+        fail << "empty strings sequence";
+
+      return move (v.back ());
+    };
+
     // $sort(<strings> [, <flags>])
     //
     // Sort strings in ascending order.

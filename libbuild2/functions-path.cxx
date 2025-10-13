@@ -941,6 +941,46 @@ namespace build2
     f["size"] += [] (path v) {return v.size ();};
     f["size"] += [] (dir_path v) {return v.size ();};
 
+    // $front(<paths>)
+    //
+    // Return the first path in the sequence.
+    //
+    f["front"] += [] (paths v)
+    {
+      if (v.empty ())
+        fail << "empty paths sequence";
+
+      return move (v.front ());
+    };
+
+    f["front"] += [] (dir_paths v)
+    {
+      if (v.empty ())
+        fail << "empty paths sequence";
+
+      return move (v.front ());
+    };
+
+    // $back(<paths>)
+    //
+    // Return the last path in the sequence.
+    //
+    f["back"] += [] (paths v)
+    {
+      if (v.empty ())
+        fail << "empty paths sequence";
+
+      return move (v.back ());
+    };
+
+    f["back"] += [] (dir_paths v)
+    {
+      if (v.empty ())
+        fail << "empty paths sequence";
+
+      return move (v.back ());
+    };
+
     // $sort(<paths>[, <flags>])
     //
     // Sort paths in ascending order. Note that on host platforms with a

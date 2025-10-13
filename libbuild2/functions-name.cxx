@@ -398,6 +398,47 @@ namespace build2
       return n;
     };
 
+    // $front(<names>)
+    //
+    // Return the first element in the sequence.
+    //
+    f["front"] += [] (names ns)
+    {
+      if (ns.empty ())
+        fail << "empty names sequence";
+
+      size_t n (1);
+
+      if (ns[0].pair && !ns[n++].directory ())
+        fail << "name pair in names";
+
+      ns.resize (n);
+      return ns;
+    };
+
+    // $back(<names>)
+    //
+    // Return the last element in the sequence.
+    //
+    f["back"] += [] (names ns)
+    {
+      if (ns.empty ())
+        fail << "empty names sequence";
+
+      size_t i (ns.size () - 1);
+
+      if (i != 0 && ns[i - 1].pair && !ns[i--].directory ())
+        fail << "name pair in names";
+
+      if (i != 0)
+      {
+        move (ns.begin () + i, ns.end (), ns.begin ());
+        ns.resize (ns.size () - i);
+      }
+
+      return ns;
+    };
+
     // $sort(<names>[, <flags>])
     //
     // Sort names in ascending order.

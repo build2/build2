@@ -43,3 +43,11 @@
   $* <'print $find_index([int64s] -1 -2 -3, -2)' >'1' : basics-true
   $* <'print $find_index([int64s] -1 -2 -3,  0)' >'3' : basics-false
 }}
+
+: front
+:
+$* <'print $front([int64s] 1 2)' >'1'
+
+: back
+:
+$* <'print $back([int64s] 1 2)' >'2'

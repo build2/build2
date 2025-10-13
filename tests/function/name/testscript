@@ -66,3 +66,20 @@
   $* <'print $find_index([names] d/t{a} t{a b}, t{a})'   >'1' : basics-true
   $* <'print $find_index([names] d/t{a} t{a b}, d/t{b})' >'3' : basics-false
 }}
+
+: front
+:
+{{
+  $* <'print $front(a)'    >'a'    : single-entry
+  $* <'print $front(a b)'    >'a'  : mult-entries
+  $* <'print $front(a@b/)' >'a@b/' : single-pair
+}}
+
+: back
+:
+{{
+  $* <'print $back(a)'      >'a'    : single-entry
+  $* <'print $back(a b)'    >'b'    : mult-entries
+  $* <'print $back(a@b/)'   >'a@b/' : single-pair
+  $* <'print $back(a b@c/)' >'b@c/' : pair-last
+}}

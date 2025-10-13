@@ -98,6 +98,46 @@ namespace build2
     f["size"] += [] (int64s v) {return v.size ();};
     f["size"] += [] (uint64s v) {return v.size ();};
 
+    // $front(<ints>)
+    //
+    // Return the first integer in the sequence.
+    //
+    f["front"] += [] (int64s v)
+    {
+      if (v.empty ())
+        fail << "empty integers sequence";
+
+      return v.front ();
+    };
+
+    f["front"] += [] (uint64s v)
+    {
+      if (v.empty ())
+        fail << "empty integers sequence";
+
+      return v.front ();
+    };
+
+    // $back(<ints>)
+    //
+    // Return the last integer in the sequence.
+    //
+    f["back"] += [] (int64s v)
+    {
+      if (v.empty ())
+        fail << "empty integers sequence";
+
+      return v.back ();
+    };
+
+    f["back"] += [] (uint64s v)
+    {
+      if (v.empty ())
+        fail << "empty integers sequence";
+
+      return v.back ();
+    };
+
     // $sort(<ints> [, <flags>])
     //
     // Sort integers in ascending order.

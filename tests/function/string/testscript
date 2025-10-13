@@ -178,3 +178,11 @@
 : keys
 :
 $* <'print $keys([string_map] a@1 b@2 c@3)' >'a b c'
+
+: front
+:
+$* <'print $front([strings] a b)' >'a'
+
+: back
+:
+$* <'print $back([strings] a b)' >'b'
