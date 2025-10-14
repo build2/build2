@@ -139,3 +139,15 @@
       EOO
   }
 }}
+
+: search
+:
+{
+  ext = ($cxx.target.class == 'windows' ? '\.exe' : '')
+
+  $* <<EOI >>/~"%EOO%"
+    print $process.search(diff)
+    EOI
+    %.+/diff$ext%
+    EOO
+}

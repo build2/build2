@@ -527,5 +527,23 @@ namespace build2
                                    : nullopt_string));
       };
     }
+
+    // $process.search(<prog>)
+    //
+    // Return the effective path of an executable, that is, the absolute path
+    // to the executable that will also include any omitted extensions, etc.
+    // Return `null` if the executable is not found.
+    //
+    // Note that this function is not pure.
+    //
+    f.insert (".search", false) += [](names prog)
+    {
+      process_path r (run_try_search (convert<path> (move (prog))));
+
+      if (r.empty ())
+        return value ();
+
+      return value (move (r.effect.empty () ? r.recall : r.effect));
+    };
   }
 }
