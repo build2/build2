@@ -1498,6 +1498,7 @@ namespace build2
       //
       // year   ver   cl     crt/dll   toolset
       //
+      // 2026   18.X  19.5X  14.?/140  14.5X
       // 2022   17.X  19.3X  14.?/140  14.3X
       // 2019   16.X  19.2X  14.2/140  14.2X
       // 2017   15.9  19.16  14.1/140  14.16
@@ -1517,7 +1518,8 @@ namespace build2
       //
       // _MSC_VER is the numeric cl version, e.g., 1921 for 19.21.
       //
-      /**/ if (v.major == 19 && v.minor >= 30) return "14.3";
+      /**/ if (v.major == 19 && v.minor >= 50) return "14.5";
+      else if (v.major == 19 && v.minor >= 30) return "14.3";
       else if (v.major == 19 && v.minor >= 20) return "14.2";
       else if (v.major == 19 && v.minor >= 10) return "14.1";
       else if (v.major == 19 && v.minor ==  0) return "14.0";
