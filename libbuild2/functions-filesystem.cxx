@@ -3,6 +3,7 @@
 
 #include <libbutl/filesystem.hxx>
 
+#include <libbuild2/scope.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/filesystem.hxx>
@@ -16,7 +17,9 @@ namespace build2
   // path_search() overloads (below) for details.
   //
   static names
-  path_search (const path& pattern, const optional<dir_path>& start)
+  path_search (const scope* s,
+               const path& pattern,
+               optional<dir_path>&& start)
   {
     names r;
     auto add = [&r] (path&& p, const std::string&, bool interm) -> bool
@@ -42,40 +45,54 @@ namespace build2
       return true;
     };
 
+    auto search = [&pattern, &add, &dangling] (const dir_path& start)
+    {
+      path_search (pattern,
+                   add,
+                   start,
+                   path_match_flags::follow_symlinks,
+                   dangling);
+    };
+
     // Print paths "as is" in the diagnostics.
     //
     try
     {
       if (pattern.absolute ())
-        path_search (pattern,
-                     add,
-                     dir_path () /* start */,
-                     path_match_flags::follow_symlinks,
-                     dangling);
+      {
+        search (empty_dir_path /* start */);
+      }
       else
       {
-        // An absolute start directory must be specified for the relative
-        // pattern.
+        // If the start directory is not specified or is relative, then deduce
+        // it based on the current working directory for Shellscript and fail
+        // otherwise. Assume Shellscript if the context defines the
+        // shellscript.syntax variable.
         //
         if (!start || start->relative ())
         {
-          diag_record dr (fail);
-
-          if (!start)
-            dr << "start directory is not specified";
+          if (s != nullptr && s->ctx.var_shellscript_syntax != nullptr)
+          {
+            // Note: can also be used in diagnostics.
+            //
+            start = !start ? work : work / *start;
+          }
           else
-            dr << "start directory '" << start->representation ()
-               << "' is relative";
+          {
+            diag_record dr (fail);
 
-          dr << info << "pattern '" << pattern.representation ()
-             << "' is relative";
+            if (!start)
+              dr << "start directory is not specified";
+            else
+              dr << "start directory '" << start->representation ()
+                 << "' is relative";
+
+            dr << info << "pattern '" << pattern.representation ()
+               << "' is relative";
+          }
         }
 
-        path_search (pattern,
-                     add,
-                     *start,
-                     path_match_flags::follow_symlinks,
-                     dangling);
+        search (*start);
       }
     }
     catch (const system_error& e)
@@ -155,7 +172,10 @@ namespace build2
     // Return filesystem paths that match the shell-like wildcard pattern. If
     // the pattern is an absolute path, then the start directory is ignored
     // (if present). Otherwise, the start directory must be specified and be
-    // absolute.
+    // absolute, except for Shellscript. For Shellscript, if the start
+    // directory is not specified, then the current working directory is
+    // assumed, and if the relative start directory is specified, then the
+    // current working directory is used as a base.
     //
     // Note that this function is not pure.
     //
@@ -166,24 +186,25 @@ namespace build2
     {
       auto e (f.insert ("path_search", false));
 
-      e += [](path pattern, optional<dir_path> start)
+      e += [](const scope* s, path pattern, optional<dir_path> start)
       {
-        return path_search (pattern, start);
+        return path_search (s, pattern, move (start));
       };
 
-      e += [](path pattern, names start)
+      e += [](const scope* s, path pattern, names start)
       {
-        return path_search (pattern, convert<dir_path> (move (start)));
+        return path_search (s, pattern, convert<dir_path> (move (start)));
       };
 
-      e += [](names pattern, optional<dir_path> start)
+      e += [](const scope* s, names pattern, optional<dir_path> start)
       {
-        return path_search (convert<path> (move (pattern)), start);
+        return path_search (s, convert<path> (move (pattern)), move (start));
       };
 
-      e += [](names pattern, names start)
+      e += [](const scope* s, names pattern, names start)
       {
-        return path_search (convert<path>     (move (pattern)),
+        return path_search (s,
+                            convert<path>     (move (pattern)),
                             convert<dir_path> (move (start)));
       };
     }

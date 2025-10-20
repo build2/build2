@@ -786,6 +786,34 @@ test.options += --no-default-options
       }
     }}
   }}
+
+  : path-search
+  :
+  : Test that the current working directory is implied by the
+  : $filesystem.path_search() function whenever required.
+  :
+  {
+    mkdir foo
+    touch foo/bar.txt
+
+    cat <<EOI >=test.bx
+      echo $path_search($~/**.txt)
+      echo $path_search(**.txt, $~)
+      echo $path_search(*.txt)
+      echo $path_search(**.txt)
+      echo $path_search(foo/*.txt)
+      echo $path_search(*.txt, foo)
+      EOI
+
+    $* >>/"EOO"
+      $~/foo/bar.txt
+      foo/bar.txt
+
+      foo/bar.txt
+      foo/bar.txt
+      bar.txt
+      EOO
+  }
 }}
 
 : task
