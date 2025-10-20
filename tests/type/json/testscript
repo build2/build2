@@ -90,7 +90,7 @@
   $* <<EOI 2>>EOE != 0
   o = [json] '{"one":1, "two":}'
   EOI
-  error: invalid json value in variable o: invalid json input: unexpected byte '}' in value
+  error: invalid json value in variable o: invalid json input: unexpected '}' in value
     <stdin>:1:5: info: variable o value is assigned here
   EOE
 

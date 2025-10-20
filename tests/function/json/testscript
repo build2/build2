@@ -146,7 +146,7 @@ EOO
   $* <<EOI 2>>EOE != 0
   print $json.parse('{"one":, "two":2}]')
   EOI
-  error: invalid json input: unexpected byte ',' in value
+  error: invalid json input: unexpected ',' in value
     info: line 1, column 8, byte offset 8
     <stdin>:1:8: info: while calling json.parse(<untyped>)
   EOE
@@ -239,7 +239,7 @@ EOO
   $* <<EOI 2>>EOE != 0
   j = $json.load(input.json)
   EOI
-  input.json:3:9: error: invalid json input: unexpected byte ',' in value
+  input.json:3:9: error: invalid json input: unexpected ',' in value
     info: byte offset 26
     <stdin>:1:6: info: while calling json.load(<untyped>)
   EOE
