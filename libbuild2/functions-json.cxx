@@ -64,14 +64,15 @@ namespace build2
       //
       switch (v.type)
       {
-      case json_type::null:               return 0;
+      case json_type::null:                        return 0;
       case json_type::boolean:
       case json_type::signed_number:
+      case json_type::hexadecimal_signed_number:
       case json_type::unsigned_number:
-      case json_type::hexadecimal_number:
-      case json_type::string:             break;
-      case json_type::array:              return v.array.size ();
-      case json_type::object:             return v.object.size ();
+      case json_type::hexadecimal_unsigned_number:
+      case json_type::string:                      break;
+      case json_type::array:                       return v.array.size ();
+      case json_type::object:                      return v.object.size ();
       }
 
       return 1;
@@ -112,17 +113,29 @@ namespace build2
         switch (jr.type)
         {
 #if 0
-        case json_type::null:               return value (names {});
+        case json_type::null:
+          return value (names {});
 #else
-        case json_type::null:               return value ();
+        case json_type::null:
+          return value ();
 #endif
-        case json_type::boolean:            return value (jr.boolean);
-        case json_type::signed_number:      return value (jr.signed_number);
+        case json_type::boolean:
+          return value (jr.boolean);
+
+        case json_type::signed_number:
+        case json_type::hexadecimal_signed_number:
+          return value (jr.signed_number);
+
         case json_type::unsigned_number:
-        case json_type::hexadecimal_number: return value (jr.unsigned_number);
-        case json_type::string:             return value (move (jr.string));
+        case json_type::hexadecimal_unsigned_number:
+          return value (jr.unsigned_number);
+
+        case json_type::string:
+          return value (move (jr.string));
+
         case json_type::array:
-        case json_type::object:             return value (move (jr));
+        case json_type::object:
+          return value (move (jr));
         }
       }
 

@@ -1011,14 +1011,15 @@ namespace build2
     //
     switch (v.type)
     {
-    case json_type::null:               return true;
+    case json_type::null:                        return true;
     case json_type::boolean:
     case json_type::signed_number:
+    case json_type::hexadecimal_signed_number:
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number:
-    case json_type::string:             break;
-    case json_type::array:              return v.array.empty ();
-    case json_type::object:             return v.object.empty ();
+    case json_type::hexadecimal_unsigned_number:
+    case json_type::string:                      break;
+    case json_type::array:                       return v.array.empty ();
+    case json_type::object:                      return v.object.empty ();
     }
 
     return false;

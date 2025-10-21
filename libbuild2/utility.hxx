@@ -57,10 +57,14 @@ namespace build2
 
   using std::to_string;
 
-  // Currently only supports base 10 and 16. Note: adds `0x` if base 16.
+  // Currently only supports base 10 and 16. Note: adds `0x` if base 16. Note
+  // that the sign is not counted for width.
   //
   LIBBUILD2_SYMEXPORT string
   to_string (uint64_t, int base, size_t width = 0);
+
+  LIBBUILD2_SYMEXPORT string
+  to_string (int64_t, int base, size_t width = 0);
 
   // <libbutl/utility.hxx>
   //

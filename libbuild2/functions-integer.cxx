@@ -11,8 +11,9 @@ namespace build2
   extern bool
   functions_sort_flags (optional<names>); // functions-builtin.cxx
 
+  template <typename I>
   static string
-  to_string (uint64_t i, optional<value> base, optional<value> width)
+  to_string (I i, optional<value> base, optional<value> width)
   {
     int b (base ?
            static_cast<int> (convert<uint64_t> (move (*base)))
@@ -30,11 +31,11 @@ namespace build2
   {
     function_family f (m, "integer");
 
-    // $string(<int64>)
+    // $string(<int64>[, <base>[, <width>]])
     // $string(<uint64>[, <base>[, <width>]])
     //
-    // Convert an integer to a string. For unsigned integers we can specify
-    // the desired base and width. For example:
+    // Convert an integer to a string, optionally with the desired base and
+    // width. For example:
     //
     //     x = [uint64] 0x0000ffff
     //
@@ -42,11 +43,16 @@ namespace build2
     //     c.poptions += "-DOFFSET=$string($x, 16)"    # -DOFFSET=0xffff
     //     c.poptions += "-DOFFSET=$string($x, 16, 8)" # -DOFFSET=0x0000ffff
     //
+    // Note that the minus sign is not counted for the width.
+    //
 
     // Note that we don't handle NULL values for these type since they have no
     // empty representation.
     //
-    f["string"] += [](int64_t i) {return to_string (i);};
+    f["string"] += [](int64_t i, optional<value> base, optional<value> width)
+    {
+      return to_string (i, move (base), move (width));
+    };
 
     f["string"] += [](uint64_t i, optional<value> base, optional<value> width)
     {

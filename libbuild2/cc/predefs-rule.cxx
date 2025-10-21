@@ -487,12 +487,17 @@ namespace build2
           os << "[int64] " << v.as_int64 ();
           break;
         }
+      case json_type::hexadecimal_signed_number:
+        {
+          os << "[int64] " << build2::to_string (v.as_int64 (), 16);
+          break;
+        }
       case json_type::unsigned_number:
         {
           os << "[uint64] " << v.as_uint64 ();
           break;
         }
-      case json_type::hexadecimal_number:
+      case json_type::hexadecimal_unsigned_number:
         {
           os << "[uint64] " << build2::to_string (v.as_uint64 (), 16);
           break;
@@ -520,13 +525,30 @@ namespace build2
 
       switch (v.type)
       {
-      case json_type::null:               js.value (nullptr);       break;
-      case json_type::boolean:            js.value (v.as_bool ());  break;
-      case json_type::signed_number:      js.value (v.as_int64 ()); break;
+      case json_type::null:
+        js.value (nullptr);
+        break;
+
+      case json_type::boolean:
+        js.value (v.as_bool ());
+        break;
+
+      case json_type::signed_number:
+      case json_type::hexadecimal_signed_number:
+        js.value (v.as_int64 ());
+        break;
+
       case json_type::unsigned_number:
-      case json_type::hexadecimal_number: js.value (v.as_uint64 ()); break;
-      case json_type::string:             js.value (v.as_string ()); break;
-      default:                            assert (false);
+      case json_type::hexadecimal_unsigned_number:
+        js.value (v.as_uint64 ());
+        break;
+
+      case json_type::string:
+        js.value (v.as_string ());
+        break;
+
+      default:
+        assert (false);
       }
     }
 #endif

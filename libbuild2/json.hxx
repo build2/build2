@@ -29,7 +29,7 @@ namespace build2
   //
 
   // This JSON representation has one extensions compared to the standard JSON
-  // model: it distinguishes between signed, unsigned, and hexadecimal
+  // model: it distinguishes between signed/unsigned, and decimal/hexadecimal
   // numbers.
   //
   // Note also that we don't assume that object members are in a sorted order
@@ -43,14 +43,15 @@ namespace build2
     boolean,
     signed_number,
     unsigned_number,
-    hexadecimal_number,
+    hexadecimal_signed_number,
+    hexadecimal_unsigned_number,
     string,
     array,
     object,
   };
 
   // Return the JSON type as string. If distinguish_numbers is true, then
-  // distinguish between the singned, unsigned, and hexadecimal types.
+  // distinguish between the signed/unsigned, and decimal/hexadecimal types.
   //
   LIBBUILD2_SYMEXPORT const char*
   to_string (json_type, bool distinguish_numbers = false) noexcept;
@@ -74,8 +75,8 @@ namespace build2
     union
     {
       bool           boolean;
-      int64_t        signed_number;
-      uint64_t       unsigned_number; // Also used for hexadecimal_number.
+      int64_t        signed_number;   // Also hexadecimal_signed_number.
+      uint64_t       unsigned_number; // Also hexadecimal_unsigned_number.
       string_type    string;
       array_type     array;
       object_type    object;
@@ -117,7 +118,7 @@ namespace build2
     json_value (bool) noexcept;
 
     explicit
-    json_value (int64_t) noexcept;
+    json_value (int64_t, bool hexadecimal = false) noexcept;
 
     explicit
     json_value (uint64_t, bool hexadecimal = false) noexcept;
@@ -139,11 +140,11 @@ namespace build2
                optional<json_type> expected = {}) const;
 
     // Note that values of different types are never equal, except for
-    // signed/unsigned/hexadecimal numbers. Null is equal to null and is less
-    // than any other value. Arrays are compared lexicographically. Object
-    // members are considered in the lexicographically-compared name-ascending
-    // order (see RFC8785). An absent member is less than a present member
-    // (even if it's null).
+    // signed/unsigned and decimal/hexadecimal numbers. Null is equal to null
+    // and is less than any other value. Arrays are compared
+    // lexicographically. Object members are considered in the
+    // lexicographically-compared name-ascending order (see RFC8785). An
+    // absent member is less than a present member (even if it's null).
     //
     int
     compare (const json_value&) const noexcept;

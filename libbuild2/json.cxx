@@ -44,14 +44,24 @@ namespace build2
 
     switch (t)
     {
-    case type::null:               return "null";
-    case type::boolean:            return "boolean";
-    case type::signed_number:      return dn ?      "signed number" : "number";
-    case type::unsigned_number:    return dn ?    "unsigned number" : "number";
-    case type::hexadecimal_number: return dn ? "hexadecimal number" : "number";
-    case type::string:             return "string";
-    case type::array:              return "array";
-    case type::object:             return "object";
+    case type::null:
+      return "null";
+    case type::boolean:
+      return "boolean";
+    case type::signed_number:
+      return dn ? "signed number" : "number";
+    case type::unsigned_number:
+      return dn ? "unsigned number" : "number";
+    case type::hexadecimal_signed_number:
+      return dn ? "hexadecimal signed number" : "number";
+    case type::hexadecimal_unsigned_number:
+      return dn ? "hexadecimal unsigned number" : "number";
+    case type::string:
+      return "string";
+    case type::array:
+      return "array";
+    case type::object:
+      return "object";
     }
     return "";
   }
@@ -283,15 +293,19 @@ namespace build2
   {
     int r (0);
     {
-      // Note: we need to treat unsigned and hexadecimal the same.
+      // Note: we need to treat decimal and hexadecimal the same.
       //
-      json_type t (type == json_type::hexadecimal_number
+      json_type t (type == json_type::hexadecimal_unsigned_number
                    ? json_type::unsigned_number
-                   : type);
+                   : (type == json_type::hexadecimal_signed_number
+                      ? json_type::signed_number
+                      : type));
 
-      json_type vt (v.type == json_type::hexadecimal_number
-                    ? json_type::unsigned_number
-                    : v.type);
+      json_type vt (v.type == json_type::hexadecimal_unsigned_number
+                   ? json_type::unsigned_number
+                   : (v.type == json_type::hexadecimal_signed_number
+                      ? json_type::signed_number
+                      : v.type));
 
       if (t != vt)
       {
@@ -339,6 +353,7 @@ namespace build2
           break;
         }
       case json_type::signed_number:
+      case json_type::hexadecimal_signed_number:
         {
           r = (signed_number < v.signed_number
                ? -1
@@ -346,7 +361,7 @@ namespace build2
           break;
         }
       case json_type::unsigned_number:
-      case json_type::hexadecimal_number:
+      case json_type::hexadecimal_unsigned_number:
         {
           r = (unsigned_number < v.unsigned_number
                ? -1
@@ -463,48 +478,52 @@ namespace build2
         {
           l.unsigned_number = u - a;
           l.type = (hex
-                    ? json_type::hexadecimal_number
+                    ? json_type::hexadecimal_unsigned_number
                     : json_type::unsigned_number);
         }
         else
         {
           l.signed_number = -static_cast<int64_t> (a - u);
-          l.type = json_type::signed_number;
+          l.type = (hex
+                    ? json_type::hexadecimal_signed_number
+                    : json_type::signed_number);
         }
       }
       else
       {
         l.unsigned_number = u + static_cast<uint64_t> (s);
         l.type = (hex
-                  ? json_type::hexadecimal_number
+                  ? json_type::hexadecimal_unsigned_number
                   : json_type::unsigned_number);
       }
     };
 
     // We try to keep LHS hex if possible.
     //
-    if (l.type == json_type::signed_number)
+    bool h (false);
+    if (l.type == json_type::signed_number ||
+        (h = l.type == json_type::hexadecimal_signed_number))
     {
       if (r.type == json_type::signed_number)
       {
         // Deal with non-negative signed numbers for completeness.
         //
         if (l.signed_number >= 0)
-          append (static_cast <uint64_t> (l.signed_number), r.signed_number);
+          append (static_cast <uint64_t> (l.signed_number), r.signed_number, h);
         else if (r.signed_number >= 0)
-          append (static_cast <uint64_t> (r.signed_number), l.signed_number);
+          append (static_cast <uint64_t> (r.signed_number), l.signed_number, h);
         else
           l.signed_number += r.signed_number;
       }
       else
-        append (r.unsigned_number, l.signed_number);
+        append (r.unsigned_number, l.signed_number, h);
     }
     else
     {
+      h = (l.type == json_type::hexadecimal_unsigned_number);
+
       if (r.type == json_type::signed_number)
-        append (l.unsigned_number,
-                r.signed_number,
-                l.type == json_type::hexadecimal_number);
+        append (l.unsigned_number, r.signed_number, h);
       else
         l.unsigned_number += r.unsigned_number;
     }
@@ -549,11 +568,13 @@ namespace build2
         }
       case json_type::signed_number:
       case json_type::unsigned_number:
-      case json_type::hexadecimal_number:
+      case json_type::hexadecimal_signed_number:
+      case json_type::hexadecimal_unsigned_number:
         {
-          if (type != json_type::signed_number   &&
-              type != json_type::unsigned_number &&
-              type != json_type::hexadecimal_number)
+          if (type != json_type::signed_number             &&
+              type != json_type::unsigned_number           &&
+              type != json_type::hexadecimal_signed_number &&
+              type != json_type::hexadecimal_unsigned_number)
             break;
 
           append_numbers (*this, v);
@@ -640,11 +661,13 @@ namespace build2
         }
       case json_type::signed_number:
       case json_type::unsigned_number:
-      case json_type::hexadecimal_number:
+      case json_type::hexadecimal_signed_number:
+      case json_type::hexadecimal_unsigned_number:
         {
-          if (type != json_type::signed_number   &&
-              type != json_type::unsigned_number &&
-              type != json_type::hexadecimal_number)
+          if (type != json_type::signed_number             &&
+              type != json_type::unsigned_number           &&
+              type != json_type::hexadecimal_signed_number &&
+              type != json_type::hexadecimal_unsigned_number)
             break;
 
           append_numbers (*this, v);
@@ -700,18 +723,32 @@ namespace build2
 
     // A JSON input text cannot be empty.
     //
-    // Once we have JSON5 support we will be able to distinguish hexadecimal
-    // numbers.
-    //
     json_type t (json_type::null);
     switch (*p.next ())
     {
     case event::begin_object: t = json_type::object;  break;
     case event::begin_array:  t = json_type::array;   break;
     case event::string:       t = json_type::string;  break;
-    case event::number:       t = (p.value ()[0] == '-'
-                                   ? json_type::signed_number
-                                   : json_type::unsigned_number); break;
+    case event::number:
+      {
+        const string_type& v (p.value ());
+
+        bool neg;
+        size_t p ((neg = v[0] == '-') || v[0] == '+' ? 1 : 0);
+
+        if (v[p] == '0' && (v[p + 1] == 'x' || v[p + 1] == 'X'))
+        {
+          t = neg
+            ? json_type::hexadecimal_signed_number
+            : json_type::hexadecimal_unsigned_number;
+        }
+        else
+          t = neg
+            ? json_type::signed_number
+            : json_type::unsigned_number;
+
+        break;
+      }
     case event::boolean:      t = json_type::boolean; break;
     case event::null:         t = json_type::null;    break;
     case event::name:
@@ -794,13 +831,14 @@ namespace build2
         break;
       }
     case json_type::signed_number:
+    case json_type::hexadecimal_signed_number:
       {
         signed_number = p.value<int64_t> ();
         type = t;
         break;
       }
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number:
+    case json_type::hexadecimal_unsigned_number:
       {
         unsigned_number = p.value<uint64_t> ();
         type = t;
@@ -847,16 +885,14 @@ namespace build2
         break;
       }
     case json_type::signed_number:
+    case json_type::hexadecimal_signed_number:
       {
         s.value (signed_number);
         break;
       }
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number:
+    case json_type::hexadecimal_unsigned_number:
       {
-        // When we have JSON5 support, we will be able to serialize
-        // hexadecimal properly.
-        //
         s.value (unsigned_number);
         break;
       }

@@ -14,9 +14,13 @@
 : string
 :
 {{
-  $* <'print $string([uint64] 0xffff)'        >'65535'      : uint
-  $* <'print $string([uint64] 0xffff, 16)'    >'0xffff'     : uint-hex
-  $* <'print $string([uint64] 0xffff, 16, 8)' >'0x0000ffff' : uint-hex-width
+  $* <'print $string([uint64] 0xffff)'         >'65535'      : uint
+  $* <'print $string([uint64] +0xffff, 16)'    >'0xffff'     : uint-hex
+  $* <'print $string([uint64] 0xffff, 16, 8)'  >'0x0000ffff' : uint-hex-width
+
+  $* <'print $string([int64] -0xffff)'         >'-65535'      : int
+  $* <'print $string([int64] -0xffff, 16)'     >'-0xffff'     : int-hex
+  $* <'print $string([int64] -0xffff, 16, 8)'  >'-0x0000ffff' : int-hex-width
 }}
 
 : sort

@@ -40,8 +40,10 @@
   print ([json] 123)
   print ([json] -123)
   print ([json] 0xdecaf)
+  print ([json] -0xdecaf)
   print ([json] abc) # @@ Ideally we would like this to be reversed unquoted.
   print ([json] '"abc"') # @@ Ditto.
+  print ([json] "'abc'") # @@ Ditto.
   print (([json] abc)[0]) # @@ Workaround.
   print ([json] dir/{file1 file2})
   print ([json] '  ["dir/file1", "dir/file2"]  ')
@@ -53,6 +55,8 @@
   123
   -123
   0xdecaf
+  -0xdecaf
+  "abc"
   "abc"
   "abc"
   abc
@@ -72,17 +76,53 @@
   #
   print ([json] 0x0 0x01 0xff 0xFFFF)
   print ([json] ff@0xff FFFF@0xFFFF)
+  print ([json] '{ff: 0xff, FFFF: -0xFFFF}')
 
   # @@ This should start working once we switch to type hints in subscript.
+  #    Hm, won't it be more natural to return it as simple uint64?
   #
   #j = [json] ff@0xff
+  #print $value_type($j[ff], true)
+  print 'hexadecimal number'
+  j = [json] '{ff: 0xff}'
   #print $value_type($j[ff], true)
   print 'hexadecimal number'
   EOI
   0xffffffff
   [0,1,255,65535]
   {"ff":255,"FFFF":65535}
+  {"ff":255,"FFFF":-65535}
   hexadecimal number
+  hexadecimal number
+  EOO
+
+  : json5
+  :
+  $* <<EOI >>EOO
+  print ([json] "
+  {
+    'single-quoted': 'abc',
+    'multi-line': 'a\\
+  b\\
+  c',
+    unquoted: 0xff, // Trailing comma, and this is a comment.
+  }
+  ")
+  EOI
+  {"single-quoted":"abc","multi-line":"abc","unquoted":255}
+  EOO
+
+  : json5e
+  :
+  $* <<EOI >>EOO
+  print ([json] "
+  {
+    un-quoted: 0xff
+    newline.separated: 123
+  }
+  ")
+  EOI
+  {"un-quoted":255,"newline.separated":123}
   EOO
 
   : diagnostics-reverse-invalid

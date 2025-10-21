@@ -526,14 +526,19 @@ namespace build2
       {
         const string& v (n.value);
 
-        if (!wspace (v[0]))
+        char c (v[0]);
+        if (!wspace (c))
         {
-          // Note that unlike uint64, we don't support hex notation for int64.
+          size_t p (c == '-' || c == '+' ? 1 : 0);
+
+           // Note: see also similar code in to_json_value().
+          //
+          int b (v[p] == '0' && (v[p + 1] == 'x' || v[p + 1] == 'X') ? 16 : 10);
 
           // May throw invalid_argument or out_of_range.
           //
           size_t i;
-          int64_t r (stoll (v, &i));
+          int64_t r (stoll (v, &i, b));
 
           if (i == v.size ())
             return r;
@@ -586,11 +591,14 @@ namespace build2
       {
         const string& v (n.value);
 
-        if (!wspace (v[0]))
+        char c (v[0]);
+        if (!wspace (c) && c != '-')
         {
+          size_t p (c == '+' ? 1 : 0);
+
           // Note: see also similar code in to_json_value().
           //
-          int b (v[0] == '0' && (v[1] == 'x' || v[1] == 'X') ? 16 : 10);
+          int b (v[p] == '0' && (v[p + 1] == 'x' || v[p + 1] == 'X') ? 16 : 10);
 
           // May throw invalid_argument or out_of_range.
           //
@@ -1565,72 +1573,99 @@ namespace build2
       return json_value ();
     else if ((f = (s == "true")) || s == "false")
       return json_value (f);
-    else if (s.find_first_not_of (
-               "0123456789", (f = (s[0] == '-')) ? 1 : 0) == string::npos)
-    {
-      name n (move (s));
-      return f
-        ? json_value (value_traits<int64_t>::convert (n, nullptr))
-        : json_value (value_traits<uint64_t>::convert (n, nullptr));
-    }
-    //
-    // Handle the hex notation similar to <uint64_t>::convert() (and JSON5).
-    //
-    else if (s[0] == '0'                  &&
-             (s[1] == 'x' || s[1] == 'X') &&
-             s.size () > 2                &&
-             s.find_first_not_of ("0123456789aAbBcCdDeEfF", 2) == string::npos)
-    {
-      return json_value (
-        value_traits<uint64_t>::convert (name (move (s)), nullptr),
-        true /* hex */);
-    }
     else
     {
-      // If this is not a JSON representation of string, array, or object,
-      // then treat it as a string.
-      //
-      // Note that the special `"`, `{`, and `[` characters could be preceded
-      // with whitespaces. Note: see similar test in json_object below.
-      //
-      size_t p (s.find_first_not_of (" \t\n\r"));
+      bool neg;
+      size_t p ((neg = s[0] == '-') || s[0] == '+' ? 1 : 0);
 
-      if (p == string::npos || (s[p] != '"' && s[p] != '{' && s[p] != '['))
-        return json_value (move (s));
-
-      // Parse as valid JSON input text.
+      // Decimal.
       //
-#ifndef BUILD2_BOOTSTRAP
-      try
+      if (s.find_first_not_of ("0123456789", p) == string::npos)
       {
-        json_parser p (s, nullptr /* name */);
-        return json_value (p);
+        name n (move (s));
+        return neg
+          ? json_value (value_traits<int64_t>::convert (n, nullptr))
+          : json_value (value_traits<uint64_t>::convert (n, nullptr));
       }
-      catch (const invalid_json_input& e)
+
+      // Hexadecimal.
+      //
+      if (s[p] == '0'                          &&
+          (s[p + 1] == 'x' || s[p + 1] == 'X') &&
+          s.size () > p + 2                    &&
+          s.find_first_not_of ("0123456789aAbBcCdDeEfF", p + 2) == string::npos)
       {
-        // Turned out printing line/column/offset can be misleading since we
-        // could be parsing a single name from a potential list of names.
-        // feels like without also printing the value this is of not much use.
-        //
-#if 0
-        string m ("invalid json input at line ");
-        m += to_string (e.line);
-        m += ", column ";
-        m += to_string (e.column);
-        m += ", byte offset ";
-        m += to_string (e.position);
-        m += ": ";
-        m += e.what ();
-#else
-        string m ("invalid json input: ");
-        m += e.what ();
-#endif
-        throw invalid_argument (move (m));
+        return neg
+          ? json_value (
+              value_traits<int64_t>::convert (name (move (s)), nullptr),
+              true /* hex */)
+          : json_value (
+              value_traits<uint64_t>::convert (name (move (s)), nullptr),
+              true /* hex */);
       }
-#else
-      throw invalid_argument ("json parsing requested during bootstrap");
-#endif
+
+      // Fall through.
     }
+
+    // If this is not a JSON representation of string, array, or object, then
+    // treat it as a string.
+    //
+    // Note that the special `"`, `'`, `{`, and `[` characters could be
+    // preceded with whitespaces. Note: see similar test in json_object
+    // below.
+    //
+    // JSON5/JSON5E issues with this logic:
+    //
+    // - JSON5 may begin with a comment
+    // - JSON5 may begin with a multi-byte whitespace
+    // - JSON5E implied object doesn't start with `{`
+    //
+    // The first two are probably not a big deal. And while supporting implied
+    // objects seemed attractive at first, maybe it's better to require
+    // explicit `{}` to avoid confusion and to indicate "structuredness". Note
+    // also that $json.parse() can always be used as an escape hatch for all
+    // these issues.
+    //
+    size_t p (s.find_first_not_of (" \t\n\r\f\v"));
+
+    if (p == string::npos || (s[p] != '"'  &&
+                              s[p] != '\'' &&
+                              s[p] != '{'  &&
+                              s[p] != '['))
+      return json_value (move (s));
+
+    // Parse as valid JSON5E input text.
+    //
+#ifndef BUILD2_BOOTSTRAP
+    try
+    {
+      json_parser p (s, nullptr /* name */, json_language::json5e);
+      return json_value (p);
+    }
+    catch (const invalid_json_input& e)
+    {
+      // Turned out printing line/column/offset can be misleading since we
+      // could be parsing a single name from a potential list of names. Feels
+      // like without also printing the value this is of not much use.
+      //
+#if 0
+      string m ("invalid json input at line ");
+      m += to_string (e.line);
+      m += ", column ";
+      m += to_string (e.column);
+      m += ", byte offset ";
+      m += to_string (e.position);
+      m += ": ";
+      m += e.what ();
+#else
+      string m ("invalid json input: ");
+      m += e.what ();
+#endif
+      throw invalid_argument (move (m));
+    }
+#else
+    throw invalid_argument ("json parsing requested during bootstrap");
+#endif
   }
 
   json_value value_traits<json_value>::
@@ -1821,11 +1856,15 @@ namespace build2
       {
         return value_traits<int64_t>::reverse (v.signed_number);
       }
+    case json_type::hexadecimal_signed_number:
+      {
+        return name (to_string (v.signed_number, 16));
+      }
     case json_type::unsigned_number:
       {
         return value_traits<uint64_t>::reverse (v.unsigned_number);
       }
-    case json_type::hexadecimal_number:
+    case json_type::hexadecimal_unsigned_number:
       {
         return name (to_string (v.unsigned_number, 16));
       }
@@ -1946,8 +1985,9 @@ namespace build2
       {
       case json_type::boolean:
       case json_type::signed_number:
+      case json_type::hexadecimal_signed_number:
       case json_type::unsigned_number:
-      case json_type::hexadecimal_number:
+      case json_type::hexadecimal_unsigned_number:
       case json_type::string:
         {
           // Steal the value if possible.
@@ -2025,17 +2065,36 @@ namespace build2
       // particular, helps chained subscript.
       //
 #if 0
-    case json_type::null:               r = value (names {});          break;
+    case json_type::null:
+      r = value (names {});
+      break;
 #else
-    case json_type::null:               r = value ();                  break;
+    case json_type::null:
+      r = value ();
+      break;
 #endif
-    case json_type::boolean:            r = value (jr.boolean);        break;
-    case json_type::signed_number:      r = value (jr.signed_number);  break;
+    case json_type::boolean:
+      r = value (jr.boolean);
+      break;
+
+    case json_type::signed_number:
+    case json_type::hexadecimal_signed_number:
+      r = value (jr.signed_number);
+      break;
+
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number: r = value (jr.unsigned_number); break;
-    case json_type::string:             r = value (move (jr.string));   break;
+    case json_type::hexadecimal_unsigned_number:
+      r = value (jr.unsigned_number);
+      break;
+
+    case json_type::string:
+      r = value (move (jr.string));
+      break;
+
     case json_type::array:
-    case json_type::object:             r = value (move (jr));          break;
+    case json_type::object:
+      r = value (move (jr));
+      break;
     }
 
     return make_pair (move (r), true);
@@ -2332,7 +2391,7 @@ namespace build2
         throw_invalid_argument (n, nullptr, "json object");
 
       string& s (n.value);
-      size_t p (s.find_first_not_of (" \t\n\r"));
+      size_t p (s.find_first_not_of (" \t\n\r\f\v"));
 
       if (p == string::npos || s[p] != '{')
       {

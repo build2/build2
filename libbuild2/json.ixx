@@ -27,7 +27,8 @@ namespace build2
   inline int64_t json_value::
   as_int64 () const
   {
-    if (type == json_type::signed_number)
+    if (type == json_type::signed_number ||
+        type == json_type::hexadecimal_signed_number)
       return signed_number;
 
     json_as_throw (type, json_type::signed_number);
@@ -36,7 +37,8 @@ namespace build2
   inline int64_t& json_value::
   as_int64 ()
   {
-    if (type == json_type::signed_number)
+    if (type == json_type::signed_number ||
+        type == json_type::hexadecimal_signed_number)
       return signed_number;
 
     json_as_throw (type, json_type::signed_number);
@@ -46,7 +48,7 @@ namespace build2
   as_uint64 () const
   {
     if (type == json_type::unsigned_number ||
-        type == json_type::hexadecimal_number)
+        type == json_type::hexadecimal_unsigned_number)
       return unsigned_number;
 
     json_as_throw (type, json_type::unsigned_number);
@@ -56,7 +58,7 @@ namespace build2
   as_uint64 ()
   {
     if (type == json_type::unsigned_number ||
-        type == json_type::hexadecimal_number)
+        type == json_type::hexadecimal_unsigned_number)
       return unsigned_number;
 
     json_as_throw (type, json_type::unsigned_number);
@@ -125,7 +127,8 @@ namespace build2
     case json_type::boolean:
     case json_type::signed_number:
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number:                         break;
+    case json_type::hexadecimal_signed_number:
+    case json_type::hexadecimal_unsigned_number:                break;
     case json_type::string:             string.~string_type (); break;
     case json_type::array:              array.~array_type ();   break;
     case json_type::object:             object.~object_type (); break;
@@ -139,13 +142,17 @@ namespace build2
     switch (type)
     {
     case json_type::null:                                             break;
-    case json_type::boolean:            boolean = false;              break;
-    case json_type::signed_number:      signed_number = 0;            break;
+    case json_type::boolean:                     boolean = false;     break;
+
+    case json_type::signed_number:
+    case json_type::hexadecimal_signed_number:   signed_number = 0;   break;
+
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number: unsigned_number = 0;          break;
-    case json_type::string:             new (&string) string_type (); break;
-    case json_type::array:              new (&array)  array_type ();  break;
-    case json_type::object:             new (&object) object_type (); break;
+    case json_type::hexadecimal_unsigned_number: unsigned_number = 0; break;
+
+    case json_type::string: new (&string) string_type (); break;
+    case json_type::array:  new (&array)  array_type ();  break;
+    case json_type::object: new (&object) object_type (); break;
     }
   }
 
@@ -162,15 +169,18 @@ namespace build2
   }
 
   inline json_value::
-  json_value (int64_t v) noexcept
-      : type (json_type::signed_number), signed_number (v)
+  json_value (int64_t v, bool hex) noexcept
+      : type (hex
+              ? json_type::hexadecimal_signed_number
+              : json_type::signed_number),
+        signed_number (v)
   {
   }
 
   inline json_value::
   json_value (uint64_t v, bool hex) noexcept
       : type (hex
-              ? json_type::hexadecimal_number
+              ? json_type::hexadecimal_unsigned_number
               : json_type::unsigned_number),
         unsigned_number (v)
   {
@@ -232,10 +242,11 @@ namespace build2
       boolean = v.boolean;
       break;
     case json_type::signed_number:
+    case json_type::hexadecimal_signed_number:
       signed_number = v.signed_number;
       break;
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number:
+    case json_type::hexadecimal_unsigned_number:
       unsigned_number = v.unsigned_number;
       break;
     case json_type::string:
@@ -267,10 +278,11 @@ namespace build2
       boolean = v.boolean;
       break;
     case json_type::signed_number:
+    case json_type::hexadecimal_signed_number:
       signed_number = v.signed_number;
       break;
     case json_type::unsigned_number:
-    case json_type::hexadecimal_number:
+    case json_type::hexadecimal_unsigned_number:
       unsigned_number = v.unsigned_number;
       break;
     case json_type::string:

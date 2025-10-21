@@ -17,7 +17,7 @@
 
 #include <cerrno>   // ENOENT, ERANGE
 #include <cstring>  // strlen(), str[n]cmp(), strchr()
-#include <cstdlib>  // strtoull()
+#include <cstdlib>  // strtoull(), abs()
 #include <iostream> // cerr
 
 #include <libbuild2/target.hxx>
@@ -128,6 +128,21 @@ namespace build2
     default:
       throw invalid_argument ("unsupported base");
     }
+
+    return r;
+  }
+
+  string
+  to_string (int64_t i, int b, size_t w)
+  {
+    uint64_t ui (i == INT64_MIN
+                 ? static_cast<uint64_t> (INT64_MAX) + 1
+                 : static_cast<uint64_t> (std::abs (i)));
+
+    string r (to_string (ui, b, w));
+
+    if (i < 0)
+      r.insert (0, 1, '-');
 
     return r;
   }

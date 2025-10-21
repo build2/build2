@@ -83,6 +83,7 @@ namespace butl
 {
   namespace json
   {
+    enum class language: uint8_t;
     enum class event: uint8_t;
     class parser;
     class buffer_serializer;
@@ -500,6 +501,7 @@ namespace build2
 
   // <libbutl/json/*.hxx>
   //
+  using json_language = butl::json::language;
   using json_event = butl::json::event;
   using json_parser = butl::json::parser;
   using json_buffer_serializer = butl::json::buffer_serializer;
