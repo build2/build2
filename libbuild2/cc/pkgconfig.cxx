@@ -1728,34 +1728,48 @@ namespace build2
         //
         auto save_library_target = [this] (const file& l) -> string
         {
-          // If available (it may not, in case of import-installed libraris),
+          // If available (it may not, in case of import-installed libraries),
           // use the .pc file name to derive the -l library name (in case of
           // the shared library, l.path() may contain version).
           //
           string n;
 
+          // We also want to strip the lib prefix unless it is part of the
+          // target name while keeping custom library prefix/suffix, if any
+          // (see link_rule::apply() for background).
+          //
+          // For MSVC, we have to distinguish between the lib prefix that
+          // was added to the .pc file by default vs the lib prefix
+          // requested by the user. The easiest is to just take the import
+          // library base name as is (it has no version).
+          //
           auto strip_lib = [&n] ()
           {
             if (n.size () > 3 &&
-                path::traits_type::compare (n.c_str (), 3, "lib", 3) == 0)
+                path_traits::compare (n.c_str (), 3, "lib", 3) == 0)
               n.erase (0, 3);
           };
 
-          if (auto* t = find_adhoc_member<pc> (l))
+          if (cclass != compiler_class::msvc)
           {
-            // We also want to strip the lib prefix unless it is part of the
-            // target name while keeping custom library prefix/suffix, if any.
-            //
-            n = t->path ().leaf ().base ().base ().string ();
-
-            if (cclass != compiler_class::msvc)
+            if (auto* t = find_adhoc_member<pc> (l))
             {
+              n = t->path ().leaf ().base ().base ().string ();
+
               if (path_traits::compare (n.c_str (), n.size (),
                                         l.name.c_str (), l.name.size ()) != 0)
                 strip_lib ();
             }
           }
           else
+          {
+            if (auto* t = find_adhoc_member<libi> (l))
+            {
+              n = t->path ().leaf ().base ().base ().string ();
+            }
+          }
+
+          if (n.empty ())
           {
             const path& p (l.path ());
 
