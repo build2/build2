@@ -2194,6 +2194,11 @@ namespace build2
                     d.recipes.begin (), d.recipes.end (),
                     [a] (const shared_ptr<adhoc_rule>& r)
                     {
+                      // Skip missing else/default clauses (see above).
+                      //
+                      if (r == nullptr)
+                        return false;
+
                       auto& as (r->actions);
                       return find (as.begin (), as.end (), a) != as.end ();
                     }) != d.recipes.end ())
