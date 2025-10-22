@@ -60,19 +60,23 @@ namespace build2
     enter_scope ()
         : p_ (nullptr), r_ (nullptr), s_ (nullptr), b_ (nullptr) {}
 
-    enter_scope (parser& p, dir_path&& d)
+    enter_scope (parser& p,
+                 dir_path&& d,
+                 project_switch ps, const location& loc)
         : p_ (&p), r_ (p.root_), s_ (p.scope_), b_ (p.pbase_)
     {
       complete_normalize (*p.scope_, d);
-      e_ = p.switch_scope (d);
+      e_ = p.switch_scope (d, ps, loc);
     }
 
     // As above but for already absolute and normalized directory.
     //
-    enter_scope (parser& p, const dir_path& d, bool)
+    enter_scope (parser& p,
+                 const dir_path& d, bool,
+                 project_switch ps, const location& loc)
         : p_ (&p), r_ (p.root_), s_ (p.scope_), b_ (p.pbase_)
     {
-      e_ = p.switch_scope (d);
+      e_ = p.switch_scope (d, ps, loc);
     }
 
     ~enter_scope ()
@@ -1036,7 +1040,7 @@ namespace build2
             if (path_pattern (n.dir))
               fail (nloc) << "pattern in directory " << n.dir.representation ();
 
-            sg = enter_scope (*this, move (n.dir));
+            sg = enter_scope (*this, move (n.dir), project_switch::none, nloc);
           }
 
           // Resolve target type. If none is specified, then it's file{}.
@@ -1896,9 +1900,11 @@ namespace build2
         }
 
         {
-          enter_scope sg (d.empty ()
-                          ? enter_scope ()
-                          : enter_scope (*this, move (d)));
+          enter_scope sg (
+            d.empty ()
+            ? enter_scope ()
+            : enter_scope (*this, move (d), project_switch::none, nloc));
+
           parse_variable (t, tt, var, tt);
         }
 
@@ -1930,10 +1936,18 @@ namespace build2
           else
             attributes_pop ();
 
-          // Can contain anything that a top level can.
-          //
           {
-            enter_scope sg (*this, move (ns[0].dir));
+            // We disallow switching project except in export stubs.
+            //
+            enter_scope sg (*this,
+                            move (ns[0].dir),
+                            (scope_->role_ == scope::role::temp_export
+                             ? project_switch::any
+                             : project_switch::none),
+                            nloc);
+
+            // Can contain anything that a top level can.
+            //
             parse_clause (t, tt);
           }
 
@@ -3777,10 +3791,16 @@ namespace build2
       // out the absolute buildfile path since we may switch the project
       // root and src_root with it (i.e., include into a sub-project).
       //
-      enter_scope sg (*this, out_base, true /* absolute & normalized */);
-
-      if (root_ == nullptr)
-        fail (l) << "out of project include from " << out_base;
+      // There was some thinking that we should only allow switching to a
+      // project in the same bundle amalgamation, unless in export stub. But
+      // that breaks glue buildfiles so let's assume that for explicit include
+      // the user knows what they are doing. See also equivalent logic in
+      // dir_search().
+      //
+      enter_scope sg (*this,
+                      out_base, true /* absolute & normalized */,
+                      project_switch::any,
+                      l);
 
       // Use the new scope's src_base to get absolute buildfile path if it is
       // relative.
@@ -4812,11 +4832,9 @@ namespace build2
   {
     tracer trace ("parser::parse_export", &path_);
 
-    scope* ps (scope_->parent_scope ());
-
-    // This should be temp_scope.
+    // This should be temp_scope for export.
     //
-    if (ps == nullptr || ps->out_path () != scope_->out_path ())
+    if (scope_->role_ != scope::role::temp_export)
       fail (t) << "export outside export stub";
 
     // The rest is a value. Parse it similar to a value on the RHS of an
@@ -10176,7 +10194,7 @@ namespace build2
   }
 
   auto_project_env parser::
-  switch_scope (const dir_path& d)
+  switch_scope (const dir_path& d, project_switch ps, const location& loc)
   {
     tracer trace ("parser::switch_scope", &path_);
 
@@ -10192,24 +10210,37 @@ namespace build2
     bool proj (stage_ != stage::boot);
 
     auto p (build2::switch_scope (*root_, d, proj));
-    scope_ = &p.first;
-    pbase_ = scope_->src_path_ != nullptr ? scope_->src_path_ : &d;
 
     if (proj && p.second != root_)
     {
+      // Always ban switching outside of any project.
+      //
+      if (p.second == nullptr)
+        fail (loc) << "directory " << d << " is outside of any loaded project";
+
+      switch (ps)
+      {
+      case project_switch::none:
+        {
+          fail (loc) << "directory " << d << " is outside of project "
+                     << *root_ << endf;
+        }
+      case project_switch::any:
+        break;
+      }
+
       root_ = p.second;
 
       if (root_ != nullptr)
         r = auto_project_env (*root_);
 
-      l5 ([&]
-          {
-            if (root_ != nullptr)
-              trace << "switching to root scope " << *root_;
-            else
-              trace << "switching to out of project scope";
-          });
+      l5 ([&] {trace << "switching to root scope " << *root_;});
     }
+
+    scope_ = &p.first;
+    pbase_ = scope_->src_path_ != nullptr
+      ? scope_->src_path_
+      : scope_->out_path_;
 
     return r;
   }
@@ -10394,7 +10425,12 @@ namespace build2
           //
           if (cast_false<bool> (root_->vars["install.loaded"]))
           {
-            enter_scope es (*this, dir_path (export_dir));
+            // Note: shouldn't be switching projects.
+            //
+            enter_scope es (*this,
+                            dir_path (export_dir),
+                            project_switch::none, location ());
+
             auto& vars (scope_->target_vars[file::static_type]["*"]);
 
             // @@ TODO: get cached variables from the module once we have one.

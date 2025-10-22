@@ -710,6 +710,9 @@ namespace build2
               ctx.var_pool);
     }
 
+  public:
+    enum class role {normal, temp_generic, temp_export};
+
   private:
     friend class parser;
     friend class scope_map;
@@ -723,13 +726,15 @@ namespace build2
     friend LIBBUILD2_SYMEXPORT scope&
     create_bootstrap_inner (scope&, const dir_path&);
 
-    scope (context&, bool shared);
+    scope (context&, bool shared, role = role::normal);
     ~scope ();
 
     // Return true if this root scope can be amalgamated.
     //
     bool
     amalgamatable () const;
+
+    role role_;
 
     // Note that these values represent "physical" scoping relationships not
     // taking into account the project's var_amalgamation value.
@@ -815,8 +820,8 @@ namespace build2
   class temp_scope: public scope
   {
   public:
-    temp_scope (scope& gs)
-        : scope (gs.ctx, false /* shared */),
+    temp_scope (scope& gs, role r)
+        : scope (gs.ctx, false /* shared */, r),
           var_pool_ (nullptr /* shared */, &gs.ctx.var_pool.rw (gs), nullptr)
     {
       // Note that making this scope its own root is a bad idea.

@@ -798,7 +798,7 @@ namespace build2
       }
 
       parser p (ctx);
-      temp_scope tmp (ctx.global_scope.rw ());
+      temp_scope tmp (ctx.global_scope.rw (), scope::role::temp_generic);
       p.parse_variable (l, tmp, var, tt);
 
       value* v (tmp.vars.lookup_to_modify (var).first);
@@ -3171,7 +3171,7 @@ namespace build2
       // Use a temporary scope so that the export stub doesn't mess anything
       // up.
       //
-      temp_scope ts (gs);
+      temp_scope ts (gs, scope::role::temp_export);
 
       // "Pass" the imported project's roots to the stub.
       //
