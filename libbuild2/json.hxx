@@ -28,7 +28,7 @@ namespace build2
   // - operator bool() - in a sense null is like nullopt.
   //
 
-  // This JSON representation has one extensions compared to the standard JSON
+  // This JSON representation has one extension compared to the standard JSON
   // model: it distinguishes between signed/unsigned, and decimal/hexadecimal
   // numbers.
   //
