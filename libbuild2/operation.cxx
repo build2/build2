@@ -1635,7 +1635,7 @@ namespace build2
   }
 #else
   static void
-  info_execute_json (action_targets&, bool)
+  info_execute_json (action_targets&, bool, bool cver)
   {
   }
 #endif //BUILD2_BOOTSTRAP
