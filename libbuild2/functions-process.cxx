@@ -474,7 +474,7 @@ namespace build2
       return run_process (s, pp, strings ());
     };
 
-    // $process.run_regex(<prog>[ <args>...], <pat>[, <fmt>])
+    // $process.run_regex(<prog>[ <args>...], <pat> [, <fmt>])
     //
     // Run builtin or external program and return `stdout` output lines
     // matched and optionally processed with a regular expression. The result

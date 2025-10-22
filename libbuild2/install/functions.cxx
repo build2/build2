@@ -15,7 +15,7 @@ namespace build2
     {
       function_family f (m, "install");
 
-      // $install.resolve(<dir>[, <rel_base>])
+      // $install.resolve(<dir> [, <rel_base>])
       //
       // @@ TODO: add overload to call resolve_file().
       //
@@ -85,7 +85,7 @@ namespace build2
 
       // @@ TODO: add $install.chroot().
 
-      // $install.filter(<path>[, <type>])
+      // $install.filter(<path> [, <type>])
       //
       // Apply filters from config.install.filter and return true if the
       // specified filesystem entry should be installed/uninstalled. Note that

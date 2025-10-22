@@ -27,7 +27,7 @@ namespace build2
       return p != nullptr ? move (*p).string () : string ();
     };
 
-    // $base(<project-name>[, <extension>])
+    // $base(<project-name> [, <extension>])
     //
     // Return the base part (without the extension) of a project name.
     //

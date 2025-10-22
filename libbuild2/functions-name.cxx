@@ -439,7 +439,7 @@ namespace build2
       return ns;
     };
 
-    // $sort(<names>[, <flags>])
+    // $sort(<names> [, <flags>])
     //
     // Sort names in ascending order.
     //

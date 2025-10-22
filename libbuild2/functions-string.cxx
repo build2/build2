@@ -266,8 +266,8 @@ namespace build2
                        convert<string> (move (y))) == 0;
     };
 
-    // $string.contains(<untyped>, <untyped>[, <flags>])
-    // $contains(<string>, <string>[, <flags>])
+    // $string.contains(<untyped>, <untyped> [, <flags>])
+    // $contains(<string>, <string> [, <flags>])
     //
     // Check if the string (first argument) contains the given substring
     // (second argument). The substring must not be empty.
@@ -291,8 +291,8 @@ namespace build2
       return contains (convert<string> (move (s)), move (ss), move (fs));
     };
 
-    // $string.starts_with(<untyped>, <untyped>[, <flags>])
-    // $starts_with(<string>, <string>[, <flags>])
+    // $string.starts_with(<untyped>, <untyped> [, <flags>])
+    // $starts_with(<string>, <string> [, <flags>])
     //
     // Check if the string (first argument) begins with the given prefix
     // (second argument). The prefix must not be empty.
@@ -313,8 +313,8 @@ namespace build2
       return starts_with (convert<string> (move (s)), move (pf), move (fs));
     };
 
-    // $string.ends_with(<untyped>, <untyped>[, <flags>])
-    // $ends_with(<string>, <string>[, <flags>])
+    // $string.ends_with(<untyped>, <untyped> [, <flags>])
+    // $ends_with(<string>, <string> [, <flags>])
     //
     // Check if the string (first argument) ends with the given suffix (second
     // argument). The suffix must not be empty.
@@ -494,7 +494,7 @@ namespace build2
       return v;
     };
 
-    // $find(<strings>, <string>[, <flags>])
+    // $find(<strings>, <string> [, <flags>])
     //
     // Return true if the string sequence contains the specified string.
     //
@@ -509,7 +509,7 @@ namespace build2
       return find_index (vs, move (v), move (fs)) != vs.size ();
     };
 
-    // $find_index(<strings>, <string>[, <flags>])
+    // $find_index(<strings>, <string> [, <flags>])
     //
     // Return the index of the first element in the string sequence that
     // is equal to the specified string or `$size(strings)` if none is

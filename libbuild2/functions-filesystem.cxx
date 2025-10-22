@@ -167,7 +167,7 @@ namespace build2
       e += [](names ns) {return directory_exists (convert<dir_path> (move (ns)));};
     }
 
-    // $path_search(<pattern>[, <start-dir>])
+    // $path_search(<pattern> [, <start-dir>])
     //
     // Return filesystem paths that match the shell-like wildcard pattern. If
     // the pattern is an absolute path, then the start directory is ignored

@@ -31,8 +31,8 @@ namespace build2
   {
     function_family f (m, "integer");
 
-    // $string(<int64>[, <base>[, <width>]])
-    // $string(<uint64>[, <base>[, <width>]])
+    // $string(<int64> [, <base> [, <width>]])
+    // $string(<uint64> [, <base> [, <width>]])
     //
     // Convert an integer to a string, optionally with the desired base and
     // width. For example:
@@ -59,7 +59,7 @@ namespace build2
       return to_string (i, move (base), move (width));
     };
 
-    // $integer_sequence(<begin>, <end>[, <step>])
+    // $integer_sequence(<begin>, <end> [, <step>])
     //
     // Return the list of uint64 integers starting from <begin> (including) to
     // <end> (excluding) with the specified <step> or `1` if unspecified. If

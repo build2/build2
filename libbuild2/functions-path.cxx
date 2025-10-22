@@ -981,7 +981,7 @@ namespace build2
       return move (v.back ());
     };
 
-    // $sort(<paths>[, <flags>])
+    // $sort(<paths> [, <flags>])
     //
     // Sort paths in ascending order. Note that on host platforms with a
     // case-insensitive filesystem the order is case-insensitive.
@@ -1047,7 +1047,7 @@ namespace build2
       return i != vs.end () ? i - vs.begin () : vs.size ();
     };
 
-    // $path.match(<entry>, <pattern>[, <start-dir>])
+    // $path.match(<entry>, <pattern> [, <start-dir>])
     //
     // Match a filesystem entry name against a name pattern (both are
     // strings), or a filesystem entry path against a path pattern. For the

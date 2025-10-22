@@ -102,8 +102,8 @@ namespace build2
     f["empty"] += [](value* v)  {return v->null || v->empty ();};
 
 
-    // $first(<value>[, <not_pair>])
-    // $second(<value>[, <not_pair>])
+    // $first(<value> [, <not_pair>])
+    // $second(<value> [, <not_pair>])
     //
     // Return the first or the second half of a pair, respectively. If a value
     // is not a pair, then return `null` unless the <not_pair> argument is
@@ -165,7 +165,7 @@ namespace build2
     //
     f["identity"] += [](value* v) {return move (*v);};
 
-    // $quote(<value>[, <escape>])
+    // $quote(<value> [, <escape>])
     //
     // Quote the value returning its string representation. If <escape> is
     // `true`, then also escape (with a backslash) the quote characters being

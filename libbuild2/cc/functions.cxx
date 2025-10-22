@@ -241,7 +241,7 @@ namespace build2
     void compile_rule::
     functions (function_family& f, const char* x)
     {
-      // $<module>.lib_poptions(<lib-targets>[, <otype>[, <original>]])
+      // $<module>.lib_poptions(<lib-targets> [, <otype> [, <original>]])
       //
       // Return the preprocessor options that should be passed when compiling
       // sources that depend on the specified libraries. The second argument

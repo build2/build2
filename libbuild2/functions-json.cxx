@@ -30,12 +30,12 @@ namespace build2
   {
     function_family f (m, "json");
 
-    // $value_type(<json>[, <distinguish_numbers>])
+    // $value_type(<json> [, <distinguish_numbers>])
     //
     // Return the type of a JSON value: `null`, `boolean`, `number`, `string`,
     // `array`, or `object`. If the <distinguish_numbers> argument is `true`,
-    // then instead of `number` return `signed number`, `unsigned number`, or
-    // `hexadecimal number`.
+    // then instead of `number` return `signed number`, `unsigned number`,
+    // `hexadecimal signed number`, or `hexadecimal unsigned number`.
     //
     f["value_type"] += [] (json_value v, optional<value> distinguish_numbers)
     {
@@ -215,7 +215,8 @@ namespace build2
 #ifndef BUILD2_BOOTSTRAP
 
     // @@ Flag to support multi-value (returning it as JSON array)? Then
-    //    probably also in $serialize().
+    //    probably also in $serialize(). Feels far-fetched someone will
+    //    need this.
     //
     // @@ Flag to override duplicates instead of failing?
 
@@ -274,7 +275,7 @@ namespace build2
       }
     };
 
-    // $serialize(<json>[, <indentation>])
+    // $serialize(<json> [, <indentation>])
     //
     // Serialize the specified JSON value and return the resulting JSON output
     // text.
