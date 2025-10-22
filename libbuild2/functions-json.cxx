@@ -215,6 +215,40 @@ namespace build2
       fail << "expected json array instead of " << to_string (a.type) << endf;
     };
 
+    // $array_front(<json-array>)
+    //
+    // Return the first element in the JSON array.
+    //
+    f["array_front"] += [] (json_value a)
+    {
+      if (a.type == json_type::array)
+      {
+        if (a.array.empty ())
+          fail << "empty json array";
+
+        return move (a.array.front ());
+      }
+
+      fail << "expected json array instead of " << to_string (a.type) << endf;
+    };
+
+    // $array_back(<json-array>)
+    //
+    // Return the last element in the JSON array.
+    //
+    f["array_back"] += [] (json_value a)
+    {
+      if (a.type == json_type::array)
+      {
+        if (a.array.empty ())
+          fail << "empty json array";
+
+        return move (a.array.back ());
+      }
+
+      fail << "expected json array instead of " << to_string (a.type) << endf;
+    };
+
     // $array_find(<json-array>, <json>)
     //
     // Return true if the JSON array contains the specified JSON value. If the
