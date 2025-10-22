@@ -130,6 +130,22 @@ EOI
 0
 EOO
 
+: array-front
+:
+$* <<EOI >>EOO
+print $array_front([json] ([json] one@1 two@2) three)
+EOI
+{"one":1,"two":2}
+EOO
+
+: array-back
+:
+$* <<EOI >>EOO
+print $array_back([json] ([json] one@1 two@2) three)
+EOI
+"three"
+EOO
+
 : parse
 :
 {{
