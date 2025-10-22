@@ -5831,11 +5831,13 @@ namespace build2
 
     // Finally the body. The initial thought was to use the token replay
     // facility but on closer inspection this didn't turn out to be a good
-    // idea (no support for nested replays, etc). So instead we are going to
-    // do a full-blown re-lex. Specifically, we will first skip the line/block
-    // just as we do for non-taken if/else branches while saving the character
-    // sequence that comprises the body. Then we re-lex/parse it on each
-    // iteration.
+    // idea (no support for nested replays at that time, etc). So instead we
+    // are going to do a full-blown re-lex. Specifically, we will first skip
+    // the line/block just as we do for non-taken if/else branches while
+    // saving the character sequence that comprises the body. Then we
+    // re-lex/parse it on each iteration.
+    //
+    // @@ Should we rewrite this using the nested replays?
     //
     string body;
     uint64_t line (lexer_->line); // Line of the first character to be saved.
@@ -7962,11 +7964,6 @@ namespace build2
       //
       assert (!pre_parse_);
 
-      //@@ This can be a nested replay (which we don't support), for example,
-      //   via target-specific var assignment. Add support for nested (2-level
-      //   replay)? Why not use replay_guard for storage? Alternatively, don't
-      //   use it here (see parse_for() for an alternative approach).
-      //
       replay_guard rg (*this, ln.size () > 1);
       for (auto i (ln.begin ()), e (ln.end ()); i != e; )
       {
