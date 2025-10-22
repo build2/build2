@@ -25,6 +25,38 @@ namespace build2
     return i != e ? i - b : a.array.size ();
   };
 
+#ifndef BUILD2_BOOTSTRAP
+  struct json_parse_flags
+  {
+    json_language lang;
+  };
+
+  static json_parse_flags
+  parse_flags (optional<names>&& flags)
+  {
+    json_parse_flags r {json_language::json};
+
+    if (flags)
+    {
+      for (name& f: *flags)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "json")
+          r.lang = json_language::json;
+        else if (s == "json5")
+          r.lang = json_language::json5;
+        else if (s == "json5e")
+          r.lang = json_language::json5e;
+        else
+          throw invalid_argument ("invalid flag '" + s + '\'');
+      }
+    }
+
+    return r;
+  }
+#endif
+
   void
   json_functions (function_map& m)
   {
@@ -219,24 +251,34 @@ namespace build2
     //    need this.
     //
     // @@ Flag to override duplicates instead of failing?
-
-    // $json.load(<path>)
     //
-    // Parse the contents of the specified file as JSON input text and return
-    // the result as a value of the `json` type.
+
+    // $json.load(<path> [, <flags>])
+    //
+    // Parse the contents of the specified file as JSON (default), JSON5, or
+    // JSON5E input text and return the result as a value of the `json` type.
+    //
+    // The following flags are supported:
+    //
+    //     json   - parse as JSON input text (default)
+    //
+    //     json5  - parse as JSON5 input text
+    //
+    //     json5e - parse as JSON5E input text
     //
     // See also `$json.parse()`.
     //
     // Note that this function is not pure.
     //
-    f.insert (".load", false) += [] (names xf)
+    f.insert (".load", false) += [] (names xf, optional<names> flags)
     {
       path f (convert<path> (move (xf)));
+      json_parse_flags fs (parse_flags (move (flags)));
 
       try
       {
         ifdstream is (f);
-        json_parser p (is, f.string ());
+        json_parser p (is, f.string (), fs.lang);
         return json_value (p);
       }
       catch (const invalid_json_input& e)
@@ -250,20 +292,29 @@ namespace build2
       }
     };
 
-    // $json.parse(<text>)
+    // $json.parse(<text> [, <flags>])
     //
-    // Parse the specified JSON input text and return the result as a value of
-    // the `json` type.
+    // Parse the specified JSON (default), JSON5, or JSON5E input text and
+    // return the result as a value of the `json` type.
+    //
+    // The following flags are supported:
+    //
+    //     json   - parse as JSON input text (default)
+    //
+    //     json5  - parse as JSON5 input text
+    //
+    //     json5e - parse as JSON5E input text
     //
     // See also `$json.load()` and `$json.serialize()`.
     //
-    f[".parse"] += [] (names text)
+    f[".parse"] += [] (names text, optional<names> flags)
     {
       string t (convert<string> (move (text)));
+      json_parse_flags fs (parse_flags (move (flags)));
 
       try
       {
-        json_parser p (t, nullptr /* name */);
+        json_parser p (t, nullptr /* name */, fs.lang);
         return json_value (p);
       }
       catch (const invalid_json_input& e)

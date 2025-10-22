@@ -136,9 +136,15 @@ EOO
   : basics
   :
   $* <<EOI >>EOO
-  print $json.parse('[123, "abc", {"one":1, "two":2}]')
+  print $json.parse('[123, "abc", {"one":1, "two-2":2}]')
+  print $json.parse("[123, 'abc', {one:1, 'two-2':2}]", json5)
+  print $json.parse("[123, 'abc', {one:1, two-2:2}]", json5e)
+  print $json.parse('one:1, two:2', json5e)
   EOI
-  [123,"abc",{"one":1,"two":2}]
+  [123,"abc",{"one":1,"two-2":2}]
+  [123,"abc",{"one":1,"two-2":2}]
+  [123,"abc",{"one":1,"two-2":2}]
+  {"one":1,"two":2}
   EOO
 
   : diagnostics-invalid-input
@@ -205,12 +211,12 @@ EOO
 : load
 :
 {{
-  : basics
+  : basics-json
   :
   cat <<EOI >=input.json;
   {
     "str":"abc",
-    "num":123,
+    "num":255,
     "arr":[1, 2, 3],
     "obj":{"one":1, "two":2, "three":3}
   }
@@ -221,7 +227,47 @@ EOO
     print $member_name($m) $member_value($m)
   EOI
   str abc
-  num 123
+  num 255
+  arr [1,2,3]
+  obj {"one":1,"two":2,"three":3}
+  EOO
+
+  : basics-json5
+  :
+  cat <<EOI >=input.json5;
+  {
+    str:'abc',
+    num:0xff,
+    arr:[1, 2, 3,],
+    obj:{one:1, two:2, three:3,}
+  }
+  EOI
+  $* <<EOI >>EOO
+  j = $json.load(input.json5, json5)
+  for m: $j
+    print $member_name($m) $member_value($m)
+  EOI
+  str abc
+  num 255
+  arr [1,2,3]
+  obj {"one":1,"two":2,"three":3}
+  EOO
+
+  : basics-json5e
+  :
+  cat <<EOI >=input.json5e;
+  str:'abc'
+  num:0xff
+  arr:[1, 2, 3,]
+  obj:{one:1, two:2, three:3,}
+  EOI
+  $* <<EOI >>EOO
+  j = $json.load(input.json5e, json5e)
+  for m: $j
+    print $member_name($m) $member_value($m)
+  EOI
+  str abc
+  num 255
   arr [1,2,3]
   obj {"one":1,"two":2,"three":3}
   EOO
