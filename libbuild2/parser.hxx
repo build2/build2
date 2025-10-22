@@ -663,8 +663,16 @@ namespace build2
     // project. So both must be saved and restored. In case of a new root, it
     // also switches to the new project's environment.
     //
+    // The project_switch argument specifies which projects we are allowed to
+    // switch to. The location is used in diagnostics if project switching is
+    // disallowed. Note that you should pass it even if allowing switching to
+    // any project since we still disallow switching to a scope outside of any
+    // project.
+    //
+    enum class project_switch {any, none};
+
     auto_project_env
-    switch_scope (const dir_path& out_base);
+    switch_scope (const dir_path& out_base, project_switch, const location&);
 
     void
     process_default_target (token&, const buildfile*);

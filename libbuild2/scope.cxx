@@ -32,8 +32,8 @@ namespace build2
   // scope
   //
   scope::
-  scope (context& c, bool shared)
-      : ctx (c), vars (*this, shared), target_vars (c, shared)
+  scope (context& c, bool shared, role r)
+      : ctx (c), vars (*this, shared), target_vars (c, shared), role_ (r)
   {
   }
 
