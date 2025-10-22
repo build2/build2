@@ -2113,6 +2113,22 @@ namespace build2
       // target_ != nullptr block below). So we expect the caller to be
       // prepared to handle this.
       //
+      // Also note that with this approach we, for example, will consider the
+      // following construct valid if the `if` condition evaluates to false
+      // and will fail with the 'duplicate perform(update) recipe' error
+      // otherwise:
+      //
+      // hxx{foo}:
+      // % update
+      // if (...)
+      // {{
+      //   ...
+      // }}
+      // % update
+      // {{
+      //   ...
+      // }}
+      //
       recipes.push_back (nullptr);
 
       attributes as;
@@ -2194,6 +2210,11 @@ namespace build2
                     d.recipes.begin (), d.recipes.end (),
                     [a] (const shared_ptr<adhoc_rule>& r)
                     {
+                      // Skip missing else/default clauses (see above).
+                      //
+                      if (r == nullptr)
+                        return false;
+
                       auto& as (r->actions);
                       return find (as.begin (), as.end (), a) != as.end ();
                     }) != d.recipes.end ())
