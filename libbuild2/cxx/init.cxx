@@ -596,10 +596,12 @@ namespace build2
             // that (it's not practically usable anyway).
             //
             // Clang enables modules by default in c++20 or later but they
-            // don't yet (as of Clang 20) define __cpp_modules. When they
-            // do, we can consider enabling modules by default on our side.
-            // For now, we only enable modules if forced with explicit
-            // cxx.features.modules=true.
+            // only define __cpp_modules as of Clang 22, and still not to its
+            // final value (indicating an incomplete implementation, see
+            // https://github.com/llvm/llvm-project/issues/71364 for details).
+            // When they say their implementation is complete, we can consider
+            // enabling modules by default on our side. For now, we only
+            // enable modules with explicit cxx.features.modules=true.
             //
             if (modules.value)
             {
@@ -617,9 +619,9 @@ namespace build2
                   info << "required by " << project (rs) << '@' << rs;
               }
 
-              // See https://github.com/llvm/llvm-project/issues/71364
-              //
-              prepend ("-D__cpp_modules=201907L");
+              if (mj < 22)
+                prepend ("-D__cpp_modules=201907L");
+
               modules = true;
             }
 
