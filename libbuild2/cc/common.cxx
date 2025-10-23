@@ -1270,12 +1270,12 @@ namespace build2
             // directly. Note also that the resulting libs{} would end up
             // being the .dll.
             //
-            se = string ("dll");
             f = f.base (); // Remove .a from .dll.a.
             mt = mtime (f);
 
             if (mt != timestamp_nonexistent)
             {
+              se = string ("dll");
               insert_library (ctx, s, name, d, ld, se, exist, trace);
               s->path_mtime (move (f), mt);
             }
@@ -1294,13 +1294,13 @@ namespace build2
             // shared library but could probably do the more elaborate dance
             // with ad hoc members like on Windows if really necessary.
             //
-            se = string ("tbd");
             f = f.base (); // Remove .dylib.
             f += ".tbd";
             mt = mtime (f);
 
             if (mt != timestamp_nonexistent)
             {
+              se = string ("tbd");
               insert_library (ctx, s, name, d, ld, se, exist, trace);
               s->path_mtime (move (f), mt);
             }
