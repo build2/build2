@@ -6200,11 +6200,22 @@ source <functions-regex.cli>;
 "
 \h#functions-json|JSON Functions|
 
-The \c{$json.*()} function family contains function that operate on the JSON
-types: \c{json}, \c{json_array}, and \c{json_object}. For example:
+The \c{$json.*()} function family contains functions that operate on the JSON
+types, \c{json}, \c{json_array}, and \c{json_object}, which represent JSON,
+\l{https://json5.org JSON5}, or
+\l{https://github.com/boris-kolpackov/libpdjson5/blob/master/JSON5E.md JSON5E}
+value. For example:
 
 \
-j = [json] one@1 two@abc three@([json] x@1 y@-1)
+j = [json] '{
+  one   : 1,
+  two   : \"abc\",
+  three : {x:1, y:-1}
+}'
+
+# Alternative construction syntax for the same value.
+#
+#j = [json] one@1 two@abc three@([json] x@1 y@-1)
 
 for m: $j
 {

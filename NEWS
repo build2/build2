@@ -1,5 +1,57 @@
 Version 0.18.0
 
+  * Support for JSON5 and JSON5E.
+
+    The existing JSON support has been extended to additionally cover JSON5[1]
+    and JSON5E[2]. Specifically, the $json.parse() and $json.load() functions
+    can now be instructed with flags to parse in the JSON5 or JSON5E mode
+    (JSON is the default). For example:
+
+    j = $json.load($src_root/test.json5, json5)
+    j = $json.parse('{line: 10, column: 20}', json5)
+    j = $json.parse('line: 10, column: 20', json5e)
+
+    Additionally, when constructing a JSON value in buildfiles, the input
+    text is parsed as JSON5E, not as JSON. For example, before we had to
+    write:
+
+    j = [json] '{"one":255, "two":[2, 3, 4], "three":{"x":1, "y":-1}}'
+
+    Now we can rewrite it as:
+
+    j = [json] '{one:0xff, two:[2, 3, 4], three:{x:1, y:-1}}'
+
+    Or in the multi-line form (notice the trailing comma which is allowed in
+    JSON5):
+
+    j = [json] '{
+      one   : 0xff,
+      two   : [2, 3, 4],
+      three : {x:1, y:-1},
+    }'
+
+    While JSON5 has a number of extensions compared to JSON (and JSON5E
+    adds a few more), the most useful in buildfiles will likely be:
+
+    - Ability to use unquoted object member names.
+    - Ability to use hexadecimal numbers.
+    - Ability to use single-quoted strings in addition to double-quoted.
+
+    The last one (single-quoted string) can be especially handy if you need to
+    perform expansions in the input text and thus need to use double outer
+    quotes. For example:
+
+    n = 123
+    s = abc
+    j = [json] "{number:$n, string:'$s'}"
+
+    Note that the implied top-level object feature of JSON5E is not supported
+    in the construction syntax but is supported by $json.parser() and
+    $json.load() when parsing in the JSON5E mode.
+
+    [1] https://json5.org
+    [2] https://github.com/boris-kolpackov/libpdjson5/blob/master/JSON5E.md
+
   * Ability to override imported installed library path/name.
 
     Specifically, the config.import.<proj>.<name>.{lib,liba,libs} variables
@@ -184,7 +236,7 @@ Version 0.17.0
     Instead of using this JSON-like syntax, one can also specify valid JSON
     input text:
 
-    j = [json] '{"one":1, "two":[2, 3, 4], "three":{"x":1, "y":-1}'
+    j = [json] '{"one":1, "two":[2, 3, 4], "three":{"x":1, "y":-1}}'
 
     Besides the above set of functions, other handy ways to access components
     in a JSON value are iteration and subscript. For example:

@@ -67,7 +67,8 @@ namespace build2
     // Return the type of a JSON value: `null`, `boolean`, `number`, `string`,
     // `array`, or `object`. If the <distinguish_numbers> argument is `true`,
     // then instead of `number` return `signed number`, `unsigned number`,
-    // `hexadecimal signed number`, or `hexadecimal unsigned number`.
+    // `hexadecimal signed number`, or `hexadecimal unsigned number`. Note
+    // that the hexadecimal numbers are only available in JSON5 and JSON5E.
     //
     f["value_type"] += [] (json_value v, optional<value> distinguish_numbers)
     {

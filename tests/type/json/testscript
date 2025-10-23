@@ -108,8 +108,13 @@
     unquoted: 0xff, // Trailing comma, and this is a comment.
   }
   ")
+
+  n = 123
+  s = abc
+  print ([json] "{number:$n, string:'$s'}")
   EOI
   {"single-quoted":"abc","multi-line":"abc","unquoted":255}
+  {"number":123,"string":"abc"}
   EOO
 
   : json5e
