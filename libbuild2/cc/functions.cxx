@@ -537,9 +537,8 @@ namespace build2
               throw invalid_argument ("null value");
 
             names& r (vs[0].as<names> ());
-            m->deduplicate_export_libs (*bs,
-                                        vector<name> (r.begin (), r.end ()),
-                                        r);
+            m->deduplicate_export_libs (*bs, names (r) /* copy */, r);
+
             return value (move (r));
           },
           x);

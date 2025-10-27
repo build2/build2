@@ -522,7 +522,7 @@ namespace build2
                               small_vector<const target*, 32>* dedup,
                               size_t dedup_start) // Start of our deps.
           {
-            const vector<name>* ns (cast_null<vector<name>> (lu));
+            const names* ns (cast_null<names> (lu));
             if (ns == nullptr || ns->empty ())
               return;
 
@@ -533,7 +533,7 @@ namespace build2
               // Note: see also recursively-binless logic in link_rule if
               //       changing anything in simple library handling.
               //
-              if (n.simple ())
+              if (n.simple () && !n.pair)
               {
                 // This is something like -lm or shell32.lib so should be a
                 // valid path. But it can also be an absolute library path
@@ -546,7 +546,7 @@ namespace build2
 
                   proc_lib_name.clear ();
                   for (auto e1 (r.first != 0 ? i + r.first : e);
-                       i != e && i != e1 && i->simple ();
+                       i != e && i != e1 && i->simple () && !i->pair;
                        ++i)
                   {
                     proc_lib_name.push_back (i->value);
@@ -558,7 +558,8 @@ namespace build2
               }
               else
               {
-                // This is a potentially project-qualified target.
+                // This is a potentially project-qualified target. In case of
+                // system-installed, it can also be tagged with an out dir.
                 //
                 if (sysd == nullptr) find_sysd ();
                 if (!li) find_linfo ();
@@ -571,7 +572,7 @@ namespace build2
                 {
                   pair<const mtime_target&, const target*> p (
                     resolve_library (a,
-                                   bs,
+                                     bs,
                                      n,
                                      (n.pair ? (++i)->dir : dir_path ()),
                                      *li,

@@ -222,7 +222,7 @@ namespace build2
       bool
       deduplicate_export_libs (
         const scope&,
-        const vector<name>&,
+        const names&,
         names&,
         vector<reference_wrapper<const name>>* = nullptr) const;
 

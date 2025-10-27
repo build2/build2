@@ -945,11 +945,11 @@ namespace build2
         vp["cc.aoptions"],
         vp["cc.libs"],
 
-        vp.insert<strings>      ("cxx.export.poptions"),
-        vp.insert<strings>      ("cxx.export.coptions"),
-        vp.insert<strings>      ("cxx.export.loptions"),
-        vp.insert<vector<name>> ("cxx.export.libs"),
-        vp.insert<vector<name>> ("cxx.export.impl_libs"),
+        vp.insert<strings> ("cxx.export.poptions"),
+        vp.insert<strings> ("cxx.export.coptions"),
+        vp.insert<strings> ("cxx.export.loptions"),
+        vp.insert          ("cxx.export.libs"),
+        vp.insert          ("cxx.export.impl_libs"),
 
         vp["cc.export.poptions"],
         vp["cc.export.coptions"],

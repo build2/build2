@@ -38,7 +38,7 @@ namespace build2
 
     bool link_rule::
     deduplicate_export_libs (const scope& bs,
-                             const vector<name>& ns,
+                             const names& ns,
                              names& r,
                              vector<reference_wrapper<const name>>* seen) const
     {
@@ -104,13 +104,13 @@ namespace build2
 
           if (lookup l = t->lookup_original (c_export_libs, &bs).first)
           {
-            if (!deduplicate_export_libs (bs, cast<vector<name>> (l), r, seen))
+            if (!deduplicate_export_libs (bs, cast<names> (l), r, seen))
               return false;
           }
 
           if (lookup l = t->lookup_original (x_export_libs, &bs).first)
           {
-            if (!deduplicate_export_libs (bs, cast<vector<name>> (l), r, seen))
+            if (!deduplicate_export_libs (bs, cast<names> (l), r, seen))
               return false;
           }
         }
@@ -1646,7 +1646,7 @@ namespace build2
 
             auto has_simple = [] (lookup l)
             {
-              if (const auto* ns = cast_null<vector<name>> (l))
+              if (const names* ns = cast_null<names> (l))
               {
                 for (auto i (ns->begin ()), e (ns->end ()); i != e; ++i)
                 {

@@ -259,11 +259,11 @@ namespace build2
       vp.insert<string>  ("cc.internal.scope");
       vp.insert<strings> ("cc.internal.libs");
 
-      vp.insert<strings>      ("cc.export.poptions");
-      vp.insert<strings>      ("cc.export.coptions");
-      vp.insert<strings>      ("cc.export.loptions");
-      vp.insert<vector<name>> ("cc.export.libs");
-      vp.insert<vector<name>> ("cc.export.impl_libs");
+      vp.insert<strings> ("cc.export.poptions");
+      vp.insert<strings> ("cc.export.coptions");
+      vp.insert<strings> ("cc.export.loptions");
+      vp.insert          ("cc.export.libs");
+      vp.insert          ("cc.export.impl_libs");
 
       // Header (-I) and library (-L) search paths to use in the generated .pc
       // files instead of the default install.{include,lib}. Relative paths

@@ -511,7 +511,7 @@ namespace build2
         // Note that we normalize `-L <arg>` to `-L<arg>`.
         //
         strings lops;
-        vector<name> libs;
+        names libs;
 
         // Normally we will have zero or more -L's followed by one or more
         // -l's, with the first one being the library itself, unless the

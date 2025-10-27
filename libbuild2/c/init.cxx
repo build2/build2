@@ -330,11 +330,11 @@ namespace build2
         vp["cc.aoptions"],
         vp["cc.libs"],
 
-        vp.insert<strings>      ("c.export.poptions"),
-        vp.insert<strings>      ("c.export.coptions"),
-        vp.insert<strings>      ("c.export.loptions"),
-        vp.insert<vector<name>> ("c.export.libs"),
-        vp.insert<vector<name>> ("c.export.impl_libs"),
+        vp.insert<strings> ("c.export.poptions"),
+        vp.insert<strings> ("c.export.coptions"),
+        vp.insert<strings> ("c.export.loptions"),
+        vp.insert          ("c.export.libs"),
+        vp.insert          ("c.export.impl_libs"),
 
         vp["cc.export.poptions"],
         vp["cc.export.coptions"],
