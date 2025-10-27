@@ -1972,7 +1972,8 @@ namespace build2
                 const dir_path& out_root,
                 const dir_path& src_root,
                 bool fwd,
-                bool load)
+                bool load,
+                const function<void (scope&)>& pre_load)
   {
     assert (ctx.phase == run_phase::load);
     assert (!fwd || out_root != src_root);
@@ -2044,6 +2045,9 @@ namespace build2
       if (!ovr_map.empty ())
         enter_project_overrides (ctx, out_root, ovr_map);
     }
+
+    if (pre_load != nullptr)
+      pre_load (rs);
 
     if (load)
     {

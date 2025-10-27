@@ -6937,6 +6937,12 @@ namespace build2
 
             extra += string (x) + ".features.modules = true";
 
+            // Note that we don't need the config module except for one thing:
+            // populating the hermetic environment in root_extra. But loading
+            // it just for that feels heavy-handed. Since we know that our
+            // environment, if any, always comes from the amalgamation, we can
+            // just copy it over ourselves.
+            //
             create_project (
               pd,
               as->out_path ().relative (pd),  /* amalgamation */
@@ -6951,7 +6957,22 @@ namespace build2
               2);                             /* verbosity */
           }
 
-          ps = &load_project (ctx, pd, pd, false /* forwarded */);
+          ps = &load_project (
+            ctx, pd, pd,
+            false /* forwarded */,
+            true /* load */,
+            [as] (scope& rs)
+            {
+              // Copy over the environment from our amalgamation (unless it
+              // has already been done).
+              //
+              if (!rs.root_extra->loaded)
+              {
+                rs.root_extra->environment = as->root_extra->environment;
+                rs.root_extra->environment_checksum =
+                  as->root_extra->environment_checksum;
+              }
+            });
         }
       }
 

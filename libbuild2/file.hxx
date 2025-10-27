@@ -185,12 +185,16 @@ namespace build2
   // loaded and currently we do not add the newly loaded subproject to the
   // outer project's subprojects map.
   //
+  // If pre_load is not NULL, then it is called after bootstrapping and before
+  // loading (not that it's called even if the project is already loaded).
+  //
   LIBBUILD2_SYMEXPORT scope&
   load_project (context&,
                 const dir_path& out_root,
                 const dir_path& src_root,
                 bool forwarded,
-                bool load = true);
+                bool load = true,
+                const function<void (scope&)>& pre_load = nullptr);
 
   // Bootstrap the project's forward. Return the forwarded-to out_root or
   // src_root if there is no forward. See is_{src,out}_root() for the altn
@@ -576,6 +580,9 @@ namespace build2
                   const char* qual = nullptr);
 
   // Create a build system project in the specified directory.
+  //
+  // Note that if omitting the config module, you will probably need to copy
+  // the hermetic environment from amalgamation manually.
   //
   LIBBUILD2_SYMEXPORT void
   create_project (
