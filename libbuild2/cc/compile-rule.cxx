@@ -6900,7 +6900,16 @@ namespace build2
 
       const scope* ps (&ctx.scopes.find_out (pd));
 
-      if (ps->out_path () != pd)
+      // With an operation batch like `update clean update` we can end up
+      // having a loaded subproject which does not exist on the filesystem
+      // (see GH issue #412). It feels simply re-creating it is the most
+      // straightforward option.
+      //
+      // @@ PERF We could optimize this by remembering the sidebuild project
+      //    scope as well as whether it was cleaned in the cc module (we can
+      //    safely update this state in the load phase).
+      //
+      if (ps->out_path () != pd || !exists (pd))
       {
         // Switch the phase to load then create and load the subproject.
         //
@@ -6911,52 +6920,53 @@ namespace build2
         //
         ps = &ctx.scopes.find_out (pd);
 
+        // The project might already be created in which case we just need
+        // to load it. Note that it can also be loaded but not created (see
+        // above).
+        //
+        optional<bool> altn (false); // Standard naming scheme.
+        if (!is_src_root (pd, altn))
+        {
+          // Copy our standard and force modules.
+          //
+          string extra;
+
+          // @@ What happens if different projects used different standards?
+          //    Specifically, how do we detect this and what can the user do
+          //    about it? For the latter question, forcing the same standard
+          //    with config.cxx.std seems like the only sensible option. For
+          //    the former, we could read the value of cxx.std using our
+          //    buildfile first-line peeking mechanism. But doing that for
+          //    every module interface feels inefficient so we will probably
+          //    need to cache it on the per-project basis. Maybe/later.
+          //
+          if (const string* std = cast_null<string> (rs[x_std]))
+            extra += string (x) + ".std = " + *std + '\n';
+
+          extra += string (x) + ".features.modules = true";
+
+          // Note that we don't need the config module except for one thing:
+          // populating the hermetic environment in root_extra. But loading it
+          // just for that feels heavy-handed. Since we know that our
+          // environment, if any, always comes from the amalgamation, we can
+          // just copy it over ourselves.
+          //
+          create_project (
+            pd,
+            as->out_path ().relative (pd),  /* amalgamation */
+            {},                             /* boot_modules */
+            extra,                          /* root_pre */
+            {string (x) + '.'},             /* root_modules */
+            "",                             /* root_post */
+            nullopt,                        /* config_module */
+            nullopt,                        /* config_file */
+            false,                          /* buildfile */
+            "the cc module",
+            2);                             /* verbosity */
+        }
+
         if (ps->out_path () != pd)
         {
-          // The project might already be created in which case we just need
-          // to load it.
-          //
-          optional<bool> altn (false); // Standard naming scheme.
-          if (!is_src_root (pd, altn))
-          {
-            // Copy our standard and force modules.
-            //
-            string extra;
-
-            // @@ What happens if different projects used different standards?
-            //    Specifically, how do we detect this and what can the user do
-            //    about it? For the latter question, forcing the same standard
-            //    with config.cxx.std seems like the only sensible option. For
-            //    the former, we could read the value of cxx.std using our
-            //    buildfile first-line peeking mechanism. But doing that for
-            //    every module interface feels inefficient so we will probably
-            //    need to cache it on the per-project basis. Maybe/later.
-            //
-            if (const string* std = cast_null<string> (rs[x_std]))
-              extra += string (x) + ".std = " + *std + '\n';
-
-            extra += string (x) + ".features.modules = true";
-
-            // Note that we don't need the config module except for one thing:
-            // populating the hermetic environment in root_extra. But loading
-            // it just for that feels heavy-handed. Since we know that our
-            // environment, if any, always comes from the amalgamation, we can
-            // just copy it over ourselves.
-            //
-            create_project (
-              pd,
-              as->out_path ().relative (pd),  /* amalgamation */
-              {},                             /* boot_modules */
-              extra,                          /* root_pre */
-              {string (x) + '.'},             /* root_modules */
-              "",                             /* root_post */
-              nullopt,                        /* config_module */
-              nullopt,                        /* config_file */
-              false,                          /* buildfile */
-              "the cc module",
-              2);                             /* verbosity */
-          }
-
           ps = &load_project (
             ctx, pd, pd,
             false /* forwarded */,
