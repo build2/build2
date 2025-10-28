@@ -11,6 +11,7 @@
 #endif
 
 #include <libbuild2/file.hxx>
+#include <libbuild2/rule.hxx> // file_rule
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -216,6 +217,35 @@ namespace build2
             continue;
 
           t1 = i->second;
+        }
+
+        // Check if both targets are outside of any project and if so, also
+        // allow default_recipe. Such targets may be "tagged" with an out dir
+        // (so what would otherwise be the same target are actually different
+        // targets) and use the file_rule's recipe instead of noop for various
+        // complicated reasons (see cc::search_library() for an example). On
+        // the other hand, being out of any project, such targets cannot be
+        // "built" so allowing the file_rule/default_recipe feels reasonable
+        // (see GH issue #466 for what happens if we don't).
+        //
+        if (t->base_scope ().root_scope () == nullptr &&
+            t1->base_scope ().root_scope () == nullptr)
+        {
+          // Note that the rule may be macthed but not yet applied, so check
+          // for the matched rule name.
+          //
+          // Note that based on the above logic we know t1's recipe is not
+          // noop (otherwise it wouldn't be in the map).
+          //
+          if (noop || (s.rule != nullptr &&
+                       s.rule->first == file_rule::rule_match.first))
+          {
+            const target::opstate& s1 (t1->state[a]);
+
+            if (s1.rule != nullptr &&
+                s1.rule->first == file_rule::rule_match.first)
+              continue;
+          }
         }
 
         e = true;
