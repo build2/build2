@@ -133,6 +133,11 @@ namespace build2
     //
     string value;
 
+    // Used to save the result of the parser::keyword() function (see the
+    // function for details).
+    //
+    optional<bool> keyword;
+
     uint64_t line;
     uint64_t column;
 
