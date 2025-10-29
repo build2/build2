@@ -1802,6 +1802,12 @@ namespace build2
     // ...\comdef.h: fatal error C1083: Cannot open type library file:
     // 'l.tlb': Error loading type library/DLL.
     //
+    // And it turns out C1083 is also used when we are unable to open the
+    // output file:
+    //
+    // ...\uuid-windows.cxx: fatal error C1083: Cannot open compiler
+    //  generated file: '...\uuid-windows.dll.obj.ii': Permission denied
+    //
 
     pair<size_t, size_t>
     msvc_sense_diag (const string&, char); // msvc.cxx
@@ -4929,23 +4935,43 @@ namespace build2
                       {
                         // We can't be skipping over a non-existent header.
                         //
-                        // @@ TMP: but this does seem to happen in some rare,
-                        //    hard to reproduce situations.
-#if 0
-                        assert (!good_error);
-#else
+                        // It appears MSVC can fail with C1083 here when
+                        // unable to open input or output file (see above for
+                        // sample diagnostics and GH issue #80 for details).
+                        //
                         if (good_error)
                         {
+                          if (ctype == compiler_type::msvc)
+                          {
+                            if (l.find ("C1083:") != string::npos)
+                            {
+                              // Feels like we shouldn't be here is bad error
+                              // but let's check for good measure.
+                              //
+                              if (!bad_error)
+                              {
+                                dbuf.open_eof (args[0]);
+                                bad_error = true;
+                              }
+
+                              dbuf.write (l, true /* newline */);
+                              break;
+                            }
+                          }
+
+                          // @@ TMP: This does seem to happen in some rare,
+                          //    hard to reproduce situations.
+#if 1
                           info   << "previously existing header '" << f << "'"
                                  << " appears to have disappeared during build" <<
                             info << "line: " << l <<
                             info << "skip: " << skip <<
                             info << "please report at "
                                  << "https://github.com/build2/build2/issues/80";
-
+#endif
                           assert (!good_error);
                         }
-#endif
+
                         skip--;
                       }
                       else
