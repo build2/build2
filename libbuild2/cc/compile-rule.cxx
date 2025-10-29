@@ -6863,8 +6863,9 @@ namespace build2
       // cc.config module and that is within our amalgmantion seems like a
       // good place.
       //
-      // @@ TODO: maybe we should cache this in compile_rule ctor like we
-      //          do for the header cache?
+      // @@ PERF maybe we should cache this in compile_rule ctor like we
+      //         do for the header cache? Or better yet cache the sidebuild
+      //         root (see note below).
       //
       const scope* as (&rs);
       {
@@ -6882,7 +6883,22 @@ namespace build2
             // callback that cleans up the subproject.
             //
             if (cast_false<bool> (s->vars["cc.core.vars.loaded"]))
+            {
+              // Check that modules were not explicitly disabled with
+              // config.x.features.modules=false. Failing that, it will
+              // override our modules enablement attempt (GH issue 487).
+              //
+              // Note: config.x.features.modules is expected to be already
+              // entered.
+              //
+              if (lookup l = (*s)[string ("config.") + x + ".features.modules"])
+              {
+                if (!cast<bool> (l))
+                  break; // Stop searching further out.
+              }
+
               as = s;
+            }
 
           } while (s != ws);
         }
