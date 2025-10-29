@@ -265,7 +265,8 @@ namespace build2
            const target& t,
            const target* g,
            otype ot,
-           bool library) const
+           bool library,
+           const match_chain* pmc) const
     {
       // NOTE: the target may be a group (see utility library logic below).
 
@@ -277,6 +278,8 @@ namespace build2
       //
       // Note also that we treat bmi{} as obj{}. @@ MODHDR hbmi{}?
       //
+      const match_chain mc {&t, g, pmc};
+
       for (prerequisite_member p:
              prerequisite_members (a, t, group_prerequisites (t, g)))
       {
@@ -416,6 +419,19 @@ namespace build2
 
           if (pt != nullptr)
           {
+            // Make sure there are no cycles (GH issue #427). Note that we
+            // are operating before the standard dependency cycle detection.
+            //
+            for (const match_chain* c (&mc); c != nullptr; c = c->prev)
+            {
+              // Issue the same diagnostics as in the standard detection.
+              //
+              const target* t;
+              if ((t = pt) == c->target ||
+                  ((t = pg) == c->group && pg != nullptr))
+                fail << "dependency cycle detected involving target " << *t;
+            }
+
             // If we are matching a target, use the original output type since
             // that would be the member that we pick.
             //
@@ -424,7 +440,7 @@ namespace build2
             // Propagate values according to the "see-through" semantics of
             // utility libraries.
             //
-            r |= match (a, *pt, pg, pot, true /* lib */);
+            r |= match (a, *pt, pg, pot, true /* lib */, &mc);
           }
           else
             r.seen_lib = true; // Consider as just a library.

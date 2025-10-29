@@ -44,8 +44,20 @@ namespace build2
         }
       };
 
+      struct match_chain
+      {
+        const build2::target* target;
+        const build2::target* group;
+        const match_chain* prev;
+      };
+
       match_result
-      match (action, const target&, const target*, otype, bool) const;
+      match (action,
+             const target&,
+             const target*,
+             otype,
+             bool,
+             const match_chain* = nullptr) const;
 
       virtual bool
       match (action, target&, const string&, match_extra&) const override;
