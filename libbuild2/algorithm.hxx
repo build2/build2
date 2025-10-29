@@ -247,8 +247,8 @@ namespace build2
   };
 
   // If this target is already locked in this dependency chain, then return
-  // the corresponding lock. Return NULL otherwise (so can be used a boolean
-  // predicate).
+  // the corresponding lock. Return NULL otherwise (so can be used as a
+  // boolean predicate).
   //
   const target_lock*
   dependency_cycle (action, const target&);
