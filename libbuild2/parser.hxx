@@ -181,7 +181,8 @@ namespace build2
     // nothing has been parsed (i.e., we are still on the same token).
     //
     // Note that after this function returns, the token is the first token of
-    // the next line (or eos).
+    // the next line (or eos) for the single-line mode and the closing '}'
+    // otherwise.
     //
     bool
     parse_clause (token&, token_type&, bool one = false);
@@ -613,6 +614,12 @@ namespace build2
 
     // Return true if the name token can be considered a directive keyword.
     //
+    // Note that this function expects the last peeked or "got" token and, in
+    // the save and stop replay modes, potentially peeks the next 2 characters
+    // from the stream using the lexer. Supports replays, saving the result in
+    // the token's keyword member in the save replay mode and using it later
+    // in the play mode.
+    //
     bool
     keyword (const token&);
 
@@ -825,10 +832,12 @@ namespace build2
 
     // Token saving and replaying. Note that it can only be used in certain
     // contexts. Specifically, the code that parses a replay must not interact
-    // with the lexer directly (e.g., the keyword() test). For now we don't
-    // enforce that. Nesting of replays can be achieved by rewinding to a
-    // previously saved position, using replay_index() and replay_seek() in
-    // the play mode and is supported by replay_guard.
+    // with the lexer directly. For now we don't enforce that.
+    //
+    // Nesting of replays can be achieved by rewinding to a previously saved
+    // position, using replay_index() in the play or save mode and
+    // replay_seek() in the play mode. Nested replays are supported by
+    // replay_guard (see below).
     //
     // Note also that the peeked token is not part of the replay until it is
     // "got". In particular, this means that we cannot peek past the replay
@@ -843,10 +852,23 @@ namespace build2
       return replay_;
     }
 
+    // If called in the play mode, assume that we are at the end of the replay
+    // sequence and behave as if replay_stop() has been called first but it
+    // keept the collected tokens intact.
+    //
     void
-    replay_save ()
+    replay_save (bool verify = true)
     {
-      assert (replay_ == replay::stop);
+      if (replay_ == replay::play)
+      {
+        if (verify)
+          assert (!peeked_ && replay_i_ == replay_data_.size ());
+
+        path_ = replay_path_; // Restore old path.
+      }
+      else
+        assert (replay_ == replay::stop);
+
       replay_ = replay::save;
     }
 
@@ -885,10 +907,12 @@ namespace build2
       replay_i_ = replay_data_.size () - 1;
     }
 
+    // Return the position of the token which will be peeked or "got" next.
+    //
     size_t
     replay_index () const
     {
-      assert (replay_ == replay::play);
+      assert (replay_ == replay::play || replay_ == replay::save);
 
       // Note that peek() increments the index in the play mode. In
       // particular, this means that rewinding to the index stashed after the
@@ -898,7 +922,7 @@ namespace build2
       //
       assert (!peeked_);
 
-      return replay_i_;
+      return replay_ == replay::play ? replay_i_ : replay_data_.size ();
     }
 
     void
@@ -914,7 +938,8 @@ namespace build2
     void
     replay_stop (bool verify = true)
     {
-      // NOTE: see ~replay_guard () if changing anything here.
+      // NOTE: see replay_save() and replay_guard::stop() if changing anything
+      //       here.
       //
       if (verify)
         assert (!peeked_);
@@ -928,8 +953,9 @@ namespace build2
 
     struct replay_guard
     {
-      // If this is a nested replay, then stash the current replay index and
-      // continue playing. Otherwise, start saving.
+      // If this is a nested replay, i.e. we are currently playing or saving,
+      // then stash the current replay position and mode and continue
+      // playing/saving. Otherwise, start saving.
       //
       replay_guard (parser& p, bool start = true)
           : p_ (start ? &p : nullptr)
@@ -938,12 +964,10 @@ namespace build2
         {
           replay m (p_->replay_mode ());
 
-          assert (m == replay::play || m == replay::stop);
-
-          if (m == replay::play)
-            i_ = p_->replay_index ();
-          else
+          if (m == replay::stop)
             p_->replay_save ();
+          else
+            nr_ = make_pair (p_->replay_index (), m);
         }
       }
 
@@ -955,32 +979,67 @@ namespace build2
       {
         if (p_ != nullptr)
         {
-          if (i_)
-            p_->replay_seek (*i_);
+          if (nr_)
+          {
+            if (p_->replay_mode () == replay::save)
+              p_->replay_play ();
+
+            p_->replay_seek (nr_->first);
+          }
           else
             p_->replay_play ();
         }
       }
 
-      // If this is a nested replay, then continue playing from the current
-      // index and stop playing otherwise.
+      // Switch to the initial replay mode. Specifically:
       //
-      ~replay_guard ()
+      // - If the initial mode is stop (non-nested replay), then stop saving
+      //   or playing and clear the replay data.
+      //
+      // - If the initial mode is play (nested replay), then just continue
+      //   playing from the current replay position.
+      //
+      // - If the initial mode is save (nested replay), then just continue
+      //   saving in the save mode and, in the play mode, switch to saving at
+      //   the current replay position which is assumed to be the end of the
+      //   sequence.
+      //
+      void
+      stop (bool verify = true)
       {
         if (p_ != nullptr)
         {
-          bool verify (!uncaught_exception ());
-
-          if (i_)
+          if (nr_)
           {
             // Keep verification consistent with replay_stop().
             //
-            assert (p_->replay_mode () == replay::play &&
-                    (!verify || !p_->peeked_));
+            assert (!verify || !p_->peeked_);
+
+            replay cm (p_->replay_mode ()); // Current mode.
+            replay im (nr_->second);        // Initial mode.
+
+            if (im == replay::play)
+            {
+              assert (cm == replay::play);
+            }
+            else
+            {
+              assert (im == replay::save);
+
+              if (cm == replay::play)
+                p_->replay_save (verify);
+            }
           }
           else
             p_->replay_stop (verify);
+
+          p_ = nullptr;
         }
+      }
+
+      ~replay_guard ()
+      {
+        stop (!uncaught_exception ());
       }
 
     private:
@@ -998,7 +1057,11 @@ namespace build2
       }
 
       parser* p_;
-      optional<size_t> i_; // Present if this is a nested replay.
+
+      // Present if this is a nested replay. Contains the initial replay
+      // position and mode.
+      //
+      optional<pair<size_t, replay>> nr_;
     };
 
     // Stop saving and get the data.

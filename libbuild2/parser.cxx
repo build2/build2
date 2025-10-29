@@ -5850,16 +5850,175 @@ namespace build2
     if (tt != type::newline)
       fail (t) << "expected newline instead of " << t << " after 'for'";
 
-    // Finally the body. The initial thought was to use the token replay
-    // facility but on closer inspection this didn't turn out to be a good
-    // idea (no support for nested replays at that time, etc). So instead we
-    // are going to do a full-blown re-lex. Specifically, we will first skip
-    // the line/block just as we do for non-taken if/else branches while
-    // saving the character sequence that comprises the body. Then we
-    // re-lex/parse it on each iteration.
+    // Finally the body.
     //
-    // @@ Should we rewrite this using the nested replays?
+    // The initial approach was to perform a full-blown re-lex (no support for
+    // nested replays at that time, etc). Specifically, we first skip the
+    // line/block just as we do for non-taken if/else branches while saving
+    // the character sequence that comprises the body. Then we re-lex/parse it
+    // on each iteration.
     //
+    // The new approach is to use the token replay facility instead. This
+    // approach, however, cannot be taken at the moment since the following
+    // isses still need to be addressed:
+    //
+    // - Some body fragment may potentially be skipped on the first iteration
+    //   (think of the if, switch, etc constructs) performed in the save
+    //   replay mode but needs to be re-parsed on some subsequent iteration
+    //   performed in the play mode. The problem here is that while skipping
+    //   such a fragment we tokenize it only using the lexer's normal mode (no
+    //   context-dependent mode switches or expansions performed, etc) to just
+    //   find the end of this fragment (end of an if-block, etc). Thus, these
+    //   tokens cannot be replayed. The possible solution is to invent a
+    //   special meta-token which is created when the fragment is skipped.
+    //   This token may contain the literal fragment representation, collected
+    //   by lexer::save_guard while skipping this fragment (see initial
+    //   approach for the usage example). If/when time comes to replay this
+    //   meta-token, the fragment string it contains get properly parsed and
+    //   this meta-token is replaced with the resulting token sequence, which
+    //   can be re-used for subsequent replays. Note that the resulting
+    //   sequence may potentially contain other meta-tokens which represent
+    //   skipped sub-fragments and which can be expanded on some later,
+    //   potentially nested, iterations.
+    //
+    // - Audit the code to make sure that the lexing mode may not depend on
+    //   variable expansions, etc and so that parsing of a fragment using a
+    //   full-blown re-lex would always end up with the same token sequence.
+    //
+    // Note that the replay approach is 4 times faster in a 1M loop (6 nested
+    // for-loops with 10 iterations each).
+    //
+#if 0
+    // The token replay based approach.
+    //
+
+    // Skip the loop body if no iterations needs to be performed.
+    //
+    bool skip (!val);
+
+    names* ns (nullptr);
+    if (!skip && !iterate)
+    {
+      ns = &val.as<names> ();
+      if (ns->empty ())
+        skip = true;
+    }
+
+    // Start saving now since the next line can be the loop body line.
+    //
+    replay_guard rg (*this, !skip);
+
+    // This can be a block or a single line, similar to if-else.
+    //
+    bool block (next (t, tt) == type::lcbrace && peek () == type::newline);
+
+    value& lhs (scope_->assign (var)); // Assign even if no iterations.
+
+    if (skip)
+    {
+      if (block)
+      {
+        next (t, tt); // Get newline.
+        next (t, tt);
+
+        skip_block (t, tt);
+
+        if (tt != type::rcbrace)
+          fail (t) << "expected '}' instead of " << t << " at the end of "
+                   << "for-block";
+
+        next (t, tt);                    // Presumably newline after '}'.
+        next_after_newline (t, tt, '}'); // Should be on its own line.
+      }
+      else
+      {
+        skip_line (t, tt);
+
+        if (tt == type::newline)
+          next (t, tt);
+      }
+
+      return;
+    }
+
+    struct data
+    {
+      const variable&   var;
+      const attributes& val_attrs;
+      bool              block;
+      value&            lhs;
+      token&            t;
+      type&             tt;
+      replay_guard&     rg;
+    } d {var, val_attrs, block, lhs, t, tt, rg};
+
+    function<bool (value&&, bool first)> iteration =
+      [this, &d] (value&& v, bool first)
+    {
+      // Inject element attributes.
+      //
+      attributes_.push_back (d.val_attrs);
+
+      apply_value_attributes (&d.var, d.lhs, move (v), type::assign);
+
+      token& t (d.t);
+      type& tt (d.tt);
+
+      if (!first)
+      {
+        d.rg.play ();
+
+        next (t, tt); // First token after `for ...` line ('{' for a block).
+      }
+
+      if (d.block)
+      {
+        next (t, tt); // <newline> after '{'.
+        next (t, tt);
+      }
+
+      // At this point t contains the first token of the loop body.
+      //
+      parse_clause (t, tt, !d.block);
+
+      if (d.block)
+      {
+        next (t, tt);                    // Presumably newline after '}'.
+        next_after_newline (t, tt, '}'); // Should be on its own line.
+      }
+
+      return true;
+    };
+
+    // Replay, potentially multiple time.
+    //
+    if (!iterate)
+    {
+      for (auto b (ns->begin ()), i (b), e (ns->end ()); i != e; ++i)
+      {
+        bool first (i == b);
+
+        // Set the variable value.
+        //
+        bool pair (i->pair);
+        names n;
+        n.push_back (move (*i));
+        if (pair) n.push_back (move (*++i));
+        value v (move (n));
+
+        if (etype != nullptr)
+          typify (v, *etype, &var);
+
+        iteration (move (v), first);
+      }
+    }
+    else
+      iterate (val, iteration);
+
+#else
+    // The relex based approach.
+    //
+
     string body;
     uint64_t line (lexer_->line); // Line of the first character to be saved.
     lexer::save_guard sg (*lexer_, body);
@@ -5983,6 +6142,7 @@ namespace build2
     }
     else
       iterate (val, iteration);
+#endif
   }
 
   void parser::
@@ -9750,8 +9910,18 @@ namespace build2
   bool parser::
   keyword (const token& t)
   {
-    assert (replay_ != replay::play); // Can't be used in a replay.
     assert (t.type == type::word);
+
+    // In the play replay mode use the keyword flag calculated in the save
+    // mode.
+    //
+    if (replay_ == replay::play)
+    {
+      assert (t.keyword);
+      return *t.keyword;
+    }
+
+    bool r (false);
 
     // The goal here is to allow using keywords as variable names and
     // target types without imposing ugly restrictions/decorators on
@@ -9782,14 +9952,29 @@ namespace build2
       // So we peek at one more character since what we expect next ('=')
       // can't be whitespace-separated.
       //
-      return c0 == '\n' || c0 == '\0' || c0 == '(' ||
+      r = c0 == '\n' || c0 == '\0' || c0 == '(' ||
         (p.second                 &&
          c0 != '='                &&
          (c0 != '+' || c1 != '=') &&
          (c0 != '?' || c1 != '='));
     }
 
-    return false;
+    // Save the result in the save replay mode.
+    //
+    if (replay_ == replay::save)
+    {
+      // Detect where the passed token resides and do some sanity checks. Note
+      // that a peeked token is not in the replay sequence yet.
+      //
+      assert (peeked_ || !replay_data_.empty ());
+
+      token& rt (peeked_ ? peek_.token : replay_data_.back ().token);
+      assert (t == rt);
+
+      rt.keyword = r;
+    }
+
+    return r;
   }
 
   // Buildspec parsing.

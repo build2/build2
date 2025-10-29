@@ -86,7 +86,7 @@ namespace build2
   // Token can be unquoted, single-quoted ('') or double-quoted (""). It can
   // also be mixed.
   //
-  enum class quote_type {unquoted, single, double_, mixed};
+  enum class quote_type: uint8_t {unquoted, single, double_, mixed};
 
   class token;
 
@@ -127,6 +127,11 @@ namespace build2
     quote_type qtype;
     bool qcomp;
     bool qfirst;
+
+    // Used to save the result of the parser::keyword() function (see the
+    // function for details).
+    //
+    optional<bool> keyword;
 
     // Normally only used for word, but can also be used to store "modifiers"
     // or some such for other tokens.
