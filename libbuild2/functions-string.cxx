@@ -138,6 +138,98 @@ namespace build2
     return p != string::npos && p + sf.size () == n;
   }
 
+  static const uint16_t compare_flags_icase         (0x01);
+  static const uint16_t compare_flags_contains      (0x02);
+  static const uint16_t compare_flags_contains_once (0x04);
+  static const uint16_t compare_flags_starts_with   (0x08);
+  static const uint16_t compare_flags_ends_with     (0x10);
+
+  static uint16_t
+  parse_compare_flags (optional<names>&& fs)
+  {
+    uint16_t r (0);
+
+    if (fs)
+    {
+      for (name& f: *fs)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "icase")
+          r |= compare_flags_icase;
+        else if (s == "contains")
+          r |= compare_flags_contains;
+        else if (s == "contains_once")
+          r |= compare_flags_contains_once;
+        else if (s == "starts_with")
+          r |= compare_flags_starts_with;
+        else if (s == "ends_with")
+          r |= compare_flags_ends_with;
+        else
+          throw invalid_argument ("invalid flag '" + s + '\'');
+      }
+    }
+
+    return r;
+  }
+
+  static int
+  compare (const string& x, const string& y, uint16_t fs)
+  {
+    auto flag = [fs] (uint16_t f)
+    {
+      return (fs & f) != 0;
+    };
+
+    bool ic (flag (compare_flags_icase));
+    bool ct (flag (compare_flags_contains));
+    bool co (flag (compare_flags_contains_once));
+    bool sw (flag (compare_flags_starts_with));
+    bool ew (flag (compare_flags_ends_with));
+
+    // Compare.
+    //
+    if (!ct && !co && !sw && !ew)
+    {
+      int r (ic ? icasecmp (x, y) : x.compare (y));
+      return r < 0 ? -1 : r > 0 ? 1 : 0;
+    }
+
+    // Check if/how x contains y.
+    //
+    if (y.empty ())
+      throw invalid_argument ("empty substring");
+
+    size_t n (x.size ());
+
+    size_t lp (ct || co || sw ?  find (x, 0, y, ic) : string::npos);
+    size_t rp (      co || ew ? rfind (x, n, y, ic) : string::npos);
+
+    bool r (true);
+
+    if (ct)
+      r = (lp != string::npos);
+
+    if (co && r)
+      r = (lp != string::npos && lp == rp);
+
+    if (sw && r)
+      r = (lp == 0);
+
+    if (ew && r)
+      r = (rp != string::npos && rp + y.size () == n);
+
+    return r ? 0 : 1;
+  }
+
+  static inline int
+  compare (const string& x, value&& yv, optional<names>&& fs)
+  {
+    return compare (x,
+                    convert<string> (move (yv)),
+                    parse_compare_flags (move (fs)));
+  }
+
   static string
   replace (string&& s, value&& fv, value&& tv, optional<names>&& fs)
   {
@@ -199,29 +291,33 @@ namespace build2
   }
 
   static size_t
-  find_index (const strings& vs, value&& v, optional<names>&& fs)
+  find_index (const strings& vs, value&& v, optional<names>&& flags)
   {
-    bool ic (false);
-    if (fs)
-    {
-      for (name& f: *fs)
-      {
-        string s (convert<string> (move (f)));
-
-        if (s == "icase")
-          ic = true;
-        else
-          throw invalid_argument ("invalid flag '" + s + '\'');
-      }
-    }
-
     auto i (find_if (vs.begin (), vs.end (),
-                     [ic, y = convert<string> (move (v))] (const string& x)
+                     [fs = parse_compare_flags (move (flags)),
+                      y = convert<string> (move (v))] (const string& x)
                      {
-                       return (ic ? icasecmp (x, y) : x.compare (y)) == 0;
+                       return compare (x, y, fs) == 0;
                      }));
 
     return i != vs.end () ? i - vs.begin () : vs.size ();
+  }
+
+  static names
+  filter (strings&& vs, value&& v, optional<names>&& flags, bool out)
+  {
+    uint16_t fs (parse_compare_flags (move (flags)));
+    string y (convert<string> (move (v)));
+
+    names r;
+
+    for (string& x: vs)
+    {
+      if ((compare (x, y, fs) == 0) != out)
+        r.emplace_back (move (x));
+    }
+
+    return r;
   }
 
   void
@@ -279,7 +375,7 @@ namespace build2
     //     once   - check if the substring occurs exactly once
     //
     // See also `$string.starts_with()`, `$string.ends_with()`,
-    // `$regex.search()`.
+    // `$regex.search()`, `$string.compare()`.
     //
     f["contains"] += [](string s, value ss, optional<names> fs)
     {
@@ -301,7 +397,7 @@ namespace build2
     //
     //     icase  - compare ignoring case
     //
-    // See also `$string.contains()`.
+    // See also `$string.contains()` and `$string.compare()`.
     //
     f["starts_with"] += [](string s, value pf, optional<names> fs)
     {
@@ -323,7 +419,7 @@ namespace build2
     //
     //     icase  - compare ignoring case
     //
-    // See also `$string.contains()`.
+    // See also `$string.contains()` and `$string.compare()`.
     //
     f["ends_with"] += [](string s, value sf, optional<names> fs)
     {
@@ -333,6 +429,47 @@ namespace build2
     f[".ends_with"] += [](names s, value sf, optional<names> fs)
     {
       return ends_with (convert<string> (move (s)), move (sf), move (fs));
+    };
+
+    // $string.compare(<untyped>, <untyped> [, <flags>])
+    // $compare(<string>, <string> [, <flags>])
+    //
+    // Compare two strings according to flags.
+    //
+    // If no flags other than `icase` are specified, then compare strings
+    // lexicographically and return `0` if the passed strings are equivalent,
+    // `-1` if the first string is less than the second one, and `1` if the
+    // first string is greater than the second one.
+    //
+    // If any of the `contains`, `contains_once`, `starts_with`, or
+    // `ends_with` flags are specified, then check if the string (first
+    // argument) contains the sub-string (second argument) according to the
+    // flags combination. Return `0` if the sub-string is contained as
+    // requested and non-`0` otherwise. The sub-string must not be empty.
+    //
+    // The following flags are supported:
+    //
+    //     icase         - compare ignoring case
+    //
+    //     contains      - check if string contains sub-string
+    //
+    //     contains_once - check if sub-string occurs in string exactly once
+    //
+    //     starts_with   - check if string begins with sub-string
+    //
+    //     ends_with     - check if string ends with sub-string
+    //
+    // See also `$string.starts_with()`, `$string.ends_with()`,
+    // `$string.contains()`.
+    //
+    f["compare"] += [](string x, value y, optional<names> fs)
+    {
+      return compare (move (x), move (y), move (fs));
+    };
+
+    f[".compare"] += [](names x, value y, optional<names> fs)
+    {
+      return compare (convert<string> (move (x)), move (y), move (fs));
     };
 
     // $string.replace(<untyped>, <from>, <to> [, <flags>])
@@ -496,13 +633,23 @@ namespace build2
 
     // $find(<strings>, <string> [, <flags>])
     //
-    // Return true if the string sequence contains the specified string.
+    // Return true if for any of the elements in the string sequence the
+    // `$compare(<element>, <string>, <flags>)` function call returns `0`.
     //
     // The following flags are supported:
     //
-    //     icase - compare ignoring case
+    //     icase         - compare ignoring case
     //
-    // See also `$regex.find_match()` and `$regex.find_search()`.
+    //     contains      - check if string contains sub-string
+    //
+    //     contains_once - check if sub-string occurs in string exactly once
+    //
+    //     starts_with   - check if string begins with sub-string
+    //
+    //     ends_with     - check if string ends with sub-string
+    //
+    // See also `$regex.find_match()`, `$regex.find_search()`,
+    // `$string.compare()`.
     //
     f["find"] += [](strings vs, value v, optional<names> fs)
     {
@@ -511,17 +658,60 @@ namespace build2
 
     // $find_index(<strings>, <string> [, <flags>])
     //
-    // Return the index of the first element in the string sequence that
-    // is equal to the specified string or `$size(strings)` if none is
-    // found.
+    // Return the index of the first element in the string sequence for which
+    // the `$compare(<element>, <string>, <flags>)` function call returns `0`
+    // or `$size(<strings>)` if no such element is found.
     //
     // The following flags are supported:
     //
-    //     icase - compare ignoring case
+    //     icase         - compare ignoring case
+    //
+    //     contains      - check if string contains sub-string
+    //
+    //     contains_once - check if sub-string occurs in string exactly once
+    //
+    //     starts_with   - check if string begins with sub-string
+    //
+    //     ends_with     - check if string ends with sub-string
+    //
+    // See also `$string.compare()`.
     //
     f["find_index"] += [](strings vs, value v, optional<names> fs)
     {
       return find_index (vs, move (v), move (fs));
+    };
+
+    // $filter(<strings>, <string> [, <flags>])
+    // $filter_out(<strings>, <string> [, <flags>])
+    //
+    // Return elements of a string sequence for which the
+    // `$compare(<element>, <string>, <flags>)` function call returns `0`
+    // (`filter`) or non-`0` (`filter_out`).
+    //
+    // The following flags are supported:
+    //
+    //     icase         - compare ignoring case
+    //
+    //     contains      - check if string contains sub-string
+    //
+    //     contains_once - check if sub-string occurs in string exactly once
+    //
+    //     starts_with   - check if string begins with sub-string
+    //
+    //     ends_with     - check if string ends with sub-string
+    //
+    // See also `$regex.filter_match()`, `$regex.filter_out_match()`,
+    // `$regex.filter_search()`, `$regex.filter_out_search()`,
+    // `$string.compare()`.
+    //
+    f["filter"] += [](strings vs, value v, optional<names> fs)
+    {
+      return filter (move (vs), move (v), move (fs), false /* out */);
+    };
+
+    f["filter_out"] += [](strings vs, value v, optional<names> fs)
+    {
+      return filter (move (vs), move (v), move (fs), true /* out */);
     };
 
     // $keys(<string-map>)

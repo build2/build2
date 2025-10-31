@@ -738,8 +738,8 @@ namespace build2
     // $regex.find_search(<vals>, <pat> [, <flags>])
     //
     // Determine if there is a match between the regular expression and some
-    // part of any of the list elements. Convert the elements to strings prior
-    // to matching.
+    // part of any of the list elements and return true if the match is
+    // found. Convert the elements to strings prior to matching.
     //
     // The following flags are supported:
     //

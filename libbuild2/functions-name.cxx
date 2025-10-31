@@ -474,7 +474,7 @@ namespace build2
     // $find_index(<names>, <name>)
     //
     // Return the index of the first element in the name sequence that is
-    // equal to the specified name or `$size(names)` if none is found.
+    // equal to the specified name or `$size(<names>)` if none is found.
     //
     f["find_index"] += [](names vs, names v)
     {

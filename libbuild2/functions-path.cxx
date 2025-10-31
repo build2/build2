@@ -1031,7 +1031,7 @@ namespace build2
     // $find_index(<paths>, <path>)
     //
     // Return the index of the first element in the paths sequence that is
-    // equal to the specified path or `$size(paths)` if none is found. Note
+    // equal to the specified path or `$size(<paths>)` if none is found. Note
     // that on host platforms with a case-insensitive filesystem the
     // comparison is case-insensitive.
     //

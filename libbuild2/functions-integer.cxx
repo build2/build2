@@ -185,7 +185,7 @@ namespace build2
     // $find_index(<ints>, <int>)
     //
     // Return the index of the first element in the integer sequence that is
-    // equal to the specified integer or `$size(ints)` if none is found.
+    // equal to the specified integer or `$size(<ints>)` if none is found.
     //
     f["find_index"] += [](int64s vs, value v)
     {

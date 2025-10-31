@@ -162,17 +162,53 @@
 : find
 :
 {{
-  $* <'print $find([strings] x y z, y)'        >'true'  : basics-true
-  $* <'print $find([strings] x y z, Y)'        >'false' : basics-false
-  $* <'print $find([strings] x y z, Y, icase)' >'true'  : icase
+  $* <'print $find([strings] x y z,   y)'                >'true'  : basics-true
+  $* <'print $find([strings] x y z,   Y)'                >'false' : basics-false
+  $* <'print $find([strings] x y z,   Y, icase)'         >'true'  : icase
+  $* <'print $find([strings] x yz,    y, contains)'      >'true'  : contains
+  $* <'print $find([strings] xy z yy, y, contains_once)' >'true'  : contains-once
+  $* <'print $find([strings] xyy z,   y, contains_once)' >'false' : contains-once-none
+  $* <'print $find([strings] xy yz,   y, starts_with)'   >'true'  : starts-with
+  $* <'print $find([strings] xy yz,   y, ends_with)'     >'true'  : ends-with
 }}
 
 : find_index
 :
 {{
-  $* <'print $find_index([strings] x y z, y)'        >'1' : basics-true
-  $* <'print $find_index([strings] x y z, Y)'        >'3' : basics-false
-  $* <'print $find_index([strings] x y z, Y, icase)' >'1' : icase
+  $* <'print $find_index([strings] x y z,   y)'                >'1' : basics-true
+  $* <'print $find_index([strings] x y z,   Y)'                >'3' : basics-false
+  $* <'print $find_index([strings] x y z,   Y, icase)'         >'1' : icase
+  $* <'print $find_index([strings] x yz,    y, contains)'      >'1' : contains
+  $* <'print $find_index([strings] xy z yy, y, contains_once)' >'0' : contains-once
+  $* <'print $find_index([strings] xyy z,   y, contains_once)' >'2' : contains-once-none
+  $* <'print $find_index([strings] xy yz,   y, starts_with)'   >'1' : starts-with
+  $* <'print $find_index([strings] xy yz,   y, ends_with)'     >'0' : ends-with
+}}
+
+: filter
+:
+{{
+  $* <'print $filter([strings] x y z,   y)'                >'y'  : basics-true
+  $* <'print $filter([strings] x y z,   Y)'                >''   : basics-false
+  $* <'print $filter([strings] x y z,   Y, icase)'         >'y'  : icase
+  $* <'print $filter([strings] x yz,    y, contains)'      >'yz' : contains
+  $* <'print $filter([strings] xy z yy, y, contains_once)' >'xy' : contains-once
+  $* <'print $filter([strings] xyy z,   y, contains_once)' >''   : contains-once-none
+  $* <'print $filter([strings] xy yz,   y, starts_with)'   >'yz' : starts-with
+  $* <'print $filter([strings] xy yz,   y, ends_with)'     >'xy' : ends-with
+}}
+
+: filter_out
+:
+{{
+  $* <'print $filter_out([strings] x y z,   y)'                >'x z'   : basics-true
+  $* <'print $filter_out([strings] x y z,   Y)'                >'x y z' : basics-false
+  $* <'print $filter_out([strings] x y z,   Y, icase)'         >'x z'   : icase
+  $* <'print $filter_out([strings] x yz,    y, contains)'      >'x'     : contains
+  $* <'print $filter_out([strings] xy z yy, y, contains_once)' >'z yy'  : contains-once
+  $* <'print $filter_out([strings] xyy z,   y, contains_once)' >'xyy z' : contains-once-none
+  $* <'print $filter_out([strings] xy yz,   y, starts_with)'   >'xy'    : starts-with
+  $* <'print $filter_out([strings] xy yz,   y, ends_with)'     >'yz'    : ends-with
 }}
 
 : keys
@@ -186,3 +222,18 @@ $* <'print $front([strings] a b)' >'a'
 : back
 :
 $* <'print $back([strings] a b)' >'b'
+
+: compare
+:
+{{
+  $* <'print $string.compare(a, b)'                            >'-1' : untyped-untyped
+  $* <'print $compare([string] a,   B, icase)'                 >'-1' : icase
+  $* <'print $compare([string] aba, a, contains)'              >'0'  : contains-yes
+  $* <'print $compare([string] aba, c, contains)'              >'1'  : contains-no
+  $* <'print $compare([string] aba, a, contains_once)'         >'1'  : contains-once-mult
+  $* <'print $compare([string] aba, b, contains_once)'         >'0'  : contains-once
+  $* <'print $compare([string] aba, c, contains_once)'         >'1'  : contains-once-none
+  $* <'print $compare([string] ba,  b, starts_with)'           >'0'  : starts-with
+  $* <'print $compare([string] ba,  a, ends_with)'             >'0'  : ends-with
+  $* <'print $compare([string] aba, a, starts_with ends_with)' >'0'  : starts-ends-with
+}}
