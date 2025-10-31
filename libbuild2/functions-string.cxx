@@ -138,6 +138,76 @@ namespace build2
     return p != string::npos && p + sf.size () == n;
   }
 
+  static int
+  compare (const string& x, value&& yv, optional<names>&& fs)
+  {
+    bool ic (false);
+    bool contains (false);
+    bool contains_once (false);
+    bool sw (false);
+    bool ew (false);
+
+    if (fs)
+    {
+      for (name& f: *fs)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "icase")
+          ic = true;
+        else if (s == "contains")
+          contains = true;
+        else if (s == "contains_once")
+          contains_once = true;
+        else if (s == "starts_with")
+          sw = true;
+        else if (s == "ends_with")
+          ew = true;
+        else
+          throw invalid_argument ("invalid flag '" + s + '\'');
+      }
+    }
+
+    const string y (convert<string> (move (yv)));
+
+    // Compare.
+    //
+    if (!contains && !contains_once && !sw && !ew)
+    {
+      int r (ic ? icasecmp (x, y) : x.compare (y));
+      return r < 0 ? -1 : r > 0 ? 1 : 0;
+    }
+
+    // Check if/how x contains y.
+    //
+    if (y.empty ())
+      throw invalid_argument ("empty substring");
+
+    size_t n (x.size ());
+
+    size_t lp (sw || contains_once || contains
+               ? find (x, 0, y, ic)
+               : string::npos);
+
+    size_t rp (ew || contains_once ? rfind (x, n, y, ic) : string::npos);
+
+    bool r (true);
+
+    if (sw)
+      r = (r && lp == 0);
+
+    if (ew)
+      r = (r && rp != string::npos && rp + y.size () == n);
+
+    if (contains)
+      r = (r && lp != string::npos);
+
+    if (contains_once)
+      r = (r && lp != string::npos && lp == rp);
+
+    return r ? 0 : 1;
+  }
+
   static string
   replace (string&& s, value&& fv, value&& tv, optional<names>&& fs)
   {
@@ -279,7 +349,7 @@ namespace build2
     //     once   - check if the substring occurs exactly once
     //
     // See also `$string.starts_with()`, `$string.ends_with()`,
-    // `$regex.search()`.
+    // `$regex.search()`, `$string.compare()`.
     //
     f["contains"] += [](string s, value ss, optional<names> fs)
     {
@@ -301,7 +371,7 @@ namespace build2
     //
     //     icase  - compare ignoring case
     //
-    // See also `$string.contains()`.
+    // See also `$string.contains()` and `$string.compare()`.
     //
     f["starts_with"] += [](string s, value pf, optional<names> fs)
     {
@@ -323,7 +393,7 @@ namespace build2
     //
     //     icase  - compare ignoring case
     //
-    // See also `$string.contains()`.
+    // See also `$string.contains()` and `$string.compare()`.
     //
     f["ends_with"] += [](string s, value sf, optional<names> fs)
     {
@@ -333,6 +403,45 @@ namespace build2
     f[".ends_with"] += [](names s, value sf, optional<names> fs)
     {
       return ends_with (convert<string> (move (s)), move (sf), move (fs));
+    };
+
+    // $string.compare(<untyped>, <untyped> [, <flags>])
+    // $compare(<string>, <string> [, <flags>])
+    //
+    // If no flags besides `icase` are specified, then compare strings
+    // lexicographically and return `0` if the passed strings are equivalent,
+    // `-1` if the first string is less than the second one, and `1` if the
+    // first string is greater than the second one.
+    //
+    // If any of the `contains`, `contains_once`, `starts_with`, and
+    // `ends_with` flags are specified, then check if the string (first
+    // argument) contains the sub-string (second argument) according to the
+    // flags combination. Return `0` is the sub-string is contained as
+    // requested and non-`0` otherwise. The sub-string must not be empty.
+    //
+    // The following flags are supported:
+    //
+    //     icase         - compare strings ignoring case
+    //
+    //     contains      - check if string contains sub-string
+    //
+    //     contains_once - check if string contains sub-string once
+    //
+    //     starts_with   - check if string starts with sub-string
+    //
+    //     ends_with     - check if string ends with sub-string
+    //
+    // See also `$string.starts_with()`, `$string.ends_with()`,
+    // `$string.contains()`.
+    //
+    f["compare"] += [](string x, value y, optional<names> fs)
+    {
+      return compare (move (x), move (y), move (fs));
+    };
+
+    f[".compare"] += [](names x, value y, optional<names> fs)
+    {
+      return compare (convert<string> (move (x)), move (y), move (fs));
     };
 
     // $string.replace(<untyped>, <from>, <to> [, <flags>])

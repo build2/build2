@@ -186,3 +186,18 @@ $* <'print $front([strings] a b)' >'a'
 : back
 :
 $* <'print $back([strings] a b)' >'b'
+
+: compare
+:
+{{
+  $* <'print $string.compare("a", "b")'                            >'-1' : untyped-untyped
+  $* <'print $compare([string] "a", "B", icase)'                   >'-1' : icase
+  $* <'print $compare([string] "ba", "b", starts_with)'            >'0'  : starts-with
+  $* <'print $compare([string] "ba", "a", ends_with)'              >'0'  : ends-with
+  $* <'print $compare([string] "aba", "a", starts_with ends_with)' >'0'  : starts-ends-with
+  $* <'print $compare([string] "aba", "a", contains_once)'         >'1'  : contains-once-mult
+  $* <'print $compare([string] "aba", "b", contains_once)'         >'0'  : contains-once
+  $* <'print $compare([string] "aba", "c", contains_once)'         >'1'  : contains-once-none
+  $* <'print $compare([string] "aba", "a", contains)'              >'0'  : contains-yes
+  $* <'print $compare([string] "aba", "c", contains)'              >'1'  : contains-no
+}}
