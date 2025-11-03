@@ -403,7 +403,7 @@ namespace build2
     //
     // The callback should only be registered during the load phase. Note
     // that it's registered for the inner action, meaning that it will be
-    // called for any outer action (which is discernible from the first
+    // called for any outer action (which is discernible from the second
     // argument of the callback). Note also that meta-operations other than
     // perform never actually execute any recipes and it probably only makes
     // sense to register these callbacks for the perform_* actions.
@@ -412,7 +412,7 @@ namespace build2
     // building a build system module or an ad hoc C++ recipe as well as
     // targets updated during load. See update_in_module_context(),
     // update_during_load(), and context::nested_context() for details. Note
-    // also that update during load can result a series of pre/post call
+    // also that update during load can result in a series of pre/post call
     // pairs, which would be similar to operation batches but for the same
     // operation number.
     //

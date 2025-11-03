@@ -497,13 +497,13 @@ namespace build2
       // context, including entering a scheduler sub-phase.
       //
       auto_thread_env penv (nullptr);
-      context& ctx (*bs.ctx.module_context);
-      scheduler::phase_guard pg (*ctx.sched);
+      context& mctx (*ctx.module_context);
+      scheduler::phase_guard pg (*mctx.sched);
 
       // Load the imported project in the module context.
       //
       pair<names, const scope&> lr (
-        import_load (ctx, move (ir), false /* metadata */, loc));
+        import_load (mctx, move (ir), false /* metadata */, loc));
 
       l5 ([&]{trace << "loaded " << lr.first;});
 
@@ -532,6 +532,8 @@ namespace build2
               dr << info (loc) << "while loading build system module " << mod;
             });
 
+          // Note: pass original context.
+          //
           l = &update_in_module_context (
             ctx, lr.second, move (lr.first),
             loc, path ());
@@ -545,7 +547,7 @@ namespace build2
         l5 ([&]{trace << "updated " << lib;});
       }
 
-      ctx.modules_lock = nullptr; // For good measure.
+      mctx.modules_lock = nullptr; // For good measure.
     }
     else
     {

@@ -310,8 +310,8 @@ namespace build2
       // context, including entering a scheduler sub-phase.
       //
       auto_thread_env penv (nullptr);
-      context& ctx (*t.ctx.module_context);
-      scheduler::phase_guard pg (*ctx.sched);
+      context& mctx (*ctx.module_context);
+      scheduler::phase_guard pg (*mctx.sched);
 
       uint16_t verbosity (3); // Project creation command verbosity.
 
@@ -333,7 +333,7 @@ namespace build2
       bool create (!is_src_root (pd, altn));
 
       if (!create && (create = !check_sig (bf, psig)))
-        rmdir_r (ctx, pd, false, verbosity); // Never dry-run.
+        rmdir_r (mctx, pd, false, verbosity); // Never dry-run.
 
       auto diag = [verbosity] (const path& f)
       {
@@ -579,15 +579,15 @@ namespace build2
         // Note that it's possible it has already been loaded (see above about
         // the id calculation).
         //
-        scope& rs (load_project (ctx, pd, pd, false /* forwarded */));
+        scope& rs (load_project (mctx, pd, pd, false /* forwarded */));
 
-        auto find_target = [&ctx, &rs, &pd, &id] ()
+        auto find_target = [&mctx, &rs, &pd, &id] ()
         {
           const target_type* tt (rs.find_target_type ("libs"));
           assert (tt != nullptr);
 
           const target* t (
-            ctx.targets.find (*tt, pd, dir_path () /* out */, id));
+            mctx.targets.find (*tt, pd, dir_path () /* out */, id));
           assert (t != nullptr);
 
           return t;
@@ -663,10 +663,10 @@ namespace build2
           if (l == nullptr)
             l = find_target ();
 
-          phase_switch mp (ctx, run_phase::match);
+          phase_switch mp (mctx, run_phase::match);
           if (match_sync (perform_update_id, *l) != target_state::unchanged)
           {
-            phase_switch ep (ctx, run_phase::execute);
+            phase_switch ep (mctx, run_phase::execute);
             execute_sync (a, *l);
           }
         }
@@ -683,6 +683,8 @@ namespace build2
                  << t;
             });
 
+          // Note: pass original context.
+          //
           l = &update_in_module_context (
             ctx, rs, names {name (pd, "libs", id)},
             loc, bf);
