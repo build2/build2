@@ -451,13 +451,26 @@ namespace build2
     // Note also: watch out for MT-safety in the data itself.
     //
     static void
-    null_current_data_deleter (void* p) { assert (p == nullptr); }
+    null_data_deleter (void* p) { assert (p == nullptr); }
 
-    using current_data_ptr = unique_ptr<void, void (*) (void*)>;
+    using data_ptr = unique_ptr<void, void (*) (void*)>;
 
-    current_data_ptr current_mdata        = {nullptr, null_current_data_deleter};
-    current_data_ptr current_inner_odata  = {nullptr, null_current_data_deleter};
-    current_data_ptr current_outer_odata  = {nullptr, null_current_data_deleter};
+    data_ptr current_mdata        = {nullptr, null_data_deleter};
+    data_ptr current_inner_odata  = {nullptr, null_data_deleter};
+    data_ptr current_outer_odata  = {nullptr, null_data_deleter};
+
+    // Module-specific context-global auxiliary data storage. The key should
+    // be prefixed with the module name, for example, `cc::compiledbs`.
+    //
+    // Keep in mind the possibility of nested contexts (see nested_context()
+    // for details).
+    //
+    // Note also: watch out for MT-safety of insertion/lookup and in the data
+    // itself. In particular, insertion should only be done during load.
+    //
+    using module_data_map = map<string, data_ptr>;
+
+    module_data_map module_data;
 
     // Current operation number (1-based) in the meta-operation batch (0
     // before the first current_operation() call in a batch).
@@ -824,12 +837,18 @@ namespace build2
     context* update_during_load_context = nullptr;
     unique_ptr<context> update_during_load_context_storage;
 
-    // Return true if this is one of the nested contexts.
+    // Return the top-level context if this is one of the nested contexts and
+    // NULL otherwise (so the result can be used as a bool).
     //
-    bool
+    context* top_context = nullptr;
+
+    context*
     nested_context () const
     {
-      return module_context == this || update_during_load_context == this;
+      assert ((module_context == this || update_during_load_context == this) ==
+              (top_context != nullptr));
+
+      return top_context;
     }
 
   public:

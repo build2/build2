@@ -72,13 +72,13 @@ namespace build2
     // Scope operation callback that cleans up compilation databases.
     //
     static target_state
-    clean_compiledb (const scope& rs)
+    clean_compiledb (const scope& rs, const compiledb_set& dbs)
     {
       context& ctx (rs.ctx);
 
       target_state r (target_state::unchanged);
 
-      for (const unique_ptr<compiledb>& db: compiledbs)
+      for (const unique_ptr<compiledb>& db: dbs)
       {
         const path& p (db->path);
 
@@ -101,8 +101,8 @@ namespace build2
     {
       target_state r (clean_module_sidebuilds (rs));
 
-      if (!compiledbs.empty ())
-        r |= clean_compiledb (rs);
+      if (const compiledb_set* dbs = compiledbs (rs.ctx))
+        r |= clean_compiledb (rs, *dbs);
 
       return r;
     }
@@ -639,6 +639,23 @@ namespace build2
                                   const names& ns,
                                   const dir_path& base) -> const string&
         {
+          context* octx (ctx.nested_context ());
+          if (octx == nullptr)
+            octx = &ctx;
+
+          auto i (octx->module_data.find (compiledbs_key));
+
+          if (i == octx->module_data.end ())
+          {
+            i = octx->module_data.emplace (
+              compiledbs_key,
+              context::data_ptr (
+                new compiledb_set,
+                [] (void* p) {delete static_cast<compiledb_set*> (p);})).first;
+          }
+
+          auto& compiledbs (*static_cast<compiledb_set*> (i->second.get ()));
+
           // Check that names and paths match. Return false if this entry
           // already exist.
           //
@@ -647,7 +664,7 @@ namespace build2
           // wrong with that and this can actually be useful, for example,
           // when developing build system modules.
           //
-          auto check = [&loc] (const string& n, const path& p)
+          auto check = [&loc, &compiledbs] (const string& n, const path& p)
           {
             for (const unique_ptr<compiledb>& db: compiledbs)
             {

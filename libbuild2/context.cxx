@@ -353,6 +353,9 @@ namespace build2
 
     tracer trace ("context");
 
+    if (module_context != nullptr)
+      module_context->top_context = this;
+
     l6 ([&]{trace << "initializing build state";});
 
     reserve (res);
@@ -1060,7 +1063,7 @@ namespace build2
     }
 
     current_mif = &mif;
-    current_mdata = current_data_ptr (nullptr, null_current_data_deleter);
+    current_mdata = data_ptr (nullptr, null_data_deleter);
     current_inner_oif = nullptr;
     current_outer_oif = nullptr;
     current_on = 0; // Reset.
@@ -1076,8 +1079,8 @@ namespace build2
     current_oname = oif.name;
     current_inner_oif = &inner_oif;
     current_outer_oif = outer_oif;
-    current_inner_odata = current_data_ptr (nullptr, null_current_data_deleter);
-    current_outer_odata = current_data_ptr (nullptr, null_current_data_deleter);
+    current_inner_odata = data_ptr (nullptr, null_data_deleter);
+    current_outer_odata = data_ptr (nullptr, null_data_deleter);
     current_on++;
     current_mode = inner_oif.mode;
     current_diag_noise = diag_noise;

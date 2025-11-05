@@ -112,9 +112,26 @@ namespace build2
 
     using compiledb_set = vector<unique_ptr<compiledb>>;
 
-    // Populated by core_config_init() during serial load.
+    // We store compiledb_set in the context-wide data storage of the top-
+    // level context with this key.
     //
-    extern compiledb_set compiledbs;
+    // The set of dbs is populated by core_config_init() during serial load.
+    //
+    extern string compiledbs_key;
+
+    inline const compiledb_set*
+    compiledbs (context& ctx)
+    {
+      context* octx (ctx.nested_context ());
+      if (octx == nullptr)
+        octx = &ctx;
+
+      auto i (octx->module_data.find (compiledbs_key));
+
+      return i == octx->module_data.end ()
+        ? nullptr
+        : static_cast<compiledb_set*> (i->second.get ());
+    }
 
     // Context operation callbacks.
     //

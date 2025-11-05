@@ -24,7 +24,7 @@ namespace build2
 {
   namespace cc
   {
-    compiledb_set compiledbs;
+    string compiledbs_key ("cc::compiledbs");
 
     // compiledb
     //
@@ -259,7 +259,9 @@ namespace build2
            const file& it,
            bool changed)
     {
-      if (compiledbs.empty ())
+      const compiledb_set* dbs (compiledbs (bs.ctx));
+
+      if (dbs == nullptr || dbs->empty ())
         return false;
 
       const scope& rs (*bs.root_scope ());
@@ -269,7 +271,7 @@ namespace build2
 
       bool u (false);
 
-      for (const unique_ptr<compiledb>& db: compiledbs)
+      for (const unique_ptr<compiledb>& db: *dbs)
       {
         if (filter (rs, *m, db->name, ot, it))
           u = db->match (ot, op, changed) || u;
@@ -286,7 +288,9 @@ namespace build2
              const path_type& relo, const path_type& abso,
              const path_type& relm, const path_type& absm)
     {
-      if (compiledbs.empty ())
+      const compiledb_set* dbs (compiledbs (bs.ctx));
+
+      if (dbs == nullptr || dbs->empty ())
         return;
 
       const scope& rs (*bs.root_scope ());
@@ -297,7 +301,7 @@ namespace build2
       assert (relo.empty () == abso.empty () &&
               relm.empty () == absm.empty ());
 
-      for (const unique_ptr<compiledb>& db: compiledbs)
+      for (const unique_ptr<compiledb>& db: *dbs)
       {
         if (filter (rs, *m, db->name, ot, it))
           db->execute (ot, op, it, ip, cpath, args, relo, abso, relm, absm);
@@ -307,7 +311,9 @@ namespace build2
     void
     compiledb_pre (context& ctx, action a, const action_targets&)
     {
-      // Note: won't be registered if compiledbs is empty.
+      // Note: won't be registered if compiledbs is NULL or empty.
+      //
+      const compiledb_set* dbs (compiledbs (ctx));
 
       // Note: may be called directly with empty action_targets.
 
@@ -319,7 +325,7 @@ namespace build2
 
       l6 ([&]{trace << (nctx ? "nested" : "normal") << " context " << &ctx;});
 
-      for (const unique_ptr<compiledb>& db: compiledbs)
+      for (const unique_ptr<compiledb>& db: *dbs)
         db->pre (ctx);
     }
 
@@ -329,7 +335,9 @@ namespace build2
                     const action_targets& ts,
                     bool failed)
     {
-      // Note: won't be registered if compiledbs is empty.
+      // Note: won't be registered if compiledbs is NULL or empty.
+      //
+      const compiledb_set* dbs (compiledbs (ctx));
 
       assert (a.inner_action () == perform_update_id);
 
@@ -340,7 +348,7 @@ namespace build2
       l6 ([&]{trace << (nctx ? "nested" : "normal") << " context " << &ctx
                     << ", failed: " << failed;});
 
-      for (const unique_ptr<compiledb>& db: compiledbs)
+      for (const unique_ptr<compiledb>& db: *dbs)
         db->post (ctx, ts, failed);
     }
 

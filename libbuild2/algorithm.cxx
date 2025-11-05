@@ -3909,6 +3909,11 @@ namespace build2
       context& uctx (*(ctx.update_during_load_context =
                        ctx.update_during_load_context_storage.get ()));
 
+      // Note: ctx cannot be the nested module context (see above).
+      //
+      assert (ctx.top_context == nullptr);
+      uctx.top_context = &ctx;
+
       // Establish our exemplar (necessary for variable override propagation).
       //
       uctx.exemplar_context = &ctx;

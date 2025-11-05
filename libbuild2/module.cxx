@@ -115,6 +115,13 @@ namespace build2
     // module building context (plus the special build.mode above).
     //
     context& mctx (*(ctx.module_context = ctx.module_context_storage->get ()));
+
+    // Note: ctx cannot be the nested u-d-l context (see update_during_load()
+    // for details).
+    //
+    assert (ctx.top_context == nullptr);
+    mctx.top_context = &ctx;
+
     mctx.module_context = &mctx;
 
     // Setup the context to perform update. In a sense we have a long-running

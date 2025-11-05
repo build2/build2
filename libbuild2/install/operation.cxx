@@ -349,7 +349,7 @@ namespace build2
         // relocatable (relative) paths once here since we don't know the
         // value of config.install.root.
 
-        ctx.current_inner_odata = context::current_data_ptr (
+        ctx.current_inner_odata = context::data_ptr (
           new context_data (mf),
           [] (void* p) {delete static_cast<context_data*> (p);});
       }
