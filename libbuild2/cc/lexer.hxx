@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_CC_LEXER_HXX
 #define LIBBUILD2_CC_LEXER_HXX
 
-#include <libbutl/sha256.hxx>
 #include <libbutl/char-scanner.hxx>
 
 #include <libbuild2/types.hxx>
@@ -192,7 +191,7 @@ namespace build2
       optional<uint64_t> log_line_;
 
       string tmp_file_;
-      sha256 cs_;
+      xxh64 cs_;
     };
 
     // Diagnostics plumbing.
