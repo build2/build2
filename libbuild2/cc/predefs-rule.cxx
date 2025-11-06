@@ -235,7 +235,7 @@ namespace build2
         // Then the options checksum (as below).
         //
         {
-          sha256 cs;
+          xxh64 cs;
 
           if (poptions)
           {
@@ -259,7 +259,7 @@ namespace build2
         // Then the macro map checksum.
         //
         {
-          sha256 cs;
+          xxh64 cs;
 
           if (mmap != nullptr)
           {

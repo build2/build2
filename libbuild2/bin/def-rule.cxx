@@ -642,7 +642,7 @@ namespace build2
       //
       vector<reference_wrapper<const objs>> os;
       {
-        sha256 cs;
+        xxh64 cs;
 
         auto collect = [a, &rs, &os, &cs] (const file& t,
                                            const auto& collect) -> void

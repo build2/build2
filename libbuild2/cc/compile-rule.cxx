@@ -1266,7 +1266,7 @@ namespace build2
         // since the order may be significant.
         //
         {
-          sha256 cs;
+          xxh64 cs;
 
           // These flags affect how we compile the source and/or the format of
           // depdb so factor them in.
@@ -5851,7 +5851,7 @@ namespace build2
       // similar to changing the source file). To detect this we calculate and
       // store a hash of all (not just direct) bmi{}'s paths.
       //
-      sha256 cs;
+      xxh64 cs;
 
       if (!is.empty ())
         md.modules = search_modules (a, bs, t, li, tts.bmi, src, is, cs);
@@ -5956,7 +5956,7 @@ namespace build2
                     const target_type& btt,
                     const file& src,
                     module_imports& imports,
-                    sha256& cs) const
+                    xxh64& cs) const
     {
       tracer trace (x, "compile_rule::search_modules");
 
@@ -7276,8 +7276,8 @@ namespace build2
       // case-insensitive filesystems) header path. We could try to come up
       // with something by sanitizing certain characters, etc. But then the
       // names will be very long and ugly, they will run into path length
-      // limits, etc. So instead we will use the file name plus an abbreviated
-      // hash of the whole path, something like stdio-211321fe6de7.
+      // limits, etc. So instead we will use the file name plus a hash of the
+      // whole path, something like stdio-211321fe6de7ff.
       //
       string mf;
       {
@@ -7288,7 +7288,7 @@ namespace build2
         const path& hp (ht.path ());
         mf = hp.leaf ().make_base ().string ();
         mf += '-';
-        mf += sha256 (hp.string ()).abbreviated_string (12);
+        mf += xxh64::string (hp.string ()).data ();
       }
 
       // If the header comes from the library, use its hbmi?{} type to

@@ -57,7 +57,6 @@
 #include <libbutl/path-map.hxx>
 #include <libbutl/regex.hxx>
 #include <libbutl/xxh64.hxx>
-#include <libbutl/sha256.hxx>
 #include <libbutl/process.hxx>
 #include <libbutl/fdstream.hxx>
 #include <libbutl/optional.hxx>
@@ -412,10 +411,8 @@ namespace build2
   using butl::operator<<;
 
   // <libbutl/xxh64.hxx>
-  // <libbutl/sha256.hxx>
   //
   using butl::xxh64;
-  using butl::sha256; // @@ TMP: drop once move to xxh64.
 
   // <libbutl/process.hxx>
   //

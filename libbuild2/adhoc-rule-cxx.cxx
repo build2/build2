@@ -181,11 +181,11 @@ namespace build2
       //
       string id;
       {
-        sha256 cs;
+        xxh64 cs;
         cs.append ("c++");
         cs.append (separator ? *separator : "");
         cs.append (code);
-        id = cs.abbreviated_string (12);
+        id = cs.string ();
       }
 
       dir_path pd (rs.out_path () /

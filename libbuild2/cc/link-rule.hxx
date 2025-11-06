@@ -208,7 +208,7 @@ namespace build2
 
       void
       append_libraries (appended_libraries&, strings&,
-                        sha256*, bool*, timestamp,
+                        xxh64*, bool*, timestamp,
                         const scope&, action,
                         const file&, bool, lflags, linfo,
                         optional<bool>, bool = true, bool = true,
@@ -228,7 +228,7 @@ namespace build2
                        const target&, linfo, bool) const;
 
       void
-      append_binless_modules (strings&, sha256*,
+      append_binless_modules (strings&, xxh64*,
                               const scope&, action, const file&) const;
 
       bool

@@ -146,7 +146,7 @@ namespace build2
        F&& f,
        bool err,
        bool ignore_exit,
-       sha256* checksum)
+       xxh64* checksum)
   {
     T r;
     if (!run (ctx,
@@ -176,7 +176,7 @@ namespace build2
        F&& f,
        bool err,
        bool ignore_exit,
-       sha256* checksum)
+       xxh64* checksum)
   {
     T r;
     if (!run (ctx,
@@ -198,7 +198,7 @@ namespace build2
   }
 
   inline void
-  hash_path (sha256& cs, const path& p, const dir_path& prefix)
+  hash_path (xxh64& cs, const path& p, const dir_path& prefix)
   {
     // Note: for efficiency we don't use path::leaf() and "skip" the prefix
     // without copying.
@@ -231,7 +231,7 @@ namespace build2
 
   template <typename T>
   inline void
-  append_options (sha256& csum, T& s, const variable& var)
+  append_options (xxh64& csum, T& s, const variable& var)
   {
     append_options (csum, s[var]);
   }
@@ -252,7 +252,7 @@ namespace build2
 
   template <typename T>
   inline void
-  append_options (sha256& csum, T& s, const char* var)
+  append_options (xxh64& csum, T& s, const char* var)
   {
     append_options (csum, s[var]);
   }
@@ -272,7 +272,7 @@ namespace build2
   }
 
   inline void
-  append_options (sha256& csum, const strings& sv)
+  append_options (xxh64& csum, const strings& sv)
   {
     if (size_t n = sv.size ())
       append_options (csum, sv, n);
@@ -397,7 +397,7 @@ namespace build2
   // hash_environment()
   //
   inline void
-  hash_environment (sha256& cs, const char* n)
+  hash_environment (xxh64& cs, const char* n)
   {
     cs.append (n);
 
@@ -406,13 +406,13 @@ namespace build2
   }
 
   inline void
-  hash_environment (sha256& cs, const string& n)
+  hash_environment (xxh64& cs, const string& n)
   {
     hash_environment (cs, n.c_str ());
   }
 
   inline void
-  hash_environment (sha256& cs, initializer_list<const char*> ns)
+  hash_environment (xxh64& cs, initializer_list<const char*> ns)
   {
     for (const char* n: ns)
       hash_environment (cs, n);
@@ -421,13 +421,13 @@ namespace build2
   inline string
   hash_environment (initializer_list<const char*> ns)
   {
-    sha256 cs;
+    xxh64 cs;
     hash_environment (cs, ns);
     return cs.string ();
   }
 
   inline void
-  hash_environment (sha256& cs, const cstrings& ns)
+  hash_environment (xxh64& cs, const cstrings& ns)
   {
     for (const char* n: ns)
       hash_environment (cs, n);
@@ -436,13 +436,13 @@ namespace build2
   inline string
   hash_environment (const cstrings& ns)
   {
-    sha256 cs;
+    xxh64 cs;
     hash_environment (cs, ns);
     return cs.string ();
   }
 
   inline void
-  hash_environment (sha256& cs, const strings& ns)
+  hash_environment (xxh64& cs, const strings& ns)
   {
     for (const string& n: ns)
       hash_environment (cs, n);
@@ -451,13 +451,13 @@ namespace build2
   inline string
   hash_environment (const strings& ns)
   {
-    sha256 cs;
+    xxh64 cs;
     hash_environment (cs, ns);
     return cs.string ();
   }
 
   inline void
-  hash_environment (sha256& cs, const char* const* ns)
+  hash_environment (xxh64& cs, const char* const* ns)
   {
     if (ns != nullptr)
     {
@@ -469,7 +469,7 @@ namespace build2
   inline string
   hash_environment (const char* const* ns)
   {
-    sha256 cs;
+    xxh64 cs;
     hash_environment (cs, ns);
     return cs.string ();
   }

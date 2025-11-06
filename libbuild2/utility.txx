@@ -21,7 +21,7 @@ namespace build2
 
   template <typename I, typename F>
   void
-  append_option_values (sha256& cs, const char* o, I b, I e, F&& get)
+  append_option_values (xxh64& cs, const char* o, I b, I e, F&& get)
   {
     for (; b != e; ++b)
     {

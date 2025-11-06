@@ -100,7 +100,7 @@ namespace build2
       //
       string key;
       {
-        sha256 cs;
+        xxh64 cs;
         cs.append (ar.string ());
         if (rl != nullptr) cs.append (rl->string ());
         if (paths != nullptr) cs.append (paths);
@@ -233,7 +233,7 @@ namespace build2
         // option. Note that in case of lib.exe we will hash the warning
         // (yes, it goes to stdout) but that seems harmless.
         //
-        sha256 cs;
+        xxh64 cs;
         arr = run<guess_result> (ctx,
                                  3,
                                  are, "--version",
@@ -260,7 +260,7 @@ namespace build2
 
         // Redirect stderr to stdout and ignore exit status.
         //
-        sha256 cs;
+        xxh64 cs;
         arr = run<guess_result> (ctx, 3, are, f, false, true, &cs);
 
         if (!arr.empty ())
@@ -303,7 +303,7 @@ namespace build2
             return guess_result ();
           };
 
-          sha256 cs;
+          xxh64 cs;
           rlr = run<guess_result> (ctx,
                                    3,
                                    rle, "--version",
@@ -327,7 +327,7 @@ namespace build2
 
           // Redirect stderr to stdout and ignore exit status.
           //
-          sha256 cs;
+          xxh64 cs;
           rlr = run<guess_result> (ctx, 3, rle, f, false, true, &cs);
 
           if (!rlr.empty ())
@@ -404,7 +404,7 @@ namespace build2
       //
       string key;
       {
-        sha256 cs;
+        xxh64 cs;
         cs.append (ld.string ());
         if (paths != nullptr) cs.append (paths);
         key = cs.string ();
@@ -509,7 +509,7 @@ namespace build2
         // of link.exe we will hash the diagnostics (yes, it goes to stdout)
         // but that seems harmless.
         //
-        sha256 cs;
+        xxh64 cs;
         r = run<guess_result> (ctx, 3, env, "--version", f, false, true, &cs);
 
         if (!r.empty ())
@@ -540,7 +540,7 @@ namespace build2
           return guess_result ();
         };
 
-        sha256 cs;
+        xxh64 cs;
         r = run<guess_result> (ctx, 3, env, "-v", f, false, false, &cs);
 
         if (!r.empty ())
@@ -567,7 +567,7 @@ namespace build2
         // Suppress all the errors because we may be trying an unsupported
         // option.
         //
-        sha256 cs;
+        xxh64 cs;
         r = run<guess_result> (ctx, 3, env, "-version", f, false, false, &cs);
 
         if (!r.empty ())
@@ -617,7 +617,7 @@ namespace build2
       //
       string key;
       {
-        sha256 cs;
+        xxh64 cs;
         cs.append (rc.string ());
         if (paths != nullptr) cs.append (paths);
         key = cs.string ();
@@ -661,7 +661,7 @@ namespace build2
         // Suppress all the errors because we may be trying an unsupported
         // option.
         //
-        sha256 cs;
+        xxh64 cs;
         r = run<guess_result> (ctx, 3, env, "--version", f, false, false, &cs);
 
         if (!r.empty ())
@@ -694,7 +694,7 @@ namespace build2
           return guess_result ();
         };
 
-        sha256 cs;
+        xxh64 cs;
         r = run<guess_result> (ctx, 3, env, "/?", f, false, false, &cs);
 
         if (!r.empty ())
@@ -734,7 +734,7 @@ namespace build2
       //
       string key;
       {
-        sha256 cs;
+        xxh64 cs;
         cs.append (nm.string ());
         if (paths != nullptr) cs.append (paths);
         key = cs.string ();
@@ -806,7 +806,7 @@ namespace build2
         // Suppress all the errors because we may be trying an unsupported
         // option.
         //
-        sha256 cs;
+        xxh64 cs;
         r = run<guess_result> (ctx, 3, env, "--version", f, false, false, &cs);
 
         if (!r.empty ())

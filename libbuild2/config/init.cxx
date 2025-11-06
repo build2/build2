@@ -747,7 +747,7 @@ namespace build2
       //
       if (const strings* src = cast_null<strings> (rs[c_e]))
       {
-        sha256 cs;
+        xxh64 cs;
         vector<const char*>& dst (rs.root_extra->environment);
 
         // The idea is to only copy entries that are effective, that is those

@@ -600,7 +600,7 @@ namespace build2
        F&&,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr);
+       xxh64* checksum = nullptr);
 
   template <typename T, typename F>
   inline T
@@ -611,7 +611,7 @@ namespace build2
        F&& f,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr)
+       xxh64* checksum = nullptr)
   {
     return run<T> (ctx,
                    verbosity,
@@ -629,7 +629,7 @@ namespace build2
        F&&,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr);
+       xxh64* checksum = nullptr);
 
   template <typename T, typename F>
   inline T
@@ -640,7 +640,7 @@ namespace build2
        F&& f,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr)
+       xxh64* checksum = nullptr)
   {
     return run<T> (ctx,
                    pe, args.data (),
@@ -657,7 +657,7 @@ namespace build2
        F&& f,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr)
+       xxh64* checksum = nullptr)
   {
     process_path pp (run_search (args[0]));
     return run<T> (ctx,
@@ -675,7 +675,7 @@ namespace build2
        F&& f,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr)
+       xxh64* checksum = nullptr)
   {
     return run<T> (ctx,
                    verbosity,
@@ -696,7 +696,7 @@ namespace build2
        F&& f,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr)
+       xxh64* checksum = nullptr)
   {
     const char* args[] = {prog.string ().c_str (), nullptr};
     return run<T> (ctx,
@@ -717,7 +717,7 @@ namespace build2
        F&& f,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr)
+       xxh64* checksum = nullptr)
   {
     const char* args[] = {pe.path->recall_string (), nullptr};
     return run<T> (ctx,
@@ -738,7 +738,7 @@ namespace build2
        F&& f,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr)
+       xxh64* checksum = nullptr)
   {
     const char* args[] = {prog.string ().c_str (), arg, nullptr};
     return run<T> (ctx,
@@ -757,7 +757,7 @@ namespace build2
        F&& f,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr)
+       xxh64* checksum = nullptr)
   {
     const char* args[] = {pe.path->recall_string (), arg, nullptr};
     return run<T> (ctx,
@@ -789,7 +789,7 @@ namespace build2
        bool trim = true,
        bool error = true,
        bool ignore_exit = false,
-       sha256* checksum = nullptr);
+       xxh64* checksum = nullptr);
 
   // Concatenate the program path and arguments into a shallow NULL-terminated
   // vector of C-strings.
@@ -835,7 +835,7 @@ namespace build2
   // for debug information, __FILE__ macro expansion, rpath, etc).
   //
   void
-  hash_path (sha256&, const path&, const dir_path& prefix = dir_path ());
+  hash_path (xxh64&, const path&, const dir_path& prefix = dir_path ());
 
   // Append all the values from a variable to the C-string list. T is either
   // target or scope. The variable is expected to be of type strings.
@@ -860,11 +860,11 @@ namespace build2
 
   template <typename T>
   void
-  append_options (sha256&, T&, const variable&);
+  append_options (xxh64&, T&, const variable&);
 
   template <typename T>
   void
-  append_options (sha256&, T&, const char*);
+  append_options (xxh64&, T&, const char*);
 
   // As above but from the lookup directly.
   //
@@ -875,7 +875,7 @@ namespace build2
   append_options (strings&, const lookup&, const char* excl = nullptr);
 
   LIBBUILD2_SYMEXPORT void
-  append_options (sha256&, const lookup&);
+  append_options (xxh64&, const lookup&);
 
   // As above but from the strings value directly.
   //
@@ -886,7 +886,7 @@ namespace build2
   append_options (strings&, const strings&, const char* excl = nullptr);
 
   void
-  append_options (sha256&, const strings&);
+  append_options (xxh64&, const strings&);
 
   LIBBUILD2_SYMEXPORT void
   append_options (cstrings&,
@@ -899,7 +899,7 @@ namespace build2
                   const char* excl = nullptr);
 
   LIBBUILD2_SYMEXPORT void
-  append_options (sha256&, const strings&, size_t);
+  append_options (xxh64&, const strings&, size_t);
 
   // As above but append/hash option values for the specified option (e.g.,
   // -I, -L).
@@ -915,7 +915,7 @@ namespace build2
   template <typename I, typename F>
   void
   append_option_values (
-    sha256&,
+    xxh64&,
     const char* opt,
     I begin, I end,
     F&& get = [] (const string& s) -> const string& {return s;});
@@ -945,7 +945,7 @@ namespace build2
   }
 
   inline void
-  append_option (sha256& csum, const char* o)
+  append_option (xxh64& csum, const char* o)
   {
     csum.append (o);
   }
@@ -1073,25 +1073,25 @@ namespace build2
   // checksum. See also config::save_environment().
   //
   void
-  hash_environment (sha256&, const char* name);
+  hash_environment (xxh64&, const char* name);
 
   void
-  hash_environment (sha256&, const string& name);
+  hash_environment (xxh64&, const string& name);
 
   void
-  hash_environment (sha256&, initializer_list<const char*> names);
+  hash_environment (xxh64&, initializer_list<const char*> names);
 
   string
   hash_environment (initializer_list<const char*> names);
 
   void
-  hash_environment (sha256&, const cstrings& names);
+  hash_environment (xxh64&, const cstrings& names);
 
   string
   hash_environment (const cstrings& names);
 
   void
-  hash_environment (sha256&, const strings& names);
+  hash_environment (xxh64&, const strings& names);
 
   string
   hash_environment (const strings& names);
@@ -1099,7 +1099,7 @@ namespace build2
   // A NULL-terminated list of variables (may itself be NULL).
   //
   void
-  hash_environment (sha256&, const char* const* names);
+  hash_environment (xxh64&, const char* const* names);
 
   string
   hash_environment (const char* const* names);

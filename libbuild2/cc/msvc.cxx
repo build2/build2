@@ -405,7 +405,7 @@ namespace build2
     {
       string key;
       {
-        sha256 cs;
+        xxh64 cs;
         cs.append (ld.effect_string ());
         cs.append (l.string ());
         key = cs.string ();

@@ -255,7 +255,7 @@ namespace build2
 
         // Then the options checksum.
         //
-        sha256 cs;
+        xxh64 cs;
         append_options (cs, t, "cli.options");
 
         if (dd.expect (cs.string ()) != nullptr)

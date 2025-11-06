@@ -270,7 +270,7 @@ namespace build2
                 if (p3 != string::npos)
                   p3 -= p2; // Hash length.
 
-                if (s->compare (p2, p3, sha256 (*v).string ()) == 0)
+                if (s->compare (p2, p3, xxh64::string (*v).data ()) == 0)
                 {
                   dd_skip++;
                   continue;
@@ -581,7 +581,7 @@ namespace build2
           s += ' ';
           s += n;
           s += ' ';
-          s += sha256 (*val).string ();
+          s += xxh64::string (*val).data ();
           if (flags)
           {
             s += '/';

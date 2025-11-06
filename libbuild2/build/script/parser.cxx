@@ -1658,7 +1658,7 @@ namespace build2
               const char* w (nullptr);
               if (cmd == "hash")
               {
-                sha256 cs;
+                xxh64 cs;
                 for (const name& n: ns)
                   to_checksum (cs, n);
 
@@ -1680,7 +1680,7 @@ namespace build2
               }
               else if (cmd == "env")
               {
-                sha256 cs;
+                xxh64 cs;
                 const char* pf ("invalid 'depdb env' argument: ");
 
                 try

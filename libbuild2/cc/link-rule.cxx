@@ -2464,7 +2464,7 @@ namespace build2
     //
     void link_rule::
     append_libraries (appended_libraries& ls, strings& args,
-                      sha256* cs, bool* update, timestamp mt,
+                      xxh64* cs, bool* update, timestamp mt,
                       const scope& bs, action a,
                       const file& l, bool la, lflags lf, linfo li,
                       optional<bool> for_install, bool self, bool rel,
@@ -2475,7 +2475,7 @@ namespace build2
         appended_libraries&  ls;
         strings&             args;
 
-        sha256*              cs;
+        xxh64*               cs;
         const dir_path*      out_root;
 
         bool*                update;
@@ -3100,7 +3100,7 @@ namespace build2
     // prerequisites that belong to binless libraries.
     //
     void link_rule::
-    append_binless_modules (strings& args, sha256* cs,
+    append_binless_modules (strings& args, xxh64* cs,
                             const scope& bs, action a, const file& t) const
     {
       // Note that here we don't need to hoist anything on duplicate detection
@@ -3334,7 +3334,7 @@ namespace build2
       //
       using environment = small_vector<string, 1>;
       environment env;
-      sha256 env_cs;
+      xxh64 env_cs;
 
       // If we have the search paths in the binutils pattern, prepend them to
       // the PATH environment variable so that any dependent tools (such as
@@ -3879,7 +3879,7 @@ namespace build2
       // All the options should now be in. Hash them and compare with the db.
       //
       {
-        sha256 cs;
+        xxh64 cs;
 
         for (size_t i (1); i != args.size (); ++i)
           cs.append (args[i]);
@@ -3915,7 +3915,7 @@ namespace build2
       {
         appended_libraries als;
         library_cache lc;
-        sha256 cs;
+        xxh64 cs;
 
         for (const prerequisite_target& p: t.prerequisite_targets[a])
         {

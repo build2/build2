@@ -170,7 +170,7 @@ namespace build2
       module_positions
       search_modules (action, const scope&, file&, linfo,
                       const target_type&,
-                      const file&, module_imports&, sha256&) const;
+                      const file&, module_imports&, xxh64&) const;
 
       pair<dir_path, const scope&>
       find_modules_sidebuild (const scope&) const;

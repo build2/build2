@@ -836,7 +836,7 @@ namespace build2
            const strings& x_mo,
            const optional<compiler_id>& xi,
            pre_guess_result& pre,
-           sha256& cs)
+           xxh64& cs)
     {
       tracer trace ("cc::guess");
 
@@ -1686,7 +1686,7 @@ namespace build2
                 const strings*, const strings*,
                 const strings*, const strings*,
                 const strings*, const strings*,
-                guess_result&& gr, sha256&)
+                guess_result&& gr, xxh64&)
     {
       // Extract the version. The signature line has the following format
       // though language words can be translated and even rearranged (see
@@ -1959,7 +1959,7 @@ namespace build2
                const strings* c_po, const strings* x_po,
                const strings* c_co, const strings* x_co,
                const strings*, const strings*,
-               guess_result&& gr, sha256&)
+               guess_result&& gr, xxh64&)
     {
       tracer trace ("cc::guess_gcc");
 
@@ -2415,7 +2415,7 @@ namespace build2
                  const strings* c_po, const strings* x_po,
                  const strings* c_co, const strings* x_co,
                  const strings* c_lo, const strings* x_lo,
-                 guess_result&& gr, sha256& cs)
+                 guess_result&& gr, xxh64& cs)
     {
       // This function handles vanilla Clang, including its clang-cl variant,
       // as well as Apple and Emscripten variants.
@@ -2951,7 +2951,7 @@ namespace build2
                const strings* c_po, const strings* x_po,
                const strings* c_co, const strings* x_co,
                const strings*, const strings*,
-               guess_result&& gr, sha256&)
+               guess_result&& gr, xxh64&)
     {
       //@@ TODO: this should be reviewed/revised if/when we get access
       //         to more recent ICC versions.
@@ -3295,7 +3295,7 @@ namespace build2
       //
       string key;
       {
-        sha256 cs;
+        xxh64 cs;
         cs.append (static_cast<size_t> (xl));
         cs.append (xc.string ());
         if (!ec.empty ()) cs.append (ec);
@@ -3335,7 +3335,7 @@ namespace build2
       // try the test just for that compiler.
       //
       guess_result gr;
-      sha256 cs;
+      xxh64 cs;
 
       if (pre.type != invalid_compiler_type)
       {
@@ -3368,7 +3368,7 @@ namespace build2
         const strings*, const strings*,
         const strings*, const strings*,
         const strings*, const strings*,
-        guess_result&&, sha256&) = nullptr;
+        guess_result&&, xxh64&) = nullptr;
 
       switch (gr.id.type)
       {

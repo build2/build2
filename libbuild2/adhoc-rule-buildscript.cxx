@@ -27,7 +27,7 @@ using namespace std;
 namespace build2
 {
   static inline void
-  hash_script_vars (sha256& cs,
+  hash_script_vars (xxh64& cs,
                     const build::script::script& s,
                     const scope& bs,
                     const target& t,
@@ -66,7 +66,7 @@ namespace build2
   // let's do it both ways.
   //
   static inline void
-  hash_target (sha256& cs, const target& t, names& storage)
+  hash_target (xxh64& cs, const target& t, names& storage)
   {
     if (const path_target* pt = t.is_a<path_target> ())
       cs.append (pt->path ().string ());
@@ -111,7 +111,7 @@ namespace build2
   // tools as ad hoc in order to omit them from $<).
   //
   static inline void
-  hash_prerequisite_target (sha256& cs, sha256& exe_cs, sha256& env_cs,
+  hash_prerequisite_target (xxh64& cs, xxh64& exe_cs, xxh64& env_cs,
                             const target& pt,
                             names& storage)
   {
@@ -165,7 +165,7 @@ namespace build2
       i = as.erase (i);
     }
 
-    checksum = sha256 (t).string ();
+    checksum = xxh64::string (t).data ();
     ttype = &tt;
 
     istringstream is (move (t));
@@ -980,7 +980,7 @@ namespace build2
     {
       names storage;
 
-      sha256 prq_cs, exe_cs, env_cs;
+      xxh64 prq_cs, exe_cs, env_cs;
 
       for (const prerequisite_target& p: pts)
       {
@@ -997,7 +997,7 @@ namespace build2
       }
 
       {
-        sha256 cs;
+        xxh64 cs;
         hash_script_vars (cs, script, bs, t, storage);
 
         if (dd.expect (cs.string ()) != nullptr)
@@ -1008,7 +1008,7 @@ namespace build2
       // see dyndep --dyn-target).
       //
       {
-        sha256 tcs;
+        xxh64 tcs;
         if (g == nullptr)
         {
           // There is a nuance: in an operation batch (e.g., `b update
@@ -1836,7 +1836,7 @@ namespace build2
     // prerequisites) unless the script tracks changes itself.
     //
     names storage;
-    sha256 prq_cs, exe_cs, env_cs;
+    xxh64 prq_cs, exe_cs, env_cs;
 
     if (!script.depdb_clear)
     {
@@ -1908,7 +1908,7 @@ namespace build2
       //    properly attribute checksum and environment changes?
       //
       {
-        sha256 cs;
+        xxh64 cs;
         hash_script_vars (cs, script, bs, t, storage);
 
         if (dd.expect (cs.string ()) != nullptr)
@@ -1918,7 +1918,7 @@ namespace build2
       // Target and prerequisite sets ($> and $<).
       //
       {
-        sha256 tcs;
+        xxh64 tcs;
         if (g == nullptr)
         {
           for (const target* m (&t); m != nullptr; m = m->adhoc_member)

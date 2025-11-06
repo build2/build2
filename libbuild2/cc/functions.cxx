@@ -399,7 +399,7 @@ namespace build2
 
             m.append_libraries (
               *static_cast<appended_libraries*> (ls), r,
-              nullptr /* sha256 */, nullptr /* update */, timestamp_unknown,
+              nullptr /* xxh64 */, nullptr /* update */, timestamp_unknown,
               bs, a, l.as<file> (), la, lf, *li,
               nullopt /* for_install */, self, rel);
           }});
@@ -467,7 +467,7 @@ namespace build2
             if (const file* f = t.is_a<objx> ())
             {
               if (m.modules)
-                m.append_binless_modules (r, nullptr /* sha256 */, bs, a, *f);
+                m.append_binless_modules (r, nullptr /* xxh64 */, bs, a, *f);
             }
             else
               fail << t << " is not an object file target";

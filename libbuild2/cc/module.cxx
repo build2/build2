@@ -236,7 +236,7 @@ namespace build2
       // compilation and linking (which may compile, think LTO).
       //
       {
-        sha256 cs;
+        xxh64 cs;
         hash_environment (cs, xi.compiler_environment);
         hash_environment (cs, xi.platform_environment);
         env_checksum = cs.string ();
@@ -606,7 +606,7 @@ namespace build2
       string key;
       if (!xi.sys_lib_dirs || !xi.sys_hdr_dirs || (modules && !xi.std_mods))
       {
-        sha256 cs;
+        xxh64 cs;
         cs.append (static_cast<size_t> (x_lang));
         cs.append (xi.path.effect_string ());
         append_options (cs, mode);
@@ -993,7 +993,7 @@ namespace build2
       if (modules)
       {
         {
-          sha256 k;
+          xxh64 k;
           for (const dir_path& d: sys_hdr_dirs)
             k.append (d.string ());
 

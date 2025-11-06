@@ -465,7 +465,7 @@ namespace build2
        bool tr,
        bool err,
        bool ignore_exit,
-       sha256* checksum)
+       xxh64* checksum)
   {
     assert (!err || !ignore_exit);
 
@@ -708,7 +708,7 @@ namespace build2
   }
 
   void
-  append_options (sha256& csum, const lookup& l)
+  append_options (xxh64& csum, const lookup& l)
   {
     if (l)
       append_options (csum, cast<strings> (l));
@@ -745,7 +745,7 @@ namespace build2
   }
 
   void
-  append_options (sha256& csum, const strings& sv, size_t n)
+  append_options (xxh64& csum, const strings& sv, size_t n)
   {
     for (size_t i (0); i != n; ++i)
       csum.append (sv[i]);
