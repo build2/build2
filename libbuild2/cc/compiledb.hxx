@@ -104,7 +104,7 @@ namespace build2
                const path_type& relm, const path_type& absm) = 0;
 
       virtual void
-      post (context&, const action_targets&, bool failed) = 0;
+      post (context&, action, const action_targets&, bool failed) = 0;
 
       virtual
       ~compiledb ();
@@ -172,7 +172,7 @@ namespace build2
                const path_type& relm, const path_type& absm) override;
 
       virtual void
-      post (context&, const action_targets&, bool failed) override;
+      post (context&, action, const action_targets&, bool failed) override;
 
     private:
       mutex mutex_;
@@ -203,7 +203,7 @@ namespace build2
                const path_type& relm, const path_type& absm) override;
 
       virtual void
-      post (context&, const action_targets&, bool failed) override;
+      post (context&, action, const action_targets&, bool failed) override;
 
     private:
       mutex mutex_;

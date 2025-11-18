@@ -8463,6 +8463,10 @@ corresponding entries in the compilation database will be automatically
 updated when you update your project. This helps maintain the database in sync
 with the project state.
 
+\N|Note that the removal of old database entries only happens during the
+\c{update} operation and only for entries that reside in subdirectories being
+updated.|
+
 The generation of compilation databases and their configuration are controlled
 with a number of \c{config.cc.compiledb.*} variables. The
 \c{config.cc.compiledb} variable provides a simplified interface that enables

@@ -349,7 +349,7 @@ namespace build2
                     << ", failed: " << failed;});
 
       for (const unique_ptr<compiledb>& db: *dbs)
-        db->post (ctx, ts, failed);
+        db->post (ctx, a, ts, failed);
     }
 
 #ifndef BUILD2_BOOTSTRAP
@@ -559,7 +559,7 @@ namespace build2
     }
 
     void compiledb_stdout::
-    post (context& ctx, const action_targets&, bool failed)
+    post (context& ctx, action, const action_targets&, bool failed)
     {
       assert (nesting_ != 0);
       if (--nesting_ != 0) // Nested post() call.
@@ -894,7 +894,7 @@ namespace build2
     }
 
     void compiledb_file::
-    post (context& ctx, const action_targets& ts, bool failed)
+    post (context& ctx, action a, const action_targets& ts, bool failed)
     {
       assert (nesting_ != 0);
       if (--nesting_ != 0) // Nested post() call.
@@ -936,6 +936,11 @@ namespace build2
       // prune the entries if they are in a subdirectory of the dir{} targets
       // which we are building.
       //
+      // Another dimension of this is an update-for-x pre-operation. In this
+      // case we may be only updating a subset of targets (for example, only
+      // tests plus what they pull, in case of update-for-test). So feels like
+      // we should not prune in pre-operations (see GH #498).
+      //
       // What do we do about the nested context, where we update a specific
       // target, say libs{} for module context? We could use its directory
       // instead but that may lead to undesirable results. For example, if
@@ -953,7 +958,7 @@ namespace build2
       // happen in two different ways: initial load and interrupting load (see
       // update_during_load() for details). Interrupting load is covered by
       // the above logic since the update during load happens within the
-      // normal pre/post calls. Intial load, however, is tricky: we end up
+      // normal pre/post calls. Initial load, however, is tricky: we end up
       // with an independent sequence(s) of pre/post calls before the main
       // one, essentially as-if we had a batch of updates except that we don't
       // actually start a new operation and which means that the target will
@@ -964,7 +969,7 @@ namespace build2
       //
       bool absent (false);
 
-      if (!failed && !nctx && absent_ != 0)
+      if (!failed && !nctx && !a.outer () && absent_ != 0)
       {
         // Pre-scan the entries and drop the appropriate absent ones.
         //
