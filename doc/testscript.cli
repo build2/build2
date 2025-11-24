@@ -3544,6 +3544,9 @@ utility options but extends it with the \c{--sum-only} option.
 
   Print only file checksums.||
 
+See also the \l{#builtins-xxh64sum \c{xxh64sum}} builtin for a faster but
+non-cryptographic alternative.
+
 
 \h#builtins-sleep|\c{sleep}|
 
@@ -3638,6 +3641,7 @@ the specified name.
 Unless the \c{--no-cleanup} option is specified, newly created files that are
 inside the script working directory are automatically registered for cleanup.
 
+
 \h#builtins-true|\c{true}|
 
 \
@@ -3645,6 +3649,56 @@ true
 \
 
 Do nothing and terminate normally with the 0 exit code (indicating success).
+
+
+\h#builtins-xxh64sum|\c{xxh64sum}|
+
+\
+xxh64sum [-b|-t] [--sum-only] <file>...
+\
+
+Read files in order, compute their XXH64 checksums, and print them to
+\c{stdout}, one per line. Read from \c{stdin} if no file is specified or \c{-}
+is specified as the file name.
+
+Note that the implementation deviates from the \c{xxh64sum} utility in a
+number of ways instead following the \l{#builtins-sha256sum \c{sha256sum}}
+builtin in regards to the command line interface and the output format.
+
+Unless the \c{-b} option is specified, the files are read in the text mode
+(see \l{#builtins-sha256sum \c{sha256sum}} builtin for details on the binary
+and text modes on POSIX systems and Windows).
+
+Unless the \c{--sum-only} option is specified, then a line in the following
+form is printed for each file:
+
+\
+  <checksum> (*| )<path>
+\
+
+The \c{*} character is printed in the binary mode and the space character in
+the text mode.
+
+If the \c{--sum-only} option is specified, then only the checksum is printed
+for each file, one per line.
+
+\dl|
+
+\li|\n\c{-b|--binary}
+
+  Read files in binary mode.|
+
+\li|\n\c{-t|--text}
+
+  Read files in text mode.|
+
+\li|\n\c{--sum-only}
+
+  Print only file checksums.||
+
+See also the \l{#builtins-sha256sum \c{sha256sum}} builtin for a slower but
+cryptographic alternative.
+
 
 \h1#style|Style Guide|
 
