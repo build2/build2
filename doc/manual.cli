@@ -4841,9 +4841,8 @@ executable target in the \c{<project>%exe{<project>\}} form, the
 For an imported \c{buildfile}, \c{<project>} may refer to either the importing
 project or the project from which the said \c{buildfile} was imported.
 
-The build system core reserves \c{build} and \c{import} as the second
-component in configuration variables as well as \c{configured} as the third
-and subsequent components.|
+The build system core reserves \c{build} as any intermediate component and
+\c{import} as the second component in configuration variables.|
 
 A variable in the \c{config.<project>.develop} form has pre-defined
 semantics: it allows a project to distinguish between \i{development} and

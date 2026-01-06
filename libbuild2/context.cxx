@@ -620,7 +620,7 @@ namespace build2
 
     // All config.** variables are overridable with global visibility.
     //
-    // For the config.**.configured semantics, see config::unconfigured().
+    // For the config.**.build.configured semantics, see config::unconfigured().
     //
     // Note that some config.config.* variables have project visibility thus
     // the match argument is false.
@@ -673,7 +673,7 @@ namespace build2
 
     // Enter remaining variable patterns and builtin variables.
     //
-    vpats.insert<bool> ("config.**.configured", false, v_p);
+    vpats.insert<bool> ("config.**.build.configured", false, v_p);
 
     // file.cxx:import()
     //
@@ -687,8 +687,8 @@ namespace build2
 
     // module.cxx:boot/init_module().
     //
-    // Note that we also have the config.<module>.configured variable (see
-    // above).
+    // Note that we also have the config.<module>.build.configured variable
+    // (see above).
     //
     vpats.insert<bool> ("**.booted",     false /* overridable */, v_p);
     vpats.insert<bool> ("**.loaded",     false,                   v_p);

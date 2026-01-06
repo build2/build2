@@ -604,12 +604,13 @@ namespace build2
             const string& n (var.name);
             const value& v (*l);
 
-            // We will only write config.*.configured if it is false (true is
-            // implied by its absence). We will also ignore false values if
-            // there is any other value for this module (see unconfigured()).
+            // We will only write config.*.build.configured if it is false
+            // (true is implied by its absence). We will also ignore false
+            // values if there is any other value for this module (see
+            // unconfigured()).
             //
-            if (n.size () > 11 &&
-                n.compare (n.size () - 11, 11, ".configured") == 0)
+            if (n.size () > 17 &&
+                n.compare (n.size () - 17, 17, ".build.configured") == 0)
             {
               if (cast<bool> (v) || svars.size () != 1)
                 continue;

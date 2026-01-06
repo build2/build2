@@ -26,7 +26,7 @@ namespace build2
     // @@ Unconfigured caching.
     //
     // @@ Default-found cli used to result in config.cli=cli and now it's just
-    //    omitted (and default-not-found -- in config.cli.configured=false).
+    //    omitted (and default-not-found -- in config.cli.build.configured=false).
     //
     //    - Writing any default will take precedence over config.import.cli.
     //      In fact, this duality is a bigger problem: if we have a config

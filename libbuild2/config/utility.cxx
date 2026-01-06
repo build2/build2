@@ -131,10 +131,10 @@ namespace build2
               return v->name.compare (ns.size () + 1, string::npos, t) == 0;
             };
 
-            // Ignore config.*.configured and user-supplied names.
+            // Ignore config.*.build.configured and user-supplied names.
             //
             if (v->name.size () <= ns.size () || // @@ Hm, when can it be < ?
-                (!match_tail ("configured") &&
+                (!match_tail ("build.configured") &&
                  find_if (ig.begin (), ig.end (), match_tail) == ig.end ()))
               return true;
           }
@@ -150,7 +150,7 @@ namespace build2
       // Pattern-typed as bool.
       //
       const variable& var (
-        rs.var_pool (true).insert ("config." + n + ".configured"));
+        rs.var_pool (true).insert ("config." + n + ".build.configured"));
 
       save_variable (rs, var);
 
@@ -164,7 +164,7 @@ namespace build2
       // Pattern-typed as bool.
       //
       const variable& var (
-        rs.var_pool (true).insert ("config." + n + ".configured"));
+        rs.var_pool (true).insert ("config." + n + ".build.configured"));
 
       save_variable (rs, var);
 

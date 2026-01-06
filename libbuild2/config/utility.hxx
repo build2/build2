@@ -502,11 +502,11 @@ namespace build2
     // omitted/delayed configuration.
     //
     // Note that this function detects and ignores special config.* variables
-    // (such as config.*.configured) which may be used by a module to remember
-    // that it is unconfigured (e.g., in order to avoid re-running the tests,
-    // etc; see below). Additional variables (e.g., unsaved) can be ignored
-    // with the third argument. If specified, it should contain the part(s)
-    // after the namespace (config.<name>).
+    // (such as config.*.build.configured) which may be used by a module to
+    // remember that it is unconfigured (e.g., in order to avoid re-running
+    // the tests, etc; see below). Additional variables (e.g., unsaved) can be
+    // ignored with the third argument. If specified, it should contain the
+    // part(s) after the namespace (config.<name>).
     //
     // Note that <name> may include several components (separated with `.`).
     // And you can request the exact match rather than the prefix.
@@ -525,9 +525,9 @@ namespace build2
       return specified_config (rs, ns, {}, exact);
     }
 
-    // Check if there is a false config.*.configured value. This mechanism can
-    // be used to "remember" that the module is left unconfigured in order to
-    // avoid re-running the tests, etc.
+    // Check if there is a false config.*.build.configured value. This
+    // mechanism can be used to "remember" that the module is left
+    // unconfigured in order to avoid re-running the tests, etc.
     //
     // @@ This functionality is WIP/unused and still has a number of issues:
     //
@@ -546,9 +546,9 @@ namespace build2
     LIBBUILD2_SYMEXPORT bool
     unconfigured (scope& rs, const string& var);
 
-    // Set the config.*.configured value. Note that you only need to set it to
-    // false. It will be automatically ignored if there are any other config.*
-    // values for this module. Return true if this sets a new value.
+    // Set the config.*.build.configured value. Note that you only need to set
+    // it to false. It will be automatically ignored if there are any other
+    // config.* values for this module. Return true if this sets a new value.
     //
     LIBBUILD2_SYMEXPORT bool
     unconfigured (scope& rs, const string& var, bool value);
