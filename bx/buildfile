@@ -14,7 +14,7 @@ exe{bx}: {hxx ixx txx cxx}{** -bx-options} \
 
 # Generated options parser (the same setup as in libbuild2).
 #
-if $cli.configured
+if $cli.build.configured
 {
   cli.options += --std c++11 -I $src_root --include-with-brackets \
 --include-prefix bx --guard-prefix BX --cli-namespace build2::build::cli \

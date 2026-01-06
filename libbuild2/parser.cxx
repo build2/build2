@@ -10632,7 +10632,7 @@ namespace build2
           //   install.subdirs = true
           // }
           //
-          if (cast_false<bool> (root_->vars["install.loaded"]))
+          if (cast_false<bool> (root_->vars["install.build.loaded"]))
           {
             // Note: shouldn't be switching projects.
             //

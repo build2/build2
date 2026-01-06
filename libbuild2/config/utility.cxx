@@ -202,8 +202,8 @@ namespace build2
     {
       // Make sure this is a config.* variable. This could matter since we
       // rely on the semantics of value::extra. We could also detect
-      // special variables like config.booted, some config.config.*, etc.,
-      // (see config_save() for details) but that seems harmless.
+      // special variables like config.build.booted, some config.config.*,
+      // etc., (see config_save() for details) but that seems harmless.
       //
       if (var.name.compare (0, 7, "config.") != 0)
         throw invalid_argument ("config.* variable expected");

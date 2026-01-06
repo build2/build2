@@ -396,9 +396,9 @@ namespace build2
     // escalation. Essentially, we are saying external module that require
     // bootstrap must be prepared to be skipped if the project is only being
     // bootstrapped. Note also that the fact that a module boot was skipped
-    // can be detected by checking the module's *.booted variable. In case of
-    // a skip it will be false, as opposed to true if the module was booted
-    // and undefined if the module was not mentioned.
+    // can be detected by checking the module's *.build.booted variable. In
+    // case of a skip it will be false, as opposed to true if the module was
+    // booted and undefined if the module was not mentioned.
     //
     if (boot && !bundled && ctx.no_external_modules)
       return r; // NULL
@@ -879,7 +879,8 @@ namespace build2
       i->boot_init = e.init;
     }
 
-    rs.assign (rs.var_pool (true).insert (mod + ".booted")) = (mf != nullptr);
+    rs.assign (rs.var_pool (true).insert (mod + ".build.booted")) =
+      (mf != nullptr);
   }
 
   void
@@ -949,8 +950,8 @@ namespace build2
     // on terminology above)
     //
     auto& vp (rs.var_pool (true));
-    value& lv (bs.assign (vp.insert (mod + ".loaded")));
-    value& cv (bs.assign (vp.insert (mod + ".configured")));
+    value& lv (bs.assign (vp.insert (mod + ".build.loaded")));
+    value& cv (bs.assign (vp.insert (mod + ".build.configured")));
 
     bool l; // Loaded (initialized).
     bool c; // Configured.
@@ -1009,7 +1010,7 @@ namespace build2
 
   // @@ TODO: This is a bit of a fuzzy mess:
   //
-  //    - The .loaded variable check: it's not clear if init_module()
+  //    - The .build.loaded variable check: it's not clear if init_module()
   //      already has this semantics?
   //
   //    - Why do we use variable instead of the module map entry? Probably
@@ -1027,9 +1028,9 @@ namespace build2
                bool opt,
                const variable_map& hints)
   {
-    if (cast_false<bool> (bs[name + ".loaded"]))
+    if (cast_false<bool> (bs[name + ".build.loaded"]))
     {
-      if (cast_false<bool> (bs[name + ".configured"]))
+      if (cast_false<bool> (bs[name + ".build.configured"]))
         return rs.root_extra->loaded_modules.find (name)->module;
     }
     else
@@ -1048,10 +1049,10 @@ namespace build2
                const location& loc,
                const variable_map& hints)
   {
-    //@@ TODO: shouldn't we also check for configured? What if the previous
-    //   attempt to load it was optional?
+    //@@ TODO: shouldn't we also check for .build.configured? What if the
+    //   previous attempt to load it was optional?
 
-    return cast_false<bool> (bs[name + ".loaded"])
+    return cast_false<bool> (bs[name + ".build.loaded"])
       ? rs.root_extra->loaded_modules.find (name)->module
       : init_module (rs, bs, name, loc, false /* optional */, hints)->module;
   }

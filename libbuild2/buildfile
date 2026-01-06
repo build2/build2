@@ -444,7 +444,7 @@ else
 # can use are build (this name, along with import and export, is reserved by
 # the build system core) and names that start with an underscore.
 #
-if $cli.configured
+if $cli.build.configured
 {
   cli.options += --std c++11 -I $src_root --include-with-brackets \
 --cli-namespace build2::build::cli --generate-specifier

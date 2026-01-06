@@ -37,7 +37,7 @@ namespace build2
 
       context& ctx (rs.ctx);
 
-      bool cc_loaded (cast_false<bool> (rs["cc.core.guess.loaded"]));
+      bool cc_loaded (cast_false<bool> (rs["cc.core.guess.build.loaded"]));
 
       // Adjust module priority (compiler). Also order cc module before us
       // (we don't want to use priorities for that in case someone manages
@@ -408,7 +408,7 @@ namespace build2
 
       // Load cc.core.config.
       //
-      if (!cast_false<bool> (rs["cc.core.config.loaded"]))
+      if (!cast_false<bool> (rs["cc.core.config.build.loaded"]))
       {
         // Prepare configuration hints (pretend it belongs to root scope).
         //
@@ -531,13 +531,13 @@ namespace build2
           {
             // Only use the value if the corresponding module is loaded.
             //
-            bool xl (cast_false<bool> (as[string (x) + ".config.loaded"]));
+            bool xl (cast_false<bool> (as[string (x) + ".config.build.loaded"]));
             if (xl)
               iscope_str = cast_null<string> (as[x_internal_scope]);
 
             if (iscope_str == nullptr)
             {
-              if (xl || cast_false<bool> (as["cc.core.config.loaded"]))
+              if (xl || cast_false<bool> (as["cc.core.config.build.loaded"]))
                 iscope_str = cast_null<string> (as["cc.internal.scope"]);
             }
 
@@ -1161,7 +1161,7 @@ namespace build2
         // them in case they depend on stuff that we need to install (see the
         // install rule implementations for details).
         //
-        if (cast_false<bool> (rs["install.loaded"]))
+        if (cast_false<bool> (rs["install.build.loaded"]))
         {
           // Note: we rely quite heavily in these rule implementations that
           // these are the only target types they are registered for.

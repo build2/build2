@@ -314,9 +314,9 @@ namespace build2
 
           // Skip special variables.
           //
-          if (name == "config.booted"                   ||
-              name == "config.loaded"                   ||
-              name == "config.configured"               ||
+          if (name == "config.build.booted"             ||
+              name == "config.build.loaded"             ||
+              name == "config.build.configured"         ||
               name.compare (0, 14, "config.config.") == 0)
             continue;
 

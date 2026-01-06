@@ -689,7 +689,7 @@ namespace build2
       //
       using namespace install;
 
-      bool install_loaded (cast_false<bool> (rs["install.loaded"]));
+      bool install_loaded (cast_false<bool> (rs["install.build.loaded"]));
 
       // Note: not registering mm{} (it is registered seperately by the
       // respective optional .types submodule).

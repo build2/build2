@@ -529,7 +529,7 @@ namespace build2
 
       // Load the bin.config module.
       //
-      if (!cast_false<bool> (rs["bin.config.loaded"]))
+      if (!cast_false<bool> (rs["bin.config.build.loaded"]))
       {
         // Prepare configuration hints (pretend it belongs to root scope).
         //
@@ -1141,8 +1141,8 @@ namespace build2
       tracer trace ("cc::config_init");
       return init_alias (trace, rs, bs,
                          "cc.config",
-                         "c.config",   "c.config.loaded",
-                         "cxx.config", "cxx.config.loaded",
+                         "c.config",   "c.config.build.loaded",
+                         "cxx.config", "cxx.config.build.loaded",
                          loc, extra.hints);
     }
 
@@ -1157,8 +1157,8 @@ namespace build2
       tracer trace ("cc::init");
       return init_alias (trace, rs, bs,
                          "cc",
-                         "c",   "c.loaded",
-                         "cxx", "cxx.loaded",
+                         "c",   "c.build.loaded",
+                         "cxx", "cxx.build.loaded",
                          loc, extra.hints);
     }
 

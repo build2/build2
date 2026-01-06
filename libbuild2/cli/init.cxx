@@ -217,7 +217,7 @@ namespace build2
       // the user load cxx explicitly. @@ Not sure the reason still holds
       // though it might still make sense to expect the user to load cxx.
       //
-      if (!cast_false<bool> (rs["cxx.loaded"]))
+      if (!cast_false<bool> (rs["cxx.build.loaded"]))
         fail (loc) << "cxx module must be loaded before cli";
 
       // Load cli.config and get its module instance.

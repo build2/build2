@@ -527,7 +527,7 @@ namespace build2
       // Configure target type default "installability". Also register
       // additional platform-specific types.
       //
-      bool install_loaded (cast_false<bool> (rs["install.loaded"]));
+      bool install_loaded (cast_false<bool> (rs["install.build.loaded"]));
       {
         using namespace install;
 
@@ -991,7 +991,7 @@ namespace build2
               &target_search, // Note: don't look for an existing file.
               target_type::flag::none}));
 
-        if (cast_false<bool> (rs["install.loaded"]))
+        if (cast_false<bool> (rs["install.build.loaded"]))
         {
           install_path (bs, pdb, dir_path ("bin")); // Goes to install.bin
           install_mode (bs, pdb, "644");            // But not executable.

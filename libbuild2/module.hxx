@@ -124,7 +124,8 @@ namespace build2
   // values) was unsuccessful but this is not (yet) an error. One example
   // would be the optional use of a module. Or a module might remain
   // unconfigured for as long as it is actually not used (e.g., install,
-  // dist). The return value is used to set the <module>.configured variable.
+  // dist). The return value is used to set the <module>.build.configured
+  // variable.
   //
   using module_init_function =
     bool (scope& root,
@@ -258,10 +259,10 @@ namespace build2
                const variable_map& config_hints = empty_variable_map);
 
   // A wrapper over init_module() to use from other modules that incorporates
-  // the <name>.loaded variable check (use init_module() directly to sidestep
-  // this check). Return an optional pointer to the module instance that is
-  // present if the module was both successfully loaded and configured and
-  // absent otherwise (so can be used as bool).
+  // the <name>.build.loaded variable check (use init_module() directly to
+  // sidestep this check). Return an optional pointer to the module instance
+  // that is present if the module was both successfully loaded and configured
+  // and absent otherwise (so can be used as bool).
   //
   // Note also that absent can be returned even of optional is false which
   // happens if the requested module has already been loaded but failed to

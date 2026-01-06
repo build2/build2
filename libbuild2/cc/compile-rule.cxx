@@ -6908,7 +6908,7 @@ namespace build2
             // This is also the module that registers the scope operation
             // callback that cleans up the subproject.
             //
-            if (cast_false<bool> (s->vars["cc.core.vars.loaded"]))
+            if (cast_false<bool> (s->vars["cc.core.vars.build.loaded"]))
             {
               // Check that modules were not explicitly disabled with
               // config.x.features.modules=false. Failing that, it will

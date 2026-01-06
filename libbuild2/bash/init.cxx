@@ -37,7 +37,7 @@ namespace build2
       //
       load_module (rs, rs, "in.base", l);
 
-      bool install_loaded (cast_false<bool> (rs["install.loaded"]));
+      bool install_loaded (cast_false<bool> (rs["install.build.loaded"]));
 
       // Register target types and configure default installability.
       //

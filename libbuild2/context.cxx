@@ -690,9 +690,9 @@ namespace build2
     // Note that we also have the config.<module>.build.configured variable
     // (see above).
     //
-    vpats.insert<bool> ("**.booted",     false /* overridable */, v_p);
-    vpats.insert<bool> ("**.loaded",     false,                   v_p);
-    vpats.insert<bool> ("**.configured", false,                   v_p);
+    vpats.insert<bool> ("**.build.booted",     false /* overridable */, v_p);
+    vpats.insert<bool> ("**.build.loaded",     false,                   v_p);
+    vpats.insert<bool> ("**.build.configured", false,                   v_p);
 
     var_src_root = &vp.insert<dir_path> ("src_root");
     var_out_root = &vp.insert<dir_path> ("out_root");

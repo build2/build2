@@ -513,7 +513,7 @@ namespace build2
       rs.insert_rule<file> (perform_clean_id,    "version.in", in_rule_);
       rs.insert_rule<file> (configure_update_id, "version.in", in_rule_);
 
-      if (cast_false<bool> (rs["install.booted"]))
+      if (cast_false<bool> (rs["install.build.booted"]))
       {
         rs.insert_rule<manifest> (
           perform_install_id, "version.install", manifest_install_rule_);
