@@ -5997,6 +5997,17 @@ The \c{json{\}} target type represents a JSON text file. It is derived from
 
 \N{This chapter is a work in progress and is incomplete.}
 
+Variable names/components that start with underscore (\c{_}), variables in the
+\c{build}, \c{import}, and \c{export} namespaces, as well as the \c{build}
+intermediate component are reserved by the build system core. For example:
+
+\
+_x = 1        # error
+x._y = 1      # error
+build.x = 1   # error
+x.build.y = 1 # error
+\
+
 The following variable/value types can currently be used in \c{buildfiles}:
 
 \

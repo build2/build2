@@ -1,5 +1,10 @@
 Version 0.18.0
 
+  * Variable names with intermediate components called 'build' are now
+    reserved by the build system core. For example:
+
+    x.build.y = 1  # error
+
   * Support for JSON5 and JSON5E.
 
     The existing JSON support has been extended to additionally cover JSON5[1]

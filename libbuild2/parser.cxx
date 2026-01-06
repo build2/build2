@@ -6328,12 +6328,18 @@ namespace build2
     //
     // - Variables in the `build`, `import`, and `export` namespaces.
     //
+    // - `build` as an intermediate variable component.
+    //
+    // Note: the returned diagnostics string is printed with the "variable "
+    // prefix.
+    //
     return
-      n[0] == '_'                      ? "name starts with underscore" :
-      n.find ("._") != string::npos    ? "component starts with underscore" :
-      n.compare (0, 6, "build.") == 0  ? "is in 'build' namespace"  :
-      n.compare (0, 7, "import.") == 0 ? "is in 'import' namespace" :
-      n.compare (0, 7, "export.") == 0 ? "is in 'export' namespace" : nullptr;
+      n[0] == '_'                        ? "name starts with underscore" :
+      n.find ("._") != string::npos      ? "component starts with underscore" :
+      n.compare (0, 6, "build.") == 0    ? "is in 'build' namespace"  :
+      n.compare (0, 7, "import.") == 0   ? "is in 'import' namespace" :
+      n.compare (0, 7, "export.") == 0   ? "is in 'export' namespace" :
+      n.find (".build.") != string::npos ? "component is 'build'" : nullptr;
   }
 
   const variable& parser::
