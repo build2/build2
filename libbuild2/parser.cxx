@@ -4122,6 +4122,13 @@ namespace build2
     string name (move (t.value));
     bool config (name.compare (0, 7, "config.") == 0);
 
+    // Ban (re)declaring reserved configuration variables.
+    //
+    if (config && name.find (".build.") != string::npos)
+    {
+      fail (t) << "reserved configuration variable name '" << name << "'";
+    }
+
     // As a way to print custom (discovered, computed, etc) configuration
     // information we allow specifying a non config.* variable provided it is
     // explicitly marked with the config.report attribute (or another

@@ -759,8 +759,12 @@ namespace build2
 
     // The build.* namespace.
     //
+    // .readonly - project's config.<project>.build.readonly or inherited
+    //             value
+    //
     // .meta_operation
     //
+    const variable* var_build_readonly = nullptr;
     const variable* var_build_meta_operation = nullptr;
 
     // The *.syntax variables:

@@ -510,6 +510,18 @@ namespace build2
       //
       optional<build2::subprojects*> subprojects;
 
+      // True if the project's sources can be assumed readonly. Note that it's
+      // not a guarantee, just an assumption that they are not routinely or
+      // frequently changed and that an mtime-based change detection is
+      // sufficient. Note also that we make the same assumption about files
+      // outside of any project.
+      //
+      // This value only becomes available after loading config.build and just
+      // before loading root.build (specifically, after initializing the
+      // module_boot_init::before_first modules).
+      //
+      optional<bool> readonly;
+
       bool altn;   // True if using alternative build file/directory naming.
       bool loaded; // True if already loaded (load_root()).
 

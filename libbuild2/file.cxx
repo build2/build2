@@ -1738,7 +1738,9 @@ namespace build2
   {
     tracer trace ("load_root");
 
-    if (root.root_extra->loaded)
+    auto& re (*root.root_extra);
+
+    if (re.loaded)
     {
       assert (pre == nullptr && post == nullptr);
       return;
@@ -1756,12 +1758,16 @@ namespace build2
       if (!rs->root_extra->loaded)
         load_root (*rs);
 
+    // Reuse the parser to accumulate the configuration variable information.
+    //
+    parser p (ctx, load_stage::root);
+
     // Finish off initializing bootstrapped modules (before mode).
     //
     // Note that init() can load additional modules invalidating iterators.
     //
-    auto init_modules =
-      [&root, n = root.root_extra->loaded_modules.size ()] (module_boot_init v)
+    auto init_modules =[&root,
+                        n = re.loaded_modules.size ()] (module_boot_init v)
     {
       for (size_t i (0); i != n; ++i)
       {
@@ -1773,7 +1779,79 @@ namespace build2
     };
 
     {
+      // Determine if the project is readonly: pre-enter the (reserved)
+      // variable name.
+      //
+      assert (re.project);
+
+      const variable* var_cbr (nullptr);
+
+      if (const project_name* pn = *re.project)
+      {
+        if (!pn->empty ())
+        {
+          auto& vp (root.var_pool (true /* public */));
+          var_cbr = &vp.insert<bool> (
+            "config." + pn->variable () + ".build.readonly");
+        }
+      }
+
       init_modules (module_boot_init::before_first);
+
+      // Determine if the project is readonly.
+      //
+      optional<bool> ro;
+
+      if (*re.project) // Not simple project.
+      {
+        if (var_cbr != nullptr)
+        {
+          bool new_val;
+          lookup l (
+            config::lookup_config (new_val,
+                                   root,
+                                   *var_cbr,
+                                   false /* default */,
+                                   config::save_false_omitted));
+
+          ro = cast<bool> (l);
+
+          // Let's only report it if it's true.
+          //
+          if (*ro && verb >= 2)
+          {
+            // Note: we are first so no need to check for existence.
+            //
+            p.config_reports.push_back (
+              parser::config_report {project_name (), {}, new_val});
+
+            p.config_reports.back ().values.push_back (
+              parser::config_report::value (l, "true", ""));
+          }
+        }
+
+        // If not explicitly specified, inherit the value of our parent
+        // project, if any. Note that this feels correct even for a named
+        // project (think bundled dependency). Note also that it doesn't feel
+        // necessary to distinguish between bundle/strong/weak parent here.
+        //
+        if (!ro)
+        {
+          if (scope* rs = root.parent_scope ()->root_scope ())
+          {
+            assert (rs->root_extra->readonly);
+            ro = *rs->root_extra->readonly;
+          }
+        }
+      }
+
+      re.readonly = ro ? *ro : false;
+
+      // Set the calculated value (including inherited) as the build.readonly
+      // project variable (could be useful in ad hoc recipe implementations,
+      // etc).
+      //
+      root.assign (ctx.var_build_readonly) = *re.readonly;
 
       // Project environment should now be in effect.
       //
@@ -1788,7 +1866,7 @@ namespace build2
     const dir_path& out_root (root.out_path ());
     const dir_path& src_root (root.src_path ());
 
-    path f (src_root / root.root_extra->root_file);
+    path f (src_root / re.root_file);
 
     // We can load the pre hooks before finishing off loading the bootstrapped
     // modules (which, in case of config would load config.build) or after and
@@ -1796,14 +1874,10 @@ namespace build2
     // however, that one can probably achieve adequate pre-modules behavior
     // with a post-bootstrap hook.
     //
-    dir_path hd (out_root / root.root_extra->root_dir);
+    dir_path hd (out_root / re.root_dir);
 
     bool he (exists (hd));
     bool fe (exists (f));
-
-    // Reuse the parser to accumulate the configuration variable information.
-    //
-    parser p (ctx, load_stage::root);
 
     if (pre != nullptr)
     {
@@ -1964,7 +2038,7 @@ namespace build2
       }
     }
 
-    root.root_extra->loaded = true;
+    re.loaded = true;
   }
 
   scope&

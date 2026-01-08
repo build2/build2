@@ -1,5 +1,20 @@
 Version 0.18.0
 
+  * Ability to mark projects as readonly.
+
+    Each project now automatically gets the config.<project>.build.readonly
+    special configuration variable. If this variable is set to true or if the
+    parent project is marked readonly, then the project's sources are assumed
+    to be readonly.
+
+    Note that this is not a guarantee, just an assumption that they are not
+    routinely or frequently changed and that an mtime-based change detection
+    is sufficient. Note also that we make the same assumption about files
+    outside of any project.
+
+    The effective value (specified or inherited) is also available (starting
+    from root.build) as the build.readonly project-specific variable.
+
   * Variable names with intermediate components called 'build' are now
     reserved by the build system core. For example:
 

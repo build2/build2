@@ -567,6 +567,8 @@ namespace build2
           info << "consider using the --config-guess option";
       }
 
+      var_build_readonly = &vp.insert<bool> ("build.readonly", v_p);
+
       var_build_meta_operation =
         &vp.insert<string> ("build.meta_operation", v_g);
 
