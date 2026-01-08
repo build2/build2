@@ -1416,6 +1416,13 @@ namespace build2
 
         unit tu;
 
+        // Figure out if the preprocessed TU is readonly. Specifically, we
+        // need to incorporate the status of the source file itself plus
+        // everything that gets textually included during preprocessing
+        // (#include, #embed).
+        //
+        bool readonly (src.readonly ());
+
         // If we have no #include directives (or header unit imports), then
         // skip header dependency extraction.
         //
@@ -1426,7 +1433,8 @@ namespace build2
           //
           l5 ([&]{trace << "extracting headers from " << src;});
           auto& is (tu.module_info.imports);
-          extract_headers (a, bs, t, li, src, md, dd, u, mt, is, psrc);
+          extract_headers (
+            a, bs, t, li, src, md, dd, u, mt, is, psrc, readonly);
           is.clear (); // No longer needed.
         }
 
@@ -1462,11 +1470,15 @@ namespace build2
                 dd.flush ();
 
               string ncs (
-                parse_unit (a, t, li, src, psrc.first, md, dd.path, tu));
+                parse_unit (
+                  a, t, li, src, psrc.first, readonly, md, dd.path, tu));
 
               if (!cs || *cs != ncs)
               {
-                assert (first); // Unchanged TU has a different checksum?
+                // Unchanged TU has a different (non-empty) checksum?
+                //
+                assert (first || (cs && (cs->empty () || ncs.empty ())));
+
                 dd.write (ncs);
               }
               //
@@ -3529,7 +3541,8 @@ namespace build2
                      bool& update,
                      timestamp mt,
                      module_imports& imports,
-                     pair<file_cache::entry, bool>& result) const
+                     pair<file_cache::entry, bool>& result,
+                     bool& readonly) const
     {
       tracer trace (x, "compile_rule::extract_headers");
 
@@ -4255,7 +4268,7 @@ namespace build2
       //
       auto add = [a, &bs, &t, li,
                   &pfx_map, &so_map,
-                  &dd, &skip_count,
+                  &dd, &skip_count, &readonly,
                   this] (path hp, bool cache, timestamp mt) -> optional<bool>
       {
         context& ctx (t.ctx);
@@ -4307,6 +4320,14 @@ namespace build2
             //
             if (!cache)
               dd.expect (ht->path ());
+
+            // Factor this textually included header into the readonly status.
+            //
+            // Note that we don't do it in add_unit() below since that's an
+            // import, not a textual inclusion.
+            //
+            if (readonly)
+              readonly = ht->readonly ();
 
             skip_count++;
             return *u;
@@ -5402,22 +5423,31 @@ namespace build2
                 linfo li,
                 const file& src,
                 file_cache::entry& psrc,
+                bool readonly,
                 const match_data& md,
                 const path& dd,
                 unit& tu) const
     {
       tracer trace (x, "compile_rule::parse_unit");
 
+      // Skip calculating the TU hash for readonly sources. Note that we
+      // cannot do this if modules are enabled since we also extract the
+      // module information (imports, etc).
+      //
+      // Note that one thing that we also skip in this case is the check for
+      // the use of modules when modules support is disabled. But for readonly
+      // projects (i.e., dependencies) this is presumable unlikely to happen.
+      //
       // Scanning .S files with our parser is hazardous since such files
       // sometimes use `#`-style comments. Presumably real compilers just
       // ignore them in some way, but it doesn't seem worth it to bother in
       // our case. Also, the checksum calculation over assembler tokens feels
       // iffy.
       //
-      if (x_assembler_cpp (src))
+      if ((!modules && readonly) || x_assembler_cpp (src))
       {
         tu.type = unit_type::non_modular;
-        return "";
+        return string ();
       }
 
       otype ot (li.type);

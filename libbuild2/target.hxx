@@ -682,6 +682,17 @@ namespace build2
       return out_dir ().sub (s.out_path ());
     }
 
+    // Return true if the target resides in a project marked readonly or is
+    // outside of any project. See scope::root_extra_type::readonly for the
+    // meaning of readonly.
+    //
+    bool
+    readonly () const
+    {
+      const scope* rs (base_scope ().root_scope ());
+      return rs == nullptr || *rs->root_extra->readonly;
+    }
+
     // Implementation details (use above functions instead).
     //
     // Base scope cached value. Invalidated every time we switch to the load

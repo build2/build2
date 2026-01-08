@@ -153,11 +153,11 @@ namespace build2
       extract_headers (action, const scope&, file&, linfo,
                        const file&, match_data&,
                        depdb&, bool&, timestamp, module_imports&,
-                       pair<file_cache::entry, bool>&) const;
+                       pair<file_cache::entry, bool>&, bool&) const;
 
       string
       parse_unit (action, file&, linfo,
-                  const file&, file_cache::entry&,
+                  const file&, file_cache::entry&, bool,
                   const match_data&, const path&,
                   unit&) const;
 
