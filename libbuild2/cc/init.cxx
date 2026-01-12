@@ -751,7 +751,7 @@ namespace build2
 
             if (check (n, p))
             {
-              reg = compiledbs.empty (); // First time.
+              reg = (j == 0); // Register only first time.
 
 #ifdef BUILD2_BOOTSTRAP
               fail (loc) << "compilation database requested during bootstrap";
