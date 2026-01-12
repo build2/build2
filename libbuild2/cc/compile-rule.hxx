@@ -133,7 +133,8 @@ namespace build2
       pair<const file*, bool>
       enter_header (action, const scope&, file&, linfo,
                     path&&, bool, bool,
-                    optional<prefix_map>&, const srcout_map&) const;
+                    optional<prefix_map>&, const srcout_map&,
+                    bool* = nullptr) const;
 
       pair<const file*, bool>
       find_header (action, const scope&, const file&, linfo,

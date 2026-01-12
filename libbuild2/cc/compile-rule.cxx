@@ -1421,6 +1421,21 @@ namespace build2
         // everything that gets textually included during preprocessing
         // (#include, #embed).
         //
+        // What about generated sources/headers, can we treat them as readonly
+        // just because they are in a project marked readonly? If all the
+        // inputs are readonly, then it feels like we should be able to. And
+        // while it's possible, say, a readonly source has a non-readonly
+        // input (think a target imported from a non-readonly dependency),
+        // this won't be very common. Though a readonly project having a
+        // non-readonly dependency is not an impossible situation (think
+        // bdep-initializing a third-party dependency to fix a bug).
+        //
+        // So for now we keep it simple, seeing that currently this is only
+        // used to suppress the ignorable change detection. But if we ever
+        // want to change that, then we will likely have to check that the
+        // matched recipe is noop (or check that the target's state is
+        // unchanged after match).
+        //
         bool readonly (src.readonly ());
 
         // If we have no #include directives (or header unit imports), then
@@ -3189,7 +3204,8 @@ namespace build2
     enter_header (action a, const scope& bs, file& t, linfo li,
                   path&& fp, bool cache, bool norm,
                   optional<prefix_map>& pfx_map,
-                  const srcout_map& so_map) const
+                  const srcout_map& so_map,
+                  bool* readonly) const
     {
       // NOTE: see also find_header() below.
 
@@ -3287,7 +3303,16 @@ namespace build2
         if (i != hc.header_map.end ())
         {
           //cache_hit.fetch_add (1, memory_order_relaxed);
-          return make_pair (i->second, false);
+
+          if (readonly != nullptr)
+          {
+            if (!i->second.readonly)
+              i->second.readonly = i->second.target->readonly ();
+
+            *readonly = *i->second.readonly;
+          }
+
+          return make_pair (i->second.target, false);
         }
 
         fp = move (hk.file);
@@ -3335,31 +3360,40 @@ namespace build2
         if (!e || r.second)
           hk.hash = hash<string> () (hk.file.string ());
 
-        const file* f;
+        ulock l (hc.header_map_mutex);
+        auto p (
+          hc.header_map.emplace (
+            move (hk),
+            config_module::header_value {r.first, nullopt}));
+
+        if (readonly != nullptr)
         {
-          ulock l (hc.header_map_mutex);
-          auto p (hc.header_map.emplace (move (hk), r.first));
-          f = p.second ? nullptr : p.first->second;
+          if (p.second || !p.first->second.readonly)
+            p.first->second.readonly = p.first->second.target->readonly ();
+
+          *readonly = *p.first->second.readonly;
         }
 
-        if (f != nullptr)
+        l.unlock ();
+
+        if (!p.second)
         {
           //cache_cls.fetch_add (1, memory_order_relaxed);
 
           // @@ TMP cleanup.
           //
 #if 0
-          assert (r.first == f);
+          assert (r.first == p.first->second.target);
 #else
-          if (r.first != f)
+          if (r.first != p.first->second.target)
           {
             info   << "inconsistent header cache content" <<
-              info << "encountered: " << *f <<
+              info << "encountered: " << *p.first->second.target <<
               info << "expected: " << *r.first <<
               info << "please report at "
                    << "https://github.com/build2/build2/issues/390";
 
-            assert (r.first == f);
+            assert (r.first == p.first->second.target);
           }
 #endif
         }
@@ -3405,7 +3439,7 @@ namespace build2
         if (i != hc.header_map.end ())
         {
           //cache_hit.fetch_add (1, memory_order_relaxed);
-          return make_pair (i->second, false);
+          return make_pair (i->second.target, false);
         }
 
         fp = move (hk.file);
@@ -3453,8 +3487,11 @@ namespace build2
         const file* f;
         {
           ulock l (hc.header_map_mutex);
-          auto p (hc.header_map.emplace (move (hk), r.first));
-          f = p.second ? nullptr : p.first->second;
+          auto p (
+            hc.header_map.emplace (
+              move (hk),
+              config_module::header_value {r.first, nullopt}));
+          f = p.second ? nullptr : p.first->second.target;
         }
 
         if (f != nullptr)
@@ -4302,10 +4339,12 @@ namespace build2
             dr << endf;
         };
 
+        bool ro;
         if (const file* ht = enter_header (
               a, bs, t, li,
               move (hp), cache, cache /* normalized */,
-              pfx_map, so_map).first)
+              pfx_map, so_map,
+              readonly ? &ro : nullptr).first)
         {
           // If we are reading the cache, then it is possible the file has
           // since been removed (think of a header in /usr/local/include that
@@ -4323,11 +4362,11 @@ namespace build2
 
             // Factor this textually included header into the readonly status.
             //
-            // Note that we don't do it in add_unit() below since that's an
-            // import, not a textual inclusion.
+            // Note that we don't do the same in add_unit() below since that's
+            // an import, not a textual inclusion.
             //
-            if (readonly)
-              readonly = ht->readonly ();
+            if (readonly && !ro)
+              readonly = false;
 
             skip_count++;
             return *u;

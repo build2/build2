@@ -160,6 +160,13 @@ namespace build2
         }
       };
 
+      struct header_value
+      {
+        const file* target;
+        optional<bool> readonly; // Cached target->readonly() value.
+      };
+
+
       struct header_key_hasher
       {
         size_t operator() (const header_key& k) const {return k.hash;}
@@ -167,7 +174,7 @@ namespace build2
 
       mutable shared_mutex                          header_map_mutex;
       mutable std::unordered_map<header_key,
-                                 const file*,
+                                 header_value,
                                  header_key_hasher> header_map;
 
     private:
