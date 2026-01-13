@@ -431,10 +431,9 @@ namespace build2
                                       : rs.lookup_override (var, org));
             const lookup& l (ovr.first);
 
-            // We definitely write values that are set on our root scope or
-            // are global overrides. Anything in-between is presumably
-            // inherited. We might also not have any value at all (see
-            // unconfigured()).
+            // We definitely write values that are set on our root scope.
+            // Anything outer is possibly inherited. We might also not have
+            // any value at all (see unconfigured()).
             //
             // Note that we must check for null() before attempting any
             // further tests.
@@ -459,7 +458,8 @@ namespace build2
               auto find_inherited = [&on, &projects,
                                      &info_value,
                                      &sname, &rs, &var] (const lookup& org,
-                                                         const lookup& ovr)
+                                                         const lookup& ovr,
+                                                         bool global)
               {
                 const lookup& l (ovr);
 
@@ -486,7 +486,7 @@ namespace build2
                 const scope* r (&rs);
                 while ((r = r->parent_scope ()->root_scope ()) != nullptr)
                 {
-                  if (l.belongs (*r))
+                  if (global || l.belongs (*r))
                   {
                     // Find the config module (might not be there).
                     //
@@ -521,26 +521,42 @@ namespace build2
                         //
                         // One problem with using the already configured
                         // project set is that the outer project may be
-                        // configured only after us in which case both
-                        // projects will save the value. But perhaps this is a
-                        // feature, not a bug since this is how project-local
-                        // (%) override behaves.
+                        // configured only after us (as two separate
+                        // invocations) in which case both projects will save
+                        // the value. But perhaps this is a feature, not a bug
+                        // since this is how project-local (%) override
+                        // behaves.
                         //
                         if (found &&
-                            org != ovr &&
+                            (global || org != ovr) && // Overriden.
                             projects.find (r) == projects.end ())
+                        {
                           found = false;
+
+                          // Note that we shouldn't continue searching in this
+                          // case since this project's original value will
+                          // hide anything outer.
+                          //
+                          break;
+                        }
                       }
                     }
-                    else
-                      checked = false;
+                    else if (!global)
+                      checked = false; // Note: not used if global override.
 
-                    break;
+                    // For a global override we look in each outer scope until
+                    // we find one that saves this variable. Otherwise, we
+                    // stop at the scope to which this override belongs.
+                    //
+                    if (found || !global)
+                      break;
                   }
                 }
 
                 if (found)
                   return true;
+                else if (global)
+                  return false; // The rest does not apply to global overrides.
 
                 // If this value is not defined in a project's root scope,
                 // then something is broken.
@@ -554,7 +570,7 @@ namespace build2
                 // our own. One special case where we don't want to warn the
                 // user is if the variable is overriden.
                 //
-                if (checked && org == ovr)
+                if (checked && org == ovr) // Not overriden.
                 {
                   diag_record dr (warn (on));
                   dr << "saving previously inherited variable " << var;
@@ -572,8 +588,7 @@ namespace build2
               // Inherit as-is.
               //
               if (!l.belongs (rs) &&
-                  !l.belongs (ctx.global_scope) &&
-                  find_inherited (org.first, ovr.first))
+                  find_inherited (org.first, l, l.belongs (ctx.global_scope)))
                 continue;
               else if (flags & save_base)
               {
@@ -594,7 +609,7 @@ namespace build2
                     // @@ It's not clear we want the checks/diagnostics in
                     //    this case.
                     //
-                    if (find_inherited (org.first, ovr.first))
+                    if (find_inherited (org.first, l, false /* global */))
                       base = l.value;
                   }
                 }
@@ -876,6 +891,9 @@ namespace build2
       }
 
       // Configure subprojects that have been loaded.
+      //
+      // Note that for the variable inheritance logic (see save_config()) we
+      // rely on this being done after the outer project.
       //
       if (const subprojects* ps = *rs.root_extra->subprojects)
       {
