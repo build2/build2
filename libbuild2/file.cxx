@@ -1806,7 +1806,7 @@ namespace build2
       {
         if (var_cbr != nullptr)
         {
-          bool new_val;
+          bool new_val (false);
           lookup l (
             config::lookup_config (new_val,
                                    root,
