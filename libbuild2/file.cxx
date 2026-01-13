@@ -1826,7 +1826,7 @@ namespace build2
               parser::config_report {project_name (), {}, new_val});
 
             p.config_reports.back ().values.push_back (
-              parser::config_report::value (l, "true", ""));
+              parser::config_report::value {l, "true", ""});
           }
         }
 
