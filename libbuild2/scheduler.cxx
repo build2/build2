@@ -220,8 +220,47 @@ namespace build2
       return;
     }
 
-    lock l (mutex_);
-    active_ -= n;
+    if (n != 0)
+    {
+      lock l (mutex_);
+      active_ -= n;
+
+      if (ready_ != 0)
+      {
+        if (ready_ > 1 && n > 1)
+          ready_condv_.notify_all ();
+        else
+          ready_condv_.notify_one ();
+      }
+      else
+      {
+        // @@ This is a bit iffy: we may keep starting helpers because none of
+        //    them had a chance to pick any tasks yet. But probably better to
+        //    start too many than not enough.
+        //
+        while (n != 0                                              &&
+               queued_task_count_.load (memory_order_consume) != 0 &&
+               activate_helper (l))
+        {
+          // Note that activate_helper() may or may not release the lock.
+          //
+          if (l.owns_lock ())
+            n--;
+          else
+          {
+            l.lock ();
+
+            // Let's make sure we activate at most the original allocation.
+            //
+            size_t d (max_active_ - active_);
+            n = (d < n ? d : n - 1);
+          }
+        }
+      }
+
+      // Note that active_ can never be 0 (since someone must be calling
+      // deallocate()) so we don't need the deadlock logic here.
+    }
   }
 
   size_t scheduler::
