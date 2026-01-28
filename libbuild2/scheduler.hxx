@@ -328,7 +328,9 @@ namespace build2
     //
     // The initial active argument is the number of threads to assume are
     // already active (e.g., the calling thread). It must not be 0 (since
-    // someone has to schedule the first task).
+    // someone has to schedule the first task). In fact, having more than
+    // one initial active thread complicates too many things and so now
+    // it must always be 1.
     //
     // If the maximum threads or task queue depth arguments are unspecified,
     // then appropriate defaults are used.
@@ -634,7 +636,7 @@ namespace build2
     // except for max_active_ which can be changed by tune() but only when the
     // scheduler is idle).
     //
-    size_t init_active_ = 0; // Initially active threads.
+    size_t init_active_ = 0; // Initially active threads. Currently always 1.
     size_t max_active_  = 0; // Maximum number of active threads.
     size_t max_threads_ = 0; // Maximum number of total threads.
 

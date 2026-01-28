@@ -477,8 +477,12 @@ namespace build2
                      ? 1
                      : (sizeof (void*) < 8 ? 8 : 32) * orig_max_active);
 
+    // Note that there are quite a few places that will break if init_active
+    // is not 1. So if we ever decide to relax this, we will need to audit and
+    // adjust the entire implementation.
+    //
     assert (shutdown_ &&
-            init_active != 0 &&
+            init_active == 1 &&
             init_active <= max_active &&
             orig_max_active <= max_threads);
 
@@ -598,7 +602,7 @@ namespace build2
     // max_active_ visible to other threads and which we currently say can be
     // accessed between startup and shutdown without a lock.
     //
-    assert (init_active_ == 1);
+    //assert (init_active_ == 1); // See startup().
 
     if (max_active == 0)
       max_active = orig_max_active_;
