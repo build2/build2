@@ -4463,11 +4463,16 @@ namespace build2
             auto i (find_option_prefix ("-flto", args.rbegin (), args.rend ()));
             if (i != args.rend () && strcmp (*i, "-flto=auto") == 0)
             {
-              if (jobs_ag.n == 0) // Might already have (see above).
-                jobs_ag = scheduler::alloc_guard (*ctx.sched, 0);
+              if (jobs_ag.n == 0 && ctx.sched->jobserver ())
+                *i = "-flto=jobserver";
+              else
+              {
+                if (jobs_ag.n == 0) // Might already have (see above).
+                  jobs_ag = scheduler::alloc_guard (*ctx.sched, 0);
 
-              jobs_arg = "-flto=" + to_string (1 + jobs_ag.n);
-              *i = jobs_arg.c_str ();
+                jobs_arg = "-flto=" + to_string (1 + jobs_ag.n);
+                *i = jobs_arg.c_str ();
+              }
             }
             break;
           }
