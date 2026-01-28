@@ -1867,7 +1867,10 @@ main (int argc, char* argv[])
          << "  wait_queue_slots        " << st.wait_queue_slots      << '\n'
          << "  wait_queue_collisions   " << st.wait_queue_collisions << '\n'
          << '\n'
-         << "  phase_switch_contention " << phase_switch_contention << '\n';
+         << "  phase_switch_contention " << phase_switch_contention  << '\n'
+         << '\n'
+         << "  scheduler_startup_time  " << st.startup_time          << '\n'
+         << "  scheduler_shutdown_time " << st.shutdown_time         << '\n';
   }
 
   return r;

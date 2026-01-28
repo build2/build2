@@ -452,6 +452,9 @@ namespace build2
 
       size_t wait_queue_slots      = 0; // # of wait slots (buckets).
       size_t wait_queue_collisions = 0; // # of times slot had been occupied.
+
+      duration startup_time;            // Time it took to startup scheduler.
+      duration shutdown_time;           // Time it took to shutdown scheduler.
     };
 
     stat
@@ -666,6 +669,8 @@ namespace build2
     //
     size_t stat_max_waiters_;
     size_t stat_wait_collisions_;
+
+    duration startup_time_;
 
     // Progress counter.
     //

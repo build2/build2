@@ -457,6 +457,8 @@ namespace build2
            size_t queue_depth,
            size_t orig_max_active)
   {
+    timestamp startup_begin (system_clock::now ());
+
     if (orig_max_active == 0)
       orig_max_active = max_active;
     else
@@ -552,25 +554,36 @@ namespace build2
     //
     if (max_active_ != 1)
     {
-      if (jobserver_ != nullptr)
-      {
-        jobserver_ready_ = false;
-        jobserver_thread_ = thread (jobserver_monitor, this);
-      }
-
       deadlock_ready_ = false;
+
+      if (jobserver_ != nullptr)
+        jobserver_ready_ = false;
+
+      // Note: none of the variables we assign while unlocked are accessed
+      // by the threads we start.
+      //
+      l.unlock ();
+
       deadlock_thread_ = thread (deadlock_monitor, this);
+
+      if (jobserver_ != nullptr)
+        jobserver_thread_ = thread (jobserver_monitor, this);
 
       // Wait for the threads to become ready.
       //
-      do
+      for (;;)
       {
+        l.lock ();
+
+        if (deadlock_ready_ && (jobserver_ == nullptr || jobserver_ready_))
+          break;
+
         l.unlock ();
         this_thread::yield ();
-        l.lock ();
       }
-      while (!(deadlock_ready_ && (jobserver_ == nullptr || jobserver_ready_)));
     }
+
+    startup_time_ = system_clock::now () - startup_begin;
   }
 
   size_t scheduler::
@@ -660,6 +673,8 @@ namespace build2
   auto scheduler::
   shutdown () -> stat
   {
+    timestamp shutdown_begin (system_clock::now ());
+
     // Our overall approach to shutdown is not to try and stop everything as
     // quickly as possible but rather to avoid performing any tasks. This
     // avoids having code littered with if(shutdown) on every other line.
@@ -746,6 +761,8 @@ namespace build2
         jobserver_ = nullptr;
       }
 
+      // Note: couldn't have changed since we released the lock.
+      //
       r.thread_max_active     = orig_max_active_;
       r.thread_max_total      = max_threads_;
       r.thread_max_waiting    = stat_max_waiters_;
@@ -755,6 +772,9 @@ namespace build2
 
       r.wait_queue_slots      = wait_queue_size_;
       r.wait_queue_collisions = stat_wait_collisions_;
+
+      r.startup_time = startup_time_;
+      r.shutdown_time = system_clock::now () - shutdown_begin;
     }
 
     return r;

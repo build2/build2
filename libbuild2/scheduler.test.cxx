@@ -144,16 +144,19 @@ namespace build2
       cerr << "result                 " << n                       << endl
            << endl;
 
-      cerr << "thread_max_active      " << st.thread_max_active     << endl
-           << "thread_max_total       " << st.thread_max_total      << endl
-           << "thread_helpers         " << st.thread_helpers        << endl
-           << "thread_max_waiting     " << st.thread_max_waiting    << endl
+      cerr << "thread_max_active       " << st.thread_max_active     << endl
+           << "thread_max_total        " << st.thread_max_total      << endl
+           << "thread_helpers          " << st.thread_helpers        << endl
+           << "thread_max_waiting      " << st.thread_max_waiting    << endl
            << endl
-           << "task_queue_depth       " << st.task_queue_depth      << endl
-           << "task_queue_full        " << st.task_queue_full       << endl
+           << "task_queue_depth        " << st.task_queue_depth      << endl
+           << "task_queue_full         " << st.task_queue_full       << endl
            << endl
-           << "wait_queue_slots       " << st.wait_queue_slots      << endl
-           << "wait_queue_collisions  " << st.wait_queue_collisions << endl;
+           << "wait_queue_slots        " << st.wait_queue_slots      << endl
+           << "wait_queue_collisions   " << st.wait_queue_collisions << endl
+           << endl
+           << "scheduler_startup_time  " << st.startup_time          << endl
+           << "scheduler_shutdown_time " << st.shutdown_time         << endl;
     }
 
     return 0;
