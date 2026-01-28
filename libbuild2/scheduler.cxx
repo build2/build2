@@ -1413,13 +1413,17 @@ namespace build2
       };
 
 #if 1
+      // Note that verbosity can be increased (but never to 6) and that would
+      // be racy. So make a copy of the verbosity level.
+      //
       auto trace_state = [&trace,
                           &js_issued,
                           &js_active,
                           &js_remaining,
-                          &js_debt] (const char* when)
+                          &js_debt,
+                          v = verb] (const char* when)
       {
-        if (verb >= 6)
+        if (v >= 6)
         {
           trace << when
                 << ": issued " << js_issued
