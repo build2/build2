@@ -165,8 +165,19 @@ namespace build2
         // trip up the deadlock detection.
         //
         deactivate_impl (true /* external */, move (l));
-        active_sleep (std::chrono::milliseconds (10));
+        active_sleep (std::chrono::milliseconds (5));
         l = activate_impl (true /* external */, false /* collision */);
+
+        // If we have active threads allocated to the jobserver without any
+        // other activity, then it means some jobserver client did not return
+        // the tokens as it was supposed to.
+        //
+        size_t js_active (jobserver_active_ + (jobserver_debt_ ? 1 : 0));
+        if (js_active != 0 && active_ == js_active + 1)
+        {
+          error << "jobserver client leaked " << js_active << " tokens";
+          terminate (false /* trace */);
+        }
       }
 
       active_ = max_active_;

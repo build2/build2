@@ -3,6 +3,12 @@
 
 #include <libbuild2/scheduler.hxx>
 
+#include <errno.h> // errno, E*
+
+#ifndef _WIN32
+#  include <sys/ioctl.h> // ioctl(), FIONREAD
+#endif
+
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
 #  include <pthread.h>
 #  if defined(__FreeBSD__)
@@ -21,11 +27,10 @@
 #  include <chrono>
 #endif
 
-#include <cerrno>
-
-#include <libbuild2/diagnostics.hxx>
+#include <libbutl/filesystem.hxx> // try_rmfile()
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -122,6 +127,15 @@ namespace build2
     else if (queued_task_count_.load (memory_order_consume) != 0 &&
              activate_helper (l))
       ;
+    else if (jobserver_debt_)
+    {
+      // Pay off the jobserver debt.
+      //
+      active_++;
+      jobserver_active_++;
+      jobserver_debt_ = false;
+      jobserver_condv_.notify_one ();
+    }
     else if (active_ == 0 && external_ == 0)
     {
       // Note that we tried to handle this directly in this thread but that
@@ -130,7 +144,7 @@ namespace build2
       // detection while holding the lock that prevents other threads from
       // making progress! So it has to be a separate monitoring thread.
       //
-      dead_condv_.notify_one ();
+      deadlock_condv_.notify_one ();
     }
   }
 
@@ -231,6 +245,8 @@ namespace build2
           ready_condv_.notify_all ();
         else
           ready_condv_.notify_one ();
+
+        n -=  (n > ready_ ? ready_ : n);
       }
       else
       {
@@ -252,10 +268,20 @@ namespace build2
 
             // Let's make sure we activate at most the original allocation.
             //
-            size_t d (max_active_ - active_);
+            size_t d (active_ < max_active_ ? max_active_ - active_ : 0);
             n = (d < n ? d : n - 1);
           }
         }
+      }
+
+      if (jobserver_debt_ && n != 0)
+      {
+        // Pay off the jobserver debt.
+        //
+        active_++;
+        jobserver_active_++;
+        jobserver_debt_ = false;
+        jobserver_condv_.notify_one ();
       }
 
       // Note that active_ can never be 0 (since someone must be calling
@@ -352,6 +378,17 @@ namespace build2
       l.unlock ();
       this_thread::yield ();
       l.lock ();
+
+      // If we have active threads allocated to the jobserver without any
+      // other activity, then it means some jobserver client did not return
+      // the tokens as it was supposed to.
+      //
+      size_t js_active (jobserver_active_ + (jobserver_debt_ ? 1 : 0));
+      if (js_active != 0 && active_ == js_active + init_active_)
+      {
+        error << "jobserver client leaked " << js_active << " tokens";
+        terminate (false /* trace */);
+      }
     }
 
     return l;
@@ -414,6 +451,7 @@ namespace build2
 
   void scheduler::
   startup (size_t max_active,
+           const path* jobserver,
            size_t init_active,
            size_t max_threads,
            size_t queue_depth,
@@ -479,19 +517,69 @@ namespace build2
     for (size_t i (0); i != wait_queue_size_; ++i)
       wait_queue_[i].shutdown = false;
 
+    // Jobserver.
+    //
+    jobserver_ = jobserver;
+    jobserver_active_ = 0;
+    jobserver_debt_ = false;
+
+    if (jobserver_ != nullptr)
+    {
+#ifndef _WIN32
+      fdopen_fifo (*jobserver_);
+
+      // Note that opening of a FIFO blocks until the other end is also
+      // opened. The only portable exception to this rule is opening for
+      // reading in the non-blocking mode (see fifo(7) for details). So the
+      // order is important and we have to do this even during serial
+      // execution not to hang the jobserver clients.
+      //
+      // We expect to never get blocked writing so open that end also as
+      // non-blocking for good measure.
+      //
+      jobserver_ifd_ = fdopen (*jobserver_, (fdopen_mode::in |
+                                             fdopen_mode::non_blocking));
+      jobserver_ofd_ = fdopen (*jobserver_, (fdopen_mode::out |
+                                             fdopen_mode::non_blocking));
+#else
+      assert (false);
+#endif
+    }
+
     shutdown_ = false;
 
     // Delay thread startup if serial.
     //
     if (max_active_ != 1)
-      dead_thread_ = thread (deadlock_monitor, this);
+    {
+      if (jobserver_ != nullptr)
+      {
+        jobserver_ready_ = false;
+        jobserver_thread_ = thread (jobserver_monitor, this);
+      }
+
+      deadlock_ready_ = false;
+      deadlock_thread_ = thread (deadlock_monitor, this);
+
+      // Wait for the threads to become ready.
+      //
+      do
+      {
+        l.unlock ();
+        this_thread::yield ();
+        l.lock ();
+      }
+      while (!(deadlock_ready_ && (jobserver_ == nullptr || jobserver_ready_)));
+    }
   }
 
   size_t scheduler::
   tune (size_t max_active)
   {
     // Note that if we tune a parallel scheduler to run serially, we will
-    // still have the deadlock monitoring thread loitering around.
+    // still have the deadlock monitoring thread idling around (it will not be
+    // signalled). We will also have the jobserver thread, which we signal to
+    // adjust its behavior.
 
     // With multiple initial active threads we will need to make changes to
     // max_active_ visible to other threads and which we currently say can be
@@ -514,10 +602,56 @@ namespace build2
 
       swap (max_active_, max_active);
 
-      // Start the deadlock thread if its startup was delayed.
+      // Start the jobserver and deadlock threads if their startup was
+      // delayed.
       //
-      if (max_active_ != 1 && !dead_thread_.joinable ())
-        dead_thread_ = thread (deadlock_monitor, this);
+      if (max_active_ != 1)
+      {
+        if (jobserver_ != nullptr)
+        {
+          if (!jobserver_thread_.joinable ())
+          {
+            jobserver_ready_ = false;
+            jobserver_thread_ = thread (jobserver_monitor, this);
+          }
+          else if (!jobserver_ready_) // Idling from previous serial execution.
+            jobserver_condv_.notify_one ();
+        }
+
+        if (!deadlock_thread_.joinable ())
+        {
+          deadlock_ready_ = false;
+          deadlock_thread_ = thread (deadlock_monitor, this);
+        }
+        else
+          assert (deadlock_ready_);
+
+        // Wait for the threads to become ready.
+        //
+        while (!(deadlock_ready_ && (jobserver_ == nullptr || jobserver_ready_)))
+        {
+          l.unlock ();
+          this_thread::yield ();
+          l.lock ();
+        }
+      }
+      else // Serial execution.
+      {
+        if (jobserver_thread_.joinable () && jobserver_ready_) // Not idling.
+        {
+          jobserver_condv_.notify_one ();
+
+          // Wait for the jobserver thread to become idle.
+          //
+          do
+          {
+            l.unlock ();
+            this_thread::yield ();
+            l.lock ();
+          }
+          while (jobserver_ready_);
+        }
+      }
     }
 
     return max_active == orig_max_active_ ? 0 : max_active;
@@ -584,19 +718,33 @@ namespace build2
 
       assert (external_ == 0);
 
-      // Wait for the deadlock monitor (the only remaining thread).
+      // Wait for the jobserver and deadlock threads (the only remaining
+      // threads besides the initial).
       //
-      if (dead_thread_.joinable ())
-      {
-        l.unlock ();
-        dead_condv_.notify_one ();
-        dead_thread_.join ();
-      }
+      l.unlock ();
+
+      if (jobserver_thread_.joinable ()) jobserver_condv_.notify_one ();
+      if (deadlock_thread_.joinable ())  deadlock_condv_.notify_one ();
+
+      if (jobserver_thread_.joinable ()) jobserver_thread_.join ();
+      if (deadlock_thread_.joinable ())  deadlock_thread_.join ();
 
       // Free the memory.
       //
       wait_queue_.reset ();
       task_queues_.clear ();
+
+      if (jobserver_ != nullptr)
+      {
+#ifndef _WIN32
+        jobserver_ofd_.close ();
+        jobserver_ifd_.close ();
+#else
+        assert (false);
+#endif
+        try_rmfile (*jobserver_, true /* ignore_error */);
+        jobserver_ = nullptr;
+      }
 
       r.thread_max_active     = orig_max_active_;
       r.thread_max_total      = max_threads_;
@@ -1019,9 +1167,20 @@ namespace build2
         // (equivalent logic to deactivate()).
         //
         if (s.ready_ != 0)
+        {
           s.ready_condv_.notify_one ();
+        }
+        else if (s.jobserver_debt_)
+        {
+          // Pay off the jobserver debt.
+          //
+          s.active_++;
+          s.jobserver_active_++;
+          s.jobserver_debt_ = false;
+          s.jobserver_condv_.notify_one ();
+        }
         else if (s.active_ == 0 && s.external_ == 0)
-          s.dead_condv_.notify_one ();
+          s.deadlock_condv_.notify_one ();
       }
 
       // Become idle and wait for a notification.
@@ -1061,9 +1220,11 @@ namespace build2
     scheduler& s (*static_cast<scheduler*> (d));
 
     lock l (s.mutex_);
+    s.deadlock_ready_ = true;
+
     while (!s.shutdown_)
     {
-      s.dead_condv_.wait (l);
+      s.deadlock_condv_.wait (l);
 
       while (s.active_ == 0 && s.external_ == 0 && !s.shutdown_)
       {
@@ -1120,6 +1281,385 @@ namespace build2
         }
       }
     }
+
+    return nullptr;
+  }
+
+  void* scheduler::
+  jobserver_monitor (void* d)
+  {
+    using namespace chrono;
+
+    tracer trace ("scheduler::jobserver_monitor");
+
+    scheduler& s (*static_cast<scheduler*> (d));
+
+    assert (s.jobserver_ != nullptr);
+
+#ifndef _WIN32
+    try
+    {
+      // The jobserver documentation in the GNU make manual suggests that at
+      // the start the jobserver pipe is pre-loaded with all the available
+      // tokens and everyone then uses it as the single source of truth about
+      // the available concurrency.
+      //
+      // This approach, however, doesn't sit well with what we are doing here
+      // for multiple reasons. Firstly, we don't want to replace our well
+      // established (and well debugged) scheduler that is based on
+      // lightweight and reliable mutexes and condition variables with a
+      // heavy-handled pipe-based cross-process semaphore, which, as admitted
+      // by the jobserver documentation itself, is quite brittle (clients may
+      // not return tokens for various reasons, etc). Plus, we would like to
+      // be able to give priority to internal jobs (the feeling is that this
+      // should result in better performance for our typical use-cases, such
+      // as LTO).
+      //
+      // So instead of pre-loading the pipe with all the available tokens, we
+      // are going to feed it one token at a time, depending on demand.
+      // Specifically, we will "advance" one token into the pipe without
+      // counting it against our active thread count. If we detect that it was
+      // consumed by a jobserver client, then we will attempt to "allocate" it
+      // to the active count. If we could (active < max_active), then we
+      // advance another token. If we could not, then we mark the jobserver as
+      // being "in debt" and until this debt is paid off (allocated), we don't
+      // advance any further tokens. On the other hand, if we notice that a
+      // token was returned by a jobserver client back to the pipe, we
+      // "deallocate" it and, unless it is the only remaining token (the
+      // advance) "withdraw" it from the pipe. To put it another way, unless
+      // we are in debt, we aim to always keep a single advance token in the
+      // pipe.
+      //
+      // To implement this we need to detect when the size of the buffered
+      // data in the pipe goes below or above 1 byte. Unfortunately there are
+      // no mechanisms that would notify us about such high/low watermark
+      // events and our only option is to periodically poll, which we combine
+      // with some heuristics about when to poll more or less frequently.
+      // Testing on real workloads (GCC LTO) showed that this implementation
+      // provides a reasonably responsive jobserver without imposing a
+      // noticeable overhead when the jobserver is not used.
+      //
+      // As mentioned above, the jobserver protocol is quite brittle with
+      // buggy clients potentially not returning the tokens (for example, when
+      // terminated abnormally). While it would be great if we could detect
+      // and handle this gracefully, that's not easy and would increase the
+      // complexity quite a bit. So for now our strategy is to assume that
+      // clients are well behaved and try to limp along with reduced
+      // concurrency if they are not. There are, however, "chokepoints" (like
+      // wait_idle(), for example), where we wait for the active_ count to
+      // drop to 1 and which will never happen if the jobserver leaked some
+      // tokens. So at such points we terminate if we detect a jobserver leak.
+      // So the refined strategy is "limp along but don't hang".
+      //
+      size_t  js_issued (0);                   // Tokens issued to the pipe.
+      size_t  js_remaining;                    // Tokens remaining in the pipe.
+      size_t& js_active (s.jobserver_active_); // Tokens allocated.
+      bool&   js_debt   (s.jobserver_debt_);   // One token in debt.
+
+      auto write = [&s, &js_issued] ()
+      {
+        uint8_t t (0x01);
+        if (fdwrite (s.jobserver_ofd_.get (), &t, 1) == -1)
+          throw_generic_ios_failure (errno);
+
+        js_issued++;
+      };
+
+      auto read = [&s, &js_issued] () -> bool
+      {
+        uint8_t t;
+        if (fdread (s.jobserver_ifd_.get (), &t, 1) == -1)
+        {
+          if (errno == EAGAIN)
+            return false;
+
+          throw_generic_ios_failure (errno);
+        }
+
+        js_issued--;
+        return true;
+      };
+
+      auto show = [&s] () -> size_t
+      {
+        int n;
+        if (ioctl (s.jobserver_ifd_.get (), FIONREAD, &n) == -1)
+          throw_generic_ios_failure (errno);
+        return static_cast<size_t> (n);
+      };
+
+#if 1
+      auto trace_state = [&trace,
+                          &js_issued,
+                          &js_active,
+                          &js_remaining,
+                          &js_debt] (const char* when)
+      {
+        if (verb >= 6)
+        {
+          trace << when
+                << ": issued " << js_issued
+                << ", active " << js_active
+                << ", remain " << js_remaining
+                << (js_debt ? ", in debt" : "");
+        }
+      };
+#else
+      auto trace_state = [] (const char*) {};
+#endif
+
+      lock l (s.mutex_);
+      while (!s.shutdown_) // Outer ready/idle loop.
+      {
+        if (s.max_active_ == 1)
+        {
+          // Idle until signalled by tune() or shutdown().
+          //
+          s.jobserver_ready_ = false;
+          s.jobserver_condv_.wait (l);
+          continue;
+        }
+
+        s.jobserver_ready_ = true;
+
+        // Write the initial "advance" token.
+        //
+        l.unlock ();
+        write ();
+        l.lock ();
+
+        js_remaining = 1; // Presumably (for tracing).
+        trace_state ("startup");
+
+        const duration max_delay (4ms);
+        const duration min_delay (200us); // Note: also a step.
+
+        // GCC prior to version 12 and Clang prior to version 12 do not handle
+        // wait_for() correctly in their TSAN implementations. See GCC bug
+        // #101978 for background and further references.
+        //
+        // Note: the Clang check must come first since it also defines
+        // __GNUC__.
+        //
+#if defined(__SANITIZE_THREAD__)                && \
+  ((defined(__clang__) && __clang_major__ < 12) || \
+   (defined(__GNUC__) && __GNUC__ < 12))
+        auto wait_for = [&l] (duration d)
+        {
+          l.unlock ();
+          active_sleep (d);
+          l.lock ();
+        };
+#else
+        auto wait_for = [&s, &l] (duration d)
+        {
+          s.jobserver_condv_.wait_for (l, d);
+        };
+#endif
+
+        // Inner jobserver "session" loop.
+        //
+        for (duration delay (max_delay);
+             !(s.shutdown_ || s.max_active_ == 1);
+             wait_for (delay))
+        {
+          if (delay < max_delay)
+            delay += min_delay;
+
+          // Let's not keep the scheduler state locked while we work with the
+          // pipe. We just need to be careful not to carry decisions across
+          // the unlock/lock boundary.
+          //
+        requery:
+          l.unlock ();
+          js_remaining = show ();
+          l.lock ();
+          if (s.shutdown_ || s.max_active_ == 1) break;
+
+        reeval:
+          // There should always be an active thread that waits on the process
+          // which uses the jobserver. And we should only be advancing at most
+          // one token.
+          //
+          assert (js_active == 0 || js_active < s.active_);
+          assert (js_active == js_issued || js_active + 1 == js_issued);
+
+          if (js_remaining == 0)
+          {
+            // All the issued tokens are consumed.
+
+            if (js_active < js_issued) // In debt.
+            {
+              // Allocate if we can, indicate we are in debt otherwise.
+              //
+              // Here we reasonably assume that if (active < max_active), then
+              // there are no ready or helper threads (if that were not the
+              // case, then we wouldn't have observed active going below
+              // max_active; see deactivate_impl() for background).
+              //
+              if (s.active_ < s.max_active_)
+              {
+                s.active_++;
+                js_active++;
+                js_debt = false;
+              }
+              else
+              {
+                if (js_debt)
+                  continue; // Skip repeating trace below if already in debt.
+
+                js_debt = true;
+              }
+
+              trace_state ("allocate");
+
+              // Do not advance any more tokens until the debt is paid off or
+              // cancelled. Also reset the delay to max.
+              //
+              if (js_debt)
+              {
+                delay = max_delay;
+                continue;
+              }
+            }
+            else
+              js_debt = false;
+
+            // Write another advance token.
+            //
+            // Note that we do this even if we are at max_active (which means
+            // we will not be able to allocate it) since the other parts of
+            // the scheduler machinery only deal with the "in debt" situation.
+            // In other words, if we don't advance it now, we won't get
+            // notified to do it later.
+            //
+            l.unlock ();
+            write ();
+            l.lock ();
+            if (s.shutdown_ || s.max_active_ == 1) break;
+
+            js_remaining = 1; // Presumably (for tracing).
+            trace_state ("advance");
+
+            // Requery the pipe without delay in case this token was
+            // immediately consumed. Also reduce the subsequent delays.
+            //
+            delay = min_delay;
+            goto requery;
+          }
+          else
+          {
+            // One or more issued tokens remain unconsumed in (or got returned
+            // to) the pipe.
+
+            if (js_debt)
+            {
+              js_debt = false;
+
+              // Trace this even if there won't be deallocate or withdraw trace.
+              // failed that, we may observe puzzling state transitions (like
+              // two in debt allocations in a row).
+              //
+              if (js_remaining == 1)
+                trace_state ("cancel");
+            }
+
+            if (js_active == js_issued) // In credit.
+            {
+              // Deallocate one token, turning it to advanced.
+              //
+              js_active--;
+              s.active_--;
+
+              trace_state ("deallocate");
+
+              // Similar logic to deactivate_impl().
+              //
+              if (s.ready_ != 0)
+                s.ready_condv_.notify_one ();
+              else if (s.queued_task_count_.load (memory_order_consume) != 0 &&
+                       s.activate_helper (l))
+              {
+                // Note that activate_helper() may or may not release the lock.
+                //
+                if (!l.owns_lock ())
+                {
+                  l.lock ();
+                  if (s.shutdown_ || s.max_active_ == 1) break;
+                }
+              }
+              else if (s.active_ == 0 && s.external_ == 0)
+                s.deadlock_condv_.notify_one ();
+            }
+
+            // Remove excess tokens from the pipe. We do it one at a time for
+            // simplicity.
+            //
+            if (js_remaining > 1)
+            {
+              l.unlock ();
+              bool r (read ());
+              l.lock ();
+              if (s.shutdown_ || s.max_active_ == 1) break;
+
+              if (r)
+                js_remaining--; // Presumably (for tracing).
+              else
+                js_remaining = 0; // For reeval.
+
+              trace_state ("withdraw");
+
+              if (r)
+              {
+                // Requery the pipe without delay in case we need to
+                // deallocate or remove another token.
+                //
+                goto requery;
+              }
+              else
+              {
+                // Add back the advance token without re-querying the pipe
+                // since we know all the tokens were consumed.
+                //
+                goto reeval;
+              }
+            }
+          }
+        }
+
+        // Note: scheduler mutex is locked.
+
+        // Note that we cannot assume anything about the jobserver state since
+        // on abnormal termination clients may leak tokens (see above for
+        // background).
+        //
+        trace_state (s.shutdown_ ? "shutdown" : "suspend");
+
+        if (!s.shutdown_)
+        {
+          assert (s.max_active_ == 1);
+
+          // This is re-tuning to serial execution and we can only end up here
+          // if (js_active + js_debt) is 0 (since otherwise, wait_idle()
+          // wouldn't have returned). Which means we should have a single
+          // advance token in the pipe (it should be there since no jobserver
+          // client should be active during re-tuning). And so we just need to
+          // remove it.
+          //
+          if (js_active != 0 || js_debt || js_issued != 1 || !read ())
+            throw_generic_error (
+              EINVAL, "jobserver in unexpected state after shutdown");
+        }
+      }
+    }
+    catch (const system_error& e)
+    {
+      error << "jobserver system error: " << e;
+      terminate (false /* trace */);
+    }
+#else
+    assert (false);
+#endif // _WIN32
 
     return nullptr;
   }

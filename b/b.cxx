@@ -1,6 +1,11 @@
 // file      : b/b.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
+#ifndef _WIN32
+#include <signal.h> // signal()
+#include <unistd.h> // unlink()
+#endif
+
 #include <sstream>
 #include <iostream>  // cout
 #include <exception> // terminate(), set_terminate(), terminate_handler
@@ -241,6 +246,24 @@ terminate (bool trace)
   std::terminate ();
 }
 
+// If the program calls exit(), the destructor will be called, similar to
+// the atexit().
+//
+static auto_rmfile jobserver;
+
+#ifndef _WIN32
+/*
+static void
+cleanup_handler (int)
+{
+  // Note: unlink() is async signal-safe.
+  //
+  if (jobserver.active)
+    ::unlink (jobserver.path.string ().c_str ()); // Ignore errors.
+}
+*/
+#endif
+
 int build2::
 main (int argc, char* argv[])
 {
@@ -375,9 +398,88 @@ main (int argc, char* argv[])
     load_builtin_module (&cli::build2_cli_load);
 #endif
 
+    // Register the cleanup handler.
+    //
+    // @@ TMP: need to prevent child process from inheriting.
+    //
+#ifndef _WIN32
+    /*
+    signal (SIGTERM, &cleanup_handler);
+    signal (SIGINT,  &cleanup_handler);
+    signal (SIGABRT, &cleanup_handler);
+    signal (SIGHUP,  &cleanup_handler);
+    */
+#endif
+
+    // Jobserver.
+    //
+    // Note that we want the jobserver even during serial execution since
+    // tools can behave differently when it's present. For example, GCC's
+    // lto-wrapper would otherwise issue an annoying warning about doing
+    // serial compilation.
+    //
+    {
+      const char* type;
+      if (ops.jobserver_specified ())
+      {
+        const string& v (ops.jobserver ());
+
+        if (v == "none")
+          type = nullptr;
+        else if (v == "fifo")
+        {
+#ifndef _WIN32
+          type = "fifo";
+#else
+          fail << "jobserver type 'fifo' unsupported on this platform" << endf;
+#endif
+        }
+        else
+          fail << "unknown jobserver type '" << v << "'" << endf;
+      }
+      else
+      {
+#ifndef _WIN32
+        type = "fifo";
+#else
+        type = nullptr;
+#endif
+      }
+
+      if (type != nullptr)
+      {
+        jobserver = auto_rmfile (path::temp_path ("build2-jobserver"));
+
+        // Set the MAKEFLAGS environment variable before we start any threads.
+        //
+        optional<string> v (getenv ("MAKEFLAGS"));
+        if (v)
+          *v += ' ';
+        else
+          v = string ();
+
+        *v += "--jobserver-auth=";
+        *v += type;
+        *v += ':';
+        *v += jobserver.path.string ();
+
+        l5 ([&]{trace << "setting MAKEFLAGS='" << *v << "'";});
+
+        try
+        {
+          setenv ("MAKEFLAGS", *v);
+        }
+        catch (const system_error& e)
+        {
+          fail << "unable to set environment variable MAKEFLAGS: " << e;
+        }
+      }
+    }
+
     // Start up the scheduler and allocate lock shards.
     //
     sched.startup (cmdl.jobs,
+                   jobserver.active ? &jobserver.path : nullptr,
                    1 /* init_active */,
                    cmdl.max_jobs,
                    cmdl.jobs * ops.queue_depth ());
@@ -1741,6 +1843,9 @@ main (int argc, char* argv[])
   // Shutdown the scheduler and print statistics.
   //
   scheduler::stat st (sched.shutdown ());
+
+  if (jobserver.active)
+    jobserver.cancel (); // Removed by shutdown().
 
   // In our world we wait for all the tasks to complete, even in case of a
   // failure (see, for example, wait_guard).

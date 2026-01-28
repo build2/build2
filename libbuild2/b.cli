@@ -589,8 +589,10 @@ namespace build2
       "Number of active jobs to perform in parallel. This includes both the
        number of active threads inside the build system as well as the number
        of external commands (compilers, linkers, etc) started but not yet
-       finished. If this option is not specified or specified with the \cb{0}
-       value, then the number of available hardware threads is used."
+       finished. The jobserver requests (see \cb{--jobserver}) are also
+       counted against this number. If this option is not specified or
+       specified with the \cb{0} value, then the number of available
+       hardware threads is used."
     }
 
     size_t --max-jobs|-J
@@ -609,6 +611,19 @@ namespace build2
        compilation) and shorter if they are quick (for example, simple tests).
        The default is 4. See the build system scheduler implementation for
        details."
+    }
+
+    string --jobserver
+    {
+      "<type>",
+      "The GNU make jobserver type to start. Valid values are \cb{fifo} (named
+       pipe on POSIX) or \cb{none} (disable the jobserver). If this option is
+       not specified, then the platform-appropriate jobserver type is started,
+       if available.
+
+       If the jobserver is started, then all external commands (compilers,
+       linkers, etc) are passed the jobserver information as part of the
+       \cb{MAKEFLAGS} environment variable."
     }
 
     string --file-cache

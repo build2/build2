@@ -346,6 +346,8 @@ namespace build2
     max_jobs_specified_ (false),
     queue_depth_ (4),
     queue_depth_specified_ (false),
+    jobserver_ (),
+    jobserver_specified_ (false),
     file_cache_ (),
     file_cache_specified_ (false),
     max_stack_ (),
@@ -549,6 +551,13 @@ namespace build2
       ::build2::build::cli::parser< size_t>::merge (
         this->queue_depth_, a.queue_depth_);
       this->queue_depth_specified_ = true;
+    }
+
+    if (a.jobserver_specified_)
+    {
+      ::build2::build::cli::parser< string>::merge (
+        this->jobserver_, a.jobserver_);
+      this->jobserver_specified_ = true;
     }
 
     if (a.file_cache_specified_)
@@ -815,9 +824,10 @@ namespace build2
        << "                        includes both the number of active threads inside the" << ::std::endl
        << "                        build system as well as the number of external commands" << ::std::endl
        << "                        (compilers, linkers, etc) started but not yet finished." << ::std::endl
-       << "                        If this option is not specified or specified with the" << ::std::endl
-       << "                        \033[1m0\033[0m value, then the number of available hardware threads" << ::std::endl
-       << "                        is used." << ::std::endl;
+       << "                        The jobserver requests (see \033[1m--jobserver\033[0m) are also" << ::std::endl
+       << "                        counted against this number. If this option is not" << ::std::endl
+       << "                        specified or specified with the \033[1m0\033[0m value, then the" << ::std::endl
+       << "                        number of available hardware threads is used." << ::std::endl;
 
     os << std::endl
        << "\033[1m--max-jobs\033[0m|\033[1m-J\033[0m \033[4mnum\033[0m       Maximum number of jobs (threads) to create. The default" << ::std::endl
@@ -832,6 +842,18 @@ namespace build2
        << "                        if they are quick (for example, simple tests). The" << ::std::endl
        << "                        default is 4. See the build system scheduler" << ::std::endl
        << "                        implementation for details." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--jobserver\033[0m \033[4mtype\033[0m        The GNU make jobserver type to start. Valid values are" << ::std::endl
+       << "                        \033[1mfifo\033[0m (named pipe on POSIX) or \033[1mnone\033[0m (disable the" << ::std::endl
+       << "                        jobserver). If this option is not specified, then the" << ::std::endl
+       << "                        platform-appropriate jobserver type is started, if" << ::std::endl
+       << "                        available." << ::std::endl
+       << ::std::endl
+       << "                        If the jobserver is started, then all external commands" << ::std::endl
+       << "                        (compilers, linkers, etc) are passed the jobserver" << ::std::endl
+       << "                        information as part of the \033[1mMAKEFLAGS\033[0m environment" << ::std::endl
+       << "                        variable." << ::std::endl;
 
     os << std::endl
        << "\033[1m--file-cache\033[0m \033[4mimpl\033[0m       File cache implementation to use for intermediate build" << ::std::endl
@@ -1194,6 +1216,9 @@ namespace build2
       _cli_b_options_map_["-Q"] =
       &::build2::build::cli::thunk< b_options, size_t, &b_options::queue_depth_,
         &b_options::queue_depth_specified_ >;
+      _cli_b_options_map_["--jobserver"] =
+      &::build2::build::cli::thunk< b_options, string, &b_options::jobserver_,
+        &b_options::jobserver_specified_ >;
       _cli_b_options_map_["--file-cache"] =
       &::build2::build::cli::thunk< b_options, string, &b_options::file_cache_,
         &b_options::file_cache_specified_ >;

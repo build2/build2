@@ -129,6 +129,18 @@ namespace build2
   }
 
   inline const string& b_options::
+  jobserver () const
+  {
+    return this->jobserver_;
+  }
+
+  inline bool b_options::
+  jobserver_specified () const
+  {
+    return this->jobserver_specified_;
+  }
+
+  inline const string& b_options::
   file_cache () const
   {
     return this->file_cache_;

@@ -15,6 +15,18 @@ Version 0.18.0
     The effective value (specified or inherited) is also available (starting
     from root.build) as the build.readonly project-specific variable.
 
+  * GNU make jobserver support.
+
+    On POSIX platforms the build system driver now starts a GNU make-
+    compatible jobserver of the `fifo` type and passes the jobserver
+    information to all external commands (compilers, linkers, etc) as part of
+    the MAKEFLAGS environment variable. The jobserver can be disabled with the
+    --jobserver=none option.
+
+    Note that the `fifo` jobserver type is only supported since GNU make 4.4.
+    Note also that only the server side of the jobserver is supported and the
+    build system driver does not act as a jobserver client.
+
   * Variable names with intermediate components called 'build' are now
     reserved by the build system core. For example:
 

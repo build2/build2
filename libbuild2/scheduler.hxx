@@ -13,6 +13,8 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/diagnostics.hxx>
+
 #include <libbuild2/export.hxx>
 
 namespace build2
@@ -317,7 +319,12 @@ namespace build2
     //
     scheduler () = default;
 
-    // Create a started up scheduler.
+    // Create a started up scheduler. Throw system_error on failure.
+    //
+    // If jobserver is not NULL, then start the GNU make-compatible jobserver
+    // with the named pipe at the specified path. Note that the pointed-to
+    // path should be valid until the call to shutdown(), which attempts to
+    // remove the corresponding filesystem entry.
     //
     // The initial active argument is the number of threads to assume are
     // already active (e.g., the calling thread). It must not be 0 (since
@@ -328,27 +335,31 @@ namespace build2
     //
     // Passing non-zero orig_max_active (normally the real max active) allows
     // starting up a pre-tuned scheduler. In particular, starting a pre-tuned
-    // to serial scheduler is relatively cheap since starting the deadlock
-    // detection thread is delayed until the scheduler is re-tuned.
+    // to serial scheduler is relatively cheap since starting of the auxiliary
+    // threads (deadlock, jobserver) is delayed until the scheduler is
+    // re-tuned.
     //
     explicit
     scheduler (size_t max_active,
+               const path* jobserver = nullptr,
                size_t init_active = 1,
                size_t max_threads = 0,
                size_t queue_depth = 0,
                size_t orig_max_active = 0)
     {
       startup (max_active,
+               jobserver,
                init_active,
                max_threads,
                queue_depth,
                orig_max_active);
     }
 
-    // Start the scheduler.
+    // Start the scheduler. Throw system_error on failure.
     //
     void
     startup (size_t max_active,
+             const path* jobserver,
              size_t init_active = 1,
              size_t max_threads = 0,
              size_t queue_depth = 0,
@@ -361,6 +372,9 @@ namespace build2
     //
     bool
     started () const {return !shutdown_;}
+
+    bool
+    jobserver () const {return jobserver_ != nullptr;}
 
     // Tune a started up scheduler.
     //
@@ -623,9 +637,12 @@ namespace build2
 
     size_t helpers_     = 0; // Number of helper threads created so far.
 
-    // Every thread that we manage (except for the special deadlock monitor)
-    // must be accounted for in one of these counters. And their sum should
-    // equal (init_active + helpers).
+    // Every thread that we manage (except for the special ones like the
+    // jobserver and deadlock monitor) must be accounted for in one of these
+    // counters. And their sum should equal (init_active + helpers).
+    //
+    // Note also that some of the active count may be "allocated" to external
+    // entities (see allocate(), jobserver).
     //
     size_t active_   = 0;  // Active master threads executing a task.
     size_t idle_     = 0;  // Idle helper threads waiting for a task.
@@ -662,11 +679,31 @@ namespace build2
 
     // Deadlock detection.
     //
-    build2::thread             dead_thread_;
-    build2::condition_variable dead_condv_;
+    build2::thread             deadlock_thread_;
+    build2::condition_variable deadlock_condv_;
+    bool                       deadlock_ready_;
 
     static void*
     deadlock_monitor (void*);
+
+    // Jobserver.
+    //
+    // See the jobserver_monitor() implementation for details.
+    //
+    const path*                jobserver_;
+#ifndef _WIN32
+    auto_fd                    jobserver_ifd_;
+    auto_fd                    jobserver_ofd_;
+#endif
+    build2::thread             jobserver_thread_;
+    build2::condition_variable jobserver_condv_;
+    bool                       jobserver_ready_;
+
+    size_t jobserver_active_ = 0;   // Tokens allocated to active count.
+    bool   jobserver_debt_ = false; // Token consumed but not allocated.
+
+    static void*
+    jobserver_monitor (void*);
 
     // Wait queue.
     //

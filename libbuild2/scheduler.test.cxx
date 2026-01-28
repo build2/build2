@@ -87,7 +87,7 @@ namespace build2
     if (max_active == 0)
       max_active = scheduler::hardware_concurrency ();
 
-    scheduler s (max_active, 1, 0, queue_depth);
+    scheduler s (max_active, nullptr, 1, 0, queue_depth);
 
     // Find # prime counts of primes in [i, d*i*i) ranges for i in (0, n].
     //

@@ -127,6 +127,12 @@ namespace build2
     queue_depth_specified () const;
 
     const string&
+    jobserver () const;
+
+    bool
+    jobserver_specified () const;
+
+    const string&
     file_cache () const;
 
     bool
@@ -299,6 +305,8 @@ namespace build2
     bool max_jobs_specified_;
     size_t queue_depth_;
     bool queue_depth_specified_;
+    string jobserver_;
+    bool jobserver_specified_;
     string file_cache_;
     bool file_cache_specified_;
     size_t max_stack_;
