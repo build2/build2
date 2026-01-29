@@ -1316,9 +1316,10 @@ namespace build2
           // Microsoft (R) C/C++ Optimizing Compiler Version 18.00.21005.1 for x86
           // Microsoft (R) C/C++ Optimizing Compiler Version 19.00.23026 for x86
           // Microsoft (R) C/C++ Optimizing Compiler Version 19.10.24629 for x86
+          // Microsoft (R) C/C++ 최적화 컴파일러 버전 19.50.35722(x64)
           //
           // In the recent versions the architecture is either "x86", "x64",
-          // or "ARM".
+          // or "ARM", "ARM64".
           //
           if (l.find ("Microsoft (R)") != string::npos &&
               l.find ("C/C++") != string::npos)
@@ -1720,6 +1721,7 @@ namespace build2
         //s = "Microsoft (R) 32-bit C/C++ Optimizing Compiler Version 15.00.30729.01 for 80x86";
         //s = "Compilador de optimizacion de C/C++ de Microsoft (R) version 16.00.30319.01 para x64";
         //s = "Compilateur d'optimisation Microsoft (R) C/C++ version 19.16.27026.1 pour x64";
+        //s = "Microsoft (R) C/C++ 최적화 컴파일러 버전 19.50.35722(x64)";
 
         // Scan the string as words and look for the version.
         //
@@ -1729,11 +1731,19 @@ namespace build2
           // The third argument to find_first_not_of() is the length of the
           // first argument, not the length of the interval to check. So to
           // limit it to [b, e) we are also going to compare the result to the
-          // end of the word position (first space). In fact, we can just
-          // check if it is >= e.
+          // end of the word position (first space/comma). In fact, we can
+          // just check if it is >= e.
           //
-          if (s.find_first_not_of ("1234567890.", b, 11) >= e)
+          // Also deal with the 19.50.35722(x64) abomination ad hoc.
+          //
+          size_t p (s.find_first_not_of ("1234567890.", b, 11));
+          if (p >= e)
             break;
+          else if (p != b && s[p] == '(')
+          {
+            e = p;
+            break;
+          }
         }
 
         if (b == e)
@@ -1757,10 +1767,22 @@ namespace build2
 
         const string& s (gr.signature);
 
-        // Scan the string as words and look for the CPU.
+        // Some overrides for testing.
+        //
+        //string s;
+        //s = "Microsoft (R) C/C++ 최적화 컴파일러 버전 19.50.35722(x64)";
+
+        // Scan the string for one of the CPU names.
+        //
+        // Note that in the original version we were scanning the string as
+        // words and comparing them to the CPU names. However, that couldn't
+        // handle the 19.50.35722(x64) variant (see above). So now, seeing
+        // that the CPU names are unlikely to appear in any other part of the
+        // signature, we just look for them as a substring.
         //
         string cpu;
 
+#if 0
         for (size_t b (0), e (0), n;
              (n = next_word (s, b, e, ' ', ',')) != 0; )
         {
@@ -1774,6 +1796,17 @@ namespace build2
             break;
           }
         }
+#else
+        {
+          const char* v;
+          if (s.find ((v = "x64"))   != string::npos ||
+              s.find ((v = "x86"))   != string::npos ||
+              s.find ((v = "ARM64")) != string::npos ||
+              s.find ((v = "ARM"))   != string::npos ||
+              s.find ((v = "80x86")) != string::npos)
+            cpu = v;
+        }
+#endif
 
         if (cpu.empty ())
           fail << "unable to extract MSVC target CPU from " << "'" << s << "'";
