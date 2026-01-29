@@ -1390,8 +1390,10 @@ namespace build2
             {
               d = convert<dir_path> (move (*i));
 
-              if (d.empty ())
-                fail << "empty directory in variable subprojects";
+              if (d.empty () || d.absolute () || !d.normalized (false))
+                fail << "invalid directory in variable subprojects" <<
+                  info << "subproject directory should be relative and "
+                       << "refer inside parent project";
             }
             catch (const invalid_argument&)
             {
