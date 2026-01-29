@@ -4541,6 +4541,9 @@ namespace build2
     if (stage_ == stage::boot)
       fail (t) << "import during bootstrap";
 
+    if (scope_->role_ == scope::role::temp_export)
+      fail (t) << "import in export stub";
+
     // General import form:
     //
     // import[?!] [<attrs>] <var> = [<attrs>] (<target>|<project>%<target>])+
@@ -4909,6 +4912,9 @@ namespace build2
   {
     tracer trace ("parser::parse_using", &path_);
 
+    if (scope_->role_ == scope::role::temp_export)
+      fail (t) << "using in export stub";
+
     bool opt (t.value.back () == '?');
 
     if (opt && stage_ == stage::boot)
@@ -4986,6 +4992,9 @@ namespace build2
     //
     // See tests/define.
     //
+    if (scope_->role_ == scope::role::temp_export)
+      fail (t) << "define in export stub";
+
     next_with_attributes (t, tt);
 
     attributes_push (t, tt);
@@ -5147,7 +5156,7 @@ namespace build2
     //
     // Restrictions and limitations:
     //
-    // - Cannot be used during bootstrap.
+    // - Cannot be used during bootstrap or in export stub.
     //
     // - Target should be defined in the buildfile containing the directive
     //   and this buildfile should be standalone (i.e., can be loaded) or
@@ -5164,6 +5173,9 @@ namespace build2
     //
     if (stage_ == stage::boot)
       fail (t) << "update during bootstrap";
+
+    if (scope_->role_ == scope::role::temp_export)
+      fail (t) << "update in export stub";
 
     // Verify buildfile.
     //
