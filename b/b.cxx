@@ -2,8 +2,9 @@
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef _WIN32
-#include <signal.h> // signal()
-#include <unistd.h> // unlink()
+#include <signal.h> // sigaction(), sigemptyset(), raise(), SIG*
+#include <unistd.h> // unlink(), _exit()
+#include <string.h> // memset()
 #endif
 
 #include <sstream>
@@ -252,16 +253,25 @@ terminate (bool trace)
 static auto_rmfile jobserver;
 
 #ifndef _WIN32
-/*
-static void
-cleanup_handler (int)
+extern "C" void
+build2_b_cleanup_handler (int sig)
 {
-  // Note: unlink() is async signal-safe.
+  // Note: unlink(), memset(), sigemptyset(), sigaction(), raise(), and
+  //       _exit() are all async signal-safe.
   //
   if (jobserver.active)
     ::unlink (jobserver.path.string ().c_str ()); // Ignore errors.
+
+  // Run the default signal handler and exit if anything goes sideways.
+  //
+  struct sigaction sa;
+  ::memset (&sa, 0, sizeof (sa));
+  sigemptyset (&sa.sa_mask);
+  sa.sa_handler = SIG_DFL;
+
+  if (sigaction (sig, &sa, nullptr /* oldact */) != 0 || raise (sig) != 0)
+    _exit (1);
 }
-*/
 #endif
 
 int build2::
@@ -400,15 +410,18 @@ main (int argc, char* argv[])
 
     // Register the cleanup handler.
     //
-    // @@ TMP: need to prevent child process from inheriting.
-    //
 #ifndef _WIN32
-    /*
-    signal (SIGTERM, &cleanup_handler);
-    signal (SIGINT,  &cleanup_handler);
-    signal (SIGABRT, &cleanup_handler);
-    signal (SIGHUP,  &cleanup_handler);
-    */
+    {
+      struct sigaction sa;
+      ::memset (&sa, 0, sizeof (sa));
+      sigemptyset (&sa.sa_mask);
+      sa.sa_handler = build2_b_cleanup_handler;
+
+      sigaction (SIGTERM, &sa, nullptr /* oldact */);
+      sigaction (SIGINT,  &sa, nullptr /* oldact */);
+      sigaction (SIGABRT, &sa, nullptr /* oldact */);
+      sigaction (SIGHUP,  &sa, nullptr /* oldact */);
+    }
 #endif
 
     // Jobserver.
