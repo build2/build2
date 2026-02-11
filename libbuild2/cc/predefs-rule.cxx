@@ -55,7 +55,7 @@ namespace build2
     predefs_rule::
     predefs_rule (data&& d, const compile_rule& cr)
         : common (move (d)),
-          rule_name (string (x) += ".predefs"),
+          rule_name (string (d.x) += ".predefs"), // GCC bug 121840
           rule_id (rule_name + " 1"),
           c_rule (cr)
     {

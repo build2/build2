@@ -256,7 +256,7 @@ namespace build2
     link_rule::
     link_rule (data&& d)
         : common (move (d)),
-          rule_id (string (x) += ".link 3")
+          rule_id (string (d.x) += ".link 3") // GCC bug 121840
     {
     }
 

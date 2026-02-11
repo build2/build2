@@ -267,7 +267,7 @@ namespace build2
     compile_rule::
     compile_rule (data&& d, const scope& rs)
         : common (move (d)),
-          rule_id (string (x) += ".compile 6")
+          rule_id (string (d.x) += ".compile 6") // GCC bug 121840
     {
       // Locate the header cache (see enter_header() for details).
       //
