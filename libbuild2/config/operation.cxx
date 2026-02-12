@@ -631,13 +631,16 @@ namespace build2
                 continue;
             }
 
-            // Handle the save_default_commented flag.
+            // Handle the save_default_commented, save_default_omitted flags.
             //
             if (org.first.defined () && org.first->extra == 1 && // Default.
                 org.first == ovr.first &&                        // No override.
-                (flags & save_default_commented) != 0)
+                (flags & (save_default_commented |
+                          save_default_omitted)) != 0)
             {
-              os << first () << '#' << n << " =" << endl;
+              if ((flags & save_default_commented) != 0)
+                os << first () << '#' << n << " =" << endl;
+
               continue;
             }
 

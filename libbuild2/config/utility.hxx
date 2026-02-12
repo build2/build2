@@ -79,10 +79,11 @@ namespace build2
     // in bpkg).
     //
     const uint64_t save_default_commented = 0x01; // Based on value::extra.
-    const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
-    const uint64_t save_empty_omitted     = 0x04; // Treat empty as undefined.
-    const uint64_t save_false_omitted     = 0x08; // Treat false as undefined.
-    const uint64_t save_base              = 0x10; // Custom save with base.
+    const uint64_t save_default_omitted   = 0x02; // Based on value::extra.
+    const uint64_t save_null_omitted      = 0x04; // Treat NULL as undefined.
+    const uint64_t save_empty_omitted     = 0x08; // Treat empty as undefined.
+    const uint64_t save_false_omitted     = 0x10; // Treat false as undefined.
+    const uint64_t save_base              = 0x20; // Custom save with base.
 
     // The optional save function can be used to implement custom variable
     // saving, for example, as a difference appended to the base value or to
@@ -332,11 +333,11 @@ namespace build2
     // be used to detect inheritance, etc).
     //
     // The second version in addition sets the new_value argument as described
-    // above. Note, however, that if the save_default_commented flag is
-    // specified, then the default value is never considered "new" since for
-    // such variables absence of a value means it is the default value. This
-    // flag is normally used for dynamically adjusting (e.g., hinted) default
-    // values.
+    // above. Note, however, that if the save_default_commented or
+    // save_default_omitted flags are specified, then the default value is
+    // never considered "new" since for such variables absence of a value
+    // means it is the default value. This flag is normally used for
+    // dynamically adjusting (e.g., hinted) default values.
     //
     // If override is true and the variable doesn't come from this root scope
     // or from the command line (i.e., it is inherited from the amalgamation),

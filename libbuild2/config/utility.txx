@@ -60,14 +60,16 @@ namespace build2
         value& v (rs.assign (var) = std::forward<T> (def_val)); // VC14
         v.extra = 1; // Default value flag.
 
-        n = (sflags & save_default_commented) == 0; // Absence means default.
+        n = (sflags & (save_default_commented |
+                       save_default_omitted)) == 0; // Absence means default.
         l = lookup (v, var, rs);
         org = make_pair (l, 1); // Lookup depth is 1 since it's in rs.vars.
       }
       // Treat an inherited value that was set to default as new.
       //
       else if (l->extra == 1)
-        n = (sflags & save_default_commented) == 0; // Absence means default.
+        n = (sflags & (save_default_commented |
+                       save_default_omitted)) == 0; // Absence means default.
 
       if (var.overrides != nullptr)
       {
