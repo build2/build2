@@ -1814,7 +1814,7 @@ namespace build2
                                    root,
                                    *var_cbr,
                                    false /* default */,
-                                   config::save_false_omitted));
+                                   config::save_default_commented));
 
           ro = cast<bool> (l);
 
