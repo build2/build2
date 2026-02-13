@@ -121,7 +121,7 @@ namespace build2
       {
         // Create the temporary directory for this run.
         //
-        // Note that the directory auto-removal is active.
+        // Note that the directory auto-removal is not active.
         //
         dir_path& td (temp_dir.path);
 
@@ -129,7 +129,7 @@ namespace build2
 
         try
         {
-          td = dir_path::temp_path ("shellscript");
+          temp_dir = auto_rmdir (dir_path::temp_path ("shellscript"));
         }
         catch (const system_error& e)
         {
