@@ -140,7 +140,7 @@ namespace build2
         // for details). This is also the reason why we are not using the
         // build2 filesystem API that considers the dry-run mode.
         //
-        // Note that the directory auto-removal is active.
+        // Note that the directory auto-removal is not active.
         //
         dir_path& td (temp_dir.path);
 
@@ -148,7 +148,7 @@ namespace build2
 
         try
         {
-          td = dir_path::temp_path ("buildscript");
+          temp_dir = auto_rmdir (dir_path::temp_path ("buildscript"));
         }
         catch (const system_error& e)
         {
