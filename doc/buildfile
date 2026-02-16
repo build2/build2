@@ -161,7 +161,7 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
 
         # See if this is a synopsys line.
         #
-        if $regex.match($t, '\$.+\(.+\)')
+        if $regex.match($t, '\$.+\(.*\)')
         {
           if ($s == 'none')
           {
@@ -189,7 +189,7 @@ file{~'/(functions-.+)\.cli/'}: cxx{~'/\1/'}
           hs = [strings]
           for t: $synopsis
           {
-            t = $regex.replace($t, '\$(.+)\(.+\)', '\1')  # Extract func name.
+            t = $regex.replace($t, '\$(.+)\(.*\)', '\1')  # Extract func name.
             f = $regex.match($t, '(.+)\..+', return_subs) # Extract family.
 
             ifn $f

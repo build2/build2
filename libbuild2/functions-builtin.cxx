@@ -3,6 +3,8 @@
 
 #include <sstream>
 
+#include <libbutl/uuid.hxx>
+
 #include <libbuild2/scope.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
@@ -209,6 +211,26 @@ namespace build2
       names r;
       r.emplace_back (to_name (move (*v)));
       return value (move (r));
+    };
+
+    // $generate_uuid()
+    //
+    // Generate a UUID and return its string representation in the form:
+    //
+    //     33f5de8d-1a29-4b1d-ba28-09e3e55c9d7a
+    //
+    // Note that this function is not pure.
+    //
+    f.insert ("generate_uuid", false) += []()
+    {
+      try
+      {
+        return butl::uuid::generate ().string ();
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to generate uuid: " << e << endf;
+      }
     };
   }
 }

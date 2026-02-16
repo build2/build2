@@ -155,3 +155,15 @@
   :
   $* <'print $getenv("non-existent-var-name")' >'[null]'
 }}
+
+: generate-uuid
+:
+{{
+  : basics
+  :
+  {
+    $* <'print $generate_uuid()' >>~/EOO/
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+      EOO
+  }
+}}
