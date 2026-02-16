@@ -7,7 +7,8 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 
-#include <libbuild2/prerequisite-key.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/prerequisite.hxx>
 
 namespace build2
 {

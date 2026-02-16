@@ -12,7 +12,6 @@
 #include <libbuild2/dump.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/module.hxx>
-#include <libbuild2/target.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/algorithm.hxx>

@@ -544,9 +544,9 @@ namespace build2
         uint64_t              match_options;
       };
 
-      build2::action                          action;
-      reference_wrapper<const build2::target> target;
-      vector<prerequisite_target>             prerequisite_targets;
+      build2::action              action;
+      const build2::target&       target;
+      vector<prerequisite_target> prerequisite_targets;
     };
 
     list<posthoc_target>   current_posthoc_targets_collected;

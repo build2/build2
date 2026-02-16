@@ -15,6 +15,7 @@
 #include <libbuild2/file.hxx>
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/token.hxx>
+#include <libbuild2/target.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/buildspec.hxx>
 #include <libbuild2/diagnostics.hxx>
