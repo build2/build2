@@ -675,9 +675,9 @@ namespace build2
   }
 
   auto scheduler::
-  shutdown () -> stat
+  shutdown (bool wait) -> stat
   {
-    timestamp shutdown_begin (system_clock::now ());
+    timestamp shutdown_begin (wait ? system_clock::now () : timestamp_unknown);
 
     // Our overall approach to shutdown is not to try and stop everything as
     // quickly as possible but rather to avoid performing any tasks. This
@@ -709,6 +709,13 @@ namespace build2
         r.task_queue_full += tq.stat_full;
         tq.shutdown = true;
       }
+
+      // Note that we don't try to wake up any inactive threads if waiting was
+      // not requested since our goal is only to prevent any active threads
+      // from doing any more work.
+      //
+      if (!wait)
+        return r;
 
       // Wait for all the helpers to terminate waking up any thread that
       // sleeps.

@@ -2,13 +2,14 @@
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef _WIN32
-#include <signal.h> // sigaction(), sigemptyset(), raise(), SIG*
-#include <unistd.h> // unlink(), _exit()
+#include <signal.h> // sigaction(), sigemptyset(), sigaddset(), raise(),
+                    // sigwait(), pthread_sigmask(), kill(), SIG*
+#include <unistd.h> // unlink(), getpid(), _exit()
 #include <string.h> // memset()
 #endif
 
 #include <sstream>
-#include <iostream>  // cout
+#include <iostream>  // cout, cerr
 #include <exception> // terminate(), set_terminate(), terminate_handler
 
 #include <libbutl/pager.hxx>
@@ -272,6 +273,70 @@ build2_b_cleanup_handler (int sig)
   if (sigaction (sig, &sa, nullptr /* oldact */) != 0 || raise (sig) != 0)
     _exit (1);
 }
+
+static sigset_t sigwait_mask;
+
+static void*
+sigwait_thread_function (void* d)
+{
+  int sig;
+  if (int e = sigwait (&sigwait_mask, &sig))
+  {
+    cerr << "error: unable to wait for signals: "
+         << system_error (e, generic_category ()) // Sanitize.
+         << endl;
+
+    terminate (false /* trace */);
+  }
+
+  if (sig == SIGUSR1) // Request to shutdown.
+    return nullptr;
+
+  // Block all the threads that attempt to issue any diagnostics.
+  //
+  // Note that the primary goal here is to suppress diagnostics about
+  // abnormally terminated child processes, which could have been terminated
+  // due to a signal sent to the whole process group (see
+  // butl::process::wait() implementation for details on the issue we try to
+  // resolve). The blocked threads will stay as such until the process is
+  // terminated.
+  //
+  // Also note that there is still a possibility that after sigwait() returns,
+  // making the signal non-pending, and before the diagnostics mutex is
+  // locked, some threads may print the diagnostics we try to avoid. If it
+  // ever becomes a problem, we can consider using the Linux and FreeBSD
+  // specific signalfd() in combination with select() and read(), which seems
+  // to provide an ability to make the transition from the pending signal to
+  // the locked diagnostics mutex atomic.
+  //
+  diag_stream_lock dl;
+
+  // Instruct the scheduler to pre-shutdown (stop executing new tasks, etc).
+  //
+  build2::scheduler& s (*static_cast<build2::scheduler*> (d));
+  s.shutdown (false /* wait */);
+
+  // Unblock the signal, so that it can be raised.
+  //
+  sigset_t um;
+  sigemptyset (&um);
+  sigaddset (&um, sig);
+
+  if (int e = pthread_sigmask (SIG_UNBLOCK, &um, nullptr /* oldset */))
+  {
+    cerr << "error: unable to unblock signal " << sig << ": "
+         << system_error (e, generic_category ()) // Sanitize.
+         << endl;
+
+    terminate (false /* trace */);
+  }
+
+  // Call the signal handler.
+  //
+  build2_b_cleanup_handler (sig);
+
+  return nullptr;
+}
 #endif
 
 int build2::
@@ -284,6 +349,11 @@ main (int argc, char* argv[])
   int r (0);
   b_options ops;
   scheduler sched;
+
+#ifndef _WIN32
+  thread sigwait_thread;
+  sigset_t prev_signal_mask;
+#endif
 
   // Statistics.
   //
@@ -408,22 +478,6 @@ main (int argc, char* argv[])
     load_builtin_module (&cli::build2_cli_load);
 #endif
 
-    // Register the cleanup handler.
-    //
-#ifndef _WIN32
-    {
-      struct sigaction sa;
-      ::memset (&sa, 0, sizeof (sa));
-      sigemptyset (&sa.sa_mask);
-      sa.sa_handler = build2_b_cleanup_handler;
-
-      sigaction (SIGTERM, &sa, nullptr /* oldact */);
-      sigaction (SIGINT,  &sa, nullptr /* oldact */);
-      sigaction (SIGABRT, &sa, nullptr /* oldact */);
-      sigaction (SIGHUP,  &sa, nullptr /* oldact */);
-    }
-#endif
-
     // Jobserver.
     //
     // Note that we want the jobserver even during serial execution since
@@ -488,6 +542,55 @@ main (int argc, char* argv[])
         }
       }
     }
+
+    // Register the jobserver cleanup signal handler if serial execution and
+    // start the sigwait() thread if parallel.
+    //
+    // Note that the reason why we use sigwait() for parallel execution is to
+    // suppress diagnostics about abnormally terminated child processes. That
+    // won't be easy to implement in the signal handler, since it involves
+    // using functions which are not async signal-safe (mutex lock, etc).
+    //
+#ifndef _WIN32
+    if (jobserver.active)
+    {
+      if (cmdl.jobs == 1)
+      {
+        struct sigaction sa;
+        ::memset (&sa, 0, sizeof (sa));
+        sigemptyset (&sa.sa_mask);
+        sa.sa_handler = build2_b_cleanup_handler;
+
+        sigaction (SIGTERM, &sa, nullptr /* oldact */);
+        sigaction (SIGINT,  &sa, nullptr /* oldact */);
+        sigaction (SIGABRT, &sa, nullptr /* oldact */);
+        sigaction (SIGHUP,  &sa, nullptr /* oldact */);
+      }
+      else
+      {
+        // Block the signals which we plan to handle, to make sure they are
+        // handled with the dedicated thread.
+        //
+        sigemptyset (&sigwait_mask);
+
+        sigaddset (&sigwait_mask, SIGTERM);
+        sigaddset (&sigwait_mask, SIGINT);
+        sigaddset (&sigwait_mask, SIGABRT);
+        sigaddset (&sigwait_mask, SIGHUP);
+        sigaddset (&sigwait_mask, SIGUSR1);
+
+        if (int e = pthread_sigmask (SIG_SETMASK,
+                                     &sigwait_mask,
+                                     &prev_signal_mask))
+        {
+          fail << "unable to block signals: "
+               << system_error (e, generic_category ()); // Sanitize.
+        }
+
+        sigwait_thread = thread (sigwait_thread_function, &sched);
+      }
+    }
+#endif
 
     // Start up the scheduler and allocate lock shards.
     //
@@ -1859,6 +1962,52 @@ main (int argc, char* argv[])
 
   if (jobserver.active)
     jobserver.cancel (); // Removed by shutdown().
+
+#ifndef _WIN32
+  // Note that we must send the signal to the process, not the current thread
+  // (which is what raise() does in a multi-threaded process). Actually,
+  // sending it directly to the sigwait() thread is probably more efficient.
+  //
+  if (sigwait_thread.joinable ())
+  {
+#if 1
+    pthread_t h (sigwait_thread.native_handle ());
+
+    if (int e = pthread_kill (h, SIGUSR1))
+    {
+      cerr << "error: unable to send terminating signal: "
+           << system_error (e, generic_category ()) // Sanitize.
+           << endl;
+
+      return 1;
+    }
+#else
+    if (kill (getpid (), SIGUSR1) != 0)
+    {
+      cerr << "error: unable to send terminating signal: "
+           << system_error (errno, generic_category ()) // Sanitize.
+           << endl;
+
+      return 1;
+    }
+#endif
+
+    sigwait_thread.join ();
+
+    // Unblock the previously blocked signals.
+    //
+    if (int e = pthread_sigmask (SIG_SETMASK,
+                                 &prev_signal_mask,
+                                 nullptr /* oldset */))
+    {
+      cerr << "error: unable to restore signal mask: "
+           << system_error (e, generic_category ()) // Sanitize.
+           << endl;
+
+      return 1;
+    }
+  }
+#endif
 
   // In our world we wait for all the tasks to complete, even in case of a
   // failure (see, for example, wait_guard).

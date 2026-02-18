@@ -441,6 +441,13 @@ namespace build2
     // failure. Note that the initially active threads are not waited for.
     // Return scheduling statistics.
     //
+    // If the wait argument is false, then signal the shutdown but don't wait
+    // for its completion. This mode should normally only be used if it's
+    // shortly followed by a call to _exit() or equivalent (in particular,
+    // global destructors should not be executed) with the goal of preventing
+    // active threads from doing any more work. Naturally, the returned
+    // statistics is not meaningful in this case.
+    //
     struct stat
     {
       size_t thread_max_active     = 0; // max # of active threads allowed.
@@ -460,7 +467,7 @@ namespace build2
     };
 
     stat
-    shutdown ();
+    shutdown (bool wait = true);
 
     // Progress monitoring.
     //
