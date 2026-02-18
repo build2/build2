@@ -2,9 +2,12 @@
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef _WIN32
-#include <signal.h> // sigaction(), sigemptyset(), raise(), SIG*
-#include <unistd.h> // unlink(), _exit()
+#include <signal.h> // sigaction(), sigemptyset(), sigaddset(), raise(),
+                    // sigwait(), pthread_sigmask(), kill(), SIG*
+#include <unistd.h> // unlink(), getpid(), _exit()
 #include <string.h> // memset()
+
+#include <cstdlib> // exit()
 #endif
 
 #include <sstream>
@@ -273,25 +276,56 @@ build2_b_cleanup_handler (int sig)
     _exit (1);
 }
 
+static sigset_t sigwait_mask;
+
 static void*
 sigwait_thread_function (void* /*d*/)
 {
-  // scheduler& s (*static_cast<scheduler*> (d));
-
-  // @@ TODO: add necessary #include's
-
   int sig;
-  if (int e = sigwait (nullptr /*TODO*/, &sig))
+  if (int e = sigwait (&sigwait_mask, &sig))
   {
-    cerr << "error: sigwait returned with error code " << e << endl;
-    terminate (false /* trace */);
+    cerr << "error: unable to wait signals: "
+         << system_error (e, generic_category ()) // Sanitize.
+         << endl;
+
+    exit (1);
   }
 
   if (sig == SIGUSR1) // Request to shutdown.
     return nullptr;
 
-  // @@ TODO: unmask the signal so that it can be raised.
+  // Suppress any further diagnostics.
+  //
+  // Note that the primary goal here is to suppress diagnostics about
+  // abnormally terminated child processes, which could have been terminated
+  // due to a signal sent to the whole process group (see
+  // libbutl::process::wait() implementation for details on the issue we try
+  // to resolve).
+  //
+  diag_stream_lock dl;
 
+  // @@ We could probably instruct the scheduler to pre-shutdown (stop
+  //    executing new tasks, etc), once such feature is implemented.
+  //
+  // scheduler& s (*static_cast<scheduler*> (d));
+
+  // Unblock the signal, so that it can be raised.
+  //
+  sigset_t um;
+  sigemptyset (&um);
+  sigaddset (&um, sig);
+
+  if (int e = pthread_sigmask (SIG_UNBLOCK, &um, nullptr /* oldset */))
+  {
+    cerr << "error: unable to unblock signal " << sig << ": "
+         << system_error (e, generic_category ()) // Sanitize.
+         << endl;
+
+    exit (1);
+  }
+
+  // Call the signal handler.
+  //
   build2_b_cleanup_handler (sig);
 
   return nullptr;
@@ -308,8 +342,10 @@ main (int argc, char* argv[])
   int r (0);
   b_options ops;
   scheduler sched;
+
 #ifndef _WIN32
   thread sigwait_thread;
+  sigset_t prev_signal_mask;
 #endif
 
   // Statistics.
@@ -503,6 +539,11 @@ main (int argc, char* argv[])
     // Register the jobserver cleanup signal handler if serial execution and
     // start the sigwait() thread if parallel.
     //
+    // Note that the reason why we use sigwait() for parallel execution is to
+    // suppress diagnostics about abnormally terminated child processes. That
+    // won't be easy to implement in the signal handler, since it involves
+    // using functions which are not async signal-safe (mutex lock, etc).
+    //
 #ifndef _WIN32
     if (jobserver.active)
     {
@@ -520,15 +561,28 @@ main (int argc, char* argv[])
       }
       else
       {
-        // @@ TODO: mask SIGTERM, etc and SIGUSR1.
+        // Only mask the signals which we plan to handle.
         //
-        // Feels like we don't need to mask signals we don't plan to handle?
-        //
+        sigemptyset (&sigwait_mask);
+
+        sigaddset (&sigwait_mask, SIGTERM);
+        sigaddset (&sigwait_mask, SIGINT);
+        sigaddset (&sigwait_mask, SIGABRT);
+        sigaddset (&sigwait_mask, SIGHUP);
+        sigaddset (&sigwait_mask, SIGUSR1);
+
+        if (int e = pthread_sigmask (SIG_SETMASK,
+                                     &sigwait_mask,
+                                     &prev_signal_mask))
+        {
+          fail << "unable to block signals: "
+               << system_error (e, generic_category ()); // Sanitize.
+        }
 
         sigwait_thread = thread (sigwait_thread_function, &sched);
       }
-#endif
     }
+#endif
 
     // Start up the scheduler and allocate lock shards.
     //
@@ -1905,24 +1959,29 @@ main (int argc, char* argv[])
   // Note that we must send the signal to the process, not the current
   // thread (which is what raise() does in a multi-threaded process).
   //
-  // @@ TODO: add necessary #include
-  //
-  // @@ TODO: handle errors.
-  //
   if (sigwait_thread.joinable ())
   {
-#if 1
-    kill (getpid (), SIGUSR1);
-#else
-    // @@ TODO: try this, AI says should always work.
-    //
-    pthread_t h (sigwait_thread.native_handle ());
-    pthread_kill (h, SIGUSR1);
-#endif
+    if (kill (getpid (), SIGUSR1) != 0)
+    {
+      cerr << "error: unable to send terminating signal: "
+           << system_error (errno, generic_category ()) // Sanitize.
+           << endl;
+
+      return 1;
+    }
 
     sigwait_thread.join ();
 
-    // @@ TODO unmask signals we masked above.
+    if (int e = pthread_sigmask (SIG_SETMASK,
+                                 &prev_signal_mask,
+                                 nullptr /* oldset */))
+    {
+      cerr << "error: unable to restore signal mask: "
+           << system_error (e, generic_category ()) // Sanitize.
+           << endl;
+
+      return 1;
+    }
   }
 #endif
 
