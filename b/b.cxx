@@ -8,7 +8,7 @@
 #endif
 
 #include <sstream>
-#include <iostream>  // cout
+#include <iostream>  // cout, cerr
 #include <exception> // terminate(), set_terminate(), terminate_handler
 
 #include <libbutl/pager.hxx>
@@ -272,6 +272,30 @@ build2_b_cleanup_handler (int sig)
   if (sigaction (sig, &sa, nullptr /* oldact */) != 0 || raise (sig) != 0)
     _exit (1);
 }
+
+static void*
+sigwait_thread_function (void* /*d*/)
+{
+  // scheduler& s (*static_cast<scheduler*> (d));
+
+  // @@ TODO: add necessary #include's
+
+  int sig;
+  if (int e = sigwait (nullptr /*TODO*/, &sig))
+  {
+    cerr << "error: sigwait returned with error code " << e << endl;
+    terminate (false /* trace */);
+  }
+
+  if (sig == SIGUSR1) // Request to shutdown.
+    return nullptr;
+
+  // @@ TODO: unmask the signal so that it can be raised.
+
+  build2_b_cleanup_handler (sig);
+
+  return nullptr;
+}
 #endif
 
 int build2::
@@ -284,6 +308,9 @@ main (int argc, char* argv[])
   int r (0);
   b_options ops;
   scheduler sched;
+#ifndef _WIN32
+  thread sigwait_thread;
+#endif
 
   // Statistics.
   //
@@ -408,22 +435,6 @@ main (int argc, char* argv[])
     load_builtin_module (&cli::build2_cli_load);
 #endif
 
-    // Register the cleanup handler.
-    //
-#ifndef _WIN32
-    {
-      struct sigaction sa;
-      ::memset (&sa, 0, sizeof (sa));
-      sigemptyset (&sa.sa_mask);
-      sa.sa_handler = build2_b_cleanup_handler;
-
-      sigaction (SIGTERM, &sa, nullptr /* oldact */);
-      sigaction (SIGINT,  &sa, nullptr /* oldact */);
-      sigaction (SIGABRT, &sa, nullptr /* oldact */);
-      sigaction (SIGHUP,  &sa, nullptr /* oldact */);
-    }
-#endif
-
     // Jobserver.
     //
     // Note that we want the jobserver even during serial execution since
@@ -487,6 +498,36 @@ main (int argc, char* argv[])
           fail << "unable to set environment variable MAKEFLAGS: " << e;
         }
       }
+    }
+
+    // Register the jobserver cleanup signal handler if serial execution and
+    // start the sigwait() thread if parallel.
+    //
+#ifndef _WIN32
+    if (jobserver.active)
+    {
+      if (cmdl.jobs == 1)
+      {
+        struct sigaction sa;
+        ::memset (&sa, 0, sizeof (sa));
+        sigemptyset (&sa.sa_mask);
+        sa.sa_handler = build2_b_cleanup_handler;
+
+        sigaction (SIGTERM, &sa, nullptr /* oldact */);
+        sigaction (SIGINT,  &sa, nullptr /* oldact */);
+        sigaction (SIGABRT, &sa, nullptr /* oldact */);
+        sigaction (SIGHUP,  &sa, nullptr /* oldact */);
+      }
+      else
+      {
+        // @@ TODO: mask SIGTERM, etc and SIGUSR1.
+        //
+        // Feels like we don't need to mask signals we don't plan to handle?
+        //
+
+        sigwait_thread = thread (sigwait_thread_function, &sched);
+      }
+#endif
     }
 
     // Start up the scheduler and allocate lock shards.
@@ -1859,6 +1900,31 @@ main (int argc, char* argv[])
 
   if (jobserver.active)
     jobserver.cancel (); // Removed by shutdown().
+
+#ifndef _WIN32
+  // Note that we must send the signal to the process, not the current
+  // thread (which is what raise() does in a multi-threaded process).
+  //
+  // @@ TODO: add necessary #include
+  //
+  // @@ TODO: handle errors.
+  //
+  if (sigwait_thread.joinable ())
+  {
+#if 1
+    kill (getpid (), SIGUSR1);
+#else
+    // @@ TODO: try this, AI says should always work.
+    //
+    pthread_t h (sigwait_thread.native_handle ());
+    pthread_kill (h, SIGUSR1);
+#endif
+
+    sigwait_thread.join ();
+
+    // @@ TODO unmask signals we masked above.
+  }
+#endif
 
   // In our world we wait for all the tasks to complete, even in case of a
   // failure (see, for example, wait_guard).
