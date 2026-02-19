@@ -3298,26 +3298,33 @@ namespace build2
         hk.file = move (fp);
         hk.hash = hash<string> () (hk.file.string ());
 
-        slock l (hc.header_map_mutex);
-        auto i (hc.header_map.find (hk));
-        if (i != hc.header_map.end ())
         {
-          //cache_hit.fetch_add (1, memory_order_relaxed);
-
-          if (readonly != nullptr)
+          slock l (hc.header_map_mutex);
+          auto i (hc.header_map.find (hk));
+          if (i != hc.header_map.end ())
           {
-            if (!i->second.readonly)
-              i->second.readonly = i->second.target->readonly ();
+            //cache_hit.fetch_add (1, memory_order_relaxed);
 
-            *readonly = *i->second.readonly;
+            if (readonly != nullptr)
+            {
+              if (!i->second.readonly)
+              {
+                l.unlock ();
+                ulock ul (hc.header_map_mutex);
+                if (!i->second.readonly) // Recheck.
+                  i->second.readonly = i->second.target->readonly ();
+              }
+
+              *readonly = *i->second.readonly;
+            }
+
+            return make_pair (i->second.target, false);
           }
 
-          return make_pair (i->second.target, false);
+          //cache_mis.fetch_add (1, memory_order_relaxed);
         }
 
         fp = move (hk.file);
-
-        //cache_mis.fetch_add (1, memory_order_relaxed);
       }
 
       struct data
@@ -3434,17 +3441,20 @@ namespace build2
         hk.file = move (fp);
         hk.hash = hash<string> () (hk.file.string ());
 
-        slock l (hc.header_map_mutex);
-        auto i (hc.header_map.find (hk));
-        if (i != hc.header_map.end ())
         {
-          //cache_hit.fetch_add (1, memory_order_relaxed);
-          return make_pair (i->second.target, false);
+          slock l (hc.header_map_mutex);
+          auto i (hc.header_map.find (hk));
+          if (i != hc.header_map.end ())
+          {
+            //cache_hit.fetch_add (1, memory_order_relaxed);
+
+            return make_pair (i->second.target, false);
+          }
+
+          //cache_mis.fetch_add (1, memory_order_relaxed);
         }
 
         fp = move (hk.file);
-
-        //cache_mis.fetch_add (1, memory_order_relaxed);
       }
 
       struct data

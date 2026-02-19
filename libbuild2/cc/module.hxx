@@ -160,6 +160,9 @@ namespace build2
         }
       };
 
+      // Note that the header cache value is "stable", meaning we never change
+      // the target or the readonly flag once either is set.
+      //
       struct header_value
       {
         const file* target;
