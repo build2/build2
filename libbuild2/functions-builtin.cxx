@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include <libbutl/uuid.hxx>
+#include <libbutl/sha256.hxx>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/function.hxx>
@@ -190,7 +191,7 @@ namespace build2
       return os.str ();
     };
 
-    // $getenv(<name>)
+    // $getenv(<untyped>)
     //
     // Get the value of the environment variable. Return `null` if the
     // environment variable is not set.
@@ -231,6 +232,36 @@ namespace build2
       {
         fail << "unable to generate uuid: " << e << endf;
       }
+    };
+
+    // $sha256sum(<untyped>)
+    //
+    // Return SHA256 checksum of the passed string.
+    //
+    // See also `$xxh64sum()` for a faster but non-cryptographic alternative.
+    //
+    f["sha256sum"] += [] (names name)
+    {
+      // Note that for consistency with the sha256sum builtin, the hash
+      // doesn't include the '\0' terminator.
+      //
+      string s (convert<string> (move (name)));
+      return string (butl::sha256 (s.c_str (), s.size ()).string ());
+    };
+
+    // $xxh64sum(<untyped>)
+    //
+    // Return XXH64 checksum of the passed string.
+    //
+    // See also `$sha256sum()` for a slower but cryptographic alternative.
+    //
+    f["xxh64sum"] += [] (names name)
+    {
+      // Note that for consistency with the xxh64sum builtin, the hash doesn't
+      // include the '\0' terminator.
+      //
+      string s (convert<string> (move (name)));
+      return string (xxh64::string (s.c_str (), s.size ()).data ());
     };
   }
 }

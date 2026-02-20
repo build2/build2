@@ -167,3 +167,43 @@
       EOO
   }
 }}
+
+: sha256sum
+:
+{{
+  : not-empty
+  :
+  {
+    sha256sum --sum-only <:'abc' | set checksum
+
+    $* <'print $sha256sum("abc")' >$checksum
+  }
+
+  : empty
+  :
+  {
+    sha256sum --sum-only <:'' | set checksum
+
+    $* <'print $sha256sum("")' >$checksum
+  }
+}}
+
+: xxh64sum
+:
+{{
+  : not-empty
+  :
+  {
+    xxh64sum --sum-only <:'abc' | set checksum
+
+    $* <'print $xxh64sum("abc")' >$checksum
+  }
+
+  : empty
+  :
+  {
+    xxh64sum --sum-only <:'' | set checksum
+
+    $* <'print $xxh64sum("")' >$checksum
+  }
+}}
