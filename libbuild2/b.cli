@@ -583,7 +583,7 @@ namespace build2
       "Don't use color in diagnostics."
     }
 
-    size_t --jobs|-j
+    int32_t --jobs|-j
     {
       "<num>",
       "Number of active jobs to perform in parallel. This includes both the
@@ -592,7 +592,9 @@ namespace build2
        finished. The jobserver requests (see \cb{--jobserver}) are also
        counted against this number. If this option is not specified or
        specified with the \cb{0} value, then the number of available
-       hardware threads is used."
+       hardware threads is used. If the specified value is negative, then
+       the number of available hardware threads reduced by this value is
+       used."
     }
 
     size_t --max-jobs|-J

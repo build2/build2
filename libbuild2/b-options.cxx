@@ -534,7 +534,7 @@ namespace build2
 
     if (a.jobs_specified_)
     {
-      ::build2::build::cli::parser< size_t>::merge (
+      ::build2::build::cli::parser< int32_t>::merge (
         this->jobs_, a.jobs_);
       this->jobs_specified_ = true;
     }
@@ -827,7 +827,10 @@ namespace build2
        << "                        The jobserver requests (see \033[1m--jobserver\033[0m) are also" << ::std::endl
        << "                        counted against this number. If this option is not" << ::std::endl
        << "                        specified or specified with the \033[1m0\033[0m value, then the" << ::std::endl
-       << "                        number of available hardware threads is used." << ::std::endl;
+       << "                        number of available hardware threads is used. If the" << ::std::endl
+       << "                        specified value is negative, then the number of" << ::std::endl
+       << "                        available hardware threads reduced by this value is" << ::std::endl
+       << "                        used." << ::std::endl;
 
     os << std::endl
        << "\033[1m--max-jobs\033[0m|\033[1m-J\033[0m \033[4mnum\033[0m       Maximum number of jobs (threads) to create. The default" << ::std::endl
@@ -1199,10 +1202,10 @@ namespace build2
       _cli_b_options_map_["--no-diag-color"] =
       &::build2::build::cli::thunk< b_options, &b_options::no_diag_color_ >;
       _cli_b_options_map_["--jobs"] =
-      &::build2::build::cli::thunk< b_options, size_t, &b_options::jobs_,
+      &::build2::build::cli::thunk< b_options, int32_t, &b_options::jobs_,
         &b_options::jobs_specified_ >;
       _cli_b_options_map_["-j"] =
-      &::build2::build::cli::thunk< b_options, size_t, &b_options::jobs_,
+      &::build2::build::cli::thunk< b_options, int32_t, &b_options::jobs_,
         &b_options::jobs_specified_ >;
       _cli_b_options_map_["--max-jobs"] =
       &::build2::build::cli::thunk< b_options, size_t, &b_options::max_jobs_,

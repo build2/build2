@@ -39,7 +39,7 @@ namespace build2
                    int argc, char* argv[],
                    b_options&,
                    uint16_t default_verbosity = 1,
-                   size_t default_jobs = 0);
+                   optional<int32_t> override_jobs = nullopt);
 }
 
 #endif // LIBBUILD2_B_CMDLINE_HXX

@@ -24,7 +24,7 @@ namespace build2
                    int argc, char* argv[],
                    b_options& ops,
                    uint16_t def_verb,
-                   size_t def_jobs)
+                   optional<int32_t> ovr_jobs)
   {
     // Note that the diagnostics verbosity level can only be calculated after
     // default options are loaded and merged (see below). Thus, until then we
@@ -465,19 +465,32 @@ namespace build2
                       ? optional<path> (ops.config_guess ())
                       : nullopt);
 
-    if (ops.jobs_specified ())
-      r.jobs = ops.jobs ();
-    else if (ops.serial_stop ())
-      r.jobs = 1;
+    int32_t jobs (ovr_jobs              ? *ovr_jobs   :
+                  ops.jobs_specified () ? ops.jobs () :
+                  ops.serial_stop ()    ? 1           : 0);
 
-    if (def_jobs != 0)
-      r.jobs = def_jobs;
+    if (jobs > 0)
+      r.jobs = static_cast<size_t> (jobs);
     else
     {
-      if (r.jobs == 0)
-        r.jobs = scheduler::hardware_concurrency ();
+      r.jobs = scheduler::hardware_concurrency ();
 
-      if (r.jobs == 0)
+      if (r.jobs != 0)
+      {
+        if (jobs == 0)
+          ;
+        else if (r.jobs > std::abs (jobs))
+          r.jobs += jobs;
+        else
+        {
+          // Fallback to serial execution if the number of available threads
+          // is less than the reduction. Failing in this case doesn't seem
+          // very useful but we could issue a warning.
+          //
+          r.jobs = 1;
+        }
+      }
+      else
       {
         warn << "unable to determine the number of hardware threads" <<
           info << "falling back to serial execution" <<

@@ -92,7 +92,7 @@ namespace build2
     return this->no_diag_color_;
   }
 
-  inline const size_t& b_options::
+  inline const int32_t& b_options::
   jobs () const
   {
     return this->jobs_;
