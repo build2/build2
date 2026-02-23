@@ -479,7 +479,7 @@ namespace build2
       {
         if (jobs == 0)
           ;
-        else if (r.jobs > std::abs (jobs))
+        else if (r.jobs > static_cast<uint32_t> (std::abs (int64_t (jobs))))
           r.jobs += jobs;
         else
         {
