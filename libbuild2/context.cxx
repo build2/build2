@@ -92,7 +92,7 @@ namespace build2
     // unusable).
     //
     path_name in ("<cmdline>");
-    lexer l (is, in, 1 /* line */, "\'\"\\$(");
+    lexer l (is, in, 1 /* line */, 1 /* column */, "\'\"\\$(");
 
     // At the buildfile level the scope-specific variable should be separated
     // from the directory with a whitespace, for example:

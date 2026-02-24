@@ -87,7 +87,7 @@ namespace build2
              const redirect_aliases_type& ra,
              uint64_t syntax,
              const char* escapes = nullptr)
-          : base_lexer (is, name, 1 /* line */,
+          : base_lexer (is, name, 1 /* line */, 1 /* column */,
                         nullptr     /* escapes */,
                         false       /* set_mode */),
             redirect_aliases (ra),
@@ -134,7 +134,7 @@ namespace build2
              bool set_mode,
              const redirect_aliases_type& ra,
              uint64_t syntax)
-          : base_lexer (is, name, line, escapes, set_mode),
+          : base_lexer (is, name, line, 1 /* column */, escapes, set_mode),
             redirect_aliases (ra),
             syntax_ (syntax) {assert (syntax <= 2);}
 

@@ -65,7 +65,7 @@ namespace build2
         //          Perhaps we should redirect it? Also below.
         //
         path_name in (o);
-        lexer l (is, in, 1 /* line */, "\'\"\\$("); // Effective.
+        lexer l (is, in, 1 /* line */, 1 /* column */, "\'\"\\$("); // Effective.
         parser p (nullptr);
         return p.parse_names (l, nullptr, parser::pattern_mode::preserve);
       }

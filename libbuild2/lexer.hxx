@@ -127,9 +127,10 @@ namespace build2
     //
     lexer (istream& is,
            const path_name& name,
-           uint64_t line = 1, // Start line in the stream.
+           uint64_t line = 1,   // Start line in the stream.
+           uint64_t column = 1, // Start column in the stream.
            const char* escapes = nullptr)
-      : lexer (is, name, line, escapes, true /* set_mode */) {}
+      : lexer (is, name, line, column, escapes, true /* set_mode */) {}
 
     const path_name&
     name () const {return name_;}
@@ -299,14 +300,15 @@ namespace build2
     // Lexer state.
     //
   protected:
-    lexer (istream& is, const path_name& name, uint64_t line,
+    lexer (istream& is, const path_name& name, uint64_t line, uint64_t column,
            const char* escapes,
            bool set_mode)
       : char_scanner (is,
                       butl::utf8_validator (butl::codepoint_types::graphic,
                                             U"\n\r\t"),
                       true /* crlf */,
-                      line),
+                      line,
+                      column),
         fail ("error", &name),
         name_ (name),
         sep_ (false)

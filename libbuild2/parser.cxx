@@ -10039,7 +10039,7 @@ namespace build2
     // would make directory paths on Windows unusable).
     //
     path_ = &in;
-    lexer l (is, *path_, 1 /* line */, "\'\"\\$(");
+    lexer l (is, *path_, 1 /* line */, 1 /* column */, "\'\"\\$(");
     lexer_ = &l;
 
     root_ = &ctx->global_scope.rw ();
