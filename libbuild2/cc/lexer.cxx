@@ -98,14 +98,27 @@ namespace build2
     inline auto lexer::
     get (bool e) -> xchar
     {
-      if (ungetn_ != 0)
-        return ungetb_[--ungetn_];
-      else
+      if (ungetn_ == 0)
       {
         xchar c (peek (e));
         get (c);
         return c;
       }
+
+      const unget_char& uc (ungetb_[--ungetn_]);
+
+      line     = uc.scanner_line;
+      column   = uc.scanner_column;
+      position = uc.scanner_position;
+
+#if 0
+      if (save_ != nullptr && !eos (uc))
+        save_->push_back (static_cast<char_type> (uc));
+#else
+      // assert (save_ == nullptr);
+#endif
+
+      return uc;
     }
 
     inline void lexer::
