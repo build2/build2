@@ -309,6 +309,9 @@ namespace build2
     parse_for (token&, token_type&);
 
     void
+    parse_while (token&, token_type&);
+
+    void
     parse_variable (token&, token_type&, const variable&, token_type);
 
     void

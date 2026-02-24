@@ -3414,10 +3414,10 @@ feels like. In this section we will examine the language in slightly more
 detail and with more precision.
 
 Buildfile is primarily a declarative language with support for variables, pure
-functions, repetition (\c{for}-loop), conditional inclusion/exclusion
-(\c{if-else}), and pattern matching (\c{switch}). At the lexical level,
-\c{buildfiles} are UTF-8 encoded text restricted to the Unicode graphic
-characters, tabs (\c{\\t}), carriage returns (\c{\\r}), and line feeds
+functions, repetition (\c{for}, \c{while} loops), conditional
+inclusion/exclusion (\c{if-else}), and pattern matching (\c{switch}). At the
+lexical level, \c{buildfiles} are UTF-8 encoded text restricted to the Unicode
+graphic characters, tabs (\c{\\t}), carriage returns (\c{\\r}), and line feeds
 (\c{\\n}).
 
 Buildfile is a line-oriented language. That is, every construct ends at the
@@ -4137,7 +4137,7 @@ visible outside. Additionally, the same considerations about conditional
 dependency declarations apply.
 
 
-\h2#intro-for|Repetitions (\c{for})|
+\h2#intro-for|Repetitions (\c{for}, \c{while})|
 
 The \c{for} directive can be used to repeat the same \c{buildfile} fragment
 multiple times, once for each element of a list. The fragment to repeat can be
@@ -4178,6 +4178,36 @@ for x: x X
 
 info $x  # Prints 'X'.
 info $y  # Prints 'Y'.
+\
+
+Similarly, the \c{while} directive can be used to repeat the same
+\c{buildfile} fragment multiple times, while a certain condition is met. The
+fragment is repeated as long as the condition expression evaluates to the
+literal \c{true} value. The expression can be a variable expansion, a function
+call, an eval context, or a literal value. For example:
+
+\
+i = [uint64] 0
+while ($i != 10)
+{
+  ...
+
+  i += 1
+}
+\
+
+There is also the \c{while!} variant which negates the condition (note that
+there is no space before \c{!}). For example:
+
+\
+done = [bool] false
+while! $done
+{
+  ...
+
+  if (...)
+    done = true
+}
 \
 
 

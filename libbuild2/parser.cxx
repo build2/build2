@@ -721,6 +721,10 @@ namespace build2
         {
           f = &parser::parse_for;
         }
+        else if (n == "while" || n == "while!")
+        {
+          f = &parser::parse_while;
+        }
         else if (n == "config")
         {
           f = &parser::parse_config;
@@ -5906,6 +5910,8 @@ namespace build2
     // Note that the replay approach is 4 times faster in a 1M loop (6 nested
     // for-loops with 10 iterations each).
     //
+    // Note also that there if the while loop which used the same approach.
+    //
 #if 0
     // The token replay based approach.
     //
@@ -6120,7 +6126,6 @@ namespace build2
 
       token t;
       type tt;
-      next (t, tt);
 
       if (d.block)
       {
@@ -6128,6 +6133,7 @@ namespace build2
         next (t, tt); // <newline>
       }
 
+      next (t, tt);
       parse_clause (t, tt);
 
       if (tt != (d.block ? type::rcbrace : type::eos))
@@ -6161,6 +6167,143 @@ namespace build2
     else
       iterate (val, iteration);
 #endif
+  }
+
+  void parser::
+  parse_while (token& t, type& tt)
+  {
+    // while[!] [<val-attrs>] <value>
+    //   <line>
+    //
+    // while[!] [<val-attrs>] <value>
+    // {
+    //   <block>
+    // }
+
+    string k (move (t.value));
+    bool neg (k.back () == '!');
+
+    // Similar to parse_for(), we will use the relex based approach.
+    //
+    // Note that since we need to re-evaluate the condition prior to each
+    // iteration, we will save the condition as well.
+    //
+
+    // Parse the construct.
+    //
+    string cond_and_body;
+
+    // Line and column of the first character to be saved.
+    //
+    uint64_t line (lexer_->line);
+    uint64_t column (lexer_->column);
+
+    lexer::save_guard sg (*lexer_, cond_and_body);
+
+    skip_line (t, tt); // Skip the condition (the remaining part of the line).
+
+    if (tt != type::newline)
+      fail (t) << "expected newline instead of " << t << " after " << k
+               << "-expression";
+
+    // This can be a block or a single line, similar to if-else.
+    //
+    bool block (next (t, tt) == type::lcbrace && peek () == type::newline);
+
+    if (block)
+    {
+      next (t, tt); // Get newline.
+      next (t, tt);
+
+      skip_block (t, tt);
+      sg.stop ();
+
+      if (tt != type::rcbrace)
+        fail (t) << "expected '}' instead of " << t << " at the end of "
+                 << k << "-block";
+
+      next (t, tt);                    // Presumably newline after '}'.
+      next_after_newline (t, tt, '}'); // Should be on its own line.
+    }
+    else
+    {
+      skip_line (t, tt);
+      sg.stop ();
+
+      if (tt == type::newline)
+        next (t, tt);
+    }
+
+    // Iterate.
+    //
+    istringstream is (move (cond_and_body));
+    lexer* ol (lexer_);
+
+    for (bool first (true);;)
+    {
+      // Rewind the stream.
+      //
+      if (!first)
+      {
+        is.clear ();
+        is.seekg (0);
+      }
+      else
+        first = false;
+
+      lexer l (is, *path_, line, column);
+      lexer_ = &l;
+
+      // Parse the condition similar to what we do for 'if' condition.
+      //
+      token t;
+      type tt;
+
+      // Recognize attributes before the value (see parse_if_else() for the
+      // rationale).
+      //
+      next_with_attributes (t, tt);
+
+      if (tt == type::newline || tt == type::eos)
+        fail (t) << "expected " << k << "-expression instead of " << t;
+
+      const location el (get_location (t));
+
+      try
+      {
+        // Should evaluate to 'true' or 'false'.
+        //
+        bool e (
+          convert<bool> (
+            parse_value_with_attributes (t, tt,
+                                         pattern_mode::expand,
+                                         "expression",
+                                         nullptr)));
+
+        if (tt != type::newline)
+          fail (t) << "expected newline instead of " << t << " after " << k
+                   << "-expression";
+
+        if (neg ? e : !e)
+          break;
+
+        if (block)
+        {
+          next (t, tt); // {
+          next (t, tt); // <newline>
+        }
+
+        next (t, tt);
+        parse_clause (t, tt);
+
+        if (tt != (block ? type::rcbrace : type::eos))
+          fail (t) << "expected name " << (block ? "or '}' " : "")
+                   << "instead of " << t;
+      }
+      catch (const invalid_argument& e) { fail (el) << e; }
+    }
+
+    lexer_ = ol;
   }
 
   void parser::

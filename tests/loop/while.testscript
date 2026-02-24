@@ -1,0 +1,198 @@
+# file      : tests/loop/while.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Test while-loop.
+
+.include ../common.testscript
+
+: line
+:
+$* <<EOI >>EOO
+i = [uint64] 1
+
+while ($i != 4)
+  i += 1
+
+print $i
+EOI
+4
+EOO
+
+: block
+:
+$* <<EOI >>EOO
+i = [uint64] 1
+while ($i != 4)
+{
+  # This is a block if you haven't noticed.
+  print $i
+  i += 1
+}
+print $i
+EOI
+1
+2
+3
+4
+EOO
+
+: no-condition
+:
+$* <<EOI 2>>EOE != 0
+while
+{
+}
+EOI
+<stdin>:1:6: error: expected while-expression instead of <newline>
+EOE
+
+: no-rcbrace
+:
+$* <<EOI 2>>EOE != 0
+i = [uint64] 1
+while ($i != 4)
+{
+  i += 1
+EOI
+<stdin>:5:1: error: expected '}' instead of <end of file> at the end of while-block
+EOE
+
+: negation
+:
+$* <<EOI >>EOO
+i = [uint64] 1
+while! ($i == 4)
+{
+  print $i
+  i += 1
+}
+print $i
+EOI
+1
+2
+3
+4
+EOO
+
+: no-iterations
+:
+$* <<EOI
+i = [uint64] 4
+while ($i != 4)
+  i += 1
+assert ($i == 4)
+EOI
+
+: nested
+:
+$* <<EOI >>EOO
+i = [uint64] 1
+while ($i != 4)
+{
+  signs = + -
+
+  j = [uint64] 0
+  while ($j != $size($signs))
+  {
+    print "($signs[$j])$i"
+    j += 1
+  }
+
+  i += 1
+}
+EOI
++1
+-1
++2
+-2
++3
+-3
+EOO
+
+: diag-line
+:
+$* <<EOI 2>>EOE != 0
+i = [uint64] 1
+while ($i != 4)
+{
+  assert ($i != 3)
+
+  i += 1
+}
+EOI
+<stdin>:4:3: error: assertion failed
+EOE
+
+: condition
+:
+{{
+  : attribute
+  :
+  $* <<EOI >>EOO
+  i = [uint64] 1
+  while [bool] ($i != 4)
+  {
+    print $i
+    i += 1
+  }
+  EOI
+  1
+  2
+  3
+  EOO
+
+  : literal
+  :
+  $* <<EOI >>EOO
+  while false
+  {
+  }
+  print 0
+  EOI
+  0
+  EOO
+
+  : expansion
+  :
+  $* <<EOI >>EOO
+  v = true
+  while $v
+  {
+    print $v
+    v = false
+  }
+  EOI
+  true
+  EOO
+
+  : function
+  :
+  $* <<EOI >>EOO
+  v = [null]
+  while $null($v)
+  {
+    print $v
+    v = x
+  }
+  EOI
+  [null]
+  EOO
+
+  : null
+  :
+  $* <<EOI 2>>EOE != 0
+  while [null]
+    print 'a'
+  EOI
+  <stdin>:1:7: error: invalid bool value: null
+  EOE
+
+  : invalid
+  :
+  $* <<EOI 2>>EOE != 0
+  while    abc
+    print 'a'
+  EOI
+  <stdin>:1:10: error: invalid bool value 'abc'
+  EOE
+}}
