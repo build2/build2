@@ -97,6 +97,26 @@
     cmd b
     cmd b
     EOO
+
+    : invalid-break
+    :
+    $* <<EOI 2>>EOE != 0
+    for x: y
+      continue
+    break
+    EOI
+    shellscript:13:1: error: 'break' outside loop
+    EOE
+
+    : invalid-continue
+    :
+    $* <<EOI 2>>EOE != 0
+    for x: y
+      break
+    continue
+    EOI
+    shellscript:13:1: error: 'continue' outside loop
+    EOE
   }}
 
   : rcbrace
@@ -129,11 +149,46 @@
     EOE
   }}
 
-  : nested
+  : break
   :
   {
     $* -l -r <<EOI >>EOO
     for x: a b
+    {
+      cmd1     # 1
+      break
+      cmd2     # 2
+    }
+    cmd3       # 3
+    EOI
+    cmd1 # 1 i1
+    cmd3 # 3
+    EOO
+  }
+
+  : continue
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    for x: a b
+    {
+      cmd1            # 1
+      continue
+      cmd2            # 2
+    }
+    cmd3              # 3
+    EOI
+    cmd1 # 1 i1
+    cmd1 # 1 i2
+    cmd3 # 3
+    EOO
+  }
+
+  : nested
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    for x: a b c d
     {
       cmd1 $x               # 1
       if ($x == "a")        # 2
@@ -145,8 +200,14 @@
       else
         cmd4                # 5
       cmd5                  # 6
+
+      if ($x == "c")        # 7
+        continue
+
+      if ($x == "d")        # 8
+        break
     }
-    cmd6                    # 7
+    cmd6                    # 9
     EOI
     cmd1 a # 1 i1
     ? true # 2 i1
@@ -154,11 +215,26 @@
     cmd3 # 4 i1 i1
     cmd3 # 4 i1 i2
     cmd5 # 6 i1
+    ? false # 7 i1
+    ? false # 8 i1
     cmd1 b # 1 i2
     ? false # 2 i2
     cmd4 # 5 i2
     cmd5 # 6 i2
-    cmd6 # 7
+    ? false # 7 i2
+    ? false # 8 i2
+    cmd1 c # 1 i3
+    ? false # 2 i3
+    cmd4 # 5 i3
+    cmd5 # 6 i3
+    ? true # 7 i3
+    cmd1 d # 1 i4
+    ? false # 2 i4
+    cmd4 # 5 i4
+    cmd5 # 6 i4
+    ? false # 7 i4
+    ? true # 8 i4
+    cmd6 # 9
     EOO
   }
 
@@ -357,11 +433,45 @@
     EOE
   }}
 
+  : break
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    echo 'a b' | for x  # 1
+    {
+      cmd1              # 2
+      break
+      cmd2              # 3
+    }
+    cmd3                # 4
+    EOI
+    echo 'a b' | for x # 1
+    cmd3 # 4
+    EOO
+  }
+
+  : continue
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    echo 'a b' | for x  # 1
+    {
+      cmd1              # 2
+      continue
+      cmd2              # 3
+    }
+    cmd3                # 4
+    EOI
+    echo 'a b' | for x # 1
+    cmd3 # 4
+    EOO
+  }
+
   : nested
   :
   {
     $* -l -r <<EOI >>EOO
-    echo 'a b' | for x      # 1
+    echo 'a b c d' | for x  # 1
     {
       cmd1 $x               # 2
       if ($x == "a")        # 3
@@ -373,11 +483,17 @@
       else
         cmd4                # 7
       cmd5                  # 8
+
+      if ($x == "c")        # 9
+        continue
+
+      if ($x == "d")        # 10
+        break
     }
-    cmd6                    # 9
+    cmd6                    # 11
     EOI
-    echo 'a b' | for x # 1
-    cmd6 # 9
+    echo 'a b c d' | for x # 1
+    cmd6 # 11
     EOO
   }
 }}
@@ -577,11 +693,45 @@
     EOE
   }}
 
+  : break
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    for -w x <'a b'     # 1
+    {
+      cmd1              # 2
+      break
+      cmd2              # 3
+    }
+    cmd3                # 4
+    EOI
+    for -w x <'a b' # 1
+    cmd3 # 4
+    EOO
+  }
+
+  : continue
+  :
+  {
+    $* -l -r <<EOI >>EOO
+    for -w x <'a b'     # 1
+    {
+      cmd1              # 2
+      continue
+      cmd2              # 3
+    }
+    cmd3                # 4
+    EOI
+    for -w x <'a b' # 1
+    cmd3 # 4
+    EOO
+  }
+
   : nested
   :
   {
     $* -l -r <<EOI >>EOO
-    for -w x <'a b'         # 1
+    for -w x <'a b c d'     # 1
     {
       cmd1 $x               # 2
       if ($x == "a")        # 3
@@ -593,11 +743,17 @@
       else
         cmd4                # 7
       cmd5                  # 8
+
+      if ($x == "c")        # 9
+        continue
+
+      if ($x == "d")        # 10
+        break
     }
-    cmd6                    # 9
+    cmd6                    # 11
     EOI
-    for -w x <'a b' # 1
-    cmd6 # 9
+    for -w x <'a b c d' # 1
+    cmd6 # 11
     EOO
   }
 

@@ -76,7 +76,7 @@
 :
 {
   $* -l -r <<EOI >>EOO
-  while ($v != "aa")      # 1
+  while ($v != "aaxa")    # 1
   {
     cmd1 "$v"             # 2
     if ($v == "a")        # 3
@@ -91,14 +91,27 @@
     else
       cmd4                # 7
     cmd5                  # 8
+
+    if ($v == "aa")       # 9
+    {
+      v = "$(v)x"
+      continue
+    }
+
+    while true            # 10
+      break
+
     v = "$(v)a"
   }
+  cmd6                    # 11
   EOI
   ? true # 1 i1
   cmd1 '' # 2 i1
   ? false # 3 i1
   cmd4 # 7 i1
   cmd5 # 8 i1
+  ? false # 9 i1
+  ? true # 10 i1 i1
   ? true # 1 i2
   cmd1 a # 2 i2
   ? true # 3 i2
@@ -107,7 +120,23 @@
   cmd3 # 6 i2 i1
   ? false # 5 i2 i2
   cmd5 # 8 i2
-  ? false # 1 i3
+  ? false # 9 i2
+  ? true # 10 i2 i1
+  ? true # 1 i3
+  cmd1 aa # 2 i3
+  ? false # 3 i3
+  cmd4 # 7 i3
+  cmd5 # 8 i3
+  ? true # 9 i3
+  ? true # 1 i4
+  cmd1 aax # 2 i4
+  ? false # 3 i4
+  cmd4 # 7 i4
+  cmd5 # 8 i4
+  ? false # 9 i4
+  ? true # 10 i4 i1
+  ? false # 1 i5
+  cmd6 # 11
   EOO
 }
 

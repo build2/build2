@@ -38,6 +38,8 @@ namespace build2
       case line_type::cmd_while:       return  "'while'";
       case line_type::cmd_for_args:    return  "'for'";
       case line_type::cmd_for_stream:  return  "'for'";
+      case line_type::cmd_continue:    return  "'continue'";
+      case line_type::cmd_break:       return  "'break'";
       case line_type::cmd_end:         return  "'end'";
       }
 

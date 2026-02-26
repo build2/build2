@@ -107,10 +107,10 @@ namespace build2
         // inner expressions are executed. As for example in:
         //
         // echo 'a b' | for x
+        // {
         //   echo 'c d' | for y
         //     test $x $y
-        //   end
-        // end
+        // }
         //
         size_t exec_level = 0;
 

@@ -297,6 +297,12 @@ namespace build2
       // exception (which can be 0). Optionally, throw failed on the non-zero
       // exit code instead of returning it.
       //
+      // Pass a unique line index to the command and condition callbacks for
+      // all the commands/conditions in the specified lines range. Start from
+      // the specified line_index value and increment it for each
+      // command/condition regardless whether it is executed or not. The
+      // line_index argument value is expected to be non-zero.
+      //
       // Note that if a parser implementation doesn't pre-enter variables into
       // a pool during the pre-parsing phase, then they are entered during the
       // execution phase and so the variable pool must be provided. Note that
@@ -308,7 +314,7 @@ namespace build2
                   const function<exec_cmd_function>&,
                   const function<exec_cond_function>&,
                   const function<exec_for_function>&,
-                  const iteration_index*, size_t& li,
+                  const iteration_index*, size_t& line_index,
                   bool throw_on_failure,
                   variable_pool* = nullptr);
 
@@ -372,6 +378,15 @@ namespace build2
     protected:
       lexer* lexer_ = nullptr;
       uint64_t syntax_;
+
+      // Loop constructs nesting level.
+      //
+      // The derived parser must increment this counter right before the loop
+      // body pre-parsing and decrement it afterwards. Used by
+      // pre_parse_line_start() to determine if the 'continue' and 'break'
+      // lines are valid in the current context.
+      //
+      size_t loop_level_ = 0;
     };
   }
 }

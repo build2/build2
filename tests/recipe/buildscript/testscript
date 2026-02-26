@@ -936,6 +936,85 @@ if $posix
       $* clean 2>-
     }
 
+    : break
+    :
+    {
+      echo 'bar' >=bar
+
+      cat <<EOI >=buildfile
+        foo: bar
+        {{
+          p = $path($>)
+          rm -f $p
+
+          cat $path($<) >>$p
+
+          i = [uint64] 0
+
+          while ($i != 3)
+          {
+            cat <<<$i >>$p
+
+            if ($i == '1')
+              break
+
+            i += 1
+          }
+        }}
+        EOI
+
+      $* 2>'cat file{bar} -> file{foo}'
+
+      cat <<<foo >>EOO
+        bar
+        0
+        1
+        EOO
+
+      $* clean 2>-
+    }
+
+    : continue
+    :
+    {
+      echo 'bar' >=bar
+
+      cat <<EOI >=buildfile
+        foo: bar
+        {{
+          p = $path($>)
+          rm -f $p
+
+          cat $path($<) >>$p
+
+          i = [uint64] 0
+
+          while ($i != 3)
+          {
+            if ($i == '1')
+            {
+              i += 1
+              continue
+            }
+
+            cat <<<$i >>$p
+
+            i += 1
+          }
+        }}
+        EOI
+
+      $* 2>'cat file{bar} -> file{foo}'
+
+      cat <<<foo >>EOO
+        bar
+        0
+        2
+        EOO
+
+      $* clean 2>-
+    }
+
     : exit
     :
     {
@@ -1099,6 +1178,74 @@ if $posix
         cat <<<foo >>EOO
           bar
           baz
+          EOO
+
+        $* clean 2>-
+      }
+
+      : break
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            cat $path($<) >>$p
+
+            for s: a b c
+            {
+              cat <<<$s >>$p
+
+              if ($s == 'b')
+                break
+            }
+          }}
+          EOI
+
+        $* 2>'cat file{bar} -> file{foo}'
+
+        cat <<<foo >>EOO
+          bar
+          a
+          b
+          EOO
+
+        $* clean 2>-
+      }
+
+      : continue
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            cat $path($<) >>$p
+
+            for s: a b c
+            {
+              if ($s == 'b')
+                continue
+
+              cat <<<$s >>$p
+            }
+          }}
+          EOI
+
+        $* 2>'cat file{bar} -> file{foo}'
+
+        cat <<<foo >>EOO
+          bar
+          a
+          c
           EOO
 
         $* clean 2>-
@@ -1297,6 +1444,84 @@ if $posix
           $* 2>'cat file{bar} -> file{foo}'
           $* clean 2>-
         }
+
+        : after-break
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz.bin
+
+          cat <<EOI >=buildfile
+            foo: bar baz.bin
+            {{
+              fs = [paths]
+              for f: $<
+              {
+                p = $path($f)
+
+                if ($extension($p) == 'bin')
+                  break
+
+                fs += $p
+              }
+
+              depdb hash $fs
+
+              p = $path($>)
+              rm -f $p
+
+              for f: $fs
+                cat $f >>$p
+            }}
+            EOI
+
+          $* 2>'cat file{bar} -> file{foo}'
+
+          cat <<<foo >>EOO
+            bar
+            EOO
+
+          $* clean 2>-
+        }
+
+        : after-continue
+        :
+        {
+          echo 'bar' >=bar
+          echo 'baz' >=baz.bin
+
+          cat <<EOI >=buildfile
+            foo: bar baz.bin
+            {{
+              fs = [paths]
+              for f: $<
+              {
+                p = $path($f)
+
+                if ($extension($p) == 'bin')
+                  continue
+
+                fs += $p
+              }
+
+              depdb hash $fs
+
+              p = $path($>)
+              rm -f $p
+
+              for f: $fs
+                cat $f >>$p
+            }}
+            EOI
+
+          $* 2>'cat file{bar} -> file{foo}'
+
+          cat <<<foo >>EOO
+            bar
+            EOO
+
+          $* clean 2>-
+        }
       }}
     }}
 
@@ -1329,6 +1554,74 @@ if $posix
         cat <<<foo >>EOO
           bar
           baz
+          EOO
+
+        $* clean 2>-
+      }
+
+      : break
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            cat $path($<) >>$p
+
+            cat <<<'a b c' | for -w s
+            {
+              cat <<<$s >>$p
+
+              if ($s == 'b')
+                break
+            }
+          }}
+          EOI
+
+        $* 2>'cat file{bar} -> file{foo}'
+
+        cat <<<foo >>EOO
+          bar
+          a
+          b
+          EOO
+
+        $* clean 2>-
+      }
+
+      : continue
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            cat $path($<) >>$p
+
+            cat <<<'a b c' | for -w s
+            {
+              if ($s == 'b')
+                continue
+
+              cat <<<$s >>$p
+            }
+          }}
+          EOI
+
+        $* 2>'cat file{bar} -> file{foo}'
+
+        cat <<<foo >>EOO
+          bar
+          a
+          c
           EOO
 
         $* clean 2>-
@@ -1604,6 +1897,74 @@ if $posix
           baz
           bar
           baz
+          EOO
+
+        $* clean 2>-
+      }
+
+      : break
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            cat $path($<) >>$p
+
+            for s <<<'a b c'
+            {
+              cat <<<$s >>$p
+
+              if ($s == 'b')
+                break
+            }
+          }}
+          EOI
+
+        $* 2>'cat file{bar} -> file{foo}'
+
+        cat <<<foo >>EOO
+          bar
+          a
+          b
+          EOO
+
+        $* clean 2>-
+      }
+
+      : continue
+      :
+      {
+        echo 'bar' >=bar
+
+        cat <<EOI >=buildfile
+          foo: bar
+          {{
+            p = $path($>)
+            rm -f $p
+
+            cat $path($<) >>$p
+
+            for s <<<'a b c'
+            {
+              if ($s == 'b')
+                continue
+
+              cat <<<$s >>$p
+            }
+          }}
+          EOI
+
+        $* 2>'cat file{bar} -> file{foo}'
+
+        cat <<<foo >>EOO
+          bar
+          a
+          c
           EOO
 
         $* clean 2>-

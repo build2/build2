@@ -43,6 +43,8 @@ namespace build2
       cmd_while,
       cmd_for_args,   // `for x: ...`
       cmd_for_stream, // `... | for x` and `for x <...`
+      cmd_continue,
+      cmd_break,
       cmd_end
     };
 

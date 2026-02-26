@@ -304,13 +304,17 @@ namespace build2
         case line_type::cmd_if:
         case line_type::cmd_ifn:
         case line_type::cmd_while:
+        case line_type::cmd_continue:
+        case line_type::cmd_break:
           next (t, tt); // Skip to start of command.
           // Fall through.
         case line_type::cmd:
           {
             parse_command_expr_result r;
 
-            if (lt != line_type::cmd_else)
+            if (lt != line_type::cmd_else     &&
+                lt != line_type::cmd_continue &&
+                lt != line_type::cmd_break)
               r = parse_command_expr (t, tt, lexer::redirect_aliases);
 
             if (r.for_loop)
@@ -322,7 +326,8 @@ namespace build2
             if (tt != type::newline)
               fail (t) << "expected newline instead of " << t;
 
-            parse_here_documents (t, tt, r);
+            if (!r.docs.empty ())
+              parse_here_documents (t, tt, r);
 
             break;
           }
@@ -495,10 +500,14 @@ namespace build2
         // enter: peeked first token of next line (type in tt)
         // leave: newline
 
+        ++loop_level_;
+
         if (tt == type::lcbrace)
           pre_parse_block (t, tt);
         else
           pre_parse_block_line (t, tt);
+
+        --loop_level_;
 
         // Terminate the construct with the special `end` line.
         //

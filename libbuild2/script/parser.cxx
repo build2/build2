@@ -2218,6 +2218,13 @@ namespace build2
         else if (n == "while")               r = line_type::cmd_while;
         else if (n == "for")                 r = line_type::cmd_for_stream;
         else if (n == "end" && syntax_ == 1) r = line_type::cmd_end;
+        else if (n == "continue" || n == "break")
+        {
+          r = (n == "continue" ? line_type::cmd_continue : line_type::cmd_break);
+
+          if (loop_level_ == 0)
+            fail (t) << r << " outside loop";
+        }
         else
         {
           // Switch the recognition of leading variable assignments for
@@ -2227,7 +2234,7 @@ namespace build2
           //
           type p (peek (stm));
 
-          if (p == type::assign  || p == type::prepend || p == type::append)
+          if (p == type::assign || p == type::prepend || p == type::append)
           {
             r = line_type::var;
 
@@ -2321,6 +2328,8 @@ namespace build2
                 bool throw_on_failure,
                 variable_pool* var_pool)
     {
+      assert (li != 0); // By definition.
+
       try
       {
         token t;
@@ -2343,9 +2352,10 @@ namespace build2
           const location ll (get_location (t));
 
           // If end is true, then find the flow control construct's end ('end'
-          // line). Otherwise, find the flow control construct's block end
-          // ('end', 'else', etc). If skip is true then increment the command
-          // line index.
+          // line), starting the search from the next line (j + 1). Otherwise,
+          // find the flow control construct's block end ('end', 'else',
+          // etc). If skip is true then increment the command line index for
+          // every command/condition encountered during the search.
           //
           auto fcend = [e, &li] (lines::const_iterator j,
                                  bool end,
@@ -2423,6 +2433,11 @@ namespace build2
             assert (false); // Missing end.
             return e;
           };
+
+          // Loop flow control exceptions.
+          //
+          struct continue_loop {};
+          struct break_loop {};
 
           switch (lt)
           {
@@ -2541,7 +2556,8 @@ namespace build2
               {
                 // Find block end.
                 //
-                lines::const_iterator j (fcend (i, false, false));
+                lines::const_iterator j (
+                  fcend (i, false /* end */, false /* skip */));
 
                 if (optional<uint8_t> ec =
                     exec_lines (i + 1, j,
@@ -2561,7 +2577,7 @@ namespace build2
               {
                 // Find block end.
                 //
-                i = fcend (i, false, true);
+                i = fcend (i, false /* end */, true /* skip */);
 
                 if (i->type != line_type::cmd_end)
                   --i; // Continue with this line (e.g., elif or else).
@@ -2575,7 +2591,7 @@ namespace build2
               //
               lines::const_iterator we (e);
 
-              size_t wli (li);
+              size_t wli (li); // Index of the condition line.
 
               for (iteration_index wi {1, ii};; wi.index++)
               {
@@ -2587,40 +2603,65 @@ namespace build2
 
                 // If the condition evaluates to true, then we need to parse
                 // all the lines until the end line, prepare for the condition
-                // reevaluation, and re-iterate.
+                // reevaluation, and re-iterate. Otherwise, we need to skip
+                // all the lines until the end line, bail out from the loop,
+                // and continue parsing.
                 //
-                // Otherwise, we need to skip all the lines until the end
-                // line, bail out from the loop, and continue parsing.
+                // If the 'continue' line is encountered, then we proceed
+                // normally to the condition reevaluation. If the 'break' line
+                // is encountered, then we skip all the lines until the end
+                // line and bail out from the loop, as if condition evaluated
+                // to false.
                 //
                 if (exec)
                 {
                   // Find the construct end, if it is not found yet.
                   //
                   if (we == e)
-                    we = fcend (i, true, false);
+                    we = fcend (i, true /* end */, false /* skip */);
 
-                  if (optional<uint8_t> ec =
-                      exec_lines (i + 1, we,
-                                  exec_set, exec_cmd, exec_cond, exec_for,
-                                  &wi, li,
-                                  throw_on_failure,
-                                  var_pool))
+                  try
                   {
-                    return ec;
+                    if (optional<uint8_t> ec =
+                        exec_lines (i + 1, we,
+                                    exec_set, exec_cmd, exec_cond, exec_for,
+                                    &wi, li,
+                                    throw_on_failure,
+                                    var_pool))
+                    {
+                      return ec;
+                    }
                   }
+                  catch (const continue_loop&) { /* noop */ }
+                  catch (const break_loop&)
+                  {
+                    exec = false;
 
+                    // Note that since the above exec_lines() call was
+                    // interrupted, it didn't increment the line index for all
+                    // the loop body lines. Thus, reset the index to the line
+                    // which follows the condition, so that the below fcend()
+                    // call will increment it as if the loop has ended
+                    // naturally.
+                    //
+                    li = wli + 1;
+                  }
+                }
+
+                if (exec)
+                {
                   // Prepare for the condition reevaluation.
                   //
                   replay_data (ln.tokens);
                   next (t, tt);
-                  li = wli;
+                  li = wli; // Restore the line index to the condition line.
                 }
                 else
                 {
                   // Position to the construct end, always incrementing the
                   // line index (skip is true).
                   //
-                  i = fcend (i, true, true);
+                  i = fcend (i, true /* end */, true /* skip */);
                   break; // Bail out from the while-loop.
                 }
               }
@@ -2633,6 +2674,20 @@ namespace build2
               //
               lines::const_iterator fe (e);
 
+              // Note that 'li' contains the index of the 'for' line and 'fli'
+              // -- of the command line that follows, normally the first
+              // command in the loop's body.
+              //
+              size_t fli (li + 1);
+
+              // Note that if the loop completes normally (no 'break' or
+              // 'continue' at the last iteration was encountered), then the
+              // underlying exec_lines() increments the line index (li)
+              // naturally, so that it is appropriate for a command line that
+              // follows the loop. Otherwise, the index is spoiled and we need
+              // to recalculate it using fcend(). The underlying iteration
+              // function indicates that need by setting the index to 0.
+              //
               // Let's "wrap up" all the required data into the single object
               // to rely on the "small function object" optimization.
               //
@@ -2645,14 +2700,17 @@ namespace build2
                 lines::const_iterator i;
                 lines::const_iterator e;
                 const iteration_index* ii;
-                size_t& li;
+                size_t& li;             // If 0, then needs to be re-calculated.
+                size_t fli;
+                bool break_loop;        // True if 'break' was encountered.
                 bool throw_on_failure;
                 variable_pool* var_pool;
                 decltype (fcend)& fce;
                 lines::const_iterator& fe;
               } ld {exec_set, exec_cmd, exec_cond, exec_for,
                     i, e,
-                    ii, li,
+                    ii, li, fli,
+                    false /* break_loop */,
                     throw_on_failure,
                     var_pool,
                     fcend,
@@ -2717,12 +2775,15 @@ namespace build2
 
                     // Since the command pipe is parsed, we can stop
                     // replaying. Note that we should do this before calling
-                    // exec_lines() for the loop body. Also note that we
-                    // should increment the line index before that.
+                    // exec_lines() for the loop body.
                     //
                     replay_stop ();
 
-                    size_t fli (++ld.li);
+                    // Set the index for the command line which follows the
+                    // 'for' line.
+                    //
+                    ld.li = ld.fli;
+
                     iteration_index fi {1, ld.ii};
 
                     // Let's "wrap up" all the required data into the single
@@ -2736,16 +2797,39 @@ namespace build2
                       const string& vname;
                       const string& attrs;
                       const location& ll;
-                      size_t fli;
                       iteration_index& fi;
-                    } d {ld, env, vname, attrs, ll, fli, fi};
+                    } d {ld, env, vname, attrs, ll, fi};
 
-                    function<void (string&&)> f (
+                    function<void (string&&)> iteration (
                       [&d, this] (string&& s)
                       {
                         loop_data& ld (d.ld);
 
-                        ld.li = d.fli;
+                        // Note that we don't leave the read() function
+                        // immediately by throwing an exception when 'break'
+                        // is encountered. Instead, we allow read() to read
+                        // out the input (to keep the writer happy), just
+                        // skipping the input elements.
+                        //
+                        // @@ I actually wonder if the exit builtin always
+                        //    works properly, not causing such a writer to
+                        //    complain.
+                        //
+                        //    No, it doesn't see the currently disabled
+                        //    for/form-2/exit-unread test which fails with the
+                        //    'cat: unable to print stdin: broken pipe' error.
+                        //
+                        //    To fix it, instead of throwing exit() below, we
+                        //    need to save the code and read out the input.
+                        //
+                        //    Or, better, we need to change the API, so that
+                        //    the read function callback returns boolean and
+                        //    if the returned value is false, then read()
+                        //    needs to stop calling the callback but still
+                        //    read out the input.
+                        //
+                        if (ld.break_loop)
+                          return;
 
                         // Don't move from the variable name since it is used
                         // on each iteration.
@@ -2755,22 +2839,53 @@ namespace build2
                                             d.attrs,
                                             d.ll);
 
+                        // At the beginning of each iteration restore the line
+                        // index to the command line which follows the 'for'
+                        // line.
+                        //
+                        ld.li = ld.fli;
+
                         // Find the construct end, if it is not found yet.
                         //
                         if (ld.fe == ld.e)
-                          ld.fe = ld.fce (ld.i, true, false);
-
-                        if (optional<uint8_t> ec =
-                            exec_lines (ld.i + 1, ld.fe,
-                                        ld.exec_set,
-                                        ld.exec_cmd,
-                                        ld.exec_cond,
-                                        ld.exec_for,
-                                        &d.fi, ld.li,
-                                        ld.throw_on_failure,
-                                        ld.var_pool))
                         {
-                          throw exit (*ec);
+                          ld.fe = ld.fce (ld.i,
+                                          true /* end */,
+                                          false  /* skip */);
+                        }
+
+                        try
+                        {
+                          if (optional<uint8_t> ec =
+                              exec_lines (ld.i + 1, ld.fe,
+                                          ld.exec_set,
+                                          ld.exec_cmd,
+                                          ld.exec_cond,
+                                          ld.exec_for,
+                                          &d.fi, ld.li,
+                                          ld.throw_on_failure,
+                                          ld.var_pool))
+                          {
+                            throw exit (*ec);
+                          }
+                        }
+                        catch (const continue_loop&)
+                        {
+                          // Note that the line index will be restored at the
+                          // beginning of the next iteration or, if this is
+                          // the last iteration, recalculated by the
+                          // subsequent fcend() call.
+                          //
+                          ld.li = 0;
+                        }
+                        catch (const break_loop&)
+                        {
+                          ld.break_loop = true;
+
+                          // Note that the line index will be recalculated by
+                          // the subsequent fcend() call.
+                          //
+                          ld.li = 0;
                         }
 
                         d.fi.index++;
@@ -2778,7 +2893,7 @@ namespace build2
 
                     read (move (in),
                           !ops.newline (), ops.newline (), ops.exact (),
-                          f,
+                          iteration,
                           pipe,
                           dl,
                           ll,
@@ -2792,9 +2907,16 @@ namespace build2
 
               exec_cmd (t, tt, ii, li, false /* single */, cf, ll);
 
-              // Position to construct end.
+              // Position to construct end, recalculating the line index, if
+              // requested.
               //
-              i = (fe != e ? fe : fcend (i, true, true));
+              if (li == 0)
+              {
+                li = fli;
+                fe = e;
+              }
+
+              i = (fe != e ? fe : fcend (i, true /* end */, true /* skip */));
 
               break;
             }
@@ -2855,6 +2977,13 @@ namespace build2
               //
               lines::const_iterator fe (e);
 
+              // Note that the 'for' line in this form is not a command and
+              // thus has no line index associated. That's why, both 'li' and
+              // 'fli' contain the index of the command line that follows the
+              // 'for' line, normally the first command in the loop's body.
+              //
+              size_t fli (li);
+
               if (val)
               {
                 // If the value type provides custom iterate function, then
@@ -2879,12 +3008,13 @@ namespace build2
                   untypify (val, false /* reduce */);
                 }
 
-                size_t fli (li);
                 iteration_index fi {1, ii};
 
                 names* ns (!iterate ? &val.as<names> () : nullptr);
 
-                // Similar to above.
+                // Similar to above (see the above for-stream implementation
+                // notes for the details on the 'break' and 'continue' lines
+                // handling).
                 //
                 struct loop_data
                 {
@@ -2895,9 +3025,10 @@ namespace build2
                   lines::const_iterator i;
                   lines::const_iterator e;
                   const location& ll;
-                  size_t& li;
+                  size_t& li;          // If 0, then needs to be re-calculated.
                   size_t fli;
                   optional<uint8_t> exit_code;
+                  bool break_loop;     // True if 'break' was encountered.
                   bool throw_on_failure;
                   variable_pool* var_pool;
                   const variable& var;
@@ -2909,6 +3040,7 @@ namespace build2
                       i, e,
                       ll, li, fli,
                       nullopt /* exit_code */,
+                      false /* break_loop */,
                       throw_on_failure,
                       var_pool, *var, val_attrs,
                       fcend, fe, fi};
@@ -2916,29 +3048,44 @@ namespace build2
                 function<bool (value&&, bool first)> iteration =
                   [this, &ld] (value&& v, bool)
                 {
-                  ld.li = ld.fli;
-
                   ld.exec_for (ld.var, move (v), ld.val_attrs, ld.ll);
+
+                  // At the beginning of each iteration restore the line index
+                  // to the command line which follows the 'for' line.
+                  //
+                  ld.li = ld.fli;
 
                   // Find the construct end, if it is not found yet.
                   //
                   if (ld.fe == ld.e)
-                    ld.fe = ld.fce (ld.i, true, false);
+                    ld.fe = ld.fce (ld.i, true /* end */, false /* skip */);
 
-                  if (optional<uint8_t> ec =
-                      exec_lines (
-                        ld.i + 1, ld.fe,
-                        ld.exec_set, ld.exec_cmd, ld.exec_cond, ld.exec_for,
-                        &ld.fi, ld.li,
-                        ld.throw_on_failure,
-                        ld.var_pool))
+                  try
                   {
-                    ld.exit_code = *ec;
-                    return false;
+                    if (optional<uint8_t> ec =
+                        exec_lines (
+                          ld.i + 1, ld.fe,
+                          ld.exec_set, ld.exec_cmd, ld.exec_cond, ld.exec_for,
+                          &ld.fi, ld.li,
+                          ld.throw_on_failure,
+                          ld.var_pool))
+                    {
+                      ld.exit_code = *ec;
+                      return false;
+                    }
+                  }
+                  catch (const continue_loop&)
+                  {
+                    ld.li = 0;
+                  }
+                  catch (const break_loop&)
+                  {
+                    ld.break_loop = true;
+                    ld.li = 0;
                   }
 
                   ld.fi.index++;
-                  return true;
+                  return !ld.break_loop;
                 };
 
                 if (!iterate)
@@ -2962,8 +3109,14 @@ namespace build2
 
                     if (!iteration (move (v), first))
                     {
-                      assert (ld.exit_code); // Wouldn't be here otherwise.
-                      return *ld.exit_code;
+                      // Wouldn't be here otherwise.
+                      //
+                      assert (ld.exit_code.has_value () != ld.break_loop);
+
+                      if (ld.exit_code)
+                        return *ld.exit_code;
+
+                      break; // Bail out from the 'for' loop due to 'break'.
                     }
                   }
                 }
@@ -2971,20 +3124,33 @@ namespace build2
                 {
                   if (!iterate (val, iteration))
                   {
-                    assert (ld.exit_code); // Wouldn't be here otherwise.
-                    return *ld.exit_code;
+                    // Wouldn't be here otherwise.
+                    //
+                    assert (ld.exit_code.has_value () != ld.break_loop);
+
+                    if (ld.exit_code)
+                      return *ld.exit_code;
                   }
                 }
 
                 assert (!ld.exit_code); // Wouldn't be here otherwise.
               }
 
-              // Position to construct end.
+              // Position to construct end, recalculating the line index, if
+              // requested.
               //
-              i = (fe != e ? fe : fcend (i, true, true));
+              if (li == 0)
+              {
+                li = fli;
+                fe = e;
+              }
+
+              i = (fe != e ? fe : fcend (i, true /* end */, true /* skip */));
 
               break;
             }
+          case line_type::cmd_continue: replay_stop (); throw continue_loop ();
+          case line_type::cmd_break:    replay_stop (); throw break_loop ();
           case line_type::cmd_end:
             {
               assert (false);
