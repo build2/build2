@@ -2896,6 +2896,7 @@ namespace build2
                   lines::const_iterator e;
                   const location& ll;
                   size_t& li;
+                  size_t fli;
                   optional<uint8_t> exit_code;
                   bool throw_on_failure;
                   variable_pool* var_pool;
@@ -2906,7 +2907,7 @@ namespace build2
                   iteration_index& fi;
                 } ld {exec_set, exec_cmd, exec_cond, exec_for,
                       i, e,
-                      ll, li,
+                      ll, li, fli,
                       nullopt /* exit_code */,
                       throw_on_failure,
                       var_pool, *var, val_attrs,
@@ -2915,6 +2916,8 @@ namespace build2
                 function<bool (value&&, bool first)> iteration =
                   [this, &ld] (value&& v, bool)
                 {
+                  ld.li = ld.fli;
+
                   ld.exec_for (ld.var, move (v), ld.val_attrs, ld.ll);
 
                   // Find the construct end, if it is not found yet.
@@ -2945,8 +2948,6 @@ namespace build2
                        ++ni)
                   {
                     bool first (ni == nb);
-
-                    li = fli;
 
                     // Set the variable value.
                     //
