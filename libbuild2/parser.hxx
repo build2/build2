@@ -177,6 +177,28 @@ namespace build2
   protected:
     using pattern_type = name::pattern_type;
 
+    // Loop flow control exception.
+    //
+    // Note that if parse_clause () encounters the 'continue' or 'break'
+    // directive, then, if the being parsed clause is contained in the loop
+    // body and the allow_loop_control argument is true, it throws
+    // loop_control and fails otherwise. The parse_for() and parse_while()
+    // functions increment the loop_level_ counter for the duration of the
+    // loop body parsing and handle loop_control.
+    //
+    struct loop_control
+    {
+      enum
+      {
+        continue_,
+        break_
+      } directive;
+    };
+
+    // If allow_loop_control is false, then assume that this clause may not
+    // contain 'continue' or 'break' directive for an outer (for this clause)
+    // loop and fail if such a directive is encountered.
+    //
     // If one is true then parse a single (logical) line (logical means it
     // can actually be several lines, e.g., an if-block). Return false if
     // nothing has been parsed (i.e., we are still on the same token).
@@ -186,10 +208,15 @@ namespace build2
     // otherwise.
     //
     bool
-    parse_clause (token&, token_type&, bool one = false);
+    parse_clause (token&, token_type&,
+                  bool allow_loop_control,
+                  bool one = false);
 
     void
-    parse_clause_block (token& t, token_type& tt, bool, const string&);
+    parse_clause_block (token&, token_type&,
+                        bool allow_loop_control,
+                        bool skip,
+                        const string& keyword);
 
     void
     parse_variable_block (token&, token_type&,
@@ -437,6 +464,13 @@ namespace build2
     // The allow_cycle argument indicates whether cycles involving this
     // sourcing should be allowed.
     //
+    // The allow_loop_control argument indicates whether 'continue' and
+    // 'break' directives for an outer loop are allowed in the sourced
+    // buildfile (see parse_clause() for the details on the argument
+    // semantics). If it is true, then can pass through the loop_control
+    // exception potentially thrown by the underlying parse_clause() call (see
+    // above for the details on the loop flow control exception).
+    //
     // The what argument should be `sourced`, `included`, or `imported`.
     //
     void
@@ -445,6 +479,7 @@ namespace build2
                       const location&,
                       optional<bool> default_target,
                       bool allow_cycle,
+                      bool allow_loop_control,
                       const char* what);
 
     // Detect source/include/import cycles.
@@ -1199,6 +1234,15 @@ namespace build2
     replay_tokens replay_data_;
     size_t replay_i_;              // Position of the next token during replay.
     const path_name* replay_path_; // Path before replay began (to be restored).
+
+    // The loop constructs nesting level.
+    //
+    // Maintained during (pre-)parsing and is incremented by the loop parse
+    // functions before parsing the loop body and is decremented afterwards.
+    // Used to determine if the 'continue' and 'break' lines are valid in the
+    // current context.
+    //
+    size_t loop_level_ = 0;
   };
 }
 

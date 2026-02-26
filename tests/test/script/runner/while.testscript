@@ -16,6 +16,42 @@ $c <<EOI && $b >>EOO
   a
   EOO
 
+: continue
+:
+$c <<EOI && $b >>EOO
+  while ($v != "aaxa")
+  {
+    if ($v == 'aa')
+    {
+      v = "$(v)x"
+      continue
+    }
+
+    echo "$v" >|
+    v = "$(v)a"
+  }
+  EOI
+
+  a
+  aax
+  EOO
+
+: break
+:
+$c <<EOI && $b >>EOO
+  while ($v != "aaaa")
+  {
+    if ($v == 'aa')
+      break
+
+    echo "$v" >|
+    v = "$(v)a"
+  }
+  EOI
+
+  a
+  EOO
+
 : syntax-1
 :
 {{

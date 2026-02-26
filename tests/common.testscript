@@ -30,12 +30,15 @@ amalgamation =
 subprojects =
 EOI
 
+# Note that we use the single-argument form for options, so that the tests can
+# easily amend them or filter them out, if required.
+#
 test.options += --no-default-options --serial-stop --quiet
 
 # By default read stdin for the buildfile.
 #
 if ($null($buildfile) || !$buildfile)
-  test.options += --buildfile -
+  test.options += --buildfile=-
 
 # By default just load the buildfile.
 #

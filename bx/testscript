@@ -611,17 +611,30 @@ test.options += --no-default-options
         {
           for j: 4 5
             echo $i $j
+
+          for j: 6 7 8 9
+          {
+            if ($j == 6)
+              continue
+
+            echo $i $j
+
+            if ($j == 7)
+              break
+          }
         }
-        echo 6
+        echo 10 $i $j
         EOI
 
       $* >>EOO
         1
         2 4
         2 5
+        2 7
         3 4
         3 5
-        6
+        3 7
+        10 3 7
         EOO
     }
 
@@ -671,17 +684,30 @@ test.options += --no-default-options
         {
           echo 4 5 | for j
             echo $i $j
+
+          echo 6 7 8 9 | for j
+          {
+            if ($j == 6)
+              continue
+
+            echo $i $j
+
+            if ($j == 7)
+              break
+          }
         }
-        echo 6
+        echo 10 $i $j
         EOI
 
       $* >>EOO
         1
         2 4
         2 5
+        2 7
         3 4
         3 5
-        6
+        3 7
+        10 3 7
         EOO
     }
 
@@ -738,18 +764,36 @@ test.options += --no-default-options
             j += 1
           }
 
+          while ($j != 10)
+          {
+            if ($j == 6)
+            {
+              j += 1
+              continue
+            }
+
+            echo $i $j
+
+            if ($j == 7)
+              break
+
+            j += 1
+          }
+
           i += 1
         }
-        echo 6
+        echo 10 $i $j
         EOI
 
       $* >>EOO
         1
         2 4
         2 5
+        2 7
         3 4
         3 5
-        6
+        3 7
+        10 4 7
         EOO
     }
 

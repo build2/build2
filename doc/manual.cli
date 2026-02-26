@@ -4210,6 +4210,46 @@ while! $done
 }
 \
 
+The normal control flow of the \c{for} and \c{while} loops can be altered with
+the \c{continue} and \c{break} directives. The \c{continue} directive
+interrupts the current iteration of the nearest containing loop and starts the
+next iteration, subject to the normal \c{for} and \c{while} loop termination
+semantics. The \c{break} directive interrupts the current iteration and
+terminates the loop. For example:
+
+\
+for n: foo bar baz
+{
+  if (...)
+    continue
+
+  if (...)
+    break
+
+  ...
+}
+\
+
+An example of a \c{while} loop:
+
+\
+i = [uint64] 0
+while ($i != 10)
+{
+  if (...)
+  {
+    i += 1
+    continue
+  }
+
+  if (...)
+    break
+
+  ...
+
+  i += 1
+}
+\
 
 \h#intro-unit-test|Implementing Unit Testing|
 

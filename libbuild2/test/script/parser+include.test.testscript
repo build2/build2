@@ -53,6 +53,140 @@ y
 cmd
 EOO
 
+: scope
+:
+cat <<EOI >=setup.testscript;
++setup1
++setup2
+EOI
+cat <<EOI >=teardown.testscript;
+-teardown1
+-teardown2
+EOI
+cat <<EOI >=tests.testscript;
+cmd1
+cmd2
+EOI
+cat <<EOI >=test1.testscript;
+{
+  cmd3
+  cmd4
+}
+EOI
+cat <<EOI >=test2.testscript;
+cmd5;
+cmd6
+EOI
+$* -s -i <<EOI >>EOO
+{{
+  .include setup.testscript
+  .include tests.testscript
+  .include test1.testscript
+  .include test2.testscript
+  .include teardown.testscript
+}}
+EOI
+{{
+  {{ # 1
+    +setup1
+    +setup2
+    { # 1/3-tests-1
+      cmd1
+    }
+    { # 1/3-tests-2
+      cmd2
+    }
+    { # 1/4-test1-1
+      cmd3
+      cmd4
+    }
+    { # 1/5-test2-1
+      cmd5
+      cmd6
+    }
+    -teardown1
+    -teardown2
+  }}
+}}
+EOO
+
+: loop
+:
+{{
+  : stream-for
+  :
+  {
+    cat <<EOI >=body.testscript
+      cmd2 $i
+      continue
+      EOI
+
+    $* -s -i <<EOI >>EOO
+      cmd1 | for i
+      {
+        .include body.testscript
+      }
+      EOI
+      {{
+        { # 1
+          cmd1 | for i
+        }
+      }}
+      EOO
+  }
+
+  : args-for
+  :
+  {
+    cat <<EOI >=body.testscript
+      cmd $i
+      continue
+      EOI
+
+    $* -s -i <<EOI >>EOO
+      for i: a b
+      {
+        .include body.testscript
+      }
+      EOI
+      {{
+        { # 1
+          cmd a
+          cmd b
+        }
+      }}
+      EOO
+  }
+
+  : while
+  :
+  {
+    cat <<EOI >=body.testscript
+      cmd $i
+      i += 1
+      continue
+      EOI
+
+    $* -s -i <<EOI >>EOO
+      i = [uint64] 0
+      while ($i != 2)
+      {
+        .include body.testscript
+      }
+      EOI
+      {{
+        { # 2
+          ? true
+          cmd 0
+          ? true
+          cmd 1
+          ? false
+        }
+      }}
+      EOO
+  }
+}}
+
 : group-id
 :
 cat <<EOI >=foo.testscript;

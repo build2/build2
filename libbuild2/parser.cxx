@@ -327,7 +327,7 @@ namespace build2
     }
     else
     {
-      parse_clause (t, tt);
+      parse_clause (t, tt, false /* allow_loop_control */);
 
       if (stage_ != stage::boot && stage_ != stage::root)
         process_default_target (t, bf);
@@ -573,7 +573,7 @@ namespace build2
   }
 
   bool parser::
-  parse_clause (token& t, type& tt, bool one)
+  parse_clause (token& t, type& tt, bool allow_loop_control, bool one)
   {
     tracer trace ("parser::parse_clause", &path_);
 
@@ -588,6 +588,17 @@ namespace build2
     // see is on the new line.
     //
     bool parsed (false);
+
+    // If the clause may not contain the flow control directives for an outer
+    // loop, then reset the loop nesting counter to 0. But stash it first, to
+    // restore when the clause is parsed.
+    //
+    size_t loop_level (loop_level_);
+
+    if (!allow_loop_control)
+      loop_level_ = 0;
+
+    auto g = make_guard ([loop_level, this] () {loop_level_ = loop_level;});
 
     while (tt != type::eos && !(one && parsed))
     {
@@ -724,6 +735,25 @@ namespace build2
         else if (n == "while" || n == "while!")
         {
           f = &parser::parse_while;
+        }
+        else if (n == "continue" || n == "break")
+        {
+          if (at.first)
+            fail (at.second) << "attributes before " << n;
+          else
+            attributes_pop ();
+
+          if (loop_level_ == 0)
+            fail (t) << n << " outside loop";
+
+          auto c (n == "continue"
+                  ? loop_control::continue_
+                  : loop_control::break_); // Stash before next() will spoil n.
+
+          if (next (t, tt) != type::newline)
+            fail (t) << "expected newline instead of " << t;
+
+          throw loop_control {c};
         }
         else if (n == "config")
         {
@@ -1951,7 +1981,7 @@ namespace build2
 
             // Can contain anything that a top level can.
             //
-            parse_clause (t, tt);
+            parse_clause (t, tt, true /* allow_loop_control */);
           }
 
           if (tt != type::rcbrace)
@@ -1973,7 +2003,10 @@ namespace build2
   }
 
   void parser::
-  parse_clause_block (token& t, type& tt, bool skip, const string& k)
+  parse_clause_block (token& t, type& tt,
+                      bool allow_loop_control,
+                      bool skip,
+                      const string& k)
   {
     next (t, tt); // Get newline.
     next (t, tt); // First token inside the block.
@@ -1981,7 +2014,7 @@ namespace build2
     if (skip)
       skip_block (t, tt);
     else
-      parse_clause (t, tt);
+      parse_clause (t, tt, allow_loop_control);
 
     if (tt != type::rcbrace)
       fail (t) << "expected name or '}' instead of " << t
@@ -3555,6 +3588,7 @@ namespace build2
                     const location& loc,
                     optional<bool> deft,
                     bool allow_cycle,
+                    bool allow_loop_control,
                     const char* what) // sourced|included|imported
   {
     tracer trace ("parser::source_buildfile", &path_);
@@ -3585,23 +3619,46 @@ namespace build2
     token t;
     type tt;
     next (t, tt);
-    parse_clause (t, tt);
+
+    // Restore the parser state after the parse_clause() call either if it
+    // completed normally or was interrupted due to 'continue' or 'break'
+    // directive.
+    //
+    auto post = [deft, bf, &pp, ol, &odt, &t, this] ()
+    {
+      if (deft && *deft)
+      {
+        if (stage_ != stage::boot && stage_ != stage::root)
+          process_default_target (t, bf);
+      }
+
+      if (!deft || *deft)
+        default_target_ = odt;
+
+      lexer_ = ol;
+      prev_path_ = pp.prev;
+      path_ = pp.path;
+    };
+
+    try
+    {
+      parse_clause (t, tt, allow_loop_control);
+    }
+    catch (const loop_control&)
+    {
+      assert (allow_loop_control); // Wouldn't be here otherwise.
+
+      post ();
+
+      l5 ([&]{trace (loc) << "leaving " << in << " (loop control)";});
+
+      throw;
+    }
 
     if (tt != type::eos)
       fail (t) << "unexpected " << t;
 
-    if (deft && *deft)
-    {
-      if (stage_ != stage::boot && stage_ != stage::root)
-        process_default_target (t, bf);
-    }
-
-    if (!deft || *deft)
-      default_target_ = odt;
-
-    lexer_ = ol;
-    prev_path_ = pp.prev;
-    path_ = pp.path;
+    post ();
 
     l5 ([&]{trace (loc) << "leaving " << in;});
   }
@@ -3682,6 +3739,7 @@ namespace build2
                           loc,
                           nodt ? optional<bool> {} : false,
                           acyc,
+                          true /* allow_loop_control */,
                           "sourced");
       }
       catch (const io_error& e)
@@ -3877,6 +3935,7 @@ namespace build2
                           loc,
                           true /* default_target */,
                           acyc,
+                          false /* allow_loop_control */,
                           "included");
       }
       catch (const io_error& e)
@@ -3965,7 +4024,8 @@ namespace build2
                           l,
                           false /* default_target */,
                           false /* allow_cycles */,
-                          "source");
+                          true  /* allow_loop_control */,
+                          "sourced");
       }
 
       is.close (); // Detect errors.
@@ -4849,6 +4909,7 @@ namespace build2
                             loc,
                             nodt ? optional<bool> {} : false,
                             false /* allow_cycles */,
+                            false /* allow_loop_control */,
                             "imported");
         }
         catch (const io_error& e)
@@ -5218,7 +5279,8 @@ namespace build2
                    false /* multi */,
                    [this] (token& t, type& tt, bool s, const string& k)
                    {
-                     return parse_clause_block (t, tt, s, k);
+                     return parse_clause_block (
+                       t, tt, true /* allow_loop_control */, s, k);
                    },
                    {});
   }
@@ -5378,7 +5440,9 @@ namespace build2
 
           if (take)
           {
-            if (!parse_clause (t, tt, true))
+            if (!parse_clause (t, tt,
+                               true /* allow_loop_control */,
+                               true /* one */))
               fail (t) << "expected " << k << "-line instead of " << t;
 
             taken = true;
@@ -5433,7 +5497,8 @@ namespace build2
                   false /* multi */,
                   [this] (token& t, type& tt, bool s, const string& k)
                   {
-                    return parse_clause_block (t, tt, s, k);
+                    return parse_clause_block (
+                      t, tt, true /* allow_loop_control */, s, k);
                   },
                   {});
   }
@@ -5774,7 +5839,9 @@ namespace build2
         {
           if (take)
           {
-            if (!parse_clause (t, tt, true))
+            if (!parse_clause (t, tt,
+                               true /* allow_loop_control */,
+                               true /* one */))
               fail (t) << "expected " << k << "-line instead of " << t;
 
             taken = true;
@@ -5911,6 +5978,9 @@ namespace build2
     // for-loops with 10 iterations each).
     //
     // Note also that there if the while loop which used the same approach.
+    //
+    // NOTE: when switching to the replay approach, add support for the
+    //       continue and break directives.
     //
 #if 0
     // The token replay based approach.
@@ -6091,6 +6161,7 @@ namespace build2
     }
 
     istringstream is (move (body));
+    lexer* ol (lexer_);
 
     struct data
     {
@@ -6114,15 +6185,14 @@ namespace build2
         d.is.seekg (0);
       }
 
+      lexer l (d.is, *path_, d.line);
+      lexer_ = &l;
+
       // Inject element attributes.
       //
       attributes_.push_back (d.val_attrs);
 
       apply_value_attributes (&d.var, d.lhs, move (v), type::assign);
-
-      lexer l (d.is, *path_, d.line);
-      lexer* ol (lexer_);
-      lexer_ = &l;
 
       token t;
       type tt;
@@ -6134,13 +6204,24 @@ namespace build2
       }
 
       next (t, tt);
-      parse_clause (t, tt);
+
+      try
+      {
+        ++loop_level_;
+
+        auto g = make_guard ([this] () {--loop_level_;});
+
+        parse_clause (t, tt, true /* allow_loop_control */);
+      }
+      catch (const loop_control& lc)
+      {
+        return lc.directive == loop_control::continue_;
+      }
 
       if (tt != (d.block ? type::rcbrace : type::eos))
         fail (t) << "expected name " << (d.block ? "or '}' " : "")
                  << "instead of " << t;
 
-      lexer_ = ol;
       return true;
     };
 
@@ -6161,11 +6242,14 @@ namespace build2
         if (etype != nullptr)
           typify (v, *etype, &var);
 
-        iteration (move (v), first);
+        if (!iteration (move (v), first))
+          break;
       }
     }
     else
       iterate (val, iteration);
+
+    lexer_ = ol;
 #endif
   }
 
@@ -6294,7 +6378,22 @@ namespace build2
         }
 
         next (t, tt);
-        parse_clause (t, tt);
+
+        try
+        {
+          ++loop_level_;
+
+          auto g = make_guard ([this] () {--loop_level_;});
+
+          parse_clause (t, tt, true /* allow_loop_control */);
+        }
+        catch (const loop_control& lc)
+        {
+          if (lc.directive == loop_control::continue_)
+            continue;
+
+          break;
+        }
 
         if (tt != (block ? type::rcbrace : type::eos))
           fail (t) << "expected name " << (block ? "or '}' " : "")

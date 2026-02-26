@@ -18,6 +18,36 @@
     b
     EOO
 
+  : continue
+  :
+  $c <<EOI && $b >>EOO
+    for x: a b c
+    {
+      if ($x == 'b')
+        continue
+
+      echo "$x" >|
+    }
+    EOI
+    a
+    c
+    EOO
+
+  : break
+  :
+  $c <<EOI && $b >>EOO
+    for x: a b c
+    {
+      echo "$x" >|
+
+      if ($x == 'b')
+        break
+    }
+    EOI
+    a
+    b
+    EOO
+
   : test-options
   :
   $c <<EOI && $b >>~%EOO%
@@ -123,6 +153,36 @@
     EOI
     a/
     b/
+    EOO
+
+  : continue
+  :
+  $c <<EOI && $b >>EOO
+    echo a b c | for x
+    {
+      if ($x == 'b')
+        continue
+
+      echo "$x" >|
+    }
+    EOI
+    a
+    c
+    EOO
+
+  : break
+  :
+  $c <<EOI && $b >>EOO
+    echo a b c | for x
+    {
+      echo "$x" >|
+
+      if ($x == 'b')
+        break
+    }
+    EOI
+    a
+    b
     EOO
 
   : nested
@@ -259,6 +319,23 @@
     a
     EOO
 
+  : exit-unread
+  :
+  if false
+  {
+    $c <<EOI && $b --no-diag-buffer
+      s="----------------------------------------------------- ";
+      s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+      s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+      s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+      cat <"a $s" 2>| | for v
+      {
+        if ($v == "a")
+          exit 0
+      }
+      EOI
+  }
+
   : error
   :
   $c <<EOI && $b >>EOO 2>>EOE != 0
@@ -375,6 +452,36 @@
     EOI
     a/
     b/
+    EOO
+
+  : continue
+  :
+  $c <<EOI && $b >>EOO
+    for x <"a b c"
+    {
+      if ($x == 'b')
+        continue
+
+      echo "$x" >|
+    }
+    EOI
+    a
+    c
+    EOO
+
+  : break
+  :
+  $c <<EOI && $b >>EOO
+    for x <"a b c"
+    {
+      echo "$x" >|
+
+      if ($x == 'b')
+        break
+    }
+    EOI
+    a
+    b
     EOO
 
   : nested

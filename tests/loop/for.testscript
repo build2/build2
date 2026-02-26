@@ -31,6 +31,366 @@ EOI
 3
 EOO
 
+: flow-control
+:
+{{
+  : continue
+  :
+  {{
+    : basics
+    :
+    $* <<EOI >>EOO
+    for i: 1 2
+    {
+      print 1 $i
+      continue
+      print 2 $i
+    }
+    print 3 $i
+    EOI
+    1 1
+    1 2
+    3 2
+    EOO
+
+    : attribute
+    :
+    $* <<EOI 2>>EOE != 0
+    for i: 1 2
+      [string] continue
+    EOI
+    <stdin>:2:3: error: attributes before continue
+    EOE
+
+    : trailing
+    :
+    $* <<EOI 2>>EOE != 0
+    for i: 1 2
+      continue junk
+    EOI
+    <stdin>:2:12: error: expected newline instead of 'junk'
+    EOE
+
+    : outside
+    :
+    $* <<EOI 2>>EOE != 0
+    i = 2
+
+    if ($i == 2)
+      continue
+    EOI
+    <stdin>:4:3: error: continue outside loop
+    EOE
+
+    : skipped
+    :
+    $* <<EOI >>EOO
+    i = 2
+
+    if ($i == 2)
+      i = 0
+    else
+      continue
+    print $i
+    EOI
+    0
+    EOO
+  }}
+
+  : break
+  :
+  {{
+    : basics
+    :
+    $* <<EOI >>EOO
+    for i: 1 2
+    {
+      print 1 $i
+      break
+      print 2 $i
+    }
+    print 3 $i
+    EOI
+    1 1
+    3 1
+    EOO
+
+    : attribute
+    :
+    $* <<EOI 2>>EOE != 0
+    for i: 1 2
+      [string] break
+    EOI
+    <stdin>:2:3: error: attributes before break
+    EOE
+
+    : trailing
+    :
+    $* <<EOI 2>>EOE != 0
+    for i: 1 2
+      break junk
+    EOI
+    <stdin>:2:9: error: expected newline instead of 'junk'
+    EOE
+
+    : outside
+    :
+    $* <<EOI 2>>EOE != 0
+    i = 2
+
+    if ($i == 2)
+      break
+    EOI
+    <stdin>:4:3: error: break outside loop
+    EOE
+
+    : skipped
+    :
+    $* <<EOI >>EOO
+    i = 2
+
+    if ($i == 2)
+      i = 0
+    else
+      break
+    print $i
+    EOI
+    0
+    EOO
+  }}
+
+  : if
+  :
+  $* <<EOI >>EOO
+  for i: 1 2 3 4 5
+  {
+    if ($i == 2)
+      continue
+
+    if ($i == 4)
+      break
+
+    print $i
+  }
+  EOI
+  1
+  3
+  EOO
+
+  : else
+  :
+  $* <<EOI >>EOO
+  for i: 1 2 3 4 5
+  {
+    if ($i != 2)
+    {
+    }
+    else
+      continue
+
+    if ($i != 4)
+    {
+    }
+    else
+      break
+
+    print $i
+  }
+  EOI
+  1
+  3
+  EOO
+
+  : switch
+  :
+  $* <<EOI >>EOO
+  for i: 1 2 3 4 5
+  {
+    switch $i
+    {
+      case 2
+        continue
+
+      default
+        switch $i
+        {
+          case 4
+            break
+        }
+    }
+
+    print $i
+  }
+  EOI
+  1
+  3
+  EOO
+
+  : nesting
+  :
+  $* <<EOI >>EOO
+  for i: 1 2
+  {
+    for j: 5 6 7 8 9
+    {
+      if ($j == 6)
+        continue
+
+      if ($j == 8)
+        break
+
+      print $i $j
+    }
+  }
+  EOI
+  1 5
+  1 7
+  2 5
+  2 7
+  EOO
+
+  : directory-scope
+  :
+  {
+    mkdir foo
+    echo 'bar' >= bar
+
+    cat <<EOI >=buildfile
+    for i: 1 2 3 4
+    {
+      foo/
+      {
+        if ($i == 2)
+          continue
+
+        if ($i == 4)
+          break
+
+        for j: 5 6 7 8 9
+        {
+          if ($j == 6)
+            continue
+
+          if ($j == 8)
+            break
+
+          ../: file{baz-$i-$j}: ../bar
+          {{
+            cp $path($<) $path($>)
+          }}
+        }
+      }
+    }
+    EOI
+
+    test.options = $regex.filter_out_match($test.options, '--buildfile=.+')
+    test.arguments =
+
+    $* update
+
+    for s: 1-5 1-7 3-5 3-7
+      cat foo/baz-$s >bar
+
+    $* clean
+  }
+
+  : source
+  :
+  {
+    cat <<EOI >=foo
+    if ($i == 2)
+      continue
+
+    if ($i == 4)
+      break
+
+    for j: 5 6 7 8 9
+    {
+      if ($j == 6)
+        continue
+
+      if ($j == 8)
+        break
+
+      print $i $j
+    }
+    EOI
+
+    $* <<EOI >>EOO
+    for i: 1 2 3 4
+      source foo
+    EOI
+    1 5
+    1 7
+    3 5
+    3 7
+    EOO
+  }
+
+  : run
+  :
+  if ($cxx.target.class != 'windows')
+  {
+    cat <<EOI >=foo
+    if ($i == 2)
+      continue
+
+    if ($i == 4)
+      break
+
+    for j: 5 6 7 8 9
+    {
+      if ($j == 6)
+        continue
+
+      if ($j == 8)
+        break
+
+      print $i $j
+    }
+    EOI
+
+    $* <<EOI >>EOO
+    for i: 1 2 3 4
+      run cat foo
+    EOI
+    1 5
+    1 7
+    3 5
+    3 7
+    EOO
+  }
+
+  : include
+  :
+  {
+    cat <<EOI >=foo
+    for i: 1 2 3 4 5
+    {
+      if ($i == 2)
+        continue
+
+      if ($i == 4)
+        break
+
+      print $i
+    }
+
+    continue
+    EOI
+
+    $* <<EOI >>EOO 2>>EOE != 0
+    for i: 1 2
+      include foo
+    EOI
+    1
+    3
+    EOO
+    foo:12:1: error: continue outside loop
+    EOE
+  }
+}}
+
 : empty
 :
 $* <<EOI

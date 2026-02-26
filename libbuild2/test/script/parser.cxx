@@ -778,13 +778,18 @@ namespace build2
         case line_type::cmd_if:
         case line_type::cmd_ifn:
         case line_type::cmd_while:
+        case line_type::cmd_continue:
+        case line_type::cmd_break:
           next (t, tt); // Skip to start of command.
           // Fall through.
         case line_type::cmd:
           {
             parse_command_expr_result r;
 
-            if (lt != line_type::cmd_else && lt != line_type::cmd_end)
+            if (lt != line_type::cmd_else     &&
+                lt != line_type::cmd_continue &&
+                lt != line_type::cmd_break    &&
+                lt != line_type::cmd_end)
               r = parse_command_expr (t, tt, lexer::redirect_aliases);
 
             if (r.for_loop)
@@ -794,7 +799,9 @@ namespace build2
             }
 
             parse_command_tail ();
-            parse_here_documents (t, tt, r);
+
+            if (!r.docs.empty ())
+              parse_here_documents (t, tt, r);
 
             break;
           }
@@ -2068,10 +2075,14 @@ namespace build2
 
         const char* dd ("expected command or '{' instead of directive");
 
+        ++loop_level_;
+
         pair<bool, optional<description>> r (
           tt == type::lcbrace
           ? pre_parse_command_block (t, tt, ls, lt, vf)
           : pre_parse_command_line  (t, tt, ls, lt, dd, vf));
+
+        --loop_level_;
 
         bool semi (r.first);
         optional<description>& td (r.second);
@@ -2104,6 +2115,8 @@ namespace build2
                 lt == line_type::cmd_for_stream ||
                 lt == line_type::cmd_for_args);
 
+        ++loop_level_;
+
         tt = peek (lexer_mode::first_token);
 
         // Parse lines until we see closing 'end'.
@@ -2115,7 +2128,10 @@ namespace build2
           bool semi (pre_parse_command_line_v1 (t, tt, d, ls, lt));
 
           if (ls[i].type == line_type::cmd_end)
+          {
+            --loop_level_;
             return semi;
+          }
         }
 
         assert (false); // Can't be here.

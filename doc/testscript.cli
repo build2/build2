@@ -1635,7 +1635,7 @@ value-line: value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'
 
 variable-flow:
-  variable-if|variable-for|variable-while
+  variable-if|variable-for|variable-while|variable-loop-flow
 
 variable-if:
   ('if'|'if!') command-line | \
@@ -1676,6 +1676,8 @@ variable-while:
   'while' command-line
   variable-block|variable-like
 
+variable-loop-flow: 'continue'|'break'
+
 command-like:
   command-line|command-flow
 
@@ -1692,7 +1694,7 @@ command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
 command-exit: ('=='|'!=') <exit-status>
 
 command-flow:
-  command-if|command-for|command-while
+  command-if|command-for|command-while|command-loop-flow
 
 command-if:
   ('if'|'if!') command-line | \
@@ -1733,6 +1735,8 @@ command-for-stream:
 command-while:
   'while' command-line
   command-block|command-or-variable
+
+command-loop-flow: 'continue'|'break'
 
 redirect: stdin|stdout|stderr
 
@@ -2082,7 +2086,9 @@ value-line: value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'
 
 variable-flow:
-  variable-if|variable-for|variable-while
+  variable-if|variable-for|variable-while|variable-loop-flow
+
+variable-loop-flow: 'continue'|'break'
 \
 
 The Testscript variable assignment semantics is equivalent to Buildfile except
@@ -2096,6 +2102,13 @@ echo $args # foo bar fox   baz
 The value can contain variable expansions, function calls, eval contexts, and
 literal values. Inside an implicit test scope the value can be followed by a
 semicolon to signal the test continuation.
+
+Note that \c{variable-loop-flow} is only valid inside the \c{variable-for} and
+\c{variable-while} loop constructs. The \c{continue} line interrupts the
+current iteration of the nearest containing loop and starts the next
+iteration, subject to the normal \c{for} and \c{while} loop termination
+semantics. The \c{break} line interrupts the current iteration and terminates
+the loop.
 
 
 \h#syntax-variable-if|Variable-If|
@@ -2234,7 +2247,9 @@ command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
 command-exit: ('=='|'!=') <exit-status>
 
 command-flow:
-  command-if|command-for|command-while
+  command-if|command-for|command-while|command-loop-flow
+
+command-loop-flow: 'continue'|'break'
 \
 
 A command line is a command expression. If it appears directly (as opposed to
@@ -2263,6 +2278,13 @@ termination), the exit code is checked. If omitted, then the test is expected
 to succeed (0 exit code). The logical result of executing a command is
 therefore a boolean value which is used in the higher-level constructs (pipe
 and expression).
+
+Note that \c{command-loop-flow} is only valid inside the \c{command-for} and
+\c{command-while} loop constructs. The \c{continue} line interrupts the
+current iteration of the nearest containing loop and starts the next
+iteration, subject to the normal \c{for} and \c{while} loop termination
+semantics. The \c{break} line interrupts the current iteration and terminates
+the loop.
 
 
 \h#syntax-command-if|Command-If|

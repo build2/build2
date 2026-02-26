@@ -36,6 +36,387 @@ EOI
 4
 EOO
 
+: flow-control
+:
+{{
+  : continue
+  :
+  {{
+    : basics
+    :
+    $* <<EOI >>EOO
+    v = true
+    while $v
+    {
+      print 1 $v
+      v = false
+      continue
+      print 2 $v
+    }
+    print 3 $v
+    EOI
+    1 true
+    3 false
+    EOO
+
+    : attribute
+    :
+    $* <<EOI 2>>EOE != 0
+    while true
+      [string] continue
+    EOI
+    <stdin>:2:3: error: attributes before continue
+    EOE
+
+    : trailing
+    :
+    $* <<EOI 2>>EOE != 0
+    while true
+      continue junk
+    EOI
+    <stdin>:2:12: error: expected newline instead of 'junk'
+    EOE
+  }}
+
+  : break
+  :
+  {{
+    : basics
+    :
+    $* <<EOI >>EOO
+    v = true
+    while $v
+    {
+      print 1 $v
+      break
+      v = false
+      print 2 $v
+    }
+    print 3 $v
+    EOI
+    1 true
+    3 true
+    EOO
+
+    : attribute
+    :
+    $* <<EOI 2>>EOE != 0
+    while true
+      [string] break
+    EOI
+    <stdin>:2:3: error: attributes before break
+    EOE
+
+    : trailing
+    :
+    $* <<EOI 2>>EOE != 0
+    while true
+      break junk
+    EOI
+    <stdin>:2:9: error: expected newline instead of 'junk'
+    EOE
+  }}
+
+  : if
+  :
+  $* <<EOI >>EOO
+  i = [uint64] 1
+  while ($i != 6)
+  {
+    if ($i == 2)
+    {
+      i += 1
+      continue
+    }
+
+    if ($i == 4)
+      break
+
+    print $i
+    i += 1
+  }
+  EOI
+  1
+  3
+  EOO
+
+  : else
+  :
+  $* <<EOI >>EOO
+  i = [uint64] 1
+  while ($i != 6)
+  {
+    if ($i != 2)
+    {
+    }
+    else
+    {
+      i += 1
+      continue
+    }
+
+    if ($i != 4)
+    {
+    }
+    else
+      break
+
+    print $i
+    i += 1
+  }
+  EOI
+  1
+  3
+  EOO
+
+  : switch
+  :
+  $* <<EOI >>EOO
+  i = [uint64] 1
+  while ($i != 6)
+  {
+    switch $i
+    {
+      case 2
+      {
+        i += 1
+        continue
+      }
+
+      default
+      {
+        switch $i
+        {
+          case 4
+            break
+        }
+      }
+    }
+
+    print $i
+    i += 1
+  }
+  EOI
+  1
+  3
+  EOO
+
+  : nesting
+  :
+  $* <<EOI >>EOO
+  i = [uint64] 1
+  while ($i != 3)
+  {
+    j = [uint64] 5
+    while ($j != 10)
+    {
+      if ($j == 6)
+      {
+        j += 1
+        continue
+      }
+
+      if ($j == 8)
+        break
+
+      print $i $j
+      j += 1
+    }
+
+    i += 1
+  }
+  EOI
+  1 5
+  1 7
+  2 5
+  2 7
+  EOO
+
+  : directory-scope
+  :
+  {
+    mkdir foo
+    echo 'bar' >= bar
+
+    cat <<EOI >=buildfile
+    i = [uint64] 1
+    while ($i != 5)
+    {
+      foo/
+      {
+        if ($i == 2)
+        {
+          ../i += 1
+          continue
+        }
+
+        if ($i == 4)
+          break
+
+        j = [uint64] 5
+        while ($j != 10)
+        {
+          if ($j == 6)
+          {
+            j += 1
+            continue
+          }
+
+          if ($j == 8)
+            break
+
+          ../: file{baz-"$i-$j"}: ../bar
+          {{
+            cp $path($<) $path($>)
+          }}
+
+          j += 1
+        }
+      }
+
+      i += 1
+    }
+    EOI
+
+    test.options = $regex.filter_out_match($test.options, '--buildfile=.+')
+    test.arguments =
+
+    $* update >|
+
+    for s: 1-5 1-7 3-5 3-7
+      cat foo/baz-$s >bar
+
+    $* clean
+  }
+
+  : source
+  :
+  {
+    cat <<EOI >=foo
+    if ($i == 2)
+    {
+      i += 1
+      continue
+    }
+
+    if ($i == 4)
+      break
+
+    j = [uint64] 5
+    while ($j != 10)
+    {
+      if ($j == 6)
+      {
+        j += 1
+        continue
+      }
+
+      if ($j == 8)
+        break
+
+      print $i $j
+      j += 1
+    }
+
+    i += 1
+    EOI
+
+    $* <<EOI >>EOO
+    i = [uint64] 1
+    while ($i != 5)
+      source foo
+    EOI
+    1 5
+    1 7
+    3 5
+    3 7
+    EOO
+  }
+
+  : run
+  :
+  if ($cxx.target.class != 'windows')
+  {
+    cat <<EOI >=foo
+    if ($i == 2)
+    {
+      i += 1
+      continue
+    }
+
+    if ($i == 4)
+      break
+
+    j = [uint64] 5
+    while ($j != 10)
+    {
+      if ($j == 6)
+      {
+        j += 1
+        continue
+      }
+
+      if ($j == 8)
+        break
+
+      print $i $j
+      j += 1
+    }
+
+    i += 1
+    EOI
+
+    $* <<EOI >>EOO
+    i = [uint64] 1
+    while ($i != 5)
+      run cat foo
+    EOI
+    1 5
+    1 7
+    3 5
+    3 7
+    EOO
+  }
+
+  : include
+  :
+  {
+    cat <<EOI >=foo
+    i = [uint64] 1
+    while ($i != 6)
+    {
+      if ($i == 2)
+      {
+        i += 1
+        continue
+      }
+
+      if ($i == 4)
+        break
+
+      print $i
+      i += 1
+    }
+
+    continue
+    EOI
+
+    $* <<EOI >>EOO 2>>EOE != 0
+    i = [uint64] 0
+    while ($i != 3)
+    {
+      include foo
+      i += 1
+    }
+    EOI
+    1
+    3
+    EOO
+    foo:17:1: error: continue outside loop
+    EOE
+  }
+}}
+
 : no-condition
 :
 $* <<EOI 2>>EOE != 0
