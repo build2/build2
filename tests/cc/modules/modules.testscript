@@ -11,6 +11,8 @@
 # Common source files that are symlinked in the test directories if used.
 #
 +cat <<EOI >=core.mxx
+module;
+
 #ifndef LIBFOO_EXPORT
 #  define LIBFOO_EXPORT
 #endif
@@ -212,8 +214,14 @@ cat <<EOI >=core.mxx;
 module;
 
 #include "g.hxx"
+
+#ifndef LIBFOO_EXPORT
+#  define LIBFOO_EXPORT
+#endif
+
+export module foo.core;
+export LIBFOO_EXPORT int f (int);
 EOI
-cat <<<../core.mxx >+core.mxx;
 ln -s ../core.cxx ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} {mxx cxx}{core}
@@ -230,6 +238,8 @@ $* test clean <<EOI
     EOI
 
   +cat <<EOI >=extra.mxx
+    module;
+
     #ifndef LIBFOO_EXPORT
     #  define LIBFOO_EXPORT
     #endif
