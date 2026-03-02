@@ -1495,12 +1495,19 @@ namespace build2
       // one might expect; DLLs are still *140.dll but there are now _1 and _2
       // variants for, say, msvcp140.dll). We will, however, call it 14.2
       // (which is the version of the "toolset") in our target triplet. And we
-      // will call VC 17 14.3 (which is also the version of the "toolset").
+      // will call VC 17 (2022) -- 14.3 (which is also the version of the
+      // "toolset").
+      //
+      // And we will call VC 18 (2026) -- 14.5 because VC 17 also used 14.4X
+      // for later versions in certain contexts. Here is the line from the
+      // Visual Studio installer describing the 17.14 toolset:
+      //
+      //   MSVC v143 2022 v14.44 - 17.14
       //
       // year   ver   cl     crt/dll   toolset
       //
       // 2026   18.X  19.5X  14.?/140  14.5X
-      // 2022   17.X  19.3X  14.?/140  14.3X
+      // 2022   17.X  19.3X  14.?/140  14.3X,14.4X
       // 2019   16.X  19.2X  14.2/140  14.2X
       // 2017   15.9  19.16  14.1/140  14.16
       // 2017   15.8  19.15  14.1/140
