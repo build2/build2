@@ -1040,8 +1040,32 @@ namespace build2
       // function doesn't set failbit and only sets eofbit after the last
       // substring is returned.
       //
+      // NOTE: should never be called after the skip() call.
+      //
       bool
-      next (string&);
+      next (string& s)
+      {
+        assert (!skipped_); // By definition.
+
+        return next (&s);
+      }
+
+      // Read out and skip the data available in the stream. Return true on
+      // eof.
+      //
+      bool
+      skip ()
+      {
+        skipped_ = true;
+
+        return next (nullptr);
+      }
+
+    private:
+      // Common implementation for next() and skip().
+      //
+      bool
+      next (string*);
 
     private:
       ifdstream& is_;
@@ -1049,7 +1073,8 @@ namespace build2
       bool newline_;
       bool exact_;
 
-      bool empty_ = true; // Set to false after the first character is read.
+      bool empty_ = true;    // Set to false after the first character is read.
+      bool skipped_ = false; // Set to true by the skip() call.
     };
 
     stream_reader::
@@ -1062,7 +1087,7 @@ namespace build2
     }
 
     bool stream_reader::
-    next (string& ss)
+    next (string* pss)
     {
 #ifndef _WIN32
       assert ((is_.exceptions () & ifdstream::badbit) != 0 && !is_.blocking ());
@@ -1092,6 +1117,10 @@ namespace build2
         // Note that here we reasonably assume that any failure in in_avail()
         // will lead to badbit and thus an exception (see showmanyc()).
         //
+        // Also note that here we rely on the fact that fdstreambuf's
+        // showmanyc() (called by in_avail() if the get area is empty)
+        // actually reads the data into the get area.
+        //
         streamsize r (sb.in_avail ());
 
 #ifdef _WIN32
@@ -1114,15 +1143,27 @@ namespace build2
       streamsize s;
       while ((s = avail ()) > 0)
       {
-        if (empty_)
-          empty_ = false;
-
         const char* p (sb.gptr ());
         size_t n (sb.egptr () - p);
 
         // We move p and bump by the number of consumed characters.
         //
         auto bump = [&sb, &p] () {sb.gbump (static_cast<int> (p - sb.gptr ()));};
+
+        // In the skip mode, skip all the available data and try to read some
+        // more.
+        //
+        if (pss == nullptr)
+        {
+          p += n;
+          bump ();
+          continue;
+        }
+
+        string& ss (*pss);
+
+        if (empty_)
+          empty_ = false;
 
         if (whitespace_) // The whitespace mode.
         {
@@ -1219,12 +1260,14 @@ namespace build2
 
       if (s == -1)
       {
-        // Return the last substring if it is not empty or it is the trailing
-        // "blank" in the exact mode. Otherwise, set eofbit for the stream
-        // indicating that we are done.
+        // Unless in the skip mode, return the last substring if it is not
+        // empty or it is the trailing "blank" in the exact mode. Otherwise,
+        // set eofbit for the stream indicating that we are done.
         //
-        if (!ss.empty () || (exact_ && !empty_))
+        if (pss != nullptr && (!pss->empty () || (exact_ && !empty_)))
         {
+          string& ss (*pss);
+
           // Also, strip the trailing newline character, if present, in the
           // no-split no-exact mode.
           //
@@ -1419,7 +1462,7 @@ namespace build2
     void
     read (auto_fd&& in,
           bool whitespace, bool newline, bool exact,
-          const function<void (string&&)>& cf,
+          const function<bool (string&&)>& cf,
           pipe_command* pipeline,
           const optional<deadline>& dl,
           const location& ll,
@@ -1564,6 +1607,11 @@ namespace build2
         }
       };
 
+      // Indicates whether to read, split, and call the callback (true) or
+      // just read and skip (false).
+      //
+      bool call (cf != nullptr);
+
       // Note that on Windows if the file descriptor is not a pipe, then
       // ifdstream assumes the blocking mode for which ifdselect() would throw
       // invalid_argument. Such a descriptor can, however, only appear for the
@@ -1592,14 +1640,20 @@ namespace build2
               break;
           }
 
-          if (sr.next (s))
+          if (call ? sr.next (s) : sr.skip ())
           {
             if (!is.eof ())
             {
+              // Since stream_reader::skip() only returns true on eof.
+              //
+              assert (call);
+
               // Consume the substring.
               //
-              cf (move (s));
-              s.clear ();
+              if (cf (move (s)))
+                s.clear ();
+              else
+                call = false;
             }
             else
             {
@@ -1706,7 +1760,11 @@ namespace build2
 
         read (move (in),
               ops.whitespace (), ops.newline (), ops.exact (),
-              [&ns] (string&& s) {ns.emplace_back (move (s));},
+              [&ns] (string&& s)
+              {
+                ns.emplace_back (move (s));
+                return true;
+              },
               pipeline,
               dl,
               ll,
@@ -1935,25 +1993,13 @@ namespace build2
         {
           // Note that we can't use ifdstream dtor in the skip mode here since
           // it turns the stream into the blocking mode and we won't be able
-          // to read out the potentially buffered stderr for the
-          // pipeline. Using read() is also not ideal since it performs
-          // parsing and allocations needlessly. This, however, is probably ok
-          // for such an uncommon case.
+          // to read out the potentially buffered stderr for the pipeline.
+          // Instead, we skip the data reading out the pipeline's buffered
+          // stderr and watching for the deadline.
           //
           //ifdstream (move (ifd), fdstream_mode::skip);
 
-          // Let's try to minimize the allocation size splitting the input
-          // data at whitespaces.
-          //
-          read (move (ifd),
-                true /* whitespace */,
-                false /* newline */,
-                false /* exact */,
-                [] (string&&) {}, // Just drop the string.
-                prev_cmd,
-                dl,
-                ll,
-                program.c_str ());
+          skip (move (ifd), prev_cmd, dl, ll, program.c_str ());
         }
 
         if (!first || !last)
