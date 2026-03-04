@@ -93,7 +93,8 @@ namespace build2
     // Read the stream content, optionally splitting the input data at
     // whitespaces or newlines and calling the specified callback function for
     // each substring (see the set builtin options for the splitting
-    // semantics). Throw failed on io_error.
+    // semantics). If the callback function returns false, then just read out
+    // and skip the remaining input data. Throw failed on io_error.
     //
     // If the stream is a pipeline's output, then the pipeline argument must
     // also be specified. Normally called from a custom command function (see
@@ -118,7 +119,17 @@ namespace build2
     void
     read (auto_fd&&,
           bool whitespace, bool newline, bool exact,
-          const function<void (string&&)>&,
+          const function<bool (string&&)>&,
+          pipe_command* pipeline,
+          const optional<deadline>&,
+          const location&,
+          const char* what);
+
+    // Skip all the stream data, reading out the pipeline's buffered stderr
+    // and/or watching for the deadline.
+    //
+    void
+    skip (auto_fd&&,
           pipe_command* pipeline,
           const optional<deadline>&,
           const location&,

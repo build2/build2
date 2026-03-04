@@ -2699,6 +2699,7 @@ namespace build2
                 const iteration_index* ii;
                 size_t& li;             // If 0, then needs to be re-calculated.
                 size_t fli;
+                optional<uint8_t> exit_code;
                 bool break_loop;        // True if 'break' was encountered.
                 bool throw_on_failure;
                 variable_pool* var_pool;
@@ -2707,6 +2708,7 @@ namespace build2
               } ld {exec_set, exec_cmd, exec_cond, exec_for,
                     i, e,
                     ii, li, fli,
+                    nullopt /* exit_code */,
                     false /* break_loop */,
                     throw_on_failure,
                     var_pool,
@@ -2797,38 +2799,10 @@ namespace build2
                       iteration_index& fi;
                     } d {ld, env, vname, attrs, ll, fi};
 
-                    function<void (string&&)> iteration (
+                    function<bool (string&&)> iteration (
                       [&d, this] (string&& s)
                       {
                         loop_data& ld (d.ld);
-
-                        // Note that we don't leave the read() function
-                        // immediately by throwing an exception when 'break'
-                        // is encountered. Instead, we allow read() to read
-                        // out the input (to keep the writer happy), just
-                        // skipping the input elements.
-                        //
-                        // @@ I actually wonder if the exception-based exit
-                        //    builtin always works properly, not causing such
-                        //    a writer to complain.
-                        //
-                        //    No, it doesn't: see the currently disabled
-                        //    for/form-2/exit-unread test which fails with the
-                        //    'cat: unable to print stdin: broken pipe' error.
-                        //
-                        //    To fix it, instead of throwing exit() below, we
-                        //    need to save the exit code and read out the
-                        //    input.
-                        //
-                        //    Or, even better, we need to change the API, so
-                        //    that the read() function callback returns
-                        //    boolean rather than void. If the returned value
-                        //    is false, then read() needs to stop calling the
-                        //    callback and read out the input before it
-                        //    returns.
-                        //
-                        if (ld.break_loop)
-                          return;
 
                         // Don't move from the variable name since it is used
                         // on each iteration.
@@ -2865,7 +2839,8 @@ namespace build2
                                           ld.throw_on_failure,
                                           ld.var_pool))
                           {
-                            throw exit (*ec);
+                            ld.exit_code = *ec;
+                            return false;
                           }
                         }
                         catch (const loop_control& lc)
@@ -2883,6 +2858,7 @@ namespace build2
                         }
 
                         d.fi.index++;
+                        return !ld.break_loop;
                       });
 
                     read (move (in),
@@ -2900,6 +2876,9 @@ namespace build2
                 });
 
               exec_cmd (t, tt, ii, li, false /* single */, cf, ll);
+
+              if (ld.exit_code)
+                return *ld.exit_code;
 
               // Position to construct end and, if requested, recalculate the
               // line index.
