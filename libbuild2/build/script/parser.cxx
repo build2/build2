@@ -3105,7 +3105,11 @@ namespace build2
                           false /* whitespace */,
                           false /* newline */,
                           true /* exact */,
-                          [&iss] (string&& s) {iss.str (move (s));},
+                          [&iss] (string&& s)
+                          {
+                            iss.str (move (s));
+                            return true;
+                          },
                           pipe,
                           dl,
                           ll,

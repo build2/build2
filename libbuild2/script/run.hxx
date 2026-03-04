@@ -90,10 +90,12 @@ namespace build2
     string
     diag_path (const dir_name_view&);
 
-    // Read the stream content, optionally splitting the input data at
-    // whitespaces or newlines and calling the specified callback function for
-    // each substring (see the set builtin options for the splitting
-    // semantics). Throw failed on io_error.
+    // Read the stream content and, if the callback function is specified,
+    // optionally split the input data at whitespaces or newlines and call the
+    // specified callback function for each substring (see the set builtin
+    // options for the splitting semantics). If the callback function is not
+    // specified or returns false at some point, then just read out and skip
+    // the remaining input data. Throw failed on io_error.
     //
     // If the stream is a pipeline's output, then the pipeline argument must
     // also be specified. Normally called from a custom command function (see
@@ -118,11 +120,23 @@ namespace build2
     void
     read (auto_fd&&,
           bool whitespace, bool newline, bool exact,
-          const function<void (string&&)>&,
+          const function<bool (string&&)>&,
           pipe_command* pipeline,
           const optional<deadline>&,
           const location&,
           const char* what);
+
+    // As above, but just read out and skip all the stream data.
+    //
+    inline void
+    skip (auto_fd&& fd,
+          pipe_command* pipeline,
+          const optional<deadline>& dl,
+          const location& ll,
+          const char* what)
+    {
+      read (move (fd), false, false, false, {}, pipeline, dl, ll, what);
+    }
   }
 }
 
