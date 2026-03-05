@@ -356,6 +356,12 @@ namespace build2
   {
     tracer trace ("adhoc_buildscript_rule::apply");
 
+    const scope& bs (t.base_scope ());
+    const scope* rs (bs.root_scope ());
+
+    if (rs == nullptr)
+      fail << "out of project target " << t;
+
     // Handle matching group members (see adhoc_rule::match() for background).
     //
     if (const group* g = t.group != nullptr ? t.group->is_a<group> () : nullptr)
@@ -384,7 +390,6 @@ namespace build2
     }
 
     context& ctx (t.ctx);
-    const scope& bs (t.base_scope ());
 
     group* g (t.is_a<group> ()); // Explicit group.
 
@@ -543,7 +548,7 @@ namespace build2
         if (&pt == dir) // Don't add injected fsdir{} twice.
           continue;
 
-        if (clean && !pt.in (*bs.root_scope ()))
+        if (clean && !pt.in (*rs))
           continue;
 
         prerequisite_target pto (&pt, pi);
