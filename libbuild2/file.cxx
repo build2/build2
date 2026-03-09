@@ -1810,34 +1810,34 @@ namespace build2
         {
           // Note that we originally used the save_false_omitted flag but that
           // didn't allow us to distinguish the case where the user explicitly
-          // specified the false value (see bpkg for details). The drawback of
-          // the current approach is that it's impossible to "unconfigure" the
-          // value (so that, for example, the project starts inheriting its
-          // readonly status from the parent). We could probably recognize a
-          // NULL value as such a request to unconfigure. Maybe later, when we
-          // have a concrete need for this.
+          // specified the false value (see bpkg for details). In the current
+          // approach, to "unconfigure" the value (so that, for example, the
+          // project starts inheriting its readonly status from the parent)
+          // one has to configure with the NULL value.
           //
           bool new_val (false);
           lookup l (
             config::lookup_config (new_val,
                                    root,
                                    *var_cbr,
-                                   false /* default */,
-                                   config::save_default_omitted));
+                                   config::save_null_omitted));
 
-          ro = cast<bool> (l);
-
-          // Let's only report it if it's true.
-          //
-          if (*ro && verb >= 2)
+          if (l) // Defined and not NULL.
           {
-            // Note: we are first so no need to check for existence.
-            //
-            p.config_reports.push_back (
-              parser::config_report {project_name (), {}, new_val});
+            ro = cast<bool> (l);
 
-            p.config_reports.back ().values.push_back (
-              parser::config_report::value {l, "true", ""});
+            // Only report it if it's explicitly set to true or false.
+            //
+            if (verb >= 2)
+            {
+              // Note: we are first so no need to check for existence.
+              //
+              p.config_reports.push_back (
+                parser::config_report {project_name (), {}, new_val});
+
+              p.config_reports.back ().values.push_back (
+                parser::config_report::value {l, "true", ""});
+            }
           }
         }
 
