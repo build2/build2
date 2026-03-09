@@ -89,7 +89,8 @@ namespace build2
       // positions, just flags. Note that args[0] is cl.exe itself in which we
       // are conveniently not interested.
       //
-      bool W (false); // /WN /Wall /w
+      bool W  (false); // /WN /Wall /w
+      bool WX (false); // /WX /WX-
 
       for (size_t i (args.size () - 1); i != 0; --i)
       {
@@ -115,6 +116,17 @@ namespace build2
             erase ();
           else
             W = true;
+        }
+        //
+        // /WX /WX-
+        //
+        else if ((a[0] == 'W' && strcmp (a + 1, "X") == 0) || // WX
+                 (a[0] == 'W' && strcmp (a + 1, "X-") == 0))  // WX-
+        {
+          if (WX)
+            erase ();
+          else
+            WX = true;
         }
       }
     }
