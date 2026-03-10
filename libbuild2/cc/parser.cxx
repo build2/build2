@@ -82,13 +82,12 @@ namespace build2
             // normally replaced with special import (special since it may
             // appear in C context); it could be a special keyword (GCC used
             // to call it __import) or it can have a special attribute (GCC
-            // currently marks it with [[__translated]]).
+            // currently marks it with [[__translated]]). Clang as of version
+            // 23 calls it `__preprocessed_import`.
             //
             // Similarly, MSVC drops the `module;` marker and replaces all
-            // other `module` keywords with `__preprocessed_module`.
-            //
-            // Clang doesn't appear to rewrite anything, at least as of
-            // version 18.
+            // other `module` keywords with `__preprocessed_module`. While
+            // Clang 23 replaces both with `__preprocessed_module`.
             //
             if (bb == 0 && t.first)
             {
@@ -111,7 +110,8 @@ namespace build2
               }
 
               if (id == "module" ||
-                  (cid_->type == compiler_type::msvc &&
+                  ((cid_->type == compiler_type::msvc ||
+                    cid_->type == compiler_type::clang ) &&
                    id == "__preprocessed_module"))
               {
                 location_value l (get_location (t));
@@ -123,9 +123,9 @@ namespace build2
                 else
                   n = false;
               }
-              else if (id == "import" /* ||
-                       (cid_->type == compiler_type::gcc &&
-                        id == "__import")*/)
+              else if (id == "import"  ||
+                       (cid_->type == compiler_type::clang &&
+                        id == "__preprocessed_import"))
               {
                 l_->next (t);
 
