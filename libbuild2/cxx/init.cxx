@@ -238,7 +238,7 @@ namespace build2
             // for this mode. So starting from 16 we only enable it in
             // `experimental`.
             //
-            // Note: no /std:c++23 yet as of MSVC 17.6.
+            // Note: no /std:c++23 yet as of MSVC 18.3.
             //
             if (v16_11)
               o = "/std:c++20";
