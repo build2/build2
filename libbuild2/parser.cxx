@@ -175,19 +175,83 @@ namespace build2
                    const location& loc,
                    tracer& tr)
     {
+      bool check;
+      {
+        const dir_path& d (n.pair ? o.dir : n.dir);
+
+        // If we only care about detecting targets outside of any project,
+        // then we can skip most common cases. Specifically, we only need to
+        // check absolute path and relative paths that contain `..` (can be
+        // used to break out of the project).
+        //
+#if 0
+        check = !d.empty ();
+#else
+        check = !d.empty () &&
+          (d.absolute () ||
+           (d.abnormalities () &
+            path_abnormality::parent) != path_abnormality::none);
+#endif
+      }
+
+      // Note: makes n.dir, o.dir absolute and normalized.
+      //
       auto r (p.scope_->find_target_type (n, o, loc));
+      const target_type& tt (r.first);
 
-      if (r.first.factory == nullptr)
-        p.fail (loc) << "abstract target type " << r.first.name << "{}";
+      if (tt.factory == nullptr)
+        p.fail (loc) << "abstract target type " << tt.name << "{}";
 
-      return p.ctx->targets.insert (
-        r.first,         // target type
-        move (n.dir),
-        move (o.dir),
-        move (n.value),
-        move (r.second), // extension
-        implied ? target_decl::implied : target_decl::real,
-        tr).first;
+      target& t (
+        p.ctx->targets.insert (
+          tt,
+          move (n.dir),
+          move (o.dir),
+          move (n.value),
+          move (r.second), // extension
+          implied ? target_decl::implied : target_decl::real,
+          tr).first);
+
+      // Check that the target is inside a/this project.
+      //
+      if (check)
+      {
+        const scope& bs (t.base_scope ());
+        const scope* rs (bs.root_scope ());
+
+        if (rs == nullptr)
+        {
+          diag_record dr (p.fail (loc));
+
+          // Give less confusing diagnostics for the case when the user tries
+          // to place an output target to the source directory ("as to not
+          // rebuild everything every time").
+          //
+          if (t.out_dir ().sub (p.root_->src_path ()))
+            dr << "output target " << t << " is in source directory";
+          else
+            dr << "target " << t << " is outside of any project";
+        }
+        // Note: remember to broaden the check initialization above if
+        // enabling this (which will have performance implications).
+        //
+#if 0
+        // As an exception allow dir{} target of the project directory itself.
+        // This is commonly used to set target-specific variables "at the
+        // boundary", for example:
+        //
+        // tests/: install = false
+        //
+        else if (rs != p.root_ && !(tt.is_a<dir> () && t.dir == rs->out_path ()))
+        {
+          p.fail (loc) << "target " << t << " is outside of project "
+                       << *p.root_ <<
+            p.info << "target is inside project " << *rs;
+        }
+#endif
+      }
+
+      return t;
     }
 
     // Only find.

@@ -698,7 +698,7 @@ namespace build2
 
     string& v (n.value);
 
-    // If the name is typed, resolve the target type it and bail out if not
+    // If the name is typed, resolve the target type and bail out if not
     // found. Otherwise, we know in the end it will resolve to something (if
     // nothing else, either dir{} or file{}), so we can go ahead and process
     // the name.

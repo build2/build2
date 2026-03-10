@@ -359,8 +359,7 @@ namespace build2
     const scope& bs (t.base_scope ());
     const scope* rs (bs.root_scope ());
 
-    if (rs == nullptr)
-      fail << "out of project target " << t;
+    assert (rs != nullptr); // The target should not be out of any project.
 
     // Handle matching group members (see adhoc_rule::match() for background).
     //
