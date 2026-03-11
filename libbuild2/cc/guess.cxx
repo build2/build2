@@ -2637,7 +2637,12 @@ namespace build2
         // keeping the old compiler. Which means we must be more conservative
         // and assume something like 15.0.6 is still 14-based. But then you
         // get -Wunqualified-std-cast-call in 14, which was supposedly only
-        // introduced in Clang 15. So maybe not.
+        // introduced in Clang 15. So, in other words, it's a confused mess.
+        //
+        // Another data point: Wikipedia page for Xcode now lists the LLVM
+        // version on which each Xcode is supposedly based. For example, Xcode
+        // 26.3 it says is based on LLVM 19.1.5 while we observe
+        // _LIBCPP_VERSION=200100. So assuming Clang 19 seems reasonable.
         //
         // Note that this is Apple Clang version and not XCode version.
         //
@@ -2664,12 +2669,18 @@ namespace build2
         // 15.0.0.0 -> 16.0 (_LIBCPP_VERSION=160002)
         // 15.0.0.1 -> 16.0 (_LIBCPP_VERSION=160006)
         // 15.0.0.3 -> 16.0 (_LIBCPP_VERSION=170006)
+        // 16.0.0   -> 17.0 (_LIBCPP_VERSION=??????) / 1600.0.26.3
+        // 17.0.0   -> 19.0 (_LIBCPP_VERSION=200100) / 1700.6.4.2
+        // 21.0.0   -> 21.0 (_LIBCPP_VERSION=??????) / 2100.0.123.102
         //
         uint64_t mj (var_ver->major);
         uint64_t mi (var_ver->minor);
         uint64_t pa (var_ver->patch);
 
-        if      (mj >= 15)                          {mj = 16; mi = 0; pa = 0;}
+        if      (mj >= 21)                          {mj = 21; mi = 0; pa = 0;}
+        else if (mj >= 17)                          {mj = 19; mi = 0; pa = 0;}
+        else if (mj >= 16)                          {mj = 17; mi = 0; pa = 0;}
+        else if (mj >= 15)                          {mj = 16; mi = 0; pa = 0;}
         else if (mj == 14 && (mi > 0 || pa >= 3))   {mj = 15; mi = 0; pa = 0;}
         else if (mj == 14 || (mj == 13 && mi >= 1)) {mj = 12; mi = 0; pa = 0;}
         else if (mj == 13)                          {mj = 11; mi = 0; pa = 0;}
