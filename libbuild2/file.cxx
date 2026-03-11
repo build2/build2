@@ -2497,7 +2497,7 @@ namespace build2
     // 4. Normal import.
     //
     // @@ PERF: in quite a few places (local, subproject) we could have
-    //          returned the scope and save on bootstrap in import_load().
+    //          returned the scope and saved on bootstrap in import_load().
     //
     if (tgt.unqualified ())
     {
@@ -2507,6 +2507,10 @@ namespace build2
       if (tgt.absolute ())
       {
         // Ad hoc import.
+        //
+        // Note that we don't care if the user tries to ad hoc-import a target
+        // from the same project. While it doesn't make much sense, there is
+        // no harm either (other then, maybe, some CPU cycles).
         //
         // Actualize the directory to be analogous to the config.import.<proj>
         // case (which is of abs_dir_path type).
@@ -2926,7 +2930,6 @@ namespace build2
     optional<bool> top_altn;
     bool top_src;
     {
-
       if (proj)
       {
         out_root = move (*x.second);
