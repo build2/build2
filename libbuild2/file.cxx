@@ -2502,7 +2502,7 @@ namespace build2
     if (tgt.unqualified ())
     {
       if (tgt.directory () && tgt.relative ())
-        tgt.dir = ibase.src_path () / tgt.dir;
+        tgt.dir = ibase.out_path () / tgt.dir;
 
       if (tgt.absolute ())
       {
@@ -2883,6 +2883,7 @@ namespace build2
                bool meta,
                const location& loc,
                const char* what,
+               const scope* ibase,
                const parser* prev_parser)
   {
     tracer trace ("import_load");
@@ -2919,7 +2920,6 @@ namespace build2
     // amalgamation that contains our project. For now we only consider
     // top-level sub-projects.
     //
-    scope* rs;
     dir_path out_root, src_root;
 
     // See if this is a forwarded configuration. For top-level project we
@@ -2937,11 +2937,36 @@ namespace build2
       }
       else
       {
-        // For ad hoc import, find our root.
+        // For ad hoc import, find our out root.
         //
         // Note: don't move x.second, used below.
         //
-        pair<dir_path, bool> p (find_out_root (*x.second, top_altn));
+        const dir_path& out_base (*x.second);
+        pair<dir_path, bool> p (find_out_root (out_base, top_altn));
+
+        // One situation where this can happen is a subproject that hasn't
+        // been configured. We should be able to figure this one out.
+        //
+        if (p.first.empty () && ibase != nullptr)
+        {
+          const scope& iroot (*ibase->root_scope ());
+
+          if (out_base.sub (iroot.out_path ()))
+          {
+            dir_path src_base (src_out (out_base, iroot));
+
+            // Save the discovered src_root to pass to create_root() below.
+            //
+            src_root = find_src_root (src_base, (top_altn = nullopt));
+
+            if (!src_root.empty ())
+            {
+              p.first = out_src (src_root, iroot);
+              p.second = false; // Not an in source build.
+            }
+          }
+        }
+
         out_root = move (p.first);
         top_src = p.second;
 
@@ -2994,6 +3019,7 @@ namespace build2
     optional<bool> altn (top_altn);
     optional<bool> fwd (top_fwd);
 
+    scope* rs;
     for (const scope* prs (nullptr); ; prs = rs)
     {
       bool top (prs == nullptr);
@@ -3644,8 +3670,13 @@ namespace build2
                    : import_kind::normal);
 
     pair<names, const scope&> p (
-      import_load (
-        base.ctx, move (r), false /* metadata */, loc, "import", prev_parser));
+      import_load (base.ctx,
+                   move (r),
+                   false /* metadata */,
+                   loc,
+                   "import",
+                   &base,
+                   prev_parser));
 
     return import_result<scope> {&p.second, move (p.first), k};
   }
@@ -4064,7 +4095,13 @@ namespace build2
       k = r.first.absolute () ? import_kind::adhoc : import_kind::normal;
 
       pair<names, const scope&> p (
-        import_load (base.ctx, move (r), metadata, loc, what, prev_parser));
+        import_load (base.ctx,
+                     move (r),
+                     metadata,
+                     loc,
+                     what,
+                     &base,
+                     prev_parser));
 
       rns = ns = move (p.first);
       iroot = &p.second;

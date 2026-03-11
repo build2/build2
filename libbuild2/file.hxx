@@ -532,6 +532,7 @@ namespace build2
   // Note that the what argument should make sense with the -ed and -ing
   // suffixes (e.g., "load").
   //
+  // The base scope is used to locate the subproject root in ad hoc import.
   // The parser is used to detect include/import cycles.
   //
   LIBBUILD2_SYMEXPORT pair<names, const scope&>
@@ -540,6 +541,7 @@ namespace build2
                bool metadata,
                const location&,
                const char* what = "import",
+               const scope* base = nullptr,
                const parser* = nullptr);
 
   // Create scopes, bootstrap the project, enter variable overrides, and load
