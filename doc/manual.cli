@@ -7950,6 +7950,123 @@ $ b config.cxx=\"g++ -m32\"
 $ b config.cxx=\"clang++ -stdlib=libc++\"
 \
 
+In addition to the \c{obj{\}}/\c{bmi{\}} targets, the compile option
+(\c{*.poptions} and \c{*.coptions}) can be specified on the
+\c{exe{\}}/\c{lib{\}} targets. We refer to such options as \"binary-specific
+compile options\".  They are propagated to \c{obj{\}}/\c{bmi{\}} targets that
+are synthesized for source prerequisites of the binary. Note that this
+propagation does not apply to explicit (non-synthesized) \c{obj{\}}/\c{bmi{\}}
+prerequisites. For example:
+
+\
+exe{foo}: cxx{foo} obj{common}
+{
+  cc.poptions += -DFOO
+}
+
+exe{bar}: cxx{bar} obj{common}
+{
+  cc.poptions += -DBAR
+}
+
+obj{common}: cxx{common}
+{
+  cc.poptions += -DCOMMON
+}
+\
+
+In this example, \c{cxx{foo\}} will be compiled with \c{-DFOO}, \c{cxx{bar\}}
+\- with \c{-DBAR}, and \c{cxx{common\}} \- with \c{-DCOMMON}.
+
+Note that if a source prerequisite is shared between several binaries, then
+the values of the propagated compile options (or their absence) must
+match. For instance, the following variant of the above example would result
+in an error because \c{cxx{common\}} would have contradictory \c{cc.poptions}
+values:
+
+\
+exe{foo}: cxx{foo common}
+{
+  cc.poptions += -DFOO
+}
+
+exe{bar}: cxx{bar common}
+{
+  cc.poptions += -DBAR
+}
+\
+
+As another example, here is how we can rewrite a typical C++ library
+\c{buildfile} (which requires different macros to distinguish between
+shared/static builds) using this mechanism, in this case, to build two
+libraries in the same scope:
+
+\
+./: lib{foo}: {hxx cxx}{*-foo}
+./: lib{bar}: {hxx cxx}{*-bar}
+
+cxx.poptions =+ \"-I$out_root\" \"-I$src_root\"
+
+lib{foo}:
+{
+  cxx.poptions += -DFOO
+  cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+}
+
+liba{foo}:
+{
+  cxx.poptions += -DLIBFOO_STATIC_BUILD
+  cxx.export.poptions += -DLIBFOO_STATIC
+}
+
+libs{foo}:
+{
+  cxx.poptions += -DLIBFOO_SHARED_BUILD
+  cxx.export.poptions += -DLIBFOO_SHARED
+}
+
+lib{bar}:
+{
+  cxx.poptions += -DBAR
+  cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+}
+
+liba{bar}:
+{
+  cxx.poptions += -DLIBBAR_STATIC_BUILD
+  cxx.export.poptions += -DLIBBAR_STATIC
+}
+
+libs{bar}:
+{
+  cxx.poptions += -DLIBBAR_SHARED_BUILD
+  cxx.export.poptions += -DLIBBAR_SHARED
+}
+\
+
+The exact semantics of this mechanism is as-if the binary-specific compile
+options were set on the synthesized \c{obj{\}}/\c{bmi{\}} targets at the end
+of the \c{buildfile}.
+
+One nuance to keep in mind is that target type/pattern-specific
+assign/append/prepend specified for \c{obj{\}}/\c{bmi{\}} will not be in
+effect for options specified on \c{lib{\}}/\c{exe{\}}. For example:
+
+\
+cc.poptions += -DSCOPE
+obj{*}: cc.poptions += -DTARGET
+exe{foo}: cc.poptions += -DFOO
+\
+
+Here the effective \c{cc.poptions} for \c{exe{foo\}} prerequisites will be
+\c{-DSCOPE -DFOO} since \c{exe{foo\}} does not match the \c{obj{*\}}
+pattern. As a result, if using this mechanism, remember to include the binary
+target types in \c{obj{\}} patterns. For example:
+
+\
+{obj exe}{*}: cxx.poptions += -DTARGET
+\
+
 \h#cc-target-types|C-Common Target Types|
 
 The following listing shows the hierarchy of the target types defined by the
