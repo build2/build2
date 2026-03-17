@@ -1,36 +1,209 @@
 Version 0.18.0
 
-  * Ability to mark projects as readonly.
+  * Support for `while`-loop in the Buildfile language.
 
-    Each project now automatically gets the config.<project>.build.readonly
-    special configuration variable. If this variable is set to true or if the
-    parent project is marked readonly, then the project's sources are assumed
-    to be readonly.
+    See the "Buildfile Language" section in the manual for details.
 
-    Note that this is not a guarantee, just an assumption that they are not
-    routinely or frequently changed and that an mtime-based change detection
-    is sufficient. Note also that we make the same assumption about files
-    outside of any project.
+  * Support for `continue` and `break` in loops in the Buildfile and scripting
+    languages.
 
-    The effective value (specified or inherited) is also available (starting
-    from root.build) as the build.readonly project-specific variable.
+  * `ifn` and `ife` shortcuts in the Buildfile and scripting languages.
 
-  * GNU make jobserver support.
+    These flow control shortcuts allow more succinct expression of is/is-not
+    \c{null} and empty checks. They are equivalent to the following more
+    verbose expressions:
 
-    On POSIX platforms the build system driver now starts a GNU make-
-    compatible jobserver of the `fifo` type and passes the jobserver
-    information to all external commands (compilers, linkers, etc) as part of
-    the MAKEFLAGS environment variable. The jobserver can be disabled with the
-    --jobserver=none option.
+    ifn ...     ~  if $null(...)
+    ife ...     ~  if $empty(...)
 
-    Note that the `fifo` jobserver type is only supported since GNU make 4.4.
-    Note also that only the server side of the jobserver is supported and the
-    build system driver does not act as a jobserver client.
+    ifn! ...    ~  if! $null(...)
+    ife! ...    ~  if! $empty(...)
 
-  * Variable names with intermediate components called 'build' are now
-    reserved by the build system core. For example:
+    elifn ...   ~  elif $null(...)
+    elife ...   ~  elif $empty(...)
 
-    x.build.y = 1  # error
+    elifn! ...  ~  elif! $null(...)
+    elife! ...  ~  elif! $empty(...)
+
+  * New Buildfile and scripting language functions:
+
+    - $front(), $back() and $json.array_front(), $json.array_back()
+
+      Return first/last element in a sequence.
+
+    - $sha256sum(), $xxh64sum()
+
+      Compute SHA256 and XXH64 checksums of a string.
+
+    - $builtin.generate_uuid()
+
+      Generate UUID.
+
+    - $string.{compare,filter,filter_out}()
+
+      Compare or filter/filter out strings.
+
+      There is now also support for the `contains`, `contains_once`,
+      `starts_with`, and `ends_with` flags in $string.{find,find_index}().
+
+    - $process.search()
+
+      Search in PATH to determine absolute executable path.
+
+  * New scripting languages builtins:
+
+    - sha256sum
+
+      Compute SHA256 checksum of a file or stdin.
+
+    - xxh64sum
+
+      Compute XXH64 checksum of a file or stdin.
+
+    Also, the `ln` builtin now supports creating hard links in addition to
+    symbolic.
+
+  * New json{} builtin target type.
+
+    It represents a JSON text file and has the .json default extension.
+
+  * Shell script and task runner executable.
+
+    The portable scripting language that is used for buildfile recipes
+    (Buildscript) and test scripts (Testscript) has been generalized to also
+    provide a general-purpose shell scripting flavor (Shellscript). Such shell
+    scripts can be executed with the `bx` executable which is now provided
+    alongside the build system driver (`b`). See the bx(1) man page for
+    details.
+
+  * Buildscript/Testscript/Shellscript syntax version 2.
+
+    The version 2 is an improved syntax that should be used in new projects.
+    Existing projects should also be eventually migrated to the new syntax.
+
+    The syntax changes in version 2 compared to version 1 are:
+
+    - Flow-control constructs (`if`, `for`, etc) are no longer terminated with
+      the `end` line. Instead, the commands inside need to be enclosed into
+      curly braces, which can be omitted for a single command. For example,
+      syntax 1:
+
+        if true
+          echo one
+	  echo two
+        end
+
+        if true
+          echo one
+        end
+
+      Syntax 2:
+
+        if true
+        {
+          echo one
+	  echo two
+        }
+
+        if true
+          echo one
+
+    - Testscript groups are now enclosed into double curly braces ({{ }}).
+      For example, syntax 1:
+
+        : basics
+        :
+        {
+          : test1
+	  :
+	  $* test1
+
+          : test2
+	  :
+	  $* test2
+        }
+
+      Syntax 2:
+
+        : basics
+        :
+        {{
+          : test1
+	  :
+	  $* test1
+
+          : test2
+	  :
+	  $* test2
+        }}
+
+    - Testscript commands in explicit test scopes are no longer separated with
+      semicolons. For example, syntax 1:
+
+      : test1
+      :
+      {
+        $* pre;
+	$* test1;
+	$* post
+      }
+
+      Syntax 2:
+
+      : test1
+      :
+      {
+        $* pre
+	$* test1
+	$* post
+      }
+
+    The syntax version is selected based on the project's build2 version
+    constraint in the manifest (`depends: build2 >= X.Y.Z`). Specifically, if
+    the required version is equal to or great than 0.18.0, then syntax 2 is
+    automatically selected. Otherwise, version 1 is used for backwards
+    compatibility.
+
+    The desired syntax can also be specified explicitly, both at the buildfile
+    and script levels, with the {shellscript,buildscript,testscript}.syntax
+    variables. For example:
+
+    # root.build
+    #
+    testscript.syntax = 1
+
+  * Support for JSON compilation database generation and maintenance.
+
+    See the "Compilation Database" section in the "cc Module" chapter of
+    the manual for details.
+
+  * Support for specifying compile options on exe/lib{} targets
+
+    It is now possible to specify compile option (*.poptions and *.coptions)
+    on the exe/lib{} targets (we call them "binary-specific compile
+    options"). Such options are propagated to obj/bmi{} targets that are
+    synthesized for source prerequisites of the binary. Note that this
+    propagation does not apply to explicit (non-synthesized) obj/bmi{}
+    prerequisites. For example:
+
+    exe{foo}: cxx{foo} obj{common}
+    {
+      cxx.poptions += -DFOO
+    }
+
+    exe{bar}: cxx{bar} obj{common}
+    {
+      cxx.poptions += -DBAR
+    }
+
+    obj{common}: cxx{common}
+    {
+      cxx.poptions += -DCOMMON
+    }
+
+    In this example, cxx{foo} will be compiled with -DFOO, cxx{bar} -- with
+    -DBAR, and cxx{common} -- with -DCOMMON. Refer to the "C-Common
+    Configuration Variables" section in the manual for details.
 
   * Support for JSON5 and JSON5E.
 
@@ -84,6 +257,67 @@ Version 0.18.0
     [1] https://json5.org
     [2] https://github.com/boris-kolpackov/libpdjson5/blob/master/JSON5E.md
 
+  * Ability to specify negative values for the -j|--jobs option.
+
+    If the value is negative, then the number of available hardware threads
+    is reduced by this value.
+
+  * Support for updating targets during buildfile load.
+
+    Updating a target during load is primarily useful when the information it
+    contains is required in the buildfile itself. For example, we may need to
+    know the target architecture byte-order in order to decide which source
+    files must be included into the build. And, at least in case of the C/C++
+    compilation, the only reliable source of this information are the compiler
+    macros. To extract this information from the compiler and make it
+    available during the buildfile evaluation, we can generate a buildfile
+    fragment during load and then source it into the main buildfile (or,
+    alternatively, generate a JSON file and load it into a buildfile
+    variable). See the `update` directive in the manual for details.
+
+  * Ability to mark projects as readonly.
+
+    Each project now automatically gets the config.<project>.build.readonly
+    special configuration variable. If this variable is set to true or if the
+    parent project is marked readonly, then the project's sources are assumed
+    to be readonly.
+
+    Note that this is not a guarantee, just an assumption that they are not
+    routinely or frequently changed and that an mtime-based change detection
+    is sufficient. Note also that we make the same assumption about files
+    outside of any project.
+
+    The effective value (specified or inherited) is also available (starting
+    from root.build) as the build.readonly project-specific variable.
+
+  * Revamped C++ standard library modules discovery.
+
+    Specifically, for both Clang and GCC we now use -fprint-file-name to find
+    a suitable .module.json file.
+
+  * Generalized {c,cxx}.predefs rule.
+
+    The rule now allows specifying custom input to process and is able to
+    produce JSON and buildfile output. See the "Compiler Predefined Macro
+    Extraction" section in the manual for details.
+
+  * GNU make jobserver support.
+
+    On POSIX platforms the build system driver now starts a GNU make-
+    compatible jobserver of the `fifo` type and passes the jobserver
+    information to all external commands (compilers, linkers, etc) as part of
+    the MAKEFLAGS environment variable. The jobserver can be disabled with the
+    --jobserver=none option.
+
+    Note that the `fifo` jobserver type is only supported since GNU make 4.4.
+    Note also that only the server side of the jobserver is supported and the
+    build system driver does not act as a jobserver client.
+
+  * Variable names with intermediate components called 'build' are now
+    reserved by the build system core. For example:
+
+    x.build.y = 1  # error
+
   * Ability to override imported installed library path/name.
 
     Specifically, the config.import.<proj>.<name>.{lib,liba,libs} variables
@@ -118,7 +352,7 @@ Version 0.18.0
     specific variable on an executable to signal that it should be built for
     install during update-for-install even if it would otherwise be built for
     plain update, which happens if the executable is also executed during the
-    build. See GH issue #472 for details and implications.
+    build. See GitHub issue #472 for details and implications.
 
 Version 0.17.0
 
