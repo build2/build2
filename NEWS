@@ -90,7 +90,7 @@ Version 0.18.0
 
         if true
           echo one
-	  echo two
+          echo two
         end
 
         if true
@@ -102,7 +102,7 @@ Version 0.18.0
         if true
         {
           echo one
-	  echo two
+          echo two
         }
 
         if true
@@ -115,12 +115,12 @@ Version 0.18.0
         :
         {
           : test1
-	  :
-	  $* test1
+          :
+          $* test1
 
           : test2
-	  :
-	  $* test2
+          :
+          $* test2
         }
 
       Syntax 2:
@@ -129,12 +129,12 @@ Version 0.18.0
         :
         {{
           : test1
-	  :
-	  $* test1
+          :
+          $* test1
 
           : test2
-	  :
-	  $* test2
+          :
+          $* test2
         }}
 
     - Testscript commands in explicit test scopes are no longer separated with
@@ -144,8 +144,8 @@ Version 0.18.0
       :
       {
         $* pre;
-	$* test1;
-	$* post
+        $* test1;
+        $* post
       }
 
       Syntax 2:
@@ -154,8 +154,8 @@ Version 0.18.0
       :
       {
         $* pre
-	$* test1
-	$* post
+        $* test1
+        $* post
       }
 
     The syntax version is selected based on the project's build2 version
