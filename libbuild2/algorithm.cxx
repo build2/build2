@@ -2615,9 +2615,12 @@ namespace build2
     //
     if (file* f = t.is_a<file> ())
     {
-      // First the target itself.
+      // First the target itself, unless it is unreal (binless library, etc).
       //
-      add (f->path (), m, f, true); // Note: always printed.
+      const path& p (f->path ());
+
+      if (!p.empty ())
+        add (p, m, f, true); // Note: always printed.
 
       // Then ad hoc group file/fsdir members, if any.
       //
@@ -2657,8 +2660,15 @@ namespace build2
         {
           if (const file* f = mt->is_a<file> ())
           {
-            if (optional<pair<mode, bool>> m = member_mode (*mt))
-              add (f->path (), m->first);
+            // Skip unreal members (binless library, etc).
+            //
+            const path& p (f->path ());
+
+            if (!p.empty ())
+            {
+              if (optional<pair<mode, bool>> m = member_mode (*mt))
+                add (p, m->first);
+            }
           }
         }
       }
@@ -2684,7 +2694,7 @@ namespace build2
 
     file* ft (t.is_a<file> ());
 
-    if (ft != nullptr && bls.size () == 1)
+    if (ft != nullptr && !ft->path().empty () && bls.size () == 1)
     {
       // Single file-based target.
       //
@@ -2755,7 +2765,8 @@ namespace build2
               if (bl.print && entry_exists (bl.target))
                 tks.push_back (bl.member->key ());
 
-            print_diag (c, move (tks), d);
+            if (!tks.empty ())
+              print_diag (c, move (tks), d);
           }
         }
       }
