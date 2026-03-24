@@ -338,7 +338,7 @@ namespace build2
                 if (mj >= 14)
                 {
                   o = "-std=c++26";
-                  cplusplus = 202400;
+                  cplusplus = 202603;
                 }
                 else if (mj >= 11)
                 {
@@ -375,7 +375,7 @@ namespace build2
                 if (mj >= 18)
                 {
                   o = "-std=c++26";
-                  cplusplus = 202400;
+                  cplusplus = 202603;
                 }
                 else if (mj >= 13)
                 {
@@ -455,11 +455,9 @@ namespace build2
             // 26 to 2c for compatibility with older versions of the
             // compilers.
             //
-            // @@ TMP: update C++26 __cplusplus value once known (and above).
-            //
             o = "-std=";
 
-            if      (stdcmp ("26", "2c")) {o += "c++2c"; cplusplus = 202400;}
+            if      (stdcmp ("26", "2c")) {o += "c++2c"; cplusplus = 202603;}
             else if (stdcmp ("23", "2b")) {o += "c++2b"; cplusplus = 202302;}
             else if (stdcmp ("20", "2a")) {o += "c++2a"; cplusplus = 202002;}
             else if (stdcmp ("17", "1z")) {o += "c++1z"; cplusplus = 201703;}
