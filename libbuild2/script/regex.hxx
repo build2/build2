@@ -346,7 +346,25 @@ namespace build2
         return l < r || l == r;
       }
 
+      // It seems that an ability to instantiate std::basic_string with
+      // user-defined character types is on its way out (see the P3681R0
+      // proposal for details). In particular, the later versions of libc++
+      // mark the char_traits specializations with such types as deprecated,
+      // which ends up with -Wdeprecated-declarations warning. For now, let's
+      // just disable this warning for the line_string definition for Clang
+      // and GCC. Also see GH issue 516 for a wider range of problems with our
+      // line_regex.
+      //
+#if defined(__clang__) || defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
       using line_string = std::basic_string<line_char>;
+
+#if defined(__clang__) || defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
 
       // Locale that has ctype<line_char> facet installed. Used in the
       // regex_traits<line_char> specialization (see below).
