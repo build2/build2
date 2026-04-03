@@ -536,7 +536,7 @@ main (int argc, char* argv[])
     {
       auto& o (cout);
 
-      o << "build2 " << LIBBUILD2_VERSION_ID << endl
+      o << "bx " << LIBBUILD2_VERSION_ID << endl
         << "libbutl " << LIBBUTL_VERSION_ID << endl
         << "host " << BUILD2_HOST_TRIPLET << endl
         << "Copyright (c) " << BUILD2_COPYRIGHT << "." << endl
