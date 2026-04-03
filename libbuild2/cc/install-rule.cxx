@@ -111,19 +111,22 @@ namespace build2
             //
             // @@ But it goes further: while an interface prerequisite should
             // match the target's options, it feels an implementation can be
-            // runtime-only, at least for shared library targets (for static
-            // the consumer would still need to link the prerequisite
-            // explicitly, which means it is more like buildtime). We could
-            // probably distinguish between interface/implementation by
-            // examining the *.export.libs variable and looking for the
-            // prerequisite (or its group). Feels hairy, though. So for now we
-            // only do this for target-shared/prerequisite-static case where
-            // we can assume the prerequisite is always implementation. See GH
-            // issue #448. See also apply_posthoc() as well as
-            // libux_install_rule below.
+            // runtime-only, at least for shared (non-binless) library targets
+            // (for static the consumer would still need to link the
+            // prerequisite explicitly, which means it is more like
+            // buildtime). We could probably distinguish between
+            // interface/implementation by examining the *.export.libs
+            // variable and looking for the prerequisite (or its group). Feels
+            // hairy, though. So for now we only do this for
+            // target-shared/prerequisite-static case where we can assume the
+            // prerequisite is always implementation. See GH issue #448. See
+            // also apply_posthoc() as well as libux_install_rule below.
             //
+            const file* ls;
             if (me.cur_options == lib::option_install_runtime ||
-                (t.is_a<libs> () && pt->is_a<liba> ()))
+                ((ls = t.is_a<libs> ()) &&
+                 !ls->path ().empty ()  && // Not binless.
+                 pt->is_a<liba> ()))
               options = lib::option_install_runtime;
           }
         }
@@ -510,8 +513,11 @@ namespace build2
             options = lib::option_install_runtime;
           else
           {
+            const file* ls;
             if (me.cur_options == lib::option_install_runtime ||
-                (t.is_a<libus> () && pt->is_a<liba> ()))
+                ((ls = t.is_a<libus> ()) &&
+                 !ls->path ().empty ()   && // Not binless.
+                 pt->is_a<liba> ()))
               options = lib::option_install_runtime;
           }
         }
