@@ -122,8 +122,11 @@ namespace build2
             // issue #448. See also apply_posthoc() as well as
             // libux_install_rule below.
             //
+            const file* ls;
             if (me.cur_options == lib::option_install_runtime ||
-                (t.is_a<libs> () && pt->is_a<liba> ()))
+                ((ls = t.is_a<libs> ()) &&
+                 !ls->path ().empty ()  && // Not binless.
+                 pt->is_a<liba> ()))
               options = lib::option_install_runtime;
           }
         }
@@ -510,8 +513,11 @@ namespace build2
             options = lib::option_install_runtime;
           else
           {
+            const file* ls;
             if (me.cur_options == lib::option_install_runtime ||
-                (t.is_a<libus> () && pt->is_a<liba> ()))
+                ((ls = t.is_a<libus> ()) &&
+                 !ls->path ().empty ()   && // Not binless.
+                 pt->is_a<liba> ()))
               options = lib::option_install_runtime;
           }
         }
