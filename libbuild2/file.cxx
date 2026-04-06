@@ -2643,8 +2643,10 @@ namespace build2
           return nullptr;
         };
 
-        // First try config.<proj>, then import.<name>.<type>, and finally
-        // just import.<name>.
+        // First try config.<proj>, if the target has the
+        // <project>%exe{<project>} form, then
+        // config.import.<proj>.<name>.<type>, and finally just
+        // config.import.<proj>.<name>.
         //
         // @@ What should we do if several of them are specified? For example,
         //    one is inherited from amalgamation while the other is specified
@@ -2667,9 +2669,14 @@ namespace build2
           // overridable variable of type path. The config.<proj> we have to
           // type manually.
           //
-          if (e && projv == valv)
+
+          // config.<proj>
+          //
+          if (e && icasecmp (projv, valv) == 0)
             p = lookup (vp.insert<path> ("config." + projv), e);
 
+          // config.import.<proj>.<name>.<type>
+          //
           if (p == nullptr)
           {
             string ttv (sanitize_identifier (tgt.type));
@@ -2677,6 +2684,8 @@ namespace build2
           }
         }
 
+        // config.import.<proj>.<name>
+        //
         if (p == nullptr)
           p = lookup (vp.insert (n + '.' + valv), false);
 
