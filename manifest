@@ -1,6 +1,6 @@
 : 1
 name: build2
-version: 0.18.1-a.0.z
+version: 0.18.1
 summary: build2 build system
 license: MIT
 topics: build system, build toolchain
