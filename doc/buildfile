@@ -11,11 +11,9 @@ xhtml{*}: extension = xhtml
     css{common pre-box man} \
     file{man-*}
 
-# @@ TODO: why no testscript manual?
-
-./: doc{build2-build-system-manual*}     \
+./: doc{build2-build-system-manual* build2-testscript-manual*} \
     css{code-box common doc pre-box toc} \
-    file{manual.cli doc-* *.html2ps}
+    file{manual.cli testscript.cli doc-* *.html2ps}
 
 ./: file{cli.sh}
 
