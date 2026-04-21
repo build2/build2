@@ -124,7 +124,12 @@ namespace build2
        than a predefined limit (64MB on 64-bit systems and 32MB on 32-bit
        ones) and caps it to a more sensible value (8MB) if that's the case.
        This option allows you to override this check with the special zero
-       value indicating that the main thread stack size should be used as is."
+       value indicating that the main thread stack size should be used as is.
+       A stack size below 1MB may cause segmention faults so the driver checks 
+       if the stack size is less than 1MB and clamps it to 1MB. This option can
+       be used to override this behavior, and set the stack size to a lower 
+       value. Anything below ~500KB is almost certianly going to seg-fault if 
+       multithreading is enabled."
     }
 
     string --pager // String to allow empty value.
