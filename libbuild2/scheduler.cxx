@@ -982,15 +982,16 @@ namespace build2
 
     } g {&l, helpers_, starting_};
 
-    // For some platforms/compilers the default stack size for newly created
-    // threads may differ from that of the main thread. Here are the default
-    // main/new thread sizes (in KB) for some of them:
+    // For some platforms/compilers/libraries the default stack size for newly
+    // created threads may differ from that of the main thread. Here are the 
+    // default main/new thread sizes (in KB) for some of them:
     //
     // Linux   :   8192 / 8196
     // FreeBSD : 524288 / 2048
     // MacOS   :   8192 /  512
     // MinGW   :   2048 / 2048
     // VC      :   1024 / 1024
+    // Musl    :    128 /  128
     //
     // Provided the main thread size is less-equal than
     // LIBBUILD2_SANE_STACK_SIZE (which defaults to
@@ -998,7 +999,9 @@ namespace build2
     // thread stack is the same as for the main thread. Otherwise, we cap it
     // at LIBBUILD2_DEFAULT_STACK_SIZE (default: 8MB). This can also be
     // overridden at runtime with the --max-stack build2 driver option
-    // (remember to update its documentation of changing anything here).
+    // (remember to update its documentation of changing anything here). We 
+    // also make sure that the stack size is at least 1MB, Unless --max-stack
+    // is smaller than 1MB.
     // 
     //
     // On Windows the stack size is the same for all threads and is customized
@@ -1108,15 +1111,19 @@ namespace build2
 
     // Clamp the size if necessary.
     //
-    if (max_stack)
+    if (stack_size < LIBBUILD2_MIN_STACK_SIZE)
+      stack_size = LIBBUILD2_MIN_STACK_SIZE;
+
+    // Note that --max-stack can be used set the stack size below 
+    // LIBBUILD2_MIN_STACK_SIZE
+    //
+    if (max_stack) 
     {
       if (*max_stack != 0 && stack_size > *max_stack)
         stack_size = *max_stack;
     }
     else if (stack_size > LIBBUILD2_SANE_STACK_SIZE)
       stack_size = LIBBUILD2_DEFAULT_STACK_SIZE;
-    else if (stack_size < LIBBUILD2_MIN_STACK_SIZE)
-      stack_size = LIBBUILD2_MIN_STACK_SIZE;
 
     pthread_attr_t attr;
     int r (pthread_attr_init (&attr));
