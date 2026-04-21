@@ -999,6 +999,7 @@ namespace build2
     // at LIBBUILD2_DEFAULT_STACK_SIZE (default: 8MB). This can also be
     // overridden at runtime with the --max-stack build2 driver option
     // (remember to update its documentation of changing anything here).
+    // 
     //
     // On Windows the stack size is the same for all threads and is customized
     // at the linking stage (see build2/buildfile). Thus neither *_STACK_SIZE
@@ -1027,6 +1028,13 @@ namespace build2
 
 #ifndef LIBBUILD2_SANE_STACK_SIZE
 #  define LIBBUILD2_SANE_STACK_SIZE (sizeof(void*) * LIBBUILD2_DEFAULT_STACK_SIZE)
+#endif
+
+  // The true minimum might be as small as 560KB but why risk having to run 
+  // into stack size issues again?  
+  //
+#ifndef LIBBUILD2_MIN_STACK_SIZE
+#  define LIBBUILD2_MIN_STACK_SIZE 1048576 // 1MB
 #endif
 
     // Auto-deleter.
@@ -1098,7 +1106,7 @@ namespace build2
 #endif
     }
 
-    // Cap the size if necessary.
+    // Clamp the size if necessary.
     //
     if (max_stack)
     {
@@ -1107,6 +1115,8 @@ namespace build2
     }
     else if (stack_size > LIBBUILD2_SANE_STACK_SIZE)
       stack_size = LIBBUILD2_DEFAULT_STACK_SIZE;
+    else if (stack_size < LIBBUILD2_MIN_STACK_SIZE)
+      stack_size = LIBBUILD2_MIN_STACK_SIZE;
 
     pthread_attr_t attr;
     int r (pthread_attr_init (&attr));
@@ -1122,7 +1132,7 @@ namespace build2
 
     if (r != 0)
       throw_system_error (r);
-
+    
     r = pthread_attr_setstacksize (&attr, stack_size);
 
     if (r != 0)
