@@ -51,6 +51,7 @@ ifeq ($(OS),Windows_NT)
   ifneq ($(filter %-w64-mingw32,$(target)),)
     host  := x86_64-w64-mingw32
     chost := $(host)
+    override CPPFLAGS += -D_WIN32_WINNT=0x0601 -DLIBBUTL_MINGW_STDTHREAD
     override LIBS += -pthread -limagehlp
   else ifneq ($(filter %-windows-msvc,$(target)),)
     host  := x86_64-microsoft-win32-msvc
