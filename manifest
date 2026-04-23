@@ -5,7 +5,7 @@ summary: build2 build system
 license: MIT
 topics: build system, build toolchain
 keywords: native cross-platform
-description-file: README
+description-file: README.md
 changes-file: NEWS
 url: https://build2.org
 doc-url: https://build2.org/doc.xhtml
