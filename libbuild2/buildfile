@@ -326,25 +326,12 @@ ifn! $install.root
   #
   # Note: strip the last directory component (<project>).
   #
-  # @@ TMP drop after 0.16.0 release.
-  #
-  install_buildfile = \
-    ($install.buildfile != [null] \
-     ? $directory(\
-         $install.resolve($install.buildfile, \
-                          $install.relocatable ? $install.bin : [dir_path]))\
-     :)
-  {obja objs}{utility-installed utility-uninstalled}: cxx.poptions += \
-    -DBUILD2_INSTALL_BUILDFILE=\"$regex.replace($install_buildfile, '\\', '\\\\')\"
-
-  #\
   {obja objs}{utility-installed utility-uninstalled}: cxx.poptions += \
     -DBUILD2_INSTALL_BUILDFILE=\"$regex.replace(\
       $directory(\
         $install.resolve(\
           $install.buildfile, \
           $install.relocatable ? $install.bin : [dir_path])), '\\', '\\\\')\"
-  #\
 
   # Data directory or src_root if not installed.
   #
