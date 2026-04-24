@@ -110,23 +110,14 @@
 {{
   : set
   :
-  : Here we rely on the facts that on POSIX PATH environment variable most
-  : likely is set at the time of login, and on Windows it is set by build2 on
-  : startup.
-  :
-  : @@ TMP Use a custom variable, when an ability to set environment variables
-  :    in testscript is implemented. It is now!
-  :
   {{
     : string
     :
-    $* <'print $getenv([string] "PATH")' | set v;
-    ($v != '[null]') || exit "PATH environment variable is not set"
+    env foo=bar -- $* <'print $getenv([string] "foo")' >'bar'
 
     : untyped
     :
-    $* <'print $getenv("PATH")' | set v;
-    ($v != '[null]') || exit "PATH environment variable is not set"
+    env foo=bar -- $* <'print $getenv("foo")' >'bar'
 
     : path
     :
