@@ -865,9 +865,7 @@ namespace build2
                   out.leaf (root_->out_path ()) == dir.leaf (root_->src_path ())))
         ;
       else
-        // @@ TMP change warn to fail after 0.16.0 release.
-        //
-        warn (loc) << "target output directory " << out
+        fail (loc) << "target output directory " << out
                    << " must be parallel to source directory " << dir;
 
       // If this target is in this project, then out must be empty if this is
