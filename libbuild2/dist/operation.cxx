@@ -1030,11 +1030,8 @@ namespace build2
           if (e.code ().category () == generic_category () &&
               e.code ().value () == EEXIST)
           {
-            // @@ TMP (added in 0.16.0).
-            //
-            warn << "multiple files are distributed as " << r <<
-              info << "second file is " << f <<
-              info << "this warning will become error in the future";
+            fail << "multiple files are distributed as " << r <<
+              info << "second file is " << f;
           }
           else
             fail << "unable to copy " << f << " to " << r << ": " << e;
