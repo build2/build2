@@ -605,12 +605,8 @@ namespace build2
       {
         if (l->null)
         {
-          // @@ TMP (added in 0.16.0).
-          //
-          warn << "null " << *ctx.var_include << " variable value specified "
-               << "for prerequisite " << p <<
-            info << "treated as undefined for backwards compatibility" <<
-            info << "this warning will become error in the future";
+          fail << "null " << *ctx.var_include << " variable value specified "
+               << "for prerequisite " << p;
         }
         else
         {
