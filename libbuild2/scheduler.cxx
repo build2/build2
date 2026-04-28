@@ -19,6 +19,10 @@
 #  endif
 #endif
 
+#if defined(__linux__) && defined(__MUSL__)
+#  include <sys/resource.h> // getrlimit()
+#endif
+
 #ifndef _WIN32
 #  include <thread> // this_thread::sleep_for()
 #else
@@ -1052,6 +1056,7 @@ namespace build2
     size_t stack_size;
     {
 #ifdef __linux__
+#  ifndef __MUSL__
       // Note that the attributes must not be initialized.
       //
       pthread_attr_t attr;
@@ -1065,7 +1070,16 @@ namespace build2
 
       if (r != 0)
         throw_system_error (r);
+#  else
+      // Musl's pthread_getattr_np() reports bogus stack size (GH issue #526)
+      // so use getrlimit(RLIMIT_STACK) as a workaround.
+      //
+      struct rlimit stack_rlimit;
+      if (getrlimit (RLIMIT_STACK, &stack_rlimit) != 0)
+        throw_generic_error (errno);
 
+      stack_size = static_cast<size_t> (stack_rlimit.rlim_cur);
+#  endif
 #elif defined(__FreeBSD__) || defined(__NetBSD__)
       pthread_attr_t attr;
       int r (pthread_attr_init (&attr));
