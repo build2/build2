@@ -2916,22 +2916,7 @@ namespace build2
         {
           //cache_cls.fetch_add (1, memory_order_relaxed);
 
-          // @@ TMP cleanup.
-          //
-#if 0
           assert (r.first == p.first->second.target);
-#else
-          if (r.first != p.first->second.target)
-          {
-            info   << "inconsistent header cache content" <<
-              info << "encountered: " << *p.first->second.target <<
-              info << "expected: " << *r.first <<
-              info << "please report at "
-                   << "https://github.com/build2/build2/issues/390";
-
-            assert (r.first == p.first->second.target);
-          }
-#endif
         }
       }
 
@@ -3037,22 +3022,7 @@ namespace build2
         {
           //cache_cls.fetch_add (1, memory_order_relaxed);
 
-          // @@ TMP cleanup.
-          //
-#if 0
           assert (r.first == f);
-#else
-          if (r.first != f)
-          {
-            info   << "inconsistent header cache content" <<
-              info << "encountered: " << *f <<
-              info << "expected: " << *r.first <<
-              info << "please report at "
-                   << "https://github.com/build2/build2/issues/390";
-
-            assert (r.first == f);
-          }
-#endif
         }
       }
 
