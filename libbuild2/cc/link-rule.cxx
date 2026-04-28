@@ -863,11 +863,11 @@ namespace build2
           // @@ Isn't libul{} member already picked or am I missing something?
           //    If not, then we may need the same in recursive-binless logic.
           //
-#if 0
+#if 1
           // @@ TMP hm, this hasn't actually been enabled. So may actually
           //    enable and see if it trips up (do git-blame for good measure).
           //
-          assert (false); // @@ TMP (remove before 0.16.0 release)
+          assert (false);
 #endif
           ux = &link_member (*ul, a, li)->as<libux> ();
         }
