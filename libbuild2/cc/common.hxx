@@ -44,6 +44,10 @@ namespace build2
       //
       const char* const* x_hinters;
 
+      // Compiler info, available once discovered by x.config.guess.
+      //
+      const compiler_info* x_info;
+
       // We set this variable on the bmi*{} target to indicate whether it
       // belongs to a binless library. More specifically, it controls both
       // the production and consumption (linking) of the object file with

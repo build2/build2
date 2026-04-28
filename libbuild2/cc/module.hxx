@@ -94,8 +94,6 @@ namespace build2
                      strings&,
                      const string*) const = 0;
 
-      const compiler_info* x_info;
-
       string env_checksum; // Environment checksum (also in x.path).
 
       // Cached x.internal.scope value.

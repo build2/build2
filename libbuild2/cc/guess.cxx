@@ -255,7 +255,7 @@ namespace build2
 "#  elif defined(__dietlibc__) /* Also has to be defined manually by     */ \n"
 "     stdlib:=\"dietlibc\"     /* or some wrapper.                       */ \n"
 "#  elif defined(__MUSL__)     /* This libc refuses to define __MUSL__   */ \n"
-"     stdlib:=\"musl\"         /* so it has to be defined by user.       */ \n"
+"     stdlib:=\"musl\"         /* so it may be defined by the user.      */ \n"
 "#  elif defined(__GLIBC__)    /* Check for glibc last since some libc's */ \n"
 "     stdlib:=\"glibc\"        /* pretend to be it.                      */ \n"
 "#  elif defined(__FreeBSD__)                                               \n"
@@ -2147,6 +2147,16 @@ namespace build2
         tt.system == "mingw32"
         ? "msvc"
         : stdlib (xl, xp, x_mo, c_po, x_po, c_co, x_co, c_stdlib_src));
+
+      // Do target-based detection if we could not detect the libc with
+      // a macro.
+      //
+      if (csl == "other")
+      {
+        if (tt.system == "linux-musl")
+          csl = "musl";
+      }
+
       string xsl;
       switch (xl)
       {
@@ -2913,6 +2923,15 @@ namespace build2
         tt.system == "win32-msvc" || tt.system == "mingw32"
         ? "msvc"
         : stdlib (xl, xp, x_mo, c_po, x_po, c_co, x_co, c_stdlib_src));
+
+      // Do target-based detection if we could not detect the libc with
+      // a macro.
+      //
+      if (csl == "other")
+      {
+        if (tt.system == "linux-musl")
+          csl = "musl";
+      }
 
       string xsl;
       switch (xl)

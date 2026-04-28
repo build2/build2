@@ -619,6 +619,12 @@ namespace build2
           if (!find_option_prefix ("-finput-charset=", args))
             args.push_back ("-finput-charset=UTF-8");
 
+          if (x_info->c_stdlib == "musl")
+          {
+            if (!find_option_prefix ("-D__MUSL__", args))
+              args.push_back ("-D__MUSL__");
+          }
+
           if (ctype == compiler_type::clang && tsys == "win32-msvc")
           {
             if (!find_options ({"-nostdlib", "-nostartfiles"}, args))

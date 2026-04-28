@@ -4088,6 +4088,12 @@ namespace build2
                   args.push_back ("-fPIC");
               }
 
+              if (x_info->c_stdlib == "musl")
+              {
+                if (!find_option_prefix ("-D__MUSL__", args))
+                  args.push_back ("-D__MUSL__");
+              }
+
               if (ctype == compiler_type::clang && tsys == "win32-msvc")
               {
                 if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
@@ -5654,6 +5660,12 @@ namespace build2
               {
                 if (tclass == "linux" || tclass == "bsd")
                   args.push_back ("-fPIC");
+              }
+
+              if (x_info->c_stdlib == "musl")
+              {
+                if (!find_option_prefix ("-D__MUSL__", args))
+                  args.push_back ("-D__MUSL__");
               }
 
               if (ctype == compiler_type::clang && tsys == "win32-msvc")
@@ -8030,6 +8042,17 @@ namespace build2
             //
             if (tclass == "linux" || tclass == "bsd")
               args.push_back ("-fPIC");
+          }
+
+          // We detect the musl libc via the compiler target triplet.
+          // Communicate this to the translation units we are compiling so
+          // that projects that wish to detect musl don't have to jump through
+          // the same hoops.
+          //
+          if (x_info->c_stdlib == "musl")
+          {
+            if (!find_option_prefix ("-D__MUSL__", args))
+              args.push_back ("-D__MUSL__");
           }
 
           if (tsys == "win32-msvc")

@@ -768,6 +768,8 @@ namespace build2
 
         hinters,
 
+        nullptr /* x_info */,
+
         vp["bin.binless"],
 
         // NOTE: remember to update documentation if changing anything here.
