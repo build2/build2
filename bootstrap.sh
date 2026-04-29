@@ -83,6 +83,14 @@ else
   host="$chost"
 fi
 
+# Note: array-like (expanded unquoted) so elements should not contain spaces.
+#
+poptions=
+
+if test -n "$(echo "$host" | sed -n 's/^\(.*-linux-musl\)$/1/p')"; then
+  poptions="$poptions -D__MUSL__"
+fi
+
 # See if there is libbutl or libbutl-* in the current directory and
 # one directory up.
 #
@@ -147,4 +155,4 @@ done
 # mode since 4.9 doesn't recognize c++1z.
 #
 set -x
-"$cxx" "-I$libbutl" -I. -DBUILD2_BOOTSTRAP '-DBUILD2_HOST_TRIPLET="'"$host"'"' -finput-charset=UTF-8 -std=c++1y "$@" -o b/b-boot $r -pthread
+"$cxx" "-I$libbutl" -I. -DBUILD2_BOOTSTRAP '-DBUILD2_HOST_TRIPLET="'"$host"'"' $poptions -finput-charset=UTF-8 -std=c++1y "$@" -o b/b-boot $r -pthread

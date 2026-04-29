@@ -36,6 +36,18 @@
 # LDFLAGS
 # LIBS
 
+# We build in CWD and figure out the source directory based on the makefile
+# path.
+#
+out_root := .
+src_root := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
+
+ifeq ($(realpath $(out_root)),$(realpath $(src_root)))
+  in_tree := true
+else
+  in_tree := false
+endif
+
 exe   :=
 host  :=
 chost :=
@@ -69,6 +81,32 @@ else
   override LIBS += -pthread
 endif
 
+# Obtain the host triplet.
+#
+ifeq ($(host),)
+  host := $(shell $(src_root)/config.guess)
+
+  ifeq ($(host),)
+    $(error unable to guess host triplet, use host=<triplet> to specify)
+  endif
+
+  chost := $(host)
+else
+  ifeq ($(chost),)
+    chost := $(shell $(src_root)/config.sub $(host))
+
+    ifeq ($(chost),)
+      $(error unable to canonicalize host triplet, use chost=<triplet> to specify)
+    endif
+  endif
+endif
+
+# Pass -D__MUSL__ if the host triplet ends with -linux-musl.
+#
+ifneq ($(filter %-linux-musl, $(chost)),)
+  override CPPFLAGS += -D__MUSL__
+endif
+
 # Remove all the built-in rules, enable second expansion, etc.
 #
 .SUFFIXES:
@@ -78,18 +116,6 @@ endif
 
 .DELETE_ON_ERROR:
 .SECONDEXPANSION:
-
-# We build in CWD and figure out the source directory based on the makefile
-# path.
-#
-out_root := .
-src_root := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
-
-ifeq ($(realpath $(out_root)),$(realpath $(src_root)))
-  in_tree := true
-else
-  in_tree := false
-endif
 
 # See if there is libbutl or libbutl-* in src_root or one directory up.
 #
@@ -126,26 +152,6 @@ ifeq ($(in_tree),true)
   libbutl_out := $(libbutl)/libbutl
 else
   libbutl_out := $(out_root)/libbutl
-endif
-
-# Obtain the host triplet.
-#
-ifeq ($(host),)
-  host := $(shell $(src_root)/config.guess)
-
-  ifeq ($(host),)
-    $(error unable to guess host triplet, use host=<triplet> to specify)
-  endif
-
-  chost := $(host)
-else
-  ifeq ($(chost),)
-    chost := $(shell $(src_root)/config.sub $(host))
-
-    ifeq ($(chost),)
-      $(error unable to canonicalize host triplet, use chost=<triplet> to specify)
-    endif
-  endif
 endif
 
 # Figure out the list of source/object files.
