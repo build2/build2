@@ -235,7 +235,8 @@ namespace build2
         return make_pair (false, false); // inherited-used:   drop !warn
     }
 
-    // If inherit is false, then don't rely on inheritance from outer scopes.
+    // If inherit is false, then don't rely on inheritance from outer scopes
+    // (used for config.config.save).
     //
     // @@ We are modifying the module (marking additional variables as saved)
     //    and this function can be called from a buildfile (probably only
@@ -290,9 +291,9 @@ namespace build2
           }
         }
 
-        // Mark the unused config.* variables defined on our root scope as
-        // saved according to config.config.persist potentially warning if the
-        // variable would otherwise be dropped.
+        // First mark the unused config.* variables defined on our root scope
+        // as saved according to config.config.persist potentially warning if
+        // the variable would otherwise be dropped.
         //
         // Note: go straight for the public variable pool.
         //
@@ -448,7 +449,7 @@ namespace build2
             //
             // Note that we skip this entire logic if inherit is false since
             // we save the inherited values regardless of whether they are
-            // used or not.
+            // used or not in case of the config.config.save mode.
             //
             const value* base (nullptr);
             if (inherit)
