@@ -2841,10 +2841,11 @@ namespace build2
 
       auto imp = [link] (const target& l, bool la)
       {
-        // If we are not rpath-link'ing, then we only need to rpath interface
-        // libraries (they will include rpath's for their implementations)
-        // Otherwise, we have to do this recursively. In both cases we also
-        // want to see through utility libraries.
+        // If we are not rpath-link'ing, we recurse into static libraries
+        // (which cannot carry rpath themselves) but not into shared libraries
+        // (which already embed rpath for their own implementations).
+        // Otherwise (rpath-link), we have to do this recursively. In both
+        // cases we also want to see through utility libraries.
         //
         // The rpath-link part is tricky: ideally we would like to get only
         // implementations and only of shared libraries. We are not interested
@@ -2855,7 +2856,7 @@ namespace build2
         // except for some noise on the command line.
         //
         //
-        return (link ? !la : false) || l.is_a<libux> ();
+        return (link ? !la : la) || l.is_a<libux> ();
       };
 
       // Package the data to keep within the 2-pointer small std::function
