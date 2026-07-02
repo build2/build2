@@ -245,6 +245,7 @@ namespace build2
           append_options (cs, t, c_coptions);
           append_options (cs, t, x_coptions);
           append_options (cs, cmode);
+          c_rule.append_sys_hdr_options (cs);
 
           if (dd.expect (cs.string ()) != nullptr)
             l4 ([&]{trace << "options mismatch forcing update of " << t;});
@@ -587,6 +588,10 @@ namespace build2
 
       // Append compile options.
       //
+      // Note that we append system header options even if poptions is
+      // false. This feels right since without them we might not be able
+      // to include standard headers.
+      //
       if (poptions)
       {
         // @@ Note: in the compile rule we also do append_library_options().
@@ -598,6 +603,7 @@ namespace build2
       append_options (args, t, c_coptions);
       append_options (args, t, x_coptions);
       append_options (args, cmode);
+      c_rule.append_sys_hdr_options (args); // Extra system header dirs.
 
       // The output and source paths, relative to the working directory for
       // easier to read diagnostics.
