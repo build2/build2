@@ -5,6 +5,7 @@
 
 #ifndef _WIN32
 #  include <signal.h>                  // SIG*
+#  include <termios.h>                 // tcgetattr(), TOSTOP
 #else
 #  include <libbutl/win32-utility.hxx> // DBG_TERMINATE_PROCESS
 #endif
@@ -14,7 +15,7 @@
 
 #include <libbutl/regex.hxx>
 #include <libbutl/builtin.hxx>
-#include <libbutl/fdstream.hxx>     // fdopen_mode, fddup()
+#include <libbutl/fdstream.hxx>     // fdopen_mode, fddup(), fdterm()
 #include <libbutl/filesystem.hxx>   // path_search()
 
 #include <libbuild2/filesystem.hxx>
@@ -2363,11 +2364,9 @@ namespace build2
 
         fdopen_mode m (fdopen_mode::out | fdopen_mode::create);
 
-        redirect_type rt (r.type != redirect_type::trace
-                          ? r.type
-                          : verb < 2
-                          ? redirect_type::null
-                          : redirect_type::pass);
+        redirect_type rt (r.type != redirect_type::trace ? r.type              :
+                          verb < 2                       ? redirect_type::null :
+                                                           redirect_type::pass);
         switch (rt)
         {
         case redirect_type::pass:
@@ -3308,6 +3307,70 @@ namespace build2
           if (verb >= 2)
             print_process (pe, args);
 
+          // On POSIX, disable creating new process groups if the process may
+          // potentially read from or write to the terminal and if this will
+          // end up with the process suspension due to receiving SIGTTIN or
+          // SIGTTOU signal.
+          //
+          // Note that on POSIX, the newly created process group starts as a
+          // background group. If a process, which belongs to such a group,
+          // tries to read from the terminal, then the kernel unconditionally
+          // sends SIGTTIN to such a process. By default, receiving this
+          // signal suspends the process until its group is brought to the
+          // foreground. If such a background process tries to write to the
+          // terminal, then the kernel sends a similar suspending SIGTTOU
+          // signal only if the TOSTOP attribute is enabled for the terminal,
+          // which quite often is disabled by default.
+          //
+          bool npg (env.process_group);
+
+#ifndef _WIN32
+          if (npg)
+          {
+            // Return true if the redirect is specified (not pipelined), is
+            // one of the <|, >|, >!, or >& redirects, and the file descriptor
+            // refers to the terminal.
+            //
+            // Note that redirects other than the listed above may not refer
+            // to the terminal by definition.
+            //
+            auto term = [&ll] (const redirect* rd,
+                               const auto_fd& fd,
+                               const char* what)
+            {
+              try
+              {
+                return rd != nullptr &&                     // Not pipelined.
+                       (rd->type == redirect_type::pass  ||
+                        rd->type == redirect_type::trace ||
+                        rd->type == redirect_type::merge)
+                       ? fdterm (fd.get ())
+                       : false;
+              }
+              catch (const io_error& e)
+              {
+                fail (ll) << "unable to determine if " << what
+                          << " refers to terminal" << e << endf;
+              }
+            };
+
+            // Return true if TOSTOP attribute is enabled for the terminal.
+            // Assumes that the specified file descriptor refers to the
+            // terminal.
+            //
+            auto tostop = [] (const auto_fd& fd)
+            {
+              termios ti;
+              return tcgetattr (fd.get (), &ti) == 0 &&
+                     (ti.c_lflag & TOSTOP) == TOSTOP;
+            };
+
+            npg = (!term (&in,  ifd,     "stdin"))                       &&
+                  (!term (out,  ofd.out, "stdout") || !tostop (ofd.out)) &&
+                  (!term (&err, efd,     "stderr") || !tostop (efd));
+          }
+#endif
+
           // Note that stderr can only be a pipe if we are buffering the
           // diagnostics. In this case also pass the reading end so it can be
           // "probed" on Windows (see butl::process::pipe for details).
@@ -3319,7 +3382,8 @@ namespace build2
             process::pipe (ofd),
             {pc.dbuf.is.fd (), efd.get ()},
             cwd.string ().c_str (),
-            pe.vars);
+            pe.vars,
+            npg);
 
           // Can't throw.
           //
