@@ -2148,7 +2148,7 @@ namespace build2
           {
             try
             {
-              ifd = fddup (0);
+              ifd = fddup (0, true /* no_inherit */);
             }
             catch (const io_error& e)
             {
@@ -2199,7 +2199,7 @@ namespace build2
             {
               try
               {
-                ifd = fddup (0);
+                ifd = fddup (0, true /* no_inherit */);
               }
               catch (const io_error& e)
               {
@@ -2400,7 +2400,7 @@ namespace build2
                 // Fall through.
               }
 
-              return fddup (dfd);
+              return fddup (dfd, true /* no_inherit */);
             }
             catch (const io_error& e)
             {
@@ -2530,7 +2530,7 @@ namespace build2
         try
         {
           assert (self.get () == -1 && other.get () != -1);
-          self = fddup (other.get ());
+          self = fddup (other.get (), true /* no_inherit */);
         }
         catch (const io_error& e)
         {

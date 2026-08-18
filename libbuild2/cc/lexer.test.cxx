@@ -62,6 +62,11 @@ namespace build2
         else
         {
           in = path_name ("<stdin>");
+
+          // Note that since we don't run any processes down the road, there
+          // is no need to request fddup() to return a non-inheritable
+          // descriptor.
+          //
           is.open (fddup (stdin_fd ()));
         }
 
