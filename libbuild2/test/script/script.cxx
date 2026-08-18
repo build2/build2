@@ -69,6 +69,7 @@ namespace build2
             //
             environment (root.test_target.ctx.sched->serial (),
                          root.test_target.ctx.no_diag_buffer,
+                         true /* process_group */,
                          test_tt (),
                          dir_name_view (wd_path (), &wd_name),
                          dir_name_view (

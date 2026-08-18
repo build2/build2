@@ -5,9 +5,12 @@
 
 #ifndef _WIN32
 #  include <signal.h>                  // SIG*
+#  include <termios.h>                 // tcgetattr(), TOSTOP
 #else
 #  include <libbutl/win32-utility.hxx> // DBG_TERMINATE_PROCESS
 #endif
+
+#include <libbutl/fdstream.hxx> // fdterm()
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
@@ -1071,9 +1074,10 @@ namespace build2
         process p;
         {
           process::pipe ep;
+          bool buffering (diag_buffer::pipe (t.ctx, pp.force_dbuf) == -1);
           {
             fdpipe p;
-            if (diag_buffer::pipe (t.ctx, pp.force_dbuf) == -1) // Buffering?
+            if (buffering)
             {
               try
               {
@@ -1098,9 +1102,60 @@ namespace build2
             pp.dbuf.open (args[0], move (p.in), fdstream_mode::non_blocking);
           }
 
+          // On POSIX, disable creating new process groups if the process may
+          // potentially read from or write to the terminal and if this will
+          // end up with the process suspension due to receiving SIGTTIN or
+          // SIGTTOU signal (see script/run.cxx for details).
+          //
+          bool npg (true);
+
+#ifndef _WIN32
+          // Return true if the file descriptor refers to the terminal.
+          //
+          auto term = [] (int fd, const char* what)
+          {
+            try
+            {
+              return fdterm (fd);
+            }
+            catch (const io_error& e)
+            {
+              fail << "unable to determine if " << what
+                   << " refers to terminal" << e << endf;
+            }
+          };
+
+          // Return true if TOSTOP attribute is enabled for the terminal.
+          // Assumes that the specified file descriptor refers to the
+          // terminal.
+          //
+          auto tostop = [] (int fd)
+          {
+            termios ti;
+            return tcgetattr (fd, &ti) == 0 && (ti.c_lflag & TOSTOP) == TOSTOP;
+          };
+
+          npg =
+            (prev != nullptr || !term (0,      "stdin"))                   &&
+            (!last           || !term (out,    "stdout") || !tostop (out)) &&
+            (buffering       || !term (ep.out, "stderr") || !tostop (ep.out));
+#endif
+
           p = (prev == nullptr
-               ? process (args, 0, out, move (ep))             // First process.
-               : process (args, *prev->proc, out, move (ep))); // Next process.
+               //
+               // First process.
+               //
+               ? process (args,
+                          0, out, move (ep),
+                          nullptr /* cwd */, nullptr /* envvars */,
+                          npg)
+               //
+               // Next process.
+               //
+               : process (args,
+                          *prev->proc, out, move (ep),
+                          nullptr /* cwd */, nullptr /* envvars */,
+                          npg));
         }
 
         pp.proc = &p;

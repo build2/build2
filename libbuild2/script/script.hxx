@@ -473,6 +473,11 @@ namespace build2
       bool serial;
       bool no_diag_buffer;
 
+      // If true, then a command process is executed as a leader of the newly
+      // created process group (see the butl::process type for details).
+      //
+      bool process_group;
+
       // The platform script programs run on.
       //
       const target_triplet& host;
@@ -520,6 +525,7 @@ namespace build2
       const redirect err;
 
       environment (bool s, bool ndb,
+                   bool pg,
                    const target_triplet& h,
                    const dir_name_view& wd,
                    const dir_name_view& sd,
@@ -529,6 +535,7 @@ namespace build2
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
           : serial (s), no_diag_buffer (ndb),
+            process_group (pg),
             host (h),
             work_dir (wd), sandbox_dir (sd), temp_dir (td), temp_dir_keep (tk),
             default_cleanup (dc),
@@ -539,6 +546,7 @@ namespace build2
       // Create environment without the sandbox.
       //
       environment (bool s, bool ndb,
+                   bool pg,
                    const target_triplet& h,
                    const dir_name_view& wd,
                    const dir_path& td, bool tk,
@@ -547,6 +555,7 @@ namespace build2
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
           : environment (s, ndb,
+                         pg,
                          h,
                          wd, dir_name_view (), td, tk,
                          dc,
