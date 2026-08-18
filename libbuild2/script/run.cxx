@@ -14,7 +14,7 @@
 
 #include <libbutl/regex.hxx>
 #include <libbutl/builtin.hxx>
-#include <libbutl/fdstream.hxx>     // fdopen_mode, fddup()
+#include <libbutl/fdstream.hxx>     // fdopen_mode, fddup(), fdterm()
 #include <libbutl/filesystem.hxx>   // path_search()
 
 #include <libbuild2/filesystem.hxx>
@@ -2363,11 +2363,9 @@ namespace build2
 
         fdopen_mode m (fdopen_mode::out | fdopen_mode::create);
 
-        redirect_type rt (r.type != redirect_type::trace
-                          ? r.type
-                          : verb < 2
-                          ? redirect_type::null
-                          : redirect_type::pass);
+        redirect_type rt (r.type != redirect_type::trace ? r.type              :
+                          verb < 2                       ? redirect_type::null :
+                                                           redirect_type::pass);
         switch (rt)
         {
         case redirect_type::pass:
@@ -3308,6 +3306,38 @@ namespace build2
           if (verb >= 2)
             print_process (pe, args);
 
+          bool pg (env.process_group);
+
+          // On POSIX, disable creating new process groups if the process may
+          // potentially read from or write to the terminal, since this may
+          // end up with the process suspension by the kernel (see SIGTTIN and
+          // SIGTTOU signals for details).
+          //
+#ifndef _WIN32
+          if (pg)
+          {
+            auto term = [] (const auto_fd& fd, const redirect* rd)
+            {
+              // Note that only the >|, >!, or >& redirects may refer to the
+              // terminal.
+              //
+              return rd != nullptr &&                     // Not pipelined.
+                     (rd->type == redirect_type::pass  ||
+                      rd->type == redirect_type::trace ||
+                      rd->type == redirect_type::merge)
+                     ? fdterm (fd.get ())
+                     : false;
+            };
+
+            // Note that we could potentially check if the TOSTOP attribute is
+            // disabled for the terminal (quite often is the default) and, if
+            // it is, exclude the output streams from the below condition.
+            // Let's, however, keep it simple for now.
+            //
+            pg = !term (efd, &err) && !term (ofd.out, out) && !term (ifd, &in);
+          }
+#endif
+
           // Note that stderr can only be a pipe if we are buffering the
           // diagnostics. In this case also pass the reading end so it can be
           // "probed" on Windows (see butl::process::pipe for details).
@@ -3319,7 +3349,8 @@ namespace build2
             process::pipe (ofd),
             {pc.dbuf.is.fd (), efd.get ()},
             cwd.string ().c_str (),
-            pe.vars);
+            pe.vars,
+            pg);
 
           // Can't throw.
           //

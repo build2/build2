@@ -3,7 +3,8 @@
 
 #ifndef _WIN32
 #include <signal.h> // sigaction(), sigemptyset(), sigaddset(), raise(),
-                    // sigwait(), pthread_sigmask(), kill(), SIG*
+                    // sigwait(), pthread_sigmask(), pthread_kill(), kill(),
+                    // SIG*
 #include <unistd.h> // unlink(), getpid(), _exit()
 #include <string.h> // memset()
 #endif
@@ -254,14 +255,35 @@ terminate (bool trace)
 static auto_rmfile jobserver;
 
 #ifndef _WIN32
-extern "C" void
-build2_b_cleanup_handler (int sig)
+// Handle a terminating signal (SIGTERM, etc) by performing cleanups,
+// forwarding it to the running process groups, and terminating with the
+// specified signal.
+//
+// If the terminating signal is caused by external conditions (raised by the
+// user or an external program), then forward the same signal to the running
+// process groups, as if we are all members of the same group. Otherwise, if
+// the signal is likely caused by the internal problems (SIGABRT, etc), then
+// just kill the running groups.
+//
+// Note that SIGINT, SIGQUIT, and SIGHUP are normally sent to the entire
+// process group. The SIGTERM signal may be sent to both the individual
+// process and the whole process group. However, since we are unable to
+// recognize the target, we will always assume the group.
+//
+// Note: for parallel execution the process spawn mutex is expected to be
+//       acquired to protect the process groups list.
+//
+static void
+terminating_signal_handler (int sig)
 {
-  // Note: unlink(), memset(), sigemptyset(), sigaction(), raise(), and
-  //       _exit() are all async signal-safe.
+  // Note: unlink(), memset(), sigemptyset(), sigaction(), kill(), raise(),
+  //       and _exit() are all async signal-safe.
   //
   if (jobserver.active)
-    ::unlink (jobserver.path.string ().c_str ()); // Ignore errors.
+    unlink (jobserver.path.string ().c_str ()); // Ignore errors.
+
+  for (process::handle_type g: process::groups)
+    kill (-g, sig != SIGABRT ? sig : SIGKILL); // Ignore errors.
 
   // Run the default signal handler and exit if anything goes sideways.
   //
@@ -274,66 +296,237 @@ build2_b_cleanup_handler (int sig)
     _exit (1);
 }
 
+// Handle a job control signal (SIGTSTP or SIGCONT) by forwarding it to the
+// running process groups and performing the default action.
+//
+static void
+job_control_signal_handler (int sig)
+{
+  // Note: kill(), raise(), and _exit() are all async signal-safe.
+  //
+  for (process::handle_type g: process::groups)
+    kill (-g, sig); // Ignore errors.
+
+  // @@ Notes:
+  //
+  // - Should we prolong the script timeout timers for the duration of the
+  //   suspensions, similar to what nextest does?
+  //
+  // - We will probably have to deal with the "Parent stuck in uninterruptible
+  //   sleep" race (see
+  //   https://sourceware.org/pipermail/libc-help/2022-August/006263.html for
+  //   details) and resolve it in a way similar to nextest's process
+  //   double-spawning (see cargo-nextest signal handling documentation for
+  //   details).
+  //
+  //   For our process spawning implementation, the following may happen:
+  //
+  //   - Process constructor aquires the mutex and executes posix_spawn(),
+  //     which waits (non-interruptible due to use of CLONE_VFORK for the
+  //     internal clone() call) for the child process to call exec().
+  //
+  //   - SIGTSTP is sent to the parent's group before the child changes its
+  //     group, so that the child also receives it.
+  //
+  //   - After the child changes the group and unblocks all the signals,
+  //     before it calls exec(), it is get suspended and the parent's thread
+  //     get stuck in the posix_spawn() call with the process spawn mutex
+  //     aquired.
+  //
+  //   - SIGTSTP get generated for the parent and becomes pending.
+  //
+  //   - For the parallel execution, sigwait() in the dedicated thread reads
+  //     SIGTSTP, but we get locked trying to acquire the process spawn
+  //     mutex. For the serial execution, there is just no thread where the
+  //     signal handler can be called (the only thread is stuck in
+  //     posix_spawn() in the non-interruptible manner) and so the signal
+  //     stays pending. Thus, the running process groups and us keep running.
+  //
+  //   - Also, sending SIGCONT to the parent's group won't unblock
+  //     posix_spawn(), since the child is now in its own group and thus stays
+  //     suspended.
+  //
+  //   Do we have any similar problem for the fork-based implementation? Not
+  //   quite the same, since the parent always continues to execute after the
+  //   fork() and cannot be blocked by the child. The child, though, may
+  //   potentially receive SIGTSTP twice (first from the terminal while still
+  //   being a member of the parent's group and then from the parent's handler
+  //   which forwards SIGTSTP to all the groups in the list), which is
+  //   probably fine. The problem can arise if SIGTSTP is handled in serial
+  //   execution right after the fork() but before we add the group to the
+  //   list. In this case we won't be able to resume the child since its group
+  //   is not in the list by the time we handle SIGCONT. To resolve this,
+  //   can't we always send SIGCONT to the group right after we added it to
+  //   the list?
+
+  // Suspend ourselves by raising SIGSTOP (cannot be caught, blocked, or
+  // ignored) rather than SIGTSTP to avoid recursion.
+  //
+  // Note that we don't need to do anything about SIGCONT here, since it
+  // resumes the process automatically (even if it is blocked or ignored) and
+  // we are handling the signal already.
+  //
+  // Also note that the suspension happens inside the raise() call, so we
+  // won't return from it until the process is resumed. If we are running
+  // serially, then SIGCONT will be handled before we exit raise(). This, in
+  // particular, means that the process group list may not change since the
+  // process suspension. Otherwise (we are running in parallel), SIGCONT will
+  // stay pending when we leave raise() and will be returned by some
+  // subsequent sigwait() call. As we keep the mutex acquired since handling
+  // SIGTSTP (see sigwait_thread_function() for details), the process group
+  // list may not change by the time we handle SIGCONT.
+  //
+  if (sig == SIGTSTP && raise (SIGSTOP) != 0)
+    _exit (1);
+}
+
+extern "C" void
+build2_b_signal_handler (int sig)
+{
+  switch (sig)
+  {
+  case SIGINT:
+  case SIGTERM:
+  case SIGHUP:
+  case SIGQUIT:
+  case SIGABRT:
+    {
+      terminating_signal_handler (sig);
+      break;
+    }
+  case SIGTSTP:
+  case SIGCONT:
+    {
+      job_control_signal_handler (sig);
+      break;
+    }
+  default: assert (false);
+  }
+}
+
 static sigset_t sigwait_mask;
 
 static void*
 sigwait_thread_function (void* d)
 {
-  int sig;
-  if (int e = sigwait (&sigwait_mask, &sig))
+  // Track the locked mutex state to avoid attempt to double-lock the mutex
+  // for the following signals sequence: SIGTSTP, SIGTERM, SIGCONT.
+  //
+  // Note that for this sequence the process will be resumed only when SIGCONT
+  // is raised and sigwait() will return SIGTERM first.
+  //
+  for (bool locked (false); true; )
   {
-    cerr << "error: unable to wait for signals: "
-         << system_error (e, generic_category ()) // Sanitize.
-         << endl;
+    int sig;
+    if (int e = sigwait (&sigwait_mask, &sig))
+    {
+      cerr << "error: unable to wait for signals: "
+           << system_error (e, generic_category ()) // Sanitize.
+           << endl;
 
-    terminate (false /* trace */);
+      terminate (false /* trace */);
+    }
+
+    if (sig == SIGUSR1) // Request to shutdown.
+      break;
+
+    switch (sig)
+    {
+    case SIGINT:
+    case SIGTERM:
+    case SIGHUP:
+    case SIGQUIT:
+    case SIGABRT:
+      {
+        // Block all the threads that attempt to issue any diagnostics.
+        //
+        // Note that the primary goal here is to suppress diagnostics about
+        // abnormally terminated child processes, which could have been
+        // terminated due to a signal sent to the whole process group (see
+        // butl::process::wait() implementation for details on the issue we
+        // try to resolve). The blocked threads will stay as such until the
+        // process is terminated.
+        //
+        // Also note that there is still a possibility that after sigwait()
+        // returns, making the signal non-pending, and before the diagnostics
+        // mutex is locked, some threads may print the diagnostics we try to
+        // avoid. If it ever becomes a problem, we can consider using the
+        // Linux and FreeBSD specific signalfd() in combination with select()
+        // and read(), which seems to provide an ability to make the
+        // transition from the pending signal to the locked diagnostics mutex
+        // atomic.
+        //
+        diag_stream_lock dl;
+
+        // Instruct the scheduler to pre-shutdown (stop executing new tasks,
+        // etc).
+        //
+        build2::scheduler& s (*static_cast<build2::scheduler*> (d));
+        s.shutdown (false /* wait */);
+
+        // Unblock the signal, so that it can be raised.
+        //
+        sigset_t um;
+        sigemptyset (&um);
+        sigaddset (&um, sig);
+
+        if (int e = pthread_sigmask (SIG_UNBLOCK, &um, nullptr /* oldset */))
+        {
+          cerr << "error: unable to unblock signal " << sig << ": "
+               << system_error (e, generic_category ()) // Sanitize.
+               << endl;
+
+          terminate (false /* trace */);
+        }
+
+        // Call the terminating signal handler.
+        //
+        // But acquire the process spawn mutex first, to protect the access to
+        // the process groups list. Keep it acquired until the process is
+        // terminated to make sure that no new processes are spawned and so we
+        // don't end up with new groups which we would need to forward the
+        // signal to.
+        //
+        if (!locked)
+          process::mutex.lock_shared ();
+
+        terminating_signal_handler (sig);
+        break;
+      }
+    case SIGTSTP:
+    case SIGCONT:
+      {
+        // Call the job control signal handler.
+        //
+        // For SIGTSTP, acquire the process spawn mutex to protect the access
+        // to the process groups list before forwarding the signal to the
+        // groups. Only release the mutex after this process and all the
+        // suspended process groups are resumed to make sure that no new
+        // groups are spawned in between and we don't forward SIGCONT to
+        // non-suspended process groups.
+        //
+        if (sig == SIGTSTP)
+        {
+          process::mutex.lock_shared ();
+          locked = true;
+        }
+
+        // Note that for SIGTSTP we won't leave this handler until resumed
+        // (see implementation for details).
+        //
+        job_control_signal_handler (sig);
+
+        if (sig == SIGCONT)
+        {
+          process::mutex.unlock_shared ();
+          locked = false;
+        }
+
+        break;
+      }
+    default: assert (false);
+    }
   }
-
-  if (sig == SIGUSR1) // Request to shutdown.
-    return nullptr;
-
-  // Block all the threads that attempt to issue any diagnostics.
-  //
-  // Note that the primary goal here is to suppress diagnostics about
-  // abnormally terminated child processes, which could have been terminated
-  // due to a signal sent to the whole process group (see
-  // butl::process::wait() implementation for details on the issue we try to
-  // resolve). The blocked threads will stay as such until the process is
-  // terminated.
-  //
-  // Also note that there is still a possibility that after sigwait() returns,
-  // making the signal non-pending, and before the diagnostics mutex is
-  // locked, some threads may print the diagnostics we try to avoid. If it
-  // ever becomes a problem, we can consider using the Linux and FreeBSD
-  // specific signalfd() in combination with select() and read(), which seems
-  // to provide an ability to make the transition from the pending signal to
-  // the locked diagnostics mutex atomic.
-  //
-  diag_stream_lock dl;
-
-  // Instruct the scheduler to pre-shutdown (stop executing new tasks, etc).
-  //
-  build2::scheduler& s (*static_cast<build2::scheduler*> (d));
-  s.shutdown (false /* wait */);
-
-  // Unblock the signal, so that it can be raised.
-  //
-  sigset_t um;
-  sigemptyset (&um);
-  sigaddset (&um, sig);
-
-  if (int e = pthread_sigmask (SIG_UNBLOCK, &um, nullptr /* oldset */))
-  {
-    cerr << "error: unable to unblock signal " << sig << ": "
-         << system_error (e, generic_category ()) // Sanitize.
-         << endl;
-
-    terminate (false /* trace */);
-  }
-
-  // Call the signal handler.
-  //
-  build2_b_cleanup_handler (sig);
 
   return nullptr;
 }
@@ -543,52 +736,59 @@ main (int argc, char* argv[])
       }
     }
 
-    // Register the jobserver cleanup signal handler if serial execution and
-    // start the sigwait() thread if parallel.
+    // Register the housekeeping signal handler if serial execution and start
+    // the sigwait() thread if parallel.
     //
     // Note that the reason why we use sigwait() for parallel execution is to
-    // suppress diagnostics about abnormally terminated child processes. That
-    // won't be easy to implement in the signal handler, since it involves
-    // using functions which are not async signal-safe (mutex lock, etc).
+    // suppress diagnostics about abnormally terminated child processes and to
+    // safely access the process groups list. That won't be easy to implement
+    // in the signal handler, since it involves using functions which are not
+    // async signal-safe (mutex lock, etc).
     //
 #ifndef _WIN32
-    if (jobserver.active)
+    if (cmdl.jobs == 1)
     {
-      if (cmdl.jobs == 1)
+      struct sigaction sa;
+      ::memset (&sa, 0, sizeof (sa));
+      sigemptyset (&sa.sa_mask);
+      sa.sa_handler = build2_b_signal_handler;
+
+      sigaction (SIGINT,  &sa, nullptr /* oldact */);
+      sigaction (SIGTERM, &sa, nullptr /* oldact */);
+      sigaction (SIGHUP,  &sa, nullptr /* oldact */);
+      sigaction (SIGQUIT, &sa, nullptr /* oldact */);
+      sigaction (SIGABRT, &sa, nullptr /* oldact */);
+
+      sigaction (SIGTSTP, &sa, nullptr /* oldact */);
+      sigaction (SIGCONT, &sa, nullptr /* oldact */);
+    }
+    else
+    {
+      // Block the signals which we plan to handle, to make sure they are
+      // handled with the dedicated thread.
+      //
+      sigemptyset (&sigwait_mask);
+
+      sigaddset (&sigwait_mask, SIGINT);
+      sigaddset (&sigwait_mask, SIGTERM);
+      sigaddset (&sigwait_mask, SIGHUP);
+      sigaddset (&sigwait_mask, SIGQUIT);
+      sigaddset (&sigwait_mask, SIGABRT);
+
+      sigaddset (&sigwait_mask, SIGTSTP);
+      sigaddset (&sigwait_mask, SIGCONT);
+
+      sigaddset (&sigwait_mask, SIGUSR1);
+
+      if (int e = pthread_sigmask (SIG_SETMASK,
+                                   &sigwait_mask,
+                                   &prev_signal_mask))
       {
-        struct sigaction sa;
-        ::memset (&sa, 0, sizeof (sa));
-        sigemptyset (&sa.sa_mask);
-        sa.sa_handler = build2_b_cleanup_handler;
-
-        sigaction (SIGTERM, &sa, nullptr /* oldact */);
-        sigaction (SIGINT,  &sa, nullptr /* oldact */);
-        sigaction (SIGABRT, &sa, nullptr /* oldact */);
-        sigaction (SIGHUP,  &sa, nullptr /* oldact */);
+        fail << "unable to block signals: "
+             << system_error (e, generic_category ()); // Sanitize.
       }
-      else
-      {
-        // Block the signals which we plan to handle, to make sure they are
-        // handled with the dedicated thread.
-        //
-        sigemptyset (&sigwait_mask);
 
-        sigaddset (&sigwait_mask, SIGTERM);
-        sigaddset (&sigwait_mask, SIGINT);
-        sigaddset (&sigwait_mask, SIGABRT);
-        sigaddset (&sigwait_mask, SIGHUP);
-        sigaddset (&sigwait_mask, SIGUSR1);
-
-        if (int e = pthread_sigmask (SIG_SETMASK,
-                                     &sigwait_mask,
-                                     &prev_signal_mask))
-        {
-          fail << "unable to block signals: "
-               << system_error (e, generic_category ()); // Sanitize.
-        }
-
-        sigwait_thread = thread (sigwait_thread_function, &sched);
-      }
+      sigwait_thread = thread (sigwait_thread_function, &sched);
     }
 #endif
 

@@ -47,6 +47,7 @@ namespace build2
           : build2::script::environment (
               gs.ctx.sched == nullptr || gs.ctx.sched->serial (),
               gs.ctx.no_diag_buffer,
+              false /* process_group */,
               *gs.ctx.build_host,
               dir_name_view (&work, &wd_name),
               temp_dir.path, false /* temp_dir_keep */,
