@@ -63,12 +63,19 @@ namespace build2
     string ep ("--exec-path=" + pp.effect.directory ().string ());
 #endif
 
-    size_t args_i (3); // First reserved.
+    // Note that core.fsmonitor=false configuration option (defaults to false)
+    // prevents git commands (status, etc) from starting the file system
+    // monitor daemon, if explicitly enabled by the user in the configuration
+    // file.
+    //
+    size_t args_i (5); // First reserved.
     const char* args[] {
       pp.recall_string (),
 #ifdef _WIN32
         (++args_i, ep.c_str ()),
 #endif
+        "-c",
+        "core.fsmonitor=false",
         "-C",
         d,
         nullptr, nullptr, nullptr, // Reserve.
