@@ -744,7 +744,8 @@ namespace build2
                 l == "-ldl"      ||
                 l == "-lrt"      ||
                 l == "-pthread"  ||
-                l == "-lpthread")
+                l == "-lpthread" ||
+                l == "-lobjc")
               continue;
 
             // Note: these lists are most likely incomplete.
