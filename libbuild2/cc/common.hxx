@@ -73,12 +73,16 @@ namespace build2
       const variable& config_x_internal_scope;
       const variable* config_x_translate_include;
 
-      const variable& x_path;         // Compiler process path.
-      const variable& x_mode;         // Compiler mode options.
-      const variable& x_c_path;       // Compiler path as configured.
-      const variable& x_c_mode;       // Compiler mode as configured.
-      const variable& x_sys_lib_dirs; // System library search directories.
-      const variable& x_sys_hdr_dirs; // System header search directories.
+      const variable& x_path;              // Compiler process path.
+      const variable& x_mode;              // Compiler mode options.
+      const variable& x_c_path;            // Compiler path as configured.
+      const variable& x_c_mode;            // Compiler mode as configured.
+      const variable& x_sys_lib_dirs;      // System library search directories.
+      const variable& x_sys_lib_dirs_mode;
+      const variable& x_sys_lib_dirs_extra;
+      const variable& x_sys_hdr_dirs;      // System header search directories.
+      const variable& x_sys_hdr_dirs_mode;
+      const variable& x_sys_hdr_dirs_extra;
 
       const variable& x_std;
       const variable& x_poptions;

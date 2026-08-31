@@ -946,7 +946,12 @@ namespace build2
       }
 
       rs.assign (x_sys_lib_dirs) = move (lib_dirs.first);
+      rs.assign (x_sys_lib_dirs_mode) = static_cast<uint64_t> (sys_lib_dirs_mode);
+      rs.assign (x_sys_lib_dirs_extra) = static_cast<uint64_t> (sys_lib_dirs_extra);
+
       rs.assign (x_sys_hdr_dirs) = move (hdr_dirs.first);
+      rs.assign (x_sys_hdr_dirs_mode) = static_cast<uint64_t> (sys_hdr_dirs_mode);
+      rs.assign (x_sys_hdr_dirs_extra) = static_cast<uint64_t> (sys_hdr_dirs_extra);
 
       config::save_environment (rs, xi.compiler_environment);
       config::save_environment (rs, xi.platform_environment);

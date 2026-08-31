@@ -311,7 +311,11 @@ namespace build2
         vp.insert<path>            ("c.config.path"),
         vp.insert<strings>         ("c.config.mode"),
         vp.insert<dir_paths>       ("c.sys_lib_dirs"),
+        vp.insert<uint64_t>        ("c.sys_lib_dirs_mode"),
+        vp.insert<uint64_t>        ("c.sys_lib_dirs_extra"),
         vp.insert<dir_paths>       ("c.sys_hdr_dirs"),
+        vp.insert<uint64_t>        ("c.sys_hdr_dirs_mode"),
+        vp.insert<uint64_t>        ("c.sys_hdr_dirs_extra"),
 
         vp.insert<string>       ("c.std"),
 
