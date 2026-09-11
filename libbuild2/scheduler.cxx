@@ -9,7 +9,11 @@
 #  include <sys/ioctl.h> // ioctl(), FIONREAD
 #endif
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
+#if defined(__linux__)   || \
+    defined(__FreeBSD__) || \
+    defined(__NetBSD__)  || \
+    defined(__OpenBSD__) || \
+    defined(__APPLE__)
 #  include <pthread.h>
 #  if defined(__FreeBSD__)
 #    include <pthread_np.h> // pthread_attr_get_np() (in <pthread.h> on NetBSD)
