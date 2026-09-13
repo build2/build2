@@ -124,10 +124,16 @@ namespace build2
 
             if      (stdcmp ("99") && mj >= 16) // Since VS2010/10.0.
               ;
-            else if ((stdcmp ("11") ||
-                      stdcmp ("17") ||
-                      stdcmp ("18")) && mj >= 18) // Since VS????/11.0.
-              ;
+            else if (stdcmp ("11") &&
+                      (mj > 19 || (mj == 19 && mi >= 27))) // Since MSVC 19.27
+            {
+              mode.insert (mode.begin (), "/std:c11");
+            }
+            else if (stdcmp("17", "18") &&
+                      (mj > 19 || (mj == 19 && mi >= 28))) // Since MSVC 19.28
+            {
+              mode.insert (mode.begin (), "/std:c17"); // MSVC does not support C18
+            }
             else if (stdcmp ("23", "2x") &&
                      (mj > 19 || (mj == 19 && mi >= 39))) // Since 17.9.
             {
