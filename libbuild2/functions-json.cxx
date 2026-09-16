@@ -377,20 +377,35 @@ namespace build2
       }
     };
 
-    // $serialize(<json> [, <indentation>])
+    // $serialize(<json> [, <indentation> [, <flags>]])
     //
-    // Serialize the specified JSON value and return the resulting JSON output
-    // text.
+    // Serialize the specified JSON value and return the resulting JSON
+    // (default), JSON5, or JSON5E output text.
     //
     // The optional <indentation> argument specifies the number of indentation
     // spaces that should be used for pretty-printing. If `0` is passed, then
     // no pretty-printing is performed. The default is `2` spaces.
     //
+    // The following flags are supported:
+    //
+    //     json   - serialize as JSON output text (default)
+    //
+    //     json5  - serialize as JSON5 output text
+    //
+    //     json5e - serialize as JSON5E output text
+    //
+    // Note that the exact semantics of JSON5 and JSON5E serialization is
+    // implementation-defined in that certain constructs may still be
+    // serialized using their JSON syntax.
+    //
     // See also `$json.parse()`.
     //
-    f["serialize"] += [] (json_value v, optional<value> indentation)
+    f["serialize"] += [] (json_value v,
+                          optional<value> indentation,
+                          optional<names> flags)
     {
       uint64_t i (indentation ? convert<uint64_t> (*indentation) : 2);
+      json_parse_flags fs (parse_flags (move (flags)));
 
       try
       {
@@ -406,7 +421,7 @@ namespace build2
 
         string o;
         json_buffer_serializer s (o, i);
-        v.serialize (s, false /* json5e */);
+        v.serialize (s, fs.lang != json_language::json /* json5 */);
         return o;
       }
       catch (const invalid_json_output& e)

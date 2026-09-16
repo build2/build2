@@ -192,19 +192,32 @@ EOO
   : basics
   :
   $* <<EOI >>EOO
-  j = [json] 123 abc ([json] one@1 two@2)
+  j = [json] 123 0xff abc ([json] one@1 two@-0xff)
   print $json.serialize($j)
   print $json.serialize($j, 0)
+  print $json.serialize($j, 4, json5)
+  print $json.serialize($j, 0, json5)
   EOI
   [
     123,
+    255,
     "abc",
     {
       "one": 1,
-      "two": 2
+      "two": -255
     }
   ]
-  [123,"abc",{"one":1,"two":2}]
+  [123,255,"abc",{"one":1,"two":-255}]
+  [
+      123,
+      0xff,
+      "abc",
+      {
+          "one": 1,
+          "two": -0xff
+      }
+  ]
+  [123,0xff,"abc",{"one":1,"two":-0xff}]
   EOO
 
   : diagnostics

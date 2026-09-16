@@ -1923,11 +1923,11 @@ namespace build2
           // printed representation is required, then the $json.serialize()
           // function can be used to obtain it.
           //
-          // Note also that we allow JSON5E. In particular, this is required
+          // Note also that we allow JSON5. In particular, this is required
           // to roundtrip hex numbers without loosing type information.
           //
           json_buffer_serializer s (o, 0 /* indentation */);
-          v.serialize (s, true /* json5e */);
+          v.serialize (s, true /* json5 */);
         }
         catch (const invalid_json_output& e)
         {

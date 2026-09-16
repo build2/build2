@@ -860,7 +860,7 @@ namespace build2
 
   void json_value::
   serialize (json_buffer_serializer& s,
-             bool json5e,
+             bool json5,
              optional<json_type> et) const
   {
     // Currently we only make use of JSON5 hex numbers during serialization.
@@ -890,7 +890,7 @@ namespace build2
       }
     case json_type::hexadecimal_signed_number:
       {
-        if (json5e)
+        if (json5)
         {
           s.value_json_text (to_string (signed_number, 16));
           break;
@@ -904,7 +904,7 @@ namespace build2
       }
     case json_type::hexadecimal_unsigned_number:
       {
-        if (json5e)
+        if (json5)
         {
           s.value_json_text (to_string (unsigned_number, 16));
           break;
@@ -925,7 +925,7 @@ namespace build2
       {
         s.begin_array ();
         for (const json_value& e: array)
-          e.serialize (s, json5e);
+          e.serialize (s, json5);
         s.end_array ();
         break;
       }
@@ -935,7 +935,7 @@ namespace build2
         for (const json_member& m: object)
         {
           s.member_name (m.name);
-          m.value.serialize (s, json5e);
+          m.value.serialize (s, json5);
         }
         s.end_object ();
         break;
