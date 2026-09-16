@@ -101,6 +101,7 @@ namespace build2
 
   using function_impl = value (const scope*,
                                vector_view<value>,
+                               const value_type* retype,
                                const function_overload&);
 
   struct LIBBUILD2_SYMEXPORT function_overload
@@ -229,9 +230,10 @@ namespace build2
     call (const scope* base,
           const string& name,
           vector_view<value> args,
+          const value_type* retype,
           const location& l) const
     {
-      return call (base, name, args, l, true).first;
+      return call (base, name, args, retype, l, true).first;
     }
 
     // As above but do not fail if no match was found (but still do if the
@@ -243,9 +245,10 @@ namespace build2
     try_call (const scope* base,
               const string& name,
               vector_view<value> args,
+              const value_type* retype,
               const location& l) const
     {
-      return call (base, name, args, l, false);
+      return call (base, name, args, retype, l, false);
     }
 
     iterator
@@ -272,6 +275,7 @@ namespace build2
     call (const scope*,
           const string&,
           vector_view<value>,
+          const value_type*,
           const location&,
           bool fail) const;
 
@@ -291,8 +295,14 @@ namespace build2
     // In order to catch additional exceptions, you can implement a custom
     // thunk which would normally call this default implementation.
     //
+    // Currently, a custom thunk is also the only way to observe the retype
+    // argument.
+    //
     static value
-    default_thunk (const scope*, vector_view<value>, const function_overload&);
+    default_thunk (const scope*,
+                   vector_view<value>,
+                   const value_type*,
+                   const function_overload&);
 
     // A function family uses a common qualification (though you can pass
     // empty string to supress it). For an unqualified name (doesn't contain
@@ -969,6 +979,20 @@ namespace build2
                 function_overload::types (args::types, args::max),
                 i,
                 move (d)));
+    }
+
+    template <typename... A>
+    void
+    insert (function_impl* i) const
+    {
+      using args = function_args<A...>;
+
+      insert (function_overload (
+                nullptr,
+                args::min,
+                args::max,
+                function_overload::types (args::types, args::max),
+                i));
     }
 
   private:

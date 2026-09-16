@@ -126,17 +126,22 @@ namespace build2
     explicit
     json_value (string_type);
 
+    explicit
+    json_value (const char*);
+
     // If the expected type is specfied, then fail if it does not match
     // parsed. Throws invalid_json_input.
     //
     explicit
     json_value (json_parser&, optional<json_type> expected = {});
 
+    // If json5e is true, then use JSON5/JSON5E syntax during serialization.
     // If the expected type is specfied, then fail if it does not match the
     // value's. Throws invalid_json_output.
     //
     void
     serialize (json_buffer_serializer&,
+               bool json5e,
                optional<json_type> expected = {}) const;
 
     // Note that values of different types are never equal, except for
@@ -327,7 +332,7 @@ namespace build2
     json_array (json_parser&);
 
     void
-    serialize (json_buffer_serializer& s) const;
+    serialize (json_buffer_serializer&, bool json5e) const;
   };
 
   // A JSON value that can only be an object.
@@ -343,7 +348,7 @@ namespace build2
     json_object (json_parser&);
 
     void
-    serialize (json_buffer_serializer& s) const;
+    serialize (json_buffer_serializer&, bool json5e) const;
   };
 }
 

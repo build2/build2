@@ -49,7 +49,9 @@ namespace build2
     }
 
     value parser::
-    parse_variable_line (token& t, type& tt, type* ft)
+    parse_variable_line (token& t, type& tt,
+                         const value_type* retype,
+                         type* ft)
     {
       // enter: token which precedes the value tokens (variable assignment, etc)
       // leave: newline or unknown token
@@ -64,16 +66,40 @@ namespace build2
       //
       attributes_push (t, tt, true);
 
-      // @@ PAT: Should we expand patterns? Note that it will only be
-      // simple ones since we have disabled {}. Also, what would be the
-      // pattern base directory?
-      //
-      return tt != type::newline && start_names (tt)
-        ? parse_value (t, tt,
-                       pattern_mode::ignore,
-                       "variable value",
-                       nullptr)
-        : value (names ());
+      value r;
+      if (tt != type::newline && start_names (tt))
+      {
+        // Note that we don't do any consistency checking here (not redeclared
+        // as a different type, same as variable type), leaving all this to
+        // apply_value_attributes().
+        //
+        if (!pre_parse_)
+        {
+          for (const auto& a: attributes_top ())
+          {
+            if (const value_type* vt = find_value_type (root_, a.name))
+            {
+              retype = vt;
+              break;
+            }
+          }
+        }
+
+        // @@ PAT: Should we expand patterns? Note that it will only be simple
+        // ones since we have disabled {}. Also, what would be the pattern
+        // base directory?
+        //
+        r = parse_value (t, tt,
+                         pattern_mode::ignore,
+                         retype,
+                         "variable value",
+                         nullptr);
+
+      }
+      else
+        r = value (names ());
+
+      return r;
     }
 
     // Parse the regular expression representation (non-empty string value
@@ -2084,13 +2110,14 @@ namespace build2
       value val;
       apply_value_attributes (nullptr /* variable */,
                               val,
-                              parse_variable_line (t, tt),
+                              parse_variable_line (t, tt, nullptr /* retype */),
                               type::assign);
 
       pair<value, bool> p (
         functions_->try_call (scope_,
                               name,
                               vector_view<value> (&val, 1),
+                              nullptr /* retype */,
                               ll));
 
       if (!p.second)
@@ -2928,16 +2955,32 @@ namespace build2
               //
               attributes val_attrs (attributes_pop ());
 
+              // Note that we don't do any consistency checking here (not
+              // redeclared as a different type, same as variable type),
+              // leaving all this to apply_value_attributes().
+              //
+              const value_type* retype (var->type);
+              for (const auto& a: val_attrs)
+              {
+                if (const value_type* vt = find_value_type (root_, a.name))
+                {
+                  retype = vt;
+                  break;
+                }
+              }
+
               // Parse the value with the potential attributes.
               //
               // Note that we don't really need to change the mode since we
               // are replaying the tokens.
               //
               value val;
-              apply_value_attributes (nullptr /* variable */,
-                                      val,
-                                      parse_variable_line (t, tt),
-                                      type::assign);
+              const location val_loc (get_location (t));
+              apply_value_attributes (
+                nullptr /* variable */,
+                val,
+                parse_variable_line (t, tt, nullptr /* retype */),
+                type::assign);
 
               replay_stop ();
 
@@ -2978,7 +3021,7 @@ namespace build2
                   // Note that here we don't want to be reducing empty simple
                   // values to empty lists.
                   //
-                  untypify (val, false /* reduce */);
+                  untypify (val, false /*reduce*/, nullptr /*retype*/, val_loc);
                 }
 
                 iteration_index fi {1, ii};
@@ -3091,7 +3134,7 @@ namespace build2
                 }
                 else
                 {
-                  if (!iterate (val, iteration))
+                  if (!iterate (val, iteration, retype))
                   {
                     // Wouldn't be here otherwise.
                     //

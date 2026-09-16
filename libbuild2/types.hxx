@@ -173,7 +173,9 @@ namespace build2
     relaxed_atomic (const relaxed_atomic& a) noexcept
         : atomic<T> (a.load (memory_order_relaxed)) {}
 
-    operator T () const noexcept {return this->load (memory_order_relaxed);}
+    T get () const noexcept {return this->load (memory_order_relaxed);}
+
+    operator T () const noexcept {return get ();}
 
     T operator= (T v) noexcept {
       this->store (v, memory_order_relaxed); return v;}
@@ -201,9 +203,10 @@ namespace build2
     relaxed_atomic (const relaxed_atomic& a) noexcept
         : atomic<T*> (a.load (memory_order_relaxed)) {}
 
-    operator T* () const noexcept {return this->load (memory_order_relaxed);}
-    T& operator* () const noexcept {return *this->load (memory_order_relaxed);}
-    T* operator-> () const noexcept {return this->load (memory_order_relaxed);}
+    T* get () const noexcept {return this->load (memory_order_relaxed);}
+    operator T* () const noexcept {return get ();}
+    T& operator* () const noexcept {return *get ();}
+    T* operator-> () const noexcept {return get ();}
 
     T* operator= (T* v) noexcept {
       this->store (v, memory_order_relaxed); return v;}

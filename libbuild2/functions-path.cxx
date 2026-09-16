@@ -16,10 +16,11 @@ namespace build2
   static value
   path_thunk (const scope* base,
               vector_view<value> args,
+              const value_type* retype,
               const function_overload& f)
   try
   {
-    return function_family::default_thunk (base, move (args), f);
+    return function_family::default_thunk (base, move (args), retype, f);
   }
   catch (const invalid_path& e)
   {

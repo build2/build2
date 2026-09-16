@@ -34,6 +34,7 @@ namespace build2
     static value
     thunk (const scope* bs,
            vector_view<value> vs,
+           const value_type* /*retype*/,
            const function_overload& f)
     {
       const auto& d (*reinterpret_cast<const thunk_data*> (&f.data));
@@ -119,6 +120,7 @@ namespace build2
     lib_thunk_impl (void* ls,
                     const scope* bs,
                     vector_view<value> vs,
+                    const value_type* /*retype*/,
                     const function_overload& f)
     {
       const auto& d (*reinterpret_cast<const lib_thunk_data*> (&f.data));
@@ -224,10 +226,11 @@ namespace build2
     static value
     lib_thunk (const scope* bs,
                vector_view<value> vs,
+               const value_type* retype,
                const function_overload& f)
     {
       L ls;
-      return lib_thunk_impl (&ls, bs, vs, f);
+      return lib_thunk_impl (&ls, bs, vs, retype, f);
     }
 
     // @@ Maybe we should provide wrapper functions that return all the
@@ -312,6 +315,7 @@ namespace build2
         insert<const char*, names> (
           [] (const scope* bs,
               vector_view<value> vs,
+              const value_type* /*retype*/,
               const function_overload& f) -> value
           {
             const char* x (*reinterpret_cast<const char* const*> (&f.data));
@@ -513,6 +517,7 @@ namespace build2
         insert<const char*, names> (
           [] (const scope* bs,
               vector_view<value> vs,
+              const value_type* /*retype*/,
               const function_overload& f) -> value
           {
             const char* x (*reinterpret_cast<const char* const*> (&f.data));
@@ -559,6 +564,7 @@ namespace build2
         insert<const char*, names> (
           [] (const scope* bs,
               vector_view<value> vs,
+              const value_type* /*retype*/,
               const function_overload& f) -> value
           {
             const char* x (*reinterpret_cast<const char* const*> (&f.data));

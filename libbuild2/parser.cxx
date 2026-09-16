@@ -553,7 +553,7 @@ namespace build2
 
     token t;
     type tt;
-    value rhs (parse_variable_value (t, tt));
+    value rhs (parse_variable_value (t, tt, var.type /* retype */));
 
     value lhs;
     apply_value_attributes (&var, lhs, move (rhs), type::assign);
@@ -623,7 +623,7 @@ namespace build2
     mode (lexer_mode::eval, '@');
     next_with_attributes (t, tt);
 
-    values vs (parse_eval (t, tt, pmode));
+    values vs (parse_eval (t, tt, pmode, nullptr /* retype */));
 
     if (next (t, tt) != type::eos)
       fail (t) << "unexpected " << t;
@@ -4515,7 +4515,10 @@ namespace build2
         }
         else
         {
-          value lhs, rhs (parse_variable_value (t, tt, !dev /* mode */));
+          value lhs;
+          value rhs (parse_variable_value (t, tt,
+                                           var->type /* retype */,
+                                           !dev /* mode */));
           apply_value_attributes (var, lhs, move (rhs), type::assign);
 
           if (!nullable)
@@ -4814,7 +4817,7 @@ namespace build2
       if (!lhs)
         fail (loc) << "expected target to import instead of null value";
 
-      untypify (lhs, true /* reduce */);
+      untypify (lhs, true /* reduce */, nullptr /* retype */, loc);
       ns = move (lhs.as<names> ());
     }
     else
@@ -5011,9 +5014,13 @@ namespace build2
     else
       attributes_pop ();
 
+    // @@ Communicate retype from import directive somehow?
+    //
+    const value_type* retype (nullptr);
+
     location l (get_location (t));
     value val (tt != type::newline && tt != type::eos
-               ? parse_value (t, tt, pattern_mode::expand)
+               ? parse_value (t, tt, pattern_mode::expand, retype)
                : value (names ()));
 
     if (!val)
@@ -5024,7 +5031,7 @@ namespace build2
       // While feels far-fetched, let's preserve empty typed values in the
       // result.
       //
-      untypify (val, false /* reduce */);
+      untypify (val, false /* reduce */, retype, l);
     }
 
     export_value = move (val).as<names> ();
@@ -5423,6 +5430,7 @@ namespace build2
                 functions_->try_call (scope_,
                                       predicate,
                                       vector_view<value> (&val, 1),
+                                      nullptr /* retype */,
                                       l));
 
               if (!p.second)
@@ -5771,7 +5779,11 @@ namespace build2
                 if (!e.arg.empty ())
                   args.push_back (value (e.arg));
 
-                value r (functions_->call (scope_, *e.func, args, l));
+                // @@ TODO retype for extractor (see below re attributes).
+                //
+                value r (
+                  functions_->call (
+                    scope_, *e.func, args, nullptr /* retype */, l));
 
                 // We support two types of functions: matchers and extractors:
                 // a matcher returns a statically-typed bool value while an
@@ -5827,6 +5839,8 @@ namespace build2
             //
             // case '...': x
             //   info "$x"
+            //
+            // Also attributes (and retype above).
             //
             if (tt == type::colon)
               fail (t) << "unexpected ':' (match extraction is not yet "
@@ -5965,6 +5979,20 @@ namespace build2
     //
     attributes_push (t, tt);
 
+    // Note that we don't do any consistency checking here (not redeclared as
+    // a different type, same as variable type), leaving all this to
+    // apply_value_attributes().
+    //
+    const value_type* retype (var.type);
+    for (const auto& a: attributes_top ())
+    {
+      if (const value_type* vt = find_value_type (root_, a.name))
+      {
+        retype = vt;
+        break;
+      }
+    }
+
     if (tt != type::colon)
       fail (t) << "expected ':' instead of " << t << " after variable name";
 
@@ -5978,6 +6006,7 @@ namespace build2
     mode (lexer_mode::value, '@');
     next_with_attributes (t, tt);
 
+    const location val_loc (get_location (t));
     value val (parse_value_with_attributes (t, tt, pattern_mode::expand));
 
     // If the value type provides custom iterate function, then use that (see
@@ -5997,7 +6026,7 @@ namespace build2
       // Note that here we don't want to be reducing empty simple values to
       // empty lists.
       //
-      untypify (val, false /* reduce */);
+      untypify (val, false /* reduce */, nullptr /* retype */, val_loc);
     }
 
     if (tt != type::newline)
@@ -6171,7 +6200,7 @@ namespace build2
       }
     }
     else
-      iterate (val, iteration);
+      iterate (val, iteration, retype);
 
 #else
     // The relex based approach.
@@ -6311,7 +6340,7 @@ namespace build2
       }
     }
     else
-      iterate (val, iteration);
+      iterate (val, iteration, retype);
 
     lexer_ = ol;
 #endif
@@ -6536,10 +6565,15 @@ namespace build2
     mode (lexer_mode::value, '@');
     next_with_attributes (t, tt);
 
+    const location vl (get_location (t));
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
+      // Note: pass the original type as retype so that we print the original
+      // type literal.
+      //
       names storage;
-      cout << reverse (v, storage, true /* reduce */) << endl;
+      cout << reverse (v, storage, true /* reduce */, v.type /* retype */, vl)
+           << endl;
     }
     else
       cout << "[null]" << endl;
@@ -6569,10 +6603,14 @@ namespace build2
     mode (lexer_mode::value, '@');
     next_with_attributes (t, tt);
 
+    const location vl (get_location (t));
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
+      // Note: pass the original type as retype so that we print the original
+      // type literal.
+      //
       names storage;
-      dr << reverse (v, storage, true /* reduce */);
+      dr << reverse (v, storage, true /* reduce */, v.type /* retype */, vl);
     }
 
     if (tt != type::eos)
@@ -6723,7 +6761,24 @@ namespace build2
     //
     assert (kind != type::default_assign);
 
-    value rhs (parse_variable_value (t, tt));
+    // Derive retype from appended/prepended-to value.
+    //
+    const value_type* retype (nullptr);
+    if (kind != type::assign) // Append/prepend.
+    {
+      lookup l (
+        (prerequisite_ != nullptr ? prerequisite_->lookup_original (var, *target_) :
+         target_ != nullptr       ? target_->lookup_original (var)                 :
+         /*                      */ scope_->lookup_original (var)).first);
+
+      if (l.defined ())
+        retype = l->type;
+    }
+
+    if (retype == nullptr)
+      retype = var.type;
+
+    value rhs (parse_variable_value (t, tt, retype));
 
     value& lhs (
       kind == type::assign
@@ -6748,9 +6803,16 @@ namespace build2
     // Parse target type/pattern-specific variable assignment.
     //
 
+    // Note that for patter appended/prepended we have no idea what value type
+    // this will be applied to so the only retype value we can pass here is
+    // the variable's type.
+    //
+    const value_type* retype (var.type);
+
     // Note: expanding the value in the current scope context.
     //
-    value rhs (parse_variable_value (t, tt));
+    const location rhs_loc (get_location (t));
+    value rhs (parse_variable_value (t, tt, retype));
 
     pair<reference_wrapper<value>, bool> p (rhs /* dummy */, false);
     try
@@ -6778,7 +6840,7 @@ namespace build2
       // Our heuristics for prepend/append of a typed value is to preserve
       // empty (see apply_value_attributes() for details) so do not reduce.
       //
-      untypify (rhs, false /* reduce */);
+      untypify (rhs, false /* reduce */, retype, rhs_loc);
     }
 
     if (p.second)
@@ -6846,7 +6908,7 @@ namespace build2
   }
 
   value parser::
-  parse_variable_value (token& t, type& tt, bool m)
+  parse_variable_value (token& t, type& tt, const value_type* retype, bool m)
   {
     if (m)
     {
@@ -6861,9 +6923,31 @@ namespace build2
     //
     attributes_push (t, tt, true);
 
-    return tt != type::newline && tt != type::eos
-      ? parse_value (t, tt, pattern_mode::expand)
-      : value (names ());
+    value r;
+    if (tt != type::newline && tt != type::eos)
+    {
+      // Note that we don't do any consistency checking here (not redeclared
+      // as a different type, same as variable type), leaving all this to
+      // apply_value_attributes().
+      //
+      if (!pre_parse_)
+      {
+        for (const auto& a: attributes_top ())
+        {
+          if (const value_type* vt = find_value_type (root_, a.name))
+          {
+            retype = vt;
+            break;
+          }
+        }
+      }
+
+      r = parse_value (t, tt, pattern_mode::expand, retype);
+    }
+    else
+      r = value (names ());
+
+    return r;
   }
 
   const value_type* parser::
@@ -7183,6 +7267,13 @@ namespace build2
       bool reduce (kind == type::assign &&
                    (type == nullptr || !type->container));
 
+      // Unless there is explicit type, use LHS type for append/prepend.
+      //
+      const value_type* retype (type != nullptr      ? type            :
+                                kind != type::assign ? v.type.get ()   :
+                                var != nullptr       ? var->type       :
+                                nullptr);
+
       // Only consider RHS type if there is no explicit or variable type.
       //
       if (type == nullptr)
@@ -7193,7 +7284,7 @@ namespace build2
 
       // Reduce this to the untyped value case for simplicity.
       //
-      untypify (rhs, reduce);
+      untypify (rhs, reduce, retype, l);
     }
 
     if (kind == type::assign)
@@ -7262,9 +7353,27 @@ namespace build2
     //
     attributes_push (t, tt, true);
 
-    value rhs (tt != type::newline && tt != type::eos
-               ? parse_value (t, tt, pmode, what, separators, chunk)
-               : value (names ()));
+    value rhs;
+    if (tt != type::newline && tt != type::eos)
+    {
+      // Note that we don't do any consistency checking here (not redeclared
+      // as a different type, same as variable type), leaving all this to
+      // apply_value_attributes().
+      //
+      const value_type* retype (nullptr); // No variable.
+      if (!pre_parse_)
+      {
+        for (const auto& a: attributes_top ())
+        {
+          if ((retype = find_value_type (root_, a.name)) != nullptr)
+            break;
+        }
+      }
+
+      rhs = parse_value (t, tt, pmode, retype, what, separators, chunk);
+    }
+    else
+      rhs = value (names ());
 
     if (pre_parse_)
       return rhs; // Empty.
@@ -7275,7 +7384,8 @@ namespace build2
   }
 
   values parser::
-  parse_eval (token& t, type& tt, pattern_mode pmode)
+  parse_eval (token& t, type& tt,
+              pattern_mode pmode, const value_type* retype)
   {
     // enter: token after lparen (lexed in the eval mode with attributes).
     // leave: rparen             (eval mode auto-expires at rparen).
@@ -7283,7 +7393,7 @@ namespace build2
     if (tt == type::rparen)
       return values ();
 
-    values r (parse_eval_comma (t, tt, pmode, true));
+    values r (parse_eval_comma (t, tt, pmode, retype, true /* first */));
 
     if (tt == type::backtick) // @@ TMP
       fail (t) << "arithmetic evaluation context not yet supported";
@@ -7298,7 +7408,8 @@ namespace build2
   }
 
   values parser::
-  parse_eval_comma (token& t, type& tt, pattern_mode pmode, bool first)
+  parse_eval_comma (token& t, type& tt,
+                    pattern_mode pmode, const value_type* retype, bool first)
   {
     // enter: first token of LHS (lexed with enabled attributes)
     // leave: next token after last RHS
@@ -7306,7 +7417,7 @@ namespace build2
     // Left-associative: parse in a loop for as long as we can.
     //
     values r;
-    value lhs (parse_eval_ternary (t, tt, pmode, first));
+    value lhs (parse_eval_ternary (t, tt, pmode, retype, first));
 
     if (!pre_parse_)
       r.push_back (move (lhs));
@@ -7315,7 +7426,9 @@ namespace build2
     {
       next_with_attributes (t, tt); // Recognize attributes before value.
 
-      value rhs (parse_eval_ternary (t, tt, pmode));
+      // Note: retype only applies to single value eval contexts.
+      //
+      value rhs (parse_eval_ternary (t, tt, pmode, nullptr /* retype */));
 
       if (!pre_parse_)
         r.push_back (move (rhs));
@@ -7325,7 +7438,8 @@ namespace build2
   }
 
   value parser::
-  parse_eval_ternary (token& t, type& tt, pattern_mode pmode, bool first)
+  parse_eval_ternary (token& t, type& tt,
+                      pattern_mode pmode, const value_type* retype, bool first)
   {
     // enter: first token of LHS (lexed with enabled attributes)
     // leave: next token after last RHS
@@ -7341,9 +7455,42 @@ namespace build2
     // a ? (x ? y : z) : (b ? c : d)
     //
     location l (get_location (t));
-    value lhs (parse_eval_or (t, tt, pmode, first));
 
-    if (tt != type::question)
+    // We don't know whether to apply retype until we know if we have the
+    // following `?` or not. And it looks like the only way to know is to
+    // pre-parse while saving the tokens and then re-parse appropriately
+    // depending on whether we've seen `?`. Note: the same story in other
+    // parse_eval_*() functions below.
+    //
+    // Nothing to retype during pre-parse.
+    //
+    bool reparse (!pre_parse_ && retype != nullptr);
+
+    // Save first token manually (not part of replay).
+    //
+    token ft (reparse ? t : token ());
+    replay_guard rg (*this, reparse);
+
+    if (reparse)
+      pre_parse_ = true;
+
+    value lhs (parse_eval_or (t, tt, pmode, nullptr /* retype */, first));
+
+    bool q (tt == type::question);
+
+    if (reparse)
+    {
+      pre_parse_ = false;
+      t = move (ft);
+      tt = t.type;
+      rg.play (); // @@ PERF invent play_last() that moves tokens?
+
+      lhs = parse_eval_or (t, tt, pmode, q ? nullptr : retype, first);
+
+      rg.stop ();
+    }
+
+    if (!q)
       return lhs;
 
     location ql (get_location (t));
@@ -7352,7 +7499,6 @@ namespace build2
     //
     bool pp (pre_parse_);
 
-    bool q;
     try
     {
       q = pp ? true : convert<bool> (move (lhs));
@@ -7369,7 +7515,7 @@ namespace build2
 
     next_with_attributes (t, tt); // Recognize attributes before value.
 
-    value mhs (parse_eval_ternary (t, tt, pmode));
+    value mhs (parse_eval_ternary (t, tt, pmode, retype));
 
     if (tt != type::colon)
     {
@@ -7383,14 +7529,15 @@ namespace build2
 
     next_with_attributes (t, tt); // Recognize attributes before value.
 
-    value rhs (parse_eval_ternary (t, tt, pmode));
+    value rhs (parse_eval_ternary (t, tt, pmode, retype));
 
     pre_parse_ = pp;
     return q ? move (mhs) : move (rhs);
   }
 
   value parser::
-  parse_eval_or (token& t, type& tt, pattern_mode pmode, bool first)
+  parse_eval_or (token& t, type& tt,
+                 pattern_mode pmode, const value_type* retype, bool first)
   {
     // enter: first token of LHS (lexed with enabled attributes)
     // leave: next token after last RHS
@@ -7398,116 +7545,213 @@ namespace build2
     // Left-associative: parse in a loop for as long as we can.
     //
     location l (get_location (t));
-    value lhs (parse_eval_and (t, tt, pmode, first));
 
-    // Use the pre-parse mechanism to implement short-circuit.
+    // See parse_eval_ternary() for background on re-parse.
     //
-    bool pp (pre_parse_);
+    bool reparse (!pre_parse_ && retype != nullptr);
 
-    while (tt == type::log_or)
+    token ft (reparse ? t : token ());
+    replay_guard rg (*this, reparse);
+
+    if (reparse)
+      pre_parse_ = true;
+
+    value lhs (parse_eval_and (t, tt, pmode, nullptr /* retype */, first));
+
+    bool o (tt == type::log_or);
+
+    if (reparse)
     {
-      try
-      {
-        if (!pre_parse_ && convert<bool> (move (lhs)))
-          pre_parse_ = true;
+      pre_parse_ = false;
+      t = move (ft);
+      tt = t.type;
+      rg.play ();
 
-        next_with_attributes (t, tt); // Recognize attributes before value.
+      lhs = parse_eval_and (t, tt, pmode, o ? nullptr : retype, first);
 
-        l = get_location (t);
-        value rhs (parse_eval_and (t, tt, pmode));
-
-        if (pre_parse_)
-          continue;
-
-        // Store the result as bool value.
-        //
-        lhs = convert<bool> (move (rhs));
-      }
-      catch (const invalid_argument& e) { fail (l) << e; }
+      rg.stop ();
     }
 
-    pre_parse_ = pp;
-    return lhs;
-  }
-
-  value parser::
-  parse_eval_and (token& t, type& tt, pattern_mode pmode, bool first)
-  {
-    // enter: first token of LHS (lexed with enabled attributes)
-    // leave: next token after last RHS
-
-    // Left-associative: parse in a loop for as long as we can.
-    //
-    location l (get_location (t));
-    value lhs (parse_eval_comp (t, tt, pmode, first));
-
-    // Use the pre-parse mechanism to implement short-circuit.
-    //
-    bool pp (pre_parse_);
-
-    while (tt == type::log_and)
+    if (o)
     {
-      try
-      {
-        if (!pre_parse_ && !convert<bool> (move (lhs)))
-          pre_parse_ = true;
-
-        next_with_attributes (t, tt); // Recognize attributes before value.
-
-        l = get_location (t);
-        value rhs (parse_eval_comp (t, tt, pmode));
-
-        if (pre_parse_)
-          continue;
-
-        // Store the result as bool value.
-        //
-        lhs = convert<bool> (move (rhs));
-      }
-      catch (const invalid_argument& e) { fail (l) << e; }
-    }
-
-    pre_parse_ = pp;
-    return lhs;
-  }
-
-  value parser::
-  parse_eval_comp (token& t, type& tt, pattern_mode pmode, bool first)
-  {
-    // enter: first token of LHS (lexed with enabled attributes)
-    // leave: next token after last RHS
-
-    // Left-associative: parse in a loop for as long as we can.
-    //
-    value lhs (parse_eval_value (t, tt, pmode, first));
-
-    while (tt == type::equal      ||
-           tt == type::not_equal  ||
-           tt == type::less       ||
-           tt == type::less_equal ||
-           tt == type::greater    ||
-           tt == type::greater_equal)
-    {
-      type op (tt);
-      location l (get_location (t));
-
-      next_with_attributes (t, tt); // Recognize attributes before value.
-
-      value rhs (parse_eval_value (t, tt, pmode));
-
-      if (pre_parse_)
-        continue;
-
-      // Store the result as a bool value.
+      // Use the pre-parse mechanism to implement short-circuit.
       //
-      lhs = value (compare_values (op, lhs, rhs, l));
+      bool pp (pre_parse_);
+
+      do
+      {
+        try
+        {
+          if (!pre_parse_ && convert<bool> (move (lhs)))
+            pre_parse_ = true;
+
+          next_with_attributes (t, tt); // Recognize attributes before value.
+
+          l = get_location (t);
+          value rhs (parse_eval_and (t, tt, pmode, nullptr /* retype */));
+
+          if (pre_parse_)
+            continue;
+
+          // Store the result as bool value.
+          //
+          lhs = convert<bool> (move (rhs));
+        }
+        catch (const invalid_argument& e) { fail (l) << e; }
+      }
+      while (tt == type::log_or);
+
+      pre_parse_ = pp;
     }
 
     return lhs;
   }
 
   value parser::
-  parse_eval_value (token& t, type& tt, pattern_mode pmode, bool first)
+  parse_eval_and (token& t, type& tt,
+                  pattern_mode pmode, const value_type* retype, bool first)
+  {
+    // enter: first token of LHS (lexed with enabled attributes)
+    // leave: next token after last RHS
+
+    // Left-associative: parse in a loop for as long as we can.
+    //
+    location l (get_location (t));
+
+    // See parse_eval_ternary() for background on re-parse.
+    //
+    bool reparse (!pre_parse_ && retype != nullptr);
+
+    token ft (reparse ? t : token ());
+    replay_guard rg (*this, reparse);
+
+    if (reparse)
+      pre_parse_ = true;
+
+    value lhs (parse_eval_comp (t, tt, pmode, nullptr /* retype */, first));
+
+    bool a (tt == type::log_and);
+
+    if (reparse)
+    {
+      pre_parse_ = false;
+      t = move (ft);
+      tt = t.type;
+      rg.play ();
+
+      lhs = parse_eval_comp (t, tt, pmode, a ? nullptr : retype, first);
+
+      rg.stop ();
+    }
+
+    // Use the pre-parse mechanism to implement short-circuit.
+    //
+    if (a)
+    {
+      bool pp (pre_parse_);
+
+      do
+      {
+        try
+        {
+          if (!pre_parse_ && !convert<bool> (move (lhs)))
+            pre_parse_ = true;
+
+          next_with_attributes (t, tt); // Recognize attributes before value.
+
+          l = get_location (t);
+          value rhs (parse_eval_comp (t, tt, pmode, nullptr /* retype */));
+
+          if (pre_parse_)
+            continue;
+
+          // Store the result as bool value.
+          //
+          lhs = convert<bool> (move (rhs));
+        }
+        catch (const invalid_argument& e) { fail (l) << e; }
+      }
+      while (tt == type::log_and);
+
+      pre_parse_ = pp;
+    }
+
+    return lhs;
+  }
+
+  value parser::
+  parse_eval_comp (token& t, type& tt,
+                   pattern_mode pmode, const value_type* retype, bool first)
+  {
+    // enter: first token of LHS (lexed with enabled attributes)
+    // leave: next token after last RHS
+
+    // Left-associative: parse in a loop for as long as we can.
+    //
+
+    // See parse_eval_ternary() for background on re-parse.
+    //
+    bool reparse (!pre_parse_ && retype != nullptr);
+
+    token ft (reparse ? t : token ());
+    replay_guard rg (*this, reparse);
+
+    if (reparse)
+      pre_parse_ = true;
+
+    value lhs (parse_eval_value (t, tt, pmode, nullptr /* retype */, first));
+
+    bool c (tt == type::equal      ||
+            tt == type::not_equal  ||
+            tt == type::less       ||
+            tt == type::less_equal ||
+            tt == type::greater    ||
+            tt == type::greater_equal);
+
+    if (reparse)
+    {
+      pre_parse_ = false;
+      t = move (ft);
+      tt = t.type;
+      rg.play ();
+
+      lhs = parse_eval_value (t, tt, pmode, c ? nullptr : retype, first);
+
+      rg.stop ();
+    }
+
+    if (c)
+    {
+      do
+      {
+        type op (tt);
+        location l (get_location (t));
+
+        next_with_attributes (t, tt); // Recognize attributes before value.
+
+        value rhs (parse_eval_value (t, tt, pmode, nullptr /* retype */));
+
+        if (pre_parse_)
+          continue;
+
+        // Store the result as a bool value.
+        //
+        lhs = value (compare_values (op, lhs, rhs, l));
+      }
+      while (tt == type::equal      ||
+             tt == type::not_equal  ||
+             tt == type::less       ||
+             tt == type::less_equal ||
+             tt == type::greater    ||
+             tt == type::greater_equal);
+    }
+
+    return lhs;
+  }
+
+  value parser::
+  parse_eval_value (token& t, type& tt,
+                    pattern_mode pmode, const value_type* retype, bool first)
   {
     // enter: first token of value (lexed with enabled attributes)
     // leave: next token after value
@@ -7517,6 +7761,22 @@ namespace build2
     //
     auto at (attributes_push (t, tt, true));
 
+    // Note that we don't do any consistency checking here (not redeclared as
+    // a different type, same as variable type), leaving all this to
+    // apply_value_attributes().
+    //
+    if (!pre_parse_)
+    {
+      for (const auto& a: attributes_top ())
+      {
+        if (const value_type* vt = find_value_type (root_, a.name))
+        {
+          retype = vt;
+          break;
+        }
+      }
+    }
+
     const location l (get_location (t));
 
     value v;
@@ -7525,8 +7785,9 @@ namespace build2
     case type::log_not:
       {
         next_with_attributes (t, tt); // Recognize attributes before value.
+        first = false;
 
-        v = parse_eval_value (t, tt, pmode);
+        v = parse_eval_value (t, tt, pmode, nullptr /* retype */);
 
         if (pre_parse_)
           break;
@@ -7561,13 +7822,16 @@ namespace build2
              tt != type::log_or        &&
              tt != type::log_and
 
-             ? parse_value (t, tt, pmode)
+             ? parse_value (t, tt, pmode, retype)
              : value (names ()));
       }
     }
 
     // If this is the first expression then handle the eval-qual special case
     // (target-qualified name represented as a special ':'-style pair).
+    //
+    // Note that retype above should have had no effect since we expect the
+    // value before `:` to be untyped (see below).
     //
     if (first && tt == type::colon)
     {
@@ -7579,7 +7843,7 @@ namespace build2
 
       const location nl (get_location (t));
       next (t, tt);
-      value n (parse_value (t, tt, pattern_mode::preserve));
+      value n (parse_value (t, tt, pattern_mode::preserve, nullptr /*retype*/));
 
       if (tt != type::rparen)
         fail (t) << "expected ')' after variable name";
@@ -7758,7 +8022,10 @@ namespace build2
           next (t, tt);
 
           v = (tt != type::comma && tt != type::rsbrace
-               ? parse_value (t, tt, pattern_mode::ignore, "attribute value")
+               ? parse_value (t, tt,
+                              pattern_mode::ignore,
+                              nullptr /* retype */,
+                              "attribute value")
                : value (names ()));
 
           expire_mode ();
@@ -8412,6 +8679,7 @@ namespace build2
           false /* chunk */,
           what,
           separators,
+          nullptr /* retype */,
           0,                    // Handled by the splice_names() call below.
           pp, dp, tp,
           false /* cross */,
@@ -8554,6 +8822,7 @@ namespace build2
                bool chunk,
                const char* what,
                const string* separators,
+               const value_type* retype,
                size_t pairn,
                const optional<project_name>& pp,
                const dir_path* dp,
@@ -8662,8 +8931,13 @@ namespace build2
           if (functions_ == nullptr)
             fail << "literal " << what << " expected";
 
-          p = functions_->try_call (
-            scope_, "builtin.concat", vector_view<value> (a), loc);
+          // @@ Maybe there should be retype?
+          //
+          p = functions_->try_call (scope_,
+                                    "builtin.concat",
+                                    vector_view<value> (a),
+                                    nullptr /* retype */,
+                                    loc);
         }
 
         if (!p.second)
@@ -8684,7 +8958,7 @@ namespace build2
       if (!vnull)
       {
         if (vtype != nullptr)
-          untypify (rhs, true /* reduce */);
+          untypify (rhs, true /* reduce */, nullptr /* retype */, loc);
 
         names& d (rhs.as<names> ());
 
@@ -9608,7 +9882,7 @@ namespace build2
               {
                 using name_type = build2::name;
 
-                values vs (parse_eval (t, tt, pmode));
+                values vs (parse_eval (t, tt, pmode, nullptr /* retype */));
 
                 if (!pre_parse_)
                 {
@@ -9714,7 +9988,7 @@ namespace build2
               // @@ Should we use (target/scope) qualification (of name) as
               // the context in which to call the function? Hm, interesting...
               //
-              values args (parse_eval (t, tt, pmode));
+              values args (parse_eval (t, tt, pmode, nullptr /* retype */));
 
               if (sub) enable_subscript ();
               tt = peek ();
@@ -9723,7 +9997,9 @@ namespace build2
               //
               if (!pre_parse_)
               {
-                result_data = functions_->call (scope_, name, args, loc);
+                result_data = functions_->call (
+                  scope_, name, args, retype, loc);
+
                 what = "function call";
               }
               else
@@ -9753,7 +10029,7 @@ namespace build2
           mode (lexer_mode::eval, '@');
           next_with_attributes (t, tt);
 
-          values vs (parse_eval (t, tt, pmode));
+          values vs (parse_eval (t, tt, pmode, retype));
 
           if (sub) enable_subscript ();
           tt = peek ();
@@ -9785,7 +10061,10 @@ namespace build2
             location l (get_location (t));
             value v (
               tt != type::rsbrace
-              ? parse_value (t, tt, pattern_mode::ignore, "value subscript")
+              ? parse_value (t, tt,
+                             pattern_mode::ignore,
+                             nullptr /* retype */,
+                             "value subscript")
               : value (names ()));
 
             if (tt != type::rsbrace)
@@ -9796,6 +10075,11 @@ namespace build2
               fail (t) << "expected ']' instead of " << t;
             }
 
+            // See if we have chained subscript.
+            //
+            enable_subscript ();
+            tt = peek ();
+
             if (!pre_parse_)
             {
               // For type-specific subscript implementations we pass the
@@ -9805,7 +10089,11 @@ namespace build2
                             ? result->type->subscript
                             : nullptr))
               {
-                result_data = f (*result, &result_data, move (v), l, bl);
+                // Note: retype only applies to the last subscript.
+                //
+                result_data = f (*result, &result_data, move (v),
+                                 tt != type::lsbrace ? retype : nullptr,
+                                 l, bl);
               }
               else
               {
@@ -9861,7 +10149,7 @@ namespace build2
                              ? value (move (result_data))
                              : value (*result));
 
-                  untypify (val, false /* reduce */);
+                  untypify (val, false /* reduce */, nullptr /* retype */, l);
 
                   names& ns (val.as<names> ());
 
@@ -9893,11 +10181,6 @@ namespace build2
 
               result = &result_data;
             }
-
-            // See if we have chained subscript.
-            //
-            enable_subscript ();
-            tt = peek ();
           }
         }
 
@@ -9969,8 +10252,11 @@ namespace build2
               if (functions_ == nullptr)
                 fail << "literal " << what << " expected";
 
-              p = functions_->try_call (
-                scope_, "string", vector_view<value> (&result_data, 1), loc);
+              p = functions_->try_call (scope_,
+                                        "string",
+                                        vector_view<value> (&result_data, 1),
+                                        nullptr /* retype */,
+                                        loc);
             }
 
             if (!p.second)
@@ -9981,7 +10267,7 @@ namespace build2
             // Convert to untyped simple name reducing empty string to empty
             // names as an optimization.
             //
-            untypify (result_data, true /* reduce */);
+            untypify (result_data, true /*reduce*/, nullptr /*retype*/, loc);
           }
 
           if ((concat && vtype != nullptr) || // LHS typed.
@@ -10053,7 +10339,19 @@ namespace build2
           if (first && last_token ())
           {
             vnull = result->null;
+
+            // At first it may seem like a good idea to set vtype to retype if
+            // there is one (and also pass vtype as retype below). But that
+            // trips up various corner cases around reduction of empty to
+            // nothing (e.g., string becomes strings and thus empty list
+            // rather than empty string). Also, conceptually, the returned
+            // value is not (yet) of retype.
+            //
+#if 0
+            vtype = retype != nullptr ? retype : result->type.get ();
+#else
             vtype = result->type;
+#endif
             rvalue = true;
           }
 
@@ -10072,7 +10370,16 @@ namespace build2
             bool pair (!ns.empty () && ns.back ().pair);
 
             names nv_storage;
-            names_view nv (reverse (*result, nv_storage, !pair /* reduce */));
+            names_view nv (reverse (*result,
+                                    nv_storage,
+                                    !pair /* reduce */,
+#if 0
+                                    vtype != nullptr ? vtype : retype
+#else
+                                    retype,
+#endif
+                                    loc
+                           ));
 
             if (!nv.empty ())
             {
@@ -10457,7 +10764,9 @@ namespace build2
           // specific (via pre-parse or some such).
           //
           params.push_back (tt != type::rparen
-                            ? parse_value (t, tt, pattern_mode::ignore)
+                            ? parse_value (t, tt,
+                                           pattern_mode::ignore,
+                                           nullptr /* retype */)
                             : value (names ()));
         }
 

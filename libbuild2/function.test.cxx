@@ -93,7 +93,10 @@ namespace build2
         1,
         function_overload::arg_variadic,
         function_overload::types (arg_bool, 1),
-        [] (const scope*, vector_view<value> args, const function_overload&)
+        [] (const scope*,
+            vector_view<value> args,
+            const value_type* /*retype*/,
+            const function_overload&)
         {
           return value (static_cast<uint64_t> (args.size ()));
         }));
@@ -106,7 +109,10 @@ namespace build2
         0,
         function_overload::arg_variadic,
         function_overload::types (),
-        [] (const scope*, vector_view<value> args, const function_overload&)
+        [] (const scope*,
+            vector_view<value> args,
+            const value_type* /*retype*/,
+            const function_overload&)
         {
           for (value& a: args)
           {

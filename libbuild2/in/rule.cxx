@@ -686,6 +686,7 @@ namespace build2
             : t.ctx.functions.call (&t.base_scope (),
                                     "string",
                                     vector_view<value> (&v, 1),
+                                    nullptr /* retype */,
                                     loc));
         }
         catch (const invalid_argument& e)

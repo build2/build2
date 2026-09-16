@@ -81,12 +81,26 @@ namespace build2
     void (*const append) (value&, names&&, const variable*);
     void (*const prepend) (value&, names&&, const variable*);
 
-    // Reverse the value back to a vector of names. Storage can be used by the
-    // implementation if necessary. If reduce is true, then for an empty
-    // simple value return an empty list rather than a list of one empty name.
-    // Note that the value cannot be NULL.
+    // Reverse the value back to a vector of names. Note that the value cannot
+    // be NULL. Storage can be used by the implementation if necessary. If
+    // reduce is true, then for an empty simple value return an empty list
+    // rather than a list of one empty name.
     //
-    names_view (*const reverse) (const value&, names& storage, bool reduce);
+    // The retype argument specifies the value type to which the reversed
+    // names will be converted as a result of explicit request (specifically,
+    // explicit type case, variable type, or append to value type). It can be
+    // NULL if there was no such request. It could also potentially be the
+    // same as the value type, which should be treated as a request to reverse
+    // the original type literal.
+    //
+    // The location argument is the location of the value being reversed, if
+    // available.
+    //
+    names_view (*const reverse) (const value&,
+                                 names& storage,
+                                 bool reduce,
+                                 const value_type* retype,
+                                 const location&);
 
     // Cast value::data_ storage to value type so that the result can be
     // static_cast to const T*. If it is NULL, then cast data_ directly. Note
@@ -116,7 +130,8 @@ namespace build2
     // used.
     //
     // Note that val can be NULL. If val_data points to val, then it can be
-    // moved from. The sloc and bloc arguments are the subscript and brace
+    // moved from. The retype argument has the same semantics as in reverse()
+    // above. The sloc and bloc arguments are the subscript and brace
     // locations, respectively.
     //
     // Note: should normally be consistent with iterate.
@@ -124,6 +139,7 @@ namespace build2
     value (*/*const*/ subscript) (const value& val,
                                   value* val_data,
                                   value&& subscript,
+                                  const value_type* retype,
                                   const location& sloc,
                                   const location& bloc);
 
@@ -131,9 +147,11 @@ namespace build2
     // each element in order. If NULL, then the generic implementation is
     // used. The passed value is never NULL. If the specified function returns
     // false, then stop the iteration and return false. Otherwise return true.
+    // The retype argument has the same semantics as in reverse() above.
     //
     bool (*const iterate) (const value&,
-                           const function<bool (value&&, bool first)>&);
+                           const function<bool (value&&, bool first)>&,
+                           const value_type* retype);
   };
 
   // The order of the enumerators is arranged so that their integral values
@@ -557,17 +575,28 @@ namespace build2
   // to reverse() below except that it modifies the value itself. Note that
   // the reduce semantics applies to empty but not null.
   //
-  LIBBUILD2_SYMEXPORT void untypify (value&, bool reduce);
+  LIBBUILD2_SYMEXPORT void
+  untypify (value&, bool reduce, const value_type* retype, const location&);
 
   // Reverse the value back to names. The value should not be NULL and storage
   // should be empty. If reduce is true, then for an empty simple value return
-  // an empty list rather than a list of one empty name.
+  // an empty list rather than a list of one empty name. The retype argument
+  // specifies the type to which the reversed names will be converted, if any
+  // (See value_type::retype for details).
   //
   vector_view<const name>
-  reverse (const value&, names& storage, bool reduce);
+  reverse (const value&,
+           names& storage,
+           bool reduce,
+           const value_type* retype = nullptr,
+           const location& = {});
 
   vector_view<name>
-  reverse (value&, names& storage, bool reduce);
+  reverse (value&,
+           names& storage,
+           bool reduce,
+           const value_type* retype = nullptr,
+           const location& = {});
 
   // Variable lookup result, AKA, binding of a variable to a value.
   //
@@ -783,7 +812,11 @@ namespace build2
   //
   template <typename T>
   static names_view
-  simple_reverse (const value&, names&);
+  simple_reverse (const value&,
+                  names&,
+                  bool reduce,
+                  const value_type* retype,
+                  const location&);
 
   // Default implementations of the compare callback for simple types that
   // calls value_traits<T>::compare().

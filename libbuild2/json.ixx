@@ -192,6 +192,12 @@ namespace build2
   {
   }
 
+  inline json_value::
+  json_value (const char* v)
+      : type (json_type::string), string (v)
+  {
+  }
+
   inline const json_value& json_value::
   at (const string_type& n) const
   {
@@ -334,9 +340,9 @@ namespace build2
   }
 
   inline void json_array::
-  serialize (json_buffer_serializer& s) const
+  serialize (json_buffer_serializer& s, bool json5e) const
   {
-    json_value::serialize (s, json_type::array);
+    json_value::serialize (s, json5e, json_type::array);
   }
 
   // json_object
@@ -354,8 +360,8 @@ namespace build2
   }
 
   inline void json_object::
-  serialize (json_buffer_serializer& s) const
+  serialize (json_buffer_serializer& s, bool json5e) const
   {
-    json_value::serialize (s, json_type::object);
+    json_value::serialize (s, json5e, json_type::object);
   }
 }

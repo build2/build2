@@ -180,7 +180,10 @@ namespace build2
       if (v->null)
         return string ();
 
-      untypify (*v, true /* reduce */); // Reverse to names.
+      // Reverse to names.
+      //
+      if (v->type != nullptr)
+        untypify (*v, true /*reduce*/, nullptr /*retype*/, {} /*location*/);
 
       ostringstream os;
       to_stream (os,

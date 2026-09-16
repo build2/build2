@@ -859,8 +859,12 @@ namespace build2
   }
 
   void json_value::
-  serialize (json_buffer_serializer& s, optional<json_type> et) const
+  serialize (json_buffer_serializer& s,
+             bool json5e,
+             optional<json_type> et) const
   {
+    // Currently we only make use of JSON5 hex numbers during serialization.
+
     using namespace butl::json;
 
     if (et && *et != type)
@@ -884,14 +888,30 @@ namespace build2
         s.value (boolean);
         break;
       }
-    case json_type::signed_number:
     case json_type::hexadecimal_signed_number:
+      {
+        if (json5e)
+        {
+          s.value_json_text (to_string (signed_number, 16));
+          break;
+        }
+      }
+      // Fall through.
+    case json_type::signed_number:
       {
         s.value (signed_number);
         break;
       }
-    case json_type::unsigned_number:
     case json_type::hexadecimal_unsigned_number:
+      {
+        if (json5e)
+        {
+          s.value_json_text (to_string (unsigned_number, 16));
+          break;
+        }
+      }
+      // Fall through.
+    case json_type::unsigned_number:
       {
         s.value (unsigned_number);
         break;
@@ -905,7 +925,7 @@ namespace build2
       {
         s.begin_array ();
         for (const json_value& e: array)
-          e.serialize (s);
+          e.serialize (s, json5e);
         s.end_array ();
         break;
       }
@@ -915,7 +935,7 @@ namespace build2
         for (const json_member& m: object)
         {
           s.member_name (m.name);
-          m.value.serialize (s);
+          m.value.serialize (s, json5e);
         }
         s.end_object ();
         break;

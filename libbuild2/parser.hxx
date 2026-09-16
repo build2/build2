@@ -363,12 +363,16 @@ namespace build2
   protected:
     // Note: calls attributes_push() that the caller must pop.
     //
+    // See value_type::retype for details on the retype argument.
+    //
     // If mode is false, assume the appropriate mode has already been switched
     // to (value, `@` as pair separator, with attributes recognition). This
     // can be useful, for example, if need to call peek().
     //
     value
-    parse_variable_value (token&, token_type&, bool mode = true);
+    parse_variable_value (token&, token_type&,
+                          const value_type* retype,
+                          bool mode = true);
 
     void
     apply_variable_attributes (const variable&);
@@ -383,26 +387,36 @@ namespace build2
     // empty eval context ('()' potentially with whitespaces in between) the
     // result is an empty pack, not a pack of one empty.
     //
+    // See value_type::retype for details on the retype argument. Note that it
+    // should only affect the result type, not, say, the condition in ternary.
+    //
     values
-    parse_eval (token&, token_type&, pattern_mode);
+    parse_eval (token&, token_type&,
+                pattern_mode, const value_type* retype);
 
     values
-    parse_eval_comma (token&, token_type&, pattern_mode, bool = false);
+    parse_eval_comma (token&, token_type&,
+                      pattern_mode, const value_type*, bool = false);
 
     value
-    parse_eval_ternary (token&, token_type&, pattern_mode, bool = false);
+    parse_eval_ternary (token&, token_type&,
+                        pattern_mode, const value_type*, bool = false);
 
     value
-    parse_eval_or (token&, token_type&, pattern_mode, bool = false);
+    parse_eval_or (token&, token_type&,
+                   pattern_mode, const value_type*, bool = false);
 
     value
-    parse_eval_and (token&, token_type&, pattern_mode, bool = false);
+    parse_eval_and (token&, token_type&,
+                    pattern_mode, const value_type*, bool = false);
 
     value
-    parse_eval_comp (token&, token_type&, pattern_mode, bool = false);
+    parse_eval_comp (token&, token_type&,
+                     pattern_mode, const value_type*, bool = false);
 
     value
-    parse_eval_value (token&, token_type&, pattern_mode, bool = false);
+    parse_eval_value (token&, token_type&,
+                      pattern_mode, const value_type*, bool = false);
 
     // Compare two values in a type-aware manner. If one value is typed while
     // the other is not, convert the untyped one to the other's type.
@@ -536,15 +550,18 @@ namespace build2
 
     // As above but return the result as a value, which can be typed and NULL.
     //
+    // See value_type::retype for details on the retype argument.
+    //
     value
     parse_value (token& t, token_type& tt,
                  pattern_mode pmode,
+                 const value_type* retype,
                  const char* what = "name",
                  const string* separators = &name_separators,
                  bool chunk = false)
     {
       names ns;
-      auto r (parse_names (t, tt, ns, pmode, chunk, what, separators));
+      auto r (parse_names (t, tt, ns, pmode, chunk, what, separators, retype));
 
       value v (r.type); // Potentially typed NULL value.
 
@@ -601,6 +618,7 @@ namespace build2
                  bool chunk = false,
                  const char* what = "name",
                  const string* separators = &name_separators,
+                 const value_type* retype = nullptr,
                  size_t pairn = 0,
                  const optional<project_name>& prj = nullopt,
                  const dir_path* dir = nullptr,
@@ -924,7 +942,10 @@ namespace build2
     void
     replay_play ()
     {
-      assert ((replay_ == replay::save && !replay_data_.empty ()) ||
+      // Note: it's possible for there to be nothing to replay (e.g., if the
+      // first token is replayed ad hoc).
+      //
+      assert ((replay_ == replay::save /*&& !replay_data_.empty ()*/) ||
               (replay_ == replay::play && replay_i_ == replay_data_.size ()));
 
       assert (!peeked_);
@@ -936,10 +957,12 @@ namespace build2
       replay_ = replay::play;
     }
 
+    // Note: can only skip if there is at least one token to replay.
+    //
     void
     replay_skip ()
     {
-      assert (replay_ == replay::play);
+      assert (replay_ == replay::play && replay_data_.size () != 0);
 
       assert (!peeked_);
 
@@ -967,7 +990,10 @@ namespace build2
     void
     replay_seek (size_t i)
     {
-      assert (replay_ == replay::play && i < replay_data_.size ());
+      // Note: it's possible for there to be nothing to replay (e.g., if the
+      // first token is replayed ad hoc).
+      //
+      assert (replay_ == replay::play && i <= replay_data_.size ());
 
       assert (!peeked_); // Keep consistent with replay_play().
 
@@ -1103,7 +1129,7 @@ namespace build2
       optional<pair<size_t, replay>> nr_;
     };
 
-    // Stop saving and get the data.
+    // Stop saving and get the data. Note: incompatible with nested replays.
     //
     replay_tokens
     replay_data ()

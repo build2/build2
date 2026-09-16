@@ -80,6 +80,9 @@ namespace build2
     value&
     append (const variable&, const target_type&);
 
+    pair<lookup, size_t>
+    lookup_original (const variable&, const target_type&);
+
   public:
     prerequisite (optional<project_name> p,
                   const target_type_type& t,

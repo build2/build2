@@ -74,12 +74,16 @@ namespace build2
       // used for both stages.
       //
     protected:
+      // See value_type::retype for details on the retype argument.
+      //
       // Optionally, return the first parsed token type.
       //
       // Note that the first token is parsed with attributes enabled.
       //
       value
-      parse_variable_line (token&, token_type&, token_type* first = nullptr);
+      parse_variable_line (token&, token_type&,
+                           const value_type* retype,
+                           token_type* first = nullptr);
 
       // Ordered sequence of here-document redirects that we can expect to
       // see after the command line.

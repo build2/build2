@@ -130,50 +130,64 @@ namespace build2
     //
     // Return the value of a JSON object member.
     //
-    f["member_value"] += [] (json_value v)
-    {
-      // A member becomes an object with a single member (see json_reverse()
-      // for details).
-      //
-      if (v.type == json_type::object && v.object.size () == 1)
-      {
-        // Reverse simple JSON values to the corresponding fundamental type
-        // values for consistency with subscript/iteration (see
-        // json_subscript_impl() for background).
-        //
-        json_value& jr (v.object.front ().value);
-
-        switch (jr.type)
+    f.insert ("member_value").
+      insert<json_value> (
+        [] (const scope*,
+            vector_view<value> vs,
+            const value_type* retype,
+            const function_overload&) -> value
         {
-#if 0
-        case json_type::null:
-          return value (names {});
-#else
-        case json_type::null:
-          return value ();
-#endif
-        case json_type::boolean:
-          return value (jr.boolean);
+          if (vs[0].null)
+            throw invalid_argument ("null value");
 
-        case json_type::signed_number:
-        case json_type::hexadecimal_signed_number:
-          return value (jr.signed_number);
+          json_value& v (vs[0].as<json_value> ());
 
-        case json_type::unsigned_number:
-        case json_type::hexadecimal_unsigned_number:
-          return value (jr.unsigned_number);
+          // A member becomes an object with a single member (see
+          // json_reverse() for details).
+          //
+          if (v.type == json_type::object && v.object.size () == 1)
+          {
+            json_value& jr (v.object.front ().value);
 
-        case json_type::string:
-          return value (move (jr.string));
+            // Reverse simple JSON values to the corresponding fundamental
+            // type values, unless retype is one of the JSON types, for
+            // consistency with subscript/iteration (see json_subscript_impl()
+            // for background).
+            //
+            if (retype == &value_traits<json_value>::value_type ||
+                retype == &value_traits<json_array>::value_type ||
+                retype == &value_traits<json_object>::value_type)
+            {
+              return value (move (jr));
+            }
 
-        case json_type::array:
-        case json_type::object:
-          return value (move (jr));
-        }
-      }
+            switch (jr.type)
+            {
+            case json_type::null:
+              return value ();
 
-      fail << "json object member expected instead of " << v.type << endf;
-    };
+            case json_type::boolean:
+              return value (jr.boolean);
+
+            case json_type::signed_number:
+            case json_type::hexadecimal_signed_number:
+              return value (jr.signed_number);
+
+            case json_type::unsigned_number:
+            case json_type::hexadecimal_unsigned_number:
+              return value (jr.unsigned_number);
+
+            case json_type::string:
+              return value (move (jr.string));
+
+            case json_type::array:
+            case json_type::object:
+              return value (move (jr));
+            }
+          }
+
+          fail << "json object member expected instead of " << v.type << endf;
+        });
 
     // $object_names(<json-object>)
     //
@@ -392,7 +406,7 @@ namespace build2
 
         string o;
         json_buffer_serializer s (o, i);
-        v.serialize (s);
+        v.serialize (s, false /* json5e */);
         return o;
       }
       catch (const invalid_json_output& e)

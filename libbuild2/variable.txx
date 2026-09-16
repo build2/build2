@@ -248,7 +248,11 @@ namespace build2
 
   template <typename T>
   names_view
-  simple_reverse (const value& v, names& s, bool reduce)
+  simple_reverse (const value& v,
+                  names& s,
+                  bool reduce,
+                  const value_type*,
+                  const location&)
   {
     const T& x (v.as<T> ());
 
@@ -614,11 +618,17 @@ namespace build2
 
   template <typename T>
   names_view
-  vector_reverse (const value& v, names& s, bool)
+  vector_reverse (const value& v,
+                  names& s,
+                  bool,
+                  const value_type*,
+                  const location&)
   {
     auto& vv (v.as<vector<T>> ());
     s.reserve (vv.size ());
 
+    // @@ Pass retype->element?
+    //
     for (const T& x: vv)
       s.push_back (value_traits<T>::reverse (x));
 
@@ -654,6 +664,7 @@ namespace build2
   value
   vector_subscript (const value& val, value* val_data,
                     value&& sub,
+                    const value_type*,
                     const location& sloc,
                     const location& bloc)
   {
@@ -700,7 +711,8 @@ namespace build2
   template <typename T>
   bool
   vector_iterate (const value& val,
-                  const function<bool (value&&, bool first)>& f)
+                  const function<bool (value&&, bool first)>& f,
+                  const value_type*)
   {
     const auto& v (val.as<vector<T>> ()); // Never NULL.
 
@@ -796,11 +808,17 @@ namespace build2
 
   template <typename K, typename V>
   names_view
-  pair_vector_reverse (const value& v, names& s, bool)
+  pair_vector_reverse (const value& v,
+                       names& s,
+                       bool,
+                       const value_type*,
+                       const location&)
   {
     auto& vv (v.as<vector<pair<K, V>>> ());
     s.reserve (2 * vv.size ());
 
+    // @@ Pass retype->element?
+    //
     for (const auto& p: vv)
       value_traits<pair<K, V>>::reverse (p.first, p.second, s);
 
@@ -1015,11 +1033,17 @@ namespace build2
 
   template <typename T>
   names_view
-  set_reverse (const value& v, names& s, bool)
+  set_reverse (const value& v,
+               names& s,
+               bool,
+               const value_type*,
+               const location&)
   {
     auto& sv (v.as<set<T>> ());
     s.reserve (sv.size ());
 
+    // @@ Pass retype->element?
+    //
     for (const T& x: sv)
       s.push_back (value_traits<T>::reverse (x));
 
@@ -1055,6 +1079,7 @@ namespace build2
   value
   set_subscript (const value& val, value*,
                  value&& sub,
+                 const value_type*,
                  const location& sloc,
                  const location& bloc)
   {
@@ -1088,7 +1113,8 @@ namespace build2
   template <typename T>
   bool
   set_iterate (const value& val,
-               const function<bool (value&&, bool first)>& f)
+               const function<bool (value&&, bool first)>& f,
+               const value_type*)
   {
     const auto& v (val.as<set<T>> ()); // Never NULL.
 
@@ -1225,11 +1251,17 @@ namespace build2
 
   template <typename K, typename V>
   names_view
-  map_reverse (const value& v, names& s, bool)
+  map_reverse (const value& v,
+               names& s,
+               bool,
+               const value_type*,
+               const location&)
   {
     auto& vm (v.as<map<K, V>> ());
     s.reserve (2 * vm.size ());
 
+    // @@ Pass retype->element?
+    //
     for (const auto& p: vm)
       value_traits<pair<K, V>>::reverse (p.first, p.second, s);
 
@@ -1272,6 +1304,7 @@ namespace build2
   value
   map_subscript (const value& val, value* val_data,
                  value&& sub,
+                 const value_type*,
                  const location& sloc,
                  const location& bloc)
   {

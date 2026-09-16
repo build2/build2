@@ -44,7 +44,7 @@ print $value_size([json] null)
 print $value_size([json] true)
 print $value_size([json] 123)
 print $value_size([json] abc)
-print $size([string] ([json] abc)) # @@ Should be 3 (quoted, type hint).
+print $size([string] ([json] abc))
 print $value_size([json] 1 2 3)
 print $value_size([json] one@1 two@2 three@3)
 
@@ -55,7 +55,7 @@ EOI
 1
 1
 1
-5
+3
 3
 3
 3
@@ -65,19 +65,21 @@ EOO
 : member
 :
 $* <<EOI >>EOO
-j = [json] one@1 two@2 three@3
+j = [json] one@1 two@2 three@'"3"'
 i = [uint64] 1
 m = ($j[$i])
 print $member_name($j[$i]) $member_value($j[$i])
 print $member_name($m) $member_value($m)
 for m: $j
-  print $member_name($m) $member_value($m)
+{
+  print $member_name($m) ([json] $member_value($m))
+}
 EOI
 two 2
 two 2
 one 1
 two 2
-three 3
+three "3"
 EOO
 
 : names

@@ -6306,6 +6306,15 @@ for m: $j
 }
 \
 
+Note also that conversions of JSON values to other types are performed with
+explicit type casts. For example:
+
+\
+j = [json] '[1, 2, 3]'
+a = [uint64s] $j
+l = $regex.merge([strings] $j, '.+', '$&\n')
+\
+
 "
 source <functions-json.cli>;
 

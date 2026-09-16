@@ -11,23 +11,27 @@
   : empty-null
   :
   $* <<EOI >>EOO
-  print ([json, null] )
+  print ([json, null] ) # Note: "our" NULL.
   print ([json] null)
   print ([json] )
   print ([json] "")
   print ([json_array] )
   print ([json_object] )
   print ([json] one@null)
-  print ([json] one@)      # @@ Would be more consistent if were null (type hints?)
-  print ([json] one@"")
+  print ([json_object] one) # Absent pair value (null).
+  print ([json] one@1 two)  # Ditto.
+  print ([json] one@)       # Empty pair value (empty string).
+  print ([json] one@"")     # Empty pair value (empty string).
   EOI
   [null]
-
-
+  null
+  null
   ""
   []
   {}
   {"one":null}
+  {"one":null}
+  {"one":1,"two":null}
   {"one":""}
   {"one":""}
   EOO
@@ -36,20 +40,22 @@
   :
   $* <<EOI >>EOO
   print ([json] null)
+  print [string] ([json] null)
   print ([json] true)
   print ([json] 123)
   print ([json] -123)
   print ([json] 0xdecaf)
   print ([json] -0xdecaf)
-  print ([json] abc) # @@ Ideally we would like this to be reversed unquoted.
-  print ([json] '"abc"') # @@ Ditto.
-  print ([json] "'abc'") # @@ Ditto.
-  print (([json] abc)[0]) # @@ Workaround.
+  print ([json] abc)
+  print ([json] '"abc"')
+  print ([json] "'abc'")
+  print ([string] ([json] abc)) # Strip JSON syntax (unquoted).
   print ([json] dir/{file1 file2})
   print ([json] '  ["dir/file1", "dir/file2"]  ')
   print ([json] zero@null one@1 two@abc three@([json] x@123 y@-123) four@([json] null true))
   print ([json] '{"zero":null,"one":1,"two":"abc","three":{"x":123,"y":-123},"four":[null,true]}')
   EOI
+  null
 
   true
   123
@@ -72,28 +78,34 @@
   $* <<EOI >>EOO
   print ([json] 0xffffFFFF)
 
-  # These should be in the hexadecimal notation once we switch to JSON5.
-  #
   print ([json] 0x0 0x01 0xff 0xFFFF)
   print ([json] ff@0xff FFFF@0xFFFF)
   print ([json] '{ff: 0xff, FFFF: -0xFFFF}')
 
-  # @@ This should start working once we switch to type hints in subscript.
-  #    Hm, won't it be more natural to return it as simple uint64?
+  # Note: we have to explicitly "cast back" to JSON since subscript by
+  # default returns simple JSON value converted to the corresponding
+  # simple types.
   #
-  #j = [json] ff@0xff
-  #print $value_type($j[ff], true)
-  print 'hexadecimal number'
-  j = [json] '{ff: 0xff}'
-  #print $value_type($j[ff], true)
-  print 'hexadecimal number'
+  j = [json] ff@0xff
+  print $value_type([json] $j[ff], true)
+  j = [json] '{ff: -0xff}'
+  print $value_type([json] $j[ff], true)
+
+  j = [json] '[0xff]'
+  for i [json]: $j
+    print $value_type($i, true)
+
+  j = [json] '{x:"null"}'
+  print [json] $member_value($j)
   EOI
   0xffffffff
-  [0,1,255,65535]
-  {"ff":255,"FFFF":65535}
-  {"ff":255,"FFFF":-65535}
-  hexadecimal number
-  hexadecimal number
+  [0x0,0x1,0xff,0xffff]
+  {"ff":0xff,"FFFF":0xffff}
+  {"ff":0xff,"FFFF":-0xffff}
+  hexadecimal unsigned number
+  hexadecimal signed number
+  hexadecimal unsigned number
+  "null"
   EOO
 
   : json5
@@ -113,7 +125,7 @@
   s = abc
   print ([json] "{number:$n, string:'$s'}")
   EOI
-  {"single-quoted":"abc","multi-line":"abc","unquoted":255}
+  {"single-quoted":"abc","multi-line":"abc","unquoted":0xff}
   {"number":123,"string":"abc"}
   EOO
 
@@ -127,7 +139,7 @@
   }
   ")
   EOI
-  {"un-quoted":255,"newline.separated":123}
+  {"un-quoted":0xff,"newline.separated":123}
   EOO
 
   : diagnostics-reverse-invalid
@@ -500,6 +512,62 @@
   EOO
 }}
 
+: cast
+:
+{{
+  : basics
+  :
+  $* <<EOI >>EOO
+  #a1 = [json_array] 1 2 3
+  a1 = [json] '[1, 2, 3]'
+  a2 = [json] '["a", "b", "c"]'
+  oa = [json] '{a: [4, 5, 6]}'
+  s1 = [strings] $a1
+  s2 = [strings] $a1 $a2 $member_value($oa)
+  s3 = [strings] $a1
+  s3 += $a2
+  s4 = [strings]
+  s4 += $a1 $a2
+  [strings] test.s5 = $a1 $a2
+
+  print [strings] $a1
+  print [strings] $a1 $a2
+  print $s1
+  print $s2
+  print $s3
+  print $s4
+  print $test.s5
+  print $regex.merge([strings] $a1, '.+', '$&', ', ')
+  print $regex.merge([strings] $a1 $a2 $member_value($oa), '.+', '$&', ', ')
+  print ([strings] $a1)
+  print ([strings] $a1 $a2)
+  print (true ? [strings] $a1 $a2 : [strings] $a2)
+  print [strings] ($a1)
+  print [strings] ($a1 $a2)
+  print ([strings] (true ? $a1 $a2 : $a2))
+  print [strings] $a2 (true ? $a1 $a2 : $a2)
+  print ([strings] $a1 (true ? $a2 : $a1))
+  EOI
+  1 2 3
+  1 2 3 a b c
+  1 2 3
+  1 2 3 a b c 4 5 6
+  1 2 3 a b c
+  1 2 3 a b c
+  1 2 3 a b c
+  1, 2, 3
+  1, 2, 3, a, b, c, 4, 5, 6
+  1 2 3
+  1 2 3 a b c
+  1 2 3 a b c
+  1 2 3
+  1 2 3 a b c
+  1 2 3 a b c
+  a b c 1 2 3 a b c
+  1 2 3 a b c
+  EOO
+}}
+
 : json-map
 :
 {{
@@ -524,8 +592,8 @@
   [1,2]
   json
   2
-
-
+  null
+  null
   EOO
 }}
 

@@ -617,7 +617,7 @@ namespace build2
             // which we want to treat as a literal.
             //
             mode (lexer_mode::variable_line);
-            parse_variable_line (t, tt);
+            parse_variable_line (t, tt, nullptr /* retype(pre-parse) */);
 
             // Note that the semicolon token is only required during
             // pre-parsing to decide which line list the current line should
@@ -658,7 +658,7 @@ namespace build2
           {
             type ft;
             mode (lexer_mode::variable_line);
-            parse_variable_line (t, tt, &ft);
+            parse_variable_line (t, tt, nullptr /* retype(pre-parse) */, &ft);
 
             if (ft == type::newline)
               fail (t) << "expected value after " << lt;
@@ -745,7 +745,7 @@ namespace build2
               // except for the fact that we don't expect a trailing semicolon.
               //
               mode (lexer_mode::variable_line);
-              parse_variable_line (t, tt);
+              parse_variable_line (t, tt, nullptr /* retype(pre-parse) */);
 
               if (tt != type::newline)
                 fail (t) << "expected newline instead of " << t
@@ -2649,10 +2649,16 @@ namespace build2
           next (t, tt);
           type kind (tt); // Assignment kind.
 
+          lookup l;
+          const value_type* retype (
+            kind != type::assign && (l = scope_->lookup (var)).defined ()
+            ? l->type.get ()
+            : var.type);
+
           // We cannot reuse the value mode (see above for details).
           //
           mode (lexer_mode::variable_line);
-          value rhs (parse_variable_line (t, tt));
+          value rhs (parse_variable_line (t, tt, retype));
 
           assert (tt == type::newline);
 

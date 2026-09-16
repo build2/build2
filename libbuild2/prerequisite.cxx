@@ -92,6 +92,31 @@ namespace build2
     return r;
   }
 
+  pair<lookup, size_t> prerequisite::
+  lookup_original (const variable& var, const target_type& t)
+  {
+    pair<lookup, size_t> r (lookup (), 0);
+
+    ++r.second;
+    {
+      auto p (vars.lookup (var));
+      if (p.first != nullptr)
+        r.first = lookup (*p.first, p.second, vars);
+    }
+
+    // Delegate to target's lookup_original().
+    //
+    if (!r.first)
+    {
+      auto p (t.lookup_original (var));
+
+      r.first = move (p.first);
+      r.second = r.first ? r.second + p.second : p.second;
+    }
+
+    return r;
+  }
+
   // prerequisites
   //
   const prerequisites empty_prerequisites;

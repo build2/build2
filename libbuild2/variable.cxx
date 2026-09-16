@@ -383,7 +383,10 @@ namespace build2
   }
 
   void
-  untypify (value& v, bool reduce)
+  untypify (value& v,
+            bool reduce,
+            const value_type* retype,
+            const location& loc)
   {
     if (v.type == nullptr)
       return;
@@ -395,7 +398,7 @@ namespace build2
     }
 
     names ns;
-    names_view nv (v.type->reverse (v, ns, reduce));
+    names_view nv (v.type->reverse (v, ns, reduce, retype, loc));
 
     if (nv.empty () || nv.data () == ns.data ())
     {
@@ -952,7 +955,11 @@ namespace build2
   }
 
   static names_view
-  name_reverse (const value& v, names&, bool reduce)
+  name_reverse (const value& v,
+                names&,
+                bool reduce,
+                const value_type*,
+                const location&)
   {
     const name& n (v.as<name> ());
     return reduce && n.empty () ? names_view (nullptr, 0) : names_view (&n, 1);
@@ -1022,7 +1029,11 @@ namespace build2
   }
 
   static names_view
-  name_pair_reverse (const value& v, names& ns, bool reduce)
+  name_pair_reverse (const value& v,
+                     names& ns,
+                     bool reduce,
+                     const value_type*,
+                     const location&)
   {
     const name_pair& p (v.as<name_pair> ());
     const name& f (p.first);
@@ -1183,7 +1194,11 @@ namespace build2
   }
 
   static names_view
-  process_path_reverse (const value& v, names& s, bool)
+  process_path_reverse (const value& v,
+                        names& s,
+                        bool,
+                        const value_type*,
+                        const location&)
   {
     const auto& x (v.as<process_path> ());
 
@@ -1358,7 +1373,11 @@ namespace build2
   }
 
   static names_view
-  process_path_ex_reverse (const value& v, names& s, bool)
+  process_path_ex_reverse (const value& v,
+                           names& s,
+                           bool,
+                           const value_type*,
+                           const location&)
   {
     const auto& x (v.as<process_path_ex> ());
 
@@ -1686,8 +1705,23 @@ namespace build2
 
     if (n == 0)
     {
-      // Note: this is the ([json] ) case, not ([json] ""). See also the
-      // relevant note in json_reverse() below.
+      // Note that this is the ([json] ) case, not ([json] ""). We map the
+      // "absent value" to JSON null.
+      //
+      // Note that alternative mappings (like mapping it to empty string) tend
+      // to break a lot of corner cases due to our "null decays to empty"
+      // semantics (which we extend to JSON null in certain contexts). See
+      // the relevant notes in json_reverse() below.
+      //
+      // Note that it may seem that the empty pair value ([json] one@) which
+      // is mapped to empty string is inconsistent with empty value ([json] ),
+      // which is null. Note, however, that absent pair ([json_object] one) is
+      // mapped to null. So in a sense it is consistent (absent is mapped to
+      // null while empty -- to empty string).
+      //
+      // Also note that empty json_array and json_object are mapped to empty
+      // array and object, not null (in JSON null is a kind of value, not
+      // absence of value).
       //
       return json_value (); // null
     }
@@ -1697,28 +1731,35 @@ namespace build2
     }
     else
     {
-      if (ns.front ().pair) // object
+      // If we have at least one pair, we treat it as an object, otherwise --
+      // as an array. Note that the unusual case of needing an object without
+      // any pairs can be handled with json_object (or JSON text).
+      //
+      if (find_if (ns.begin (), ns.end (),
+                   [] (const name& n)
+                   {
+                     return n.pair;
+                   }) != ns.end ()) // object
       {
         json_value r (json_type::object);
         r.object.reserve (n / 2);
 
         for (auto i (ns.begin ()); i != ns.end (); ++i)
         {
-          if (!i->pair)
-            throw invalid_argument (
-              "expected pair in json member value '" + to_string (*i) + '\'');
-
           // Note that we could support JSON-quoted member names but it's
           // unclear why would someone want that (and if they do, they can
           // always specify JSON text instead).
           //
-          // @@ The empty pair value ([json] one@ ) which is currently empty
-          //    string is inconsistent with empty value ([json] ) above which
-          //    is null. Maybe we could distinguish the one@ and one@"" cases
-          //    via type hints?
+          // Note also that the absent pair value ([json] one@1 two) is
+          // treated as JSON null while empty pair value ([json] one@1 two@)
+          // -- as empty string. If that seems a bit inconsistent with empty
+          // value ([json] ) which is treated as JSON null, see the note in
+          // the (n == 0) case above.
           //
           string n (to_string_value (*i, "json member name"));
-          json_value v (to_json_value (*++i, "json member"));
+          json_value v (i->pair
+                        ? to_json_value (*++i, "json member")
+                        : json_value ());
 
           // Check for duplicates. One can use append/prepend to merge.
           //
@@ -1842,11 +1883,7 @@ namespace build2
         // "consumption" contexts (e.g., result of subscript) null will still
         // decay to empty.
         //
-#if 1
         return name ("null");
-#else
-        return name ();
-#endif
       }
     case json_type::boolean:
       {
@@ -1869,19 +1906,6 @@ namespace build2
         return name (to_string (v.unsigned_number, 16));
       }
     case json_type::string:
-        //
-        // @@ Hm, it would be nice if this somehow got mapped to unquoted
-        //    string but still be round-trippable to JSON value. Perhaps via
-        //    the type hint idea? This is pretty bad. See also subscript we
-        //    hacked around this somewhat.
-        //
-        //    Note that it may be tempting to fix this by only quoting strings
-        //    that would otherwise be mis-interpreted (null, true, all digits,
-        //    etc). But that would be worse: things would seem to work but
-        //    fall apart in the perhaps unlikely event of encountering one of
-        //    the problematic values. It is better to produce a consistent
-        //    result.
-        //
     case json_type::array:
     case json_type::object:
       {
@@ -1899,8 +1923,11 @@ namespace build2
           // printed representation is required, then the $json.serialize()
           // function can be used to obtain it.
           //
+          // Note also that we allow JSON5E. In particular, this is required
+          // to roundtrip hex numbers without loosing type information.
+          //
           json_buffer_serializer s (o, 0 /* indentation */);
-          v.serialize (s);
+          v.serialize (s, true /* json5e */);
         }
         catch (const invalid_json_output& e)
         {
@@ -1931,27 +1958,199 @@ namespace build2
   }
 
   static names_view
-  json_reverse (const value& x, names& ns, bool reduce)
+  json_reverse (const value& x,
+                names& ns,
+                bool reduce,
+                const value_type* retype,
+                const location& loc)
   {
     const json_value& v (x.as<json_value> ());
 
-    // @@ Hm, it would be nice if JSON null somehow got mapped to [null]/empty
-    //    but still be round-trippable to JSON null. Perhaps via type hint?
+    // Other converstion ideas:
     //
-    //    But won't `print ([json] null)` printing nothing be surprising.
-    //    Also, it's not clear that mapping JSON null to out [null] is a good
-    //    idea since our [null] means "no value" while JSON null means "null
-    //    value".
+    // - Array as string_set? But can convert via strings.
+    // - Object as string_map? But what's the benefit?
+
+    if (v.type == json_type::array)
+    {
+      bool is (retype == &value_traits<int64s>::value_type);
+      bool us (retype == &value_traits<uint64s>::value_type);
+      bool ss (retype == &value_traits<strings>::value_type);
+      bool ps (retype == &value_traits<paths>::value_type ||
+               retype == &value_traits<dir_paths>::value_type);
+
+      if (ss || ps || us || is)
+      {
+        if (size_t n = v.array.size ())
+        {
+          ns.reserve (n);
+
+          for (const json_value& e: v.array)
+          {
+            optional<name> n;
+            switch (e.type)
+            {
+            case json_type::boolean:
+              {
+                if (ss)
+                  n = name (e.boolean ? "true" : "false");
+
+                break;
+              }
+            case json_type::hexadecimal_signed_number:
+              {
+                if (is)
+                  ; // Fall through.
+                else
+                {
+                  if (ss)
+                    n = name (to_string (e.signed_number, 16));
+
+                  break;
+                }
+              }
+              // Fall through.
+            case json_type::signed_number:
+              {
+                if (ss || is)
+                  n = value_traits<int64_t>::reverse (e.signed_number);
+
+                break;
+              }
+            case json_type::hexadecimal_unsigned_number:
+              {
+                if (is || us)
+                  ; // Fall through.
+                else
+                {
+                  if (ss)
+                    n = name (to_string (e.unsigned_number, 16));
+
+                  break;
+                }
+              }
+              // Fall through.
+            case json_type::unsigned_number:
+              {
+                if (ss || is || us)
+                  n = value_traits<uint64_t>::reverse (e.unsigned_number);
+
+                break;
+              }
+            case json_type::string:
+              {
+                if (ss || ps)
+                  n = name (e.string);
+
+                break;
+              }
+            default: // Object, array, or null.
+              break;
+            }
+
+            if (n)
+              ns.push_back (move (*n));
+            else
+              fail (loc) << "unable to convert json array with "
+                         << to_string (e.type, true /* distinguish_numbers */)
+                         << " element to " << retype->name;
+          }
+        }
+
+        return ns;
+      }
+    }
+    else if (v.type != json_type::null && v.type != json_type::object)
+    {
+      // Strip JSON simple value syntax if we are reversing to any type other
+      // than JSON.
+      //
+      // See also json_subscript_impl() below: in subscript (as well as
+      // iteration and $json.member_value()) which are presumed to be
+      // consumption rather than construction, we go a step further and return
+      // corresponding simple types in all cases except when the result is
+      // expected to be JSON.
+      //
+      if (retype != nullptr &&
+          retype != &value_traits<json_value>::value_type &&
+          retype != &value_traits<json_array>::value_type &&
+          retype != &value_traits<json_object>::value_type)
+      {
+        name n;
+        switch (v.type)
+        {
+        case json_type::boolean:
+          {
+            n.value = v.boolean ? "true" : "false";
+            break;
+          }
+        case json_type::hexadecimal_signed_number:
+          {
+            if (retype == &value_traits<int64_t>::value_type ||
+                retype == &value_traits<int64s>::value_type)
+              ; // Fall through.
+            else
+            {
+              n.value = to_string (v.signed_number, 16);
+              break;
+            }
+          }
+          // Fall through.
+        case json_type::signed_number:
+          {
+            n = value_traits<int64_t>::reverse (v.signed_number);
+            break;
+          }
+        case json_type::hexadecimal_unsigned_number:
+          {
+            if (retype == &value_traits<uint64_t>::value_type  ||
+                retype == &value_traits<uint64s>::value_type   ||
+                retype == &value_traits<int64_t>::value_type   ||
+                retype == &value_traits<int64s>::value_type)
+              ; // Fall through.
+            else
+            {
+              n.value = to_string (v.unsigned_number, 16);
+              break;
+            }
+          }
+          // Fall through.
+        case json_type::unsigned_number:
+          {
+            n = value_traits<uint64_t>::reverse (v.unsigned_number);
+            break;
+          }
+        case json_type::string:
+          {
+            n.value = v.string;
+            break;
+          }
+        default: // Object, array, or null.
+          assert (false);
+          break;
+        }
+
+        ns.push_back (move (n));
+        return ns;
+      }
+    }
+
+    // Ideally we would like JSON null to get mapped to [null]/empty but still
+    // be round-trippable to JSON null.
     //
-    //    Maybe the current semantics is the best: we map our [null] and empty
-    //    names to JSON null (naturally) but we always reverse JSON null to
-    //    the JSON "null" literal. Or maybe we could reverse it to null but
-    //    type-hint it that it's a spelling or [null]/empty. Quite fuzzy,
-    //    admittedly. In our model null values decay to empty so JSON null
-    //    decaying to "null" literal is strange. Let's try and see how it
-    //    goes. See also json_subscript_impl() below.
+    // The best we can currently do is return it as JSON null literal if the
+    // result type is JSON and to [null]/empty otherwise.
     //
-    if (v.type != json_type::null || !reduce)
+    // See also json_subscript_impl() below.
+    //
+    if (v.type == json_type::null &&
+        (retype == &value_traits<json_value>::value_type ||
+         retype == &value_traits<json_array>::value_type ||
+         retype == &value_traits<json_object>::value_type))
+    {
+      ns.push_back (name ("null"));
+    }
+    else if (v.type != json_type::null || !reduce)
       ns.push_back (value_traits<json_value>::reverse (v));
 
     return ns;
@@ -1968,7 +2167,8 @@ namespace build2
   //
   static pair<value, bool>
   json_subscript_impl (const value& val, value* val_data,
-                       uint64_t i, const string& n, bool index)
+                       uint64_t i, const string& n, bool index,
+                       const value_type* retype)
   {
     const json_value& jv (val.as<json_value> ());
 
@@ -2045,18 +2245,21 @@ namespace build2
             : json_value (i->value));
     }
 
-    // @@ As a temporary work around for the lack of type hints (see
-    //    json_reverse() for background), reverse simple JSON values to the
-    //    corresponding fundamental type values. The thinking here is that
-    //    subscript (and iteration) is primarily meant for consumption (as
-    //    opposed to reverse() where it is used to build up values and thus
-    //    needs things to be fully reversible). Once we add type hints, then
-    //    this should become unnecessary and we should be able to just always
-    //    return json_value. See also $json.member_value() where we do the
-    //    same thing.
+    // Reverse simple JSON values to the corresponding fundamental type
+    // values, unless retype is one of the JSON types. The thinking here is
+    // that subscript (and iteration) are primarily meant for consumption (as
+    // opposed to reverse() where it is also used to build up values and thus
+    // needs things to be fully reversible by default).
     //
-    // @@ TODO: split this function into two (index/name) once get rid of this.
+    // See also $json.member_value() where we do the same thing.
     //
+    if (retype == &value_traits<json_value>::value_type ||
+        retype == &value_traits<json_array>::value_type ||
+        retype == &value_traits<json_object>::value_type)
+    {
+      return make_pair (value (move (jr)), true);
+    }
+
     value r;
     switch (jr.type)
     {
@@ -2064,15 +2267,10 @@ namespace build2
       // reverse JSON null to our [null] rather than empty. This, in
       // particular, helps chained subscript.
       //
-#if 0
-    case json_type::null:
-      r = value (names {});
-      break;
-#else
     case json_type::null:
       r = value ();
       break;
-#endif
+
     case json_type::boolean:
       r = value (jr.boolean);
       break;
@@ -2103,6 +2301,7 @@ namespace build2
   static value
   json_subscript (const value& val, value* val_data,
                   value&& sub,
+                  const value_type* retype,
                   const location& sloc,
                   const location& bloc)
   {
@@ -2169,7 +2368,7 @@ namespace build2
     }
 
     value r (jv != nullptr
-             ? json_subscript_impl (val, val_data, i, n, index).first
+             ? json_subscript_impl (val, val_data, i, n, index, retype).first
              : value ());
 
     // Typify null values so that we get called for chained subscripts.
@@ -2182,14 +2381,16 @@ namespace build2
 
   static bool
   json_iterate (const value& val,
-                const function<bool (value&&, bool first)>& f)
+                const function<bool (value&&, bool first)>& f,
+                const value_type* retype)
   {
     // Implement in terms of subscript for consistency (in particular,
     // iterating over simple values like number, string).
     //
     for (uint64_t i (0);; ++i)
     {
-      pair<value, bool> e (json_subscript_impl (val, nullptr, i, {}, true));
+      pair<value, bool> e (
+        json_subscript_impl (val, nullptr, i, {}, true, retype));
 
       if (!e.second)
         break;
@@ -2395,14 +2596,17 @@ namespace build2
 
       if (p == string::npos || s[p] != '{')
       {
-        // Unlike for array above, we cannot turn any value into a member.
+        // For consistency with the (n > 1) case below, turn it into a name
+        // with null value.
         //
-        throw invalid_argument ("expected json object instead of '" + s + '\'');
+        r.object.push_back (json_member {move (s), json_value ()});
       }
-
-      json_value v (to_json_value (ns.front (), "json object"));
-      assert (v.type == json_type::object);
-      r.object = move (v.object);
+      else
+      {
+        json_value v (to_json_value (ns.front (), "json object"));
+        assert (v.type == json_type::object);
+        r.object = move (v.object);
+      }
     }
     else
     {
@@ -2410,12 +2614,10 @@ namespace build2
 
       for (auto i (ns.begin ()); i != ns.end (); ++i)
       {
-        if (!i->pair)
-          throw invalid_argument (
-            "expected pair in json member value '" + to_string (*i) + '\'');
-
         string n (to_string_value (*i, "json member name"));
-        json_value v (to_json_value (*++i, "json member"));
+        json_value v (i->pair
+                      ? to_json_value (*++i, "json member")
+                      : json_value ());
 
         if (find_if (r.object.begin (), r.object.end (),
                      [&n] (const json_member& m)
@@ -2628,7 +2830,11 @@ namespace build2
   }
 
   static names_view
-  cmdline_reverse (const value& v, names&, bool)
+  cmdline_reverse (const value& v,
+                   names&,
+                   bool,
+                   const value_type*,
+                   const location&)
   {
     const auto& x (v.as<cmdline> ());
     return names_view (x.data (), x.size ());

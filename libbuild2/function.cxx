@@ -84,6 +84,7 @@ namespace build2
   call (const scope* base,
         const string& name,
         vector_view<value> args,
+        const value_type* retype,
         const location& loc,
         bool fa) const
   {
@@ -200,7 +201,7 @@ namespace build2
         auto f (ovls.back ());
 
         // If one or more arguments match via the reversal to untyped (rank 2),
-        // then we need to go over the overload's arguments one more time an
+        // then we need to go over the overload's arguments one more time and
         // untypify() those that we need to reverse.
         //
         if (rank == 2)
@@ -213,13 +214,21 @@ namespace build2
             if (f->arg_types[i]             &&
                 *f->arg_types[i] == nullptr &&
                 args[i].type != nullptr)
-              untypify (args[i], true /* reduce */);
+            {
+              // We don't have the location of each argument and we print the
+              // call location in the diag frame above.
+              //
+              untypify (args[i],
+                        true    /* reduce */,
+                        nullptr /* retype */,
+                        {}      /* location */);
+            }
           }
         }
 
         try
         {
-          return make_pair (f->impl (base, move (args), *f), true);
+          return make_pair (f->impl (base, move (args), retype, *f), true);
         }
         catch (const invalid_argument& e)
         {
@@ -327,6 +336,7 @@ namespace build2
   value function_family::
   default_thunk (const scope* base,
                  vector_view<value> args,
+                 const value_type* /*retype*/,
                  const function_overload& f)
   {
     // Call the cast thunk.
