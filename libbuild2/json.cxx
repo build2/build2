@@ -952,7 +952,7 @@ namespace build2
   }
 
   void json_value::
-  serialize (json_buffer_serializer&, optional<json_type>) const
+  serialize (json_buffer_serializer&, bool, optional<json_type>) const
   {
     assert (false);
   }
