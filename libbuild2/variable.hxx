@@ -760,6 +760,10 @@ namespace build2
   template <typename T> T convert (value&&);
   template <typename T> T convert (const value&);
 
+  // Convert T to itself (useful in generic code).
+  //
+  template <typename T> T convert (T&& v) {return T (move (v));}
+
   // As above but also allow the derived-to-base conversions (where T is
   // base). Note that this call may potentially slice the value.
   //

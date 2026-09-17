@@ -211,6 +211,33 @@
   $* <'print $filter_out([strings] xy yz,   y, ends_with)'     >'yz'    : ends-with
 }}
 
+: merge
+:
+{{
+  $* <'print $merge([strings] x y z)'                      >'xyz'     : basics
+  $* <'print $merge([strings] x y z,     ", ")'            >'x, y, z' : delim
+  $* <'print $merge([strings]      ,     ",")'             >''        : empty
+  $* <'print $merge([strings] "" "",     ",")'             >','       : empty-element
+  $* <'print $merge([strings] " x" "y ", ",", trim)'       >'x,y'     : trim
+
+  : omit-empty
+  :
+  {{
+    $* <'print $merge([strings] x "" y,  ",", omit_empty)'      >'x,y' : basics
+    $* <'print $merge([strings] x " " y, ",", trim omit_empty)' >'x,y' : trim
+  }}
+
+  : separate
+  :
+  {{
+    $* <'print $merge([strings] x y, ",", separate_first)'               >',x,y' : first
+    $* <'print $merge([strings] x y, ",", separate_last)'                >'x,y,' : last
+    $* <'print $merge([strings]    , ",", separate_first separate_last)' >''     : empty
+  }}
+
+  $* <'print $string.merge(x y z, ",")'                    >'x,y,z'  : untyped
+}}
+
 : keys
 :
 $* <'print $keys([string_map] a@1 b@2 c@3)' >'a b c'

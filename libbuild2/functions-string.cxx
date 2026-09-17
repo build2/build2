@@ -320,6 +320,65 @@ namespace build2
     return r;
   }
 
+  // T can be names or strings.
+  //
+  // We implement it as a template rather than converting names to strings for
+  // performance (avoid allocating a separate vector).
+  //
+  template <typename T>
+  static string
+  merge (T&& vs, optional<value> d, optional<names> flags)
+  {
+    string delim (d ? convert<string> (move (*d)) : string ());
+
+    bool trim (false);
+    bool omit_empty (false);
+    bool sep_first (false);
+    bool sep_last (false);
+    if (flags)
+    {
+      for (auto& f: *flags)
+      {
+        string s (convert<string> (move (f)));
+
+        if      (s == "trim")           trim = true;
+        else if (s == "omit_empty")     omit_empty = true;
+        else if (s == "separate_first") sep_first = true;
+        else if (s == "separate_last")  sep_last = true;
+        else throw invalid_argument ("invalid flag '" + s + '\'');
+      }
+    }
+
+    optional<string> r;
+    for (auto& v: vs)
+    {
+      string s (convert<string> (move (v)));
+
+      if (trim)
+        build2::trim (s);
+
+      if (omit_empty && s.empty ())
+        continue;
+
+      if (!r)
+      {
+        r = string ();
+
+        if (sep_first)
+          *r += delim;
+      }
+      else if (!delim.empty ())
+        *r += delim;
+
+      *r += s;
+    }
+
+    if (r && sep_last)
+      *r += delim;
+
+    return r ? move (*r) : string ();
+  }
+
   void
   string_functions (function_map& m)
   {
@@ -712,6 +771,40 @@ namespace build2
     f["filter_out"] += [](strings vs, value v, optional<names> fs)
     {
       return filter (move (vs), move (v), move (fs), true /* out */);
+    };
+
+    // $string.merge(<untyped> [, <delim> [, <flags>]])
+    // $merge(<strings> [, <delim> [, <flags>]])
+    //
+    // Merge elements of a string sequence into a single string, optionally
+    // separating each subsequent element with the specified delimiter. For
+    // example:
+    //
+    //     info $string.merge(1 2 3, ', ') # prints 1, 2, 3
+    //
+    // The following flags are supported:
+    //
+    //     trim           - trim elements (see $string.trim())
+    //
+    //     omit_empty     - omit empty elements
+    //
+    //     separate_first - add the delimited before the first element
+    //
+    //     separate_last  - add the delimited after the last element
+    //
+    // Note that if there are no elements to merge, then `separate_first`
+    // and `separate_last` have no effect and an empty string is returned.
+    //
+    // See also `$regex.merge()`.
+    //
+    f["merge"] += [](strings vs, optional<value> d, optional<names> flags)
+    {
+      return merge<strings> (move (vs), move (d), move (flags));
+    };
+
+    f[".merge"] += [](names vs, optional<value> d, optional<names> flags)
+    {
+      return merge<names> (move (vs), move (d), move (flags));
     };
 
     // $keys(<string-map>)
