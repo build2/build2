@@ -36,6 +36,8 @@ namespace build2
 
       using in::rule::match; // Make Clang happy.
 
+      using build2::rule::sub_match;
+
       virtual recipe
       apply (action, target&) const override;
 
@@ -71,7 +73,9 @@ namespace build2
       install_rule (const in_rule& r, const char* n): in_ (r), in_name_ (n) {}
 
       virtual bool
-      match (action, target&) const override;
+      match (action, target&, const string&, match_extra&) const override;
+
+      using file_rule::match;
 
       virtual recipe
       apply (action, target&, match_extra&) const override;
