@@ -9842,7 +9842,7 @@ namespace build2
                 assert (false);
               }
 
-              result_data = name (move (s));
+              result_data = names {name (move (s))};
               what = "escape sequence expansion";
             }
 
