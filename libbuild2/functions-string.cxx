@@ -327,9 +327,9 @@ namespace build2
   //
   template <typename T>
   static string
-  merge (T&& vs, optional<value> d, optional<names> flags)
+  merge (T&& vs, optional<value*> d, optional<names> flags)
   {
-    string delim (d ? convert<string> (move (*d)) : string ());
+    string delim (d && **d ? convert<string> (move (**d)) : string ());
 
     bool trim (false);
     bool omit_empty (false);
@@ -797,14 +797,14 @@ namespace build2
     //
     // See also `$regex.merge()`.
     //
-    f["merge"] += [](strings vs, optional<value> d, optional<names> flags)
+    f["merge"] += [](strings vs, optional<value*> d, optional<names> flags)
     {
-      return merge<strings> (move (vs), move (d), move (flags));
+      return merge<strings> (move (vs), d, move (flags));
     };
 
-    f[".merge"] += [](names vs, optional<value> d, optional<names> flags)
+    f[".merge"] += [](names vs, optional<value*> d, optional<names> flags)
     {
-      return merge<names> (move (vs), move (d), move (flags));
+      return merge<names> (move (vs), d, move (flags));
     };
 
     // $keys(<string-map>)

@@ -219,6 +219,7 @@
   $* <'print $merge([strings]      ,     ",")'             >''        : empty
   $* <'print $merge([strings] "" "",     ",")'             >','       : empty-element
   $* <'print $merge([strings] " x" "y ", ",", trim)'       >'x,y'     : trim
+  $* <'print $merge([strings] " x" "y ", [null], trim)'    >'xy'      : no-delim-flag
 
   : omit-empty
   :
