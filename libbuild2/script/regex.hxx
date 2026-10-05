@@ -355,6 +355,23 @@ namespace build2
       // and GCC. Also see GH issue 516 for a wider range of problems with our
       // line_regex.
       //
+      // @@ Can we, alternatively, just stop using std::char_traits? Note that
+      //    the latter C++ standards still don't forbid using custom character
+      //    types. C++20 only forbids specialization of std::char_traits<> for
+      //    custom character types.
+      //
+      //    Specifically, instead of specializing std::char_traits for
+      //    build2::script::regex::line_char we can just define our own
+      //    line_char_traits type which satisfies the CharTraits
+      //    requirements. Note that we already provide custom definitions for
+      //    all the required members, so we should be able to turn `template<>
+      //    class char_traits<build2::script::regex::line_char>` info `class
+      //    line_char_traits` easily and define line_string as
+      //    std::basic_string<line_char, line_char_traits>.
+      //
+      //    Note that even after switching to a custom basic_regex
+      //    implementation, we will have to deal with this issue.
+      //
 #if defined(__clang__) || defined(__GNUC__)
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
