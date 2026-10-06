@@ -1356,12 +1356,20 @@ namespace build2
     // Wait for a process/builtin to complete until the deadline is reached
     // and return the underlying wait function result (optional<something>).
     //
-    template<typename P>
-    static auto
-    timed_wait (P& p, const timestamp& deadline) -> decltype(p.try_wait ())
+    static optional<bool>
+    timed_wait (process& p, const timestamp& deadline)
     {
       timestamp now (system_clock::now ());
-      return deadline > now ? p.timed_wait (deadline - now) : p.try_wait ();
+      return deadline > now
+        ? p.timed_wait (deadline - now, process::group_wait::kill_no_check)
+        : p.try_wait (process::group_wait::kill_no_check);
+    }
+
+    static optional<uint8_t>
+    timed_wait (builtin& b, const timestamp& deadline)
+    {
+      timestamp now (system_clock::now ());
+      return deadline > now ? b.timed_wait (deadline - now) : b.try_wait ();
     }
 
     // Terminate the pipeline processes starting from the specified one and up
@@ -1430,7 +1438,12 @@ namespace build2
             l5 ([&]{trace (c->loc) << "killing: " << c->cmd;});
 
             p->kill ();
-            p->wait ();
+
+            // Let's kill the potentially remaining process group members
+            // twice, for robustness.
+            //
+            p->wait (false /* ignore_errors */,
+                     process::group_wait::kill_no_check);
           }
         }
         catch (const process_error& e)
@@ -2656,7 +2669,8 @@ namespace build2
             if (process* p = c->proc)
             {
               if (!dl)
-                p->wait ();
+                p->wait (false /* ignore_errors */,
+                         process::group_wait::kill_no_check);
               else if (!timed_wait (*p, dl->value))
                 term_pipe (c, trace);
             }

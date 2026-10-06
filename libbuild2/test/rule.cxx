@@ -775,8 +775,8 @@ namespace build2
         {
           timestamp now (system_clock::now ());
           return deadline > now
-                 ? p.timed_wait (deadline - now)
-                 : p.try_wait ();
+            ? p.timed_wait (deadline - now, process::group_wait::kill_no_check)
+            : p.try_wait (process::group_wait::kill_no_check);
         };
 
         // Terminate the pipeline processes starting from the specified one
@@ -821,7 +821,12 @@ namespace build2
               if (!timed_wait (pr, deadline))
               {
                 pr.kill ();
-                pr.wait ();
+
+                // Let's kill the potentially remaining process group members
+                // twice, for robustness.
+                //
+                pr.wait (false /* ignore_errors */,
+                         process::group_wait::kill_no_check);
               }
             }
             catch (const process_error& e)
@@ -943,7 +948,8 @@ namespace build2
             try
             {
               if (!deadline)
-                p->proc->wait ();
+                p->proc->wait (false /* ignore_errors */,
+                               process::group_wait::kill_no_check);
               else if (!timed_wait (*p->proc, *deadline))
                 term_pipe (p);
             }
