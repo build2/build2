@@ -3570,7 +3570,7 @@ namespace build2
     // context. Otherwise, we create a special separate build context and
     // update the target there (similar to how we build build system modules).
     // The first approach will be fast, which is important since we want
-    // perform_update to be as fast a possible. The second approach will be a
+    // perform_update to be as fast as possible. The second approach will be a
     // lot slower (we have to bootstrap the project, load the buildfile, etc)
     // but that doesn't matter since clean, configure, etc., are not executed
     // very often.
@@ -3787,7 +3787,7 @@ namespace build2
             const target& t (ts.front ().as<target> ());
 
             phase_switch mp (ctx, run_phase::match);
-            if (match_sync (perform_update_id, t) != target_state::unchanged)
+            if (!match_sync (perform_update_id, t, unmatch::unchanged).first)
             {
               phase_switch ep (ctx, run_phase::execute);
               execute_sync (a, t);
@@ -3797,7 +3797,7 @@ namespace build2
           {
             // Parallel match and execute.
             //
-            target_state s (target_state::unknown);
+            bool all_unmatched (true);
 
             // Match.
             //
@@ -3816,13 +3816,24 @@ namespace build2
 
               // Finish matching all the targets that we have started.
               //
-              for (const auto& t: ts)
-                s |= match_complete (a, t.as<target> ());
+              for (auto& t: ts)
+              {
+                // Let's "reuse" action_target::state to indicate whether we
+                // actually need to execute this target.
+                //
+                t.state =
+                  match_complete (a, t.as<target> (), unmatch::unchanged).first
+                  ? target_state::unchanged
+                  : target_state::unknown;
+
+                if (t.state == target_state::unknown)
+                  all_unmatched = false;
+              }
             }
 
             // Execute.
             //
-            if (s != target_state::unchanged)
+            if (!all_unmatched)
             {
               phase_switch ep (ctx, run_phase::execute);
 
@@ -3832,14 +3843,20 @@ namespace build2
               wait_guard wg (ctx, task_count);
 
               for (const auto& t: ts)
-                execute_async (a, t.as<target> (), 0, task_count);
+              {
+                if (t.state == target_state::unknown)
+                  execute_async (a, t.as<target> (), 0, task_count);
+              }
 
               wg.wait ();
 
               // Finish executing all the targets that we have started.
               //
               for (const auto& t: ts)
-                execute_complete (a, t.as<target> ());
+              {
+                if (t.state == target_state::unknown)
+                  execute_complete (a, t.as<target> ());
+              }
             }
           }
         }

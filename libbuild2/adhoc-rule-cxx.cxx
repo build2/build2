@@ -664,7 +664,7 @@ namespace build2
             l = find_target ();
 
           phase_switch mp (mctx, run_phase::match);
-          if (match_sync (perform_update_id, *l) != target_state::unchanged)
+          if (!match_sync (perform_update_id, *l, unmatch::unchanged).first)
           {
             phase_switch ep (mctx, run_phase::execute);
             execute_sync (a, *l);
