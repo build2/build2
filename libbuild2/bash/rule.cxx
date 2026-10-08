@@ -474,12 +474,12 @@ namespace build2
     // install_rule
     //
     bool install_rule::
-    match (action a, target& t) const
+    match (action a, target& t, const string&, match_extra& me) const
     {
       // We only want to handle installation if we are also the ones building
       // this target. So first run in's match().
       //
-      return in_.sub_match (in_name_, update_id, a, t) &&
+      return in_.sub_match (in_name_, update_id, a, t, me) &&
         file_rule::match (a, t);
     }
 
