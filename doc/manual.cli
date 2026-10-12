@@ -4764,36 +4764,34 @@ system modules (for example, for supplying compile options such as
 project-specific configurability. Project configuration is the topic of this
 chapter.
 
-\N|The \c{build2} build system currently provides no support for
-\c{autoconf}-style probing of the build environment in order to automatically
-discover available libraries, functions, features, etc.
+\N|The \c{build2} build system provides no built-in support for
+\c{autoconf}-style configuration probing of the target environment in order to
+automatically discover available headers/libraries, functions, features, etc.
 
-The main reason for omitting this support is the fundamental ambiguity and the
-resulting brittleness of such probing due to the reliance on compiler, linker,
-or test execution failures. Specifically, in many such tests it is impossible
-for a build system to distinguish between a missing feature, a broken test,
-and a misconfigured build environment. This leads to requiring a user
-intervention in the best case and to a silently misconfigured build in the
-worst. Other issues with this approach include portability, speed (compiling
-and linking takes time), as well as limited applicability during
-cross-compilation (specifically, inability to run tests).
+The main reason for discouraging such probing is the fundamental ambiguity and
+the resulting brittleness of the approach due to the reliance on compiler,
+linker, or test execution failures. Specifically, in such tests it is
+impossible for a build system to distinguish between a missing feature, a
+broken test, and a misconfigured build environment. This leads to requiring a
+user intervention in the best case and to a silently misconfigured build in
+the worst. For details on this and other issues with this approach, see
+\l{https://build2.org/blog/fix-autoconf.xhtml How to Fix \c{autoconf}-style
+Configuration Probing}.
 
-As a result, we recommend using \i{expectation-based} configuration where your
-project assumes a feature to be available if certain conditions are
+As an alternative, we recommend using \i{expectation-based configuration}
+where your project expects a feature to be available if certain conditions are
 met. Examples of such conditions at the source code level include feature test
-macros, platform macros, runtime library macros, compiler macros, etc., with
-the build system modules exposing some of the same information via variables
-to allow making similar decisions in \c{buildfiles}. The standard
-pre-installed \l{https://github.com/build2/libbuild2-autoconf/ \c{autoconf}}
-build system module provides emulation of GNU \c{autoconf} using this
-approach.
+macros, platform macros, compiler macros, etc. The standard pre-installed
+\l{https://github.com/build2/libbuild2-autoconf/ \c{autoconf}} build system
+module provides \c{autoconf}/CMake-compatible implementation of this approach.
 
 Another alternative is to automatically adapt to missing features using more
 advanced techniques such as C++ SFINAE. And in situations where none of this
 is possible, we recommend delegating the decision to the user via a
-configuration value.  Our experience with \c{build2} as well as those of other
-large cross-platform projects such as Boost show that this is a viable
-strategy.
+configuration value. Our experience with porting configuration-heavy projects
+such as Qt and FFmpeg to \c{build2} as well as experience of other large
+cross-platform projects such as Boost show that foregoing configuration
+probing is a viable strategy.
 
 Having said that, \c{build2} does provide the ability to extract configuration
 information from the environment (\c{$getenv()} function) or other tools
@@ -4801,8 +4799,14 @@ information from the environment (\c{$getenv()} function) or other tools
 work reliably there should be no ambiguity between the \"no configuration
 available\" case (if such a case is possible) and the \"something went wrong\"
 case. We show a realistic example of this in \l{#proj-config-report
-Configuration Report} where we extract the GCC plugin directory while dealing
-with the possibility of it being configured without plugin support.|
+Configuration Report} below where we extract the GCC plugin directory while
+dealing with the possibility of it being configured without plugin support.
+
+Finally, while there is no built-in support for \c{autoconf}-style
+configuration probing, it can be implemented with a bit of effort as described
+in the
+\l{https://github.com/build2/HOWTO/blob/master/entries/implement-configuration-probing.md
+How do I implement \c{autoconf}-style configuration probing?} HOWTO article.|
 
 Before we delve into the technical details, let's discuss the overall need for
 project configurability. While it may seem that making one's project more
@@ -4813,8 +4817,8 @@ shared dependency with incompatible configurations.
 
 \N|While some languages, such as Rust, support having multiple
 differently-configured projects in the same build, this is not something that
-is done often in C/C++. This ability is also not without its drawbacks, most
-notably code bloat.|
+is done often in C/C++. This ability is also not without its limitations (such
+as interface type incompatibility) and drawbacks (such as code bloat).|
 
 As a result, our recommendation is to strive for simplicity and avoid user
 configurability whenever possible. For example, there is a common desire to
