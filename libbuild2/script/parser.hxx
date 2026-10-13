@@ -215,11 +215,11 @@ namespace build2
       }
 
     public:
-      // Supported script syntax range.
+      // Supported script syntax range and default syntax.
       //
       // @@ TMP:
       //
-      // Currently we default to version 1 if unable to derive anything more
+      // We now default to version 2 if unable to derive anything more
       // accurate based on the build2 version constraint (in the version
       // module). The plan is to deprecate and then remove support for
       // syntax 1 as follows:
@@ -234,6 +234,7 @@ namespace build2
       //
       static const uint64_t min_syntax = 1;
       static const uint64_t max_syntax = 2;
+      static const uint64_t def_syntax = 2;
 
       // Validate the syntax version issuing diagnostics and failing if it
       // is out of range. The min_syntax/max_syntax defaults are what's

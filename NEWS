@@ -1,5 +1,21 @@
 Version 0.18.0
 
+  * Default script syntax for Buildscript and Testscript has been switched to
+    version 2.
+
+    Note that script syntax version 1 is still supported (but deprecated) and
+    projects that specify their build2 version requirement in their manifest
+    (and that load the version module) will still automatically use version 1
+    if they allow build2 versions prior to 0.18.0. As a result, this change
+    only affects projects that don't have a manifest, don't specify their
+    build2 version requirement, or don't load the version module, such as
+    simple build2 projects (which includes glue buildfiles). If you still wish
+    to use version 1 in such a project, you will need to explicitly specify
+    the desired syntax version with one of the *.syntax variables. See the
+    below announcement of script syntax 2 for details.
+
+Version 0.18.0
+
   * Support for `while`-loop in the Buildfile language.
 
     See the "Buildfile Language" section in the manual for details.

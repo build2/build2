@@ -20,8 +20,6 @@
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/parser.hxx>
 
-#include <libbuild2/script/parser.hxx> // min_syntax
-
 #include <libbuild2/config/module.hxx>  // config::module::version
 #include <libbuild2/config/utility.hxx> // config::{lookup_*, save_*}()
 

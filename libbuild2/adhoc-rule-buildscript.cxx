@@ -205,7 +205,7 @@ namespace build2
 
         if (rs == ss)
         {
-          syntax = parser::min_syntax;
+          syntax = parser::def_syntax;
           break;
         }
       }
