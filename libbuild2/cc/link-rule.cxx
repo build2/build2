@@ -2842,9 +2842,11 @@ namespace build2
       auto imp = [link] (const target& l, bool la)
       {
         // If we are not rpath-link'ing, then we only need to rpath interface
-        // libraries (they will include rpath's for their implementations)
-        // Otherwise, we have to do this recursively. In both cases we also
-        // want to see through utility libraries.
+        // shared libraries (which include rpath's for their implementations)
+        // plus shared library dependencies of static libraries (which
+        // append_libraries() will link directly). Otherwise (rpath-link), we
+        // have to do this recursively. In both cases we also want to see
+        // through utility libraries.
         //
         // The rpath-link part is tricky: ideally we would like to get only
         // implementations and only of shared libraries. We are not interested
@@ -2855,7 +2857,7 @@ namespace build2
         // except for some noise on the command line.
         //
         //
-        return (link ? !la : false) || l.is_a<libux> ();
+        return (link ? !la : la) || l.is_a<libux> ();
       };
 
       // Package the data to keep within the 2-pointer small std::function
@@ -2923,8 +2925,6 @@ namespace build2
         const string*,
         bool sys)
       {
-        const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
-
         // We don't rpath system libraries. Why, you may ask? There are many
         // good reasons and I have them written on a napkin somewhere...
         //
@@ -2951,6 +2951,8 @@ namespace build2
         //
         if (sys)
           return false;
+
+        const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
         auto append = [&d] (const string& f)
         {
