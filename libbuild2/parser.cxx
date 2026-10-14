@@ -1667,9 +1667,13 @@ namespace build2
                 // we should never try to insert for a different rule since
                 // for ad hoc rules names are unique.
                 //
-                scope_->rules.insert (
-                  a.meta_operation (), 0,
-                  *ttype, rp.rule_name, rp.fallback_rule_);
+                auto reg_fallback = [this, ttype, &rp] (meta_operation_id mo)
+                {
+                  scope_->rules.insert (
+                    mo, 0, *ttype, rp.rule_name, rp.fallback_rule_);
+                };
+
+                reg_fallback (a.meta_operation ());
 
                 // We also register for the dist meta-operation in order to
                 // inject additional prerequisites which may "pull" additional
@@ -1688,18 +1692,22 @@ namespace build2
                 //
                 if (a.meta_operation () == perform_id)
                 {
-                  auto reg = [this, ttype, &rp, &r] (action ea)
+                  auto reg = [this, ttype, &rp, &r] (action ea) -> bool
                   {
                     for (shared_ptr<adhoc_rule>& pr: rp.rules)
                     for (action a: pr->actions)
                       if (ea == a)
-                        return;
+                        return false;
 
                     scope_->rules.insert (ea, *ttype, rp.rule_name, r);
+                    return true;
                   };
 
-                  reg (action (dist_id, a.operation ()));
-                  reg (action (configure_id, a.operation ()));
+                  if (reg (action (dist_id, a.operation ())))
+                    reg_fallback (dist_id);
+
+                  if (reg (action (configure_id, a.operation ())))
+                    reg_fallback (configure_id);
                 }
 
                 // @@ TODO: if this rule does dynamic member discovery of a

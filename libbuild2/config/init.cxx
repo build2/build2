@@ -812,6 +812,7 @@ namespace build2
       rs.insert_rule<alias> (configure_id, 0, "config.alias", alias_rule::instance);
 
       // This allows a custom configure rule while doing nothing by default.
+      // Note: does not match group{}-based targets (see above).
       //
       rs.insert_rule<target> (configure_id, 0, "config.noop", noop_rule_);
 

@@ -258,7 +258,11 @@ namespace build2
     // We can provide clean for a file or group target if we are providing
     // update.
     //
-    return (a == perform_clean_id                   &&
+    // Note that we may be called for configure and dist meta-operations, not
+    // only perform (see the fallback pattern rule registration code in the
+    // parser).
+    //
+    return (a.operation () == clean_id              &&
             (tt.is_a<file> () || tt.is_a<group> ()) &&
             find (actions.begin (), actions.end (),
                   perform_update_id) != actions.end ());
