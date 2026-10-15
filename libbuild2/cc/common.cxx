@@ -1088,6 +1088,7 @@ namespace build2
       // liba
       //
       path an;
+      bool ai (false); // Imported.
       optional<string> ae;
 
       if (l || p.is_a<liba> ())
@@ -1096,6 +1097,7 @@ namespace build2
         {
           an = move (*p);
           ae = an.extension ();
+          ai = true;
         }
         else
         {
@@ -1139,6 +1141,7 @@ namespace build2
       // libs
       //
       path sn;
+      bool si (false); // Imported.
       optional<string> se;
 
       if (l || p.is_a<libs> ())
@@ -1147,12 +1150,13 @@ namespace build2
         {
           sn = move (*p);
           se = sn.extension ();
+          si = true;
         }
         else
         {
           const char* e ("");
 
-          sn = dir;
+          sn = dir; // Empty of absolute.
 
           if (tsys == "win32-msvc")
           {
@@ -1186,8 +1190,8 @@ namespace build2
       path f;              // Reuse the buffer.
 
       auto search =[&a, &s, &pc,
-                    &an, &ae,
-                    &sn, &se,
+                    &an, ai, &ae,
+                    &sn, si, &se,
                     &name, ext,
                     &ld, &f,
                     &p, exist, &trace, this] (const dir_path& d) -> bool
@@ -1219,11 +1223,9 @@ namespace build2
         //
         if (!sn.empty ())
         {
-          f = d;
-          f /= sn;
-          mt = mtime (f);
-
-          if (mt != timestamp_nonexistent)
+          auto insert = [&s,
+                         &name, &d, &ld, &se, exist,
+                         &trace, &ctx, this] (path&& f, timestamp mt)
           {
             // On Windows what we found is the import library which we need
             // to make the first ad hoc member of libs{}.
@@ -1261,48 +1263,87 @@ namespace build2
               insert_library (ctx, s, name, d, ld, se, exist, trace);
               s->path_mtime (move (f), mt);
             }
-          }
-          else if (!ext && tsys == "mingw32")
-          {
-            // Above we searched for the import library (.dll.a) but if it's
-            // not found, then we also search for the .dll (unless the
-            // extension was specified explicitly) since we can link to it
-            // directly. Note also that the resulting libs{} would end up
-            // being the .dll.
-            //
-            f = f.base (); // Remove .a from .dll.a.
-            mt = mtime (f);
+          };
 
-            if (mt != timestamp_nonexistent)
+          f = d;
+          f /= sn;
+          mt = mtime (f);
+
+          if (mt != timestamp_nonexistent)
+          {
+            insert (move (f), mt);
+          }
+          else if (!si && !ext) // Only do extra searches for standard names.
+          {
+            if (tsys == "mingw32")
             {
-              se = string ("dll");
-              insert_library (ctx, s, name, d, ld, se, exist, trace);
-              s->path_mtime (move (f), mt);
+              // Above we searched for the import library as lib*.dll.a but if
+              // it's not found, then we also search for *.dll.a the same as
+              // GNU ld (see GH #558). If still not found, then lib*.dll and
+              // *.dll since we can link to it directly. Note also that in the
+              // latter case the resulting libs{} would end up being the .dll.
+              //
+              auto insert_dll = [&s,
+                                 &name, &d, &ld, &se, exist,
+                                 &trace, &ctx, this] (path&& f, timestamp mt)
+              {
+                insert_library (ctx, s, name, d, ld, se, exist, trace);
+                s->path_mtime (move (f), mt);
+              };
+
+              path f1 (d);
+              f1 /= path (sn.string (), 3, string::npos); // Remove lib.
+              mt = mtime (f1);
+
+              if (mt != timestamp_nonexistent)
+                insert (move (f1), mt); // Note: not insert_dll()!
+              else
+              {
+                f = f.base (); // Remove .a from lib*.dll.a.
+                mt = mtime (f);
+
+                if (mt != timestamp_nonexistent)
+                {
+                  se = string ("dll");
+                  insert_dll (move (f), mt);
+                }
+                else
+                {
+                  f1 = f1.base (); // Remove .a from *.dll.a.
+                  mt = mtime (f1);
+
+                  if (mt != timestamp_nonexistent)
+                  {
+                    se = string ("dll");
+                    insert_dll (move (f1), mt);
+                  }
+                }
+              }
             }
-          }
-          else if (!ext && tsys == "darwin")
-          {
-            // Besides .dylib, Mac OS now also has "text-based stub libraries"
-            // that use the .tbd extension. They appear to be similar to
-            // Windows import libraries and contain information such as the
-            // location of the .dylib library, its symbols, etc. For example,
-            // there is /Library/.../MacOSX13.3.sdk/usr/lib/libsqlite3.tbd
-            // which points to /usr/lib/libsqlite3.dylib (but which itself is
-            // invisible/inaccessible, presumably for security).
-            //
-            // Note that for now we are treating the .tbd library as the
-            // shared library but could probably do the more elaborate dance
-            // with ad hoc members like on Windows if really necessary.
-            //
-            f = f.base (); // Remove .dylib.
-            f += ".tbd";
-            mt = mtime (f);
-
-            if (mt != timestamp_nonexistent)
+            else if (tsys == "darwin")
             {
-              se = string ("tbd");
-              insert_library (ctx, s, name, d, ld, se, exist, trace);
-              s->path_mtime (move (f), mt);
+              // Besides .dylib, Mac OS now also has "text-based stub
+              // libraries" that use the .tbd extension. They appear to be
+              // similar to Windows import libraries and contain information
+              // such as the location of the .dylib library, its symbols,
+              // etc. For example, there is
+              // /Library/.../MacOSX13.3.sdk/usr/lib/libsqlite3.tbd which
+              // points to /usr/lib/libsqlite3.dylib (but which itself is
+              // invisible/inaccessible, presumably for security).
+              //
+              // Note that for now we are treating the .tbd library as the
+              // shared library but could probably do the more elaborate dance
+              // with ad hoc members like on Windows if really necessary.
+              //
+              f = f.base (); // Remove .dylib.
+              f += ".tbd";
+              mt = mtime (f);
+
+              if (mt != timestamp_nonexistent)
+              {
+                se = string ("tbd");
+                insert (move (f), mt);
+              }
             }
           }
         }
@@ -1329,11 +1370,11 @@ namespace build2
           }
         }
 
-        // Alternative search for VC.
+        // Alternative search for VC (unless imported).
         //
         if (tsys == "win32-msvc")
         {
-          if (s == nullptr && !sn.empty ())
+          if (s == nullptr && !si && !sn.empty ())
           {
             pair<libs*, bool> r (msvc_search_shared (ld, d, p, exist));
 
@@ -1343,7 +1384,7 @@ namespace build2
               bs = false;
           }
 
-          if (a == nullptr && !an.empty ())
+          if (a == nullptr && !ai && !an.empty ())
           {
             pair<liba*, bool> r (msvc_search_static (ld, d, p, exist));
 
