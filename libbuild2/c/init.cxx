@@ -104,16 +104,17 @@ namespace build2
           // And it's still early days for C2X. Specifically, there is not
           // much about C2X in MSVC in the official places and the following
           // page shows that it's pretty much unimplement at the time of the
-          // MSVC 17.6 release:
+          // MSVC 18.3 (19.50) release:
           //
           // https://en.cppreference.com/w/c/compiler_support/23
           //
           // From version 16.8 VC now supports /std:c11 and /std:c17 options
-          // which enable C11/17 conformance. However, as of version 16.10,
-          // neither SDK nor CRT can be compiled in these modes (see the /std
-          // option documentation for details/updates). There is also now
-          // /std:clatest which can be used to enable C23 typeof as of MSVC
-          // 17.9. So let's map C23 to that.
+          // which enable C11/17 conformance. However, only 17.4 by default
+          // install SDK and CRT that can be compiled in these modes (see GH
+          // #553 for details).
+          //
+          // There is also now /std:clatest which can be used to enable C23
+          // typeof as of MSVC 17.9. So let's map C23 to that.
           //
           if (v == nullptr)
             ;
@@ -122,20 +123,31 @@ namespace build2
             uint64_t mj (ci.version.major);
             uint64_t mi (ci.version.minor);
 
+            const char* o (nullptr);
+
             if      (stdcmp ("99") && mj >= 16) // Since VS2010/10.0.
               ;
-            else if ((stdcmp ("11") ||
-                      stdcmp ("17") ||
-                      stdcmp ("18")) && mj >= 18) // Since VS????/11.0.
-              ;
+            else if (stdcmp ("11") &&
+                     (mj > 19 || (mj == 19 && mi >= 34))) // Since 17.4
+            {
+              o = "/std:c11";
+            }
+            else if (stdcmp ("17", "18") &&
+                     (mj > 19 || (mj == 19 && mi >= 34))) // Since 17.4
+            {
+              o = "/std:c17";
+            }
             else if (stdcmp ("23", "2x") &&
                      (mj > 19 || (mj == 19 && mi >= 39))) // Since 17.9.
             {
-              mode.insert (mode.begin (), "/std:clatest");
+              o = "/std:clatest";
             }
             else
               fail << "C " << *v << " is not supported by " << ci.signature <<
                 info << "required by " << project (rs) << '@' << rs;
+
+            if (o != nullptr)
+              mode.insert (mode.begin (), o);
           }
           break;
         }
@@ -151,8 +163,7 @@ namespace build2
             string o ("-std=");
 
             if      (stdcmp ("23", "2x")) o += "c2x"; // GCC 9, Clang 9 (8?).
-            else if (stdcmp ("17") ||
-                     stdcmp ("18"))       o += "c17"; // GCC 8, Clang 6.
+            else if (stdcmp ("17", "18")) o += "c17"; // GCC 8, Clang 6.
             else if (stdcmp ("11"))       o += "c1x";
             else if (stdcmp ("99"))       o += "c9x";
             else if (stdcmp ("90"))       o += "c90";
