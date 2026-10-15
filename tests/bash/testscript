@@ -102,6 +102,51 @@ if ($test.target == $build.host && $build.host.class != 'windows')
       $* clean
     }
 
+    : no-modules
+    :
+    {
+      cat <<EOI >=hello.in
+        #!/usr/bin/env bash
+        echo "$greeting$"
+        EOI
+
+      cat <<EOI >=buildfile
+        using in
+        exe{hello}: in{hello}
+        greeting = 'Hello, World!'
+        EOI
+
+      $* test >'Hello, World!'
+
+      $* install config.install.root=tmp
+      tmp/bin/hello >'Hello, World!'
+      $* uninstall config.install.root=tmp
+
+      $* clean
+    }
+
+    : hint
+    :
+    {
+      cat <<EOI >=hello.in
+        #!/usr/bin/env bash
+        echo "@greeting@"
+        EOI
+
+      cat <<EOI >=buildfile
+        [rule_hint=bash] exe{hello}: in{hello}
+        greeting = 'Hello, World!'
+        EOI
+
+      $* test >'Hello, World!'
+
+      $* install config.install.root=tmp
+      tmp/bin/hello >'Hello, World!'
+      $* uninstall config.install.root=tmp
+
+      $* clean
+    }
+
     : import
     :
     {
