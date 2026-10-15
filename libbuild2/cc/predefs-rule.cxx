@@ -1602,7 +1602,7 @@ namespace build2
               // Fall through.
             case state::end:
               {
-                throw io_error ("unexpected output line '" + l + "'");
+                throw io_error ("unexpected trailing line '" + l + "'");
               }
             case state::dep_next:
               {
@@ -1764,7 +1764,7 @@ namespace build2
               // Fall through.
             case state::end:
               {
-                throw io_error ("unexpected output line '" + l + "'");
+                throw io_error ("unexpected trailing line '" + l + "'");
               }
             }
 
