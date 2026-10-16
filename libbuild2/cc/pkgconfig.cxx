@@ -1369,14 +1369,24 @@ namespace build2
       // modules are enabled since the same installed library can be used by
       // multiple builds).
       //
-      prerequisites prs;
+      prerequisites prs_storage;
+
+      // If we are doing this during the load phase, then we may end up being
+      // called multiple times for the same lib{} (unlike the normal case,
+      // where we skip the whole call if we did not insert the target; see
+      // search_library() for details). In this case omit re-collecting the
+      // prerequisites assuming this has already been done.
+      //
+      prerequisites* prs ((act ? true : !lt.has_prerequisites ())
+                          ? &prs_storage
+                          : nullptr);
 
       parse_libs (
         lt,
         (ps ? st->mtime () : at->mtime ()) == timestamp_unreal /* binless */,
         ipc,
         false,
-        &prs);
+        prs);
 
       const strings* apops (nullptr);
       if (pa)
@@ -1417,6 +1427,9 @@ namespace build2
         }
       }
 
+      if (prs == nullptr)
+        return;
+
       // For now we assume static and shared variants export the same set of
       // modules/importable headers. While technically possible, having
       // different sets will most likely lead to all sorts of complications
@@ -1424,18 +1437,18 @@ namespace build2
       //
       if (modules && ipc_meta)
       {
-        parse_modules (ipc, prs);
+        parse_modules (ipc, *prs);
 
         // We treat headers outside of any project as C headers (see
         // enter_header() for details).
         //
-        parse_headers (ipc, h::static_type /* **x_hdrs */, x, prs);
-        parse_headers (ipc, h::static_type, "c", prs);
+        parse_headers (ipc, h::static_type /* **x_hdrs */, x, *prs);
+        parse_headers (ipc, h::static_type, "c", *prs);
       }
 
       assert (!lt.has_prerequisites ());
-      if (!prs.empty ())
-        lt.prerequisites (move (prs));
+      if (!prs->empty ())
+        lt.prerequisites (move (*prs));
     }
 
 #else
