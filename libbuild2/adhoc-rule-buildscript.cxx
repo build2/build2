@@ -191,7 +191,8 @@ namespace build2
       //
       // Actually, we now load the version module even in subprojects (to deal
       // with standalone builds) but this is probably still correct (it will
-      // handle cases where the version module is not loaded).
+      // handle cases where the version module is not loaded). But this
+      // doesn't handle the case where the subproject is built standalone.
       //
       const scope* rs (s.root_scope ());
       const scope* ss (rs->strong_scope ());

@@ -396,22 +396,69 @@ namespace build2
             // Look in the outer source-based amalgamations (which is where the
             // manifest with the build2 version constraint would reside).
             //
-            // Actually, we now load the version module even in subprojects (to deal
-            // with standalone builds) but this is probably still correct (it will
-            // handle cases where the version module is not loaded).
+            // Actually, we now load the version module even in subprojects
+            // (to deal with standalone builds) but this is probably still
+            // correct (it will handle cases where the version module is not
+            // loaded). But this doesn't handle the case where the subproject
+            // is built standalone.
             //
-            const build2::scope* rs (&ts.root_scope ());
-            const build2::scope* ss (rs->strong_scope ());
-            for (;; rs = rs->parent_scope ()->root_scope ())
+            const build2::scope& rs (ts.root_scope ());
+            const build2::scope* ss (rs.strong_scope ());
+            for (const build2::scope* s (&rs); ;
+                 s = s->parent_scope ()->root_scope ())
             {
-              if (const auto& s = rs->root_extra->script_syntax)
+              if (const auto& syn = s->root_extra->script_syntax)
               {
-                syntax = *s;
+                syntax = *syn;
                 break;
               }
 
-              if (rs == ss)
+              if (s == ss)
               {
+                // @@ TMP GH #580
+                //
+                if (*rs.root_extra->project != nullptr &&
+                    (*rs.root_extra->project)->empty ())
+                {
+                  const dir_path& sd (rs.src_path ());
+                  if (path_traits::compare (sd.leaf ().string (), "tests") == 0)
+                  {
+                    dir_path d (sd.directory ());
+                    if (!d.root ())
+                    {
+                      const string& l (d.make_leaf ().string ());
+
+                      // We are looking for <name> or <name>-ver.
+                      //
+                      auto cmp = [&l] (const char* s, size_t sn)
+                      {
+                        if (path_traits::compare (l, s, sn) == 0)
+                        {
+                          size_t ln (l.size ());
+                          return (sn == ln ||
+                                  (ln >= sn + 2 && l[sn] == '-' &&
+                                   l[sn + 1] >= '0' && l[sn + 1] <= '9'));
+                        }
+
+                        return false;
+                      };
+
+                      if (cmp ("libz", 4) ||
+                          cmp ("doctest", 7) ||
+                          cmp ("libxerces-c", 11) ||
+                          cmp ("libca-certificates-curl", 23) ||
+                          cmp ("libtinyobjloader", 16) ||
+                          cmp ("libxsd-frontend", 15) ||
+                          cmp ("libxsde", 7) ||
+                          cmp ("libpkgconf", 10))
+                      {
+                        syntax = 1;
+                        break;
+                      }
+                    }
+                  }
+                }
+
                 syntax = parser::def_syntax;
                 break;
               }
