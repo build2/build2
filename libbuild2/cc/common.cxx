@@ -1285,7 +1285,7 @@ namespace build2
               //
               auto insert_dll = [&s,
                                  &name, &d, &ld, &se, exist,
-                                 &trace, &ctx, this] (path&& f, timestamp mt)
+                                 &trace, &ctx] (path&& f, timestamp mt)
               {
                 insert_library (ctx, s, name, d, ld, se, exist, trace);
                 s->path_mtime (move (f), mt);
