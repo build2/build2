@@ -1420,9 +1420,9 @@ namespace build2
   prerequisites dir::
   collect_implied (const scope& bs)
   {
-    prerequisites_type r;
     const dir_path& d (bs.src_path ());
 
+    prerequisites_type r;
     try
     {
       for (const dir_entry& e: dir_iterator (d, dir_iterator::detect_dangling))
@@ -1566,15 +1566,25 @@ namespace build2
         // environment: source_once() will take care of it itself and
         // search_implied() is not affected.
         //
-        pair<scope&, scope*> sp (
-          switch_scope (*s.rw ().root_scope (), out_base));
+        // Note also that we omit loading the project (and also setting the
+        // scope as base) delaying it until after we are out of u-d-l for the
+        // same reason as loading the buildfile itself: root.build may import
+        // targets that may not yet be fully defined (see below for the whole
+        // picture, GH #563 for this specific situation).
+        //
+        scope& orig_root (*s.rw ().root_scope ());
+        pair<scope_map::iterator, scope*> sp (
+          switch_scope (orig_root,
+                        out_base,
+                        true /* project */,
+                        false /* load */));
 
         if (sp.second != nullptr) // Ignore scopes out of any project.
         {
-          scope& base (sp.first);
           scope& root (*sp.second);
+          scope& base (*sp.first->second.front ()); // Not yet setup as base.
 
-          const dir_path& src_base (base.src_path ());
+          dir_path src_base (src_out (out_base, root));
 
           path bf (src_base / root.root_extra->buildfile_file);
 
@@ -1598,15 +1608,14 @@ namespace build2
             // targets being updated during load. However, normally, dir{}
             // targets only appear as prerequisites of other dir{} (and maybe
             // alias{}) targets. And we have banned dir{}/alias{} from
-            // participating in update- during-load (see update_during_load()
+            // participating in update-during-load (see update_during_load()
             // for details). So feels like this should not be an issue in
             // practice.
             //
             // Note also that this means we have to call scheduler::wait()
             // with work_none when u-d-l in the interrupting load. Failed
-            // that, we may and up here with the update_during_load() call
-            // below in the stack, which is a deadlock. @@ TMP: remove if
-            // the queue_mark approach pans out.
+            // that, we may end up here with the update_during_load() call
+            // below in the stack, which is a deadlock.
             //
             while (ctx.update_during_load > 1) // We are in serial load phase.
             {
@@ -1626,11 +1635,33 @@ namespace build2
               // Note: recheck now that we are again in the serial load phase.
             }
 
+            // The load=true tail of switch_scope().
+            //
+            {
+              if (&root != &orig_root && !root.root_extra->loaded)
+                load_root (root);
+
+              setup_base (sp.first, move (out_base), move (src_base));
+            }
+
             l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
             retest = source_once (root, base, bf) || retest;
           }
           else if (exists (src_base))
           {
+            // Feels like we can omit loading the root scope (along with the
+            // u-d-l dance): it will be done once we attempt to load one of
+            // the real buildfiles (e.g., via one of the prerequisites).
+            //
+            // But we do have to set up the scope as base. We normally do this
+            // after the load_root() call but it seems harmless to do it
+            // before (we already do it without the call at all in various
+            // special cases). The only drawback is that we now may or may not
+            // have *_base variables set when loading root.build. @@ Maybe we
+            // should always do setup_base() first?
+            //
+            setup_base (sp.first, move (out_base), move (src_base));
+
             e = dir::search_implied (base, pk, trace);
             retest = (e != nullptr);
           }

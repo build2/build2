@@ -615,8 +615,8 @@ namespace build2
     }
   }
 
-  pair<scope&, scope*>
-  switch_scope (scope& root, const dir_path& out_base, bool proj)
+  pair<scope_map::iterator, scope*>
+  switch_scope (scope& root, const dir_path& out_base, bool proj, bool load)
   {
     context& ctx (root.ctx);
 
@@ -629,7 +629,6 @@ namespace build2
     scope& base (*i->second.front ());
 
     scope* rs (nullptr);
-
     if (proj && (rs = base.root_scope ()) != nullptr)
     {
       // The path must be in the out (since we've inserted it as out into the
@@ -654,17 +653,20 @@ namespace build2
           enter_project_overrides (ctx, out_base, ovr_map);
       }
 
-      // Switch to the new root scope.
-      //
-      if (rs != &root && !rs->root_extra->loaded)
-        load_root (*rs); // Load new root(s) recursively.
+      if (load)
+      {
+        // Load the new root scopes.
+        //
+        if (rs != &root && !rs->root_extra->loaded)
+          load_root (*rs); // Load new root(s) recursively.
 
-      // Now we can figure out src_base and finish setting the scope.
-      //
-      setup_base (i, out_base, src_out (out_base, *rs));
+        // Now we can figure out src_base and finish setting the scope.
+        //
+        setup_base (i, out_base, src_out (out_base, *rs));
+      }
     }
 
-    return pair<scope&, scope*> (base, rs);
+    return pair<scope_map::iterator, scope*> (i, rs);
   }
 
   dir_path

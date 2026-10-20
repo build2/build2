@@ -164,18 +164,23 @@ namespace build2
               const dir_path& out_base,
               const dir_path& src_base);
 
-  // Return a scope for the specified directory (first). If project is true
-  // then switching to this scope might also involve switch to a new root
-  // scope (second) if the new scope is in another project. If project is
-  // false or the new scope is not in any project, then NULL is returned in
-  // second.
+  // Return a scope for the specified directory (first, as scope_map iterator
+  // for generality). If project is true then switching to this scope might
+  // also involve switch to a new root scope (second) if the new scope is in
+  // another project (if it's in the same project, root is returned as
+  // second). If project is false or the new scope is not in any project, then
+  // NULL is returned in second. If load is false, omit calling load_root()
+  // for the new project(s) and setup_base() for the returned base scope.
   //
   // Note that if switching the scope involved switching the project, then you
   // may also need to switch to the new project's environment (see
   // root_extra::environment).
   //
-  LIBBUILD2_SYMEXPORT pair<scope&, scope*>
-  switch_scope (scope& root, const dir_path& out_base, bool project = true);
+  LIBBUILD2_SYMEXPORT pair<scope_map::iterator, scope*>
+  switch_scope (scope& root,
+                const dir_path& out_base,
+                bool project = true,
+                bool load = true);
 
   // Bootstrap and optionally load an ad hoc (sub)project (i.e., the kind that
   // is not discovered and loaded automatically by bootstrap/load functions

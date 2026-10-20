@@ -11087,7 +11087,7 @@ namespace build2
       l5 ([&] {trace << "switching to root scope " << *root_;});
     }
 
-    scope_ = &p.first;
+    scope_ = p.first->second.front ();
     pbase_ = scope_->src_path_ != nullptr
       ? scope_->src_path_
       : scope_->out_path_;

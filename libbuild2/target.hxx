@@ -2468,21 +2468,23 @@ namespace build2
     static const target_type static_type;
 
   public:
+    // K is target/prerequisite (key) for diagnostics.
+    //
     template <typename K>
     static const target*
-    search_implied (const scope&, const K&, tracer&);
+    search_implied (const scope& base, const K&, tracer&);
 
     // Return true if the implied buildfile is plausible for the specified
-    // subdirectory of a project with the specified root scope. That is, there
-    // is a buildfile in at least one of its subdirectories. Note that the
-    // directory must exist.
+    // source subdirectory of a project with the specified root scope. That
+    // is, there is a buildfile in at least one of its subdirectories. Note
+    // that the directory must exist.
     //
     static bool
     check_implied (const scope& root, const dir_path&);
 
   private:
     static prerequisites_type
-    collect_implied (const scope&);
+    collect_implied (const scope& base);
   };
 
   // While a filesystem directory is mtime-based, the semantics is not very

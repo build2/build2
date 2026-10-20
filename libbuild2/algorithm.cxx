@@ -3715,7 +3715,8 @@ namespace build2
         }
         else // Interrupting load.
         {
-          l6 ([&]{trace << "updating during interrupting load";});
+          l6 ([&]{trace << "updating during interrupting load, level " <<
+                ctx.update_during_load;});
 
           // This case can only get triggered during match, before the dry-run
           // mode is in effect (see perform_execute() for details).
@@ -3876,7 +3877,8 @@ namespace build2
           assert (p.second || p.first->second == k);
         }
 
-        l5 ([&]{trace (loc) << "end" << (in_uctx ? " in u-d-l context" : "");});
+        l5 ([&]{trace (loc) << "end" << (in_uctx ? " in u-d-l context" : "")
+                            << ", level " << ctx.update_during_load;});
 
         return ts;
       }
