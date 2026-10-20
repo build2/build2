@@ -1657,8 +1657,14 @@ namespace build2
             // after the load_root() call but it seems harmless to do it
             // before (we already do it without the call at all in various
             // special cases). The only drawback is that we now may or may not
-            // have *_base variables set when loading root.build. @@ Maybe we
-            // should always do setup_base() first?
+            // have *_base variables set when loading root.build (assuming
+            // base == root).
+            //
+            // @@ Maybe we should always do setup_base() first? That would
+            // probably work except in import where we are not actually
+            // setting up any scopes. In fact, if base != root, there is no
+            // guarantee root will be setup as base even now... Note that
+            // there is also setup_root().
             //
             setup_base (sp.first, move (out_base), move (src_base));
 
