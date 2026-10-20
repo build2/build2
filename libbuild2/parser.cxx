@@ -3041,7 +3041,7 @@ namespace build2
                     vector<reference_wrapper<target>>>, 1> parser::
   enter_targets (names&& tns, const location& tloc, // Target names.
                  group_names&& gns,                 // Group member names.
-                 size_t prereq_size,
+                 size_t prereq_size_reserve,
                  const attributes& tas)             // Target attributes.
   {
     // Enter all the targets (normally we will have just one) and their group
@@ -3096,7 +3096,7 @@ namespace build2
         default_target_ = target_;
 
       target_->prerequisites_state_.store (2, memory_order_relaxed);
-      target_->prerequisites_.reserve (prereq_size);
+      target_->prerequisites_.reserve (prereq_size_reserve);
       tgs.emplace_back (*target_, move (gms));
     }
 
@@ -3243,6 +3243,7 @@ namespace build2
 
     // Now enter each prerequisite into each target.
     //
+    size_t pns_count (0); // Number of (potentially out-qual) prerequisites.
     for (auto i (pns.begin ()); i != pns.end (); ++i)
     {
       // We cannot reuse the names if we (potentially) may need to pass them
@@ -3347,10 +3348,12 @@ namespace build2
                                     ? move (p)
                                     : prerequisite (p, memory_order_relaxed));
       }
+
+      pns_count++;
     }
 
     // Call the specified parsing function (either variable or block) for each
-    // target in tgs (for_each_t) or for the last pns.size() prerequisites of
+    // target in tgs (for_each_t) or for the last pns_count prerequisites of
     // each target (for_each_p).
     //
     // We handle multiple targets and/or prerequisites by replaying the tokens
@@ -3397,16 +3400,16 @@ namespace build2
       }
     };
 
-    auto for_each_p = [this, &t, &tt, &tgs, &pns] (auto&& f)
+    auto for_each_p = [this, &t, &tt, &tgs, &pns, pns_count] (auto&& f)
     {
-      replay_guard rg (*this, tgs.size () > 1 || pns.size () > 1);
+      replay_guard rg (*this, tgs.size () > 1 || pns_count > 1);
 
       for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
       {
         target& tg (ti->first);
         enter_target g (*this, tg);
 
-        for (size_t pn (tg.prerequisites_.size ()), pi (pn - pns.size ());
+        for (size_t pn (tg.prerequisites_.size ()), pi (pn - pns_count);
              pi != pn; )
         {
           enter_prerequisite pg (*this, tg.prerequisites_[pi]);
@@ -3557,7 +3560,7 @@ namespace build2
 
       // Parse the block for each prerequisites of each target.
       //
-      if (!pns.empty ())
+      if (pns_count != 0)
         for_each_p ([this] (token& t, token_type& tt)
                     {
                       next (t, tt); // First token inside the block.
@@ -3595,7 +3598,7 @@ namespace build2
 
         // Parse the assignment for each prerequisites of each target.
         //
-        if (!pns.empty ())
+        if (pns_count != 0)
           for_each_p ([this, &var, at] (token& t, token_type& tt)
                       {
                         parse_variable (t, tt, var, at);
@@ -3620,7 +3623,7 @@ namespace build2
       //
       else
       {
-        if (pns.empty ())
+        if (pns_count == 0)
           fail (ploc) << "no prerequisites in dependency chain";
 
         // @@ This is actually ambiguous: prerequisite or target attributes
