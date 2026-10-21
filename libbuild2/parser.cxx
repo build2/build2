@@ -3400,7 +3400,7 @@ namespace build2
       }
     };
 
-    auto for_each_p = [this, &t, &tt, &tgs, &pns, pns_count] (auto&& f)
+    auto for_each_p = [this, &t, &tt, &tgs, pns_count] (auto&& f)
     {
       replay_guard rg (*this, tgs.size () > 1 || pns_count > 1);
 
