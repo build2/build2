@@ -2501,13 +2501,16 @@ namespace build2
       //
       // FreeBSD clang version 18.1.0rc (https://github.com/llvm/llvm-project.git llvmorg-18-init-18361-g22683463740e)
       //
+      // Also some systems use `+` instead of `-`, for example 22.1.8+libcxx
+      // on Gentoo.
+      //
       auto extract_version = [] (const string& s, bool patch, const char* what)
         -> compiler_version
       {
         compiler_version ver;
 
         size_t b (0), e (0);
-        while (next_word (s, b, e, ' ', '-'))
+        while (next_word (s, b, e, ' ', '-', '+'))
         {
           // The third argument to find_first_not_of() is the length of the
           // first argument, not the length of the interval to check. So to
@@ -2575,7 +2578,7 @@ namespace build2
         {
           // Skip the separator (it could also be unseparated `rc` or `git`).
           //
-          if (s[e] == ' ' || s[e] == '-')
+          if (s[e] == ' ' || s[e] == '-' || s[e] == '+')
             e++;
 
           ver.build.assign (s, e, string::npos);
@@ -2607,6 +2610,7 @@ namespace build2
         //
         //s = "clang version 3.7.0 (tags/RELEASE_370/final)";
         //s = "FreeBSD clang version 18.1.0rc (https://github.com/llvm/llvm-project.git llvmorg-18-init-18361-g22683463740e)";
+        //s = "clang version 22.1.8+libcxx";
         //
         //gr.id.variant = "apple";
         //s = "Apple LLVM version 7.3.0 (clang-703.0.16.1)";
