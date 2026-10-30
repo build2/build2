@@ -13,15 +13,16 @@
 #include <ios>     // streamsize
 #include <cstring> // strchr()
 
-#include <libbutl/regex.hxx>
 #include <libbutl/builtin.hxx>
 #include <libbutl/fdstream.hxx>     // fdopen_mode, fddup(), fdterm()
 #include <libbutl/filesystem.hxx>   // path_search()
 
+#include <libbutl/regex/regex-ex.hxx>
+#include <libbutl/regex/line-regex.hxx>
+
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <libbuild2/script/regex.hxx>
 #include <libbuild2/script/timeout.hxx>
 #include <libbuild2/script/builtin-options.hxx>
 
@@ -600,15 +601,13 @@ namespace build2
               }
               catch (const regex_error& e)
               {
-                // Print regex_error description if meaningful.
-                //
                 diag_record d (fail (loc (l.line, l.column)));
 
                 if (rd.type == redirect_type::here_str_regex)
-                  d << "invalid " << what << " regex redirect" << e <<
+                  d << "invalid " << what << " regex redirect: " << e <<
                     info << "regex: '" << line (l) << "'";
                 else
-                  d << "invalid char-regex in " << what << " regex redirect"
+                  d << "invalid char-regex in " << what << " regex redirect: "
                     << e <<
                     info << "regex line: '" << line (l) << "'";
 
@@ -665,9 +664,7 @@ namespace build2
                                ? loc (rd.end_line, rd.end_column)
                                : loc (ls[0].line, ls[0].column)));
 
-          // Print regex_error description if meaningful.
-          //
-          d << what << " regex redirect" << e;
+          d << what << " regex redirect: " << e;
 
           // It would be a waste to save the regex into the file just to
           // remove it.

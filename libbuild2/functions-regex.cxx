@@ -3,7 +3,7 @@
 
 #include <sstream>
 
-#include <libbutl/regex.hxx>
+#include <libbutl/regex/regex-ex.hxx>
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
@@ -39,10 +39,8 @@ namespace build2
     }
     catch (const regex_error& e)
     {
-      // Print regex_error description if meaningful (no space).
-      //
       ostringstream os;
-      os << "invalid regex '" << s << "'" << e;
+      os << "invalid regex '" << s << "': " << e;
       throw invalid_argument (os.str ());
     }
   }
@@ -84,7 +82,7 @@ namespace build2
     if (!subs)
       return value (regex_match (s, rge)); // Return boolean value.
 
-    match_results<string::const_iterator> m;
+    regex_match_results m;
 
     if (regex_match (s, m, rge))
     {
@@ -153,7 +151,7 @@ namespace build2
     if (!match && !subs)
       return value (regex_search (s, rge, mf)); // Return boolean value.
 
-    match_results<string::const_iterator> m;
+    regex_match_results m;
 
     if (regex_search (s, m, rge, mf))
     {
@@ -232,9 +230,7 @@ namespace build2
     }
     catch (const regex_error& e)
     {
-      // Print regex_error description if meaningful (no space).
-      //
-      fail << "unable to replace" << e;
+      fail << "unable to replace: " << e;
     }
 
     return r;
@@ -319,9 +315,7 @@ namespace build2
     }
     catch (const regex_error& e)
     {
-      // Print regex_error description if meaningful (no space).
-      //
-      fail << "unable to replace lines" << e;
+      fail << "unable to replace lines: " << e;
     }
     catch (const io_error& e)
     {
@@ -365,9 +359,7 @@ namespace build2
     }
     catch (const regex_error& e)
     {
-      // Print regex_error description if meaningful (no space).
-      //
-      fail << "unable to split" << e;
+      fail << "unable to split: " << e;
     }
 
     return r;
@@ -405,9 +397,7 @@ namespace build2
     }
     catch (const regex_error& e)
     {
-      // Print regex_error description if meaningful (no space).
-      //
-      fail << "unable to apply" << e;
+      fail << "unable to apply: " << e;
     }
 
     return r;
@@ -603,9 +593,7 @@ namespace build2
     }
     catch (const regex_error& e)
     {
-      // Print regex_error description if meaningful (no space).
-      //
-      fail << "unable to merge" << e;
+      fail << "unable to merge: " << e;
     }
 
     names r;
