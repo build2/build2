@@ -161,6 +161,7 @@ endif
 libbuild2_sub := \
 script           \
 build/script     \
+build            \
 config           \
 dist             \
 test/script      \
@@ -227,5 +228,5 @@ cleano:
 clean: cleano
 	rm -f $(out_root)/b/b-boot$(exe)
 ifeq ($(in_tree),false)
-	rm -fd $(out_root)/build2 $(foreach d,$(libbuild2_sub),$(out_root)/libbuild2/$d) $(out_root)/libbuild2 $(foreach d,$(libbutl_sub),$(libbutl_out)/$d) $(libbutl_out)
+	rm -fd $(out_root)/b $(foreach d,$(libbuild2_sub),$(out_root)/libbuild2/$d) $(out_root)/libbuild2 $(foreach d,$(libbutl_sub),$(libbutl_out)/$d) $(libbutl_out)
 endif
