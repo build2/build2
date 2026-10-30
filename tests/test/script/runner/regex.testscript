@@ -48,7 +48,7 @@
     $c <<EOI && $b 2>>~/EOE/ != 0
     cat <foo >~/foo[/
     EOI
-    /testscript:1:12: error: invalid stdout regex redirect.*/
+    /testscript:1:12: error: invalid stdout regex redirect: .+/
       info: regex: '/foo[/'
       info: test id: 1
     EOE
@@ -158,7 +158,7 @@
     /foo[/
     EOO
     EOI
-    /testscript:2:1: error: invalid char-regex in stdout regex redirect.*/
+    /testscript:2:1: error: invalid char-regex in stdout regex redirect: .+/
       info: regex line: '/foo[/'
       info: test id: 1
     EOE
@@ -171,7 +171,7 @@
     /{
     EOO
     EOI
-    %testscript:4:1: error: invalid stdout regex redirect.*%
+    %testscript:4:1: error: invalid stdout regex redirect: .*%
       info: stdout regex: test/1/stdout.regex
       info: test id: 1
     EOE
@@ -370,7 +370,7 @@
       : regex errors. For example '*' is parsed successfully.
       :
       $c <'cat <foo >~/foo[/' && $b 2>>~/EOE/ != 0
-      /testscript:1:12: error: invalid stdout regex redirect.*/
+      /testscript:1:12: error: invalid stdout regex redirect: .+/
         info: regex: '/foo[/'
         info: test id: 1
       EOE
@@ -478,7 +478,7 @@
       /foo[/
       EOO
       EOI
-      /testscript:2:1: error: invalid char-regex in stdout regex redirect.*/
+      /testscript:2:1: error: invalid char-regex in stdout regex redirect: .+/
         info: regex line: '/foo[/'
         info: test id: 1
       EOE

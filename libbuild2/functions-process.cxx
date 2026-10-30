@@ -1,8 +1,9 @@
 // file      : libbuild2/functions-process.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbutl/regex.hxx>
 #include <libbutl/builtin.hxx>
+
+#include <libbutl/regex/regex-ex.hxx>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/context.hxx>

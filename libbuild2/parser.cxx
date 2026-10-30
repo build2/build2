@@ -6837,9 +6837,7 @@ namespace build2
     }
     catch (const regex_error& e)
     {
-      // Print regex_error description if meaningful (no space).
-      //
-      fail (ploc) << "invalid regex pattern '" << pat << "'" << e;
+      fail (ploc) << "invalid regex pattern '" << pat << "': " << e;
     }
 
     value& lhs (p.first);

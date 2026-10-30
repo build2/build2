@@ -13,15 +13,16 @@
 #include <ios>     // streamsize
 #include <cstring> // strchr()
 
-#include <libbutl/regex.hxx>
 #include <libbutl/builtin.hxx>
 #include <libbutl/fdstream.hxx>     // fdopen_mode, fddup(), fdterm()
 #include <libbutl/filesystem.hxx>   // path_search()
 
+#include <libbutl/regex/regex-ex.hxx>
+#include <libbutl/regex/line-regex.hxx>
+
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <libbuild2/script/regex.hxx>
 #include <libbuild2/script/timeout.hxx>
 #include <libbuild2/script/builtin-options.hxx>
 
@@ -600,15 +601,13 @@ namespace build2
               }
               catch (const regex_error& e)
               {
-                // Print regex_error description if meaningful.
-                //
                 diag_record d (fail (loc (l.line, l.column)));
 
                 if (rd.type == redirect_type::here_str_regex)
-                  d << "invalid " << what << " regex redirect" << e <<
+                  d << "invalid " << what << " regex redirect: " << e <<
                     info << "regex: '" << line (l) << "'";
                 else
-                  d << "invalid char-regex in " << what << " regex redirect"
+                  d << "invalid char-regex in " << what << " regex redirect: "
                     << e <<
                     info << "regex line: '" << line (l) << "'";
 
@@ -665,9 +664,7 @@ namespace build2
                                ? loc (rd.end_line, rd.end_column)
                                : loc (ls[0].line, ls[0].column)));
 
-          // Print regex_error description if meaningful.
-          //
-          d << what << " regex redirect" << e;
+          d << what << " regex redirect: " << e;
 
           // It would be a waste to save the regex into the file just to
           // remove it.
@@ -726,39 +723,12 @@ namespace build2
             while (!s.empty () && s.back () == '\r')
               s.pop_back ();
 
-            // Some regex implementations (e.g., libstdc++, MSVC) are unable
-            // to match long strings which they "signal" by running out of
-            // stack or otherwise crashing instead of throwing an exception.
-            // So we impose some sensible limit that all of them are able to
-            // handle for basic expressions (e.g., [ab]+; GCC's limits are the
-            // lowest, see bug 86164). See also another check (for the lines
-            // number) below.
-            //
-            // BTW, if we ever need to overcome this limitation (along with
-            // various hacks for the two-dimensional regex support), one way
-            // would be to factor libc++'s implementation (which doesn't seem
-            // to have any stack-related limits) and use it everywhere.
-            //
-            if (s.size () > 16384)
-            {
-              diag_record d (fail (ll));
-              d << pr << " " << what << " lines too long to match with regex";
-              output_info (d, op);
-            }
-
             ls += line_char (move (s), regex.pool);
           }
         }
         catch (const io_error& e)
         {
           fail (ll) << "unable to read " << op << ": " << e;
-        }
-
-        if (ls.size () > 12288)
-        {
-          diag_record d (fail (ll));
-          d << pr << " " << what << " has too many lines to match with regex";
-          output_info (d, op);
         }
 
         // Note that a here-document regex without ':' modifier can never

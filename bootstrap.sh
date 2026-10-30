@@ -141,6 +141,7 @@ src="$src libbuild2/version/*.cxx"
 src="$src libbuild2/in/*.cxx"
 
 src="$src $libbutl/libbutl/*.cxx"
+src="$src $libbutl/libbutl/regex/*.cxx"
 
 # Filter out *.test.cxx sources.
 #

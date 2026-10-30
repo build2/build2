@@ -3,7 +3,7 @@
 
 #include <libbuild2/adhoc-rule-regex-pattern.hxx>
 
-#include <libbutl/regex.hxx>
+#include <libbutl/regex/regex-ex.hxx>
 
 #include <libbuild2/algorithm.hxx>
 
@@ -118,12 +118,10 @@ namespace build2
     }
     catch (const regex_error& e)
     {
-      // Print regex_error description if meaningful (no space).
-      //
       // This may not necessarily be pointing at the actual location of the
       // error but it should be close enough.
       //
-      fail (nloc) << "invalid regex pattern '" << text_ << "'" << e;
+      fail (nloc) << "invalid regex pattern '" << text_ << "': " << e;
     }
   }
 
@@ -306,7 +304,7 @@ namespace build2
               const string& s,
               const char* what)
   {
-    string r (butl::regex_replace_match_results (
+    string r (regex_replace_match_results (
                 mr, s.c_str () + 1, s.rfind (s[0]) - 1));
 
     // @@ Note that while it would have been nice to print the location here,
