@@ -77,6 +77,7 @@ set "src=%src% libbuild2\version"
 set "src=%src% libbuild2\in"
 
 set "src=%src% %libbutl%\libbutl"
+set "src=%src% %libbutl%\libbutl\regex"
 
 rem Get the compile options.
 rem

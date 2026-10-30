@@ -25,8 +25,6 @@
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <libbuild2/script/regex.hxx> // script::regex::init()
-
 using namespace std;
 using namespace butl;
 
@@ -1061,8 +1059,6 @@ namespace build2
     {
       fail << "unable to obtain home directory: " << e;
     }
-
-    script::regex::init ();
 
     if (!ss)
     {

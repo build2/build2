@@ -18,7 +18,6 @@
 #include <list>
 #include <array>
 #include <tuple>
-#include <regex>
 #include <vector>
 #include <string>
 #include <memory>           // unique_ptr, shared_ptr
@@ -47,7 +46,6 @@
 
 #include <libbutl/path.hxx>
 #include <libbutl/path-map.hxx>
-#include <libbutl/regex.hxx>
 #include <libbutl/xxh64.hxx>
 #include <libbutl/mutex.hxx>
 #include <libbutl/process.hxx>
@@ -62,6 +60,9 @@
 #include <libbutl/semantic-version.hxx>
 #include <libbutl/standard-version.hxx>
 #include <libbutl/move-only-function.hxx>
+
+#include <libbutl/regex/regex.hxx>
+#include <libbutl/regex/regex-io.hxx>
 
 // Forward declarations (and their aliases below) from:
 //
@@ -140,15 +141,6 @@ namespace build2
   using std::ostream;
   using std::endl;
   using std::streamsize; // C++'s ssize_t.
-
-  // Regex.
-  //
-  // Note that <libbutl/regex.hxx> includes an ostream insertion operator for
-  // regex_error which prints cleaned up message, if any.
-  //
-  using std::regex;
-  using std::regex_error;
-  using regex_match_results = std::match_results<string::const_iterator>;
 
   // Concurrency.
   //
@@ -477,6 +469,16 @@ namespace build2
   using json_stream_serializer = butl::json::stream_serializer;
   using butl::json::invalid_json_input;
   using butl::json::invalid_json_output;
+
+  // <libbutl/regex/*.hxx>
+  //
+  // Note that <libbutl/regex/regex-io.hxx> includes an ostream insertion
+  // operator for regex_error which prints cleaned up message, if any.
+  //
+  using butl::regex::regex;
+  using butl::regex::regex_error;
+  using regex_match_results = butl::regex::match_results<string::const_iterator>;
+  namespace regex_constants = butl::regex::regex_constants;
 
   // Diagnostics location.
   //
