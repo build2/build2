@@ -407,6 +407,12 @@ namespace build2
         bs.insert_rule<mtime_target> (perform_install_id,   "install.group", gr);
         bs.insert_rule<mtime_target> (perform_uninstall_id, "install.group", gr);
 
+        // Complement the default rule in the config module (config.noop) that
+        // doesn't handle group-based targets.
+        //
+        bs.insert_rule<group> (configure_id, install_id, "install.group", gr);
+        bs.insert_rule<group> (configure_id, uninstall_id, "install.group", gr);
+
         // Register the fallback file rule for the update-for-[un]install
         // operation, similar to update.
         //

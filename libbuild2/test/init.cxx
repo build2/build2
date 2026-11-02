@@ -314,6 +314,11 @@ namespace build2
         rs.insert_rule<target> (perform_test_id, "test", dr);
         rs.insert_rule<alias>  (perform_test_id, "test", dr);
 
+        // Complement the default rule in the config module (config.noop) that
+        // doesn't handle group-based targets.
+        //
+        rs.insert_rule<group> (configure_id, test_id, "test.group", dr);
+
         // Register the fallback file rule for the update-for-test operation,
         // similar to update.
         //
